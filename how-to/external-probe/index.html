@@ -425,7 +425,7 @@ in a redis server. Here is the <code>main</code> function of such a probe:</p>
     <span class="nx">log</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">key</span><span class="p">,</span> <span class="nb">string</span><span class="p">(</span><span class="nx">val</span><span class="p">)</span><span class="p">)</span>
     <span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;get_latency_ms %f\n&#34;</span><span class="p">,</span> <span class="nb">float64</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nf">Since</span><span class="p">(</span><span class="nx">startTime</span><span class="p">)</span><span class="p">.</span><span class="nf">Nanoseconds</span><span class="p">(</span><span class="p">)</span><span class="p">)</span><span class="o">/</span><span class="mf">1e6</span><span class="p">)</span>
 <span class="p">}</span></code></pre></div>
-<p>(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go">https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go</a>)</p>
+<p>(Full listing: <a href="https://github.com/cloudprober/cloudprober/blob/master/examples/external/redis_probe.go">https://github.com/cloudprober/cloudprober/blob/master/examples/external/redis_probe.go</a>)</p>
 <p>This program sets and gets a key in redis and prints the time taken for both operations.
 <code>set_latency_ms</code> and <code>get_latency_ms</code> will be emitted as metrics. You could also define your own labels using this format:</p>
 <pre><code>fmt.Printf(&quot;get_latency_ms{region=%v, cluster=%v} %f\n&quot;, region, cluster, float64(time.Since(startTime).Nanoseconds())/1e6)
@@ -473,7 +473,7 @@ cloudprober 1519..4 <span class="m">1519583412</span> <span class="nv">labels</s
 <a href="https://cloudprober.org/getting-started/#running-prometheus">Running Prometheus</a>. Before doing that, let's make it more interesting.</p>
 <h2 id="distributions">Distributions</h2>
 <p>How nice will it be if we could find distribution of the set and get latency. If tail latency was too high, it could explain the random timeouts in your application. Fortunately, it's very easy to create distributions in Cloudprober. You just need to add the following section to your probe definition:</p>
-<p>Full example in <a href="https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg">examples/external/cloudprober_aggregate.cfg</a>.</p>
+<p>Full example in <a href="https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg">examples/external/cloudprober_aggregate.cfg</a>.</p>
 <div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell"><span class="c1"># Run an external probe and aggregate metrics in cloudprober.</span>
 ...
 output_metrics_options <span class="o">{</span>
@@ -505,7 +505,7 @@ every time makes keeping state impossible.</p>
 <p><img src="https://cloudprober.org/diagrams/external_probe_server.svg" alt="External Probe Server"></p>
 <p>Please see the code at
 <a href="https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go">examples/external/redis_probe.go</a> for server mode implementation of the above probe. Here is the corresponding
-cloudprober config to run this probe in server mode: <a href="https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_server.cfg">examples/external/cloudprober_server.cfg</a>.</p>
+cloudprober config to run this probe in server mode: <a href="https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober_server.cfg">examples/external/cloudprober_server.cfg</a>.</p>
 <p>In server mode, if external probe process dies for reason, it's restarted by Cloudprober.</p>
 
 
