@@ -2,9 +2,9 @@ syntax = "proto2";
 
 package cloudprober.probes.grpc;
 
-import "github.com/google/cloudprober/common/oauth/proto/config.proto";
+import "github.com/cloudprober/cloudprober/common/oauth/proto/config.proto";
 
-option go_package = "github.com/google/cloudprober/probes/grpc/proto";
+option go_package = "github.com/cloudprober/cloudprober/probes/grpc/proto";
 
 message ProbeConf {
   // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:

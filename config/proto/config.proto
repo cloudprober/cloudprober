@@ -2,14 +2,14 @@ syntax = "proto2";
 
 package cloudprober;
 
-import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
-import "github.com/google/cloudprober/probes/proto/config.proto";
-import "github.com/google/cloudprober/rds/server/proto/config.proto";
-import "github.com/google/cloudprober/servers/proto/config.proto";
-import "github.com/google/cloudprober/surfacers/proto/config.proto";
-import "github.com/google/cloudprober/targets/proto/targets.proto";
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
+import "github.com/cloudprober/cloudprober/rds/server/proto/config.proto";
+import "github.com/cloudprober/cloudprober/servers/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/proto/config.proto";
+import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
 
-option go_package = "github.com/google/cloudprober/config/proto";
+option go_package = "github.com/cloudprober/cloudprober/config/proto";
 
 message ProberConfig {
   // Probes to run.
@@ -101,7 +101,7 @@ message ProberConfig {
   optional bool disable_jitter = 102 [default = false];
 
   // How often to export system variables. To learn more about system variables:
-  // http://godoc.org/github.com/google/cloudprober/sysvars.
+  // http://godoc.org/github.com/cloudprober/cloudprober/sysvars.
   optional int32 sysvars_interval_msec = 97 [default = 10000];
 
   // Variables specified in this environment variable are exported as it is.

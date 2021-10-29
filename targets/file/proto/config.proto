@@ -3,10 +3,10 @@ syntax = "proto2";
 
 package cloudprober.targets.file;
 
-import "github.com/google/cloudprober/rds/file/proto/config.proto";
-import "github.com/google/cloudprober/rds/proto/rds.proto";
+import "github.com/cloudprober/cloudprober/rds/file/proto/config.proto";
+import "github.com/cloudprober/cloudprober/rds/proto/rds.proto";
 
-option go_package = "github.com/google/cloudprober/targets/file/proto";
+option go_package = "github.com/cloudprober/cloudprober/targets/file/proto";
 
 message TargetsConf {
   // File that contains resources in either textproto or json format.

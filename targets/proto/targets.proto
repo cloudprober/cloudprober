@@ -3,13 +3,13 @@ syntax = "proto2";
 
 package cloudprober.targets;
 
-import "github.com/google/cloudprober/rds/client/proto/config.proto";
-import "github.com/google/cloudprober/rds/proto/rds.proto";
-import "github.com/google/cloudprober/targets/file/proto/config.proto";
-import "github.com/google/cloudprober/targets/gce/proto/config.proto";
-import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
+import "github.com/cloudprober/cloudprober/rds/client/proto/config.proto";
+import "github.com/cloudprober/cloudprober/rds/proto/rds.proto";
+import "github.com/cloudprober/cloudprober/targets/file/proto/config.proto";
+import "github.com/cloudprober/cloudprober/targets/gce/proto/config.proto";
+import "github.com/cloudprober/cloudprober/targets/lameduck/proto/config.proto";
 
-option go_package = "github.com/google/cloudprober/targets/proto";
+option go_package = "github.com/cloudprober/cloudprober/targets/proto";
 
 message RDSTargets {
   // RDS server options, for example:

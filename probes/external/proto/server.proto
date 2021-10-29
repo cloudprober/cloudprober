@@ -4,7 +4,7 @@ syntax = "proto2";
 
 package cloudprober;
 
-option go_package = "github.com/google/cloudprober/probes/external/proto";
+option go_package = "github.com/cloudprober/cloudprober/probes/external/proto";
 
 // ProbeRequest is the message that cloudprober sends to the external probe
 // server.

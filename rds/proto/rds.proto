@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.rds;
 
-option go_package = "github.com/google/cloudprober/rds/proto";
+option go_package = "github.com/cloudprober/cloudprober/rds/proto";
 
 service ResourceDiscovery {
   // ListResources returns the list of resources matching the URI provided in
