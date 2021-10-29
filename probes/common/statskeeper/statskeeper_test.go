@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 // probeRunResult captures the results of a single probe run. The way we work with

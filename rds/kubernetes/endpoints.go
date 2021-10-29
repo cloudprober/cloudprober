@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/rds/kubernetes/proto"
-	pb "github.com/google/cloudprober/rds/proto"
-	"github.com/google/cloudprober/rds/server/filter"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/cloudprober/cloudprober/rds/server/filter"
 )
 
 type epLister struct {

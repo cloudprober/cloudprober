@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/google/cloudprober/rds/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
 )
 
 func testIngressInfo(k resourceKey, ingressIP, hostname string, labels map[string]string) *ingressInfo {

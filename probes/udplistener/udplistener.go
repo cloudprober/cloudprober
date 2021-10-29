@@ -49,15 +49,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/cloudprober/common/message"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/common/statskeeper"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/common/message"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 
-	configpb "github.com/google/cloudprober/probes/udplistener/proto"
-	udpsrv "github.com/google/cloudprober/servers/udp"
+	configpb "github.com/cloudprober/cloudprober/probes/udplistener/proto"
+	udpsrv "github.com/cloudprober/cloudprober/servers/udp"
 )
 
 const (

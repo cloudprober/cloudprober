@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	configpb "github.com/google/cloudprober/config/proto"
+	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"google.golang.org/protobuf/proto"
 )
 

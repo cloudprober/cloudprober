@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	rdspb "github.com/google/cloudprober/rds/proto"
-	configpb "github.com/google/cloudprober/targets/gce/proto"
-	dnsRes "github.com/google/cloudprober/targets/resolver"
+	rdspb "github.com/cloudprober/cloudprober/rds/proto"
+	configpb "github.com/cloudprober/cloudprober/targets/gce/proto"
+	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
 )

@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	configpb "github.com/google/cloudprober/common/oauth/proto"
+	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 )
 
 func createTempFile(t *testing.T, b []byte) string {

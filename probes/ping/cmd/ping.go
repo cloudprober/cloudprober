@@ -26,11 +26,11 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/probes/ping"
-	configpb "github.com/google/cloudprober/probes/ping/proto"
-	"github.com/google/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/probes/ping"
+	configpb "github.com/cloudprober/cloudprober/probes/ping/proto"
+	"github.com/cloudprober/cloudprober/targets"
 )
 
 var (

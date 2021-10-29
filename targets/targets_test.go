@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	rdsclientpb "github.com/google/cloudprober/rds/client/proto"
-	"github.com/google/cloudprober/targets/endpoint"
-	targetspb "github.com/google/cloudprober/targets/proto"
-	testdatapb "github.com/google/cloudprober/targets/testdata"
+	"github.com/cloudprober/cloudprober/logger"
+	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	testdatapb "github.com/cloudprober/cloudprober/targets/testdata"
 )
 
 // getMissing returns a list of items in "elems" missing from "from". Cannot

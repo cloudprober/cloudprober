@@ -30,15 +30,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/cloudprober/common/message"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/probes/probeutils"
-	configpb "github.com/google/cloudprober/probes/udp/proto"
-	udpsrv "github.com/google/cloudprober/servers/udp"
-	"github.com/google/cloudprober/sysvars"
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/common/message"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/probes/probeutils"
+	configpb "github.com/cloudprober/cloudprober/probes/udp/proto"
+	udpsrv "github.com/cloudprober/cloudprober/servers/udp"
+	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 const (

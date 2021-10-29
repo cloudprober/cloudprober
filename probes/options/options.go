@@ -22,14 +22,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/google/cloudprober/common/iputils"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	configpb "github.com/google/cloudprober/probes/proto"
-	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/targets/endpoint"
-	targetspb "github.com/google/cloudprober/targets/proto"
-	"github.com/google/cloudprober/validators"
+	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	"github.com/cloudprober/cloudprober/validators"
 )
 
 // Options encapsulates common probe options.

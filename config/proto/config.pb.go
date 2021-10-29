@@ -2,17 +2,17 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/config/proto/config.proto
+// source: github.com/cloudprober/cloudprober/config/proto/config.proto
 
 package proto
 
 import (
-	proto4 "github.com/google/cloudprober/common/tlsconfig/proto"
-	proto "github.com/google/cloudprober/probes/proto"
-	proto3 "github.com/google/cloudprober/rds/server/proto"
-	proto2 "github.com/google/cloudprober/servers/proto"
-	proto1 "github.com/google/cloudprober/surfacers/proto"
-	proto5 "github.com/google/cloudprober/targets/proto"
+	proto4 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
+	proto "github.com/cloudprober/cloudprober/probes/proto"
+	proto3 "github.com/cloudprober/cloudprober/rds/server/proto"
+	proto2 "github.com/cloudprober/cloudprober/servers/proto"
+	proto1 "github.com/cloudprober/cloudprober/surfacers/proto"
+	proto5 "github.com/cloudprober/cloudprober/targets/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -107,7 +107,7 @@ type ProberConfig struct {
 	// to true.
 	DisableJitter *bool `protobuf:"varint,102,opt,name=disable_jitter,json=disableJitter,def=0" json:"disable_jitter,omitempty"`
 	// How often to export system variables. To learn more about system variables:
-	// http://godoc.org/github.com/google/cloudprober/sysvars.
+	// http://godoc.org/github.com/cloudprober/cloudprober/sysvars.
 	SysvarsIntervalMsec *int32 `protobuf:"varint,97,opt,name=sysvars_interval_msec,json=sysvarsIntervalMsec,def=10000" json:"sysvars_interval_msec,omitempty"`
 	// Variables specified in this environment variable are exported as it is.
 	// This is specifically useful to export information about system environment,

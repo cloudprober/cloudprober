@@ -22,9 +22,9 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/servers/udp"
-	configpb "github.com/google/cloudprober/servers/udp/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/servers/udp"
+	configpb "github.com/cloudprober/cloudprober/servers/udp/proto"
 
 	"flag"
 	"github.com/golang/glog"

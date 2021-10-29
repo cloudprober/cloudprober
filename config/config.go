@@ -127,7 +127,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
-	configpb "github.com/google/cloudprober/config/proto"
+	configpb "github.com/cloudprober/cloudprober/config/proto"
 )
 
 // ReadFromGCEMetadata returns the value of GCE custom metadata variables. To

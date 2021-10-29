@@ -26,9 +26,9 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	pb "github.com/google/cloudprober/prober/proto"
-	spb "github.com/google/cloudprober/prober/proto"
-	configpb "github.com/google/cloudprober/probes/proto"
+	pb "github.com/cloudprober/cloudprober/prober/proto"
+	spb "github.com/cloudprober/cloudprober/prober/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"google.golang.org/grpc"
 )
 

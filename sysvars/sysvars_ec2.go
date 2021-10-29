@@ -20,7 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/google/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger"
 )
 
 var ec2Vars = func(sysVars map[string]string, l *logger.Logger) (bool, error) {

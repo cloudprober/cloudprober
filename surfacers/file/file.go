@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/surfacers/common/compress"
-	"github.com/google/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/common/compress"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
 
-	configpb "github.com/google/cloudprober/surfacers/file/proto"
+	configpb "github.com/cloudprober/cloudprober/surfacers/file/proto"
 )
 
 // Surfacer structures for writing onto a GCE instance's serial port. Keeps

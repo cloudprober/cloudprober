@@ -26,9 +26,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	configpb "github.com/google/cloudprober/servers/udp/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	configpb "github.com/cloudprober/cloudprober/servers/udp/proto"
 	"golang.org/x/net/ipv6"
 )
 

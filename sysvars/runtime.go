@@ -18,8 +18,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
 )
 
 func runtimeVars(dataChan chan *metrics.EventMetrics, l *logger.Logger) {

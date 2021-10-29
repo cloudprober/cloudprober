@@ -1,4 +1,4 @@
-module github.com/google/cloudprober
+module github.com/cloudprober/cloudprober
 
 go 1.15
 

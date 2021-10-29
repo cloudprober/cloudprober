@@ -20,8 +20,8 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"github.com/google/cloudprober/common/file"
-	configpb "github.com/google/cloudprober/common/tlsconfig/proto"
+	"github.com/cloudprober/cloudprober/common/file"
+	configpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 )
 
 // UpdateTLSConfig parses the provided protobuf and updates the tls.Config object.

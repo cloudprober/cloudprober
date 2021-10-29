@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/config/runconfig"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/servers/grpc/proto"
-	grpcpb "github.com/google/cloudprober/servers/grpc/proto"
-	spb "github.com/google/cloudprober/servers/grpc/proto"
+	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	grpcpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"google.golang.org/grpc"
 )
 

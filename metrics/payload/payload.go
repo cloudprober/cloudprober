@@ -22,9 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	configpb "github.com/google/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 )
 
 // Parser encapsulates the config for parsing payloads to metrics.

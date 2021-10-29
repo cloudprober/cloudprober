@@ -22,12 +22,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/cloudprober"
-	"github.com/google/cloudprober/config/runconfig"
-	"github.com/google/cloudprober/probes"
-	"github.com/google/cloudprober/servers"
-	"github.com/google/cloudprober/surfacers"
-	"github.com/google/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober"
+	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/servers"
+	"github.com/cloudprober/cloudprober/surfacers"
+	"github.com/cloudprober/cloudprober/sysvars"
 )
 
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {

@@ -20,14 +20,14 @@ package file
 import (
 	"context"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rds/client"
-	client_configpb "github.com/google/cloudprober/rds/client/proto"
-	"github.com/google/cloudprober/rds/file"
-	file_configpb "github.com/google/cloudprober/rds/file/proto"
-	rdspb "github.com/google/cloudprober/rds/proto"
-	configpb "github.com/google/cloudprober/targets/file/proto"
-	dnsRes "github.com/google/cloudprober/targets/resolver"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/rds/client"
+	client_configpb "github.com/cloudprober/cloudprober/rds/client/proto"
+	"github.com/cloudprober/cloudprober/rds/file"
+	file_configpb "github.com/cloudprober/cloudprober/rds/file/proto"
+	rdspb "github.com/cloudprober/cloudprober/rds/proto"
+	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
+	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 )
 
 // New returns new file targets.

@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	surfacerpb "github.com/google/cloudprober/surfacers/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
 
 type labelFilter struct {

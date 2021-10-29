@@ -2,12 +2,12 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/targets/testdata/testdata.proto
+// source: github.com/cloudprober/cloudprober/targets/testdata/testdata.proto
 
 package testdata
 
 import (
-	proto "github.com/google/cloudprober/targets/proto"
+	proto "github.com/cloudprober/cloudprober/targets/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -122,7 +122,7 @@ var file_github_com_google_cloudprober_targets_testdata_testdata_proto_extTypes 
 		Field:         200,
 		Name:          "cloudprober.targets.testdata.fancy_targets",
 		Tag:           "bytes,200,opt,name=fancy_targets",
-		Filename:      "github.com/google/cloudprober/targets/testdata/testdata.proto",
+		Filename:      "github.com/cloudprober/cloudprober/targets/testdata/testdata.proto",
 	},
 	{
 		ExtendedType:  (*proto.TargetsDef)(nil),
@@ -130,7 +130,7 @@ var file_github_com_google_cloudprober_targets_testdata_testdata_proto_extTypes 
 		Field:         201,
 		Name:          "cloudprober.targets.testdata.another_fancy_targets",
 		Tag:           "bytes,201,opt,name=another_fancy_targets",
-		Filename:      "github.com/google/cloudprober/targets/testdata/testdata.proto",
+		Filename:      "github.com/cloudprober/cloudprober/targets/testdata/testdata.proto",
 	},
 }
 

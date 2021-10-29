@@ -21,8 +21,8 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	md "github.com/google/cloudprober/common/metadata"
-	"github.com/google/cloudprober/logger"
+	md "github.com/cloudprober/cloudprober/common/metadata"
+	"github.com/cloudprober/cloudprober/logger"
 	compute "google.golang.org/api/compute/v1"
 )
 

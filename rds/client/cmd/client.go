@@ -24,11 +24,11 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
-	tlsconfigpb "github.com/google/cloudprober/common/tlsconfig/proto"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rds/client"
-	configpb "github.com/google/cloudprober/rds/client/proto"
-	pb "github.com/google/cloudprober/rds/proto"
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/rds/client"
+	configpb "github.com/cloudprober/cloudprober/rds/client/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
 )
 
 var (

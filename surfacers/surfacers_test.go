@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/metrics"
-	fileconfigpb "github.com/google/cloudprober/surfacers/file/proto"
-	surfacerpb "github.com/google/cloudprober/surfacers/proto"
+	"github.com/cloudprober/cloudprober/metrics"
+	fileconfigpb "github.com/cloudprober/cloudprober/surfacers/file/proto"
+	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
 
 func TestDefaultConfig(t *testing.T) {

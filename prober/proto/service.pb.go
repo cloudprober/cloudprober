@@ -2,13 +2,13 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/prober/proto/service.proto
+// source: github.com/cloudprober/cloudprober/prober/proto/service.proto
 
 package proto
 
 import (
 	context "context"
-	proto "github.com/google/cloudprober/probes/proto"
+	proto "github.com/cloudprober/cloudprober/probes/proto"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -697,5 +697,5 @@ var _Cloudprober_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/google/cloudprober/prober/proto/service.proto",
+	Metadata: "github.com/cloudprober/cloudprober/prober/proto/service.proto",
 }

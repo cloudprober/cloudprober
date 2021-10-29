@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/cloudprober/probes/probeutils"
+	"github.com/cloudprober/cloudprober/probes/probeutils"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 )

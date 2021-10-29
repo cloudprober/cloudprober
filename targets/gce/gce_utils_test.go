@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	rdspb "github.com/google/cloudprober/rds/proto"
+	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 )
 
 func TestParseLabels(t *testing.T) {

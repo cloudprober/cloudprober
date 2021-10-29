@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	serverpb "github.com/google/cloudprober/probes/external/proto"
+	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 )
 
 func readPayload(r *bufio.Reader) ([]byte, error) {
@@ -104,8 +104,8 @@ func WriteMessage(pb proto.Message, w io.Writer) error {
 // provided mainly to help external probe server implementations. Cloudprober doesn't
 // make use of it. Example usage:
 //	import (
-//		serverpb "github.com/google/cloudprober/probes/external/proto"
-//		"github.com/google/cloudprober/probes/external/serverutils"
+//		serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
+//		"github.com/cloudprober/cloudprober/probes/external/serverutils"
 //	)
 //	func runProbe(opts []*cppb.ProbeRequest_Option) {
 //  	...

@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics"
 )
 
 func TestMetricsFromChannel(t *testing.T) {

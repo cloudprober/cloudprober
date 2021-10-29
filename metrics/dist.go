@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	distpb "github.com/google/cloudprober/metrics/proto"
+	distpb "github.com/cloudprober/cloudprober/metrics/proto"
 	"google.golang.org/api/googleapi"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
