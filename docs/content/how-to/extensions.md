@@ -57,7 +57,7 @@ Let's create a new directory for our code: `$GOPATH/src/myprober`.
 
 syntax = "proto2";
 
-import "github.com/google/cloudprober/probes/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
 
 package myprober;
 
