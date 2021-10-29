@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics"
 )
 
 func TestXxx(t *testing.T) {

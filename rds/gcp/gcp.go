@@ -37,10 +37,10 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/rds/gcp/proto"
-	pb "github.com/google/cloudprober/rds/proto"
-	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/rds/gcp/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
+	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
 )
 
 // DefaultProviderID is the povider id to use for this provider if a provider

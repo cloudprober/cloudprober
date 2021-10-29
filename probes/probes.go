@@ -24,17 +24,17 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/dns"
-	"github.com/google/cloudprober/probes/external"
-	grpcprobe "github.com/google/cloudprober/probes/grpc"
-	httpprobe "github.com/google/cloudprober/probes/http"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/probes/ping"
-	configpb "github.com/google/cloudprober/probes/proto"
-	"github.com/google/cloudprober/probes/udp"
-	"github.com/google/cloudprober/probes/udplistener"
-	"github.com/google/cloudprober/web/formatutils"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/dns"
+	"github.com/cloudprober/cloudprober/probes/external"
+	grpcprobe "github.com/cloudprober/cloudprober/probes/grpc"
+	httpprobe "github.com/cloudprober/cloudprober/probes/http"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/probes/ping"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/probes/udp"
+	"github.com/cloudprober/cloudprober/probes/udplistener"
+	"github.com/cloudprober/cloudprober/web/formatutils"
 )
 
 var (
@@ -187,8 +187,8 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 // cloudprober.
 // Example usage:
 //	import (
-//		"github.com/google/cloudprober"
-//		"github.com/google/cloudprober/probes"
+//		"github.com/cloudprober/cloudprober"
+//		"github.com/cloudprober/cloudprober/probes"
 //	)
 //
 //	p := &FancyProbe{}

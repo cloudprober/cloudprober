@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/cloudprober/metrics"
-	configpb "github.com/google/cloudprober/surfacers/proto"
+	"github.com/cloudprober/cloudprober/metrics"
+	configpb "github.com/cloudprober/cloudprober/surfacers/proto"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -56,17 +56,17 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/targets/endpoint"
-	configpb "github.com/google/cloudprober/targets/gce/proto"
-	dnsRes "github.com/google/cloudprober/targets/resolver"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	configpb "github.com/cloudprober/cloudprober/targets/gce/proto"
+	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 
-	"github.com/google/cloudprober/rds/client"
-	clientconfigpb "github.com/google/cloudprober/rds/client/proto"
-	"github.com/google/cloudprober/rds/gcp"
-	rdspb "github.com/google/cloudprober/rds/proto"
-	"github.com/google/cloudprober/rds/server"
-	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
+	"github.com/cloudprober/cloudprober/rds/client"
+	clientconfigpb "github.com/cloudprober/cloudprober/rds/client/proto"
+	"github.com/cloudprober/cloudprober/rds/gcp"
+	rdspb "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/cloudprober/cloudprober/rds/server"
+	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
 )
 
 var global struct {

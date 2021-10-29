@@ -17,7 +17,7 @@ package prober
 import (
 	"context"
 
-	pb "github.com/google/cloudprober/prober/proto"
+	pb "github.com/cloudprober/cloudprober/prober/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"

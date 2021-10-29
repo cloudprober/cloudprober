@@ -19,9 +19,9 @@ package integrity
 import (
 	"fmt"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/probes/probeutils"
-	configpb "github.com/google/cloudprober/validators/integrity/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/probeutils"
+	configpb "github.com/cloudprober/cloudprober/validators/integrity/proto"
 )
 
 // Validator implements an integrity validator.

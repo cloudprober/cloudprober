@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 func staticTargets(hosts string) (Targets, error) {

@@ -4,12 +4,12 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.proto
+// source: github.com/cloudprober/cloudprober/examples/extensions/myprober/myprobe/myprobe.proto
 
 package myprobe
 
 import (
-	proto "github.com/google/cloudprober/probes/proto"
+	proto "github.com/cloudprober/cloudprober/probes/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -154,7 +154,7 @@ var file_github_com_google_cloudprober_examples_extensions_myprober_myprobe_mypr
 		Field:         200,
 		Name:          "myprober.redis_probe",
 		Tag:           "bytes,200,opt,name=redis_probe",
-		Filename:      "github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.proto",
+		Filename:      "github.com/cloudprober/cloudprober/examples/extensions/myprober/myprobe/myprobe.proto",
 	},
 }
 

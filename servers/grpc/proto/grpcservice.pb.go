@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/servers/grpc/proto/grpcservice.proto
+// source: github.com/cloudprober/cloudprober/servers/grpc/proto/grpcservice.proto
 
 package proto
 
@@ -753,5 +753,5 @@ var _Prober_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/google/cloudprober/servers/grpc/proto/grpcservice.proto",
+	Metadata: "github.com/cloudprober/cloudprober/servers/grpc/proto/grpcservice.proto",
 }

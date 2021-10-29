@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/targets/endpoint"
-	configpb "github.com/google/cloudprober/targets/gce/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	configpb "github.com/cloudprober/cloudprober/targets/gce/proto"
 	compute "google.golang.org/api/compute/v1"
 )
 

@@ -29,16 +29,16 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/metrics"
-	payloadconfigpb "github.com/google/cloudprober/metrics/payload/proto"
-	"github.com/google/cloudprober/metrics/testutils"
-	configpb "github.com/google/cloudprober/probes/external/proto"
-	serverpb "github.com/google/cloudprober/probes/external/proto"
-	"github.com/google/cloudprober/probes/external/serverutils"
-	"github.com/google/cloudprober/probes/options"
-	probeconfigpb "github.com/google/cloudprober/probes/proto"
-	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/metrics"
+	payloadconfigpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/metrics/testutils"
+	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
+	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
+	"github.com/cloudprober/cloudprober/probes/external/serverutils"
+	"github.com/cloudprober/cloudprober/probes/options"
+	probeconfigpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 func isDone(doneChan chan struct{}) bool {

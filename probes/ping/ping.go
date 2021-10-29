@@ -48,13 +48,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/options"
-	configpb "github.com/google/cloudprober/probes/ping/proto"
-	"github.com/google/cloudprober/targets/endpoint"
-	"github.com/google/cloudprober/validators"
-	"github.com/google/cloudprober/validators/integrity"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/options"
+	configpb "github.com/cloudprober/cloudprober/probes/ping/proto"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/validators"
+	"github.com/cloudprober/cloudprober/validators/integrity"
 )
 
 const (

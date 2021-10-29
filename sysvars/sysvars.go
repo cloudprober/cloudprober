@@ -28,9 +28,9 @@ import (
 
 	"flag"
 
-	"github.com/google/cloudprober/config/runconfig"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
 )
 
 var (

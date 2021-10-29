@@ -24,9 +24,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/cloudprober/common/tlsconfig"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/rds/kubernetes/proto"
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 )
 
 // Variables defined by Kubernetes spec to find out local CA cert and token.

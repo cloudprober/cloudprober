@@ -28,13 +28,13 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/google/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2/google"
 	monitoring "google.golang.org/api/monitoring/v3"
 
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/surfacers/common/options"
-	configpb "github.com/google/cloudprober/surfacers/stackdriver/proto"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	configpb "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
 )
 
 const batchSize = 200

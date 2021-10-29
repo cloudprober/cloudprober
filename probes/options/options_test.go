@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/common/iputils"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/probes/proto"
-	targetspb "github.com/google/cloudprober/targets/proto"
+	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 )
 
 type intf struct {

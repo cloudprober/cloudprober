@@ -24,7 +24,7 @@ import (
 	"net"
 	"strings"
 
-	cpRes "github.com/google/cloudprober/targets/resolver"
+	cpRes "github.com/cloudprober/cloudprober/targets/resolver"
 	"google.golang.org/grpc/resolver"
 )
 

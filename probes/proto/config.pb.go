@@ -2,21 +2,21 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/probes/proto/config.proto
+// source: github.com/cloudprober/cloudprober/probes/proto/config.proto
 
 package proto
 
 import (
-	proto1 "github.com/google/cloudprober/metrics/proto"
-	proto5 "github.com/google/cloudprober/probes/dns/proto"
-	proto6 "github.com/google/cloudprober/probes/external/proto"
-	proto9 "github.com/google/cloudprober/probes/grpc/proto"
-	proto4 "github.com/google/cloudprober/probes/http/proto"
-	proto3 "github.com/google/cloudprober/probes/ping/proto"
-	proto7 "github.com/google/cloudprober/probes/udp/proto"
-	proto8 "github.com/google/cloudprober/probes/udplistener/proto"
-	proto "github.com/google/cloudprober/targets/proto"
-	proto2 "github.com/google/cloudprober/validators/proto"
+	proto1 "github.com/cloudprober/cloudprober/metrics/proto"
+	proto5 "github.com/cloudprober/cloudprober/probes/dns/proto"
+	proto6 "github.com/cloudprober/cloudprober/probes/external/proto"
+	proto9 "github.com/cloudprober/cloudprober/probes/grpc/proto"
+	proto4 "github.com/cloudprober/cloudprober/probes/http/proto"
+	proto3 "github.com/cloudprober/cloudprober/probes/ping/proto"
+	proto7 "github.com/cloudprober/cloudprober/probes/udp/proto"
+	proto8 "github.com/cloudprober/cloudprober/probes/udplistener/proto"
+	proto "github.com/cloudprober/cloudprober/targets/proto"
+	proto2 "github.com/cloudprober/cloudprober/validators/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

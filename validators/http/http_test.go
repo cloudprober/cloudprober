@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/validators/http/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/validators/http/proto"
 )
 
 func TestParseStatusCodeConfig(t *testing.T) {

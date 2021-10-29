@@ -30,21 +30,21 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/surfacers/cloudwatch"
-	"github.com/google/cloudprober/surfacers/common/options"
-	"github.com/google/cloudprober/surfacers/common/transform"
-	"github.com/google/cloudprober/surfacers/datadog"
-	"github.com/google/cloudprober/surfacers/file"
-	"github.com/google/cloudprober/surfacers/postgres"
-	"github.com/google/cloudprober/surfacers/prometheus"
-	"github.com/google/cloudprober/surfacers/pubsub"
-	"github.com/google/cloudprober/surfacers/stackdriver"
-	"github.com/google/cloudprober/web/formatutils"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/cloudwatch"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/common/transform"
+	"github.com/cloudprober/cloudprober/surfacers/datadog"
+	"github.com/cloudprober/cloudprober/surfacers/file"
+	"github.com/cloudprober/cloudprober/surfacers/postgres"
+	"github.com/cloudprober/cloudprober/surfacers/prometheus"
+	"github.com/cloudprober/cloudprober/surfacers/pubsub"
+	"github.com/cloudprober/cloudprober/surfacers/stackdriver"
+	"github.com/cloudprober/cloudprober/web/formatutils"
 
-	surfacerpb "github.com/google/cloudprober/surfacers/proto"
-	surfacerspb "github.com/google/cloudprober/surfacers/proto"
+	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
+	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
 
 var (
@@ -256,8 +256,8 @@ func Init(ctx context.Context, sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo
 // Register allows you to register a user defined surfacer with cloudprober.
 // Example usage:
 //	import (
-//		"github.com/google/cloudprober"
-//		"github.com/google/cloudprober/surfacers"
+//		"github.com/cloudprober/cloudprober"
+//		"github.com/cloudprober/cloudprober/surfacers"
 //	)
 //
 //	s := &FancySurfacer{}

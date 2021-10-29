@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	pb "github.com/google/cloudprober/rds/proto"
-	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
+	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
 )
 
 func testGCPConfig(t *testing.T, pc *serverconfigpb.Provider, projects []string, gceInstances bool, rtcConfig, pubsubTopic, apiVersion string, reEvalSec int) {

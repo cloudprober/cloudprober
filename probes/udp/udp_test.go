@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Workaround to skip UDP tests using a tag, until
-// https://github.com/google/cloudprober/issues/199 is fixed.
+// https://github.com/cloudprober/cloudprober/issues/199 is fixed.
 //go:build !skip_udp_probe_test
 // +build !skip_udp_probe_test
 
@@ -28,12 +28,12 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/options"
-	configpb "github.com/google/cloudprober/probes/udp/proto"
-	"github.com/google/cloudprober/sysvars"
-	"github.com/google/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/options"
+	configpb "github.com/cloudprober/cloudprober/probes/udp/proto"
+	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/targets"
 )
 
 type serverConnStats struct {

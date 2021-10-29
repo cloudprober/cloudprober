@@ -4,16 +4,16 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/targets/proto/targets.proto
+// source: github.com/cloudprober/cloudprober/targets/proto/targets.proto
 
 package proto
 
 import (
-	proto "github.com/google/cloudprober/rds/client/proto"
-	proto1 "github.com/google/cloudprober/rds/proto"
-	proto3 "github.com/google/cloudprober/targets/file/proto"
-	proto2 "github.com/google/cloudprober/targets/gce/proto"
-	proto4 "github.com/google/cloudprober/targets/lameduck/proto"
+	proto "github.com/cloudprober/cloudprober/rds/client/proto"
+	proto1 "github.com/cloudprober/cloudprober/rds/proto"
+	proto3 "github.com/cloudprober/cloudprober/targets/file/proto"
+	proto2 "github.com/cloudprober/cloudprober/targets/gce/proto"
+	proto4 "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

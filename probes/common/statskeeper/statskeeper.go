@@ -22,9 +22,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 // ProbeResult represents results of a probe run.

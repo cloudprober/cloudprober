@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/google/cloudprober/rds/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
 )
 
 func TestListMessages(t *testing.T) {

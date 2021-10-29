@@ -8,11 +8,11 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
-	"github.com/google/cloudprober"
-	"github.com/google/cloudprober/config"
-	"github.com/google/cloudprober/examples/extensions/myprober/myprobe"
-	"github.com/google/cloudprober/probes"
-	"github.com/google/cloudprober/web"
+	"github.com/cloudprober/cloudprober"
+	"github.com/cloudprober/cloudprober/config"
+	"github.com/cloudprober/cloudprober/examples/extensions/myprober/myprobe"
+	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/web"
 )
 
 var (

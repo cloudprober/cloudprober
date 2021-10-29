@@ -25,12 +25,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/sysvars"
 
-	configpb "github.com/google/cloudprober/surfacers/cloudwatch/proto"
-	"github.com/google/cloudprober/surfacers/common/options"
+	configpb "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
 )
 
 // Cloudwatch API limit for metrics included in a PutMetricData call

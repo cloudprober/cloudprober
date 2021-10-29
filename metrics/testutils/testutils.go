@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics"
 )
 
 // MetricsFromChannel reads metrics.EventMetrics from dataChannel with a timeout

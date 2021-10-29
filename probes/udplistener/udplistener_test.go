@@ -24,15 +24,15 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/common/message"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/common/statskeeper"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/sysvars"
-	"github.com/google/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/common/message"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/targets"
 
-	configpb "github.com/google/cloudprober/probes/udplistener/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/udplistener/proto"
 )
 
 type serverConnStats struct {

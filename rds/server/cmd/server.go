@@ -9,9 +9,9 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rds/server"
-	configpb "github.com/google/cloudprober/rds/server/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/rds/server"
+	configpb "github.com/cloudprober/cloudprober/rds/server/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

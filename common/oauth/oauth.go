@@ -21,9 +21,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/cloudprober/common/file"
-	configpb "github.com/google/cloudprober/common/oauth/proto"
-	"github.com/google/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/common/file"
+	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
+	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )

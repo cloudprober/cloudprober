@@ -21,13 +21,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/probes/common/statskeeper"
-	configpb "github.com/google/cloudprober/probes/dns/proto"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/validators"
-	validatorpb "github.com/google/cloudprober/validators/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
+	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/validators"
+	validatorpb "github.com/cloudprober/cloudprober/validators/proto"
 	"github.com/miekg/dns"
 )
 

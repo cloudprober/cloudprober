@@ -18,8 +18,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/validators/integrity/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/validators/integrity/proto"
 )
 
 func TestInvalidConfig(t *testing.T) {
