@@ -12,20 +12,20 @@ If you have Go 1.9 or higher installed and GOPATH environment variable properly 
 can download and install `cloudprober` using the following commands:
 
   ```bash
-  go get github.com/google/cloudprober
-  GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go
+  go get github.com/cloudprober/cloudprober
+  GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/cloudprober/cloudprober/cmd/cloudprober.go
   ```
 
 * __Pre-built Binaries__  
 You can download pre-built binaries for Linux, MacOS and Windows from the
-project's [releases page](http://github.com/google/cloudprober/releases).  
+project's [releases page](http://github.com/cloudprober/cloudprober/releases).  
 (_See [this page](
-https://github.com/google/cloudprober/wiki/Download-unreleased-binaries) for
+https://github.com/cloudprober/cloudprober/wiki/Download-unreleased-binaries) for
 how to download the unreleased binaries._)
 
 * __Docker Image__
 You can download and run the [latest](
-https://github.com/google/cloudprober/wiki/Docker-versions) docker image using
+https://github.com/cloudprober/cloudprober/wiki/Docker-versions) docker image using
 the following command:
 
   ```bash
@@ -56,7 +56,7 @@ probe {
 EOF
 ```
 
-This config adds an HTTP probe that accesses the homepage of the target "www.google.com" every 5s with a timeout of 1s. Cloudprober configuration is specified in the text protobuf format, with config schema described by the proto file: [config.proto](https://github.com/google/cloudprober/blob/master/config/proto/config.proto).
+This config adds an HTTP probe that accesses the homepage of the target "www.google.com" every 5s with a timeout of 1s. Cloudprober configuration is specified in the text protobuf format, with config schema described by the proto file: [config.proto](https://github.com/cloudprober/cloudprober/blob/master/config/proto/config.proto).
 
 Assuming that you saved this file at `/tmp/cloudprober.cfg` (following the command above), you can have cloudprober use this config file using the following command line:
 
