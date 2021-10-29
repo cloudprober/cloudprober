@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/validators/http/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/validators/http/proto"
 )
 
 // Validator implements a validator for HTTP responses.

@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	pb "github.com/google/cloudprober/rds/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
 )
 
 type testNetIf struct {

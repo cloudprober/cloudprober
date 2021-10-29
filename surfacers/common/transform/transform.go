@@ -19,8 +19,8 @@ package transform
 import (
 	"fmt"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
 )
 
 // AddFailureMetric adds failure metric to the EventMetrics based on the

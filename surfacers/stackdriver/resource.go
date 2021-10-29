@@ -18,7 +18,7 @@ import (
 	"os"
 
 	"cloud.google.com/go/compute/metadata"
-	md "github.com/google/cloudprober/common/metadata"
+	md "github.com/cloudprober/cloudprober/common/metadata"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 

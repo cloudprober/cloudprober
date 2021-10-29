@@ -19,12 +19,12 @@ package validators
 import (
 	"fmt"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/validators/http"
-	"github.com/google/cloudprober/validators/integrity"
-	configpb "github.com/google/cloudprober/validators/proto"
-	"github.com/google/cloudprober/validators/regex"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/validators/http"
+	"github.com/cloudprober/cloudprober/validators/integrity"
+	configpb "github.com/cloudprober/cloudprober/validators/proto"
+	"github.com/cloudprober/cloudprober/validators/regex"
 )
 
 // Validator implements a validator.

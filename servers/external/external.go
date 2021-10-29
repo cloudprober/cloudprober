@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	configpb "github.com/google/cloudprober/servers/external/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	configpb "github.com/cloudprober/cloudprober/servers/external/proto"
 	"github.com/google/shlex"
 )
 

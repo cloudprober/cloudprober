@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	configpb "github.com/google/cloudprober/probes/http/proto"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/targets/endpoint"
+	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 func TestHostWithPort(t *testing.T) {

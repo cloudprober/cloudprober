@@ -32,8 +32,8 @@ package postgres
 import (
 	"context"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
 
 	"database/sql"
 	"encoding/json"
@@ -42,7 +42,7 @@ import (
 
 	"github.com/lib/pq"
 
-	configpb "github.com/google/cloudprober/surfacers/postgres/proto"
+	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
 )
 
 // pgMetric represents a single metric and corresponds to a single row in the

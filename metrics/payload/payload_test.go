@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/metrics"
-	configpb "github.com/google/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/metrics"
+	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 )
 
 var (

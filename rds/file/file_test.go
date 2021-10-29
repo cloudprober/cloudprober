@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	configpb "github.com/google/cloudprober/rds/file/proto"
-	rdspb "github.com/google/cloudprober/rds/proto"
+	configpb "github.com/cloudprober/cloudprober/rds/file/proto"
+	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	"google.golang.org/protobuf/proto"
 )
 

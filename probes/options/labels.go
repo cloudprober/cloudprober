@@ -20,9 +20,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 
-	configpb "github.com/google/cloudprober/probes/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
 )
 
 // targetLabelType for target based additional labels

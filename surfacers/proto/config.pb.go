@@ -2,18 +2,18 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/surfacers/proto/config.proto
+// source: github.com/cloudprober/cloudprober/surfacers/proto/config.proto
 
 package proto
 
 import (
-	proto5 "github.com/google/cloudprober/surfacers/cloudwatch/proto"
-	proto6 "github.com/google/cloudprober/surfacers/datadog/proto"
-	proto2 "github.com/google/cloudprober/surfacers/file/proto"
-	proto3 "github.com/google/cloudprober/surfacers/postgres/proto"
-	proto "github.com/google/cloudprober/surfacers/prometheus/proto"
-	proto4 "github.com/google/cloudprober/surfacers/pubsub/proto"
-	proto1 "github.com/google/cloudprober/surfacers/stackdriver/proto"
+	proto5 "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto"
+	proto6 "github.com/cloudprober/cloudprober/surfacers/datadog/proto"
+	proto2 "github.com/cloudprober/cloudprober/surfacers/file/proto"
+	proto3 "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
+	proto "github.com/cloudprober/cloudprober/surfacers/prometheus/proto"
+	proto4 "github.com/cloudprober/cloudprober/surfacers/pubsub/proto"
+	proto1 "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"

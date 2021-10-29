@@ -26,10 +26,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/rds/gcp/proto"
-	pb "github.com/google/cloudprober/rds/proto"
-	"github.com/google/cloudprober/rds/server/filter"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/rds/gcp/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/cloudprober/cloudprober/rds/server/filter"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
 )

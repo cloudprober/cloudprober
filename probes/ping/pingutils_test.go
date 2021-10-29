@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/probes/options"
-	configpb "github.com/google/cloudprober/probes/ping/proto"
-	"github.com/google/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/probes/options"
+	configpb "github.com/cloudprober/cloudprober/probes/ping/proto"
+	"github.com/cloudprober/cloudprober/targets"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"

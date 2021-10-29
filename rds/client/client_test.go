@@ -23,13 +23,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/rds/client/proto"
-	pb "github.com/google/cloudprober/rds/proto"
-	"github.com/google/cloudprober/rds/server"
-	serverpb "github.com/google/cloudprober/rds/server/proto"
-	"github.com/google/cloudprober/targets/endpoint"
-	dnsRes "github.com/google/cloudprober/targets/resolver"
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/rds/client/proto"
+	pb "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/cloudprober/cloudprober/rds/server"
+	serverpb "github.com/cloudprober/cloudprober/rds/server/proto"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 )
 
 type testProvider struct {

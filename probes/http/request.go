@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 const relURLLabel = "relative_url"

@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger"
 )
 
 var (

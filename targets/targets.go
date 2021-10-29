@@ -32,16 +32,16 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/config/runconfig"
-	"github.com/google/cloudprober/logger"
-	rdsclient "github.com/google/cloudprober/rds/client"
-	rdsclientpb "github.com/google/cloudprober/rds/client/proto"
-	rdspb "github.com/google/cloudprober/rds/proto"
-	"github.com/google/cloudprober/targets/endpoint"
-	"github.com/google/cloudprober/targets/file"
-	"github.com/google/cloudprober/targets/gce"
-	targetspb "github.com/google/cloudprober/targets/proto"
-	dnsRes "github.com/google/cloudprober/targets/resolver"
+	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/logger"
+	rdsclient "github.com/cloudprober/cloudprober/rds/client"
+	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
+	rdspb "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/targets/file"
+	"github.com/cloudprober/cloudprober/targets/gce"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 )
 
 // globalResolver is a singleton DNS resolver that is used as the default

@@ -24,10 +24,10 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/surfacers/common/options"
-	configpb "github.com/google/cloudprober/surfacers/datadog/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	configpb "github.com/cloudprober/cloudprober/surfacers/datadog/proto"
 	"google.golang.org/protobuf/proto"
 )
 

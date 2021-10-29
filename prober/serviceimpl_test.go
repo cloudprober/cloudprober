@@ -21,13 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/cloudprober/metrics"
-	pb "github.com/google/cloudprober/prober/proto"
-	"github.com/google/cloudprober/probes"
-	"github.com/google/cloudprober/probes/options"
-	probes_configpb "github.com/google/cloudprober/probes/proto"
-	testdatapb "github.com/google/cloudprober/probes/testdata"
-	targetspb "github.com/google/cloudprober/targets/proto"
+	"github.com/cloudprober/cloudprober/metrics"
+	pb "github.com/cloudprober/cloudprober/prober/proto"
+	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/probes/options"
+	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	testdatapb "github.com/cloudprober/cloudprober/probes/testdata"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"google.golang.org/protobuf/proto"
 )
 

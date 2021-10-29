@@ -32,13 +32,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/common/statskeeper"
-	configpb "github.com/google/cloudprober/probes/dns/proto"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/targets/endpoint"
-	"github.com/google/cloudprober/validators"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
+	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
+	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/cloudprober/cloudprober/validators"
 	"github.com/miekg/dns"
 )
 

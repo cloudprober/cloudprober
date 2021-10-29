@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	distpb "github.com/google/cloudprober/metrics/proto"
+	distpb "github.com/cloudprober/cloudprober/metrics/proto"
 )
 
 func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []int64) {

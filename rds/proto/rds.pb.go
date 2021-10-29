@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/rds/proto/rds.proto
+// source: github.com/cloudprober/cloudprober/rds/proto/rds.proto
 
 package proto
 
@@ -816,5 +816,5 @@ var _ResourceDiscovery_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/google/cloudprober/rds/proto/rds.proto",
+	Metadata: "github.com/cloudprober/cloudprober/rds/proto/rds.proto",
 }

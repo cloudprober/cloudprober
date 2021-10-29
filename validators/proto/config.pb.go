@@ -2,13 +2,13 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.17.3
-// source: github.com/google/cloudprober/validators/proto/config.proto
+// source: github.com/cloudprober/cloudprober/validators/proto/config.proto
 
 package proto
 
 import (
-	proto "github.com/google/cloudprober/validators/http/proto"
-	proto1 "github.com/google/cloudprober/validators/integrity/proto"
+	proto "github.com/cloudprober/cloudprober/validators/http/proto"
+	proto1 "github.com/cloudprober/cloudprober/validators/integrity/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"

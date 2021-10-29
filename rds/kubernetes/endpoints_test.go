@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/cloudprober/rds/server/filter"
+	"github.com/cloudprober/cloudprober/rds/server/filter"
 )
 
 func TestParseEndpoints(t *testing.T) {

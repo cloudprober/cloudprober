@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger"
 )
 
 // Test that compress bytes is compressing bytes appropriately.

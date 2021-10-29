@@ -33,12 +33,12 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"flag"
 	"github.com/golang/glog"
-	"github.com/google/cloudprober"
-	"github.com/google/cloudprober/common/file"
-	"github.com/google/cloudprober/config"
-	"github.com/google/cloudprober/config/runconfig"
-	"github.com/google/cloudprober/sysvars"
-	"github.com/google/cloudprober/web"
+	"github.com/cloudprober/cloudprober"
+	"github.com/cloudprober/cloudprober/common/file"
+	"github.com/cloudprober/cloudprober/config"
+	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/web"
 )
 
 var (

@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	tlsconfigpb "github.com/google/cloudprober/common/tlsconfig/proto"
-	cpb "github.com/google/cloudprober/rds/kubernetes/proto"
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
+	cpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 )
 
 var testCACert = `
