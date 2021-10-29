@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.validators.integrity;
 
-option go_package = "github.com/google/cloudprober/validators/integrity/proto";
+option go_package = "github.com/cloudprober/cloudprober/validators/integrity/proto";
 
 message Validator {
   // Validate the data integrity of the response using a pattern that is

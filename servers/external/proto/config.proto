@@ -16,7 +16,7 @@ syntax = "proto2";
 
 package cloudprober.servers.external;
 
-option go_package = "github.com/google/cloudprober/servers/external/proto";
+option go_package = "github.com/cloudprober/cloudprober/servers/external/proto";
 
 // Next available tag = 2
 message ServerConf {

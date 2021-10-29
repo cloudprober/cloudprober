@@ -3,7 +3,7 @@ syntax = "proto2";
 
 package cloudprober.targets.gce;
 
-option go_package = "github.com/google/cloudprober/targets/gce/proto";
+option go_package = "github.com/cloudprober/cloudprober/targets/gce/proto";
 
 // TargetsConf represents GCE targets, e.g. instances, forwarding rules etc.
 message TargetsConf {

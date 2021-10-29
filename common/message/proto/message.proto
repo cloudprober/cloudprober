@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package message;
 
-option go_package = "github.com/google/cloudprober/common/message/proto";
+option go_package = "github.com/cloudprober/cloudprober/common/message/proto";
 
 // Constants defines constants with default values.
 message Constants {

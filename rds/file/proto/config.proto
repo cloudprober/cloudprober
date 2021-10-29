@@ -25,9 +25,9 @@ syntax = "proto2";
 
 package cloudprober.rds.file;
 
-import "github.com/google/cloudprober/rds/proto/rds.proto";
+import "github.com/cloudprober/cloudprober/rds/proto/rds.proto";
 
-option go_package = "github.com/google/cloudprober/rds/file/proto";
+option go_package = "github.com/cloudprober/cloudprober/rds/file/proto";
 
 // File provider config.
 message ProviderConfig {

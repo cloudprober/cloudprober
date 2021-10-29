@@ -9,11 +9,11 @@ syntax = "proto2";
 
 package cloudprober.rds;
 
-import "github.com/google/cloudprober/common/oauth/proto/config.proto";
-import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
-import "github.com/google/cloudprober/rds/proto/rds.proto";
+import "github.com/cloudprober/cloudprober/common/oauth/proto/config.proto";
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+import "github.com/cloudprober/cloudprober/rds/proto/rds.proto";
 
-option go_package = "github.com/google/cloudprober/rds/client/proto";
+option go_package = "github.com/cloudprober/cloudprober/rds/client/proto";
 
 // ClientConf represents resource discovery service (RDS) based targets.
 // Next tag: 6
