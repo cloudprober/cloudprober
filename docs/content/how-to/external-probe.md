@@ -34,7 +34,7 @@ func main() {
 }
 {{< / highlight >}}
 
-(Full listing: https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go)
+(Full listing: https://github.com/cloudprober/cloudprober/blob/master/examples/external/redis_probe.go)
 
 This program sets and gets a key in redis and prints the time taken for both operations. 
 `set_latency_ms` and `get_latency_ms` will be emitted as metrics. You could also define your own labels using this format:
@@ -109,7 +109,7 @@ You can import this data in prometheus following the process outlined at:
 ## Distributions
 How nice will it be if we could find distribution of the set and get latency. If tail latency was too high, it could explain the random timeouts in your application. Fortunately, it's very easy to create distributions in Cloudprober. You just need to add the following section to your probe definition:
 
-Full example in [examples/external/cloudprober_aggregate.cfg](https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg).
+Full example in [examples/external/cloudprober_aggregate.cfg](https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg).
 
 {{< highlight shell >}}
 # Run an external probe and aggregate metrics in cloudprober.
@@ -152,6 +152,6 @@ External probe's server mode provides a way to run the external probe process in
 Please see the code at 
 [examples/external/redis_probe.go](https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go) for server mode implementation of the above probe. Here is the corresponding
 cloudprober config to run this probe in server mode: [examples/external/cloudprober_server.cfg](
-https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_server.cfg).
+https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober_server.cfg).
 
 In server mode, if external probe process dies for reason, it's restarted by Cloudprober.
