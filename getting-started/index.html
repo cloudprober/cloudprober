@@ -409,19 +409,19 @@
 <p><strong>From Source</strong><br>
 If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you
 can download and install <code>cloudprober</code> using the following commands:</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">go get github.com/google/cloudprober
-<span class="nv">GOBIN</span><span class="o">=</span><span class="nv">$GOPATH</span>/bin go install <span class="nv">$GOPATH</span>/src/github.com/google/cloudprober/cmd/cloudprober.go
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">go get github.com/cloudprober/cloudprober
+<span class="nv">GOBIN</span><span class="o">=</span><span class="nv">$GOPATH</span>/bin go install <span class="nv">$GOPATH</span>/src/github.com/cloudprober/cloudprober/cmd/cloudprober.go
 </code></pre></div></li>
 <li>
 <p><strong>Pre-built Binaries</strong><br>
 You can download pre-built binaries for Linux, MacOS and Windows from the
-project's <a href="http://github.com/google/cloudprober/releases">releases page</a>.<br>
-(<em>See <a href="https://github.com/google/cloudprober/wiki/Download-unreleased-binaries">this page</a> for
+project's <a href="http://github.com/cloudprober/cloudprober/releases">releases page</a>.<br>
+(<em>See <a href="https://github.com/cloudprober/cloudprober/wiki/Download-unreleased-binaries">this page</a> for
 how to download the unreleased binaries.</em>)</p>
 </li>
 <li>
 <p><strong>Docker Image</strong>
-You can download and run the <a href="https://github.com/google/cloudprober/wiki/Docker-versions">latest</a> docker image using
+You can download and run the <a href="https://github.com/cloudprober/cloudprober/wiki/Docker-versions">latest</a> docker image using
 the following command:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run --net host cloudprober/cloudprober
 <span class="c1"># Note: &#34;--net host&#34; provides better network performance and makes port</span>
@@ -444,7 +444,7 @@ cat &gt; /tmp/cloudprober.cfg <span class="s">&lt;&lt;EOF
 </span><span class="s">  timeout_msec: 1000   # 1s
 </span><span class="s">}
 </span><span class="s">EOF</span>
-</code></pre></div><p>This config adds an HTTP probe that accesses the homepage of the target &ldquo;<a href="http://www.google.com%22">www.google.com&quot;</a> every 5s with a timeout of 1s. Cloudprober configuration is specified in the text protobuf format, with config schema described by the proto file: <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto">config.proto</a>.</p>
+</code></pre></div><p>This config adds an HTTP probe that accesses the homepage of the target &ldquo;<a href="http://www.google.com%22">www.google.com&quot;</a> every 5s with a timeout of 1s. Cloudprober configuration is specified in the text protobuf format, with config schema described by the proto file: <a href="https://github.com/cloudprober/cloudprober/blob/master/config/proto/config.proto">config.proto</a>.</p>
 <p>Assuming that you saved this file at <code>/tmp/cloudprober.cfg</code> (following the command above), you can have cloudprober use this config file using the following command line:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">./cloudprober --config_file /tmp/cloudprober.cfg
 </code></pre></div><p>You can have the standard docker image use this config using the following
