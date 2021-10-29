@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.surfacer.cloudwatch;
 
-option go_package = "github.com/google/cloudprober/surfacers/cloudwatch/proto";
+option go_package = "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto";
 
 message SurfacerConf {
   // The cloudwatch metric namespace

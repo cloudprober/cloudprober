@@ -2,9 +2,9 @@ syntax = "proto2";
 
 package cloudprober;
 
-import "github.com/google/cloudprober/probes/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
 
-option go_package = "github.com/google/cloudprober/prober/proto";
+option go_package = "github.com/cloudprober/cloudprober/prober/proto";
 
 service Cloudprober {
   // AddProbe adds a probe to cloudprober. Error is returned if probe is already

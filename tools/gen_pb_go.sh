@@ -17,7 +17,7 @@
 # This script generates Go code for the config protobufs.
 
 PROTOC_VERSION="3.17.3"
-PROJECT="github.com/google/cloudprober"
+PROJECT="github.com/cloudprober/cloudprober"
 
 GOPATH=$(go env GOPATH)
 

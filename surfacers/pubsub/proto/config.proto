@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.surfacer.pubsub;
 
-option go_package = "github.com/google/cloudprober/surfacers/pubsub/proto";
+option go_package = "github.com/cloudprober/cloudprober/surfacers/pubsub/proto";
 
 message SurfacerConf {
   // GCP project name for pubsub. If not specified and running on GCP,

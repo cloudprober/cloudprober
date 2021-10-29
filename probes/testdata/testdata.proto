@@ -2,9 +2,9 @@ syntax = "proto2";
 
 package cloudprober.probes.testdata;
 
-import "github.com/google/cloudprober/probes/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
 
-option go_package = "github.com/google/cloudprober/probes/testdata";
+option go_package = "github.com/cloudprober/cloudprober/probes/testdata";
 
 message FancyProbe {
   optional string name = 1;

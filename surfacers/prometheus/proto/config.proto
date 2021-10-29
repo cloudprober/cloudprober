@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.surfacer.prometheus;
 
-option go_package = "github.com/google/cloudprober/surfacers/prometheus/proto";
+option go_package = "github.com/cloudprober/cloudprober/surfacers/prometheus/proto";
 
 message SurfacerConf {
   // How many metrics entries (EventMetrics) to buffer. Incoming metrics

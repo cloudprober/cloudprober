@@ -2,12 +2,12 @@ syntax = "proto2";
 
 package cloudprober.servers;
 
-import "github.com/google/cloudprober/servers/grpc/proto/config.proto";
-import "github.com/google/cloudprober/servers/http/proto/config.proto";
-import "github.com/google/cloudprober/servers/udp/proto/config.proto";
-import "github.com/google/cloudprober/servers/external/proto/config.proto";
+import "github.com/cloudprober/cloudprober/servers/grpc/proto/config.proto";
+import "github.com/cloudprober/cloudprober/servers/http/proto/config.proto";
+import "github.com/cloudprober/cloudprober/servers/udp/proto/config.proto";
+import "github.com/cloudprober/cloudprober/servers/external/proto/config.proto";
 
-option go_package = "github.com/google/cloudprober/servers/proto";
+option go_package = "github.com/cloudprober/cloudprober/servers/proto";
 
 message ServerDef {
   enum Type {

@@ -2,18 +2,18 @@ syntax = "proto2";
 
 package cloudprober.probes;
 
-import "github.com/google/cloudprober/metrics/proto/dist.proto";
-import "github.com/google/cloudprober/probes/dns/proto/config.proto";
-import "github.com/google/cloudprober/probes/external/proto/config.proto";
-import "github.com/google/cloudprober/probes/grpc/proto/config.proto";
-import "github.com/google/cloudprober/probes/http/proto/config.proto";
-import "github.com/google/cloudprober/probes/ping/proto/config.proto";
-import "github.com/google/cloudprober/probes/udp/proto/config.proto";
-import "github.com/google/cloudprober/probes/udplistener/proto/config.proto";
-import "github.com/google/cloudprober/targets/proto/targets.proto";
-import "github.com/google/cloudprober/validators/proto/config.proto";
+import "github.com/cloudprober/cloudprober/metrics/proto/dist.proto";
+import "github.com/cloudprober/cloudprober/probes/dns/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/external/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/grpc/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/http/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/ping/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/udp/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto";
+import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
+import "github.com/cloudprober/cloudprober/validators/proto/config.proto";
 
-option go_package = "github.com/google/cloudprober/probes/proto";
+option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
 message ProbeDef {
   required string name = 1;
