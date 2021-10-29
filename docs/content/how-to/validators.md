@@ -37,7 +37,7 @@ probe {
 }
 {{< / highlight >}}
 
-(Full listing: https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg)
+(Full listing: https://github.com/cloudprober/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg)
 
 To make the debugging easier, validation failures are logged and exported as an
 independent map counter -- *validation_failure*, with *validator* key. For
