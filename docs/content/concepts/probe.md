@@ -21,7 +21,7 @@ A probe is defined as a set of the following fields:
 `validator`     | Probe validators, further explained [here](/how-to/validators). 
 `<type>_probe`  | Probe type specific configuration. 
 
-Please take a look at the [ProbeDef protobuf](https://github.com/google/cloudprober/blob/master/probes/proto/config.proto) for further details on various fields and options. All probe types export following metrics at a minimum:
+Please take a look at the [ProbeDef protobuf](https://github.com/cloudprober/cloudprober/blob/master/probes/proto/config.proto) for further details on various fields and options. All probe types export following metrics at a minimum:
 
 |Metric | Description|
 |-------|------------|
