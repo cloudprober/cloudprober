@@ -478,7 +478,7 @@ against a set of targets, to verify that the systems are working as expected fro
 </ul>
 <p>More probe types can be added through cloudprober extensions (to be documented).</p>
 <h3 id="ping">Ping</h3>
-<p><a href="http://github.com/google/cloudprober/tree/master/probes/ping"><code>Code</code></a> | <a href="http://github.com/google/cloudprober/tree/master/probes/ping/proto/config.proto"><code>Config options</code></a></p>
+<p><a href="http://github.com/cloudprober/cloudprober/tree/master/probes/ping"><code>Code</code></a> | <a href="http://github.com/cloudprober/cloudprober/tree/master/probes/ping/proto/config.proto"><code>Config options</code></a></p>
 <p>Ping probe type implements a fast ping prober, that can probe hundreds of
 targets in parallel. Probe results are reported as number of packets sent
 (total), received (success) and round-trip time (latency). It supports raw
@@ -488,24 +488,24 @@ require root access).</p>
 enable them by running the following command:
 <code>sudo sysctl -w net.ipv4.ping_group_range=&quot;0 5000&quot;</code></p>
 <h3 id="http">HTTP</h3>
-<p><a href="http://github.com/google/cloudprober/tree/master/probes/http"><code>Code</code></a> | <a href="http://github.com/google/cloudprober/tree/master/probes/http/proto/config.proto"><code>Config options</code></a></p>
+<p><a href="http://github.com/cloudprober/cloudprober/tree/master/probes/http"><code>Code</code></a> | <a href="http://github.com/cloudprober/cloudprober/tree/master/probes/http/proto/config.proto"><code>Config options</code></a></p>
 <p>HTTP probe is be used to send HTTP(s) requests to a target and verify that a
 response is received. Apart from the core probe metrics (total, success, and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.</p>
 <h3 id="udp">UDP</h3>
-<p><a href="http://github.com/google/cloudprober/tree/master/probes/udp"><code>Code</code></a> | <a href="http://github.com/google/cloudprober/tree/master/probes/udp/proto/config.proto"><code>Config options</code></a></p>
+<p><a href="http://github.com/cloudprober/cloudprober/tree/master/probes/udp"><code>Code</code></a> | <a href="http://github.com/cloudprober/cloudprober/tree/master/probes/udp/proto/config.proto"><code>Config options</code></a></p>
 <p>UDP probe sends a UDP packet to the configured targets. UDP probe (and all
 other probes that use ports) provides more coverage for the network elements on
 the data path as most packet forwarding elements use 5-tuple hashing and using
 a new source port for each probe ensures that we hit different network element
 each time.</p>
 <h3 id="dns">DNS</h3>
-<p><a href="http://github.com/google/cloudprober/tree/master/probes/dns"><code>Code</code></a> | <a href="http://github.com/google/cloudprober/tree/master/probes/dns/proto/config.proto"><code>Config options</code></a></p>
+<p><a href="http://github.com/cloudprober/cloudprober/tree/master/probes/dns"><code>Code</code></a> | <a href="http://github.com/cloudprober/cloudprober/tree/master/probes/dns/proto/config.proto"><code>Config options</code></a></p>
 <p>DNS probe type is implemented in a similar way as other probes except for that
 it sends DNS requests to the target.</p>
 <h3 id="external">External</h3>
-<p><a href="http://github.com/google/cloudprober/tree/master/probes/external"><code>Code</code></a> | <a href="http://github.com/google/cloudprober/tree/master/probes/external/proto/config.proto"><code>Config options</code></a></p>
+<p><a href="http://github.com/cloudprober/cloudprober/tree/master/probes/external"><code>Code</code></a> | <a href="http://github.com/cloudprober/cloudprober/tree/master/probes/external/proto/config.proto"><code>Config options</code></a></p>
 <p>External probe type allows running arbitrary probes through cloudprober. For an
 external probe, actual probe logic resides in an external program; cloudprober
 only manages the execution of that program and provides a way to export that
@@ -527,7 +527,7 @@ In this mode, external program is expected to run in server mode. Cloudprober
 automatically starts the external program if it's not running at the time of
 the probe execution. Cloudprober and external probe process communicate with
 each other over stdin/stdout using protobuf messages defined in
-<a href="https://github.com/google/cloudprober/blob/master/probes/external/proto/server.proto">probes/external/proto/server.proto</a>.</p>
+<a href="https://github.com/cloudprober/cloudprober/blob/master/probes/external/proto/server.proto">probes/external/proto/server.proto</a>.</p>
 </li>
 </ul>
 
