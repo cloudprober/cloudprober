@@ -32,7 +32,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/probeutils"
 	configpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
-	grpcpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -56,36 +56,36 @@ var (
 
 // Echo reflects back the incoming message.
 // TODO: return error if EchoMessage is greater than maxMsgSize.
-func (s *Server) Echo(ctx context.Context, req *spb.EchoMessage) (*spb.EchoMessage, error) {
+func (s *Server) Echo(ctx context.Context, req *pb.EchoMessage) (*pb.EchoMessage, error) {
 	return req, nil
 }
 
 // BlobRead returns a blob of data.
-func (s *Server) BlobRead(ctx context.Context, req *spb.BlobReadRequest) (*spb.BlobReadResponse, error) {
+func (s *Server) BlobRead(ctx context.Context, req *pb.BlobReadRequest) (*pb.BlobReadResponse, error) {
 	reqSize := req.GetSize()
 	if reqSize > int32(maxMsgSize) {
 		return nil, fmt.Errorf("read request size (%d) exceeds max size (%d)", reqSize, maxMsgSize)
 	}
-	return &spb.BlobReadResponse{
+	return &pb.BlobReadResponse{
 		Blob: s.msg[0:reqSize],
 	}, nil
 }
 
 // ServerStatus returns the current server status.
-func (s *Server) ServerStatus(ctx context.Context, req *spb.StatusRequest) (*spb.StatusResponse, error) {
-	return &spb.StatusResponse{
+func (s *Server) ServerStatus(ctx context.Context, req *pb.StatusRequest) (*pb.StatusResponse, error) {
+	return &pb.StatusResponse{
 		UptimeUs: proto.Int64(time.Since(s.startTime).Nanoseconds() / 1000),
 	}, nil
 }
 
 // BlobWrite returns the size of blob in the WriteRequest. It does not operate
 // on the blob.
-func (s *Server) BlobWrite(ctx context.Context, req *spb.BlobWriteRequest) (*spb.BlobWriteResponse, error) {
+func (s *Server) BlobWrite(ctx context.Context, req *pb.BlobWriteRequest) (*pb.BlobWriteResponse, error) {
 	reqSize := int32(len(req.Blob))
 	if reqSize > int32(maxMsgSize) {
 		return nil, fmt.Errorf("write request size (%d) exceeds max size (%d)", reqSize, maxMsgSize)
 	}
-	return &spb.BlobWriteResponse{
+	return &pb.BlobWriteResponse{
 		Size: proto.Int32(reqSize),
 	}, nil
 }
@@ -114,7 +114,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 	srv.grpcSrv = defGRPCSrv
 	srv.dedicatedSrv = false
 	srv.startTime = time.Now()
-	grpcpb.RegisterProberServer(defGRPCSrv, srv)
+	spb.RegisterProberServer(defGRPCSrv, srv)
 	return srv, nil
 }
 
@@ -136,7 +136,7 @@ func (s *Server) newGRPCServer(ctx context.Context) error {
 	s.healthSrv = healthSrv
 	s.startTime = time.Now()
 
-	grpcpb.RegisterProberServer(grpcSrv, s)
+	spb.RegisterProberServer(grpcSrv, s)
 	healthpb.RegisterHealthServer(grpcSrv, healthSrv)
 	return nil
 }
