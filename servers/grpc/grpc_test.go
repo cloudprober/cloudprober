@@ -28,7 +28,7 @@ import (
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
-	grpcpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"google.golang.org/grpc"
 )
@@ -79,10 +79,10 @@ func TestGRPCSuccess(t *testing.T) {
 		t.Fatalf("Unable to connect to grpc server at %v: %v", listenAddr, err)
 	}
 
-	client := grpcpb.NewProberClient(conn)
+	client := spb.NewProberClient(conn)
 	timedCtx, timedCancel := context.WithTimeout(ctx, time.Second)
 	defer timedCancel()
-	sReq := &spb.StatusRequest{}
+	sReq := &pb.StatusRequest{}
 	sResp, err := client.ServerStatus(timedCtx, sReq)
 	if err != nil {
 		t.Errorf("ServerStatus call error: %v", err)
@@ -95,7 +95,7 @@ func TestGRPCSuccess(t *testing.T) {
 	timedCtx, timedCancel = context.WithTimeout(ctx, time.Second)
 	defer timedCancel()
 	msg := []byte("test message")
-	echoReq := &spb.EchoMessage{Blob: msg}
+	echoReq := &pb.EchoMessage{Blob: msg}
 	echoResp, err := client.Echo(timedCtx, echoReq)
 	if err != nil {
 		t.Errorf("Echo call error: %v", err)
@@ -106,7 +106,7 @@ func TestGRPCSuccess(t *testing.T) {
 	}
 
 	wantReadSize := 4
-	readReq := &spb.BlobReadRequest{Size: proto.Int32(int32(wantReadSize))}
+	readReq := &pb.BlobReadRequest{Size: proto.Int32(int32(wantReadSize))}
 	readResp, err := client.BlobRead(timedCtx, readReq)
 	if err != nil {
 		t.Errorf("Read call error: %v", err)
@@ -118,7 +118,7 @@ func TestGRPCSuccess(t *testing.T) {
 	}
 
 	msg = []byte("test_write")
-	writeReq := &spb.BlobWriteRequest{Blob: msg}
+	writeReq := &pb.BlobWriteRequest{Blob: msg}
 	writeResp, err := client.BlobWrite(timedCtx, writeReq)
 	if err != nil {
 		t.Errorf("Write call error: %v", err)
@@ -161,10 +161,10 @@ func TestInjection(t *testing.T) {
 		t.Fatalf("Unable to connect to grpc server at %v: %v", listenAddr, err)
 	}
 
-	client := grpcpb.NewProberClient(conn)
+	client := spb.NewProberClient(conn)
 	timedCtx, timedCancel := context.WithTimeout(ctx, time.Second)
 	defer timedCancel()
-	sReq := &spb.StatusRequest{}
+	sReq := &pb.StatusRequest{}
 	sResp, err := client.ServerStatus(timedCtx, sReq)
 	if err != nil {
 		t.Errorf("ServerStatus call error: %v", err)
@@ -228,17 +228,17 @@ func TestSizeError(t *testing.T) {
 		t.Fatalf("Unable to connect to grpc server at %v: %v", listenAddr, err)
 	}
 
-	client := grpcpb.NewProberClient(conn)
+	client := spb.NewProberClient(conn)
 	timedCtx, timedCancel := context.WithTimeout(ctx, time.Second)
 	defer timedCancel()
 
-	readReq := &spb.BlobReadRequest{Size: proto.Int32(int32(maxMsgSize + 1))}
+	readReq := &pb.BlobReadRequest{Size: proto.Int32(int32(maxMsgSize + 1))}
 	readResp, err := client.BlobRead(timedCtx, readReq)
 	if err == nil {
 		t.Errorf("Read call unexpectedly succeeded: %v", readResp)
 	}
 
-	writeReq := &spb.BlobWriteRequest{Blob: make([]byte, maxMsgSize+1)}
+	writeReq := &pb.BlobWriteRequest{Blob: make([]byte, maxMsgSize+1)}
 	writeResp, err := client.BlobWrite(timedCtx, writeReq)
 	if err == nil {
 		t.Errorf("Write call unexpectedly succeeded: %v", writeResp)
