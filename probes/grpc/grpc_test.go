@@ -16,7 +16,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probepb "github.com/cloudprober/cloudprober/probes/proto"
-	grpcpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
