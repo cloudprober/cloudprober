@@ -16,7 +16,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probepb "github.com/cloudprober/cloudprober/probes/proto"
-	grpcpb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -55,7 +55,7 @@ type Server struct {
 
 // Echo reflects back the incoming message.
 // TODO: return error if EchoMessage is greater than maxMsgSize.
-func (s *Server) Echo(ctx context.Context, req *spb.EchoMessage) (*spb.EchoMessage, error) {
+func (s *Server) Echo(ctx context.Context, req *pb.EchoMessage) (*pb.EchoMessage, error) {
 	if s.delay > 0 {
 		time.Sleep(s.delay)
 	}
@@ -63,23 +63,23 @@ func (s *Server) Echo(ctx context.Context, req *spb.EchoMessage) (*spb.EchoMessa
 }
 
 // BlobRead returns a blob of data.
-func (s *Server) BlobRead(ctx context.Context, req *spb.BlobReadRequest) (*spb.BlobReadResponse, error) {
-	return &spb.BlobReadResponse{
+func (s *Server) BlobRead(ctx context.Context, req *pb.BlobReadRequest) (*pb.BlobReadResponse, error) {
+	return &pb.BlobReadResponse{
 		Blob: s.msg[0:req.GetSize()],
 	}, nil
 }
 
 // ServerStatus returns the current server status.
-func (s *Server) ServerStatus(ctx context.Context, req *spb.StatusRequest) (*spb.StatusResponse, error) {
-	return &spb.StatusResponse{
+func (s *Server) ServerStatus(ctx context.Context, req *pb.StatusRequest) (*pb.StatusResponse, error) {
+	return &pb.StatusResponse{
 		UptimeUs: proto.Int64(42),
 	}, nil
 }
 
 // BlobWrite returns the size of blob in the WriteRequest. It does not operate
 // on the blob.
-func (s *Server) BlobWrite(ctx context.Context, req *spb.BlobWriteRequest) (*spb.BlobWriteResponse, error) {
-	return &spb.BlobWriteResponse{
+func (s *Server) BlobWrite(ctx context.Context, req *pb.BlobWriteRequest) (*pb.BlobWriteResponse, error) {
+	return &pb.BlobWriteResponse{
 		Size: proto.Int32(int32(len(req.Blob))),
 	}, nil
 }
@@ -95,7 +95,7 @@ func globalGRPCServer() (string, error) {
 		}
 		grpcSrv := grpc.NewServer()
 		srv := &Server{delay: time.Second / 2, msg: make([]byte, 1024)}
-		grpcpb.RegisterProberServer(grpcSrv, srv)
+		spb.RegisterProberServer(grpcSrv, srv)
 		go grpcSrv.Serve(ln)
 		tcpAddr := ln.Addr().(*net.TCPAddr)
 		srvAddr = net.JoinHostPort(tcpAddr.IP.String(), strconv.Itoa(tcpAddr.Port))

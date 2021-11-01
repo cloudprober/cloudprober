@@ -39,8 +39,8 @@ import (
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 
-	grpcprobepb "github.com/cloudprober/cloudprober/servers/grpc/proto"
-	servicepb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/alts"
 	"google.golang.org/grpc/credentials/local"
@@ -241,7 +241,7 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 	}
 	defer conn.Close()
 
-	client := servicepb.NewProberClient(conn)
+	client := spb.NewProberClient(conn)
 	timeout := p.opts.Timeout
 	method := p.c.GetMethod()
 
@@ -270,17 +270,17 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 		}
 		switch method {
 		case configpb.ProbeConf_ECHO:
-			req := &grpcprobepb.EchoMessage{
+			req := &pb.EchoMessage{
 				Blob: []byte(msg),
 			}
 			_, err = client.Echo(reqCtx, req, opts...)
 		case configpb.ProbeConf_READ:
-			req := &grpcprobepb.BlobReadRequest{
+			req := &pb.BlobReadRequest{
 				Size: proto.Int32(msgSize),
 			}
 			_, err = client.BlobRead(reqCtx, req, opts...)
 		case configpb.ProbeConf_WRITE:
-			req := &grpcprobepb.BlobWriteRequest{
+			req := &pb.BlobWriteRequest{
 				Blob: []byte(msg),
 			}
 			_, err = client.BlobWrite(reqCtx, req, opts...)
