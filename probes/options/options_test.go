@@ -20,11 +20,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type intf struct {
@@ -194,55 +194,55 @@ func TestStatsExportInterval(t *testing.T) {
 	rows := []struct {
 		name       string
 		pType      *configpb.ProbeDef_Type
-		interval   int32
-		timeout    int32
+		interval   string
+		timeout    string
 		configured int32
 		want       int
 		wantError  bool
 	}{
 		{
 			name:     "Interval bigger than default",
-			interval: 15,
-			timeout:  10,
+			interval: "15s",
+			timeout:  "10s",
 			want:     15,
 		},
 		{
 			name:     "Timeout bigger than interval",
-			interval: 10,
-			timeout:  12,
+			interval: "10s",
+			timeout:  "12s",
 			want:     12,
 		},
 		{
 			name:     "Interval and timeout less than default",
-			interval: 2,
-			timeout:  1,
+			interval: "2s",
+			timeout:  "1s",
 			want:     int(defaultStatsExtportIntv.Seconds()),
 		},
 		{
 			name:     "UDP probe: default twice of timeout- I",
-			interval: 10,
-			timeout:  12,
+			interval: "10s",
+			timeout:  "12s",
 			pType:    configpb.ProbeDef_UDP.Enum(),
 			want:     24,
 		},
 		{
 			name:     "UDP probe: default twice of timeout - II",
-			interval: 5,
-			timeout:  6,
+			interval: "5s",
+			timeout:  "6s",
 			pType:    configpb.ProbeDef_UDP.Enum(),
 			want:     12,
 		},
 		{
 			name:       "Error: stats export interval smaller than interval",
-			interval:   2,
-			timeout:    1,
+			interval:   "2s",
+			timeout:    "1s",
 			configured: 1,
 			wantError:  true,
 		},
 		{
 			name:       "Configured value is good",
-			interval:   2,
-			timeout:    1,
+			interval:   "2s",
+			timeout:    "1s",
 			configured: 10,
 			want:       10,
 		},
@@ -251,8 +251,8 @@ func TestStatsExportInterval(t *testing.T) {
 	for _, r := range rows {
 		p := &configpb.ProbeDef{
 			Targets:      testTargets,
-			IntervalMsec: proto.Int32(r.interval * 1000),
-			TimeoutMsec:  proto.Int32(r.timeout * 1000),
+			IntervalMsec: proto.String(r.interval),
+			TimeoutMsec:  proto.String(r.timeout),
 		}
 
 		if r.pType != nil {

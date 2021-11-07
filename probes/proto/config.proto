@@ -44,10 +44,10 @@ message ProbeDef {
   optional string run_on = 3;
 
   // Interval between two probes
-  optional int32 interval_msec = 4 [default = 2000];
+  optional string interval_msec = 4 [default = "2s"];
 
   // Timeout for each probe
-  optional int32 timeout_msec = 5 [default = 1000];
+  optional string timeout_msec = 5 [default = "1s"];
 
   // Targets for the probe
   required targets.TargetsDef targets = 6;

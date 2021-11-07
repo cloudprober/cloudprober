@@ -113,14 +113,25 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 // BuildProbeOptions builds probe's options using the provided config and some
 // global params.
 func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
+	var err error
+
+	intervalDuration, err := time.ParseDuration(p.GetIntervalMsec())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the interval duration (%s): %v", p.GetIntervalMsec(), err)
+	}
+
+	timeoutDuration, err := time.ParseDuration(p.GetTimeoutMsec())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the timeout duration (%s): %v", p.GetTimeoutMsec(), err)
+	}
+
 	opts := &Options{
-		Interval:          time.Duration(p.GetIntervalMsec()) * time.Millisecond,
-		Timeout:           time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
+		Interval:          intervalDuration,
+		Timeout:           timeoutDuration,
 		IPVersion:         ipv(p.IpVersion),
 		LatencyMetricName: p.GetLatencyMetricName(),
 	}
 
-	var err error
 	if opts.Logger, err = logger.NewCloudproberLog(p.GetName()); err != nil {
 		return nil, fmt.Errorf("error in initializing logger for the probe (%s): %v", p.GetName(), err)
 	}
