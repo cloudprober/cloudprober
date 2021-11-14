@@ -43,11 +43,11 @@ message ProbeDef {
   // this probe only if machine's hostname matches this value.
   optional string run_on = 3;
 
-  // Interval between two probes
-  optional string interval_msec = 4 [default = "2s"];
+  // Interval between two probes, int32 representing milliseconds
+  optional int32 interval_msec = 4;
 
-  // Timeout for each probe
-  optional string timeout_msec = 5 [default = "1s"];
+  // Timeout for each probe, int32 representing milliseconds
+  optional int32 timeout_msec = 5;
 
   // Targets for the probe
   required targets.TargetsDef targets = 6;
@@ -130,6 +130,12 @@ message ProbeDef {
   //     value: "@target.label.app@"
   //   }
   repeated AdditionalLabel additional_label = 14;
+
+  // Interval between two probes, string representing duration
+  optional string interval = 16;
+
+  // Timeout for each probe, string representing duration
+  optional string timeout = 17;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;

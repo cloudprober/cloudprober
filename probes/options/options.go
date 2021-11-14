@@ -50,6 +50,8 @@ type Options struct {
 }
 
 const defaultStatsExtportIntv = 10 * time.Second
+const defaultIntervalPeriod = 2 * time.Second
+const defaultTimeoutPeriod = 1 * time.Second
 
 func defaultStatsExportInterval(p *configpb.ProbeDef, opts *Options) time.Duration {
 	minIntv := opts.Interval
@@ -114,15 +116,33 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 // global params.
 func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
 	var err error
+	var intervalDuration time.Duration
+	var timeoutDuration time.Duration
 
-	intervalDuration, err := time.ParseDuration(p.GetIntervalMsec())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse the interval duration (%s): %v", p.GetIntervalMsec(), err)
+	if p.GetIntervalMsec() != 0 && p.GetInterval() != "" {
+		return nil, fmt.Errorf("both interval: (%s) and interval_msec: (%d) are specified", p.GetInterval(), p.GetIntervalMsec())
+	} else if p.GetIntervalMsec() == 0 && p.GetInterval() == "" {
+		intervalDuration = defaultIntervalPeriod
+	} else if p.GetIntervalMsec() != 0 {
+		intervalDuration = time.Duration(p.GetIntervalMsec()) * time.Millisecond
+	} else {
+		intervalDuration, err = time.ParseDuration(p.GetInterval())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse interval (%s): %v", p.GetInterval(), err)
+		}
 	}
 
-	timeoutDuration, err := time.ParseDuration(p.GetTimeoutMsec())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse the timeout duration (%s): %v", p.GetTimeoutMsec(), err)
+	if p.GetTimeoutMsec() != 0 && p.GetTimeout() != "" {
+		return nil, fmt.Errorf("both timeout: (%s) and timeout_msec: (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
+	} else if p.GetTimeoutMsec() == 0 && p.GetTimeout() == "" {
+		timeoutDuration = defaultTimeoutPeriod
+	} else if p.GetTimeoutMsec() != 0 {
+		timeoutDuration = time.Duration(p.GetTimeoutMsec()) * time.Millisecond
+	} else {
+		timeoutDuration, err = time.ParseDuration(p.GetTimeout())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse interval (%s): %v", p.GetTimeout(), err)
+		}
 	}
 
 	opts := &Options{
