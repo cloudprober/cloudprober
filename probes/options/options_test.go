@@ -306,7 +306,7 @@ func TestStatsExportInterval(t *testing.T) {
 
 		want := time.Duration(r.want) * time.Second
 		if opts.StatsExportInterval != want {
-			t.Errorf("Unexpected stats export interval_msec (test case: %s): want=%s, got=%s", r.name, want, opts.StatsExportInterval)
+			t.Errorf("Unexpected stats export interval (test case: %s): want=%s, got=%s", r.name, want, opts.StatsExportInterval)
 		}
 	}
 }
