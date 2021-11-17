@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
@@ -45,6 +44,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/lameduck"
+	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -235,10 +235,9 @@ func (pr *Prober) Start(ctx context.Context) {
 		for name := range pr.Probes {
 			go pr.startProbe(ctx, name)
 		}
-		return
+	} else {
+		pr.startProbesWithJitter(ctx)
 	}
-	pr.startProbesWithJitter(ctx)
-
 	if runconfig.DefaultGRPCServer() != nil {
 		// Start a goroutine to handle starting of the probes added through gRPC.
 		// AddProbe adds new probes to the pr.grpcStartProbeCh channel and this
