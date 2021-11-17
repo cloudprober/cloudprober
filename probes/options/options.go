@@ -115,17 +115,15 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 // BuildProbeOptions builds probe's options using the provided config and some
 // global params.
 func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
+	intervalDuration := defaultIntervalPeriod
+	timeoutDuration := defaultTimeoutPeriod
 	var err error
-	var intervalDuration time.Duration
-	var timeoutDuration time.Duration
 
 	if p.GetIntervalMsec() != 0 && p.GetInterval() != "" {
-		return nil, fmt.Errorf("both interval: (%s) and interval_msec: (%d) are specified", p.GetInterval(), p.GetIntervalMsec())
-	} else if p.GetIntervalMsec() == 0 && p.GetInterval() == "" {
-		intervalDuration = defaultIntervalPeriod
+		return nil, fmt.Errorf("both interval (%s) and interval_msec (%d) are specified", p.GetInterval(), p.GetIntervalMsec())
 	} else if p.GetIntervalMsec() != 0 {
 		intervalDuration = time.Duration(p.GetIntervalMsec()) * time.Millisecond
-	} else {
+	} else if p.GetInterval() != "" {
 		intervalDuration, err = time.ParseDuration(p.GetInterval())
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse interval (%s): %v", p.GetInterval(), err)
@@ -134,11 +132,9 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 
 	if p.GetTimeoutMsec() != 0 && p.GetTimeout() != "" {
 		return nil, fmt.Errorf("both timeout: (%s) and timeout_msec: (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
-	} else if p.GetTimeoutMsec() == 0 && p.GetTimeout() == "" {
-		timeoutDuration = defaultTimeoutPeriod
 	} else if p.GetTimeoutMsec() != 0 {
 		timeoutDuration = time.Duration(p.GetTimeoutMsec()) * time.Millisecond
-	} else {
+	} else if p.GetTimeout() != "" {
 		timeoutDuration, err = time.ParseDuration(p.GetTimeout())
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse interval (%s): %v", p.GetTimeout(), err)

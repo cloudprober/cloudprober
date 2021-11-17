@@ -46,8 +46,14 @@ message ProbeDef {
   // Interval between two probes, int32 representing milliseconds
   optional int32 interval_msec = 4;
 
+  // Interval between two probes, string representing duration
+  optional string interval = 16;
+
   // Timeout for each probe, int32 representing milliseconds
   optional int32 timeout_msec = 5;
+
+  // Timeout for each probe, string representing duration
+  optional string timeout = 17;
 
   // Targets for the probe
   required targets.TargetsDef targets = 6;
@@ -130,12 +136,6 @@ message ProbeDef {
   //     value: "@target.label.app@"
   //   }
   repeated AdditionalLabel additional_label = 14;
-
-  // Interval between two probes, string representing duration
-  optional string interval = 16;
-
-  // Timeout for each probe, string representing duration
-  optional string timeout = 17;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;
