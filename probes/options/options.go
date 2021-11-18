@@ -131,7 +131,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	}
 
 	if p.GetTimeoutMsec() != 0 && p.GetTimeout() != "" {
-		return nil, fmt.Errorf("both timeout: (%s) and timeout_msec: (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
+		return nil, fmt.Errorf("both timeout (%s) and timeout_msec (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
 	} else if p.GetTimeoutMsec() != 0 {
 		timeoutDuration = time.Duration(p.GetTimeoutMsec()) * time.Millisecond
 	} else if p.GetTimeout() != "" {

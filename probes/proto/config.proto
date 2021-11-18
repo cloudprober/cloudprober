@@ -43,16 +43,20 @@ message ProbeDef {
   // this probe only if machine's hostname matches this value.
   optional string run_on = 3;
 
-  // Interval between two probes, int32 representing milliseconds
+  // Interval between two probe runs in milliseconds.
+  // Only one of "interval" and "inteval_msec" should be defined.
   optional int32 interval_msec = 4;
 
-  // Interval between two probes, string representing duration
+  // Interval between two probe runs in string format, e.g. 10s.
+  // Only one of "interval" and "inteval_msec" should be defined.
   optional string interval = 16;
 
-  // Timeout for each probe, int32 representing milliseconds
+  // Timeout for each probe in milliseconds
+  // Only one of "timeout" and "timeout_msec" should be defined.
   optional int32 timeout_msec = 5;
 
-  // Timeout for each probe, string representing duration
+  // Timeout for each probe in string format, e.g. 10s.
+  // Only one of "timeout" and "timeout_msec" should be defined.
   optional string timeout = 17;
 
   // Targets for the probe
