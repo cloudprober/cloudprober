@@ -198,15 +198,19 @@ type ProbeDef struct {
 	RunOn *string `protobuf:"bytes,3,opt,name=run_on,json=runOn" json:"run_on,omitempty"`
 	// Interval between two probe runs in milliseconds.
 	// Only one of "interval" and "inteval_msec" should be defined.
+	// Default interval is 2s
 	IntervalMsec *int32 `protobuf:"varint,4,opt,name=interval_msec,json=intervalMsec" json:"interval_msec,omitempty"`
 	// Interval between two probe runs in string format, e.g. 10s.
 	// Only one of "interval" and "inteval_msec" should be defined.
+	// Default interval is 2s
 	Interval *string `protobuf:"bytes,16,opt,name=interval" json:"interval,omitempty"`
 	// Timeout for each probe in milliseconds
 	// Only one of "timeout" and "timeout_msec" should be defined.
+	// Default interval is 1s
 	TimeoutMsec *int32 `protobuf:"varint,5,opt,name=timeout_msec,json=timeoutMsec" json:"timeout_msec,omitempty"`
 	// Timeout for each probe in string format, e.g. 10s.
 	// Only one of "timeout" and "timeout_msec" should be defined.
+	// Default interval is 1s
 	Timeout *string `protobuf:"bytes,17,opt,name=timeout" json:"timeout,omitempty"`
 	// Targets for the probe
 	Targets *proto.TargetsDef `protobuf:"bytes,6,req,name=targets" json:"targets,omitempty"`

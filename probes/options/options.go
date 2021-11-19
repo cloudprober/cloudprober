@@ -137,7 +137,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	} else if p.GetTimeout() != "" {
 		timeoutDuration, err = time.ParseDuration(p.GetTimeout())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse interval (%s): %v", p.GetTimeout(), err)
+			return nil, fmt.Errorf("failed to parse timeout (%s): %v", p.GetTimeout(), err)
 		}
 	}
 
