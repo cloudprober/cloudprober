@@ -17,7 +17,7 @@
 # This script generates Go code for the config protobufs.
 
 PROTOC_VERSION="3.17.3"
-PROJECT="github.com/cloudprober/cloudprober"
+PROJECT="cloudprober"
 
 GOPATH=$(go env GOPATH)
 
@@ -32,7 +32,7 @@ if [ -z ${PROJECTROOT+x} ]; then
   # If PROJECTROOT is not set, try to determine it from script's location
   SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   if [[ $SCRIPTDIR == *"$PROJECT/tools"* ]]; then
-    PROJECTROOT="${SCRIPTDIR}/../../../.."
+    PROJECTROOT="${SCRIPTDIR}/../.."
   else
     echo "PROJECTROOT is not set and we are not able to determine PROJECTROOT"
     echo "from script's path. PROJECTROOT should be set such that project files "
@@ -41,16 +41,6 @@ if [ -z ${PROJECTROOT+x} ]; then
   fi
 fi
 echo PROJECTROOT=${PROJECTROOT}
-
-# Change directory to the project workspace in GOPATH
-project_dir="${PROJECTROOT}/${PROJECT}"
-
-if [ ! -d "${project_dir}" ];then
-  echo "${PROJECT} not found under Go workspace: ${GOPATH}/src. Please download"
-  echo " cloudprober source code from github.com/google/cloudprober and set it "
-  echo "such that it's available at ${project_dir}."
-  exit 1
-fi
 
 # Make sure protobuf compilation is set up correctly.
 export protoc_path=$(which protoc)
@@ -96,11 +86,28 @@ echo "Generating Go code for protobufs.."
 echo "======================================================================"
 # Generate protobuf code from the root directory to ensure proper import paths.
 cd $PROJECTROOT
-find $PROJECT -type d | \
+
+# Create a temporary director to generate protobuf Go files.
+TMPDIR=$(mktemp -d)
+mkdir -p ${TMPDIR}/github.com/cloudprober
+cp -a $PROJECT $TMPDIR/github.com/cloudprober
+cd $TMPDIR
+
+find github.com/cloudprober/$PROJECT -type d | \
   while read -r dir
   do
     # Ignore directories with no proto files.
     ls ${dir}/*.proto > /dev/null 2>&1 || continue
     ${protoc_path} --go_out=plugins=grpc:. ${dir}/*.proto
   done
+
+# Copy generated files back to their original location.
+find github.com/cloudprober/$PROJECT -name "*.pb.go" | \
+  while read -r pbgofile
+  do
+    dst=${PROJECTROOT}/${pbgofile/github.com\/cloudprober\//}
+    cp "$pbgofile" "$dst"
+  done
+
 cd -
+rm -rf $TMPDIR
