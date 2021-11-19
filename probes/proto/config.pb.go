@@ -206,11 +206,11 @@ type ProbeDef struct {
 	Interval *string `protobuf:"bytes,16,opt,name=interval" json:"interval,omitempty"`
 	// Timeout for each probe in milliseconds
 	// Only one of "timeout" and "timeout_msec" should be defined.
-	// Default interval is 1s
+	// Default timeout is 1s
 	TimeoutMsec *int32 `protobuf:"varint,5,opt,name=timeout_msec,json=timeoutMsec" json:"timeout_msec,omitempty"`
 	// Timeout for each probe in string format, e.g. 10s.
 	// Only one of "timeout" and "timeout_msec" should be defined.
-	// Default interval is 1s
+	// Default timeout is 1s
 	Timeout *string `protobuf:"bytes,17,opt,name=timeout" json:"timeout,omitempty"`
 	// Targets for the probe
 	Targets *proto.TargetsDef `protobuf:"bytes,6,req,name=targets" json:"targets,omitempty"`
