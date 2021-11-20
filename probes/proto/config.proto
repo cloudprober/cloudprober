@@ -45,7 +45,7 @@ message ProbeDef {
 
   // Interval between two probe runs in milliseconds.
   // Only one of "interval" and "inteval_msec" should be defined.
-  // Default interval is 2s
+  // Default interval is 2s.
   optional int32 interval_msec = 4;
 
   // Interval between two probe runs in string format, e.g. 10s.
