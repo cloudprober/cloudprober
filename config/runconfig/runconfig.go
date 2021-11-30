@@ -48,6 +48,12 @@ func SetDefaultGRPCServer(s *grpc.Server) error {
 	return nil
 }
 
+func ClearDefaultGRPCServer() {
+	rc.Lock()
+	defer rc.Unlock()
+	rc.grpcSrv = nil
+}
+
 // DefaultGRPCServer returns the configured gRPC server and nil if gRPC server
 // was not set.
 func DefaultGRPCServer() *grpc.Server {
