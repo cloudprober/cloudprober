@@ -200,11 +200,12 @@ func TestRestart(t *testing.T) {
 				t.Fatalf("InitFromConfig(ctx, %v): %v", string(b), err)
 			}
 			Start(ctx)
-			ctxTO, cancelTO := context.WithTimeout(ctx, time.Second*30)
-			defer cancelTO()
 
+			// Wait for results from the surfacer, or 30s,
+			// whichever comes first. Since the export rate is 1s,
+			// we should expect results well before 30s has passed.
 			select {
-			case <-ctxTO.Done():
+			case <-time.After(time.Second * 30):
 				t.Fatal("surfacer timed out before getting results")
 			case <-s.c:
 			}
