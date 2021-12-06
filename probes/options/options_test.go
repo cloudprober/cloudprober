@@ -192,71 +192,71 @@ func TestIPVersionFromSourceIP(t *testing.T) {
 
 func TestStatsExportInterval(t *testing.T) {
 	rows := []struct {
-		name          string
-		pType         *configpb.ProbeDef_Type
-		interval      string
-		timeout       string
-		interval_msec int32
-		timeout_msec  int32
-		configured    int32
-		want          int
-		wantError     bool
+		name         string
+		pType        *configpb.ProbeDef_Type
+		interval     string
+		timeout      string
+		intervalMsec int32
+		timeoutMsec  int32
+		configured   int32
+		want         int
+		wantError    bool
 	}{
 		{
-			name:          "Interval bigger than default",
-			interval_msec: 15,
-			timeout_msec:  10,
-			want:          15,
+			name:         "Interval bigger than default",
+			intervalMsec: 15,
+			timeoutMsec:  10,
+			want:         15,
 		},
 		{
-			name:          "Timeout bigger than interval_msec",
-			interval_msec: 10,
-			timeout_msec:  12,
-			want:          12,
+			name:         "Timeout bigger than intervalMsec",
+			intervalMsec: 10,
+			timeoutMsec:  12,
+			want:         12,
 		},
 		{
-			name:          "Interval and timeout less than default",
-			interval_msec: 2,
-			timeout_msec:  1,
-			want:          int(defaultStatsExtportIntv.Seconds()),
+			name:         "Interval and timeout less than default",
+			intervalMsec: 2,
+			timeoutMsec:  1,
+			want:         int(defaultStatsExtportIntv.Seconds()),
 		},
 		{
-			name:          "UDP probe: default twice of timeout- I",
-			interval_msec: 10,
-			timeout_msec:  12,
-			pType:         configpb.ProbeDef_UDP.Enum(),
-			want:          24,
+			name:         "UDP probe: default twice of timeout- I",
+			intervalMsec: 10,
+			timeoutMsec:  12,
+			pType:        configpb.ProbeDef_UDP.Enum(),
+			want:         24,
 		},
 		{
-			name:          "UDP probe: default twice of timeout - II",
-			interval_msec: 5,
-			timeout_msec:  6,
-			pType:         configpb.ProbeDef_UDP.Enum(),
-			want:          12,
+			name:         "UDP probe: default twice of timeout - II",
+			intervalMsec: 5,
+			timeoutMsec:  6,
+			pType:        configpb.ProbeDef_UDP.Enum(),
+			want:         12,
 		},
 		{
-			name:          "Error: stats export interval_msec smaller than interval_msec",
-			interval_msec: 2,
-			timeout_msec:  1,
-			configured:    1,
-			wantError:     true,
+			name:         "Error: stats export intervalMsec smaller than intervalMsec",
+			intervalMsec: 2,
+			timeoutMsec:  1,
+			configured:   1,
+			wantError:    true,
 		},
 		{
-			name:          "Both interval_msec_msec and interval_msec specified",
-			interval:      "2s",
-			interval_msec: 2,
-			configured:    10,
-			wantError:     true,
-		},
-		{
-			name:         "Both timeout_msec and timeout specified",
-			timeout:      "2s",
-			timeout_msec: 2,
+			name:         "Both intervalMsec_msec and intervalMsec specified",
+			interval:     "2s",
+			intervalMsec: 2,
 			configured:   10,
 			wantError:    true,
 		},
 		{
-			name: "No interval_msec or timeout values specified",
+			name:        "Both timeoutMsec and timeout specified",
+			timeout:     "2s",
+			timeoutMsec: 2,
+			configured:  10,
+			wantError:   true,
+		},
+		{
+			name: "No intervalMsec or timeout values specified",
 			want: 10,
 		},
 		{
@@ -270,19 +270,19 @@ func TestStatsExportInterval(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:          "Configured value is good",
-			interval_msec: 2,
-			timeout_msec:  1,
-			configured:    10,
-			want:          10,
+			name:         "Configured value is good",
+			intervalMsec: 2,
+			timeoutMsec:  1,
+			configured:   10,
+			want:         10,
 		},
 	}
 
 	for _, r := range rows {
 		p := &configpb.ProbeDef{
 			Targets:      testTargets,
-			IntervalMsec: proto.Int32(r.interval_msec * 1000),
-			TimeoutMsec:  proto.Int32(r.timeout_msec * 1000),
+			IntervalMsec: proto.Int32(r.intervalMsec * 1000),
+			TimeoutMsec:  proto.Int32(r.timeoutMsec * 1000),
 			Interval:     proto.String(r.interval),
 			Timeout:      proto.String(r.timeout),
 		}
