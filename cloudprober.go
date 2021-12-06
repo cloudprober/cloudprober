@@ -32,7 +32,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
@@ -43,6 +42,7 @@ import (
 	"github.com/cloudprober/cloudprober/servers"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
@@ -235,6 +235,14 @@ func Start(ctx context.Context) {
 			grpcSrv.Stop()
 		}
 		cloudProber.cancelInitCtx()
+		runconfig.ClearDefaultGRPCServer()
+		cloudProber.Lock()
+		defer cloudProber.Unlock()
+		cloudProber.defaultServerLn = nil
+		cloudProber.defaultGRPCLn = nil
+		cloudProber.textConfig = ""
+		cloudProber.config = nil
+		cloudProber.prober = nil
 	}()
 
 	go srv.Serve(cloudProber.defaultServerLn)
