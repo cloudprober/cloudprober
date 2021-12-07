@@ -75,9 +75,10 @@ type Probe struct {
 	l    *logger.Logger
 
 	// book-keeping params
-	targets []endpoint.Endpoint
-	msg     *dns.Msg
-	client  Client
+	targets   []endpoint.Endpoint
+	queryType uint16
+	fqdn      string
+	client    Client
 }
 
 // probeRunResult captures the results of a single probe run. The way we work with
@@ -133,17 +134,17 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.updateTargets()
 
-	// I believe these objects are safe for concurrent use by multiple goroutines
-	// (although the documentation doesn't explicitly say so). It uses locks
-	// internally and the underlying net.Conn declares that multiple goroutines
-	// may invoke methods on a net.Conn simultaneously.
-	p.msg = new(dns.Msg)
 	queryType := p.c.GetQueryType()
 	if queryType == configpb.QueryType_NONE || int32(queryType) >= int32(dns.TypeReserved) {
 		return fmt.Errorf("dns_probe(%v): invalid query type %v", name, queryType)
 	}
-	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), uint16(queryType))
+	p.queryType = uint16(queryType)
+	p.fqdn = dns.Fqdn(p.c.GetResolvedDomain())
 
+	// I believe the client is safe for concurrent use by multiple goroutines
+	// (although the documentation doesn't explicitly say so). It uses locks
+	// internally and the underlying net.Conn declares that multiple goroutines
+	// may invoke methods on a net.Conn simultaneously.
 	p.client = new(clientImpl)
 	if p.opts.SourceIP != nil {
 		p.client.setSourceIP(p.opts.SourceIP)
@@ -244,7 +245,11 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF re
 				fullTarget = net.JoinHostPort(ip.String(), "53")
 			}
 
-			resp, latency, err := p.client.Exchange(p.msg, fullTarget)
+			// Generate a new question for each probe so transaction IDs aren't repeated.
+			msg := new(dns.Msg)
+			msg.SetQuestion(p.fqdn, p.queryType)
+
+			resp, latency, err := p.client.Exchange(msg, fullTarget)
 
 			if err != nil {
 				if isClientTimeout(err) {
