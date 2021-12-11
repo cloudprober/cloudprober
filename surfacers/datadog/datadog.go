@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -49,12 +48,11 @@ var datadogKind = map[metrics.Kind]string{
 
 // DDSurfacer implements a datadog surfacer for datadog metrics.
 type DDSurfacer struct {
-	c                 *configpb.SurfacerConf
-	writeChan         chan *metrics.EventMetrics
-	client            *ddClient
-	l                 *logger.Logger
-	ignoreLabelsRegex *regexp.Regexp
-	prefix            string
+	c         *configpb.SurfacerConf
+	writeChan chan *metrics.EventMetrics
+	client    *ddClient
+	l         *logger.Logger
+	prefix    string
 	// A cache of []*ddSeries, used for batch writing to datadog
 	ddSeriesCache []ddSeries
 }

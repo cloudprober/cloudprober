@@ -476,10 +476,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 // names, so we have a check to see if we are going over the limit.
 //	Ref: https://cloud.google.com/monitoring/api/v3/metrics#metric_names
 func validMetricLength(metricName string, monitoringURL string) bool {
-	if len(metricName)+len(monitoringURL) > 100 {
-		return false
-	}
-	return true
+	return len(metricName)+len(monitoringURL) <= 100
 }
 
 // Function to return the min of two integers

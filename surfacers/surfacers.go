@@ -44,7 +44,6 @@ import (
 	"github.com/cloudprober/cloudprober/web/formatutils"
 
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
-	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
 
 var (
@@ -132,29 +131,29 @@ type SurfacerInfo struct {
 	Conf string
 }
 
-func inferType(s *surfacerpb.SurfacerDef) surfacerspb.Type {
+func inferType(s *surfacerpb.SurfacerDef) surfacerpb.Type {
 	switch s.Surfacer.(type) {
 	case *surfacerpb.SurfacerDef_PrometheusSurfacer:
-		return surfacerspb.Type_PROMETHEUS
+		return surfacerpb.Type_PROMETHEUS
 	case *surfacerpb.SurfacerDef_StackdriverSurfacer:
-		return surfacerspb.Type_STACKDRIVER
+		return surfacerpb.Type_STACKDRIVER
 	case *surfacerpb.SurfacerDef_FileSurfacer:
-		return surfacerspb.Type_FILE
+		return surfacerpb.Type_FILE
 	case *surfacerpb.SurfacerDef_PostgresSurfacer:
-		return surfacerspb.Type_POSTGRES
+		return surfacerpb.Type_POSTGRES
 	case *surfacerpb.SurfacerDef_PubsubSurfacer:
-		return surfacerspb.Type_PUBSUB
+		return surfacerpb.Type_PUBSUB
 	case *surfacerpb.SurfacerDef_CloudwatchSurfacer:
-		return surfacerspb.Type_CLOUDWATCH
+		return surfacerpb.Type_CLOUDWATCH
 	case *surfacerpb.SurfacerDef_DatadogSurfacer:
-		return surfacerspb.Type_DATADOG
+		return surfacerpb.Type_DATADOG
 	}
 
-	return surfacerspb.Type_NONE
+	return surfacerpb.Type_NONE
 }
 
 // initSurfacer initializes and returns a new surfacer based on the config.
-func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacerspb.Type) (Surfacer, interface{}, error) {
+func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacerpb.Type) (Surfacer, interface{}, error) {
 	// Create a new logger
 	logName := s.GetName()
 	if logName == "" {

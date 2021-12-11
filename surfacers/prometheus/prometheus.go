@@ -245,7 +245,6 @@ func (ps *PromSurfacer) recordMetric(metricName, key, value string, em *metrics.
 		}
 		ps.metricNames = append(ps.metricNames, metricName)
 	}
-	return
 }
 
 // checkLabelName finds a prometheus label name for an incoming label. If label

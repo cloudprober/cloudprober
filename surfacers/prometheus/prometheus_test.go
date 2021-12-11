@@ -199,7 +199,7 @@ func TestScrapeOutput(t *testing.T) {
 		"latency_bucket{ptype=\"http\",le=\"4\"} 1 " + promTS,
 		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2 " + promTS,
 	} {
-		if strings.Index(data, d) == -1 {
+		if !strings.Contains(data, d) {
 			t.Errorf("String \"%s\" not found in output data: %s", d, data)
 		}
 	}
@@ -235,7 +235,7 @@ func TestScrapeOutputNoTimestamp(t *testing.T) {
 		"latency_bucket{ptype=\"http\",le=\"4\"} 1",
 		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2",
 	} {
-		if strings.Index(data, d) == -1 {
+		if !strings.Contains(data, d) {
 			t.Errorf("String \"%s\" not found in output data: %s", d, data)
 		}
 	}
