@@ -15,23 +15,12 @@
 package datadog
 
 import (
-	"context"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 )
-
-func newTestDDSurfacer() DDSurfacer {
-	l, _ := logger.New(context.TODO(), "test-logger")
-
-	return DDSurfacer{
-		l:      l,
-		prefix: "testPrefix",
-	}
-}
 
 func TestEmLabelsToTags(t *testing.T) {
 	timestamp := time.Now()

@@ -26,9 +26,6 @@ import (
 )
 
 var (
-	stringVal = "string-test"
-	boolVal   = true
-	floatVal  = 123.456
 	intVal    = float64(123456)
 )
 

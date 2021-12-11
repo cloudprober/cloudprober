@@ -60,8 +60,6 @@ type Surfacer struct {
 func (s *Surfacer) processInput(ctx context.Context) {
 	defer s.processInputWg.Done()
 
-	if !s.c.GetCompressionEnabled() {
-	}
 	for {
 		select {
 		// Write the EventMetrics to file as string.
