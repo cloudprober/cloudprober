@@ -182,7 +182,7 @@ func TestRestart(t *testing.T) {
 			}
 			surfacerName := "custom"
 			cfg.Surfacer = []*surfacerspb.SurfacerDef{
-				&surfacerspb.SurfacerDef{
+				{
 					Name: proto.String(surfacerName),
 					Type: surfacerspb.Type_USER_DEFINED.Enum(),
 				},
