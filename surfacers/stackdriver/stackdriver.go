@@ -31,6 +31,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2/google"
 	monitoring "google.golang.org/api/monitoring/v3"
+	"google.golang.org/api/option"
 
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
@@ -131,7 +132,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	if err != nil {
 		return nil, err
 	}
-	s.client, err = monitoring.New(httpClient)
+	s.client, err = monitoring.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, err
 	}
