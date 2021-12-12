@@ -22,18 +22,18 @@ package udp
 import (
 	"context"
 	"net"
-	"os"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/udp/proto"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets"
+	"github.com/golang/protobuf/proto"
 )
 
 type serverConnStats struct {
@@ -97,21 +97,38 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 
 const numTxPorts = 2
 
+func ipVersionForTest(t *testing.T, testTarget string) int {
+	t.Helper()
+
+	ips, err := net.LookupIP(testTarget)
+	if err != nil {
+		t.Logf("Error resolving test target: %v, defaulting to IPv4 for testing", err)
+		return 4
+	}
+
+	for _, ip := range ips {
+		if iputils.IPVersion(ip) == 6 {
+			return 6
+		}
+	}
+	return 4
+}
+
 func runProbe(t *testing.T, interval, timeout time.Duration, probesToSend int, scs *serverConnStats, conf *configpb.ProbeConf) *Probe {
+	t.Helper()
+
+	testTarget := "localhost"
+
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
-	ipVersion := 6
-	if _, ok := os.LookupEnv("TRAVIS"); ok {
-		ipVersion = 4
-	}
 
 	conf.NumTxPorts = proto.Int32(numTxPorts)
 	opts := &options.Options{
-		IPVersion:           ipVersion,
-		Targets:             targets.StaticTargets("localhost"),
+		IPVersion:           ipVersionForTest(t, testTarget),
+		Targets:             targets.StaticTargets(testTarget),
 		Interval:            interval,
 		Timeout:             timeout,
 		ProbeConf:           conf,
