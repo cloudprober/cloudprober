@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	intVal    = float64(123456)
+	intVal = float64(123456)
 )
 
 func newTestSurfacer() SDSurfacer {
@@ -69,7 +69,7 @@ func TestTimeSeries(t *testing.T) {
 			surfacer:    newTestSurfacer(),
 			em:          metrics.NewEventMetrics(testTimestamp).AddMetric("test-message", metrics.NewInt(123456)),
 			timeSeries: []*monitoring.TimeSeries{
-				&monitoring.TimeSeries{
+				{
 					Metric: &monitoring.Metric{
 						Type: "custom.googleapis.com/cloudprober/test-message",
 					},
@@ -105,7 +105,7 @@ func TestTimeSeries(t *testing.T) {
 				AddLabel("keyA", "valueA").
 				AddLabel("keyB", "valueB"),
 			timeSeries: []*monitoring.TimeSeries{
-				&monitoring.TimeSeries{
+				{
 					Metric: &monitoring.Metric{
 						Type: "custom.googleapis.com/cloudprober/version",
 						Labels: map[string]string{
@@ -146,7 +146,7 @@ func TestTimeSeries(t *testing.T) {
 				AddLabel("keyA", "valueA").
 				AddLabel("keyB", "valueB"),
 			timeSeries: []*monitoring.TimeSeries{
-				&monitoring.TimeSeries{
+				{
 					Metric: &monitoring.Metric{
 						Type: "custom.googleapis.com/cloudprober/version",
 						Labels: map[string]string{
@@ -177,7 +177,7 @@ func TestTimeSeries(t *testing.T) {
 						},
 					},
 				},
-				&monitoring.TimeSeries{
+				{
 					Metric: &monitoring.Metric{
 						Type: "custom.googleapis.com/cloudprober/version",
 						Labels: map[string]string{
