@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	msgpb "github.com/cloudprober/cloudprober/common/message/proto"
+	"google.golang.org/protobuf/proto"
 )
 
-// createMessage is a helper function for creating a message and fatally failing
-// if CreateMessage fails. This is for use in places where we don't expect
-// CreateMessage to fail.
+// createMessage is a helper function for creating a message and fatally
+// failing if CreateMessage fails. This is for use in places where we don't
+// expect CreateMessage to fail.
 func createMessage(t *testing.T, fs *FlowState, ts time.Time) ([]byte, uint64) {
 	return createMessageWithPayload(t, fs, ts, nil)
 }
@@ -41,7 +41,8 @@ func createMessageWithPayload(t *testing.T, fs *FlowState, ts time.Time, payload
 	return msgBytes, msgSeq
 }
 
-// TestUint64Conversion tests the conversion of uint64 from and to network byte order.
+// TestUint64Conversion tests the conversion of uint64 from and to network
+// byte order.
 func TestUint64Conversion(t *testing.T) {
 	val := uint64(0)
 	for i := uint64(0); i < 10; i++ {
@@ -77,7 +78,8 @@ func TestMessageEncodeDecode(t *testing.T) {
 		t.Errorf("Incorrect seq in message: got %d want %d", msgSeq, seq)
 	}
 
-	// Pre-create flow state on the rx side. So we expect success in every step.
+	// Pre-create flow state on the rx side, so that we expect success in every
+	// step.
 	rxFS := rxFSM.FlowState(src, "", dst)
 	rxFS.seq = seq - 1
 	msg, err := NewMessage(msgBytes)
@@ -147,7 +149,7 @@ func TestSeqHandling(t *testing.T) {
 	// Create a message and revert it.
 	txFS := txFSM.FlowState(src, "1", dst)
 	txFS.seq = seq - 1
-	msgBytes, msgSeq := createMessage(t, txFS, pktTS)
+	_, msgSeq := createMessage(t, txFS, pktTS)
 
 	if !txFS.WithdrawMessage(msgSeq) || txFS.seq != seq-1 {
 		t.Errorf("WithdrawMessage failed: NextSeq %d msgSeq %d fs.seq %d", seq, msgSeq, txFS.seq)
@@ -158,7 +160,7 @@ func TestSeqHandling(t *testing.T) {
 	}
 
 	txFS.seq = seq - 1
-	msgBytes, msgSeq = createMessage(t, txFS, pktTS)
+	msgBytes, _ := createMessage(t, txFS, pktTS)
 	// Receive the message and process it. Seq and srcs should match.
 	// This will be the first message for the flow:
 	//		=> Flowstate should be created.
@@ -190,7 +192,7 @@ func TestSeqHandling(t *testing.T) {
 	pktTS = pktTS.Add(time.Second)
 	rxTS = rxTS.Add(time.Second)
 	txFS.seq = seq - 10
-	msgBytes, msgSeq = createMessage(t, txFS, pktTS)
+	createMessage(t, txFS, pktTS)
 	if res.FS.msgTS == pktTS || res.FS.rxTS == rxTS {
 		t.Errorf("Timestamps not updated. got (%s, %s) want (%s, %s)", res.FS.msgTS, res.FS.rxTS, pktTS, rxTS)
 	}
@@ -203,7 +205,7 @@ func TestSeqHandling(t *testing.T) {
 	pktTS = pktTS.Add(time.Second)
 	rxTS = rxTS.Add(time.Second + ipd)
 	txFS.seq = seq
-	msgBytes, msgSeq = createMessage(t, txFS, pktTS)
+	msgBytes, _ = createMessage(t, txFS, pktTS)
 	if msg, err = NewMessage(msgBytes); err != nil {
 		t.Fatalf("Error processing message: %v", err)
 	}
@@ -224,7 +226,7 @@ func TestSeqHandling(t *testing.T) {
 	txFS.seq += uint64(lost)
 	pktTS = pktTS.Add(time.Second)
 	rxTS = rxTS.Add(time.Second)
-	msgBytes, msgSeq = createMessage(t, txFS, pktTS)
+	msgBytes, _ = createMessage(t, txFS, pktTS)
 	if msg, err = NewMessage(msgBytes); err != nil {
 		t.Fatalf("Error processing message: %v", err)
 	}
@@ -235,6 +237,20 @@ func TestSeqHandling(t *testing.T) {
 	}
 	if res.LostCount != lost {
 		t.Errorf("Got lostcount=%d want %d tx seq: %d, rx want seq: %d", res.LostCount, lost, txFS.seq, rxFS.seq+1)
+	}
+	if res.FS.msgTS != pktTS || res.FS.rxTS != rxTS {
+		t.Errorf("Timestamps not updated. got (%s, %s) want (%s, %s)", res.FS.msgTS, res.FS.rxTS, pktTS, rxTS)
+	}
+}
+
+func testVerifyResult(t *testing.T, res *Results, wantSuccess bool, ipd time.Duration, pktTS, rxTS time.Time) {
+	t.Helper()
+
+	if res.Success != wantSuccess {
+		t.Errorf("res.Success=%v, wanted=%v", res.Success, wantSuccess)
+	}
+	if res.InterPktDelay != ipd {
+		t.Errorf("InterPktDelay calculation error got %v want %v", res.InterPktDelay, ipd)
 	}
 	if res.FS.msgTS != pktTS || res.FS.rxTS != rxTS {
 		t.Errorf("Timestamps not updated. got (%s, %s) want (%s, %s)", res.FS.msgTS, res.FS.rxTS, pktTS, rxTS)
@@ -253,7 +269,8 @@ func TestMultiplePorts(t *testing.T) {
 	rxTS := pktTS.Add(time.Millisecond)
 
 	// Receive the message and process it. Seq and srcs should match.
-	// This will be the first message for the flow => Flowstate should be created.
+	// This will be the first message for the flow => Flowstate should be
+	// created.
 	txFS1 := txFSM.FlowState(src, "1", dst)
 	txFS1.seq = seq - 1
 	msgBytes, _ := createMessage(t, txFS1, pktTS)
@@ -262,9 +279,10 @@ func TestMultiplePorts(t *testing.T) {
 		t.Fatalf("Error processing message: %v", err)
 	}
 	res := msg.ProcessOneWay(rxFSM, rxTS)
+	testVerifyResult(t, res, true, 0, pktTS, rxTS)
 
 	// Send a message with seq+1.
-	// 		pktTS = prevPktTS + 1sec.
+	// 		pktTS = prevPktTS + 1 sec.
 	// 		rxTS = prevRxTS + 1 sec + 1 millisecond.
 	// 		=> ipd = 1 millisecond
 	ipd := time.Millisecond
@@ -281,15 +299,7 @@ func TestMultiplePorts(t *testing.T) {
 	if rxFS1 == nil || rxFSM.FlowState(src, "1", dst) != rxFS1 {
 		t.Errorf("Expected sender to appear in FlowStateMap struct, got %v", rxFSM.FlowState(src, "1", dst))
 	}
-	if !res.Success {
-		t.Errorf("Got failure, want success. tx seq: %d, rx want seq: %d", txFS1.seq, rxFS1.seq+1)
-	}
-	if res.InterPktDelay != ipd {
-		t.Errorf("InterPktDelay calculation error got %v want %v", res.InterPktDelay, ipd)
-	}
-	if res.FS.msgTS != pktTS || res.FS.rxTS != rxTS {
-		t.Errorf("Timestamps not updated. got (%s, %s) want (%s, %s)", res.FS.msgTS, res.FS.rxTS, pktTS, rxTS)
-	}
+	testVerifyResult(t, res, true, ipd, pktTS, rxTS)
 
 	// Send a message with seq+2 on another port.
 	//    should not be counted towards port=1 stats.
@@ -309,9 +319,9 @@ func TestMultiplePorts(t *testing.T) {
 	if rxFS2.seq != msg.Seq() {
 		t.Errorf("Flow state not updated, seq number mismatch. got %d want %d.", rxFS2.seq, msg.Seq())
 	}
-	if res.Success || res.LostCount != 1 || res.Delayed {
-		t.Errorf("Success, lostCount, delayed mismatch. got (%v %v %v) want (%v %v %v)",
-			res.Success, res.LostCount, res.Delayed, false, 1, false)
+	testVerifyResult(t, res, false, 0, pktTS, rxTS)
+	if res.LostCount != 1 || res.Delayed {
+		t.Errorf("LostCount, delayed mismatch. got (%v %v) want (%v %v)", res.LostCount, res.Delayed, 1, false)
 	}
 }
 
