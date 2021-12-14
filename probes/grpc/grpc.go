@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -38,6 +37,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/probeutils"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/golang/protobuf/proto"
 
 	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
@@ -98,7 +98,7 @@ func (p *Probe) setupDialOpts() error {
 		if err != nil {
 			return err
 		}
-		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{oauthTS}))
+		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
 	}
 	altsCfg := p.c.GetAltsConfig()
 	if altsCfg != nil {

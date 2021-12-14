@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
@@ -28,6 +27,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/validators"
 	validatorpb "github.com/cloudprober/cloudprober/validators/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
 )
 
@@ -203,7 +203,12 @@ func TestValidator(t *testing.T) {
 		{"match", answerMatchPattern, 1},
 		{"nomatch", answerNoMatchPattern, 0},
 	} {
-		valPb := []*validatorpb.Validator{{Name: proto.String(tst.name), Type: &validatorpb.Validator_Regex{tst.pattern}}}
+		valPb := []*validatorpb.Validator{
+			{
+				Name: proto.String(tst.name),
+				Type: &validatorpb.Validator_Regex{Regex: tst.pattern},
+			},
+		}
 		validator, err := validators.Init(valPb, nil)
 		if err != nil {
 			t.Fatalf("Error initializing validator for pattern %v: %v", tst.pattern, err)

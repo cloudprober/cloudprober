@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	fileconfigpb "github.com/cloudprober/cloudprober/surfacers/file/proto"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -39,7 +39,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestEmptyConfig(t *testing.T) {
-	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{&surfacerpb.SurfacerDef{}})
+	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestInferType(t *testing.T) {
 	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{
 		{
 			Surfacer: &surfacerpb.SurfacerDef_FileSurfacer{
-				&fileconfigpb.SurfacerConf{
+				FileSurfacer: &fileconfigpb.SurfacerConf{
 					FilePath: proto.String(tmpfile.Name()),
 				},
 			},
@@ -190,8 +190,7 @@ func TestFailureMetric(t *testing.T) {
 
 	wantEventMetrics := [][]*metrics.EventMetrics{
 		testEventMetrics, // s1
-
-		[]*metrics.EventMetrics{
+		{
 			testEventMetrics[0].Clone().
 				AddMetric("failure", metrics.NewInt(2)),
 			testEventMetrics[1], // unchanged
