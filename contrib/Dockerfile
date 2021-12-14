@@ -17,7 +17,7 @@ ARG VCS_REF
 # Metadata
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.name="Cloudprober" \
-      org.label-schema.vcs-url="https://github.com/google/cloudprober" \
+      org.label-schema.vcs-url="https://github.com/cloudprober/cloudprober" \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.version=$VERSION \
       com.microscaling.license="Apache-2.0"
