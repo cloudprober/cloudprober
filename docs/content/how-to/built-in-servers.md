@@ -50,7 +50,7 @@ This adds two endpoints to the HTTP server:
 *   `/data_4` which responds with `four`.
 
 See
-[servers/http/proto/config.go](https://github.com/google/cloudprober/blob/master/servers/http/proto/config.proto)
+[servers/http/proto/config.go](https://github.com/cloudprober/cloudprober/blob/master/servers/http/proto/config.proto)
 for all HTTP server configuration options.
 
 ## UDP
@@ -77,11 +77,11 @@ server {
 {{< / highlight >}}
 
 See
-[servers/udp/proto/config.go](https://github.com/google/cloudprober/blob/master/servers/udp/proto/config.proto)
+[servers/udp/proto/config.go](https://github.com/cloudprober/cloudprober/blob/master/servers/udp/proto/config.proto)
 for all UDP server configuration options.
 
 ## GRPC
 
 See
-[servers/grpc/proto/config.go](https://github.com/google/cloudprober/blob/master/servers/grpc/proto/config.proto)
+[servers/grpc/proto/config.go](https://github.com/cloudprober/cloudprober/blob/master/servers/grpc/proto/config.proto)
 for all GRPC server configuration options.

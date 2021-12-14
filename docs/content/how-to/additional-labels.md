@@ -66,7 +66,7 @@ probe {
   http_probe {}
 }
 ```
-(Listing source: [examples/additional_label/cloudprober.cfg](https://github.com/google/cloudprober/blob/master/examples/additional_label/cloudprober.cfg))
+(Listing source: [examples/additional_label/cloudprober.cfg](https://github.com/cloudprober/cloudprober/blob/master/examples/additional_label/cloudprober.cfg))
 
 ## Adding your own metrics
 For external probes, Cloudprober also allows external programs to provide additional metrics.

@@ -67,7 +67,7 @@ get_latency_ms 2.173560
 ## Configuration
 Here is the external probe configuration that makes use of this program:
 
-Full example in [examples/external/cloudprober.cfg](https://github.com/google/cloudprober/blob/master/examples/external/cloudprober.cfg).
+Full example in [examples/external/cloudprober.cfg](https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober.cfg).
 
 {{< highlight shell >}}
 # Run an external probe that executes a command from the current working
@@ -150,7 +150,7 @@ External probe's server mode provides a way to run the external probe process in
 ![External Probe Server](/diagrams/external_probe_server.svg)
 
 Please see the code at 
-[examples/external/redis_probe.go](https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go) for server mode implementation of the above probe. Here is the corresponding
+[examples/external/redis_probe.go](https://github.com/cloudprober/cloudprober/blob/master/examples/external/redis_probe.go) for server mode implementation of the above probe. Here is the corresponding
 cloudprober config to run this probe in server mode: [examples/external/cloudprober_server.cfg](
 https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober_server.cfg).
 

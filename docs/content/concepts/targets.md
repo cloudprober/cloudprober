@@ -48,7 +48,7 @@ To provide a consistent interface between targets' configuration and the actual 
 
 <a href="/diagrams/rds_targets.png"><img style="float: center;" width=450px src="/diagrams/rds_targets.png"></a>
 
-Here are the RDS targets configuration ([RDSTargets](https://github.com/google/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/targets/proto/targets.proto#L12)) options:
+Here are the RDS targets configuration ([RDSTargets](https://github.com/cloudprober/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/targets/proto/targets.proto#L12)) options:
 
 ```protobuf
 message RDSTargets {
@@ -84,7 +84,7 @@ message RDSTargets {
 
   // IP config to specify the IP address to pick for a resource. IPConfig
   // is defined here:
-  // https://github.com/google/cloudprober/blob/master/rds/proto/rds.proto
+  // https://github.com/cloudprober/cloudprober/blob/master/rds/proto/rds.proto
   optional rds.IPConfig ip_config = 4;
 }
 ```
@@ -92,7 +92,7 @@ message RDSTargets {
 Most options are explained in the comments for quick references. Here is the further explanation of some of these options:
 
 ### rds_server_options
-This [field](https://github.com/google/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/rds/client/proto/config.proto#L19) specifies how to connect to the RDS server: server address and security options (OAuth and TLS). If left unspecified, it connects to the local server if any (started through `rds_server` option). Next up it looks for the `rds_server_options` in [global_targets_options](https://github.com/google/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/targets/proto/targets.proto#L125). 
+This [field](https://github.com/cloudprober/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/rds/client/proto/config.proto#L19) specifies how to connect to the RDS server: server address and security options (OAuth and TLS). If left unspecified, it connects to the local server if any (started through `rds_server` option). Next up it looks for the `rds_server_options` in [global_targets_options](https://github.com/cloudprober/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/targets/proto/targets.proto#L125). 
 
 ### resource_path
 Resource path specifies the resources we are interested in. It consists of _resource provider_, _resource type_ and optional _relative path_: `<resource_provider>://<resource_type>/<optional_relative_path>`
@@ -116,10 +116,10 @@ Filters are key-value strings that can be used to filter resources by various fi
  }
 ```
 
-* Filters supported by kubernetes resources: [k8s filters](https://github.com/google/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/kubernetes/kubernetes.go#L55).
+* Filters supported by kubernetes resources: [k8s filters](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/kubernetes/kubernetes.go#L55).
 * Filters supported by GCP:
-  * [GCE Instances](https://github.com/google/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/gce_instances.go#L44)
-  * [Pub/Sub Messages](https://github.com/google/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/pubsub.go#L34)
+  * [GCE Instances](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/gce_instances.go#L44)
+  * [Pub/Sub Messages](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/pubsub.go#L34)
 
 ## Running RDS Server
 
@@ -162,5 +162,5 @@ rds_server {
 grpc_port: 9314
 ```
 
-For the remote RDS server setup, if accessing over external network, you can secure the underlying gRPC communication using [TLS certificates](https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91).
+For the remote RDS server setup, if accessing over external network, you can secure the underlying gRPC communication using [TLS certificates](https://github.com/cloudprober/cloudprober/blob/master/config/proto/config.proto#L91).
 

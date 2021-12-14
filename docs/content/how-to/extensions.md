@@ -88,7 +88,7 @@ myprobe.pb.go  myprobe.proto
 ## Implement the probe type
 
 Now let's implement our probe type. Our probe type should implement the
-[probes.Probe](https://godoc.org/github.com/google/cloudprober/probes#Probe) interface.
+[probes.Probe](https://godoc.org/github.com/cloudprober/cloudprober/probes#Probe) interface.
 
 {{< highlight go >}}
 package myprobe
@@ -161,7 +161,7 @@ func (p *Probe) runProbe(ctx context.Context) {
 {{< / highlight >}}
 
 Full example in
-[examples/extensions/myprober/myprobe/myprobe.go](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go).
+[examples/extensions/myprober/myprobe/myprobe.go](https://github.com/cloudprober/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go).
 
 This probe type sets or gets (depending on the configuration) a key-valye in
 redis and records success and time taken (latency) if operation is successful.
@@ -196,7 +196,7 @@ func main() {
 {{< / highlight >}}
 
 Full example in
-[examples/extensions/myprober/myprober.go](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go).
+[examples/extensions/myprober/myprober.go](https://github.com/cloudprober/cloudprober/blob/master/examples/extensions/myprober/myprober.go).
 
 Let's write a test config that uses the newly defined probe type:
 
@@ -218,7 +218,7 @@ probe {
 {{< / highlight >}}
 
 Full example in
-[examples/extensions/myprober/myprober.cfg](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg).
+[examples/extensions/myprober/myprober.cfg](https://github.com/cloudprober/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg).
 
 Let's compile our prober and run it with the above config:
 
