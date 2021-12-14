@@ -16,7 +16,7 @@ install:
 script:
  - go test ${EXTRA_TEST_FLAGS} -v -race -covermode=atomic ./...
 
-go_import_path: github.com/google/cloudprober
+go_import_path: github.com/cloudprober/cloudprober
 
 services:
  - docker

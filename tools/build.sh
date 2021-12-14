@@ -18,7 +18,7 @@
 # be already available (can be done using tools/gen_pb_go.sh).
 
 PROTOC_VERSION="3.3.0"
-PROJECT="github.com/google/cloudprober"
+PROJECT="github.com/cloudprober/cloudprober"
 
 GOPATH=$(go env GOPATH)
 
@@ -33,7 +33,7 @@ project_dir="${GOPATH}/src/${PROJECT}"
 
 if [ ! -d "${project_dir}" ];then
   echo "${PROJECT} not found under Go workspace: ${GOPATH}/src. Please download"
-  echo " cloudprober source code from github.com/google/cloudprober and set it "
+  echo " cloudprober source code from github.com/cloudprober/cloudprober and set it "
   echo "such that it's available at ${project_dir}."
   exit 1
 fi
