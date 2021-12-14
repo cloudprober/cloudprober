@@ -122,9 +122,9 @@ func TestGetSourceIPFromConfig(t *testing.T) {
 		}
 
 		if r.sourceIP != "" {
-			p.SourceIpConfig = &configpb.ProbeDef_SourceIp{r.sourceIP}
+			p.SourceIpConfig = &configpb.ProbeDef_SourceIp{SourceIp: r.sourceIP}
 		} else if r.sourceIntf != "" {
-			p.SourceIpConfig = &configpb.ProbeDef_SourceInterface{r.sourceIntf}
+			p.SourceIpConfig = &configpb.ProbeDef_SourceInterface{SourceInterface: r.sourceIntf}
 			mockInterfaceByName(r.intf, r.intfAddrs)
 		}
 
@@ -175,7 +175,7 @@ func TestIPVersionFromSourceIP(t *testing.T) {
 		}
 
 		if r.sourceIP != "" {
-			p.SourceIpConfig = &configpb.ProbeDef_SourceIp{r.sourceIP}
+			p.SourceIpConfig = &configpb.ProbeDef_SourceIp{SourceIp: r.sourceIP}
 		}
 
 		opts, err := BuildProbeOptions(p, nil, nil, nil)

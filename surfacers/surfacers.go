@@ -79,10 +79,10 @@ var StatusTmpl = template.Must(template.New("statusTmpl").Parse(`
 
 // Default surfacers. These surfacers are enabled if no surfacer is defined.
 var defaultSurfacers = []*surfacerpb.SurfacerDef{
-	&surfacerpb.SurfacerDef{
+	{
 		Type: surfacerpb.Type_PROMETHEUS.Enum(),
 	},
-	&surfacerpb.SurfacerDef{
+	{
 		Type: surfacerpb.Type_FILE.Enum(),
 	},
 }

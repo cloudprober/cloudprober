@@ -199,7 +199,7 @@ func (client *Client) initListResourcesFunc() error {
 		if err != nil {
 			return fmt.Errorf("rds/client: error getting token source from OAuth config (%+v): %v", client.serverOpts.GetOauthConfig(), err)
 		}
-		client.dialOpts = append(client.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{oauthTS}))
+		client.dialOpts = append(client.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
 	}
 
 	conn, err := client.connect(client.serverOpts.GetServerAddress())
