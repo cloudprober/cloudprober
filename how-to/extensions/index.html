@@ -473,7 +473,7 @@ $ ls myprobe/
 myprobe.pb.go  myprobe.proto</code></pre></div>
 <h2 id="implement-the-probe-type">Implement the probe type</h2>
 <p>Now let's implement our probe type. Our probe type should implement the
-<a href="https://godoc.org/github.com/google/cloudprober/probes#Probe">probes.Probe</a> interface.</p>
+<a href="https://godoc.org/github.com/cloudprober/cloudprober/probes#Probe">probes.Probe</a> interface.</p>
 <div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="kn">package</span> <span class="nx">myprobe</span>
 
 <span class="c1">// Probe holds aggregate information about all probe runs, per-target.
@@ -542,7 +542,7 @@ myprobe.pb.go  myprobe.proto</code></pre></div>
   <span class="nx">wg</span><span class="p">.</span><span class="nf">Wait</span><span class="p">(</span><span class="p">)</span>
 <span class="p">}</span></code></pre></div>
 <p>Full example in
-<a href="https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go">examples/extensions/myprober/myprobe/myprobe.go</a>.</p>
+<a href="https://github.com/cloudprober/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go">examples/extensions/myprober/myprobe/myprobe.go</a>.</p>
 <p>This probe type sets or gets (depending on the configuration) a key-valye in
 redis and records success and time taken (latency) if operation is successful.</p>
 <h2 id="implement-a-cloudprober-binary-that-includes-support-for-our-probe">Implement a cloudprober binary that includes support for our probe</h2>
@@ -571,7 +571,7 @@ redis and records success and time taken (latency) if operation is successful.</
 </span><span class="c1"></span>  <span class="k">select</span> <span class="p">{</span><span class="p">}</span>
 <span class="p">}</span></code></pre></div>
 <p>Full example in
-<a href="https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go">examples/extensions/myprober/myprober.go</a>.</p>
+<a href="https://github.com/cloudprober/cloudprober/blob/master/examples/extensions/myprober/myprober.go">examples/extensions/myprober/myprober.go</a>.</p>
 <p>Let's write a test config that uses the newly defined probe type:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
   name: <span class="s2">&#34;redis_set&#34;</span>
@@ -588,7 +588,7 @@ redis and records success and time taken (latency) if operation is successful.</
   <span class="o">}</span>
 <span class="o">}</span></code></pre></div>
 <p>Full example in
-<a href="https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg">examples/extensions/myprober/myprober.cfg</a>.</p>
+<a href="https://github.com/cloudprober/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg">examples/extensions/myprober/myprober.cfg</a>.</p>
 <p>Let's compile our prober and run it with the above config:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">go build ./myprober.go
 ./myprober --config_file<span class="o">=</span>myprober.cfg</code></pre></div>

@@ -444,7 +444,7 @@ set_latency_ms 22.656588
 get_latency_ms 2.173560</code></pre></div>
 <h2 id="configuration">Configuration</h2>
 <p>Here is the external probe configuration that makes use of this program:</p>
-<p>Full example in <a href="https://github.com/google/cloudprober/blob/master/examples/external/cloudprober.cfg">examples/external/cloudprober.cfg</a>.</p>
+<p>Full example in <a href="https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober.cfg">examples/external/cloudprober.cfg</a>.</p>
 <div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell"><span class="c1"># Run an external probe that executes a command from the current working</span>
 <span class="c1"># directory.</span>
 probe <span class="o">{</span>
@@ -504,7 +504,7 @@ every time makes keeping state impossible.</p>
 <p>External probe's server mode provides a way to run the external probe process in daemon mode. Cloudprober communicates with this process over stdout/stdin (connected with OS pipes), using serialized protobuf messages. Cloudprober comes with a serverutils package that makes it easy to build external probe servers in Go.</p>
 <p><img src="https://cloudprober.org/diagrams/external_probe_server.svg" alt="External Probe Server"></p>
 <p>Please see the code at
-<a href="https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go">examples/external/redis_probe.go</a> for server mode implementation of the above probe. Here is the corresponding
+<a href="https://github.com/cloudprober/cloudprober/blob/master/examples/external/redis_probe.go">examples/external/redis_probe.go</a> for server mode implementation of the above probe. Here is the corresponding
 cloudprober config to run this probe in server mode: <a href="https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober_server.cfg">examples/external/cloudprober_server.cfg</a>.</p>
 <p>In server mode, if external probe process dies for reason, it's restarted by Cloudprober.</p>
 
