@@ -44,7 +44,7 @@ probe {
 
 As seen in the example above, for latencies you configure distribution at the probe level by adding a field called `latency_distribution`. Without this field, cloudprober exports only cumulative latencies. To create distributions from an external probe's data, take a look at the external probe's [documentation](/how-to/external-probe/#distributions).
 
-Format for the distribution field is in turn defined in [dist.proto](https://github.com/google/cloudprober/blob/master/metrics/proto/dist.proto).
+Format for the distribution field is in turn defined in [dist.proto](https://github.com/cloudprober/cloudprober/blob/master/metrics/proto/dist.proto).
 
 ```protobuf
 // Dist defines a Distribution data type.

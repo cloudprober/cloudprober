@@ -48,7 +48,7 @@ Here are all the config options for stackdriver surfacer:
       [default = "custom.googleapis.com/cloudprober/"];
 ```
 
-(Source: https://github.com/google/cloudprober/blob/master/surfacers/stackdriver/proto/config.proto)
+(Source: https://github.com/cloudprober/cloudprober/blob/master/surfacers/stackdriver/proto/config.proto)
 
 For example, you can configure stackdriver surfacer to export only metrics that match a specific regex: 
 

@@ -160,7 +160,7 @@ probe {
 rds_server {
   provider {
     # For all options, please take a look at:
-    # https://github.com/google/cloudprober/blob/master/rds/kubernetes/proto/config.proto#L38
+    # https://github.com/cloudprober/cloudprober/blob/master/rds/kubernetes/proto/config.proto#L38
     kubernetes_config {
       endpoints {}
     }

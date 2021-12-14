@@ -6,22 +6,22 @@ menu:
 title: "Surfacers"
 date: 2020-11-01T17:24:32-07:00
 ---
-One of the biggest strengths of cloudprober is that it can export data to multiple monitoring systems, even simultaneously, just based on simple configuration. Cloudprober does that using a built-in mechanism, called surfacers. Each surfacer type implements interface for a specific monitoring system, for example, [_pubsub_](https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto) surfacer publishes data to Google Pub/Sub. You can configure multiple surfacers at the same time. If you don't specify any surfacer, [_prometheus_](https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto) and [_file_](https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto) surfacers are enabled automatically.
+One of the biggest strengths of cloudprober is that it can export data to multiple monitoring systems, even simultaneously, just based on simple configuration. Cloudprober does that using a built-in mechanism, called surfacers. Each surfacer type implements interface for a specific monitoring system, for example, [_pubsub_](https://github.com/cloudprober/cloudprober/blob/master/surfacers/prometheus/proto/config.proto) surfacer publishes data to Google Pub/Sub. You can configure multiple surfacers at the same time. If you don't specify any surfacer, [_prometheus_](https://github.com/cloudprober/cloudprober/blob/master/surfacers/prometheus/proto/config.proto) and [_file_](https://github.com/cloudprober/cloudprober/blob/master/surfacers/file/proto/config.proto) surfacers are enabled automatically.
 
 Why other monitoring systems? Cloudprober's main purpose is to run probes and build standard, usable metrics based on the results of those probes. It doesn't take any action on the generated data. Instead, it provides an easy interface to make that probe data available to systems that provide ways to consume monitoring data, for example for graphing and alerting.
 
 Cloudprober currently supports following surfacer types:
 
-* Prometheus ([config](https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto))
+* Prometheus ([config](https://github.com/cloudprober/cloudprober/blob/master/surfacers/prometheus/proto/config.proto))
 * [Stackdriver (Google Cloud Monitoring)](/surfacers/stackdriver)
-* Google Pub/Sub ([config](https://github.com/google/cloudprober/blob/master/surfacers/pubsub/proto/config.proto))
-* Postgres ([config](https://github.com/google/cloudprober/blob/master/surfacers/postgres/proto/config.proto))
-* File ([config](https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto))
+* Google Pub/Sub ([config](https://github.com/cloudprober/cloudprober/blob/master/surfacers/pubsub/proto/config.proto))
+* Postgres ([config](https://github.com/cloudprober/cloudprober/blob/master/surfacers/postgres/proto/config.proto))
+* File ([config](https://github.com/cloudprober/cloudprober/blob/master/surfacers/file/proto/config.proto))
 * [Cloudwatch (AWS Cloud Monitoring)](/surfacers/cloudwatch)
 
-Source: [surfacers config](https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/proto/config.proto#L14).
+Source: [surfacers config](https://github.com/cloudprober/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/proto/config.proto#L14).
 
-It's easy to add more surfacers without having to understand the internals of cloudprober. You only need to implement the [Surfacer interface](https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/surfacers.go#L87).
+It's easy to add more surfacers without having to understand the internals of cloudprober. You only need to implement the [Surfacer interface](https://github.com/cloudprober/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/surfacers.go#L87).
 
 ## Configuration
 
@@ -111,5 +111,5 @@ surfacer {
   ignore_metrics_with_name: "validation_failure"
 }
 ```
-(Source: https://github.com/google/cloudprober/blob/master/surfacers/proto/config.proto)
+(Source: https://github.com/cloudprober/cloudprober/blob/master/surfacers/proto/config.proto)
 

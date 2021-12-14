@@ -99,7 +99,7 @@ The full list of configuration options for the cloudwatch surfacer is:
   optional string region = 3;
 ```
 
-(Source: https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
+(Source: https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
 
 ## Calculating the metric delta with Cloudwatch Metric Maths
 
