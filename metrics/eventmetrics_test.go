@@ -183,7 +183,7 @@ func BenchmarkEventMetricsStringer(b *testing.B) {
 	})
 	// run the em.String() function b.N times
 	for n := 0; n < b.N; n++ {
-		em.String()
+		_ = em.String()
 	}
 }
 
