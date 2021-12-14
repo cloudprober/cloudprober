@@ -403,19 +403,19 @@
 		<div class="wrapper">
 			<h1>Surfacers </h1>
 
-			<p>One of the biggest strengths of cloudprober is that it can export data to multiple monitoring systems, even simultaneously, just based on simple configuration. Cloudprober does that using a built-in mechanism, called surfacers. Each surfacer type implements interface for a specific monitoring system, for example, <a href="https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto"><em>pubsub</em></a> surfacer publishes data to Google Pub/Sub. You can configure multiple surfacers at the same time. If you don't specify any surfacer, <a href="https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto"><em>prometheus</em></a> and <a href="https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto"><em>file</em></a> surfacers are enabled automatically.</p>
+			<p>One of the biggest strengths of cloudprober is that it can export data to multiple monitoring systems, even simultaneously, just based on simple configuration. Cloudprober does that using a built-in mechanism, called surfacers. Each surfacer type implements interface for a specific monitoring system, for example, <a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/prometheus/proto/config.proto"><em>pubsub</em></a> surfacer publishes data to Google Pub/Sub. You can configure multiple surfacers at the same time. If you don't specify any surfacer, <a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/prometheus/proto/config.proto"><em>prometheus</em></a> and <a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/file/proto/config.proto"><em>file</em></a> surfacers are enabled automatically.</p>
 <p>Why other monitoring systems? Cloudprober's main purpose is to run probes and build standard, usable metrics based on the results of those probes. It doesn't take any action on the generated data. Instead, it provides an easy interface to make that probe data available to systems that provide ways to consume monitoring data, for example for graphing and alerting.</p>
 <p>Cloudprober currently supports following surfacer types:</p>
 <ul>
-<li>Prometheus (<a href="https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto">config</a>)</li>
+<li>Prometheus (<a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/prometheus/proto/config.proto">config</a>)</li>
 <li><a href="https://cloudprober.org/surfacers/stackdriver">Stackdriver (Google Cloud Monitoring)</a></li>
-<li>Google Pub/Sub (<a href="https://github.com/google/cloudprober/blob/master/surfacers/pubsub/proto/config.proto">config</a>)</li>
-<li>Postgres (<a href="https://github.com/google/cloudprober/blob/master/surfacers/postgres/proto/config.proto">config</a>)</li>
-<li>File (<a href="https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto">config</a>)</li>
+<li>Google Pub/Sub (<a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/pubsub/proto/config.proto">config</a>)</li>
+<li>Postgres (<a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/postgres/proto/config.proto">config</a>)</li>
+<li>File (<a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/file/proto/config.proto">config</a>)</li>
 <li><a href="https://cloudprober.org/surfacers/cloudwatch">Cloudwatch (AWS Cloud Monitoring)</a></li>
 </ul>
-<p>Source: <a href="https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/proto/config.proto#L14">surfacers config</a>.</p>
-<p>It's easy to add more surfacers without having to understand the internals of cloudprober. You only need to implement the <a href="https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/surfacers.go#L87">Surfacer interface</a>.</p>
+<p>Source: <a href="https://github.com/cloudprober/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/proto/config.proto#L14">surfacers config</a>.</p>
+<p>It's easy to add more surfacers without having to understand the internals of cloudprober. You only need to implement the <a href="https://github.com/cloudprober/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/surfacers.go#L87">Surfacer interface</a>.</p>
 <h2 id="configuration">Configuration</h2>
 <p>Adding surfacers to cloudprober is as easy as adding &ldquo;surfacer&rdquo; config stanzas to your config, like the following:</p>
 <div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell"><span class="c1"># Enable prometheus and stackdriver surfacers.</span>
@@ -483,7 +483,7 @@ surfacer <span class="o">{</span>
 
   ignore_metrics_with_name: &quot;validation_failure&quot;
 }
-</code></pre><p>(Source: <a href="https://github.com/google/cloudprober/blob/master/surfacers/proto/config.proto">https://github.com/google/cloudprober/blob/master/surfacers/proto/config.proto</a>)</p>
+</code></pre><p>(Source: <a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/proto/config.proto">https://github.com/cloudprober/cloudprober/blob/master/surfacers/proto/config.proto</a>)</p>
 
 
 			<aside class="copyright" role="note">
