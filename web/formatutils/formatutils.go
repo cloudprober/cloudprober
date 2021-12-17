@@ -19,13 +19,14 @@ package formatutils
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 // ConfToString tries to convert the given conf object into a string.
 func ConfToString(conf interface{}) string {
 	if msg, ok := conf.(proto.Message); ok {
-		return proto.MarshalTextString(msg)
+		return prototext.Format(msg)
 	}
 	if stringer, ok := conf.(fmt.Stringer); ok {
 		return stringer.String()

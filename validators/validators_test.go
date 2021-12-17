@@ -17,24 +17,7 @@ package validators
 import (
 	"reflect"
 	"testing"
-
-	"github.com/cloudprober/cloudprober/logger"
 )
-
-type testValidator struct {
-	Succeed bool
-}
-
-func (tv *testValidator) Init(config interface{}, l *logger.Logger) error {
-	return nil
-}
-
-func (tv *testValidator) Validate(responseObject interface{}, responseBody []byte) (bool, error) {
-	if tv.Succeed {
-		return true, nil
-	}
-	return false, nil
-}
 
 var testValidators = []*Validator{
 	{
