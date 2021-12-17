@@ -21,9 +21,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/validators/http/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestParseStatusCodeConfig(t *testing.T) {
@@ -35,15 +35,15 @@ func TestParseStatusCodeConfig(t *testing.T) {
 	}
 
 	expectedNR := []*numRange{
-		&numRange{
+		{
 			lower: 302,
 			upper: 302,
 		},
-		&numRange{
+		{
 			lower: 200,
 			upper: 299,
 		},
-		&numRange{
+		{
 			lower: 403,
 			upper: 403,
 		},
