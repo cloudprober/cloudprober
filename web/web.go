@@ -67,7 +67,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, Status())
+	fmt.Fprint(w, Status())
 }
 
 // Init initializes cloudprober web interface handler.
