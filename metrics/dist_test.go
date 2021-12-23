@@ -41,7 +41,7 @@ func protoToDist(t *testing.T, testDistProtoText string) *Distribution {
 	}
 	d, err := NewDistributionFromProto(testDistProto)
 	if err != nil {
-		t.Errorf("Error while creating distrubtion from the protobuf: %s. Err: %v", testDistProtoText, err)
+		t.Errorf("Error while creating distribution from the protobuf: %s. Err: %v", testDistProtoText, err)
 		return nil
 	}
 	return d
