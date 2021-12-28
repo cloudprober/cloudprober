@@ -27,7 +27,7 @@ Please take a look at the [ProbeDef protobuf](https://github.com/cloudprober/clo
 |-------|------------|
 |`total`   | Total number of probes. |
 |`success` | Number of successful probes. Deficit between _total_ and _success_ indicates failures.|
-|`latency` | Cumulative probe latency (by default in microseconds). Latency can also be configured to be a distribution (histogram) metric through a config option (`latency_distribution`). By default it's just the sum of the latencies observed so far. Average latency can be computed using _rate(latency) / rate(success)_.|
+|`latency` | Cumulative probe latency (by default in microseconds). Latency can also be configured to be a [distribution](/how-to/percentiles/) (histogram) metric through a config option (`latency_distribution`). By default it's just the sum of the latencies observed so far. Average latency can be computed using _rate(latency) / rate(success)_.|
 
 
 ## Probe Types
