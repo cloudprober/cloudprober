@@ -463,7 +463,7 @@ against a set of targets, to verify that the systems are working as expected fro
 </tr>
 <tr>
 <td><code>latency</code></td>
-<td>Cumulative probe latency (by default in microseconds). Latency can also be configured to be a distribution (histogram) metric through a config option (<code>latency_distribution</code>). By default it's just the sum of the latencies observed so far. Average latency can be computed using <em>rate(latency) / rate(success)</em>.</td>
+<td>Cumulative probe latency (by default in microseconds). Latency can also be configured to be a <a href="https://cloudprober.org/how-to/percentiles/">distribution</a> (histogram) metric through a config option (<code>latency_distribution</code>). By default it's just the sum of the latencies observed so far. Average latency can be computed using <em>rate(latency) / rate(success)</em>.</td>
 </tr>
 </tbody>
 </table>
