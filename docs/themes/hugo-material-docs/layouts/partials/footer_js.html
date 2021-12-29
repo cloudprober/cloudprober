@@ -8,6 +8,7 @@
     {{ end }}
     </script>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.3.9/lunr.min.js"></script>
     <script src="{{ "javascripts/application.js" | absURL }}"></script>
     {{ range .Site.Params.custom_js }}
     <script src="{{ . | absURL }}"></script>
