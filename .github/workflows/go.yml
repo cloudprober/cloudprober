@@ -11,6 +11,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+         - os: macos-latest
+           goarch: arm64
+         - os: linux
+           goarch: arm
+           goarm: 7
     steps:
     - name: Set up Go 1.16
       uses: actions/setup-go@v1
@@ -23,7 +29,9 @@ jobs:
 
     - name: Set BIN_DIR and ZIP env variable
       run: |
-        echo "BIN_DIR=cloudprober-$(git describe --tags)-$(echo ${{ matrix.os }} | sed 's/-latest//')-$(uname -m)" >> $GITHUB_ENV      
+        ARCH=${{ matrix.arch }}
+        [[ -z $ARCH ]] && ARCH=$(uname -m)
+        echo "BIN_DIR=cloudprober-$(git describe --tags)-$(echo ${{ matrix.os }} | sed 's/-latest//')-$ARCH" >> $GITHUB_ENV      
 
     - name: Override BIN_DIR env variable on windows
       if: ${{ matrix.os == 'windows-latest' }}
@@ -36,13 +44,13 @@ jobs:
       
     - name: Get dependencies
       run: |
-        go get -v -t -d ./...
+        GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} go get -v -t -d ./...
 
     - name: Build
-      run: go build -v .
+      run: GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} go build -v .
 
     - name: Test
-      run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
+      run: GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
 
     - name: Build cloudprober Binary
       run: make cloudprober
