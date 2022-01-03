@@ -26,11 +26,15 @@ jobs:
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v1
-
+      
+    - if: ${{ matrix.goarch }}
+      run: echo "ARCH=${{ matrix.goarch }}" >> $GITHUB_ENV
+      
+    - if: ${{ !matrix.goarch }}
+      run: echo "ARCH=$(uname -m)" >> $GITHUB_ENV
+      
     - name: Set BIN_DIR and ZIP env variable
       run: |
-        ARCH=${{ matrix.arch }}
-        [[ -z $ARCH ]] && ARCH=$(uname -m)
         echo "BIN_DIR=cloudprober-$(git describe --tags)-$(echo ${{ matrix.os }} | sed 's/-latest//')-$ARCH" >> $GITHUB_ENV      
 
     - name: Override BIN_DIR env variable on windows
