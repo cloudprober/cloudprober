@@ -13,11 +13,17 @@ test:
 $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
+$(BINARY)-windows-x86_64: $(SOURCES)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+
 $(BINARY)-linux-x86_64: $(SOURCES)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
+$(BINARY)-linux-arm64: $(SOURCES)
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+
 $(BINARY)-linux-armv7: $(SOURCES)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=v7 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
 $(BINARY)-macos-x86_64: $(SOURCES)
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
