@@ -37,6 +37,7 @@ jobs:
       
   build-binary:
     name: Build cloudprober binary
+    needs: [build-and-test]
     runs-on: ubuntu-latest
     
     steps:
@@ -58,7 +59,7 @@ jobs:
           mkdir -p $bindir
           cp $bin ${bindir}/cloudprober
           chmod a+rx ${bindir}/cloudprober
-          zip -r ${{ env.BIN_DIR }}.zip ${{ env.BIN_DIR }}/
+          zip -r ${bindir}.zip ${bindir}//
         done
 
     - name: Upload cloudprober dist
