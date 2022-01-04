@@ -78,6 +78,7 @@ jobs:
           mkdir -p $bindir
           cp $bin ${bindir}/cloudprober
           chmod a+rx ${bindir}/cloudprober
+          [[ "$bin" == *"windows"* ]] && mv ${bindir}/cloudprober{,.exe}
           zip -r ${bindir}.zip ${bindir}/
           rm -rf ${bindir}
         done
