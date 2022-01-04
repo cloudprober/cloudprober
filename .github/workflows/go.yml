@@ -34,6 +34,19 @@ jobs:
 
     - name: Test
       run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
+
+    - run: make cloudprober-linux-{amd64,arm64,armv7} cloudprober-windows-amd64
+      if:  ${{ matrix.os == 'ubuntu-latest' }}
+
+    - run: make cloudprober-macos-{amd64,arm64}
+      if:  ${{ matrix.os == 'macos-latest' }}
+
+    - name: Upload cloudprober dist
+      if:  ${{ matrix.os != 'windows-latest' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: cloudprober-dist
+        path: cloudprober-*
       
   build-binary:
     name: Build cloudprober binary
@@ -50,9 +63,11 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v1
 
-    - run: |
-        make cloudprober-linux-{amd64,arm64,armv7} cloudprober-macos-{amd64,arm64} cloudprober-windows-amd64
-  
+    - name: Download cloudprober binary
+      uses: actions/download-artifact@v2
+      with:
+        name: cloudprober-dist
+
     - run: |
         for bin in cloudprober-*; do
           bindir=${bin/amd64/x86_64}
@@ -68,9 +83,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: cloudprober-dist
-        path: |
-          cloudprober
-          cloudprober-*
+        path: cloudprober-*.zip
       
   build_and_push_docker:
     name: Build and push release docker image
