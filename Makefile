@@ -13,10 +13,10 @@ test:
 $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
-$(BINARY)-windows-x86_64: $(SOURCES)
+$(BINARY)-windows-amd64: $(SOURCES)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
-$(BINARY)-linux-x86_64: $(SOURCES)
+$(BINARY)-linux-amd64: $(SOURCES)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
 $(BINARY)-linux-arm64: $(SOURCES)
@@ -25,7 +25,7 @@ $(BINARY)-linux-arm64: $(SOURCES)
 $(BINARY)-linux-armv7: $(SOURCES)
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
-$(BINARY)-macos-x86_64: $(SOURCES)
+$(BINARY)-macos-amd64: $(SOURCES)
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
 $(BINARY)-macos-arm64: $(SOURCES)
@@ -39,6 +39,15 @@ docker_build: $(BINARY) ca-certificates.crt Dockerfile
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
+		-t $(DOCKER_IMAGE)  .
+
+docker_buildx: $(BINARY)-linux-amd64 $(BINARY)-linux-arm64 $(BINARY)-linux-armv7 ca-certificates.crt Dockerfile
+	docker buildx build \
+		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg VCS_REF=$(GIT_COMMIT) \
+		--platform linux/amd64,linux/arm64,linux/arm/v7 \
+		--file Dockerfile.buildx \
 		-t $(DOCKER_IMAGE)  .
 
 docker_push:
