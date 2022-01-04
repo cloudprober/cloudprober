@@ -52,6 +52,7 @@ type Server struct {
 	delay time.Duration
 	msg   []byte
 
+	// Required for all gRPC server implementations.
 	spb.UnimplementedProberServer
 }
 
