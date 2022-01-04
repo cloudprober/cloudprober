@@ -61,6 +61,7 @@ jobs:
           cp $bin ${bindir}/cloudprober
           chmod a+rx ${bindir}/cloudprober
           zip -r ${bindir}.zip ${bindir}/
+          rm -rf ${bindir}
         done
 
     - name: Upload cloudprober dist
