@@ -1,6 +1,6 @@
 module github.com/cloudprober/cloudprober
 
-go 1.15
+go 1.17
 
 require (
 	cloud.google.com/go v0.81.0
