@@ -37,6 +37,7 @@ import (
 type Server struct {
 	providers map[string]Provider
 	l         *logger.Logger
+	spb.UnimplementedResourceDiscoveryServer
 }
 
 // Provider is a resource provider, e.g. GCP provider.

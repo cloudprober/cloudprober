@@ -47,6 +47,7 @@ type Server struct {
 	startTime    time.Time
 	dedicatedSrv bool
 	msg          []byte
+	spb.UnimplementedProberServer
 }
 
 var (
