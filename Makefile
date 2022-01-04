@@ -41,14 +41,14 @@ docker_build: $(BINARY) ca-certificates.crt Dockerfile
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		-t $(DOCKER_IMAGE)  .
 
-docker_buildx: $(BINARY)-linux-amd64 $(BINARY)-linux-arm64 $(BINARY)-linux-armv7 ca-certificates.crt Dockerfile
-	docker buildx build \
+docker_multiarch: $(BINARY)-linux-amd64 $(BINARY)-linux-arm64 $(BINARY)-linux-armv7 ca-certificates.crt Dockerfile
+	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		--file Dockerfile.buildx \
-		-t $(DOCKER_IMAGE)  .
+		-t $(DOCKER_IMAGE):$(DOCKER_VERSION)  .
 
 docker_push:
 	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
