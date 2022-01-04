@@ -81,6 +81,7 @@ fi
 
 # Get go plugin for protoc
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 echo "Generating Go code for protobufs.."
 echo "======================================================================"
