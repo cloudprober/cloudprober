@@ -47,6 +47,9 @@ type Server struct {
 	startTime    time.Time
 	dedicatedSrv bool
 	msg          []byte
+
+	// Required for all gRPC server implementations.
+	spb.UnimplementedProberServer
 }
 
 var (

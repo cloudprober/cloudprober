@@ -70,6 +70,9 @@ type Prober struct {
 
 	// Used by GetConfig for /config handler.
 	TextConfig string
+
+	// Required for all gRPC server implementations.
+	spb.UnimplementedCloudproberServer
 }
 
 func runOnThisHost(runOn string, hostname string) (bool, error) {

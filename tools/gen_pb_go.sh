@@ -80,7 +80,8 @@ if [ -z ${protoc_path} ] || [ ! -x  ${protoc_path} ]; then
 fi
 
 # Get go plugin for protoc
-go install github.com/golang/protobuf/protoc-gen-go
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 echo "Generating Go code for protobufs.."
 echo "======================================================================"
@@ -98,7 +99,7 @@ find github.com/cloudprober/$PROJECT -type d | \
   do
     # Ignore directories with no proto files.
     ls ${dir}/*.proto > /dev/null 2>&1 || continue
-    ${protoc_path} --go_out=plugins=grpc:. ${dir}/*.proto
+    ${protoc_path} --go-grpc_out=. --go_out=. ${dir}/*.proto
   done
 
 # Copy generated files back to their original location.
