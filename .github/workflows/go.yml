@@ -45,7 +45,7 @@ jobs:
       if:  ${{ matrix.os != 'windows-latest' }}
       uses: actions/upload-artifact@v2
       with:
-        name: cloudprober-${{ runner.os }}-dist
+        name: cloudprober-${{ matrix.os }}-dist
         path: cloudprober-*
       
   build-dist:
@@ -57,7 +57,7 @@ jobs:
     - name: Download ubuntu cloudprober binaries
       uses: actions/download-artifact@v2
       with:
-        name: cloudprober-${{ runner.os }}-dist
+        name: cloudprober-ubuntu-latest-dist
 
     - name: Download macos cloudprober binaries
       uses: actions/download-artifact@v2
@@ -78,7 +78,7 @@ jobs:
     - name: Upload cloudprober dist
       uses: actions/upload-artifact@v2
       with:
-        name: cloudprober-zipped-dist
+        name: cloudprober-release-binaries
         path: cloudprober-*.zip
       
   build_and_push_docker:
@@ -94,7 +94,7 @@ jobs:
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
       with:
-        name: cloudprober-${{ runner.os }}-dist
+        name: cloudprober-ubuntu-latest-dist
     
     - run: |
         cp cloudprober-linux-amd64 cloudprober
@@ -123,7 +123,7 @@ jobs:
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
       with:
-        name: cloudprober-${{ runner.os }}-dist
+        name: cloudprober-ubuntu-latest-dist
 
     - run: |
         cp cloudprober-linux-amd64 cloudprober
@@ -161,7 +161,7 @@ jobs:
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
       with:
-        name: cloudprober-${{ runner.os }}-dist
+        name: cloudprober-ubuntu-latest-dist
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
