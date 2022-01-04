@@ -20,6 +20,8 @@ jobs:
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Set environment varible to skip UDP test on MAC OS
       if:  ${{ matrix.os == 'macos-latest' }}
@@ -49,13 +51,15 @@ jobs:
         path: cloudprober-*
       
   build-dist:
-    name: Build cloudprober distribution
+    name: Build cloudprober release
     needs: [build-and-test]
     runs-on: ubuntu-latest
     
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Download ubuntu cloudprober binaries
       uses: actions/download-artifact@v2
@@ -78,7 +82,7 @@ jobs:
           rm -rf ${bindir}
         done
 
-    - name: Upload cloudprober dist
+    - name: Upload cloudprober release
       uses: actions/upload-artifact@v2
       with:
         name: cloudprober-release-binaries
@@ -93,6 +97,8 @@ jobs:
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
@@ -122,6 +128,8 @@ jobs:
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
@@ -160,6 +168,8 @@ jobs:
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
