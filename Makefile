@@ -6,30 +6,32 @@ BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
 CACERTS ?= /etc/ssl/certs/ca-certificates.crt
 SOURCES := $(shell find . -name '*.go')
+LDFLAGS ?= "-s -w -X main.version=$(VERSION) -extldflags -static"
+BINARY_SOURCE ?= "./cmd/cloudprober.go"
 
 test:
 	go test -v -race -covermode=atomic ./...
 
 $(BINARY): $(SOURCES)
-	CGO_ENABLED=0 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 $(BINARY)-windows-amd64: $(SOURCES)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 $(BINARY)-linux-amd64: $(SOURCES)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 $(BINARY)-linux-arm64: $(SOURCES)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 $(BINARY)-linux-armv7: $(SOURCES)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 $(BINARY)-macos-amd64: $(SOURCES)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 $(BINARY)-macos-arm64: $(SOURCES)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $@ -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 ca-certificates.crt: $(CACERTS)
 	cp $(CACERTS) ca-certificates.crt
@@ -62,7 +64,7 @@ docker_push_tagged:
 	docker image push --all-tags $(DOCKER_IMAGE)
 
 install:
-	GOBIN=$(GOBIN) CGO_ENABLED=0 go install -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
+	GOBIN=$(GOBIN) CGO_ENABLED=0 go install -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 clean:
 	rm cloudprober
