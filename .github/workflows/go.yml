@@ -59,7 +59,7 @@ jobs:
           mkdir -p $bindir
           cp $bin ${bindir}/cloudprober
           chmod a+rx ${bindir}/cloudprober
-          zip -r ${bindir}.zip ${bindir}//
+          zip -r ${bindir}.zip ${bindir}/
         done
 
     - name: Upload cloudprober dist
