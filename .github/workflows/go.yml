@@ -87,7 +87,9 @@ jobs:
       with:
         name: cloudprober-dist
     
-    - run: chmod a+rx cloudprober cloudprober-*
+    - run: |
+        ls -R .
+        chmod a+rx cloudprober cloudprober-*
     
     - name: Build Docker Image
       run: make docker_build
@@ -120,7 +122,9 @@ jobs:
       with:
         name: cloudprober-dist
       
-    - run: chmod a+rx cloudprober cloudprober-*
+    - run: |
+        ls -R .
+        chmod a+rx cloudprober cloudprober-*
           
     - name: Build Docker Image
       run: |
