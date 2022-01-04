@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
@@ -21,6 +20,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/resolver"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 )
 
@@ -51,6 +51,9 @@ func probeCfg(tgts, cred string, timeout, numConns int) (*probepb.ProbeDef, erro
 type Server struct {
 	delay time.Duration
 	msg   []byte
+
+	// Required for all gRPC server implementations.
+	spb.UnimplementedProberServer
 }
 
 // Echo reflects back the incoming message.

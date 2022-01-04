@@ -37,6 +37,9 @@ import (
 type Server struct {
 	providers map[string]Provider
 	l         *logger.Logger
+
+	// Required for all gRPC server implementations.
+	spb.UnimplementedResourceDiscoveryServer
 }
 
 // Provider is a resource provider, e.g. GCP provider.
