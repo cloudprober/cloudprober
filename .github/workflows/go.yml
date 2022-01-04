@@ -56,6 +56,7 @@ jobs:
     - run: |
         for bin in cloudprober-*; do
           bindir=${bin/amd64/x86_64}
+          bindir=cloudprober-$(git describe --tags)-${bindir/cloudprober-/}
           mkdir -p $bindir
           cp $bin ${bindir}/cloudprober
           chmod a+rx ${bindir}/cloudprober
