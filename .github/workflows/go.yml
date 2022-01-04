@@ -19,7 +19,9 @@ jobs:
       id: go
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Set environment varible to skip UDP test on MAC OS
       if:  ${{ matrix.os == 'macos-latest' }}
@@ -34,25 +36,41 @@ jobs:
 
     - name: Test
       run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
+
+    - run: make cloudprober-linux-{amd64,arm64,armv7}
+      if:  ${{ matrix.os == 'ubuntu-latest' }}
+
+    - run: make cloudprober-macos-{amd64,arm64} cloudprober-windows-amd64
+      if:  ${{ matrix.os == 'macos-latest' }}
+
+    - name: Upload cloudprober dist
+      if:  ${{ matrix.os != 'windows-latest' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: cloudprober-${{ matrix.os }}-dist
+        path: cloudprober-*
       
-  build-binary:
-    name: Build cloudprober binary
+  build-dist:
+    name: Build cloudprober release
     needs: [build-and-test]
     runs-on: ubuntu-latest
     
     steps:
-    - name: Set up Go 1.16
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.16
-      id: go
-
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
-    - run: |
-        make cloudprober-linux-{amd64,arm64,armv7} cloudprober-macos-{amd64,arm64} cloudprober-windows-amd64
-  
+    - name: Download ubuntu cloudprober binaries
+      uses: actions/download-artifact@v2
+      with:
+        name: cloudprober-ubuntu-latest-dist
+
+    - name: Download macos cloudprober binaries
+      uses: actions/download-artifact@v2
+      with:
+        name: cloudprober-macos-latest-dist
+
     - run: |
         for bin in cloudprober-*; do
           bindir=${bin/amd64/x86_64}
@@ -64,28 +82,28 @@ jobs:
           rm -rf ${bindir}
         done
 
-    - name: Upload cloudprober dist
+    - name: Upload cloudprober release
       uses: actions/upload-artifact@v2
       with:
-        name: cloudprober-dist
-        path: |
-          cloudprober
-          cloudprober-*
+        name: cloudprober-release-binaries
+        path: cloudprober-*.zip
       
   build_and_push_docker:
     name: Build and push release docker image
     if: startsWith(github.ref, 'refs/tags')
-    needs: [build-binary]
+    needs: [build-and-test]
     runs-on: ubuntu-latest
     
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
       with:
-        name: cloudprober-dist
+        name: cloudprober-ubuntu-latest-dist
     
     - run: |
         cp cloudprober-linux-amd64 cloudprober
@@ -104,17 +122,19 @@ jobs:
   build_and_push_contrib_docker:
     name: Build and push contrib docker image
     if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags')
-    needs: [build-binary]
+    needs: [build-and-test]
     runs-on: ubuntu-latest
       
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
       with:
-        name: cloudprober-dist
+        name: cloudprober-ubuntu-latest-dist
 
     - run: |
         cp cloudprober-linux-amd64 cloudprober
@@ -142,17 +162,19 @@ jobs:
   build_and_push_docker_multiarch:
     name: Build and push multiarch docker image
     if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags')
-    needs: [build-binary]
+    needs: [build-and-test]
     runs-on: ubuntu-latest
 
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Download cloudprober binary
       uses: actions/download-artifact@v2
       with:
-        name: cloudprober-dist
+        name: cloudprober-ubuntu-latest-dist
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
