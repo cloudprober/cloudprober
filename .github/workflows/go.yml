@@ -176,9 +176,6 @@ jobs:
     if: github.ref == 'refs/heads/master'
     needs: [build-and-test]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image_type: ['main', 'contrib']
 
     steps:
     - name: Check out code into the Go module directory
@@ -217,10 +214,8 @@ jobs:
         chmod a+rx cloudprober cloudprober-*
 
     - name: Build and push Docker Image (main)
-      if: ${{ matrix.image_type == 'main' }}
       run: make docker_multiarch DOCKER_VERSION=master
       
     - name: Build and push Docker Image (contrib)
-      if: ${{ matrix.image_type == 'contrib' }}
       run: make -C contrib docker_multiarch DOCKER_VERSION=master
   
