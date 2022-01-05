@@ -73,5 +73,4 @@ install:
 	GOBIN=$(GOBIN) CGO_ENABLED=0 go install -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 clean:
-	rm cloudprober
-	go get -u ./...
+	rm -f cloudprober cloudprober-*

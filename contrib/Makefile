@@ -60,5 +60,4 @@ docker_push_tagged:
 	docker image push --all-tags $(DOCKER_IMAGE)
 
 clean:
-	rm bigquery_probe
-	go get -u ./...
+	rm -f bigquery_probe bigquery_probe-*
