@@ -9,6 +9,12 @@ SOURCES := $(shell find . -name '*.go')
 LDFLAGS ?= "-s -w -X main.version=$(VERSION) -extldflags -static"
 BINARY_SOURCE ?= "./cmd/cloudprober.go"
 
+ifeq "$(DOCKER_VERSION)" "master"
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION)
+else
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION) -t $(DOCKER_IMAGE):latest
+endif
+
 test:
 	go test -v -race -covermode=atomic ./...
 
@@ -36,13 +42,6 @@ $(BINARY)-macos-arm64: $(SOURCES)
 ca-certificates.crt: $(CACERTS)
 	cp $(CACERTS) ca-certificates.crt
 
-docker_build: $(BINARY) ca-certificates.crt Dockerfile
-	docker build \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
-		-t $(DOCKER_IMAGE)  .
-
 docker_multiarch: $(BINARY)-linux-amd64 $(BINARY)-linux-arm64 $(BINARY)-linux-armv7 ca-certificates.crt Dockerfile
 	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
@@ -50,7 +49,14 @@ docker_multiarch: $(BINARY)-linux-amd64 $(BINARY)-linux-arm64 $(BINARY)-linux-ar
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		--file Dockerfile.buildx \
-		-t $(DOCKER_IMAGE):$(DOCKER_VERSION)  .
+		$(DOCKER_TAGS) .
+
+docker_build: $(BINARY) ca-certificates.crt Dockerfile
+	docker build \
+		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg VCS_REF=$(GIT_COMMIT) \
+		-t $(DOCKER_IMAGE) .
 
 docker_push:
 	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
