@@ -4,10 +4,9 @@
 # Docker image built using this can executed in the following manner:
 #   docker run -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
 #                         cloudprober/cloudprober
-FROM busybox
-ADD cloudprober /cloudprober
+ARG DOCKER_VERSION
+FROM cloudprober/cloudprober:${DOCKER_VERSION}
 ADD bigquery_probe /contrib/bigquery_probe
-COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Metadata params
 ARG BUILD_DATE

@@ -219,3 +219,8 @@ jobs:
     - name: Build and push Docker Image (main)
       if: ${{ matrix.image_type == 'main' }}
       run: make docker_multiarch DOCKER_VERSION=master
+      
+    - name: Build and push Docker Image (contrib)
+      if: ${{ matrix.image_type == 'contrib' }}
+      run: make -c contrib docker_multiarch DOCKER_VERSION=master
+  
