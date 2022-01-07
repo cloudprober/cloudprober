@@ -1,5 +1,5 @@
 VERSION ?= $(shell git describe --tags)
-DOCKER_VERSION ?= $(VERSION)
+GIT_TAG := $(shell git describe --exact-match --tags HEAD 2>/dev/null || /bin/true)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
 DOCKER_IMAGE ?= cloudprober/cloudprober-contrib
@@ -7,10 +7,12 @@ CACERTS ?= /etc/ssl/certs/ca-certificates.crt
 SOURCES := $(shell find . -name '*.go')
 LDFLAGS ?= "-s -w -X main.version=$(VERSION) -extldflags -static"
 
-ifeq "$(DOCKER_VERSION)" "master"
-	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION)
+ifeq "$(GIT_TAG)" ""
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):master
+	CLOUDPROBER_VERSION := master
 else
-	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION) -t $(DOCKER_IMAGE):latest
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG) -t $(DOCKER_IMAGE):latest
+	CLOUDPROBER_VERSION := latest
 endif
 
 # Build bigquery probe
@@ -34,7 +36,7 @@ docker_multiarch: $(BIGQUERY_BINARY)-linux-amd64 $(BIGQUERY_BINARY)-linux-arm64 
 	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(VERSION) \
-		--build-arg DOCKER_VERSION=$(DOCKER_VERSION) \
+		--build-arg CLOUDPROBER_VERSION=$(CLOUDPROBER_VERSION) \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		$(DOCKER_TAGS) .
