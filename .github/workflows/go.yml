@@ -85,7 +85,6 @@ jobs:
         fetch-depth: 0
         ref: ${{ github.event.inputs.tag }}
 
-
     - name: Download ubuntu cloudprober binaries
       uses: actions/download-artifact@v2
       with:
@@ -96,17 +95,7 @@ jobs:
       with:
         name: cloudprober-macos-latest-dist
 
-    - run: |
-        for bin in cloudprober-*; do
-          bindir=${bin/amd64/x86_64}
-          bindir=cloudprober-$(git describe --tags)-${bindir/cloudprober-/}
-          mkdir -p $bindir
-          cp $bin ${bindir}/cloudprober
-          chmod a+rx ${bindir}/cloudprober
-          [[ "$bin" == *"windows"* ]] && mv ${bindir}/cloudprober{,.exe}
-          zip -r ${bindir}.zip ${bindir}/
-          rm -rf ${bindir}
-        done
+    - run: make dist
 
     - name: Upload cloudprober release
       uses: actions/upload-artifact@v2
@@ -215,7 +204,7 @@ jobs:
 
     - name: Build and push Docker Image (main)
       run: make docker_multiarch DOCKER_VERSION=master
-      
+
     - name: Build and push Docker Image (contrib)
       run: make -C contrib docker_multiarch DOCKER_VERSION=master
-  
+
