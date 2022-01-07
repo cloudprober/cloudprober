@@ -1,5 +1,5 @@
 VERSION ?= $(shell git describe --tags)
-DOCKER_VERSION ?= $(VERSION)
+GIT_TAG := $(shell git describe --exact-match --tags HEAD 2>/dev/null || /bin/true)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
 DOCKER_IMAGE ?= cloudprober/cloudprober-contrib
@@ -7,10 +7,10 @@ CACERTS ?= /etc/ssl/certs/ca-certificates.crt
 SOURCES := $(shell find . -name '*.go')
 LDFLAGS ?= "-s -w -X main.version=$(VERSION) -extldflags -static"
 
-ifeq "$(DOCKER_VERSION)" "master"
-	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION)
+ifeq "$(GIT_TAG)" ""
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):master
 else
-	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION) -t $(DOCKER_IMAGE):latest
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG) -t $(DOCKER_IMAGE):latest
 endif
 
 # Build bigquery probe
