@@ -8,8 +8,8 @@
 # This stage is used to find the correct binary for the platform. We store the
 # correct binary at /stage-0-workdir/cloudprober, and in the next stage discard
 # the rest.
-ARG DOCKER_VERSION
-FROM cloudprober/cloudprober:${DOCKER_VERSION} AS base
+ARG CLOUDPROBER_VERSION
+FROM cloudprober/cloudprober:${CLOUDPROBER_VERSION} AS base
 
 FROM busybox as stage0
 WORKDIR /stage-0-workdir

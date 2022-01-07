@@ -9,8 +9,10 @@ LDFLAGS ?= "-s -w -X main.version=$(VERSION) -extldflags -static"
 
 ifeq "$(GIT_TAG)" ""
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):master
+	CLOUDPROBER_VERSION := master
 else
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG) -t $(DOCKER_IMAGE):latest
+	CLOUDPROBER_VERSION := latest
 endif
 
 # Build bigquery probe
@@ -34,7 +36,7 @@ docker_multiarch: $(BIGQUERY_BINARY)-linux-amd64 $(BIGQUERY_BINARY)-linux-arm64 
 	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(VERSION) \
-		--build-arg DOCKER_VERSION=$(DOCKER_VERSION) \
+		--build-arg CLOUDPROBER_VERSION=$(CLOUDPROBER_VERSION) \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		$(DOCKER_TAGS) .
