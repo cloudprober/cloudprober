@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 VERSION ?= $(shell git describe --tags)
-DOCKER_VERSION ?= $(VERSION)
+GIT_TAG := $(shell git describe --exact-match --tags HEAD 2>/dev/null || /bin/true)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
 BINARY ?= cloudprober
@@ -13,10 +13,10 @@ BINARY_SOURCE ?= "./cmd/cloudprober.go"
 LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
 BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)
 
-ifeq "$(DOCKER_VERSION)" "master"
-	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION)
+ifeq "$(GIT_TAG)" ""
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):master
 else
-	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(DOCKER_VERSION) -t $(DOCKER_IMAGE):latest
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG) -t $(DOCKER_IMAGE):latest
 endif
 
 define make-binary-target
