@@ -1,16 +1,16 @@
-# This Dockerfile expects "cloudprober" binary and ca-certificates to exist
-# in the working directory.
+# This Dockerfile builds the cloudprober contrib docker image. It uses
+# cloudprober/cloudprober as the base image, and adds contrib binaries to the
+# /contrib directory.
 #
 # Docker image built using this can executed in the following manner:
 #   docker run --net host -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
 #                         cloudprober/cloudprober-contrib
+ARG CLOUDPROBER_VERSION
+FROM cloudprober/cloudprober:${CLOUDPROBER_VERSION} AS base
 
 # This stage is used to find the correct binary for the platform. We store the
 # correct binary at /stage-0-workdir/cloudprober, and in the next stage discard
 # the rest.
-ARG CLOUDPROBER_VERSION
-FROM cloudprober/cloudprober:${CLOUDPROBER_VERSION} AS base
-
 FROM busybox as stage0
 WORKDIR /stage-0-workdir
 COPY bigquery_probe-linux-* ./
@@ -24,7 +24,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
   mv bigquery_probe-linux-armv7 bigquery_probe; fi
 
 FROM base
-COPY --from=stage0 /stage-0-workdir/bigquery_probe /contrib
+COPY --from=stage0 /stage-0-workdir/bigquery_probe /contrib/
 
 # Metadata params
 ARG BUILD_DATE
