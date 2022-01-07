@@ -44,26 +44,7 @@ docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) ca-certificates.
 		--build-arg VERSION=$(VERSION) \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
-		--file Dockerfile.buildx \
 		$(DOCKER_TAGS) .
-
-docker_build: $(BINARY) ca-certificates.crt Dockerfile
-	docker build \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
-		-t $(DOCKER_IMAGE) .
-
-docker_push:
-	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
-	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
-	docker push $(DOCKER_IMAGE):$(DOCKER_VERSION)
-
-docker_push_tagged:
-	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
-	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):latest
-	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
-	docker image push --all-tags $(DOCKER_IMAGE)
 
 dist: $(BINARIES)
 	for bin in $(BINARIES) ; do \

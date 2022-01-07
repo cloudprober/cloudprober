@@ -30,34 +30,14 @@ $(BIGQUERY_BINARY)-linux-armv7: $(SOURCES)
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o $@ -ldflags $(LDFLAGS) $(BIGQUERY_BINARY_SOURCE)
 
 
-docker_multiarch: $(BIGQUERY_BINARY)-linux-amd64 $(BIGQUERY_BINARY)-linux-arm64 $(BIGQUERY_BINARY)-linux-armv7 Dockerfile.buildx
+docker_multiarch: $(BIGQUERY_BINARY)-linux-amd64 $(BIGQUERY_BINARY)-linux-arm64 $(BIGQUERY_BINARY)-linux-armv7 Dockerfile
 	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg DOCKER_VERSION=$(DOCKER_VERSION) \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
-		--file Dockerfile.buildx \
 		$(DOCKER_TAGS) .
-
-docker_build: bigquery_probe Dockerfile
-	docker build \
-                --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-                --build-arg VERSION=$(VERSION) \
-                --build-arg DOCKER_VERSION=$(DOCKER_VERSION) \
-                --build-arg VCS_REF=$(GIT_COMMIT) \
-                -t $(DOCKER_IMAGE):$(DOCKER_VERSION)  .
-
-docker_push:
-	docker tag $(DOCKER_IMAGE):$(DOCKER_VERSION) $(DOCKER_IMAGE):$(DOCKER_VERSION)
-	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
-	docker push $(DOCKER_IMAGE):$(DOCKER_VERSION)
-
-docker_push_tagged:
-	docker tag $(DOCKER_IMAGE):$(DOCKER_VERSION) $(DOCKER_IMAGE):$(DOCKER_VERSION)
-	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):latest
-	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
-	docker image push --all-tags $(DOCKER_IMAGE)
 
 clean:
 	rm -f bigquery_probe bigquery_probe-*
