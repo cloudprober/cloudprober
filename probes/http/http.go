@@ -346,11 +346,14 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 
 	wg := sync.WaitGroup{}
 	for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
+		initialDelay := time.Duration(numReq*p.c.GetDelayRequestsPerProbeMs()) * time.Millisecond
 		wg.Add(1)
-		go func(req *http.Request, targetName string, result *probeResult) {
+		go func(initial_delay time.Duration, req *http.Request, targetName string, result *probeResult) {
 			defer wg.Done()
+			// Spread the probes out evenly to prevent spikes.
+			time.Sleep(initialDelay)
 			p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
-		}(req, target.Name, result)
+		}(initialDelay, req, target.Name, result)
 	}
 	wg.Wait()
 }
