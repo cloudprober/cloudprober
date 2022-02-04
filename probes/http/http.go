@@ -136,6 +136,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.c = c
 
+	if time.Duration(p.c.GetRequestsIntervalMsec() * p.c.GetRequestsPerProbe()) + p.opts.Timeout >
+			p.opts.Interval {
+				return fmt.Errorf(
+					"Total probe duration (%dms) is larger than probe interval (%dms)",
+					p.c.GetRequestsIntervalMsec() * p.c.GetRequestsPerProbe() + int32(p.opts.Timeout),
+					p.opts.Interval)
+	}
+
 	p.protocol = strings.ToLower(p.c.GetProtocol().String())
 	p.method = p.c.GetMethod().String()
 
@@ -256,7 +264,7 @@ func isClientTimeout(err error) bool {
 }
 
 // httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *probeResult, resultMu *sync.Mutex) {
+func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *probeResult, resultMu *sync.Mutex, initialDelay time.Duration) {
 
 	if len(p.requestBody) >= largeBodyThreshold {
 		req = req.Clone(req.Context())
@@ -276,6 +284,9 @@ func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *prob
 		}
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	}
+	// Most sleep after acquiring the httptrace, else many of the requests will reuse
+	// the same http connection.
+	time.Sleep(initialDelay)
 
 	start := time.Now()
 	resp, err := p.client.Do(req)
@@ -330,11 +341,11 @@ func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *prob
 }
 
 func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *http.Request, result *probeResult) {
-	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
-	defer cancelReqCtx()
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doHTTPRequest(req.WithContext(reqCtx), target.Name, result, nil)
+		reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
+		defer cancelReqCtx()
+		p.doHTTPRequest(req.WithContext(reqCtx), target.Name, result, nil, 0)
 		return
 	}
 
@@ -346,13 +357,16 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 
 	wg := sync.WaitGroup{}
 	for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
-		initialDelay := time.Duration(numReq*p.c.GetDelayRequestsPerProbeMs()) * time.Millisecond
+		// stagger probes
+		initialDelay := time.Duration(numReq*p.c.GetRequestsIntervalMsec()) * time.Millisecond
+
 		wg.Add(1)
-		go func(initial_delay time.Duration, req *http.Request, targetName string, result *probeResult) {
+		go func(initialDelay time.Duration,
+			req *http.Request, targetName string, result *probeResult) {
 			defer wg.Done()
-			// Spread the probes out evenly to prevent spikes.
-			time.Sleep(initialDelay)
-			p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
+			reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout + initialDelay)
+			defer cancelReqCtx()
+			p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu, initialDelay)
 		}(initialDelay, req, target.Name, result)
 	}
 	wg.Wait()

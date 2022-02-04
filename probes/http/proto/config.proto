@@ -94,13 +94,6 @@ message ProbeConf {
   // requests per probe, "total" counter will be incremented by 2.
   optional int32 requests_per_probe = 98 [default = 1];
 
-  // Delay between request per probe
-  // Delay between the individual "requests_per_probe". This is ignored
-  // when requests_per_probe is "1".
-  optional int32 delay_requests_per_probe_ms = 100 [default = 1];
-
   // How long to wait between two requests to the same target
-  // NOTE: This field is now deprecated and will be removed after the v0.10.3
-  // releases.
-  optional int32 requests_interval_msec = 99 [default = 25];
+  optional int32 requests_interval_msec = 99 [default = 0];
 }
