@@ -65,14 +65,15 @@ type Probe struct {
 	c    *configpb.ProbeConf
 	l    *logger.Logger
 
-	// We use as many clients as requests per probe, i.e. each request within a
-	// probe cycle uses a different client. For example, if you configure
-	// requests_per_probe as 100, probe will have 100 HTTP clients. This is to
-	// provide a more deterministic way to create multiple connections to a
-	// single target, which is sometimes desirable if you want to hit as many
-	// backends as possible, behind a single VIP. Note that clients will still
-	// be shared by the targets within a probe, which is fine as each target
-	// will anyway have a differet connection.
+	// We use a different HTTP client (transport) for each request within a
+	// probe cycle. For example, if you configure requests_per_probe as 100,
+	// we'll create and use 100 HTTP clients. This is to provide a more
+	// deterministic way to create multiple connections to a single target
+	// (while still using keep_alive to avoid the cost of TCP connection setup
+	// in the probing path). This behavior is desirable if you want to hit as
+	// many backends as possible, behind a single VIP. Note that clients will
+	// still be shared by the targets within a probe, which is ok as each
+	// target will anyway have a differet connection.
 	clients []*http.Client
 
 	// book-keeping params
