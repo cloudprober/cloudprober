@@ -1,4 +1,4 @@
-// Copyright 2017-2019 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,13 +27,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/golang/protobuf/proto"
 )
 
 // The Transport is mocked instead of the Client because Client is not an
@@ -45,6 +45,12 @@ type testTransport struct {
 
 func newTestTransport() *testTransport {
 	return &testTransport{}
+}
+
+func patchWithTestTransport(p *Probe) {
+	for _, c := range p.clients {
+		c.Transport = newTestTransport()
+	}
 }
 
 // This mocks the Body of an http.Response.
@@ -91,7 +97,7 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.client.Transport = newTestTransport()
+	patchWithTestTransport(p)
 
 	target := endpoint.Endpoint{Name: "test.com"}
 	result := p.newResult()
@@ -175,7 +181,7 @@ func TestProbeWithBody(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error while initializing probe: %v", err)
 	}
-	p.client.Transport = newTestTransport()
+	p.clients = []*http.Client{{Transport: newTestTransport()}}
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
@@ -225,7 +231,7 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 		t.Errorf("Error while initializing probe: %v", err)
 	}
 	testTransport := newTestTransport()
-	p.client.Transport = testTransport
+	p.clients = []*http.Client{{Transport: testTransport}}
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
@@ -263,7 +269,7 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 		return
 	}
-	p.client.Transport = newTestTransport()
+	patchWithTestTransport(p)
 
 	ctx, cancelF := context.WithCancel(context.Background())
 	dataChan := make(chan *metrics.EventMetrics, 100)
@@ -352,7 +358,7 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 	}
 	p := &Probe{}
 	p.Init("http_test", opts)
-	p.client.Transport = newTestTransport()
+	patchWithTestTransport(p)
 
 	dataChan := make(chan *metrics.EventMetrics, 100)
 

@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,11 +60,21 @@ const (
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
-	name   string
-	opts   *options.Options
-	c      *configpb.ProbeConf
-	l      *logger.Logger
-	client *http.Client
+	name string
+	opts *options.Options
+	c    *configpb.ProbeConf
+	l    *logger.Logger
+
+	// We use a different HTTP client (transport) for each request within a
+	// probe cycle. For example, if you configure requests_per_probe as 100,
+	// we'll create and use 100 HTTP clients. This is to provide a more
+	// deterministic way to create multiple connections to a single target
+	// (while still using keep_alive to avoid the cost of TCP connection setup
+	// in the probing path). This behavior is desirable if you want to hit as
+	// many backends as possible, behind a single VIP. Note that clients will
+	// still be shared by the targets within a probe, which is ok as each
+	// target will anyway have a differet connection.
+	clients []*http.Client
 
 	// book-keeping params
 	targets     []endpoint.Endpoint
@@ -221,8 +231,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	// Clients are safe for concurrent use by multiple goroutines.
-	p.client = &http.Client{
-		Transport: transport,
+	p.clients = make([]*http.Client, p.c.GetRequestsPerProbe())
+	for i := 0; i < len(p.clients); i++ {
+		p.clients[i] = &http.Client{
+			Transport: transport.Clone(),
+		}
 	}
 
 	p.statsExportFrequency = p.opts.StatsExportInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
@@ -256,7 +269,7 @@ func isClientTimeout(err error) bool {
 }
 
 // httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *probeResult, resultMu *sync.Mutex) {
+func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName string, result *probeResult, resultMu *sync.Mutex) {
 
 	if len(p.requestBody) >= largeBodyThreshold {
 		req = req.Clone(req.Context())
@@ -278,7 +291,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *prob
 	}
 
 	start := time.Now()
-	resp, err := p.client.Do(req)
+	resp, err := client.Do(req)
 	latency := time.Since(start)
 
 	if resultMu != nil {
@@ -334,7 +347,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 	defer cancelReqCtx()
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doHTTPRequest(req.WithContext(reqCtx), target.Name, result, nil)
+		p.doHTTPRequest(req.WithContext(reqCtx), p.clients[0], target.Name, result, nil)
 		return
 	}
 
@@ -345,12 +358,12 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 	var resultMu sync.Mutex
 
 	wg := sync.WaitGroup{}
-	for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
+	for numReq := 0; numReq < int(p.c.GetRequestsPerProbe()); numReq++ {
 		wg.Add(1)
-		go func(req *http.Request, targetName string, result *probeResult) {
+		go func(req *http.Request, numReq int, targetName string, result *probeResult) {
 			defer wg.Done()
-			p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
-		}(req, target.Name, result)
+			p.doHTTPRequest(req.WithContext(reqCtx), p.clients[numReq], targetName, result, &resultMu)
+		}(req, numReq, target.Name, result)
 	}
 	wg.Wait()
 }
