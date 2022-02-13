@@ -98,6 +98,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 	}
 
 	urlHost := urlHostForTarget(target)
+	ipForLabel := ""
 
 	if p.c.GetResolveFirst() {
 		if resolveF == nil {
@@ -109,7 +110,13 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
 			return nil
 		}
-		urlHost = ip.String()
+
+		ipStr := ip.String()
+		urlHost, ipForLabel = ipStr, ipStr
+	}
+
+	for _, al := range p.opts.AdditionalLabels {
+		al.UpdateForTargetWithIP(target, ipForLabel)
 	}
 
 	// Put square brackets around literal IPv6 hosts. This is the same logic as

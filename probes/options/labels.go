@@ -33,6 +33,7 @@ const (
 	notTargetLabel targetLabelType = iota
 	label
 	name
+	ip
 	port
 )
 
@@ -65,7 +66,7 @@ type AdditionalLabel struct {
 }
 
 // UpdateForTarget updates addtional label based on target's name and labels.
-func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint) {
+func (al *AdditionalLabel) UpdateForTargetWithIP(ep endpoint.Endpoint, ipAddr string) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 
@@ -85,11 +86,18 @@ func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint) {
 			parts[2*i+1] = ep.Name
 		case port:
 			parts[2*i+1] = strconv.Itoa(ep.Port)
+		case ip:
+			parts[2*i+1] = ipAddr
 		case label:
 			parts[2*i+1] = ep.Labels[tok.labelKey]
 		}
 	}
 	al.valueForTarget[ep.Name] = strings.Join(parts, "")
+}
+
+// UpdateForTarget updates addtional label based on target's name and labels.
+func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint) {
+	al.UpdateForTargetWithIP(ep, "")
 }
 
 // KeyValueForTarget returns key, value pair for the given target.
@@ -140,6 +148,10 @@ func ParseAdditionalLabel(alpb *configpb.AdditionalLabel) *AdditionalLabel {
 		}
 		if tokStr == "target.port" {
 			al.tokens = append(al.tokens, targetToken{tokenType: port})
+			continue
+		}
+		if tokStr == "target.ip" {
+			al.tokens = append(al.tokens, targetToken{tokenType: ip})
 			continue
 		}
 		matches := targetLabelRegex.FindStringSubmatch(tokStr)
