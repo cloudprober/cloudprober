@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -83,14 +82,6 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketC
 	s, err := syscall.Socket(family, sockType, proto)
 	if err != nil {
 		return nil, os.NewSyscallError("socket", err)
-	}
-
-	if runtime.GOOS == "darwin" && family == syscall.AF_INET {
-		// 0x17 = IP_STRIPHDR -- this is required for darwin IPv4.
-		if err := syscall.SetsockoptInt(s, protocolIP, 0x17, 1); err != nil {
-			syscall.Close(s)
-			return nil, os.NewSyscallError("setsockopt", err)
-		}
 	}
 
 	// Set socket option to receive kernel's timestamp from each packet.

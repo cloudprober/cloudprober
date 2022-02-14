@@ -43,6 +43,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -352,7 +353,17 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			continue
 		}
 
-		if !validEchoReply(p.ipVer, pktbuf[0]) {
+		// recvmsg on Darwin (MacOS), doesn't strip the IP header for IPv4
+		// packets. See https://github.com/cloudprober/cloudprober/issues/80
+		// for more details.
+		offset := 0
+		if runtime.GOOS == "darwin" && p.ipVer == 4 {
+			if int(pktbuf[0])>>4 == 4 {
+				offset = int(pktbuf[0]&0x0f) << 2
+			}
+		}
+
+		if !validEchoReply(p.ipVer, pktbuf[offset+0]) {
 			p.l.Warning("Not a valid ICMP echo reply packet from: ", target)
 			continue
 		}
@@ -361,9 +372,9 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			tsUnix: recvTime.UnixNano(),
 			target: target,
 			// ICMP packet body starts from the 5th byte
-			id:   binary.BigEndian.Uint16(pktbuf[4:6]),
-			seq:  binary.BigEndian.Uint16(pktbuf[6:8]),
-			data: pktbuf[8:pktLen],
+			id:   binary.BigEndian.Uint16(pktbuf[offset+4 : offset+6]),
+			seq:  binary.BigEndian.Uint16(pktbuf[offset+6 : offset+8]),
+			data: pktbuf[offset+8 : pktLen],
 		}
 
 		rtt := time.Duration(pkt.tsUnix-bytesToTime(pkt.data)) * time.Nanosecond
