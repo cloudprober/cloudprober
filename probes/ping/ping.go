@@ -195,9 +195,6 @@ func (p *Probe) updateTargets() {
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	for _, target := range p.targets {
-		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(target)
-		}
 
 		// Update results map:
 		p.updateResultForTarget(target.Name)
@@ -207,6 +204,10 @@ func (p *Probe) updateTargets() {
 			p.l.Warning("Bad target: ", target.Name, ". Err: ", err.Error())
 			p.target2addr[target.Name] = nil
 			continue
+		}
+
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTargetWithIP(target, ip.String())
 		}
 
 		var a net.Addr
