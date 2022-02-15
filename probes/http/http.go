@@ -429,9 +429,6 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	// We use this counter to decide when to export stats.
 	var runCnt int64
 
-	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTarget(target)
-	}
 	result := p.newResult()
 	req := p.httpRequestForTarget(target, nil)
 
