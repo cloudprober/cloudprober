@@ -143,6 +143,7 @@ message ProbeDef {
   //     key: "app"
   //     value: "@target.label.app@"
   //   }
+  // (See a more detailed example at: examples/additional_label/cloudprober.cfg)
   repeated AdditionalLabel additional_label = 14;
 
   oneof probe {
