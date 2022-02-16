@@ -88,6 +88,10 @@ func TestParseAdditionalLabel(t *testing.T) {
 			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}, {tokenType: name}, {tokenType: port}},
 		},
 		{
+			Key:        "dst_ip_port",
+			valueParts: []string{"", "target.ip", ":", "target.port", ""},
+			tokens:     []targetToken{{tokenType: ip}, {tokenType: port}}},
+		{
 			Key:         "bad_label",
 			staticValue: "@target.metadata@:@unknown@",
 			valueParts:  []string{"", "target.metadata", ":", "unknown", ""},
