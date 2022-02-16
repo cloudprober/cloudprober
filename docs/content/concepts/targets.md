@@ -37,7 +37,7 @@ Cloudprober currently (__as of v0.10.7__) supports following types of dynamic ta
 
 Resource Provider       | Resource Types 
 -------------------------------|---------
-Kubernetes (k8s)         | pods, endpoints, services      
+Kubernetes (k8s)         | pods, endpoints, services, ingresses      
 GCP (gcp)                      | gce_instances, pubsub_messages 
 
 
