@@ -18,9 +18,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/golang/protobuf/proto"
 )
 
 var configWithAdditionalLabels = &configpb.ProbeDef{
@@ -44,6 +44,10 @@ var configWithAdditionalLabels = &configpb.ProbeDef{
 		{
 			Key:   proto.String("dst"),
 			Value: proto.String("@target.label.zone@:@target.name@:@target.port@"),
+		},
+		{
+			Key:   proto.String("dst_ip_port"),
+			Value: proto.String("@target.ip@:@target.port@"),
 		},
 		{
 			Key:   proto.String("bad_label"),
@@ -84,6 +88,10 @@ func TestParseAdditionalLabel(t *testing.T) {
 			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}, {tokenType: name}, {tokenType: port}},
 		},
 		{
+			Key:        "dst_ip_port",
+			valueParts: []string{"", "target.ip", ":", "target.port", ""},
+			tokens:     []targetToken{{tokenType: ip}, {tokenType: port}}},
+		{
 			Key:         "bad_label",
 			staticValue: "@target.metadata@:@unknown@",
 			valueParts:  []string{"", "target.metadata", ":", "unknown", ""},
@@ -113,6 +121,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 	for _, al := range aLabels {
 		al.UpdateForTarget(endpoint.Endpoint{Name: "target1", Labels: map[string]string{}, Port: 80})
 		al.UpdateForTarget(endpoint.Endpoint{Name: "target2", Labels: map[string]string{"zone": "zoneB"}, Port: 8080})
+		al.UpdateForTargetWithIPPort(endpoint.Endpoint{Name: "target3", Port: 8080}, "target3-ip", 9000)
 	}
 
 	expectedLabels := map[string][][2]string{
@@ -122,6 +131,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 			{"dst_zone_label", "zone:"},
 			{"dst_name", "target1"},
 			{"dst", ":target1:80"},
+			{"dst_ip_port", ":80"},
 			{"bad_label", "@target.metadata@:@unknown@"},
 			{"incomplete_label", ":@target.name"},
 		},
@@ -131,8 +141,19 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 			{"dst_zone_label", "zone:zoneB"},
 			{"dst_name", "target2"},
 			{"dst", "zoneB:target2:8080"},
+			{"dst_ip_port", ":8080"},
 			{"bad_label", "@target.metadata@:@unknown@"},
 			{"incomplete_label", "zoneB:@target.name"},
+		},
+		"target3": {
+			{"src_zone", "zoneA"},
+			{"dst_zone", ""},
+			{"dst_zone_label", "zone:"},
+			{"dst_name", "target3"},
+			{"dst", ":target3:9000"},
+			{"dst_ip_port", "target3-ip:9000"},
+			{"bad_label", "@target.metadata@:@unknown@"},
+			{"incomplete_label", ":@target.name"},
 		},
 	}
 
