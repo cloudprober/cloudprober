@@ -116,7 +116,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTargetWithIP(target, ipForLabel)
+		al.UpdateForTargetWithIPPort(target, ipForLabel, port)
 	}
 
 	// Put square brackets around literal IPv6 hosts. This is the same logic as

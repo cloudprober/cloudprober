@@ -207,7 +207,7 @@ func (p *Probe) updateTargets() {
 		}
 
 		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTargetWithIP(target, ip.String())
+			al.UpdateForTargetWithIPPort(target, ip.String(), 0)
 		}
 
 		var a net.Addr
