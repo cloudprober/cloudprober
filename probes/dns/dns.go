@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +42,8 @@ import (
 	"github.com/cloudprober/cloudprober/validators"
 	"github.com/miekg/dns"
 )
+
+const defaultPort = 53
 
 // Client provides a DNS client interface for required functionality.
 // This makes it possible to mock.
@@ -110,16 +113,6 @@ func (prr probeRunResult) Target() string {
 	return prr.target
 }
 
-func (p *Probe) updateTargets() {
-	p.targets = p.opts.Targets.ListEndpoints()
-
-	for _, target := range p.targets {
-		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(target)
-		}
-	}
-}
-
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -132,7 +125,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
-	p.updateTargets()
+	p.targets = p.opts.Targets.ListEndpoints()
 
 	queryType := p.c.GetQueryType()
 	if queryType == configpb.QueryType_NONE || int32(queryType) >= int32(dns.TypeReserved) {
@@ -206,7 +199,7 @@ type resolveFunc func(host string, ipVer int) (net.IP, error)
 
 func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF resolveFunc) {
 	// Refresh the list of targets to probe.
-	p.updateTargets()
+	p.targets = p.opts.Targets.ListEndpoints()
 
 	wg := sync.WaitGroup{}
 	for _, target := range p.targets {
@@ -229,9 +222,14 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF re
 				result.latency = metrics.NewFloat(0)
 			}
 
+			port := defaultPort
+			if target.Port != 0 {
+				port = target.Port
+			}
 			result.total.Inc()
 
-			fullTarget := net.JoinHostPort(target.Name, "53")
+			ipLabel := ""
+			fullTarget := net.JoinHostPort(target.Name, strconv.Itoa(port))
 			if p.c.GetResolveFirst() {
 				if resolveF == nil {
 					resolveF = p.opts.Targets.Resolve
@@ -242,7 +240,12 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF re
 					resultsChan <- result
 					return
 				}
-				fullTarget = net.JoinHostPort(ip.String(), "53")
+				ipLabel = ip.String()
+				fullTarget = net.JoinHostPort(ip.String(), strconv.Itoa(port))
+			}
+
+			for _, al := range p.opts.AdditionalLabels {
+				al.UpdateForTargetWithIPPort(target, ipLabel, port)
 			}
 
 			// Generate a new question for each probe so transaction IDs aren't repeated.
