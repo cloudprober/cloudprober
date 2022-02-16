@@ -66,7 +66,7 @@ type AdditionalLabel struct {
 }
 
 // UpdateForTarget updates addtional label based on target's name and labels.
-func (al *AdditionalLabel) UpdateForTargetWithIP(ep endpoint.Endpoint, ipAddr string) {
+func (al *AdditionalLabel) UpdateForTargetWithIPPort(ep endpoint.Endpoint, ipAddr string, probePort int) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 
@@ -79,13 +79,17 @@ func (al *AdditionalLabel) UpdateForTargetWithIP(ep endpoint.Endpoint, ipAddr st
 		al.valueForTarget = make(map[string]string)
 	}
 
+	if probePort == 0 {
+		probePort = ep.Port
+	}
+
 	parts := append([]string{}, al.valueParts...)
 	for i, tok := range al.tokens {
 		switch tok.tokenType {
 		case name:
 			parts[2*i+1] = ep.Name
 		case port:
-			parts[2*i+1] = strconv.Itoa(ep.Port)
+			parts[2*i+1] = strconv.Itoa(probePort)
 		case ip:
 			parts[2*i+1] = ipAddr
 		case label:
@@ -97,7 +101,7 @@ func (al *AdditionalLabel) UpdateForTargetWithIP(ep endpoint.Endpoint, ipAddr st
 
 // UpdateForTarget updates addtional label based on target's name and labels.
 func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint) {
-	al.UpdateForTargetWithIP(ep, "")
+	al.UpdateForTargetWithIPPort(ep, "", 0)
 }
 
 // KeyValueForTarget returns key, value pair for the given target.
