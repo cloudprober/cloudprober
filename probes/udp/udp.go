@@ -1,4 +1,4 @@
-// Copyright 2017-2019 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -421,7 +421,7 @@ func (p *Probe) runProbe() {
 	for _, target := range p.targets {
 		ip, err := p.opts.Targets.Resolve(target.Name, p.ipVer)
 		if err != nil {
-			p.l.Errorf("unable to resolve %s: %v", target, err)
+			p.l.Errorf("unable to resolve %s: %v", target.Name, err)
 			continue
 		}
 
