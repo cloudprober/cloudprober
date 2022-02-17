@@ -1,4 +1,4 @@
-// Copyright 2017-2019 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -367,16 +367,7 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 	}
 }
 
-func (p *Probe) runSingleProbe(f flow, conn *net.UDPConn, maxLen, dstPort int) error {
-	ip, err := p.opts.Targets.Resolve(f.target, p.ipVer)
-	if err != nil {
-		return fmt.Errorf("unable to resolve %s: %v", f.target, err)
-	}
-	raddr := &net.UDPAddr{
-		IP:   ip,
-		Port: dstPort,
-	}
-
+func (p *Probe) runSingleProbe(f flow, conn *net.UDPConn, maxLen int, raddr *net.UDPAddr) error {
 	flowState := p.fsm.FlowState(p.src, f.srcPort, f.target)
 	now := time.Now()
 	msg, seq, err := flowState.CreateMessage(now, p.payload, maxLen)
@@ -411,7 +402,6 @@ func (p *Probe) runProbe() {
 		return
 	}
 	maxLen := int(p.c.GetMaxLength())
-	dstPort := int(p.c.GetPort())
 
 	var packetsPerTarget, initialConn int
 	if p.c.GetUseAllTxPortsPerProbe() {
@@ -429,12 +419,27 @@ func (p *Probe) runProbe() {
 		conn.SetWriteDeadline(time.Now().Add(p.opts.Interval / 2))
 	}
 	for _, target := range p.targets {
+		ip, err := p.opts.Targets.Resolve(target.Name, p.ipVer)
+		if err != nil {
+			p.l.Errorf("unable to resolve %s: %v", target.Name, err)
+			continue
+		}
+
+		dstPort := int(p.c.GetPort())
+		if p.c.Port == nil && target.Port != 0 {
+			dstPort = target.Port
+		}
+
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTargetWithIPPort(target, ip.String(), dstPort)
+		}
+
 		for i := 0; i < packetsPerTarget; i++ {
 			connID := (initialConn + i) % len(p.connList)
 			conn := p.connList[connID]
 			go func(conn *net.UDPConn, f flow) {
 				defer wg.Done()
-				if err := p.runSingleProbe(f, conn, maxLen, dstPort); err != nil {
+				if err := p.runSingleProbe(f, conn, maxLen, &net.UDPAddr{IP: ip, Port: dstPort}); err != nil {
 					p.l.Errorf("Probing %+v failed: %v", f, err)
 				}
 			}(conn, flow{p.srcPortList[connID], target.Name})
@@ -449,11 +454,6 @@ func (p *Probe) updateTargets() {
 	if len(p.targets) > maxTargets {
 		p.l.Warningf("Number of targets (%d) > maxTargets (%d). Truncating the targets list.", len(p.targets), maxTargets)
 		p.targets = p.targets[:maxTargets]
-	}
-	for _, target := range p.targets {
-		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(target)
-		}
 	}
 	p.initProbeRunResults()
 }
