@@ -146,12 +146,20 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.c = c
 
+	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
+	if totalDuration > p.opts.Interval {
+		return fmt.Errorf("invalid config - executing all requests will take "+
+			"longer than the probe interval, i.e. "+
+			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
+			totalDuration, p.opts.Interval)
+	}
+
 	p.protocol = strings.ToLower(p.c.GetProtocol().String())
 	p.method = p.c.GetMethod().String()
 
 	p.url = p.c.GetRelativeUrl()
 	if len(p.url) > 0 && p.url[0] != '/' {
-		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
+		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.url)
 	}
 
 	p.requestBody = []byte(p.c.GetBody())
@@ -362,6 +370,8 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 		wg.Add(1)
 		go func(req *http.Request, numReq int, targetName string, result *probeResult) {
 			defer wg.Done()
+
+			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
 			p.doHTTPRequest(req.WithContext(reqCtx), p.clients[numReq], targetName, result, &resultMu)
 		}(req, numReq, target.Name, result)
 	}
