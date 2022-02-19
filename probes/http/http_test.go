@@ -107,6 +107,69 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 	return result, nil
 }
 
+func TestProbeInitError(t *testing.T) {
+	opts := func(c *configpb.ProbeConf) *options.Options {
+		return &options.Options{
+			Targets:   targets.StaticTargets("test.com"),
+			Interval:  2 * time.Second,
+			Timeout:   1 * time.Second,
+			ProbeConf: c,
+		}
+	}
+	var tests = []struct {
+		desc    string
+		c       *configpb.ProbeConf
+		opts    *options.Options
+		wantErr bool
+	}{
+		{
+			desc: "default",
+			c:    &configpb.ProbeConf{},
+		},
+		{
+			desc: "with_valid_requests_per_probe",
+			c: &configpb.ProbeConf{
+				RequestsPerProbe:     proto.Int32(20),
+				RequestsIntervalMsec: proto.Int32(50),
+			},
+		},
+		{
+			desc: "with_invalid_requests_per_probe",
+			c: &configpb.ProbeConf{
+				RequestsPerProbe:     proto.Int32(20),
+				RequestsIntervalMsec: proto.Int32(60),
+			},
+			wantErr: true,
+		},
+		{
+			desc: "invalid_url",
+			c: &configpb.ProbeConf{
+				RelativeUrl: proto.String("status"),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			p := &Probe{}
+			if test.opts == nil {
+				test.opts = opts(test.c)
+			}
+			err := p.Init("http_test", test.opts)
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("Got unexpected error: %v", err)
+				}
+				return
+			}
+			if test.wantErr {
+				t.Error("Expected error but didn't get it.")
+			}
+		})
+	}
+}
+
 func TestProbeVariousMethods(t *testing.T) {
 	mpb := func(s string) *configpb.ProbeConf_Method {
 		return configpb.ProbeConf_Method(configpb.ProbeConf_Method_value[s]).Enum()
