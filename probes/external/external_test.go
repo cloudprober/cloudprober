@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	payloadconfigpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
@@ -39,6 +38,7 @@ import (
 	probeconfigpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/golang/protobuf/proto"
 )
 
 func isDone(doneChan chan struct{}) bool {
@@ -662,6 +662,7 @@ func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, nam
 		t.Errorf("r.success=%d, expected=%d", r.success, success)
 	}
 
+	// Get 2 EventMetrics = default metrics, and payload metrics.
 	m, err := testutils.MetricsFromChannel(p.dataChan, 2, time.Second)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -687,12 +688,6 @@ func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, nam
 	if len(em.LabelsKeys()) != len(expectedLabels) {
 		t.Errorf("Labels mismatch: got=%v, expected=%v", em.LabelsKeys(), expectedLabels)
 	}
-
-	for key, val := range expectedLabels {
-		if em.Label(key) != val {
-			t.Errorf("r.payloadMetrics.Label(%s)=%s, expected=%s", key, r.payloadMetrics.Label(key), val)
-		}
-	}
 }
 
 func TestProcessProbeResult(t *testing.T) {
@@ -705,10 +700,23 @@ func TestProcessProbeResult(t *testing.T) {
 		wantExtraLabels  map[string]string
 	}{
 		{
-			desc:       "with-aggregation-enabled",
+			desc:       "with-aggregation-enabled-no-labels",
 			aggregate:  true,
-			wantValues: []int64{14, 25},
 			payloads:   []string{"p-failures 14", "p-failures 11"},
+			wantValues: []int64{14, 25},
+		},
+		{
+			desc:      "with-aggregation-enabled-with-labels",
+			aggregate: true,
+			payloads: []string{
+				"p-failures{service=serviceA,db=dbA} 14",
+				"p-failures{service=serviceA,db=dbA} 11",
+			},
+			wantValues: []int64{14, 25},
+			wantExtraLabels: map[string]string{
+				"service": "serviceA",
+				"db":      "dbA",
+			},
 		},
 		{
 			desc:      "with-aggregation-disabled",
@@ -787,11 +795,7 @@ func TestProcessProbeResult(t *testing.T) {
 			}, r)
 			wantSuccess++
 
-			if test.aggregate {
-				verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[1], test.wantExtraLabels)
-			} else {
-				verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[1], test.wantExtraLabels)
-			}
+			verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[1], test.wantExtraLabels)
 		})
 	}
 }

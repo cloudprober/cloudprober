@@ -1,4 +1,4 @@
-// Copyright 2017-2019 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -61,22 +61,7 @@ type testData struct {
 	labels     [3][2]string
 }
 
-// aggregatedEM returns an EventMetrics struct corresponding to the provided testData.
-func (td *testData) aggregatedEM(ts time.Time) *metrics.EventMetrics {
-	d := metrics.NewDistribution([]float64{1, 10, 100})
-	for _, sample := range td.lat {
-		d.AddSample(sample)
-	}
-	return metrics.NewEventMetrics(ts).
-		AddMetric("op_latency", d).
-		AddMetric("time_to_running", metrics.NewFloat(td.varA)).
-		AddMetric("time_to_ssh", metrics.NewFloat(td.varB)).
-		AddLabel("ptype", testPtype).
-		AddLabel("probe", testProbe).
-		AddLabel("dst", testTarget)
-}
-
-// aggregatedEM returns an EventMetrics struct corresponding to the provided testData.
+// multiEM returns EventMetrics structs corresponding to the provided testData.
 func (td *testData) multiEM(ts time.Time) []*metrics.EventMetrics {
 	var results []*metrics.EventMetrics
 
@@ -94,8 +79,11 @@ func (td *testData) multiEM(ts time.Time) []*metrics.EventMetrics {
 	for i, em := range results {
 		em.AddLabel("ptype", testPtype).
 			AddLabel("probe", testProbe).
-			AddLabel("dst", testTarget).
-			AddLabel(td.labels[i][0], td.labels[i][1])
+			AddLabel("dst", testTarget)
+
+		if td.labels[i][0] != "" {
+			em.AddLabel(td.labels[i][0], td.labels[i][1])
+		}
 	}
 
 	return results
@@ -126,12 +114,14 @@ func (td *testData) testPayload(quoteLabelValues bool) string {
 	return strings.Join(payloadLines, "\n")
 }
 
-func testAggregatedPayloadMetrics(t *testing.T, em *metrics.EventMetrics, td, etd *testData) {
+func testAggregatedPayloadMetrics(t *testing.T, ems []*metrics.EventMetrics, etd *testData) {
 	t.Helper()
 
-	expectedEM := etd.aggregatedEM(em.Timestamp)
-	if em.String() != expectedEM.String() {
-		t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedEM.String())
+	expectedMetrics := etd.multiEM(ems[0].Timestamp)
+	for i, em := range ems {
+		if em.String() != expectedMetrics[i].String() {
+			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
+		}
 	}
 }
 
@@ -142,7 +132,7 @@ func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 	expectedMetrics := etd.multiEM(ems[0].Timestamp)
 	for i, em := range ems {
 		if em.String() != expectedMetrics[i].String() {
-			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
+			t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
 		}
 	}
 
@@ -151,7 +141,7 @@ func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 	expectedMetrics = etd.multiEM(ems[0].Timestamp)
 	for i, em := range ems {
 		if em.String() != expectedMetrics[i].String() {
-			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
+			t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
 		}
 	}
 }
@@ -160,26 +150,33 @@ func TestAggreagateInCloudprober(t *testing.T) {
 	p := parserForTest(t, true)
 
 	// First payload
-	td := &testData{10, 30, []float64{3.1, 4.0, 13}, [3][2]string{}}
-	em := p.AggregatedPayloadMetrics(nil, td.testPayload(false), testTarget)
+	td := &testData{
+		varA:   10,
+		varB:   30,
+		lat:    []float64{3.1, 4.0, 13},
+		labels: [3][2]string{{}, {"lk", "lv"}, {}},
+	}
+	ems := p.PayloadMetrics(td.testPayload(false), testTarget)
 
-	testAggregatedPayloadMetrics(t, em, td, td)
+	testAggregatedPayloadMetrics(t, ems, td)
 
 	// Send another payload, cloudprober should aggregate the metrics.
 	oldtd := td
 	td = &testData{
-		varA: 8,
-		varB: 45,
-		lat:  []float64{6, 14.1, 2.1},
+		varA:   8,
+		varB:   45,
+		lat:    []float64{6, 14.1, 2.1},
+		labels: [3][2]string{{}, {"lk", "lv"}, {}},
 	}
 	etd := &testData{
-		varA: oldtd.varA + td.varA,
-		varB: oldtd.varB + td.varB,
-		lat:  append(oldtd.lat, td.lat...),
+		varA:   oldtd.varA + td.varA,
+		varB:   oldtd.varB + td.varB,
+		lat:    append(oldtd.lat, td.lat...),
+		labels: [3][2]string{{}, {"lk", "lv"}, {}},
 	}
 
-	em = p.AggregatedPayloadMetrics(em, td.testPayload(false), testTarget)
-	testAggregatedPayloadMetrics(t, em, td, etd)
+	ems = p.PayloadMetrics(td.testPayload(false), testTarget)
+	testAggregatedPayloadMetrics(t, ems, etd)
 }
 
 func TestNoAggregation(t *testing.T) {
@@ -191,9 +188,9 @@ func TestNoAggregation(t *testing.T) {
 		varB: 30,
 		lat:  []float64{3.1, 4.0, 13},
 		labels: [3][2]string{
-			[2]string{"l1", "v1"},
-			[2]string{"l2", "v2"},
-			[2]string{"l3", "v3"},
+			{"l1", "v1"},
+			{"l2", "v2"},
+			{"l3", "v3"},
 		},
 	}
 	testPayloadMetrics(t, p, td)
@@ -204,9 +201,9 @@ func TestNoAggregation(t *testing.T) {
 		varB: 45,
 		lat:  []float64{6, 14.1, 2.1},
 		labels: [3][2]string{
-			[2]string{"l1", "v1"},
-			[2]string{"l2", "v2"},
-			[2]string{"l3", "v3"},
+			{"l1", "v1"},
+			{"l2", "v2"},
+			{"l3", "v3"},
 		},
 	}
 	testPayloadMetrics(t, p, td)
@@ -238,8 +235,8 @@ func TestMetricValueLabels(t *testing.T) {
 			line:   "total{service=serviceA,dc=xx} 56",
 			metric: "total",
 			labels: [][2]string{
-				[2]string{"service", "serviceA"},
-				[2]string{"dc", "xx"},
+				{"service", "serviceA"},
+				{"dc", "xx"},
 			},
 			value: "56",
 		},
@@ -248,8 +245,8 @@ func TestMetricValueLabels(t *testing.T) {
 			line:   "total{service=\"serviceA\",dc=\"xx\"} 56",
 			metric: "total",
 			labels: [][2]string{
-				[2]string{"service", "serviceA"},
-				[2]string{"dc", "xx"},
+				{"service", "serviceA"},
+				{"dc", "xx"},
 			},
 			value: "56",
 		},
@@ -258,8 +255,8 @@ func TestMetricValueLabels(t *testing.T) {
 			line:   "total{service=\"service A\", dc= \"xx\"} 56",
 			metric: "total",
 			labels: [][2]string{
-				[2]string{"service", "service A"},
-				[2]string{"dc", "xx"},
+				{"service", "service A"},
+				{"dc", "xx"},
 			},
 			value: "56",
 		},
@@ -268,8 +265,8 @@ func TestMetricValueLabels(t *testing.T) {
 			line:   "version{service=\"service A\",dc=xx} \"version 1.5\"",
 			metric: "version",
 			labels: [][2]string{
-				[2]string{"service", "service A"},
-				[2]string{"dc", "xx"},
+				{"service", "service A"},
+				{"dc", "xx"},
 			},
 			value: "\"version 1.5\"",
 		},

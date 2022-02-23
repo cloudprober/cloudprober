@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package payload
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ import (
 type Parser struct {
 	baseEM      *metrics.EventMetrics
 	distMetrics map[string]*metrics.Distribution
+	aggMetrics  map[string]*metrics.EventMetrics
 	aggregate   bool
 	l           *logger.Logger
 }
@@ -40,6 +42,7 @@ func NewParser(opts *configpb.OutputMetricsOptions, ptype, probeName string, def
 	parser := &Parser{
 		aggregate:   opts.GetAggregateInCloudprober(),
 		distMetrics: make(map[string]*metrics.Distribution),
+		aggMetrics:  make(map[string]*metrics.EventMetrics),
 		l:           l,
 	}
 
@@ -163,11 +166,6 @@ func (p *Parser) metricValueLabels(line string) (metricName, val string, labels 
 		return
 	}
 
-	if p.aggregate && labelStr != "" {
-		p.l.Warning("Payload labels are not supported in aggregate_in_cloudprober mode, bad line: ", line)
-		return
-	}
-
 	return metricName, value, parseLabels(labelStr)
 }
 
@@ -187,80 +185,91 @@ func addNewMetric(em *metrics.EventMetrics, metricName, val string) error {
 	return nil
 }
 
+func (p *Parser) newEM(ts time.Time, target, metricName, val string, labels [][2]string) (*metrics.EventMetrics, error) {
+	em := p.baseEM.Clone().AddLabel("dst", target)
+	em.Timestamp = ts
+	for _, kv := range labels {
+		em.AddLabel(kv[0], kv[1])
+	}
+
+	// If it's a pre-configured, distribution metric.
+	if dv, ok := p.distMetrics[metricName]; ok {
+		d := dv.Clone().(*metrics.Distribution)
+		processDistValue(d, val)
+		em.AddMetric(metricName, d)
+		return em, nil
+	}
+
+	if err := addNewMetric(em, metricName, val); err != nil {
+		return nil, err
+	}
+
+	return em, nil
+}
+
+func metricKey(name, target string, labels [][2]string) string {
+	var parts []string
+	parts = append(parts, name)
+	for _, l := range append(labels, [2]string{"dst", target}) {
+		parts = append(parts, fmt.Sprintf("%s=%s", l[0], l[1]))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ",")
+}
+
+// payloadLineMetrics parses a payload line, and either updates an existing
+// EventMetrics(EM), or creates a new one.
+func (p *Parser) payloadLineMetrics(payloadTS time.Time, line, target string) (*metrics.EventMetrics, error) {
+	metricName, val, labels := p.metricValueLabels(line)
+	if metricName == "" {
+		return nil, nil
+	}
+
+	if !p.aggregate {
+		em, err := p.newEM(payloadTS, target, metricName, val, labels)
+		if err != nil {
+			return nil, err
+		}
+		return em, nil
+	}
+
+	// If aggregating, create a key, find if we already have an EM with that key
+	// if yes, update that metric, or create a new metric.
+	key := metricKey(metricName, target, labels)
+
+	if em := p.aggMetrics[key]; em != nil {
+		if err := updateMetricValue(em.Metric(metricName), val); err != nil {
+			return nil, fmt.Errorf("error updating metric %s with val %s: %v", metricName, val, err)
+		}
+		em.Timestamp = payloadTS
+		return em.Clone(), nil
+	}
+
+	em, err := p.newEM(payloadTS, target, metricName, val, labels)
+	if err != nil {
+		return nil, err
+	}
+
+	p.aggMetrics[key] = em
+	return em.Clone(), nil
+}
+
 // PayloadMetrics parses the given payload and creates one EventMetrics per
 // line. Each metric line can have its own labels, e.g. num_rows{db=dbA}.
 func (p *Parser) PayloadMetrics(payload, target string) []*metrics.EventMetrics {
-	// Timestamp for all EventMetrics generated from this payload.
 	payloadTS := time.Now()
 	var results []*metrics.EventMetrics
-
 	for _, line := range strings.Split(payload, "\n") {
-		metricName, val, labels := p.metricValueLabels(line)
-		if metricName == "" {
+		em, err := p.payloadLineMetrics(payloadTS, line, target)
+		if err != nil {
+			p.l.Warning(err.Error())
 			continue
 		}
-
-		em := p.baseEM.Clone().AddLabel("dst", target)
-		em.Timestamp = payloadTS
-		for _, kv := range labels {
-			em.AddLabel(kv[0], kv[1])
-		}
-
-		// If pre-configured, distribution metric.
-		if dv, ok := p.distMetrics[metricName]; ok {
-			d := dv.Clone().(*metrics.Distribution)
-			processDistValue(d, val)
-			em.AddMetric(metricName, d)
+		if em != nil {
 			results = append(results, em)
-			continue
 		}
-
-		if err := addNewMetric(em, metricName, val); err != nil {
-			p.l.Warning(err.Error())
-			continue
-		}
-		results = append(results, em)
 	}
-
 	return results
-}
-
-// AggregatedPayloadMetrics parses the given payload and updates the provided
-// metrics. If provided payload metrics is nil, we initialize a new one using
-// the default values configured at the time of parser creation.
-func (p *Parser) AggregatedPayloadMetrics(em *metrics.EventMetrics, payload, target string) *metrics.EventMetrics {
-	// If not initialized yet, initialize metrics from the default metrics.
-	if em == nil {
-		em = p.baseEM.Clone().AddLabel("dst", target)
-		for m, v := range p.distMetrics {
-			em.AddMetric(m, v)
-		}
-	}
-
-	em.Timestamp = time.Now()
-
-	for _, line := range strings.Split(payload, "\n") {
-		metricName, val, _ := p.metricValueLabels(line)
-		if metricName == "" {
-			continue
-		}
-
-		// If a metric already exists in the EventMetric, we simply add the new
-		// value (after parsing) to it.
-		if mv := em.Metric(metricName); mv != nil {
-			if err := updateMetricValue(mv, val); err != nil {
-				p.l.Warningf("Error updating metric %s with val %s: %v", metricName, val, err)
-			}
-			continue
-		}
-
-		if err := addNewMetric(em, metricName, val); err != nil {
-			p.l.Warning(err.Error())
-			continue
-		}
-	}
-
-	return em
 }
 
 // processDistValue processes a distribution value. It works with distribution
