@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc.
+// Copyright 2018-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,10 +30,11 @@ cloudprober --config_file=cloudprober.cfg
 You should see the following output on the stdout (and corresponding prometheus
 data on http://localhost:9313/metrics)
 cloudprober 1519..0 1519583408 labels=ptype=external,probe=redis_probe,dst= success=1 total=1 latency=12143.765
-cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst= set_latency_ms=0.516 get_latency_ms=0.491
+cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst=,op=set op_latency_ms=0.516
+cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst=,op=get op_latency_ms=0.491
 cloudprober 1519..2 1519583410 labels=ptype=external,probe=redis_probe,dst= success=2 total=2 latency=30585.915
-cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst= set_latency_ms=0.636 get_latency_ms=0.994
-cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= success=3 total=3 latency=42621.871
+cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst= op=set op_latency_ms=0.636
+cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst= op=get op_latency_ms=0.994
 
 You can also run this probe in server mode by providing "--server" command line
 flag.
@@ -47,9 +48,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	epb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
+	"github.com/golang/protobuf/proto"
 	"github.com/hoisie/redis"
 )
 
@@ -67,7 +68,7 @@ func probe() (string, error) {
 		return "", err
 	}
 
-	payload = append(payload, fmt.Sprintf("set_latency_ms %f", float64(time.Since(startTime).Nanoseconds())/1e6))
+	payload = append(payload, fmt.Sprintf("op_latency_ms{op=\"set\"} %f", float64(time.Since(startTime).Nanoseconds())/1e6))
 
 	// Measure get latency
 	startTime = time.Now()
@@ -75,7 +76,7 @@ func probe() (string, error) {
 	if err != nil {
 		return strings.Join(payload, "\n"), err
 	}
-	payload = append(payload, fmt.Sprintf("get_latency_ms %f", float64(time.Since(startTime).Nanoseconds())/1e6))
+	payload = append(payload, fmt.Sprintf("op_latency_ms{op=\"get\"} %f", float64(time.Since(startTime).Nanoseconds())/1e6))
 
 	log.Printf("%s=%s", key, string(val))
 	return strings.Join(payload, "\n"), nil
