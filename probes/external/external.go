@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -49,6 +48,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/validators"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/shlex"
 )
 
@@ -72,7 +72,6 @@ type result struct {
 	total, success    int64
 	latency           metrics.Value
 	validationFailure *metrics.Map
-	payloadMetrics    *metrics.EventMetrics
 }
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -440,15 +439,9 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
-			result.payloadMetrics = p.payloadParser.AggregatedPayloadMetrics(result.payloadMetrics, ps.payload, ps.target)
-			p.opts.LogMetrics(result.payloadMetrics)
-			p.dataChan <- p.withAdditionalLabels(result.payloadMetrics, ps.target)
-		} else {
-			for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target) {
-				p.opts.LogMetrics(em)
-				p.dataChan <- p.withAdditionalLabels(em, ps.target)
-			}
+		for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target) {
+			p.opts.LogMetrics(em)
+			p.dataChan <- p.withAdditionalLabels(em, ps.target)
 		}
 	}
 }
