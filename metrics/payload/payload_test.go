@@ -114,17 +114,6 @@ func (td *testData) testPayload(quoteLabelValues bool) string {
 	return strings.Join(payloadLines, "\n")
 }
 
-func testAggregatedPayloadMetrics(t *testing.T, ems []*metrics.EventMetrics, etd *testData) {
-	t.Helper()
-
-	expectedMetrics := etd.multiEM(ems[0].Timestamp)
-	for i, em := range ems {
-		if em.String() != expectedMetrics[i].String() {
-			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
-		}
-	}
-}
-
 func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 	t.Helper()
 
@@ -138,45 +127,11 @@ func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 
 	// Test with quoted label values
 	ems = p.PayloadMetrics(etd.testPayload(true), testTarget)
-	expectedMetrics = etd.multiEM(ems[0].Timestamp)
 	for i, em := range ems {
 		if em.String() != expectedMetrics[i].String() {
 			t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
 		}
 	}
-}
-
-func TestAggreagateInCloudprober(t *testing.T) {
-	p := parserForTest(t, true)
-
-	// First payload
-	td := &testData{
-		varA:   10,
-		varB:   30,
-		lat:    []float64{3.1, 4.0, 13},
-		labels: [3][2]string{{}, {"lk", "lv"}, {}},
-	}
-	ems := p.PayloadMetrics(td.testPayload(false), testTarget)
-
-	testAggregatedPayloadMetrics(t, ems, td)
-
-	// Send another payload, cloudprober should aggregate the metrics.
-	oldtd := td
-	td = &testData{
-		varA:   8,
-		varB:   45,
-		lat:    []float64{6, 14.1, 2.1},
-		labels: [3][2]string{{}, {"lk", "lv"}, {}},
-	}
-	etd := &testData{
-		varA:   oldtd.varA + td.varA,
-		varB:   oldtd.varB + td.varB,
-		lat:    append(oldtd.lat, td.lat...),
-		labels: [3][2]string{{}, {"lk", "lv"}, {}},
-	}
-
-	ems = p.PayloadMetrics(td.testPayload(false), testTarget)
-	testAggregatedPayloadMetrics(t, ems, etd)
 }
 
 func TestNoAggregation(t *testing.T) {
@@ -207,6 +162,64 @@ func TestNoAggregation(t *testing.T) {
 		},
 	}
 	testPayloadMetrics(t, p, td)
+}
+
+func TestAggreagateInCloudprober(t *testing.T) {
+	tests := []struct {
+		desc        string
+		payload     []string
+		wantMetrics []string
+	}{
+		{
+			desc: "first-run",
+			payload: []string{
+				"run_count 1",
+				"queries{dc=xx} 100",
+				"queries{dc=yy} 100",
+				"op_latency{op=get,dc=xx} 12",
+				"op_latency{op=set,dc=xx} 24",
+			},
+			wantMetrics: []string{
+				" run_count=1.000",
+				",dc=xx queries=100.000",
+				",dc=yy queries=100.000",
+				",op=get,dc=xx op_latency=dist:sum:12|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
+				",op=set,dc=xx op_latency=dist:sum:24|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
+			},
+		},
+		{
+			desc: "second-run",
+			payload: []string{
+				"run_count 1",
+				"queries{dc=xx} 99",
+				"queries{dc=yy} 100",
+				"op_latency{op=get,dc=xx} 11",
+				"op_latency{dc=xx,op=set} 23",
+			},
+			wantMetrics: []string{
+				" run_count=2.000",
+				",dc=xx queries=199.000",
+				",dc=yy queries=200.000",
+				",op=get,dc=xx op_latency=dist:sum:23|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
+				",op=set,dc=xx op_latency=dist:sum:47|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
+			},
+		},
+	}
+
+	p := parserForTest(t, true)
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			ems := p.PayloadMetrics(strings.Join(test.payload, "\n"), testTarget)
+			for i, em := range ems {
+				wantMetric := fmt.Sprintf("%d labels=ptype=%s,probe=%s,dst=%s%s", em.Timestamp.Unix(), testPtype, testProbe, testTarget, test.wantMetrics[i])
+				if em.String() != wantMetric {
+					t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), wantMetric)
+				}
+			}
+		})
+
+	}
 }
 
 func TestMetricValueLabels(t *testing.T) {
