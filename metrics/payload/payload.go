@@ -76,7 +76,7 @@ func NewParser(opts *configpb.OutputMetricsOptions, ptype, probeName string, def
 		for _, label := range strings.Split(opts.GetAdditionalLabels(), ",") {
 			labelKV := strings.Split(label, "=")
 			if len(labelKV) != 2 {
-				return nil, fmt.Errorf("payload.NewParser: invlaid config, wrong label format: %v", labelKV)
+				return nil, fmt.Errorf("payload.NewParser: invalid config, wrong label format: %v", labelKV)
 			}
 			em.AddLabel(labelKV[0], labelKV[1])
 		}
@@ -154,19 +154,13 @@ func parseLine(line string) (string, string, string, error) {
 	return metricName, labelStr, strings.TrimSpace(line), nil
 }
 
-func (p *Parser) metricValueLabels(line string) (metricName, val string, labels [][2]string) {
-	line = strings.TrimSpace(line)
-	if len(line) == 0 {
-		return
-	}
-
+func (p *Parser) metricValueLabels(line string) (metricName, val string, labels [][2]string, err error) {
 	metricName, labelStr, value, err := parseLine(line)
 	if err != nil {
-		p.l.Warningf("Error while parsing line (%s): %v", line, err)
-		return
+		return "", "", nil, err
 	}
 
-	return metricName, value, parseLabels(labelStr)
+	return metricName, value, parseLabels(labelStr), nil
 }
 
 func addNewMetric(em *metrics.EventMetrics, metricName, val string) error {
@@ -195,7 +189,9 @@ func (p *Parser) newEM(ts time.Time, target, metricName, val string, labels [][2
 	// If it's a pre-configured, distribution metric.
 	if dv, ok := p.distMetrics[metricName]; ok {
 		d := dv.Clone().(*metrics.Distribution)
-		processDistValue(d, val)
+		if err := processDistValue(d, val); err != nil {
+			return nil, err
+		}
 		em.AddMetric(metricName, d)
 		return em, nil
 	}
@@ -220,11 +216,12 @@ func metricKey(name, target string, labels [][2]string) string {
 // payloadLineMetrics parses a payload line, and either updates an existing
 // EventMetrics(EM), or creates a new one.
 func (p *Parser) payloadLineMetrics(payloadTS time.Time, line, target string) (*metrics.EventMetrics, error) {
-	metricName, val, labels := p.metricValueLabels(line)
-	if metricName == "" {
-		return nil, nil
+	metricName, val, labels, err := p.metricValueLabels(line)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing line (%s): %v", line, err)
 	}
 
+	// Non-aggregate case is straightforward. Just build an EM and return.
 	if !p.aggregate {
 		em, err := p.newEM(payloadTS, target, metricName, val, labels)
 		if err != nil {
@@ -260,14 +257,17 @@ func (p *Parser) PayloadMetrics(payload, target string) []*metrics.EventMetrics 
 	payloadTS := time.Now()
 	var results []*metrics.EventMetrics
 	for _, line := range strings.Split(payload, "\n") {
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+
 		em, err := p.payloadLineMetrics(payloadTS, line, target)
 		if err != nil {
 			p.l.Warning(err.Error())
 			continue
 		}
-		if em != nil {
-			results = append(results, em)
-		}
+		results = append(results, em)
 	}
 	return results
 }
