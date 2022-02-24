@@ -32,7 +32,7 @@ var (
 	testTarget = "test-target"
 )
 
-func parserForTest(t *testing.T, agg bool) *Parser {
+func parserForTest(t *testing.T, agg bool, additionalLabels string) *Parser {
 	testConf := `
 	  aggregate_in_cloudprober: %v
 		dist_metric {
@@ -42,9 +42,13 @@ func parserForTest(t *testing.T, agg bool) *Parser {
 			}
 		}
  `
+
 	var c configpb.OutputMetricsOptions
 	if err := proto.UnmarshalText(fmt.Sprintf(testConf, agg), &c); err != nil {
 		t.Error(err)
+	}
+	if additionalLabels != "" {
+		c.AdditionalLabels = proto.String(additionalLabels)
 	}
 	p, err := NewParser(&c, testPtype, testProbe, metrics.CUMULATIVE, nil)
 	if err != nil {
@@ -134,8 +138,21 @@ func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 	}
 }
 
+func TestAdditionalLabels(t *testing.T) {
+	p := parserForTest(t, false, "alk=alv")
+	ems := p.PayloadMetrics("run_count{dc=xx} 1", testTarget)
+	if len(ems) != 1 {
+		t.Fatalf("Got %d EventMetrics, wanted only 1", len(ems))
+	}
+	em := ems[0]
+	wantMetric := fmt.Sprintf("%d labels=ptype=%s,probe=%s,alk=alv,dst=%s,dc=xx run_count=1.000", em.Timestamp.Unix(), testPtype, testProbe, testTarget)
+	if em.String() != wantMetric {
+		t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), wantMetric)
+	}
+}
+
 func TestNoAggregation(t *testing.T) {
-	p := parserForTest(t, false)
+	p := parserForTest(t, false, "")
 
 	// First payload
 	td := &testData{
@@ -178,6 +195,7 @@ func TestAggreagateInCloudprober(t *testing.T) {
 				"queries{dc=yy} 100",
 				"op_latency{op=get,dc=xx} 12",
 				"op_latency{op=set,dc=xx} 24",
+				"req_latency{dc=xx} dist:sum:42|count:1|lb:-Inf,1,10,25,100|bc:0,0,0,1,0",
 			},
 			wantMetrics: []string{
 				" run_count=1.000",
@@ -185,6 +203,7 @@ func TestAggreagateInCloudprober(t *testing.T) {
 				",dc=yy queries=100.000",
 				",op=get,dc=xx op_latency=dist:sum:12|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
 				",op=set,dc=xx op_latency=dist:sum:24|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
+				",dc=xx req_latency=dist:sum:42|count:1|lb:-Inf,1,10,25,100|bc:0,0,0,1,0",
 			},
 		},
 		{
@@ -195,6 +214,7 @@ func TestAggreagateInCloudprober(t *testing.T) {
 				"queries{dc=yy} 100",
 				"op_latency{op=get,dc=xx} 11",
 				"op_latency{dc=xx,op=set} 23",
+				"req_latency{dc=xx} dist:sum:32|count:1|lb:-Inf,1,10,25,100|bc:0,0,0,1,0",
 			},
 			wantMetrics: []string{
 				" run_count=2.000",
@@ -202,11 +222,12 @@ func TestAggreagateInCloudprober(t *testing.T) {
 				",dc=yy queries=200.000",
 				",op=get,dc=xx op_latency=dist:sum:23|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
 				",op=set,dc=xx op_latency=dist:sum:47|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
+				",dc=xx req_latency=dist:sum:74|count:2|lb:-Inf,1,10,25,100|bc:0,0,0,2,0",
 			},
 		},
 	}
 
-	p := parserForTest(t, true)
+	p := parserForTest(t, true, "")
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
@@ -284,8 +305,9 @@ func TestMetricValueLabels(t *testing.T) {
 			value: "\"version 1.5\"",
 		},
 		{
-			desc: "only one brace, invalid line",
-			line: "total{service=\"service A\",dc=\"xx\" 56",
+			desc:    "only one brace, invalid line",
+			line:    "total{service=\"service A\",dc=\"xx\" 56",
+			wantErr: true,
 		},
 	}
 
@@ -293,7 +315,16 @@ func TestMetricValueLabels(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			m, v, l := p.metricValueLabels(test.line)
+			m, v, l, err := p.metricValueLabels(test.line)
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil && test.wantErr {
+				t.Errorf("Expected error, but didn't get any.")
+			}
 			if m != test.metric {
 				t.Errorf("Metric name: got=%s, wanted=%s", m, test.metric)
 			}
