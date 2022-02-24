@@ -9,7 +9,7 @@ date: 2017-10-08T17:24:32-07:00
 External probe type allows you to run arbitrary, complex probes through
 Cloudprober. An external probe runs an independent external program for actual
 probing. Cloudprober calculates probe metrics based on program's exit status
-and time elapsed in execution. 
+and time elapsed in execution.
 
 Cloudprober also allows external programs to provide additional metrics.
 Every message sent to `stdout` will be parsed as a new metrics to be emitted.
@@ -25,30 +25,31 @@ func main() {
     var key = "hello"
     startTime := time.Now()
     client.Set(key, []byte("world"))
-    fmt.Printf("set_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+    fmt.Printf("op_latency_ms{op=set} %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
 
     startTime = time.Now()
     val, _ := client.Get("hello")
     log.Printf("%s=%s", key, string(val))
-    fmt.Printf("get_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+    fmt.Printf("op_latency_ms{op=get} %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
 }
 {{< / highlight >}}
 
 (Full listing: https://github.com/cloudprober/cloudprober/blob/master/examples/external/redis_probe.go)
 
-This program sets and gets a key in redis and prints the time taken for both operations. 
-`set_latency_ms` and `get_latency_ms` will be emitted as metrics. You could also define your own labels using this format:
-```
-fmt.Printf("get_latency_ms{region=%v, cluster=%v} %f\n", region, cluster, float64(time.Since(startTime).Nanoseconds())/1e6)
-```
+This program sets and gets a key in redis and prints the time taken for both operations.
+`op_latency_ms{op=get|set}` will be emitted as metrics. You could also define your own labels using this format:
 
 Cloudprober can use this program as an external probe, to verify
 the availability and performance of the redis server. This program assumes that
-redis server is running locally, at its default port. For the sake of demonstration, lets run a local redis server (you can also easily modify this program to use a different server.)
+redis server is running locally, at its default port. For the sake of
+demonstration, lets run a local redis server (you can also easily modify this
+program to use a different server.)
 
 {{< highlight bash >}}
 #!bash
-brew install redis
+OS=$(uname)
+[[ "$OS" == "Darwin" ]] && brew install redis
+[[ "$OS" == "Linux" ]] && sudo apt install redis
 {{< / highlight >}}
 
 Let's compile our probe program (redis_probe.go) and verify that it's working
@@ -56,11 +57,11 @@ as expected:
 
 {{< highlight bash >}}
 #!bash
-CGO_ENABLED=0 go build -ldflags “-extldflags=-static” ./redis_probe.go
+CGO_ENABLED=0 go build -ldflags “-extldflags=-static” examples/external/redis_probe.go
 ./redis_probe
-set_latency_ms 22.656588
-2018/02/26 15:16:14 hello=world
-get_latency_ms 2.173560
+2022/02/24 12:39:45 hello=world
+op_latency_ms{op=set} 22.656588
+op_latency_ms{op=get} 2.173560
 {{< / highlight >}}
 
 
@@ -83,8 +84,8 @@ probe {
 }
 {{< / highlight >}}
 
-Note: To pass target information to your external program, 
-you can send target information as arguments using the `@label@` notation.  
+Note: To pass target information to your external program,
+you can send target information as arguments using the `@label@` notation.
 Supported fields are: target, address, port, probe, and target labels like target.label.fqdn.
 ```
 command: "./redis_probe" -host=@address@ -port=@port@
@@ -97,9 +98,9 @@ Running it through cloudprober, you'll see the following output:
 cloudprober --config_file=cloudprober.cfg
 
 cloudprober 1519..0 1519583408 labels=ptype=external,probe=redis_probe,dst= success=1 total=1 latency=12143.765
-cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst= set_latency_ms=0.516 get_latency_ms=0.491
+cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst=,op=get op_latency_ms=0.516 get_latency_ms=0.491
 cloudprober 1519..2 1519583410 labels=ptype=external,probe=redis_probe,dst= success=2 total=2 latency=30585.915
-cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst= set_latency_ms=0.636 get_latency_ms=0.994
+cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst=,op=set op_latency_ms=0.636 get_latency_ms=0.994
 cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= success=3 total=3 latency=42621.871
 {{< / highlight >}}
 
@@ -119,13 +120,7 @@ output_metrics_options {
 
   # Create distributions for get_latency_ms and set_latency_ms.
   dist_metric {
-    key: "get_latency_ms"
-    value: {
-      explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
-    }
-  }
-  dist_metric {
-    key: "set_latency_ms"
+    key: "op_latency_ms"
     value: {
       explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
     }
@@ -133,8 +128,11 @@ output_metrics_options {
 }
 {{< / highlight >}}
 
-This configuration adds options to aggregate the metrics in the cloudprober and configures "get\_latency\_ms" and "set\_latency\_ms" as distribution metrics with explicit buckets. Cloudprober will now build cumulative distributions using
-for these metrics. We can import this data in Stackdriver or Prometheus and get the percentiles of the "get" and "set" latencies. Following screenshot shows the
+This configuration adds options to aggregate the metrics in the cloudprober and
+ configures "op\_latency\_ms" as a distribution metric with explicit buckets.
+Cloudprober will now build cumulative distributions using
+for these metrics. We can import this data in Stackdriver or Prometheus and get
+ the percentiles of the "get" and "set" latencies. Following screenshot shows the
 grafana dashboard built using these metrics.
 
 <a href="/diagrams/redis_probe_screenshot.png"><img style="float: center;" width=300px src="/diagrams/redis_probe_screenshot.png"></a>
@@ -149,7 +147,7 @@ External probe's server mode provides a way to run the external probe process in
 
 ![External Probe Server](/diagrams/external_probe_server.svg)
 
-Please see the code at 
+Please see the code at
 [examples/external/redis_probe.go](https://github.com/cloudprober/cloudprober/blob/master/examples/external/redis_probe.go) for server mode implementation of the above probe. Here is the corresponding
 cloudprober config to run this probe in server mode: [examples/external/cloudprober_server.cfg](
 https://github.com/cloudprober/cloudprober/blob/master/examples/external/cloudprober_server.cfg).
