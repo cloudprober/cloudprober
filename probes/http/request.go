@@ -176,8 +176,9 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 		tok, err := p.bearerToken()
 		if err != nil {
 			p.l.Error(err.Error())
+		} else {
+			req.Header.Set("Authorization", "Bearer "+tok)
 		}
-		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 
 	return req

@@ -16,14 +16,17 @@ package http
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/cloudprober/cloudprober/common/oauth"
+	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/golang/protobuf/proto"
 )
 
 func TestHostWithPort(t *testing.T) {
@@ -306,6 +309,43 @@ func TestRequestHostAndURL(t *testing.T) {
 	for _, td := range tests {
 		t.Run(td.desc, func(t *testing.T) {
 			testRequestHostAndURLWithDifferentPorts(t, td)
+		})
+	}
+}
+
+func TestAuthHeader(t *testing.T) {
+	p := &Probe{
+		protocol: "http",
+		l:        &logger.Logger{},
+		opts:     &options.Options{},
+	}
+
+	// Temporary file that we'll use to store OAuth token.
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+	oauthTS := oauth.FileTokenSource(tmpfile.Name(), p.l)
+
+	for _, tok := range []string{"", "tok1", "tok2"} {
+		t.Run("Token: "+tok, func(t *testing.T) {
+			var wantHeader string
+			if tok == "" {
+				p.oauthTS = nil
+				wantHeader = ""
+			} else {
+				if err := ioutil.WriteFile(tmpfile.Name(), []byte(tok), 0644); err != nil {
+					t.Errorf("Error writing to token file: %v", err)
+					return
+				}
+				p.oauthTS = oauthTS
+				wantHeader = "Bearer " + tok
+			}
+			req := p.httpRequestForTarget(endpoint.Endpoint{Name: "test-target"}, nil)
+			if req.Header.Get("Authorization") != wantHeader {
+				t.Errorf("Wrong authorization header. Got: %s, Wanted: %s", req.Header.Get("Authorization"), wantHeader)
+			}
 		})
 	}
 }

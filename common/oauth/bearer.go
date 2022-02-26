@@ -26,6 +26,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/protobuf/proto"
 )
 
 type bearerTokenSource struct {
@@ -133,4 +134,18 @@ func (ts *bearerTokenSource) Token() (*oauth2.Token, error) {
 	}
 
 	return &oauth2.Token{AccessToken: ts.cache}, nil
+}
+
+// FileTokenSource returns a TokenSource that simply reads the token from a
+// given file. This is primarily for testing.
+func FileTokenSource(f string, l *logger.Logger) oauth2.TokenSource {
+	return &bearerTokenSource{
+		c: &configpb.BearerToken{
+			Source: &configpb.BearerToken_File{
+				File: f,
+			},
+			RefreshIntervalSec: proto.Float32(0),
+		},
+		getTokenFromBackend: getTokenFromFile,
+	}
 }
