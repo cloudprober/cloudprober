@@ -273,6 +273,14 @@ func isClientTimeout(err error) bool {
 
 // httpRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName string, result *probeResult, resultMu *sync.Mutex) {
+	// We clone the request for the cases where we modify the request.
+	if len(p.requestBody) >= largeBodyThreshold || p.oauthTS != nil {
+		req = req.Clone(req.Context())
+	}
+
+	if len(p.requestBody) >= largeBodyThreshold {
+		req.Body = ioutil.NopCloser(bytes.NewReader(p.requestBody))
+	}
 	if p.oauthTS != nil {
 		tok, err := p.oauthToken()
 		// Note: We don't terminate the request if there is an error in getting
@@ -283,11 +291,6 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 			tok = "<token-missing>"
 		}
 		req.Header.Set("Authorization", "Bearer "+tok)
-	}
-
-	if len(p.requestBody) >= largeBodyThreshold {
-		req = req.Clone(req.Context())
-		req.Body = ioutil.NopCloser(bytes.NewReader(p.requestBody))
 	}
 
 	if p.c.GetKeepAlive() {
