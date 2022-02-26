@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
@@ -34,22 +34,27 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/oauth2"
 )
 
 // The Transport is mocked instead of the Client because Client is not an
 // interface, but RoundTripper (which Transport implements) is.
 type testTransport struct {
-	noBody                   io.ReadCloser
-	lastProcessedRequestBody []byte
-}
-
-func newTestTransport() *testTransport {
-	return &testTransport{}
+	mu              sync.Mutex
+	lastRequestBody []byte
+	lastAuthHeader  string
+	keepAuthHeader  bool
 }
 
 func patchWithTestTransport(p *Probe) {
+	keepAuthHeader := false
+	if p.oauthTS != nil {
+		keepAuthHeader = true
+	}
 	for _, c := range p.clients {
-		c.Transport = newTestTransport()
+		c.Transport = &testTransport{
+			keepAuthHeader: keepAuthHeader,
+		}
 	}
 }
 
@@ -67,6 +72,16 @@ func (trc *testReadCloser) Close() error {
 }
 
 func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	authHeader := req.Header.Get("Authorization")
+	if tt.keepAuthHeader {
+		tt.mu.Lock()
+		tt.lastAuthHeader = authHeader
+		tt.mu.Unlock()
+	}
+	if strings.Contains(authHeader, "missing") {
+		return nil, fmt.Errorf("auth header: %s", authHeader)
+	}
+
 	if req.URL.Host == "fail-test.com" {
 		return nil, errors.New("failing for fail-target.com")
 	}
@@ -80,7 +95,10 @@ func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	req.Body.Close()
-	tt.lastProcessedRequestBody = b
+
+	tt.mu.Lock()
+	tt.lastRequestBody = b
+	tt.mu.Unlock()
 
 	return &http.Response{
 		Body: &testReadCloser{
@@ -244,7 +262,7 @@ func TestProbeWithBody(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error while initializing probe: %v", err)
 	}
-	p.clients = []*http.Client{{Transport: newTestTransport()}}
+	p.clients = []*http.Client{{Transport: &testTransport{}}}
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
@@ -293,8 +311,8 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	if err != nil {
 		t.Errorf("Error while initializing probe: %v", err)
 	}
-	testTransport := newTestTransport()
-	p.clients = []*http.Client{{Transport: testTransport}}
+	tt := &testTransport{}
+	p.clients = []*http.Client{{Transport: tt}}
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
@@ -302,14 +320,14 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	req := p.httpRequestForTarget(target, nil)
 	p.runProbe(context.Background(), target, req, result)
 
-	got := string(testTransport.lastProcessedRequestBody)
+	got := string(tt.lastRequestBody)
 	if got != testBody {
 		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
 	}
 
 	// Probe 2nd run (we should get the same request body).
 	p.runProbe(context.Background(), target, req, result)
-	got = string(testTransport.lastProcessedRequestBody)
+	got = string(tt.lastRequestBody)
 	if got != testBody {
 		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
 	}
@@ -346,13 +364,13 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 
 	// target -> [success, total]
 	wantData := map[string][2]int64{
-		"test.com": [2]int64{2 * reqPerProbe, 2 * reqPerProbe},
+		"test.com": {2 * reqPerProbe, 2 * reqPerProbe},
 
 		// Test transport is configured to fail this.
-		"fail-test.com": [2]int64{0, 2 * reqPerProbe},
+		"fail-test.com": {0, 2 * reqPerProbe},
 
 		// No probes sent because of bad target (http)
-		"fails-to-resolve.com": [2]int64{0, 0},
+		"fails-to-resolve.com": {0, 0},
 	}
 
 	ems, err := testutils.MetricsFromChannel(dataChan, 100, time.Second)
@@ -445,4 +463,68 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 
 	cancelF()
 	p.wait()
+}
+
+type tokenSource struct {
+	tok string
+	err error
+}
+
+func (ts *tokenSource) Token() (*oauth2.Token, error) {
+	return &oauth2.Token{AccessToken: ts.tok}, ts.err
+}
+
+func TestRunProbeWithOAuth(t *testing.T) {
+	p := &Probe{
+		l: &logger.Logger{},
+	}
+
+	ts := &tokenSource{}
+	p.oauthTS = ts
+
+	testTarget := endpoint.Endpoint{Name: "test.com"}
+	reqPerProbe := int64(3)
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))}
+
+	if err := p.Init("http_test", opts); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
+	patchWithTestTransport(p)
+
+	req := p.httpRequestForTarget(testTarget, nil)
+	result := p.newResult()
+
+	var wantSuccess, wantTotal int64
+	for _, tok := range []string{"tok-1", "tok-2", ""} {
+		wantTotal += reqPerProbe
+		wantHeader := "Bearer <token-missing>"
+		if tok != "" {
+			wantSuccess += reqPerProbe
+			wantHeader = "Bearer " + tok
+		}
+
+		t.Run("tok: "+tok, func(t *testing.T) {
+			ts.tok = tok
+			if tok == "" {
+				ts.err = errors.New("bad token")
+			} else {
+				ts.err = nil
+			}
+
+			p.runProbe(context.Background(), testTarget, req, result)
+
+			if result.success != wantSuccess || result.total != wantTotal {
+				t.Errorf("success=%d,wanted=%d; total=%d,wanted=%d", result.success, wantSuccess, result.total, wantTotal)
+			}
+
+			for _, client := range p.clients {
+				tt := client.Transport.(*testTransport)
+				if tt.lastAuthHeader != wantHeader {
+					t.Errorf("Auth header: %s, wanted: %s", tt.lastAuthHeader, wantHeader)
+				}
+			}
+		})
+	}
 }
