@@ -152,9 +152,5 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 	// on various conditions.
 	req.Host = hostHeaderForTarget(target, probeHostHeader, port)
 
-	if p.bearerToken != "" {
-		req.Header.Set("Authorization", "Bearer "+p.bearerToken)
-	}
-
 	return req
 }
