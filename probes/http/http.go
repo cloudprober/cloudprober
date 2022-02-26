@@ -77,12 +77,11 @@ type Probe struct {
 	clients []*http.Client
 
 	// book-keeping params
-	targets     []endpoint.Endpoint
-	protocol    string
-	method      string
-	url         string
-	oauthTS     oauth2.TokenSource
-	bearerToken string
+	targets  []endpoint.Endpoint
+	protocol string
+	method   string
+	url      string
+	oauthTS  oauth2.TokenSource
 
 	// Run counter, used to decide when to update targets or export
 	// stats.
@@ -112,25 +111,22 @@ type probeResult struct {
 	validationFailure        *metrics.Map
 }
 
-func (p *Probe) updateOauthToken() {
-	if p.oauthTS == nil {
-		return
-	}
-
+func (p *Probe) oauthToken() (string, error) {
 	tok, err := p.oauthTS.Token()
 	if err != nil {
-		p.l.Error("Error getting OAuth token: ", err.Error(), ". Skipping updating the token.")
-	} else {
-		if tok.AccessToken != "" {
-			p.bearerToken = tok.AccessToken
-		} else {
-			idToken, ok := tok.Extra("id_token").(string)
-			if ok {
-				p.bearerToken = idToken
-			}
-		}
-		p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(p.bearerToken)), 10), ", expirationTime: ", tok.Expiry.String())
+		return "", err
 	}
+	p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
+
+	if tok.AccessToken != "" {
+		return tok.AccessToken, nil
+	}
+	idToken, ok := tok.Extra("id_token").(string)
+	if ok {
+		return idToken, nil
+	}
+
+	return "", fmt.Errorf("got unknown token: %v", tok)
 }
 
 // Init initializes the probe with the given params.
@@ -229,7 +225,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			return err
 		}
 		p.oauthTS = oauthTS
-		p.updateOauthToken() // This is also called periodically.
 	}
 
 	if p.c.GetDisableHttp2() {
@@ -278,6 +273,17 @@ func isClientTimeout(err error) bool {
 
 // httpRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName string, result *probeResult, resultMu *sync.Mutex) {
+	if p.oauthTS != nil {
+		tok, err := p.oauthToken()
+		// Note: We don't terminate the request if there is an error in getting
+		// token. That is to avoid complicating the flow, and to make sure that
+		// OAuth refresh failures show in probe failures.
+		if err != nil {
+			p.l.Error("Error getting OAuth token: ", err.Error())
+			tok = "<token-missing>"
+		}
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
 
 	if len(p.requestBody) >= largeBodyThreshold {
 		req = req.Clone(req.Context())
@@ -592,7 +598,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-ctx.Done():
 			return
 		case <-targetsUpdateTicker.C:
-			p.updateOauthToken()
 			p.updateTargetsAndStartProbes(ctx, dataChan)
 		}
 	}
