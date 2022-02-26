@@ -77,12 +77,11 @@ type Probe struct {
 	clients []*http.Client
 
 	// book-keeping params
-	targets     []endpoint.Endpoint
-	protocol    string
-	method      string
-	url         string
-	oauthTS     oauth2.TokenSource
-	bearerToken string
+	targets  []endpoint.Endpoint
+	protocol string
+	method   string
+	url      string
+	oauthTS  oauth2.TokenSource
 
 	// Run counter, used to decide when to update targets or export
 	// stats.
@@ -110,27 +109,6 @@ type probeResult struct {
 	respCodes                *metrics.Map
 	respBodies               *metrics.Map
 	validationFailure        *metrics.Map
-}
-
-func (p *Probe) updateOauthToken() {
-	if p.oauthTS == nil {
-		return
-	}
-
-	tok, err := p.oauthTS.Token()
-	if err != nil {
-		p.l.Error("Error getting OAuth token: ", err.Error(), ". Skipping updating the token.")
-	} else {
-		if tok.AccessToken != "" {
-			p.bearerToken = tok.AccessToken
-		} else {
-			idToken, ok := tok.Extra("id_token").(string)
-			if ok {
-				p.bearerToken = idToken
-			}
-		}
-		p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(p.bearerToken)), 10), ", expirationTime: ", tok.Expiry.String())
-	}
 }
 
 // Init initializes the probe with the given params.
@@ -229,7 +207,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			return err
 		}
 		p.oauthTS = oauthTS
-		p.updateOauthToken() // This is also called periodically.
 	}
 
 	if p.c.GetDisableHttp2() {
@@ -465,7 +442,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 
 			// If we are resolving first, this is also a good time to recreate HTTP
 			// request in case target's IP has changed.
-			if p.c.GetResolveFirst() {
+			if p.c.GetResolveFirst() || p.oauthTS != nil {
 				req = p.httpRequestForTarget(target, nil)
 			}
 		}
@@ -572,11 +549,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	if initialRefreshInterval > time.Second {
 		initialRefreshInterval = time.Second
 	}
-
 	for {
 		if ctxDone(ctx) {
 			return
 		}
+		// Break as soon as we get non-zero targets.
 		if len(p.targets) != 0 {
 			break
 		}
@@ -584,15 +561,18 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		time.Sleep(initialRefreshInterval)
 	}
 
+	// This is the main loop for updating targets. Note that it runs
+	// concurrently with the probe loop, but it's safe because we don't share
+	// any data structures between the two loops -- whenever targets change,
+	// including their labels and other details, we cancel the probe loop for
+	// that target and start a new one.
 	targetsUpdateTicker := time.NewTicker(p.targetsUpdateInterval)
 	defer targetsUpdateTicker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-targetsUpdateTicker.C:
-			p.updateOauthToken()
 			p.updateTargetsAndStartProbes(ctx, dataChan)
 		}
 	}

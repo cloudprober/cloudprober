@@ -1,4 +1,4 @@
-// Copyright 2019-2020 The Cloudprober Authors.
+// Copyright 2019-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,32 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 const relURLLabel = "relative_url"
+
+func (p *Probe) bearerToken() (string, error) {
+	tok, err := p.oauthTS.Token()
+	if err != nil {
+		return "", fmt.Errorf("error getting OAuth token: %v", err)
+	}
+
+	p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
+
+	if tok.AccessToken != "" {
+		return tok.AccessToken, nil
+	}
+
+	if idToken, ok := tok.Extra("id_token").(string); ok {
+		return idToken, nil
+	}
+
+	return "", nil
+}
 
 // requestBody encapsulates the request body and implements the io.Reader()
 // interface.
@@ -152,8 +172,12 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 	// on various conditions.
 	req.Host = hostHeaderForTarget(target, probeHostHeader, port)
 
-	if p.bearerToken != "" {
-		req.Header.Set("Authorization", "Bearer "+p.bearerToken)
+	if p.oauthTS != nil {
+		tok, err := p.bearerToken()
+		if err != nil {
+			p.l.Error(err.Error())
+		}
+		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 
 	return req
