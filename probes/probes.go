@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/dns"
 	"github.com/cloudprober/cloudprober/probes/external"
@@ -32,9 +31,11 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/probes/ping"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/probes/tcp"
 	"github.com/cloudprober/cloudprober/probes/udp"
 	"github.com/cloudprober/cloudprober/probes/udplistener"
 	"github.com/cloudprober/cloudprober/web/formatutils"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -150,6 +151,9 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 	case configpb.ProbeDef_EXTERNAL:
 		probe = &external.Probe{}
 		probeConf = p.GetExternalProbe()
+	case configpb.ProbeDef_TCP:
+		probe = &tcp.Probe{}
+		probeConf = p.GetTcpProbe()
 	case configpb.ProbeDef_UDP:
 		probe = &udp.Probe{}
 		probeConf = p.GetUdpProbe()
