@@ -39,14 +39,30 @@ type Probe struct {
 	l    *logger.Logger
 
 	// book-keeping params
-	network string
-	dialer  *net.Dialer // Keeps some dialing related config
+	network     string
+	dialContext func(context.Context, string, string) (net.Conn, error) // Keeps some dialing related config
 }
 
 type probeResult struct {
 	total, success    int64
 	latency           metrics.Value
 	validationFailure *metrics.Map
+}
+
+func (p *Probe) newResult() sched.ProbeResult {
+	result := &probeResult{}
+
+	if p.opts.Validators != nil {
+		result.validationFailure = validators.ValidationFailureMap(p.opts.Validators)
+	}
+
+	if p.opts.LatencyDist != nil {
+		result.latency = p.opts.LatencyDist.Clone()
+	} else {
+		result.latency = metrics.NewFloat(0)
+	}
+
+	return result
 }
 
 func (result *probeResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
@@ -65,9 +81,13 @@ func (result *probeResult) Metrics(ts time.Time, opts *options.Options) *metrics
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
+	if opts.ProbeConf == nil {
+		opts.ProbeConf = &configpb.ProbeConf{}
+	}
+
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
-		return fmt.Errorf("not http config")
+		return fmt.Errorf("not tcp probe config")
 	}
 	p.name = name
 	p.opts = opts
@@ -82,15 +102,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	// Create a dialer for our use.
-	p.dialer = &net.Dialer{
+	dialer := &net.Dialer{
 		Timeout:   p.opts.Timeout,
 		KeepAlive: 30 * time.Second, // TCP keep-alive
 	}
 	if p.opts.SourceIP != nil {
-		p.dialer.LocalAddr = &net.TCPAddr{
+		dialer.LocalAddr = &net.TCPAddr{
 			IP: p.opts.SourceIP,
 		}
 	}
+	p.dialContext = dialer.DialContext
 
 	return nil
 }
@@ -118,7 +139,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	}
 
 	start := time.Now()
-	conn, err := p.dialer.DialContext(ctx, p.network, net.JoinHostPort(addr, strconv.Itoa(port)))
+	conn, err := p.dialContext(ctx, p.network, net.JoinHostPort(addr, strconv.Itoa(port)))
 	latency := time.Since(start)
 	if conn != nil {
 		defer conn.Close()
@@ -133,22 +154,6 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
-}
-
-func (p *Probe) newResult() sched.ProbeResult {
-	result := &probeResult{}
-
-	if p.opts.Validators != nil {
-		result.validationFailure = validators.ValidationFailureMap(p.opts.Validators)
-	}
-
-	if p.opts.LatencyDist != nil {
-		result.latency = p.opts.LatencyDist.Clone()
-	} else {
-		result.latency = metrics.NewFloat(0)
-	}
-
-	return result
 }
 
 // Start starts and runs the probe indefinitely.
