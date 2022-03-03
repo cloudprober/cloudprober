@@ -47,11 +47,17 @@ type Options struct {
 	StatsExportInterval time.Duration
 	LogMetrics          func(*metrics.EventMetrics)
 	AdditionalLabels    []*AdditionalLabel
+	NegativeTest        bool
 }
 
 const defaultStatsExtportIntv = 10 * time.Second
 const defaultIntervalPeriod = 2 * time.Second
 const defaultTimeoutPeriod = 1 * time.Second
+
+var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
+	configpb.ProbeDef_TCP:  true,
+	configpb.ProbeDef_PING: true,
+}
 
 func defaultStatsExportInterval(p *configpb.ProbeDef, opts *Options) time.Duration {
 	minIntv := opts.Interval
@@ -141,11 +147,16 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		}
 	}
 
+	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
+		return nil, fmt.Errorf("negative_test is not supported by %s probes", p.GetType().String())
+	}
+
 	opts := &Options{
 		Interval:          intervalDuration,
 		Timeout:           timeoutDuration,
 		IPVersion:         ipv(p.IpVersion),
 		LatencyMetricName: p.GetLatencyMetricName(),
+		NegativeTest:      p.GetNegativeTest(),
 	}
 
 	if opts.Logger, err = logger.NewCloudproberLog(p.GetName()); err != nil {

@@ -318,3 +318,43 @@ func TestDefaultOptions(t *testing.T) {
 		t.Errorf("Got nil default options")
 	}
 }
+
+func TestNegativeTestSupport(t *testing.T) {
+	supportedType := []configpb.ProbeDef_Type{
+		configpb.ProbeDef_PING,
+		configpb.ProbeDef_TCP,
+	}
+	unsupportedType := []configpb.ProbeDef_Type{
+		configpb.ProbeDef_DNS,
+		configpb.ProbeDef_EXTERNAL,
+		configpb.ProbeDef_HTTP,
+		configpb.ProbeDef_UDP,
+		configpb.ProbeDef_UDP_LISTENER,
+	}
+
+	probeConf := func(ptype configpb.ProbeDef_Type) *configpb.ProbeDef {
+		return &configpb.ProbeDef{
+			Type:         ptype.Enum(),
+			Targets:      testTargets,
+			NegativeTest: proto.Bool(true),
+		}
+	}
+
+	for _, ptype := range supportedType {
+		t.Run(ptype.String(), func(t *testing.T) {
+			_, err := BuildProbeOptions(probeConf(ptype), nil, nil, nil)
+			if err != nil {
+				t.Errorf("Got unexpected error: %v", err)
+			}
+		})
+	}
+
+	for _, ptype := range unsupportedType {
+		t.Run(ptype.String(), func(t *testing.T) {
+			_, err := BuildProbeOptions(probeConf(ptype), nil, nil, nil)
+			if err == nil {
+				t.Errorf("Didn't get error for unsupported probe type: %v", ptype)
+			}
+		})
+	}
+}

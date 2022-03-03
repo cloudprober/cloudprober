@@ -123,23 +123,30 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	// Convert interface to struct type
 	result := res.(*probeResult)
 
-	addr := target.Name
+	host := target.Name
+	ipLabel := ""
 	if p.c.GetResolveFirst() {
-		ip, err := p.opts.Targets.Resolve(addr, p.opts.IPVersion)
+		ip, err := p.opts.Targets.Resolve(host, p.opts.IPVersion)
 		if err != nil {
-			p.l.Error("target: ", addr, ", resolve error: ", err.Error())
+			p.l.Error("target: ", host, ", resolve error: ", err.Error())
 			return
 		}
-		addr = ip.String()
+		host = ip.String()
+		ipLabel = host
+	}
+
+	for _, al := range p.opts.AdditionalLabels {
+		al.UpdateForTargetWithIPPort(target, ipLabel, 0)
 	}
 
 	port := int(p.c.GetPort())
 	if port == 0 {
 		port = target.Port
 	}
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	start := time.Now()
-	conn, err := p.dialContext(ctx, p.network, net.JoinHostPort(addr, strconv.Itoa(port)))
+	conn, err := p.dialContext(ctx, p.network, addr)
 	latency := time.Since(start)
 	if conn != nil {
 		defer conn.Close()
@@ -147,11 +154,19 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 
 	result.total++
 
+	if p.opts.NegativeTest {
+		if err == nil {
+			p.l.Warning("Negative test, but connection was successful to: ", addr)
+			return
+		}
+		result.success++
+		return
+	}
+
 	if err != nil {
 		p.l.Warning("Target:", target.Name, ", doTCP: ", err.Error())
 		return
 	}
-
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 }

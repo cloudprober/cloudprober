@@ -321,13 +321,20 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		pktLen, peer, recvTime, err := p.conn.read(pktbuf)
 
 		if err != nil {
-			p.l.Warning(err.Error())
+			if !p.opts.NegativeTest {
+				p.l.Warning(err.Error())
+			}
 			// if it's a timeout, return immediately.
 			if neterr, ok := err.(*net.OpError); ok && neterr.Timeout() {
 				return
 			}
 			continue
 		}
+
+		if p.opts.NegativeTest {
+			p.l.Warning("Negative test, but got a reply from ", peer.String())
+		}
+
 		if pktLen < minPacketSize {
 			p.l.Warning("packet too small: size (", strconv.FormatInt(int64(pktLen), 10), ") < minPacketSize (16), from peer: ", peer.String())
 			continue
@@ -485,9 +492,13 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		}
 		for _, target := range p.targets {
 			result := p.results[target.Name]
+			success := result.rcvd
+			if p.opts.NegativeTest {
+				success = result.sent - result.rcvd
+			}
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", metrics.NewInt(result.sent)).
-				AddMetric("success", metrics.NewInt(result.rcvd)).
+				AddMetric("success", metrics.NewInt(success)).
 				AddMetric(p.opts.LatencyMetricName, result.latency).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
