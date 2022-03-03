@@ -16,6 +16,7 @@ import "github.com/cloudprober/cloudprober/validators/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
+// Next tag: 19
 message ProbeDef {
   required string name = 1;
 
@@ -147,6 +148,14 @@ message ProbeDef {
   //   }
   // (See a more detailed example at: examples/additional_label/cloudprober.cfg)
   repeated AdditionalLabel additional_label = 14;
+
+  // (Experimental) If set, test is inversed, i.e. we count it as success if
+  // target doesn't respond. This is useful, for example, that your firewall is
+  // working as expected.
+  //
+  // This is currently implemented only by PING and TCP probes.
+  // Note: This field is currently experimental, and may change in future.
+  optional bool negative_test = 18;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;
