@@ -60,7 +60,10 @@ var getTokenFromCmd = func(c *configpb.BearerToken) (string, error) {
 var getTokenFromGCEMetadata = func(c *configpb.BearerToken) (string, error) {
 	ts := google.ComputeTokenSource(c.GetGceServiceAccount())
 	tok, err := ts.Token()
-	return tok.AccessToken, err
+	if err != nil {
+		return "", err
+	}
+	return tok.AccessToken, nil
 }
 
 func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.TokenSource, error) {
