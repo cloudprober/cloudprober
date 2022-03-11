@@ -40,10 +40,15 @@ type ProbeConf struct {
 	// privilege to send ICMP packets). Note that most of the Linux distributions
 	// don't allow unprivileged pings by default. To enable unprivileged pings on
 	// some Linux distributions, you may need to run the following command:
+	//
 	//     sudo sysctl -w net.ipv4.ping_group_range="0 <large valid group id>"
+	//
 	// net.ipv4.ping_group_range system setting takes two integers that specify
 	// the group id range that is allowed to execute the unprivileged pings. Note
 	// that the same setting (with ipv4 in the path) applies to IPv6 as well.
+	//
+	// Note: This option is not supported on Windows and is automatically
+	// disabled there.
 	UseDatagramSocket *bool `protobuf:"varint,12,opt,name=use_datagram_socket,json=useDatagramSocket,def=1" json:"use_datagram_socket,omitempty"`
 	// Disable integrity checks. To detect data courruption in the network, we
 	// craft the outgoing ICMP packet payload in a certain format and verify that
