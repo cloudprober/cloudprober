@@ -56,6 +56,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/validators"
 	"github.com/cloudprober/cloudprober/validators/integrity"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -113,6 +114,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 // Helper function to initialize internal data structures, used by tests.
 func (p *Probe) initInternal() error {
+	if p.opts.ProbeConf == nil {
+		p.opts.ProbeConf = &configpb.ProbeConf{}
+	}
+
 	c, ok := p.opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return errors.New("no ping config")
@@ -128,6 +133,12 @@ func (p *Probe) initInternal() error {
 	}
 	if p.c.GetPayloadSize() > maxPacketSize-icmpHeaderSize {
 		return fmt.Errorf("payload_size (%d) cannot be bigger than %d", p.c.GetPayloadSize(), maxPacketSize-icmpHeaderSize)
+	}
+	if runtime.GOOS == "windows" {
+		if p.c.UseDatagramSocket != nil {
+			p.l.Warning("use_datagram_socket option is not supported on windows, disabling it.")
+		}
+		p.c.UseDatagramSocket = proto.Bool(false)
 	}
 
 	if err := p.configureIntegrityCheck(); err != nil {
