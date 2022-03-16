@@ -43,11 +43,18 @@ const (
 	metricsBufferSize = 10000
 )
 
-const histogram = "histogram"
-
 // queriesQueueSize defines how many queries can we queue before we start
 // blocking on previous queries to finish.
 const queriesQueueSize = 10
+
+var dashboardDurations = []time.Duration{
+	5 * time.Minute,
+	30 * time.Minute,
+	1 * time.Hour,
+	6 * time.Hour,
+	12 * time.Hour,
+	24 * time.Hour,
+}
 
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
 // to signal the completion of the writing of the response.
@@ -232,19 +239,14 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 	})
 }
 
-func (ps *Surfacer) computeDelta(durations []time.Duration, data []*datum) (totalDelta, successDelta []int64) {
+func (ps *Surfacer) computeDelta(data []*datum, td time.Duration) (int64, int64) {
 	lastData := data[len(data)-1]
-	for _, td := range durations {
-		numPoints := int(td / ps.resolution)
-		start := len(data) - 1 - numPoints
-		if start < 0 {
-			start = 0
-		}
-
-		totalDelta = append(totalDelta, lastData.total-data[start].total)
-		successDelta = append(successDelta, lastData.success-data[start].success)
+	numPoints := int(td / ps.resolution)
+	start := len(data) - 1 - numPoints
+	if start < 0 {
+		start = 0
 	}
-	return
+	return lastData.total - data[start].total, lastData.success - data[start].success
 }
 
 func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]string, []string) {
@@ -255,9 +257,9 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 		ts := ps.metrics[probeName][targetName]
 		data := ts.getRecentData(24 * time.Hour)
 
-		totalDelta, successDelta := ps.computeDelta(durations, data)
-		for i := range durations {
-			lines = append(lines, fmt.Sprintf("<td>%.3f</td>", float64(successDelta[i])/float64(totalDelta[i])))
+		for _, td := range durations {
+			t, s := ps.computeDelta(data, td)
+			lines = append(lines, fmt.Sprintf("<td>%.3f</td>", float64(s)/float64(t)))
 		}
 
 		debugLines = append(debugLines, fmt.Sprintf("Target: %s, Oldest timestamp: %s<br>",
@@ -265,7 +267,8 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 
 		for _, i := range []int{0, len(data) - 1} {
 			d := data[i]
-			debugLines = append(debugLines, fmt.Sprintf("#%d total=%d, success=%d, latency=%s <br>", i, d.total, d.success, d.latency.String()))
+			debugLines = append(debugLines, fmt.Sprintf("#%d total=%d, success=%d, latency=%s <br>",
+				i, d.total, d.success, d.latency.String()))
 		}
 	}
 	return lines, debugLines
@@ -275,12 +278,11 @@ func (ps *Surfacer) writeData(w io.Writer) {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
-	durations := []time.Duration{5 * time.Minute, 30 * time.Minute, 1 * time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour}
 	probesStatus := make(map[string]template.HTML)
 	probesStatusDebug := make(map[string]template.HTML)
 
 	for _, probeName := range ps.probeNames {
-		probeLines, probeDebugLines := ps.probeStatus(probeName, durations)
+		probeLines, probeDebugLines := ps.probeStatus(probeName, dashboardDurations)
 		probesStatus[probeName] = template.HTML(strings.Join(probeLines, "\n"))
 		probesStatusDebug[probeName] = template.HTML(strings.Join(probeDebugLines, "\n"))
 	}
@@ -300,7 +302,7 @@ func (ps *Surfacer) writeData(w io.Writer) {
 		Version           string
 		StartTime, Uptime fmt.Stringer
 	}{
-		Durations:         durations,
+		Durations:         dashboardDurations,
 		ProbeNames:        ps.probeNames,
 		ProbesStatus:      probesStatus,
 		ProbesStatusDebug: probesStatusDebug,
