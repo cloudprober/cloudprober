@@ -16,6 +16,7 @@ package probestatus
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -49,6 +50,7 @@ func TestRecord(t *testing.T) {
 		latest      int
 		oldest      int
 		oldestTotal int
+		totalDeltas []int64 // for durations 1, 2, 5, 10 min
 	}{
 		{
 			// _, [1], [2,3], [4,5], [6,7], [8,9], [10, 11], [12, 13]
@@ -56,14 +58,16 @@ func TestRecord(t *testing.T) {
 			oldest:      0,
 			latest:      7, // Leave first empty, fill next 7
 			oldestTotal: 187,
+			totalDeltas: []int64{2, 4, 10, 12}, // 7 buckets max.
 		},
 		{
 			// _, [1, 2], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14],
 			//                                 ........[15,16], [17,18]
 			numMetrics:  18,
 			oldest:      0,
-			latest:      9,   // Leave first empty, fill next 9
-			oldestTotal: 183, // First gets overwritten
+			latest:      9,                     // Leave first empty, fill next 9
+			oldestTotal: 183,                   // First gets overwritten
+			totalDeltas: []int64{2, 4, 10, 16}, // 9 buckets for 10m window.
 		},
 		{
 			// [19,20], [21,22], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14],
@@ -74,6 +78,7 @@ func TestRecord(t *testing.T) {
 
 			// Start at 178, but [1,2] is lost, and 3 is overwritten by 4.
 			oldestTotal: 181,
+			totalDeltas: []int64{2, 4, 10, 18}, // 10 buckets for 10m window.
 		},
 	}
 
@@ -127,6 +132,14 @@ func TestRecord(t *testing.T) {
 						}
 					}
 				})
+			}
+
+			durations := []time.Duration{time.Minute, 2 * time.Minute, 5 * time.Minute, 10 * time.Minute}
+			data := ts.getRecentData(10 * time.Minute)
+			totalDeltas, _ := ps.computeDelta(durations, data)
+			t.Logf("%+v", len(data))
+			if !reflect.DeepEqual(totalDeltas, test.totalDeltas) {
+				t.Errorf("total deltas=%v, want deltas=%v", totalDeltas, test.totalDeltas)
 			}
 		})
 	}

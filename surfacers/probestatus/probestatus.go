@@ -100,7 +100,7 @@ func (ts *timeseries) getRecentData(td time.Duration) []*datum {
 		if oldestIndex == 0 {
 			oldestIndex = 1
 		}
-		return append([]*datum{}, ts.a[oldestIndex:ts.latest]...)
+		return append([]*datum{}, ts.a[oldestIndex:ts.latest+1]...)
 	}
 
 	if ts.oldest == 0 {
@@ -108,7 +108,7 @@ func (ts *timeseries) getRecentData(td time.Duration) []*datum {
 	}
 
 	otherSide := len(ts.a) + oldestIndex
-	return append([]*datum{}, append(ts.a[otherSide:], ts.a[:ts.latest]...)...)
+	return append([]*datum{}, append(ts.a[otherSide:], ts.a[:ts.latest+1]...)...)
 }
 
 type datum struct {
@@ -234,7 +234,7 @@ func (ps *Surfacer) computeDelta(durations []time.Duration, data []*datum) (tota
 	lastData := data[len(data)-1]
 	for _, td := range durations {
 		numPoints := int(td / ps.resolution)
-		start := len(data) - numPoints
+		start := len(data) - 1 - numPoints
 		if start < 0 {
 			start = 0
 		}
