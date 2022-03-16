@@ -58,6 +58,7 @@ type forwardingRules struct {
 	c           *configpb.ForwardingRules
 	names       []string
 	localRegion string
+	globalRule  bool
 	cache       map[string]*compute.ForwardingRule
 	apiVersion  string
 	l           *logger.Logger
@@ -92,24 +93,30 @@ func (frp *forwardingRules) expand() {
 		frp.l.Errorf("gce.forwardingRules.expand: error while creating the compute service: %v", err)
 		return
 	}
-
-	regions, err := frp.getTargetRegions(cs)
-	if err != nil {
-		frp.l.Errorf("gce.forwardingRules.expand: error while getting the list of target regions: %v", err)
-		return
-	}
-
 	var forwardingRulesList []*compute.ForwardingRule
-
-	for _, region := range regions {
-		l, err := cs.ForwardingRules.List(frp.project, region).Do()
+	if frp.globalRule {
+		l, err := cs.GlobalForwardingRules.List(frp.project).Do()
 		if err != nil {
-			frp.l.Errorf("gce.forwardingRules.expand(region=%s): error while getting the list of forwarding rules: %v", region, err)
+			frp.l.Errorf("gce.forwardingRules.expand(global): error while getting the list of global forwarding rules: %v", err)
 			return
 		}
 		forwardingRulesList = append(forwardingRulesList, l.Items...)
-	}
+	} else {
+		regions, err := frp.getTargetRegions(cs)
+		if err != nil {
+			frp.l.Errorf("gce.forwardingRules.expand: error while getting the list of target regions: %v", err)
+			return
+		}
 
+		for _, region := range regions {
+			l, err := cs.ForwardingRules.List(frp.project, region).Do()
+			if err != nil {
+				frp.l.Errorf("gce.forwardingRules.expand(region=%s): error while getting the list of forwarding rules: %v", region, err)
+				return
+			}
+			forwardingRulesList = append(forwardingRulesList, l.Items...)
+		}
+	}
 	var result []string
 	for _, ins := range forwardingRulesList {
 		frp.cache[ins.Name] = ins
@@ -172,7 +179,7 @@ func newForwardingRules(project string, opts *configpb.GlobalOptions, frpb *conf
 	// Initialize forwardingRules provider only once
 	onceForwardingRules.Do(func() {
 
-		if len(frpb.GetRegion()) == 0 {
+		if !frpb.GetGlobalRule() && len(frpb.GetRegion()) == 0 {
 			localRegion, err = getLocalRegion()
 			if err != nil {
 				err = fmt.Errorf("gce.newForwardingRules: error while getting local region: %v", err)
@@ -185,6 +192,7 @@ func newForwardingRules(project string, opts *configpb.GlobalOptions, frpb *conf
 			project:     project,
 			c:           frpb,
 			localRegion: localRegion,
+			globalRule:  frpb.GetGlobalRule(),
 			cache:       make(map[string]*compute.ForwardingRule),
 			apiVersion:  opts.GetApiVersion(),
 			l:           l,
