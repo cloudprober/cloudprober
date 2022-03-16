@@ -31,10 +31,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
+	"github.com/cloudprober/cloudprober/sysvars"
 )
 
 const (
@@ -258,18 +260,21 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 			lines = append(lines, fmt.Sprintf("<td>%.3f</td>", float64(successDelta[i])/float64(totalDelta[i])))
 		}
 
-		debugLines = append(debugLines, fmt.Sprintf("<b>Target: %s, Oldest timestamp: %s</b><br>",
+		debugLines = append(debugLines, fmt.Sprintf("Target: %s, Oldest timestamp: %s<br>",
 			targetName, ts.currentTS.Add(time.Duration(-len(data))*ts.res)))
 
 		for _, i := range []int{0, len(data) - 1} {
 			d := data[i]
-			debugLines = append(debugLines, fmt.Sprintf("#%d total=%d, success=%d, latency=%s <br/>", i, d.total, d.success, d.latency.String()))
+			debugLines = append(debugLines, fmt.Sprintf("#%d total=%d, success=%d, latency=%s <br>", i, d.total, d.success, d.latency.String()))
 		}
 	}
 	return lines, debugLines
 }
 
 func (ps *Surfacer) writeData(w io.Writer) {
+	startTime := sysvars.StartTime().Truncate(time.Millisecond)
+	uptime := time.Since(startTime).Truncate(time.Millisecond)
+
 	durations := []time.Duration{5 * time.Minute, 30 * time.Minute, 1 * time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour}
 	probesStatus := make(map[string]template.HTML)
 	probesStatusDebug := make(map[string]template.HTML)
@@ -292,11 +297,17 @@ func (ps *Surfacer) writeData(w io.Writer) {
 		ProbeNames        []string
 		ProbesStatus      map[string]template.HTML
 		ProbesStatusDebug map[string]template.HTML
+		Version           string
+		StartTime, Uptime fmt.Stringer
 	}{
 		Durations:         durations,
 		ProbeNames:        ps.probeNames,
 		ProbesStatus:      probesStatus,
 		ProbesStatusDebug: probesStatusDebug,
+		Version:           runconfig.Version(),
+		StartTime:         startTime,
+		Uptime:            uptime,
 	})
+
 	fmt.Fprintf(w, statusBuf.String())
 }
