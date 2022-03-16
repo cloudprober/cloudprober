@@ -16,8 +16,6 @@
 Package probestatus implements a surfacer that exposes probes' status over web
 interface. This surfacer builds an in-memory timeseries database from the
 incoming EventMetrics.
-
-Example /probestatus page:
 */
 package probestatus
 
@@ -61,68 +59,6 @@ var dashboardDurations = []time.Duration{
 type httpWriter struct {
 	w        http.ResponseWriter
 	doneChan chan struct{}
-}
-
-type timeseries struct {
-	a              []*datum
-	latest, oldest int
-	res            time.Duration
-	currentTS      time.Time
-}
-
-func newTimeseries(resolution time.Duration, maxPoints int) *timeseries {
-	if resolution == 0 {
-		resolution = time.Minute
-	}
-	return &timeseries{
-		a:   make([]*datum, maxPoints),
-		res: resolution,
-	}
-}
-
-func (ts *timeseries) addDatum(t time.Time, d *datum) {
-	tt := t.Truncate(ts.res)
-	// Need a new bucket
-	if tt.After(ts.currentTS) {
-		// Move
-		ts.latest = (ts.latest + 1) % len(ts.a)
-		if ts.latest == ts.oldest {
-			ts.oldest++
-		}
-	}
-	// Same bucket but newer data
-	if t.After(ts.currentTS) {
-		ts.currentTS = tt
-		ts.a[ts.latest] = d
-		return
-	}
-}
-
-func (ts *timeseries) getRecentData(td time.Duration) []*datum {
-	size := int(td / ts.res)
-	if size > len(ts.a) || size == 0 {
-		size = len(ts.a)
-	}
-
-	oldestIndex := ts.latest - (size - 1)
-	if oldestIndex >= 0 {
-		if oldestIndex == 0 {
-			oldestIndex = 1
-		}
-		return append([]*datum{}, ts.a[oldestIndex:ts.latest+1]...)
-	}
-
-	if ts.oldest == 0 {
-		return append([]*datum{}, ts.a[1:ts.latest+1]...)
-	}
-
-	otherSide := len(ts.a) + oldestIndex
-	return append([]*datum{}, append(ts.a[otherSide:], ts.a[:ts.latest+1]...)...)
-}
-
-type datum struct {
-	success, total int64
-	latency        metrics.Value
 }
 
 // Surfacer implements a status surfacer for Cloudprober.
@@ -239,16 +175,6 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 	})
 }
 
-func (ps *Surfacer) computeDelta(data []*datum, td time.Duration) (int64, int64) {
-	lastData := data[len(data)-1]
-	numPoints := int(td / ps.resolution)
-	start := len(data) - 1 - numPoints
-	if start < 0 {
-		start = 0
-	}
-	return lastData.total - data[start].total, lastData.success - data[start].success
-}
-
 func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]string, []string) {
 	var lines, debugLines []string
 
@@ -258,7 +184,7 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 		data := ts.getRecentData(24 * time.Hour)
 
 		for _, td := range durations {
-			t, s := ps.computeDelta(data, td)
+			t, s := ts.computeDelta(data, td)
 			lines = append(lines, fmt.Sprintf("<td>%.3f</td>", float64(s)/float64(t)))
 		}
 
