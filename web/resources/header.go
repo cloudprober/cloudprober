@@ -20,12 +20,18 @@ var Style = `
 body {
   font-family: "Roboto","Helvetica","Arial",sans-serif;
 	font-size: 14px;
+  line-height: 1.3;
+}
+
+.debugging {
+  font-size: 12px;
 }
 
 table.status-list {
   border-collapse: collapse;
   border-spacing: 0;
-	margin-bottom: 40px;
+	margin-top: 10px;
+	margin-bottom: 20px;
 	font-family: monospace;
 }
 table.status-list td,th {
