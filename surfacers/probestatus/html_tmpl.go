@@ -25,6 +25,11 @@ var probeStatusTmpl = `
 ` + resources.Style + `
 </head>
 
+<body>
+<b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
+<b>Version</b>: {{.Version}}<br>
+<b>Config</b>: <a href="/config">/config</a><br>
+
 {{$durations := .Durations}}
 {{$probesStatus := .ProbesStatus}}
 {{$probesStatusDebug := .ProbesStatusDebug}}
@@ -32,7 +37,7 @@ var probeStatusTmpl = `
 <h3> Success Ratio </h3>
 {{range $probeName := .ProbeNames}}
 <p>
-  Probe: <b>{{$probeName}}</b><br>
+  <b>Probe: {{$probeName}}</b><br>
 
   <table class="status-list">
     <tr><td></td>
@@ -48,14 +53,17 @@ var probeStatusTmpl = `
 {{end}}
 
 <hr>
-{{range $probeName := .ProbeNames}}
-  <p>
-  Probe: <b>{{$probeName}}</b><br>
+<div class="debugging">
+  <b>Debugging Info</b>
+  <br>
+  {{range $probeName := .ProbeNames}}
+    <p>
+      <b>Probe: {{$probeName}}</b><br>
 
-  {{index $probesStatusDebug $probeName}}
-  </p>
-</p>
-{{end}}
+      {{index $probesStatusDebug $probeName}}
+    </p>
+  {{end}}
+</div>
 
 </html>
 `
