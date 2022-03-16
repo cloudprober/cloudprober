@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package cloudprober.surfacer.probestatus;
+
+option go_package = "github.com/cloudprober/cloudprober/surfacers/probestatus/proto";
+
+message SurfacerConf {
+    // default 60s
+    optional int32 resolution_sec = 1 [default = 60];
+
+    // Maximum number of points to keep. This field dictates the memory used.
+    optional int32 max_points = 2 [default = 4320];
+
+    // ProbeStatus URL
+    optional string url = 3 [default = "/probestatus"];
+}
