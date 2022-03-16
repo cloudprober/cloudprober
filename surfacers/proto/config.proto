@@ -6,6 +6,7 @@ import "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto/config.pro
 import "github.com/cloudprober/cloudprober/surfacers/datadog/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/file/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/postgres/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/probestatus/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/prometheus/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/pubsub/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto/config.proto";
@@ -22,6 +23,7 @@ enum Type {
   PUBSUB = 5;
   CLOUDWATCH = 6;  // Experimental mode.
   DATADOG = 7;     // Experimental mode.
+  PROBESTATUS = 8; // Experimental mode.
   USER_DEFINED = 99;
 }
 
@@ -100,5 +102,6 @@ message SurfacerDef {
     pubsub.SurfacerConf pubsub_surfacer = 14;
     cloudwatch.SurfacerConf cloudwatch_surfacer = 15;
     datadog.SurfacerConf datadog_surfacer = 16;
+    probestatus.SurfacerConf probestatus_surfacer = 17;
   }
 }

@@ -38,6 +38,7 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers/datadog"
 	"github.com/cloudprober/cloudprober/surfacers/file"
 	"github.com/cloudprober/cloudprober/surfacers/postgres"
+	"github.com/cloudprober/cloudprober/surfacers/probestatus"
 	"github.com/cloudprober/cloudprober/surfacers/prometheus"
 	"github.com/cloudprober/cloudprober/surfacers/pubsub"
 	"github.com/cloudprober/cloudprober/surfacers/stackdriver"
@@ -195,6 +196,10 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	case surfacerpb.Type_DATADOG:
 		surfacer, err = datadog.New(ctx, s.GetDatadogSurfacer(), opts, l)
 		conf = s.GetDatadogSurfacer()
+	case surfacerpb.Type_PROBESTATUS:
+		surfacer = probestatus.New(ctx, s.GetProbestatusSurfacer(), opts, l)
+		err = nil
+		conf = s.GetProbestatusSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
