@@ -18,30 +18,10 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/metrics"
-	configpb "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
-	"google.golang.org/protobuf/proto"
 )
 
-const (
-	testProbe = "test-probe"
-)
-
-func testEM(t *testing.T, tm time.Time, target string, total, success int, latency float64) *metrics.EventMetrics {
-	t.Helper()
-	return metrics.NewEventMetrics(tm).
-		AddLabel("probe", testProbe).
-		AddLabel("dst", target).
-		AddMetric("total", metrics.NewInt(int64(total))).
-		AddMetric("success", metrics.NewInt(int64(total))).
-		AddMetric("latency", metrics.NewFloat(latency))
-}
-
-func TestRecord(t *testing.T) {
+func TestTimeseries(t *testing.T) {
 	total, success := 200, 180
-	latency := float64(2000)
 	inputInterval := 30 * time.Second
 	testDurations := []time.Duration{time.Minute, 2 * time.Minute, 5 * time.Minute, 10 * time.Minute}
 
@@ -64,7 +44,7 @@ func TestRecord(t *testing.T) {
 		},
 		{
 			// _, [1, 2], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14],
-			//                                 ........[15,16], [17,18]
+			//                                     ... [15,16], [17,18]
 			numMetrics:  18,
 			oldest:      0,
 			latest:      9,   // Leave first empty, fill next 9
@@ -86,34 +66,14 @@ func TestRecord(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("numMetrics: %d", test.numMetrics), func(t *testing.T) {
-			ps := &Surfacer{
-				c: &configpb.SurfacerConf{
-					MaxPoints: proto.Int32(10),
-				},
-				emChan:       make(chan *metrics.EventMetrics, metricsBufferSize),
-				queryChan:    make(chan *httpWriter, queriesQueueSize),
-				metrics:      make(map[string]map[string]*timeseries),
-				probeTargets: make(map[string][]string),
-				resolution:   time.Minute,
-				l:            &logger.Logger{},
-			}
+			ts := newTimeseries(time.Minute, 10)
 
 			// Start test.numMetrics ago.
 			baseTime := time.Now().Truncate(time.Minute).Add(time.Duration(-test.numMetrics) * inputInterval)
 			for i := 0; i < test.numMetrics; i++ {
-				ps.record(testEM(t, baseTime.Add(time.Duration(i)*inputInterval), "t1", total+i, success+i, latency+9.9*float64(i)))
-				ps.record(testEM(t, baseTime.Add(time.Duration(i)*inputInterval), "t2", total+i, success+i, latency+10*float64(i)))
+				ts.addDatum(baseTime.Add(time.Duration(i)*inputInterval), &datum{total: int64(total + i), success: int64(success + i)})
 			}
 
-			for _, target := range []string{"t1", "t2"} {
-				ts := ps.metrics[testProbe][target]
-				if ts == nil {
-					t.Errorf("Unexpected nil timeseries for target: %s", target)
-				}
-			}
-
-			// Let's work on just one target's series.
-			ts := ps.metrics[testProbe]["t1"]
 			if ts.oldest != test.oldest || ts.latest != test.latest {
 				t.Errorf("timeseries oldest=%d,want=%d latest=%d,want=%d", ts.oldest, test.oldest, ts.latest, test.latest)
 			}
@@ -143,7 +103,7 @@ func TestRecord(t *testing.T) {
 			}
 
 			for i, td := range testDurations {
-				totalDelta, _ := ps.computeDelta(data, td)
+				totalDelta, _ := ts.computeDelta(data, td)
 				if totalDelta != test.totalDeltas[i] {
 					t.Errorf("total delta for duration (%s)=%v, wanted=%v", td, totalDelta, test.totalDeltas[i])
 				}
