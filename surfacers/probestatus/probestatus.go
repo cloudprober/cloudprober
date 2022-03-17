@@ -54,6 +54,21 @@ var dashboardDurations = []time.Duration{
 	24 * time.Hour,
 }
 
+func shortDur(durations []time.Duration) []string {
+	var result []string
+	for _, td := range durations {
+		s := td.String()
+		if strings.HasSuffix(s, "m0s") {
+			s = s[:len(s)-2]
+		}
+		if strings.HasSuffix(s, "h0m") {
+			s = s[:len(s)-2]
+		}
+		result = append(result, s)
+	}
+	return result
+}
+
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
 // to signal the completion of the writing of the response.
 type httpWriter struct {
@@ -185,7 +200,7 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 
 		for _, td := range durations {
 			t, s := ts.computeDelta(data, td)
-			lines = append(lines, fmt.Sprintf("<td>%.3f</td>", float64(s)/float64(t)))
+			lines = append(lines, fmt.Sprintf("<td>%.4f</td>", float64(s)/float64(t)))
 		}
 
 		debugLines = append(debugLines, fmt.Sprintf("Target: %s, Oldest timestamp: %s<br>",
@@ -221,14 +236,14 @@ func (ps *Surfacer) writeData(w io.Writer) {
 		return
 	}
 	tmpl.Execute(&statusBuf, struct {
-		Durations         []time.Duration
+		Durations         []string
 		ProbeNames        []string
 		ProbesStatus      map[string]template.HTML
 		ProbesStatusDebug map[string]template.HTML
 		Version           string
 		StartTime, Uptime fmt.Stringer
 	}{
-		Durations:         dashboardDurations,
+		Durations:         shortDur(dashboardDurations),
 		ProbeNames:        ps.probeNames,
 		ProbesStatus:      probesStatus,
 		ProbesStatusDebug: probesStatusDebug,
