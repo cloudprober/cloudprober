@@ -45,30 +45,6 @@ const (
 // blocking on previous queries to finish.
 const queriesQueueSize = 10
 
-var dashboardDurations = []time.Duration{
-	5 * time.Minute,
-	30 * time.Minute,
-	1 * time.Hour,
-	6 * time.Hour,
-	12 * time.Hour,
-	24 * time.Hour,
-}
-
-func shortDur(durations []time.Duration) []string {
-	var result []string
-	for _, td := range durations {
-		s := td.String()
-		if strings.HasSuffix(s, "m0s") {
-			s = s[:len(s)-2]
-		}
-		if strings.HasSuffix(s, "h0m") {
-			s = s[:len(s)-2]
-		}
-		result = append(result, s)
-	}
-	return result
-}
-
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
 // to signal the completion of the writing of the response.
 type httpWriter struct {
@@ -88,6 +64,9 @@ type Surfacer struct {
 	metrics      map[string]map[string]*timeseries
 	probeNames   []string
 	probeTargets map[string][]string
+
+	// Dashboard Metadata
+	dashboardDurations []time.Duration
 }
 
 // New returns a probestatus surfacer based on the config provided. It sets up
@@ -113,6 +92,8 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		resolution:   res,
 		l:            l,
 	}
+
+	ps.dashboardDurations = dashboardDurations(ps.resolution * time.Duration(ps.c.GetTimeseriesSize()))
 
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
@@ -229,7 +210,7 @@ func (ps *Surfacer) writeData(w io.Writer) {
 	probesStatusDebug := make(map[string]template.HTML)
 
 	for _, probeName := range ps.probeNames {
-		probeLines, probeDebugLines := ps.probeStatus(probeName, dashboardDurations)
+		probeLines, probeDebugLines := ps.probeStatus(probeName, ps.dashboardDurations)
 		probesStatus[probeName] = template.HTML(strings.Join(probeLines, "\n"))
 		probesStatusDebug[probeName] = template.HTML(strings.Join(probeDebugLines, "\n"))
 	}
@@ -249,7 +230,7 @@ func (ps *Surfacer) writeData(w io.Writer) {
 		Version           string
 		StartTime, Uptime fmt.Stringer
 	}{
-		Durations:         shortDur(dashboardDurations),
+		Durations:         shortDur(ps.dashboardDurations),
 		ProbeNames:        ps.probeNames,
 		ProbesStatus:      probesStatus,
 		ProbesStatusDebug: probesStatusDebug,
