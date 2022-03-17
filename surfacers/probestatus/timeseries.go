@@ -32,12 +32,12 @@ type datum struct {
 	latency        metrics.Value
 }
 
-func newTimeseries(resolution time.Duration, maxPoints int) *timeseries {
+func newTimeseries(resolution time.Duration, size int) *timeseries {
 	if resolution == 0 {
 		resolution = time.Minute
 	}
 	return &timeseries{
-		a:   make([]*datum, maxPoints),
+		a:   make([]*datum, size),
 		res: resolution,
 	}
 }

@@ -178,7 +178,13 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 
 	targetTS := probeTS[targetName]
 	if targetTS == nil {
-		targetTS = newTimeseries(ps.resolution, int(ps.c.GetMaxPoints()))
+		if len(probeTS) == int(ps.c.GetMaxTargetsPerProbe())-1 {
+			ps.l.Warningf("Reached the per-probe timeseries capacity (%d) with target \"%s\". All new targets will be silently dropped.", ps.c.GetMaxTargetsPerProbe(), targetName)
+		}
+		if len(probeTS) >= int(ps.c.GetMaxTargetsPerProbe()) {
+			return
+		}
+		targetTS = newTimeseries(ps.resolution, int(ps.c.GetTimeseriesSize()))
 		probeTS[targetName] = targetTS
 		ps.probeTargets[probeName] = append(ps.probeTargets[probeName], targetName)
 	}

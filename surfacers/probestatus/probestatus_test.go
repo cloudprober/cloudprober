@@ -44,17 +44,28 @@ func TestNewAndRecord(t *testing.T) {
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	ps := New(ctx, &configpb.SurfacerConf{MaxPoints: proto.Int32(10)}, nil, nil)
+	ps := New(ctx, &configpb.SurfacerConf{
+		TimeseriesSize:     proto.Int32(10),
+		MaxTargetsPerProbe: proto.Int32(2),
+	}, nil, nil)
 
 	probeTargets := map[string][]string{
 		"p":  {"t1", "t2"},
 		"p2": {"t1"},
+		"p3": {"t1", "t2", "t3"},
 	}
-	ps.record(testEM(t, time.Now(), "p", "t1", total, success, latency))
-	ps.record(testEM(t, time.Now(), "p", "t2", total, success, latency))
-	ps.record(testEM(t, time.Now(), "p2", "t1", total, success, latency))
 
 	for probe, targets := range probeTargets {
+		for _, target := range targets {
+			ps.record(testEM(t, time.Now(), probe, target, total, success, latency))
+		}
+	}
+
+	for probe, targets := range probeTargets {
+		// For p3 one target will be dropped due to capacity limit.
+		if probe == "p3" {
+			targets = targets[:len(targets)-1]
+		}
 		for _, target := range targets {
 			if ps.metrics[probe][target] == nil {
 				t.Errorf("Unexpected nil timeseries for: probe(%s), target(%s)", probe, target)
