@@ -15,6 +15,7 @@
 package probestatus
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -71,5 +72,32 @@ func TestNewAndRecord(t *testing.T) {
 				t.Errorf("Unexpected nil timeseries for: probe(%s), target(%s)", probe, target)
 			}
 		}
+	}
+}
+
+func TestPageCache(t *testing.T) {
+	pc := &pageCache{
+		maxAge: time.Second,
+	}
+
+	c, valid := pc.contentIfValid()
+	if valid {
+		t.Errorf("Got valid content from new cache: %s", string(c))
+	}
+
+	testContent := []byte("test-content")
+	pc.setContent(testContent)
+	c, valid = pc.contentIfValid()
+	if !valid {
+		t.Errorf("Got unexpected invalid")
+	}
+	if !bytes.Equal(c, testContent) {
+		t.Errorf("Got=%s, wanted=%s", string(c), string(testContent))
+	}
+
+	time.Sleep(time.Second)
+	c, valid = pc.contentIfValid()
+	if valid {
+		t.Errorf("Got unexpected valid content from pageCache: %s", string(c))
 	}
 }
