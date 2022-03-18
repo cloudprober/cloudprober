@@ -18,4 +18,7 @@ message SurfacerConf {
 
     // ProbeStatus URL
     optional string url = 4 [default = "/probestatus"];
+
+    // Page cache time
+    optional int32 cache_time_sec = 5 [default=5];
 }
