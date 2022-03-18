@@ -33,6 +33,7 @@ table.status-list {
 	margin-top: 10px;
 	margin-bottom: 20px;
 	font-family: monospace;
+	font-size: 14px;
 }
 table.status-list td,th {
   border: 1px solid gray;
