@@ -94,7 +94,8 @@ type Surfacer struct {
 	pageCache *pageCache
 
 	// Dashboard Metadata
-	dashboardDurations []time.Duration
+	dashDurations     []time.Duration
+	dashDurationsText []string
 }
 
 // New returns a probestatus surfacer based on the config provided. It sets up
@@ -121,7 +122,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		l:            l,
 	}
 
-	ps.dashboardDurations = dashboardDurations(ps.resolution * time.Duration(ps.c.GetTimeseriesSize()))
+	ps.dashDurations, ps.dashDurationsText = dashboardDurations(ps.resolution * time.Duration(ps.c.GetTimeseriesSize()))
 	ps.pageCache = &pageCache{
 		maxAge: time.Duration(ps.c.GetCacheTimeSec()) * time.Second,
 	}
@@ -247,7 +248,7 @@ func (ps *Surfacer) writeData(w io.Writer) {
 	probesStatusDebug := make(map[string]template.HTML)
 
 	for _, probeName := range ps.probeNames {
-		probeLines, probeDebugLines := ps.probeStatus(probeName, ps.dashboardDurations)
+		probeLines, probeDebugLines := ps.probeStatus(probeName, ps.dashDurations)
 		probesStatus[probeName] = template.HTML(strings.Join(probeLines, "\n"))
 		probesStatusDebug[probeName] = template.HTML(strings.Join(probeDebugLines, "\n"))
 	}
@@ -267,7 +268,7 @@ func (ps *Surfacer) writeData(w io.Writer) {
 		Version           string
 		StartTime, Uptime fmt.Stringer
 	}{
-		Durations:         shortDur(ps.dashboardDurations),
+		Durations:         ps.dashDurationsText,
 		ProbeNames:        ps.probeNames,
 		ProbesStatus:      probesStatus,
 		ProbesStatusDebug: probesStatusDebug,
