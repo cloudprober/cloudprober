@@ -22,6 +22,7 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -30,6 +31,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/oauth"
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
@@ -42,6 +44,7 @@ import (
 	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/alts"
 	"google.golang.org/grpc/credentials/local"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
@@ -100,6 +103,11 @@ func (p *Probe) setupDialOpts() error {
 		}
 		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
 	}
+
+	if p.c.AltsConfig != nil && p.c.TlsConfig != nil {
+		return errors.New("only one of alts_config and tls_config can be set at a time")
+	}
+
 	altsCfg := p.c.GetAltsConfig()
 	if altsCfg != nil {
 		altsOpts := &alts.ClientOptions{
@@ -109,7 +117,15 @@ func (p *Probe) setupDialOpts() error {
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(alts.NewClientCreds(altsOpts)))
 	}
 
-	if oauthCfg == nil && altsCfg == nil {
+	if p.c.GetTlsConfig() != nil {
+		tlsCfg := &tls.Config{}
+		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
+			return fmt.Errorf("tls_config error: %v", err)
+		}
+		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
+	}
+
+	if oauthCfg == nil && altsCfg == nil && p.c.GetTlsConfig() == nil {
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
 	}
 	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))

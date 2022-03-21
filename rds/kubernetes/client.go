@@ -101,7 +101,7 @@ func (c *client) initHTTPClient() error {
 	}
 
 	if c.cfg.GetTlsConfig() != nil {
-		if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, c.cfg.GetTlsConfig(), false); err != nil {
+		if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, c.cfg.GetTlsConfig()); err != nil {
 			return err
 		}
 		c.httpC = &http.Client{Transport: transport}

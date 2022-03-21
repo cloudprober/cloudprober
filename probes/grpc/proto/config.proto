@@ -3,6 +3,7 @@ syntax = "proto2";
 package cloudprober.probes.grpc;
 
 import "github.com/cloudprober/cloudprober/common/oauth/proto/config.proto";
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/grpc/proto";
 
@@ -30,6 +31,10 @@ message ProbeConf {
   // encryption. For default alts configs, use:
   // alts_config: {}
   optional ALTSConfig alts_config = 2;
+
+  // If TLSConfig is specified, it's used for authentication.
+  // Note that only one of ALTSConfig and TLSConfig can be enabled at a time.
+  optional tlsconfig.TLSConfig tls_config = 9;
 
   enum MethodType {
     ECHO = 1;

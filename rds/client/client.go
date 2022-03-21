@@ -185,7 +185,7 @@ func (client *Client) initListResourcesFunc() error {
 	// Transport security options.
 	if client.serverOpts.GetTlsConfig() != nil {
 		tlsConfig := &tls.Config{}
-		if err := tlsconfig.UpdateTLSConfig(tlsConfig, client.serverOpts.GetTlsConfig(), false); err != nil {
+		if err := tlsconfig.UpdateTLSConfig(tlsConfig, client.serverOpts.GetTlsConfig()); err != nil {
 			return fmt.Errorf("rds/client: error initializing TLS config (%+v): %v", client.serverOpts.GetTlsConfig(), err)
 		}
 		client.dialOpts = append(client.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))

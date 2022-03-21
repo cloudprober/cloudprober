@@ -182,9 +182,10 @@ func InitFromConfig(configFile string) error {
 
 		if cfg.GetGrpcTlsConfig() != nil {
 			tlsConfig := &tls.Config{}
-			if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig(), true); err != nil {
+			if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig()); err != nil {
 				return err
 			}
+			tlsConfig.ClientCAs = tlsConfig.RootCAs
 			serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 		}
 
