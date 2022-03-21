@@ -25,7 +25,7 @@ import (
 )
 
 // UpdateTLSConfig parses the provided protobuf and updates the tls.Config object.
-func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig, addClientCACerts bool) error {
+func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig) error {
 	if c.GetDisableCertValidation() {
 		tlsConfig.InsecureSkipVerify = true
 	}
@@ -41,10 +41,6 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig, addClientCACe
 		}
 
 		tlsConfig.RootCAs = caCertPool
-		// Client CA certs are used by servers to authenticate clients.
-		if addClientCACerts {
-			tlsConfig.ClientCAs = caCertPool
-		}
 	}
 
 	if c.GetTlsCertFile() != "" {
