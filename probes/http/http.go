@@ -201,7 +201,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 
 		if p.c.GetTlsConfig() != nil {
-			if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, p.c.GetTlsConfig(), false); err != nil {
+			if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, p.c.GetTlsConfig()); err != nil {
 				return err
 			}
 		}
