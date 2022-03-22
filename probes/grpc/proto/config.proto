@@ -7,6 +7,7 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/grpc/proto";
 
+// Next tag: 12
 message ProbeConf {
   // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
   // oauth_config: { bearer_token { gce_service_account: "default" } }
@@ -40,10 +41,21 @@ message ProbeConf {
     ECHO = 1;
     READ = 2;
     WRITE = 3;
+    HEALTH_CHECK = 4;   // gRPC healthcheck service.
   }
   optional MethodType method = 3 [default = ECHO];
 
+  // Blob size for ECHO, READ, and WRITE methods.
   optional int32 blob_size = 4 [default = 1024];
+
+  // For HEALTH_CHECK, name of the service to health check.
+  optional string health_check_service = 10;
+
+  // For HEALTH_CHECK, ignore status. By default, HEALTH_CHECK test passes
+  // only if response-status is SERVING. Setting the following option makes
+  // HEALTH_CHECK pass regardless of the response-status.
+  optional bool health_check_ignore_status = 11;
+
   optional int32 num_conns = 5 [default = 2];
   optional bool keep_alive = 6 [default = true];
 

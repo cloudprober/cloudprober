@@ -48,6 +48,7 @@ import (
 	"google.golang.org/grpc/credentials/alts"
 	"google.golang.org/grpc/credentials/local"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
 
@@ -80,6 +81,9 @@ type Probe struct {
 
 	// Results by target.
 	results map[string]*probeRunResult
+
+	// This is used only for testing.
+	healthCheckFunc func() (*grpc_health_v1.HealthCheckResponse, error)
 }
 
 // probeRunResult captures the metrics for a single target. Multiple threads
@@ -247,6 +251,29 @@ func (p *Probe) connectWithRetry(ctx context.Context, tgt, msgPattern string, re
 	return conn
 }
 
+func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, msgPattern string) error {
+	var resp *grpc_health_v1.HealthCheckResponse
+	var err error
+
+	if p.healthCheckFunc != nil {
+		resp, err = p.healthCheckFunc()
+	} else {
+		resp, err = grpc_health_v1.NewHealthClient(conn).
+			Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: p.c.GetHealthCheckService()})
+	}
+
+	if err != nil {
+		return err
+	}
+	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+		p.l.Warningf("ProbeId(%s): gRPC HealthCheck status: %s", msgPattern, resp.GetStatus())
+		if !p.c.GetHealthCheckIgnoreStatus() {
+			return fmt.Errorf("not serving (%s)", resp.GetStatus())
+		}
+	}
+	return nil
+}
+
 // oneTargetLoop connects to and then continuously probes a single target.
 func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result *probeRunResult) {
 	msgPattern := fmt.Sprintf("%s,%s%s,%03d", p.src, p.c.GetUriScheme(), tgt, index)
@@ -300,6 +327,8 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 				Blob: []byte(msg),
 			}
 			_, err = client.BlobWrite(reqCtx, req, opts...)
+		case configpb.ProbeConf_HEALTH_CHECK:
+			err = p.healthCheckProbe(reqCtx, conn, msgPattern)
 		default:
 			p.l.Criticalf("Method %v not implemented", method)
 		}
