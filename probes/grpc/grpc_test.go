@@ -2,10 +2,12 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
+	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probepb "github.com/cloudprober/cloudprober/probes/proto"
 	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
@@ -22,6 +25,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets/resolver"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var once sync.Once
@@ -436,4 +440,75 @@ func TestTargets(t *testing.T) {
 
 	cancel()
 	wg.Wait()
+}
+
+func TestHealthCheckProbe(t *testing.T) {
+	response := map[string]grpc_health_v1.HealthCheckResponse_ServingStatus{
+		"service-A": grpc_health_v1.HealthCheckResponse_SERVING,
+		"service-B": grpc_health_v1.HealthCheckResponse_NOT_SERVING,
+	}
+	tests := []struct {
+		service      string
+		ignoreStatus bool
+		wantErr      bool
+		errText      string
+	}{
+		{
+			service: "service-A",
+		},
+		{
+			service: "service-B",
+			wantErr: true,
+			errText: "NOT_SERVING",
+		},
+		{
+			service:      "service-B",
+			ignoreStatus: true,
+			wantErr:      false,
+		},
+		{
+			service: "service-err",
+			wantErr: true,
+			errText: "service-err",
+		},
+		{
+			service:      "service-err",
+			ignoreStatus: true,
+			wantErr:      true,
+			errText:      "service-err",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s-ignoreStatus:%v", test.service, test.ignoreStatus), func(t *testing.T) {
+			p := &Probe{
+				c: &configpb.ProbeConf{
+					HealthCheckIgnoreStatus: proto.Bool(test.ignoreStatus),
+					HealthCheckService:      proto.String(test.service),
+				},
+			}
+
+			p.healthCheckFunc = func() (*grpc_health_v1.HealthCheckResponse, error) {
+				if test.service == "service-err" {
+					return nil, errors.New(test.service)
+				}
+				return &grpc_health_v1.HealthCheckResponse{
+					Status: response[test.service],
+				}, nil
+			}
+
+			err := p.healthCheckProbe(context.Background(), nil, "")
+			if err != nil && !test.wantErr {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+			if err == nil && test.wantErr {
+				t.Error("Expected error but got none")
+				return
+			}
+			if test.errText != "" && !strings.Contains(err.Error(), test.errText) {
+				t.Errorf("Error (%s) doesn't contain expected error text (%s)", err.Error(), test.errText)
+			}
+		})
+	}
 }
