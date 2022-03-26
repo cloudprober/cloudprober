@@ -20,36 +20,42 @@ what's broken in your system.
 
 ## Features
 
-*   Automated target discovery for Cloud targets. __GCE__ and __Kubernetes__
-    are supported out-of-the-box, other Cloud providers can be added easily.
-*   Integration with open source monitoring stack of
-    [Prometheus](http://prometheus.io) and [Grafana](http://grafana.com).
-    Cloudprober exports probe results as counter based metrics that work well
-    with Prometheus and Grafana.
-*   Out of the box, config based integration with popular monitoring systems:
-    [Prometheus](http://prometheus.io),
-    [DataDog](https://www.datadoghq.com/),
-    [PostgreSQL](https://www.postgresql.org/),
-    [StackDriver](https://cloud.google.com/stackdriver/),
-    [CloudWatch](https://aws.amazon.com/cloudwatch/).
-*   Fast and efficient built-in implementations for the most common types of
-    checks: PING (ICMP), HTTP, UDP, DNS. Especially PING and UDP probes are
-    implemented in such a way that thousands of hosts can be probed with
-    minimal resources.
-*   Arbitrary, complex probes can be run through the external probe type. For
-    example, you could write a simple script to insert and delete a row in your
-    database, and execute this script through the 'EXTERNAL' probe type.
-*   Standard metrics - _total_, _success_, _latency_. Latency can be configured
-    to be a distribution (histogram) metric, allowing calculations of
-    percentiles.
-*   Strong focus on ease of deployment. Cloudprober is written entirely in Go,
-    and compiles into a static binary. It can be easily deployed, either as a
-    standalone binary or through docker containers. Thanks to the automated,
-    continuous, target discovery, there is usually no need to re-deploy or
-    re-configure cloudprober in response to most of the changes.
-*   Low footprint. Cloudprober docker image is small, containing just the
-    statically compiled binary and it takes very little CPU and RAM to run even
-    a large number of probes.
+*  Out of the box, config based, integration with popular monitoring systems:
+   *  Open-source: [Prometheus/Grafana](http://prometheus.io), [PostgreSQL](https://www.postgresql.org/)
+   *  Commercial:&nbsp;&nbsp;&nbsp;[DataDog](https://www.datadoghq.com/), 
+                   [StackDriver](https://cloud.google.com/stackdriver/),
+                   [CloudWatch](https://aws.amazon.com/cloudwatch/)
+
+*  Multiple options for checks:
+   *  _Efficient, highly scalable_, built-in probes:
+      [HTTP](https://github.com/cloudprober/cloudprober/blob/master/probes/http/proto/config.proto),
+      [PING](https://github.com/cloudprober/cloudprober/blob/master/probes/ping/proto/config.proto),
+      [TCP](https://github.com/cloudprober/cloudprober/blob/master/probes/tcp/proto/config.proto),
+      [DNS](https://github.com/cloudprober/cloudprober/blob/master/probes/dns/proto/config.proto),
+      [gRPC](https://github.com/cloudprober/cloudprober/blob/master/probes/grpc/proto/config.proto),
+      [UDP](https://github.com/cloudprober/cloudprober/blob/master/probes/udp/proto/config.proto).
+   *  Run custom checks through the __[external](https://cloudprober.org/how-to/external-probe/)__ probe type.
+ 
+*  Automated targets discovery to make Cloud deployments as painless as possible:
+   * __Kubernetes__ resources.
+   * __GCE__ instances and forwarding rules.
+   * File based targets.
+
+*  Flexible validation checks on the output.
+
+*  Configurable metrics:
+   * Configurable metrics labels, based on the resource labels.
+   * Latency histograms for percentile calculations.
+
+*  Deployment friendly:
+   * Written entirely in Go, and compiles into a static binary.
+   * Deploy as a standalone binary, or through docker containers.
+   * Continuous, automated target discovery, to ensure that most infrastructure changes don't require
+     re-deployment.
+
+*   Low footprint. Cloudprober takes advantage of the Go's concurrency paradigms,
+    and makes the best use of processing power.
+
 *   Extensible architecture. Cloudprober can be easily extended along most of
     the dimensions. Adding support for other Cloud targets, monitoring systems
     and even a new probe type, is straight-forward and fairly easy.
