@@ -42,12 +42,6 @@ what's broken in your system.
    * _[GCP](https://github.com/cloudprober/cloudprober/blob/master/rds/gcp/proto/config.proto)_ instances, forwarding rules, and pub/sub messages.
    * _[File](https://github.com/cloudprober/cloudprober/blob/master/rds/file/proto/config.proto#L34)_ based targets.
 
-*  Flexible validation checks on the output.
-
-*  Configurable metrics:
-   * Configurable metrics labels, based on the resource labels.
-   * Latency histograms for percentile calculations.
-
 *  Deployment friendly:
    * Written entirely in Go, and compiles into a static binary.
    * Deploy as a standalone binary, or through docker containers.
@@ -55,11 +49,15 @@ what's broken in your system.
      re-deployment.
 
 *   Low footprint. Cloudprober takes advantage of the Go's concurrency paradigms,
-    and makes the best use of available processing power.
+    and makes most of the available processing power.
 
 *   Extensible architecture. Cloudprober can be easily extended along most of
     the dimensions. Adding support for other Cloud targets, monitoring systems
     and even a new probe type, is straight-forward and fairly easy.
+    
+*  Configurable metrics:
+   * Configurable metrics labels, based on the resource labels.
+   * Latency histograms for percentile calculations.
 
 ## Getting Started
 
@@ -70,7 +68,7 @@ started with Cloudprober.
     
 We'd love to hear your feedback. If you're using Cloudprober, would you please
 mind sharing how you use it by adding a comment [here](
-https://github.com/google/cloudprober/issues/123). It will be a great help in
+https://github.com/cloudprober/cloudprober/discussions/121). It will be a great help in
 planning Cloudprober's future progression.
 
 Join [Cloudprober Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE) or [Github discussions](
