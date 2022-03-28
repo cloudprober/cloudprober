@@ -21,10 +21,11 @@ what's broken in your system.
 ## Features
 
 *  Out of the box, config based, integration with popular monitoring systems:
-   *  Open-source: [Prometheus/Grafana](http://prometheus.io), [PostgreSQL](https://www.postgresql.org/)
-   *  Commercial:&nbsp;&nbsp;&nbsp;[DataDog](https://www.datadoghq.com/), 
-                   [StackDriver](https://cloud.google.com/stackdriver/),
-                   [CloudWatch](https://aws.amazon.com/cloudwatch/)
+   * [Prometheus/Grafana](https://prometheus.io)
+   * [DataDog](https://www.datadoghq.com/)
+   * [PostgreSQL](https://www.postgresql.org/)
+   * [StackDriver](https://cloud.google.com/stackdriver/)
+   * [AWS CloudWatch](https://aws.amazon.com/cloudwatch/)
 
 *  Multiple options for checks:
    *  _Efficient, highly scalable_, built-in probes:
@@ -34,12 +35,12 @@ what's broken in your system.
       [DNS](https://github.com/cloudprober/cloudprober/blob/master/probes/dns/proto/config.proto),
       [gRPC](https://github.com/cloudprober/cloudprober/blob/master/probes/grpc/proto/config.proto),
       [UDP](https://github.com/cloudprober/cloudprober/blob/master/probes/udp/proto/config.proto).
-   *  Run custom checks through the __[external](https://cloudprober.org/how-to/external-probe/)__ probe type.
+   *  Run custom checks through the _"[external](https://cloudprober.org/how-to/external-probe/)"_ probe type.
  
 *  Automated targets discovery to make Cloud deployments as painless as possible:
-   * __Kubernetes__ resources.
-   * __GCE__ instances and forwarding rules.
-   * File based targets.
+   * _[Kubernetes](https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets)_ resources.
+   * _[GCP](https://github.com/cloudprober/cloudprober/blob/master/rds/gcp/proto/config.proto)_ instances, forwarding rules, and pub/sub messages.
+   * _[File](https://github.com/cloudprober/cloudprober/blob/master/rds/file/proto/config.proto#L34)_ based targets.
 
 *  Flexible validation checks on the output.
 
@@ -54,7 +55,7 @@ what's broken in your system.
      re-deployment.
 
 *   Low footprint. Cloudprober takes advantage of the Go's concurrency paradigms,
-    and makes the best use of processing power.
+    and makes the best use of available processing power.
 
 *   Extensible architecture. Cloudprober can be easily extended along most of
     the dimensions. Adding support for other Cloud targets, monitoring systems
