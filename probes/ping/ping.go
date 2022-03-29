@@ -372,13 +372,18 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			continue
 		}
 
-		// recvmsg on Darwin (MacOS), doesn't strip the IP header for IPv4
-		// packets. See https://github.com/cloudprober/cloudprober/issues/80
-		// for more details.
+		// recvmsg for RAW sockets (and even DGRAM sockets on MacOS) doesn't
+		// strip the IP header for IPv4 packets. See following issues:
+		// https://github.com/cloudprober/cloudprober/issues/80
+		// https://github.com/cloudprober/cloudprober/issues/122
 		offset := 0
-		if runtime.GOOS == "darwin" && p.ipVer == 4 {
-			if int(pktbuf[0])>>4 == 4 {
-				offset = int(pktbuf[0]&0x0f) << 2
+		if p.ipVer == 4 && int(pktbuf[0])>>4 == 4 {
+			offset = int(pktbuf[0]&0x0f) << 2
+
+			// If packet includes IP header it needs to be bigger.
+			if pktLen < offset+minPacketSize {
+				p.l.Warning("packet too small: size (", strconv.Itoa(pktLen), ") < minPacketSize+ipHdrLen (", strconv.Itoa(minPacketSize+offset), "), from peer: ", peer.String())
+				continue
 			}
 		}
 
