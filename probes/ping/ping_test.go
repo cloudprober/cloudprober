@@ -378,14 +378,10 @@ func TestDataIntegrityValidation(t *testing.T) {
 }
 
 func TestRunProbeRealICMP(t *testing.T) {
-	if _, ok := os.LookupEnv("ENABLE_EXTERNAL_TESTS"); !ok {
-		t.Skip("Skipping real ping test as ENABLE_EXTERNAL_TESTS is not set.")
-	}
-
-	for _, dgram := range []bool{false, true} {
+	for _, sockType := range []string{"DGRAM", "RAW"} {
 		for _, version := range []int{4, 6} {
-			t.Run(fmt.Sprintf("%v_%d", dgram, version), func(t *testing.T) {
-				if !dgram && os.Geteuid() != 0 {
+			t.Run(fmt.Sprintf("%v_%d", sockType, version), func(t *testing.T) {
+				if sockType == "RAW" && os.Geteuid() != 0 {
 					t.Skip("Skipping real ping test with RAW sockets as not running as root.")
 				}
 
@@ -394,12 +390,19 @@ func TestRunProbeRealICMP(t *testing.T) {
 				}
 
 				c := &configpb.ProbeConf{
-					UseDatagramSocket: proto.Bool(dgram),
+					UseDatagramSocket: proto.Bool(sockType == "DGRAM"),
 				}
 
 				targets := map[int][]string{
-					4: {"1.1.1.1", "8.8.8.8", "www.google.com", "www.yahoo.com", "www.facebook.com"},
-					6: {"2606:4700:4700::1111", "2001:4860:4860::8888", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+					4: {"127.0.0.1", "1.1.1.1", "8.8.8.8", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+					6: {"::1", "2606:4700:4700::1111", "2001:4860:4860::8888", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+				}
+
+				if hosts, ok := os.LookupEnv("PING_HOSTS_V4"); ok {
+					targets[4] = strings.Split(hosts, ",")
+				}
+				if hosts, ok := os.LookupEnv("PING_HOSTS_V6"); ok {
+					targets[6] = strings.Split(hosts, ",")
 				}
 
 				p, err := newProbe(c, version, targets[version])

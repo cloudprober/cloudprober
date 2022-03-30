@@ -12,9 +12,6 @@ jobs:
 
   build-and-test:
     name: Build and Test
-    env:
-      # UDP tests use this variable to disable IPv6.
-      TRAVIS: yes
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -52,6 +49,9 @@ jobs:
 
     - name: Test
       run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
+      env:
+        PING_HOSTS_V4: "127.0.0.1,localhost"
+        DISABLE_IPV6_TESTS: yes
 
     - run: make cloudprober-linux-{amd64,arm64,armv7}
       if:  ${{ matrix.os == 'ubuntu-latest' }}
