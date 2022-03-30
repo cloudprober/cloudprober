@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -398,11 +399,11 @@ func TestRunProbeRealICMP(t *testing.T) {
 					6: {"::1", "2606:4700:4700::1111", "2001:4860:4860::8888", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
 				}
 
-				if hosts, ok := os.LookupEnv("PING_HOSTS_V4"); ok {
-					targets[4] = strings.Split(hosts, ",")
-				}
-				if hosts, ok := os.LookupEnv("PING_HOSTS_V6"); ok {
-					targets[6] = strings.Split(hosts, ",")
+				if hosts, ok := os.LookupEnv("PING_HOSTS_V" + strconv.Itoa(version)); ok {
+					if hosts == "" {
+						t.Skip("No targets provided through env variable, skipping")
+					}
+					targets[version] = strings.Split(hosts, ",")
 				}
 
 				p, err := newProbe(c, version, targets[version])
