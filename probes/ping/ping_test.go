@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,18 +17,19 @@ package ping
 import (
 	"fmt"
 	"net"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/ping/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -209,11 +210,12 @@ func newProbe(c *configpb.ProbeConf, ipVersion int, t []string) (*Probe, error) 
 	p := &Probe{
 		name: "ping_test",
 		opts: &options.Options{
-			ProbeConf: c,
-			Targets:   targets.StaticTargets(strings.Join(t, ",")),
-			Interval:  2 * time.Second,
-			Timeout:   time.Second,
-			IPVersion: ipVersion,
+			ProbeConf:   c,
+			Targets:     targets.StaticTargets(strings.Join(t, ",")),
+			Interval:    2 * time.Second,
+			Timeout:     time.Second,
+			IPVersion:   ipVersion,
+			LatencyUnit: time.Millisecond,
 		},
 	}
 	return p, p.initInternal()
@@ -313,34 +315,17 @@ func testRunProbe(t *testing.T, ipVersion int, useDatagramSocket bool, payloadSi
 	}
 }
 
-func testRunProbeWithMultipleSizes(t *testing.T, ipVersion int, useDatagramSocket bool) {
-	t.Helper()
-
-	for _, size := range []int{8, 56, 256, 1024, maxPacketSize - icmpHeaderSize} {
-		t.Logf("Running probe with IP%d, with useDatagramSocket: %v, payloadSize: %d", ipVersion, useDatagramSocket, size)
-		testRunProbe(t, ipVersion, useDatagramSocket, size)
-	}
-}
-
-// Test runProbe IPv4, raw sockets
+// Test runProbe
 func TestRunProbe(t *testing.T) {
-	testRunProbeWithMultipleSizes(t, 4, false)
-}
-
-// Test runProbe IPv6, raw sockets
-func TestRunProbeIPv6(t *testing.T) {
-	testRunProbeWithMultipleSizes(t, 6, false)
-}
-
-// Test runProbe IPv4, datagram sockets
-func TestRunProbeDatagram(t *testing.T) {
-	testRunProbeWithMultipleSizes(t, 4, true)
-}
-
-// Test runProbe IPv6, datagram sockets
-func TestRunProbeIPv6Datagram(t *testing.T) {
-	testRunProbeWithMultipleSizes(t, 6, true)
-
+	for _, dgram := range []bool{false, true} {
+		for _, ipV := range []int{4, 6} {
+			for _, size := range []int{8, 56, 256, 1024, maxPacketSize - icmpHeaderSize} {
+				t.Run(fmt.Sprintf("version:%d,dgram_socket:%v,payloadSize: %d", ipV, dgram, size), func(t *testing.T) {
+					testRunProbe(t, ipV, dgram, size)
+				})
+			}
+		}
+	}
 }
 
 func TestDataIntegrityValidation(t *testing.T) {
@@ -388,6 +373,60 @@ func TestDataIntegrityValidation(t *testing.T) {
 		gotFailures := p.results[target].validationFailure.GetKey(dataIntegrityKey).Int64()
 		if gotFailures != expectedFailures {
 			t.Errorf("p.results[%s].validationFailure.GetKey(%s)=%d, expected=%d", target, dataIntegrityKey, gotFailures, expectedFailures)
+		}
+	}
+}
+
+func TestRunProbeRealICMP(t *testing.T) {
+	if _, ok := os.LookupEnv("ENABLE_EXTERNAL_TESTS"); !ok {
+		t.Skip("Skipping real ping test as ENABLE_EXTERNAL_TESTS is not set.")
+	}
+
+	for _, dgram := range []bool{false, true} {
+		for _, version := range []int{4, 6} {
+			t.Run(fmt.Sprintf("%v_%d", dgram, version), func(t *testing.T) {
+				if !dgram && os.Geteuid() != 0 {
+					t.Skip("Skipping real ping test with RAW sockets as not running as root.")
+				}
+
+				if _, disableV6 := os.LookupEnv("DISABLE_IPV6_TESTS"); disableV6 && version == 6 {
+					t.Skip("Skipping IPv6 tests as DISABLE_IPV6_TESTS is set.")
+				}
+
+				c := &configpb.ProbeConf{
+					UseDatagramSocket: proto.Bool(dgram),
+				}
+
+				targets := map[int][]string{
+					4: {"1.1.1.1", "8.8.8.8", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+					6: {"2606:4700:4700::1111", "2001:4860:4860::8888", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+				}
+
+				p, err := newProbe(c, version, targets[version])
+				if err != nil {
+					t.Fatalf("Got error from newProbe: %v", err)
+				}
+				if err := p.listen(); err != nil {
+					t.Errorf("listen err: %v", err)
+					return
+				}
+
+				p.runProbe()
+
+				var rcvd int
+				for _, ep := range p.targets {
+					target := ep.Name
+
+					t.Logf("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
+					rcvd += int(p.results[target].rcvd)
+				}
+
+				expectedRcvd := len(targets) * int(p.c.GetPacketsPerProbe())
+				// This test passes even if we receive just 20% of the expected packets.
+				if rcvd <= expectedRcvd/5 {
+					t.Errorf("total success: %d, expected: %d", rcvd, expectedRcvd)
+				}
+			})
 		}
 	}
 }
