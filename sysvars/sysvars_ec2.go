@@ -16,6 +16,8 @@ package sysvars
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -23,10 +25,17 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-var ec2Vars = func(sysVars map[string]string, l *logger.Logger) (bool, error) {
-	s, err := session.NewSession(&aws.Config{
-		MaxRetries: aws.Int(0),
-	})
+var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
+	cfg := &aws.Config{}
+	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
+	if !tryHard {
+		cfg.MaxRetries = aws.Int(0)
+		cfg.EC2MetadataDisableTimeoutOverride = aws.Bool(true)
+		cfg.HTTPClient = &http.Client{
+			Timeout: 100 * time.Millisecond,
+		}
+	}
+	s, err := session.NewSession(cfg)
 	if err != nil {
 		// We ignore session errors. It's not clear what can cause them.
 		l.Warningf("sysvars_ec2: could not create AWS session: %v", err)
