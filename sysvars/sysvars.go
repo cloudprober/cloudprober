@@ -113,7 +113,8 @@ func initCloudMetadata(fv string) error {
 				return err
 			}
 		case cloudProviders.ec2:
-			onEC2, err := ec2Vars(sysVars, l)
+			tryHard := fv == cloudProviders.ec2
+			onEC2, err := ec2Vars(sysVars, tryHard, l)
 			// Once we know it's EC2, don't continue checking.
 			if onEC2 {
 				return err

@@ -107,7 +107,7 @@ func TestInitCloudMetadata(t *testing.T) {
 			gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 				return testSetVars(vars, testGCEVars, test.onGCE)
 			}
-			ec2Vars = func(vars map[string]string, l *logger.Logger) (bool, error) {
+			ec2Vars = func(vars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
 				return testSetVars(vars, testEC2Vars, test.onEC2)
 			}
 
