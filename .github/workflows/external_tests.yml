@@ -17,6 +17,7 @@ jobs:
       TRAVIS: yes
       # IPv6 doesn't work on Github Actions yet.
       DISABLE_IPV6: yes
+      ENABLE_EXTERNAL_TESTS: yes
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
