@@ -1,0 +1,71 @@
+name: External tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to run workflow for'
+        required: true
+
+jobs:
+
+  external-tests:
+    name: Build and Test
+    env:
+      # UDP tests use this variable to disable IPv6.
+      TRAVIS: yes
+      # IPv6 doesn't work on Github Actions yet.
+      DISABLE_IPV6: yes
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+    - name: Set up Go 1.17
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.17
+      id: go
+
+    - name: Check out code into the Go module directory
+      if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Check out code into the Go module directory
+      if: ${{ contains(github.event_name, 'workflow_dispatch') }}
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.inputs.tag }}
+
+    - name: Set environment varible to skip UDP test on MAC OS
+      if:  ${{ matrix.os == 'macos-latest' }}
+      run: echo "EXTRA_TEST_FLAGS=-tags skip_udp_probe_test" >> $GITHUB_ENV
+
+    - name: Get dependencies
+      run: |
+        go get -v -t -d ./...
+
+    - name: Build
+      run: go build -v .
+
+    - name: Sysctl
+      if:  ${{ matrix.os == 'ubuntu-latest' }}
+      run: sudo sysctl -w net.ipv4.ping_group_range="0 500000"
+      
+    - name: Build test binaries
+      run: |
+        go test github.com/cloudprober/cloudprober/probes/ping -c
+
+    - name: Run tests
+      if:  ${{ matrix.os != 'windows-latest' }}
+      run: |
+        ./ping.test -test.v -test.run ^TestRunProbeRealICMP$
+        sudo ./ping.test -test.v -test.run ^TestRunProbeRealICMP$
+
+
+
+  
