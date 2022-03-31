@@ -37,11 +37,6 @@ const (
 func sockaddr(sourceIP net.IP, ipVer int) (syscall.Sockaddr, error) {
 	a := &net.IPAddr{IP: sourceIP}
 
-	// If sourceIP is unspecified, we bind to the 0 IP address (all).
-	if sourceIP == nil {
-		a.IP = map[int]net.IP{4: net.IPv4zero, 6: net.IPv6unspecified}[ipVer]
-	}
-
 	switch ipVer {
 	case 4:
 		sa := &syscall.SockaddrInet4{}
