@@ -12,13 +12,20 @@ jobs:
 
   build-and-test:
     name: Build and Test
-    env:
-      # UDP tests use this variable to disable IPv6.
-      TRAVIS: yes
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+        - os: ubuntu-latest
+          PING_HOSTS_V4: "127.0.1.1,localhost"
+          PING_HOSTS_V6: "localhost"
+        - os: macos-latest
+          PING_HOSTS_V4: "127.0.1.1,localhost"
+          PING_HOSTS_V6: "localhost"
+        - os: windows-latest
+          PING_HOSTS_V4: ""
+          PING_HOSTS_V6: ""
     steps:
     - name: Set up Go 1.17
       uses: actions/setup-go@v1
@@ -43,6 +50,10 @@ jobs:
       if:  ${{ matrix.os == 'macos-latest' }}
       run: echo "EXTRA_TEST_FLAGS=-tags skip_udp_probe_test" >> $GITHUB_ENV
 
+    - name: Set up ubuntu for testing
+      if:  ${{ matrix.os == 'ubuntu-latest' }}
+      run: sudo sudo sysctl -w net.ipv4.ping_group_range="0 500000"
+
     - name: Get dependencies
       run: |
         go get -v -t -d ./...
@@ -52,6 +63,9 @@ jobs:
 
     - name: Test
       run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
+      env:
+        PING_HOSTS_V4: ${{ matrix.PING_HOSTS_V4 }}
+        PING_HOSTS_V6: ${{ matrix.PING_HOSTS_V6 }}
 
     - run: make cloudprober-linux-{amd64,arm64,armv7}
       if:  ${{ matrix.os == 'ubuntu-latest' }}
