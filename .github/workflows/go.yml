@@ -24,8 +24,8 @@ jobs:
           PING_HOSTS_V4: "127.0.1.1,localhost"
           PING_HOSTS_V6: "localhost"
         - os: windows-latest
-          PING_HOSTS_V4: ""
-          PING_HOSTS_V6: ""
+          PING_HOSTS_V4: "127.0.1.1,localhost"
+          PING_HOSTS_V6: "localhost"
     steps:
     - name: Set up Go 1.17
       uses: actions/setup-go@v1

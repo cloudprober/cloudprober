@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -387,7 +388,11 @@ func TestRunProbeRealICMP(t *testing.T) {
 	for _, sockType := range []string{"DGRAM", "RAW"} {
 		for _, version := range []int{4, 6} {
 			t.Run(fmt.Sprintf("%v_%d", sockType, version), func(t *testing.T) {
-				if sockType == "RAW" && os.Geteuid() != 0 {
+				if sockType == "DGRAM" && runtime.GOOS == "windows" {
+					t.Skip("Skipping as Windows doesn't support SOCK_DGRAM for ICMP.")
+				}
+
+				if sockType == "RAW" && runtime.GOOS != "windows" && os.Geteuid() != 0 {
 					t.Skip("Skipping real ping test with RAW sockets as not running as root.")
 				}
 
