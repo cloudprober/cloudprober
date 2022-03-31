@@ -379,6 +379,11 @@ func TestDataIntegrityValidation(t *testing.T) {
 }
 
 func TestRunProbeRealICMP(t *testing.T) {
+	baseTargets := map[int][]string{
+		4: {"127.0.1.1", "1.1.1.1", "8.8.8.8", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+		6: {"2606:4700:4700::1111", "2001:4860:4860::8888", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+	}
+
 	for _, sockType := range []string{"DGRAM", "RAW"} {
 		for _, version := range []int{4, 6} {
 			t.Run(fmt.Sprintf("%v_%d", sockType, version), func(t *testing.T) {
@@ -394,19 +399,15 @@ func TestRunProbeRealICMP(t *testing.T) {
 					UseDatagramSocket: proto.Bool(sockType == "DGRAM"),
 				}
 
-				targets := map[int][]string{
-					4: {"127.0.0.1", "1.1.1.1", "8.8.8.8", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
-					6: {"::1", "2606:4700:4700::1111", "2001:4860:4860::8888", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
-				}
-
+				targets := baseTargets[version]
 				if hosts, ok := os.LookupEnv("PING_HOSTS_V" + strconv.Itoa(version)); ok {
 					if hosts == "" {
 						t.Skip("No targets provided through env variable, skipping")
 					}
-					targets[version] = strings.Split(hosts, ",")
+					targets = strings.Split(hosts, ",")
 				}
 
-				p, err := newProbe(c, version, targets[version])
+				p, err := newProbe(c, version, targets)
 				if err != nil {
 					t.Fatalf("Got error from newProbe: %v", err)
 				}

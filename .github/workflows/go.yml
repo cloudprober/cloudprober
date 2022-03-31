@@ -18,11 +18,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
         - os: ubuntu-latest
-          PING_HOSTS_V4: "127.0.0.1,localhost"
-          PING_HOSTS_V6: "::1,localhost"
+          PING_HOSTS_V4: "127.0.1.1,localhost"
+          PING_HOSTS_V6: "localhost"
         - os: macos-latest
-          PING_HOSTS_V4: "127.0.0.1,localhost"
-          PING_HOSTS_V6: "::1,localhost"
+          PING_HOSTS_V4: "127.0.1.1,localhost"
+          PING_HOSTS_V6: "localhost"
         - os: windows-latest
           PING_HOSTS_V4: ""
           PING_HOSTS_V6: ""
