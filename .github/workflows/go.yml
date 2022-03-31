@@ -16,16 +16,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        include:
-        - os: ubuntu-latest
-          PING_HOSTS_V4: "127.0.1.1,localhost"
-          PING_HOSTS_V6: "localhost"
-        - os: macos-latest
-          PING_HOSTS_V4: "127.0.1.1,localhost"
-          PING_HOSTS_V6: "localhost"
-        - os: windows-latest
-          PING_HOSTS_V4: ""
-          PING_HOSTS_V6: ""
     steps:
     - name: Set up Go 1.17
       uses: actions/setup-go@v1
@@ -64,8 +54,8 @@ jobs:
     - name: Test
       run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
       env:
-        PING_HOSTS_V4: ${{ matrix.PING_HOSTS_V4 }}
-        PING_HOSTS_V6: ${{ matrix.PING_HOSTS_V6 }}
+        PING_HOSTS_V4: 127.0.0.1,localhost
+        PING_HOSTS_V6: localhost
 
     - run: make cloudprober-linux-{amd64,arm64,armv7}
       if:  ${{ matrix.os == 'ubuntu-latest' }}
