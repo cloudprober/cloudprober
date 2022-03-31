@@ -40,10 +40,6 @@ jobs:
       if:  ${{ matrix.os == 'macos-latest' }}
       run: echo "EXTRA_TEST_FLAGS=-tags skip_udp_probe_test" >> $GITHUB_ENV
 
-    - name: Set up ubuntu for testing
-      if:  ${{ matrix.os == 'ubuntu-latest' }}
-      run: sudo sudo sysctl -w net.ipv4.ping_group_range="0 500000"
-
     - name: Get dependencies
       run: |
         go get -v -t -d ./...
@@ -51,11 +47,21 @@ jobs:
     - name: Build
       run: go build -v .
 
+    - name: Set up ubuntu for testing
+      if:  ${{ matrix.os == 'ubuntu-latest' }}
+      run: sudo sudo sysctl -w net.ipv4.ping_group_range="0 500000"
+
     - name: Test
       run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
       env:
         PING_HOSTS_V4: 127.0.0.1,localhost
         PING_HOSTS_V6: localhost
+        
+    - name: Privileged ping tests.
+      if:  ${{ matrix.os != 'windows-latest' }}
+      run: |
+        go test github.com/cloudprober/cloudprober/probes/ping -c
+        sudo ./ping.test -test.v -test.run ^TestRunProbeRealICMP$
 
     - run: make cloudprober-linux-{amd64,arm64,armv7}
       if:  ${{ matrix.os == 'ubuntu-latest' }}
