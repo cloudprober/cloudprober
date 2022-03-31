@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -378,14 +379,15 @@ func TestDataIntegrityValidation(t *testing.T) {
 }
 
 func TestRunProbeRealICMP(t *testing.T) {
-	if _, ok := os.LookupEnv("ENABLE_EXTERNAL_TESTS"); !ok {
-		t.Skip("Skipping real ping test as ENABLE_EXTERNAL_TESTS is not set.")
+	baseTargets := map[int][]string{
+		4: {"127.0.1.1", "1.1.1.1", "8.8.8.8", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+		6: {"2606:4700:4700::1111", "2001:4860:4860::8888", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
 	}
 
-	for _, dgram := range []bool{false, true} {
+	for _, sockType := range []string{"DGRAM", "RAW"} {
 		for _, version := range []int{4, 6} {
-			t.Run(fmt.Sprintf("%v_%d", dgram, version), func(t *testing.T) {
-				if !dgram && os.Geteuid() != 0 {
+			t.Run(fmt.Sprintf("%v_%d", sockType, version), func(t *testing.T) {
+				if sockType == "RAW" && os.Geteuid() != 0 {
 					t.Skip("Skipping real ping test with RAW sockets as not running as root.")
 				}
 
@@ -394,15 +396,18 @@ func TestRunProbeRealICMP(t *testing.T) {
 				}
 
 				c := &configpb.ProbeConf{
-					UseDatagramSocket: proto.Bool(dgram),
+					UseDatagramSocket: proto.Bool(sockType == "DGRAM"),
 				}
 
-				targets := map[int][]string{
-					4: {"1.1.1.1", "8.8.8.8", "www.google.com", "www.yahoo.com", "www.facebook.com"},
-					6: {"2606:4700:4700::1111", "2001:4860:4860::8888", "www.google.com", "www.yahoo.com", "www.facebook.com"},
+				targets := baseTargets[version]
+				if hosts, ok := os.LookupEnv("PING_HOSTS_V" + strconv.Itoa(version)); ok {
+					if hosts == "" {
+						t.Skip("No targets provided through env variable, skipping")
+					}
+					targets = strings.Split(hosts, ",")
 				}
 
-				p, err := newProbe(c, version, targets[version])
+				p, err := newProbe(c, version, targets)
 				if err != nil {
 					t.Fatalf("Got error from newProbe: %v", err)
 				}
