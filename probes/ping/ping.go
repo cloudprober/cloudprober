@@ -197,8 +197,14 @@ func (p *Probe) configureIntegrityCheck() error {
 }
 
 func (p *Probe) listen() error {
+	// If sourceIP is unspecified, we bind to the 0 IP address (all).
+	sourceIP := p.opts.SourceIP
+	if sourceIP == nil {
+		sourceIP = map[int]net.IP{4: net.IPv4zero, 6: net.IPv6unspecified}[p.ipVer]
+	}
+
 	var err error
-	p.conn, err = newICMPConn(p.opts.SourceIP, p.ipVer, p.useDatagramSocket)
+	p.conn, err = newICMPConn(sourceIP, p.ipVer, p.useDatagramSocket)
 	return err
 }
 
