@@ -61,7 +61,7 @@ jobs:
       if:  ${{ matrix.os != 'windows-latest' }}
       run: |
         go test github.com/cloudprober/cloudprober/probes/ping -c
-        sudo ./ping.test -test.v -test.run ^TestRunProbeRealICMP$
+        sudo PING_HOSTS_V4=${{ env.PING_HOSTS_V4 }} PING_HOSTS_V6=${{ env.PING_HOSTS_V6 }} ./ping.test -test.v -test.run ^TestRunProbeRealICMP$
 
     - run: make cloudprober-linux-{amd64,arm64,armv7}
       if:  ${{ matrix.os == 'ubuntu-latest' }}
