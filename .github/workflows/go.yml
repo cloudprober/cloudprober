@@ -13,6 +13,9 @@ jobs:
   build-and-test:
     name: Build and Test
     runs-on: ${{ matrix.os }}
+    env:
+      PING_HOSTS_V4: 127.0.0.1,localhost
+      PING_HOSTS_V6: localhost
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -53,9 +56,6 @@ jobs:
 
     - name: Test
       run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
-      env:
-        PING_HOSTS_V4: 127.0.0.1,localhost
-        PING_HOSTS_V6: localhost
         
     - name: Privileged ping tests.
       if:  ${{ matrix.os != 'windows-latest' }}
