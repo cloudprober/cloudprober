@@ -205,7 +205,6 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 	targetTS.addDatum(em.Timestamp, &datum{
 		total:   total.Int64(),
 		success: success.Int64(),
-		latency: em.Metric("latency").Clone(),
 	})
 }
 
@@ -227,8 +226,8 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 
 		for _, i := range []int{0, len(data) - 1} {
 			d := data[i]
-			debugLines = append(debugLines, fmt.Sprintf("#%d total=%d, success=%d, latency=%s <br>",
-				i, d.total, d.success, d.latency.String()))
+			debugLines = append(debugLines, fmt.Sprintf("#%d total=%d, success=%d <br>",
+				i, d.total, d.success))
 		}
 	}
 	return lines, debugLines
