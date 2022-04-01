@@ -60,6 +60,10 @@ message ForwardingRules {
   // running in. To return forwarding rules from all regions, specify region as
   // "all".
   repeated string region = 1;
+
+  // For global forwarding rules, if it is set to true,  it will ignore 
+  // the value for the above region property.
+  optional bool global_rule = 2 [default = false];
 }
 
 // Global GCE targets options. These options are independent of the per-probe
