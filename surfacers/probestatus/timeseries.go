@@ -16,8 +16,6 @@ package probestatus
 
 import (
 	"time"
-
-	"github.com/cloudprober/cloudprober/metrics"
 )
 
 type timeseries struct {
@@ -29,7 +27,6 @@ type timeseries struct {
 
 type datum struct {
 	success, total int64
-	latency        metrics.Value
 }
 
 func newTimeseries(resolution time.Duration, size int) *timeseries {
