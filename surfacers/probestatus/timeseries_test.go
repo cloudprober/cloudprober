@@ -30,7 +30,7 @@ func TestTimeseries(t *testing.T) {
 		latest      int
 		oldest      int
 		oldestTotal int
-		lenData     int     // lenght of expected data.
+		lenData     int     // length of expected data.
 		totalDeltas []int64 // for durations 1, 2, 5, 10 min
 	}{
 		{
@@ -97,10 +97,12 @@ func TestTimeseries(t *testing.T) {
 			}
 
 			for i, td := range testDurations {
-				totalDelta, _ := ts.computeDelta(data, td)
-				if totalDelta != test.totalDeltas[i] {
-					t.Errorf("total delta for duration (%s)=%v, wanted=%v", td, totalDelta, test.totalDeltas[i])
-				}
+				t.Run(fmt.Sprintf("duration_%s", td), func(t *testing.T) {
+					totalDelta, _ := ts.computeDelta(td)
+					if totalDelta != test.totalDeltas[i] {
+						t.Errorf("total delta for duration (%s)=%v, wanted=%v", td, totalDelta, test.totalDeltas[i])
+					}
+				})
 			}
 		})
 	}
