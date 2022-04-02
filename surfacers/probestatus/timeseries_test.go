@@ -30,7 +30,7 @@ func TestTimeseries(t *testing.T) {
 		latest      int
 		oldest      int
 		oldestTotal int
-		lenData     int     // lenght of data for 10m query.
+		lenData     int     // lenght of expected data.
 		totalDeltas []int64 // for durations 1, 2, 5, 10 min
 	}{
 		{
@@ -86,20 +86,14 @@ func TestTimeseries(t *testing.T) {
 			}
 
 			// Test data retrieval.
-			for i := 0; i <= 15; i = i + 2 {
-				t.Run(fmt.Sprintf("getRecentData(%d)", i), func(t *testing.T) {
-					data := ts.getRecentData(time.Duration(i) * time.Minute)
-					for j, d := range data {
-						if d == nil {
-							t.Errorf("Duration: %d minutes, Got nil data at %d", i, j)
-						}
-					}
-				})
-			}
-
-			data := ts.getRecentData(10 * time.Minute)
+			data := ts.getData()
 			if len(data) != test.lenData {
 				t.Errorf("len(data)=%d, wanted=%d", len(data), test.lenData)
+			}
+			for j, d := range data {
+				if d == nil {
+					t.Errorf("Got nil data at %d", j)
+				}
 			}
 
 			for i, td := range testDurations {
