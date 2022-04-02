@@ -214,21 +214,19 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 	for _, targetName := range ps.probeTargets[probeName] {
 		lines = append(lines, "<tr><td><b>"+targetName+"</b></td>")
 		ts := ps.metrics[probeName][targetName]
-		data := ts.getData()
 
 		for _, td := range durations {
-			t, s := ts.computeDelta(data, td)
+			t, s := ts.computeDelta(td)
 			lines = append(lines, fmt.Sprintf("<td>%.4f</td>", float64(s)/float64(t)))
 		}
 
-		debugLines = append(debugLines, fmt.Sprintf("Target: %s, Oldest timestamp: %s<br>",
-			targetName, ts.currentTS.Add(time.Duration(-len(data))*ts.res)))
-
-		for _, i := range []int{0, len(data) - 1} {
-			d := data[i]
-			debugLines = append(debugLines, fmt.Sprintf("#%d total=%d, success=%d <br>",
-				i, d.total, d.success))
-		}
+		debugLines = append(debugLines, fmt.Sprintf("Target: %s <br>", targetName))
+		d := ts.a[ts.oldestIndex()]
+		debugLines = append(debugLines, fmt.Sprintf("Oldest: total=%d, success=%d <br>",
+			d.total, d.success))
+		d = ts.a[ts.latest]
+		debugLines = append(debugLines, fmt.Sprintf("Latest: total=%d, success=%d <br>",
+			d.total, d.success))
 	}
 	return lines, debugLines
 }
