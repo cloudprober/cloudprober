@@ -214,7 +214,7 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 	for _, targetName := range ps.probeTargets[probeName] {
 		lines = append(lines, "<tr><td><b>"+targetName+"</b></td>")
 		ts := ps.metrics[probeName][targetName]
-		data := ts.getRecentData(24 * time.Hour)
+		data := ts.getData()
 
 		for _, td := range durations {
 			t, s := ts.computeDelta(data, td)
