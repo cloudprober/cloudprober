@@ -22,10 +22,11 @@ package probestatus
 import (
 	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +38,9 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
 	"github.com/cloudprober/cloudprober/sysvars"
 )
+
+//go:embed static/*
+var content embed.FS
 
 const (
 	metricsBufferSize = 10000
@@ -50,6 +54,7 @@ const queriesQueueSize = 10
 // to signal the completion of the writing of the response.
 type httpWriter struct {
 	w        http.ResponseWriter
+	r        *http.Request
 	doneChan chan struct{}
 }
 
@@ -64,7 +69,7 @@ func (pc *pageCache) contentIfValid() ([]byte, bool) {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
 
-	if time.Now().Sub(pc.cachedTime) > pc.maxAge {
+	if time.Since(pc.cachedTime) > pc.maxAge {
 		return nil, false
 	}
 	return pc.content, true
@@ -139,7 +144,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			case em := <-ps.emChan:
 				ps.record(em)
 			case hw := <-ps.queryChan:
-				ps.writeData(hw.w)
+				ps.writeData(hw)
 				close(hw.doneChan)
 			}
 		}
@@ -149,9 +154,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
 		doneChan := make(chan struct{}, 1)
-		ps.queryChan <- &httpWriter{w, doneChan}
+		ps.queryChan <- &httpWriter{w, r, doneChan}
 		<-doneChan
 	})
+	http.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
 
 	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
 	return ps
@@ -197,7 +203,7 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 		if len(probeTS) >= int(ps.c.GetMaxTargetsPerProbe()) {
 			return
 		}
-		targetTS = newTimeseries(ps.resolution, int(ps.c.GetTimeseriesSize()))
+		targetTS = newTimeseries(ps.resolution, int(ps.c.GetTimeseriesSize()), ps.l)
 		probeTS[targetName] = targetTS
 		ps.probeTargets[probeName] = append(ps.probeTargets[probeName], targetName)
 	}
@@ -208,46 +214,95 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 	})
 }
 
-func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]string, []string) {
-	var lines, debugLines []string
-
+func (ps *Surfacer) statusTable(probeName string, durations []time.Duration) string {
+	var b strings.Builder
 	for _, targetName := range ps.probeTargets[probeName] {
-		lines = append(lines, "<tr><td><b>"+targetName+"</b></td>")
+		b.WriteString("<tr><td><b>" + targetName + "</b></td>")
 		ts := ps.metrics[probeName][targetName]
 
 		for _, td := range durations {
 			t, s := ts.computeDelta(td)
-			lines = append(lines, fmt.Sprintf("<td>%.4f</td>", float64(s)/float64(t)))
+			b.WriteString(fmt.Sprintf("<td>%.4f</td>", float64(s)/float64(t)))
 		}
-
-		debugLines = append(debugLines, fmt.Sprintf("Target: %s <br>", targetName))
-		d := ts.a[ts.oldest]
-		debugLines = append(debugLines, fmt.Sprintf("Oldest: total=%d, success=%d <br>",
-			d.total, d.success))
-		d = ts.a[ts.latest]
-		debugLines = append(debugLines, fmt.Sprintf("Latest: total=%d, success=%d <br>",
-			d.total, d.success))
 	}
-	return lines, debugLines
+	return b.String()
 }
 
-func (ps *Surfacer) writeData(w io.Writer) {
+func (ps *Surfacer) debugLines(probeName string) string {
+	var b strings.Builder
+	for _, targetName := range ps.probeTargets[probeName] {
+		ts := ps.metrics[probeName][targetName]
+		b.WriteString(fmt.Sprintf("Target: %s <br>\n", targetName))
+		d := ts.a[ts.oldest]
+		b.WriteString(fmt.Sprintf("Oldest: total=%d, success=%d <br>\n", d.total, d.success))
+		d = ts.a[ts.latest]
+		b.WriteString(fmt.Sprintf("Latest: total=%d, success=%d <br>", d.total, d.success))
+	}
+	return b.String()
+}
+
+func (ps *Surfacer) graphEndtime(qv []string) time.Time {
+	defaultEndTime := time.Now()
+	if len(qv) <= 0 {
+		return defaultEndTime
+	}
+	iv, err := strconv.ParseInt(qv[0], 10, 64)
+	if err != nil {
+		ps.l.Errorf("Error parsing graph_endtime value: %v", err)
+		return defaultEndTime
+	}
+	return (time.Unix(iv, 0))
+}
+
+func (ps *Surfacer) graphDuration(qv []string) time.Duration {
+	const defaultDuration = time.Hour
+	if len(qv) <= 0 {
+		return defaultDuration
+	}
+
+	dv, err := time.ParseDuration(qv[0])
+	if err != nil {
+		ps.l.Errorf("Error parsing graph_duration: %v", err)
+		return defaultDuration
+	}
+	return dv
+}
+
+func (ps *Surfacer) writeData(hw *httpWriter) {
+	defer func() {
+		if r := recover(); r != nil {
+			msg := "Unknown error"
+			switch t := r.(type) {
+			case string:
+				msg = t
+			case error:
+				msg = t.Error()
+			}
+			http.Error(hw.w, msg, http.StatusInternalServerError)
+		}
+	}()
+
 	content, valid := ps.pageCache.contentIfValid()
 	if valid {
-		w.Write(content)
+		hw.w.Write(content)
 		return
 	}
+
+	// Compute graphEndtime, graphDuration using query params.
+	urlVals := hw.r.URL.Query()
+	graphEndtime, graphDuration := ps.graphEndtime(urlVals["graph_endtime"]), ps.graphDuration(urlVals["graph_duration"])
 
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
-	probesStatus := make(map[string]template.HTML)
-	probesStatusDebug := make(map[string]template.HTML)
+	statusTable := make(map[string]template.HTML)
+	debugData := make(map[string]template.HTML)
+	graphData := make(map[string]template.JS)
 
 	for _, probeName := range ps.probeNames {
-		probeLines, probeDebugLines := ps.probeStatus(probeName, ps.dashDurations)
-		probesStatus[probeName] = template.HTML(strings.Join(probeLines, "\n"))
-		probesStatusDebug[probeName] = template.HTML(strings.Join(probeDebugLines, "\n"))
+		statusTable[probeName] = template.HTML(ps.statusTable(probeName, ps.dashDurations))
+		debugData[probeName] = template.HTML(ps.debugLines(probeName))
+		graphData[probeName] = template.JS(computeGraphData(ps.metrics[probeName], graphEndtime, graphDuration).JSONBytes())
 	}
 
 	var statusBuf bytes.Buffer
@@ -257,23 +312,30 @@ func (ps *Surfacer) writeData(w io.Writer) {
 		ps.l.Errorf("Error parsing probe status template: %v", err)
 		return
 	}
-	tmpl.Execute(&statusBuf, struct {
+	err = tmpl.Execute(&statusBuf, struct {
+		BaseURL           string
 		Durations         []string
 		ProbeNames        []string
-		ProbesStatus      map[string]template.HTML
-		ProbesStatusDebug map[string]template.HTML
+		StatusTable       map[string]template.HTML
+		GraphData         map[string]template.JS
+		DebugData         map[string]template.HTML
 		Version           string
 		StartTime, Uptime fmt.Stringer
 	}{
-		Durations:         ps.dashDurationsText,
-		ProbeNames:        ps.probeNames,
-		ProbesStatus:      probesStatus,
-		ProbesStatusDebug: probesStatusDebug,
-		Version:           runconfig.Version(),
-		StartTime:         startTime,
-		Uptime:            uptime,
+		BaseURL:     ps.c.GetUrl(),
+		Durations:   ps.dashDurationsText,
+		ProbeNames:  ps.probeNames,
+		StatusTable: statusTable,
+		GraphData:   graphData,
+		DebugData:   debugData,
+		Version:     runconfig.Version(),
+		StartTime:   startTime,
+		Uptime:      uptime,
 	})
-
+	if err != nil {
+		ps.l.Errorf("Error executing probe status template: %v", err)
+		return
+	}
 	ps.pageCache.setContent(statusBuf.Bytes())
-	w.Write(statusBuf.Bytes())
+	hw.w.Write(statusBuf.Bytes())
 }

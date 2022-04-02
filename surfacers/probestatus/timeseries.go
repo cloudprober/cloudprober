@@ -16,6 +16,8 @@ package probestatus
 
 import (
 	"time"
+
+	"github.com/cloudprober/cloudprober/logger"
 )
 
 type timeseries struct {
@@ -23,19 +25,27 @@ type timeseries struct {
 	latest, oldest int
 	res            time.Duration
 	currentTS      time.Time
+	l              *logger.Logger
+}
+
+func (ts *timeseries) shallowCopy() *timeseries {
+	c := &timeseries{}
+	*c = *ts
+	return c
 }
 
 type datum struct {
 	success, total int64
 }
 
-func newTimeseries(resolution time.Duration, size int) *timeseries {
+func newTimeseries(resolution time.Duration, size int, l *logger.Logger) *timeseries {
 	if resolution == 0 {
 		resolution = time.Minute
 	}
 	return &timeseries{
 		a:   make([]*datum, size),
 		res: resolution,
+		l:   l,
 	}
 }
 
@@ -58,8 +68,10 @@ func (ts *timeseries) addDatum(t time.Time, d *datum) {
 }
 
 func (ts *timeseries) agoIndex(durationCount int) int {
+	// This happens before first rotation, and after that whenever rotation
+	// happens.
 	if ts.oldest <= ts.latest {
-		if durationCount > ts.latest {
+		if ts.latest-durationCount < ts.oldest {
 			return ts.oldest
 		}
 		return ts.latest - durationCount
@@ -73,8 +85,16 @@ func (ts *timeseries) agoIndex(durationCount int) int {
 	if durationCount > len(ts.a)-1 {
 		durationCount = len(ts.a) - 1
 	}
+
 	// Flatten the array (add first section to the end) and subtract numPoints.
 	return (len(ts.a) + ts.latest) - durationCount
+}
+
+func (ts *timeseries) size() int {
+	if ts.oldest <= ts.latest {
+		return ts.latest - ts.oldest
+	}
+	return len(ts.a)
 }
 
 func (ts *timeseries) computeDelta(td time.Duration) (int64, int64) {

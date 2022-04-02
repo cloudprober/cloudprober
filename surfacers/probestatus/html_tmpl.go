@@ -23,6 +23,25 @@ var probeStatusTmpl = `
 
 <head>
 ` + resources.Style + `
+
+<link href="{{.BaseURL}}/static/c3.min.css" rel="stylesheet">
+<script src="{{.BaseURL}}/static/jquery-3.6.0.min.js" charset="utf-8"></script>
+<script src="{{.BaseURL}}/static/d3.v5.min.js" charset="utf-8"></script>
+<script src="{{.BaseURL}}/static/c3.min.js" charset="utf-8"></script>
+<script src="{{.BaseURL}}/static/probestatus.js" charset="utf-8"></script>
+
+<script>
+var d = {};
+var psd = {};
+
+{{$graphData := .GraphData}}
+
+{{range $probeName := .ProbeNames}}
+psd['{{$probeName}}'] = {{index $graphData .}}
+{{end}}
+
+populateD();
+</script>
 </head>
 
 <body>
@@ -31,8 +50,8 @@ var probeStatusTmpl = `
 <b>Config</b>: <a href="/config">/config</a><br>
 
 {{$durations := .Durations}}
-{{$probesStatus := .ProbesStatus}}
-{{$probesStatusDebug := .ProbesStatusDebug}}
+{{$statusTable := .StatusTable}}
+{{$debugData := .DebugData}}
 
 <h3> Success Ratio </h3>
 {{range $probeName := .ProbeNames}}
@@ -46,24 +65,33 @@ var probeStatusTmpl = `
     {{end}}
     </tr>
 
-    {{index $probesStatus .}}
+    {{index $statusTable .}}
   </table>
 </p>
 <div id="chart_{{$probeName}}"></div>
 {{end}}
 
 <hr>
-<div class="debugging">
-  <b>Debugging Info</b>
+<button id="show-hide-debug-info">Debugging Info</button>
+<div class="debugging" id="debug-info" style="display:none">
   <br>
   {{range $probeName := .ProbeNames}}
     <p>
       <b>Probe: {{$probeName}}</b><br>
 
-      {{index $probesStatusDebug $probeName}}
+      {{index $debugData $probeName}}
     </p>
   {{end}}
 </div>
 
+<script>
+for (probe in d) {
+  var chart = c3.generate(d[probe]);
+
+  setTimeout(function () {
+      chart.load();
+  }, 1000);
+}
+</script>
 </html>
 `
