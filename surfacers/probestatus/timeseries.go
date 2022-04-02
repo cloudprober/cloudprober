@@ -57,6 +57,35 @@ func (ts *timeseries) addDatum(t time.Time, d *datum) {
 	}
 }
 
+func (ts *timeseries) oldestIndex() int {
+	if ts.oldest == 0 {
+		return 1
+	}
+	return ts.oldest
+}
+
+func (ts *timeseries) ago(td time.Duration) *datum {
+	numPoints := int(td / ts.res)
+	if ts.oldest == 0 {
+		if numPoints > ts.latest-1 {
+			return ts.a[1]
+		}
+		return ts.a[ts.latest-numPoints]
+	}
+
+	// One side is enough.
+	if numPoints <= ts.latest {
+		return ts.a[ts.latest-numPoints]
+	}
+
+	if numPoints > len(ts.a)-1 {
+		numPoints = len(ts.a) - 1
+	}
+	// Flatten the array (add first section to the end) and subtract numPoints.
+	index := (len(ts.a) + ts.latest) - numPoints
+	return ts.a[index]
+}
+
 func (ts *timeseries) getData() []*datum {
 	// We haven't rotated yet.
 	if ts.oldest == 0 {
@@ -65,12 +94,8 @@ func (ts *timeseries) getData() []*datum {
 	return append([]*datum{}, append(ts.a[ts.latest+1:], ts.a[:ts.latest+1]...)...)
 }
 
-func (ts *timeseries) computeDelta(data []*datum, td time.Duration) (int64, int64) {
-	lastData := data[len(data)-1]
-	numPoints := int(td / ts.res)
-	start := len(data) - 1 - numPoints
-	if start < 0 {
-		start = 0
-	}
-	return lastData.total - data[start].total, lastData.success - data[start].success
+func (ts *timeseries) computeDelta(td time.Duration) (int64, int64) {
+	lastData := ts.a[ts.latest]
+	d := ts.ago(td)
+	return lastData.total - d.total, lastData.success - d.success
 }
