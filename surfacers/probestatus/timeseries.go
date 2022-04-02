@@ -57,26 +57,12 @@ func (ts *timeseries) addDatum(t time.Time, d *datum) {
 	}
 }
 
-func (ts *timeseries) getRecentData(td time.Duration) []*datum {
-	size := int(td / ts.res)
-	if size > len(ts.a) || size == 0 {
-		size = len(ts.a)
-	}
-
-	oldestIndex := ts.latest - (size - 1)
-	if oldestIndex >= 0 {
-		if oldestIndex == 0 {
-			oldestIndex = 1
-		}
-		return append([]*datum{}, ts.a[oldestIndex:ts.latest+1]...)
-	}
-
+func (ts *timeseries) getData() []*datum {
+	// We haven't rotated yet.
 	if ts.oldest == 0 {
 		return append([]*datum{}, ts.a[1:ts.latest+1]...)
 	}
-
-	otherSide := len(ts.a) + oldestIndex
-	return append([]*datum{}, append(ts.a[otherSide:], ts.a[:ts.latest+1]...)...)
+	return append([]*datum{}, append(ts.a[ts.latest+1:], ts.a[:ts.latest+1]...)...)
 }
 
 func (ts *timeseries) computeDelta(data []*datum, td time.Duration) (int64, int64) {
