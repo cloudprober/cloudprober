@@ -26,83 +26,101 @@ func TestTimeseries(t *testing.T) {
 	testDurations := []time.Duration{time.Minute, 2 * time.Minute, 5 * time.Minute, 10 * time.Minute}
 
 	var tests = []struct {
-		numMetrics  int
+		n           int // Number of metrics
 		latest      int
 		oldest      int
 		oldestTotal int
-		lenData     int     // length of expected data.
 		totalDeltas []int64 // for durations 1, 2, 5, 10 min
 	}{
 		{
-			// _, [1], [2,3], [4,5], [6,7], [8,9], [10, 11], [12, 13]
-			numMetrics:  13,
-			oldest:      0,
-			latest:      7,   // Leave first empty, fill next 7
-			oldestTotal: 200, // First input
-			lenData:     7,   // First bucket empty.
-			totalDeltas: []int64{2, 4, 10, 12},
+			// No data yet
+			n: 0, oldest: 0, latest: 0,
+			totalDeltas: []int64{0, 0, 0, 0},
 		},
 		{
-			// _, [1, 2], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14],
-			//                                     ... [15,16], [17,18]
-			numMetrics:  18,
-			oldest:      0,
-			latest:      9,   // Leave first empty, fill next 9
-			oldestTotal: 201, // First gets overwritten
-			lenData:     9,   // First bucket is empty.
+			// [1]
+			n: 1, oldest: 0, latest: 0,
+			totalDeltas: []int64{0, 0, 0, 0},
+		},
+		{
+			// [1], [2, 3]
+			n: 3, oldest: 0, latest: 1,
+			totalDeltas: []int64{2, 2, 2, 2},
+		},
+		{
+			// [1], [2,3], [4,5], [6,7], [8,9], [10, 11], [12, 13], -, -, -
+			n: 13, oldest: 0, latest: 6, oldestTotal: 200,
+			totalDeltas: []int64{2, 4, 10, 12},
+		},
+		//
+		// Edge conditions around first rotation.
+		//
+		{
+			// [1, 2], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14], [15,16]
+			//                                           ... [17,18],   -
+			n: 18, oldest: 0, latest: 8, oldestTotal: 201,
 			totalDeltas: []int64{2, 4, 10, 16},
 		},
 		{
-			// [19,20], [21,22], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14],
-			//                                            ... [15,16], [17,18]
-			numMetrics:  22, // It will rotate.
-			oldest:      2,
-			latest:      1,
-			oldestTotal: 203, // First bucket is lost
-			lenData:     10,
-			totalDeltas: []int64{2, 4, 10, 18},
+			// [1, 2], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14], [15,16]
+			//                                           ... [17,18], [19,20]
+			n: 20, oldest: 0, latest: 9, oldestTotal: 201,
+		},
+		{
+			// [21,22], [3,4], [5,6], [7,8], [9,10], [11,12], [13,14], [15,16]
+			//                                            ... [17,18], [19,20]
+			n: 22, oldest: 1, latest: 0, oldestTotal: 203,
+		},
+		//
+		// Edge conditions around double rotation.
+		//
+		{
+			// [21,22], [23,24], [25,26], [27,28], [29,30], [31,32], [33,34],
+			//                                 ... [35,36], [37,38], [19,20]
+			n: 38, oldest: 9, latest: 8, oldestTotal: 219,
+		},
+		{
+			// [21,22], [23,24], [25,26], [27,28], [29,30], [31,32], [33,34],
+			//                                 ... [35,36], [37,38], [39,40]
+			n: 40, oldest: 0, latest: 9, oldestTotal: 221,
+		},
+		{
+			// [41,42], [23,24], [25,26], [27,28], [29,30], [31,32], [33,34],
+			//                                 ... [35,36], [37,38], [39,40]
+			n: 42, oldest: 1, latest: 0, oldestTotal: 223,
 		},
 	}
 
+	defaultTotalDelta := []int64{2, 4, 10, 18}
+
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("numMetrics: %d", test.numMetrics), func(t *testing.T) {
+		t.Run(fmt.Sprintf("numMetrics:%d", test.n), func(t *testing.T) {
 			ts := newTimeseries(time.Minute, 10)
 
-			// Start test.numMetrics ago.
-			baseTime := time.Now().Truncate(time.Minute).Add(time.Duration(-test.numMetrics) * inputInterval)
-			for i := 0; i < test.numMetrics; i++ {
+			// Start test.n ago.
+			baseTime := time.Now().Truncate(time.Minute).Add(time.Duration(-test.n) * inputInterval)
+			for i := 0; i < test.n; i++ {
 				ts.addDatum(baseTime.Add(time.Duration(i)*inputInterval), &datum{total: int64(total + i), success: int64(success + i)})
 			}
 
 			if ts.oldest != test.oldest || ts.latest != test.latest {
 				t.Errorf("timeseries oldest=%d,want=%d latest=%d,want=%d", ts.oldest, test.oldest, ts.latest, test.latest)
 			}
-			oldest := ts.oldest
-			if oldest == 0 {
-				oldest = 1
-			}
-			if ts.a[oldest].total != int64(test.oldestTotal) {
-				t.Errorf("timeseries oldestTotal=%d,want=%d", ts.a[oldest].total, test.oldestTotal)
-			}
 
-			// Test data retrieval.
-			data := ts.getData()
-			if len(data) != test.lenData {
-				t.Errorf("len(data)=%d, wanted=%d", len(data), test.lenData)
-			}
-			for j, d := range data {
-				if d == nil {
-					t.Errorf("Got nil data at %d", j)
+			if test.oldestTotal != 0 {
+				if ts.a[ts.oldest].total != int64(test.oldestTotal) {
+					t.Errorf("timeseries oldestTotal=%d,want=%d", ts.a[ts.oldest].total, test.oldestTotal)
 				}
 			}
 
+			if test.totalDeltas == nil {
+				test.totalDeltas = defaultTotalDelta
+			}
 			for i, td := range testDurations {
-				t.Run(fmt.Sprintf("duration_%s", td), func(t *testing.T) {
-					totalDelta, _ := ts.computeDelta(td)
-					if totalDelta != test.totalDeltas[i] {
-						t.Errorf("total delta for duration (%s)=%v, wanted=%v", td, totalDelta, test.totalDeltas[i])
-					}
-				})
+				totalDelta, _ := ts.computeDelta(td)
+				if totalDelta != test.totalDeltas[i] {
+					t.Errorf("Total delta for duration (%s)=%v, wanted=%v", td, totalDelta, test.totalDeltas[i])
+				}
 			}
 		})
 	}
