@@ -221,7 +221,7 @@ func (ps *Surfacer) probeStatus(probeName string, durations []time.Duration) ([]
 		}
 
 		debugLines = append(debugLines, fmt.Sprintf("Target: %s <br>", targetName))
-		d := ts.a[ts.oldestIndex()]
+		d := ts.a[ts.oldest]
 		debugLines = append(debugLines, fmt.Sprintf("Oldest: total=%d, success=%d <br>",
 			d.total, d.success))
 		d = ts.a[ts.latest]

@@ -42,11 +42,11 @@ func newTimeseries(resolution time.Duration, size int) *timeseries {
 func (ts *timeseries) addDatum(t time.Time, d *datum) {
 	tt := t.Truncate(ts.res)
 	// Need a new bucket
-	if tt.After(ts.currentTS) {
+	if tt.After(ts.currentTS) && !ts.currentTS.IsZero() {
 		// Move
 		ts.latest = (ts.latest + 1) % len(ts.a)
 		if ts.latest == ts.oldest {
-			ts.oldest++
+			ts.oldest = (ts.latest + 1) % len(ts.a)
 		}
 	}
 	// Same bucket but newer data
@@ -57,45 +57,33 @@ func (ts *timeseries) addDatum(t time.Time, d *datum) {
 	}
 }
 
-func (ts *timeseries) oldestIndex() int {
-	if ts.oldest == 0 {
-		return 1
-	}
-	return ts.oldest
-}
-
-func (ts *timeseries) ago(td time.Duration) *datum {
-	numPoints := int(td / ts.res)
-	if ts.oldest == 0 {
-		if numPoints > ts.latest-1 {
-			return ts.a[1]
+func (ts *timeseries) agoIndex(durationCount int) int {
+	if ts.oldest <= ts.latest {
+		if durationCount > ts.latest {
+			return ts.oldest
 		}
-		return ts.a[ts.latest-numPoints]
+		return ts.latest - durationCount
 	}
 
 	// One side is enough.
-	if numPoints <= ts.latest {
-		return ts.a[ts.latest-numPoints]
+	if durationCount <= ts.latest {
+		return ts.latest - durationCount
 	}
 
-	if numPoints > len(ts.a)-1 {
-		numPoints = len(ts.a) - 1
+	if durationCount > len(ts.a)-1 {
+		durationCount = len(ts.a) - 1
 	}
 	// Flatten the array (add first section to the end) and subtract numPoints.
-	index := (len(ts.a) + ts.latest) - numPoints
-	return ts.a[index]
-}
-
-func (ts *timeseries) getData() []*datum {
-	// We haven't rotated yet.
-	if ts.oldest == 0 {
-		return append([]*datum{}, ts.a[1:ts.latest+1]...)
-	}
-	return append([]*datum{}, append(ts.a[ts.latest+1:], ts.a[:ts.latest+1]...)...)
+	return (len(ts.a) + ts.latest) - durationCount
 }
 
 func (ts *timeseries) computeDelta(td time.Duration) (int64, int64) {
-	lastData := ts.a[ts.latest]
-	d := ts.ago(td)
-	return lastData.total - d.total, lastData.success - d.success
+	startIndex := ts.agoIndex(int(td / ts.res))
+	if startIndex == ts.latest {
+		return 0, 0
+	}
+
+	tD := ts.a[ts.latest].total - ts.a[startIndex].total
+	sD := ts.a[ts.latest].success - ts.a[startIndex].success
+	return tD, sD
 }
