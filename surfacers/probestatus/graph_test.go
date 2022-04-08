@@ -15,9 +15,12 @@
 package probestatus
 
 import (
+	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -109,7 +112,7 @@ func TestComputeGraphPoints(t *testing.T) {
 		}
 		res := graphResolution(test.endTime, test.td)
 		t.Run(test.desc, func(t *testing.T) {
-			gp := computeGraphPoints(ts, test.endTime, test.td, res)
+			gp := computeGraphPoints(ts, &graphOptions{endTime: test.endTime, duration: test.td, res: res})
 			assert.Equal(t, gp, test.gp, "")
 		})
 	}
@@ -199,7 +202,7 @@ func TestSyncGraphLines(t *testing.T) {
 			endTimes["t1"], endTimes["t2"] = test.endTimes[0], test.endTimes[1]
 		}
 		t.Run(test.desc, func(t *testing.T) {
-			gd := computeGraphData(metrics, baseET, time.Hour)
+			gd := computeGraphData(metrics, &graphOptions{endTime: baseET, duration: time.Hour, res: time.Minute})
 
 			if test.st == 0 {
 				test.st = gd.StartTime
@@ -228,6 +231,63 @@ func TestSyncGraphLines(t *testing.T) {
 			assert.Equal(t, test.et, gd.EndTime, "")
 			assert.Equal(t, test.vals, gd.Values, "")
 			assert.Equal(t, test.freqs, gd.Freqs, "")
+		})
+	}
+}
+
+func TestGraphOptsFromURL(t *testing.T) {
+	et := time.Now().Truncate(time.Second)
+	etStr := strconv.FormatInt(et.Unix(), 10)
+	maxDuration := 72 * time.Hour
+
+	tests := []struct {
+		q     url.Values
+		gopts *graphOptions
+	}{
+		{
+			q: map[string][]string{
+				"graph_endtime":  {"13141", etStr},
+				"graph_duration": {"10s", "6h"},
+			},
+			gopts: &graphOptions{
+				endTime:  et,
+				duration: 6 * time.Hour,
+				res:      time.Minute,
+			},
+		},
+		{
+			// We'll use default endtime(=time.Now()) and duration.
+			q: map[string][]string{
+				"graph_endtime": {"as1231"},
+			},
+			gopts: &graphOptions{
+				duration: maxDuration,
+				res:      5 * time.Minute,
+			},
+		},
+		{
+			// Force 1 min resolution for maxDuration
+			q: map[string][]string{
+				"graph_duration": {"21d"}, // Parse error
+				"graph_res":      {"1m"},
+			},
+			gopts: &graphOptions{
+				duration: maxDuration,
+				res:      time.Minute,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.q.Encode(), func(t *testing.T) {
+			gopts := graphOptsFromURL(test.q, maxDuration, &logger.Logger{})
+			if test.gopts.endTime.IsZero() {
+				if gopts.endTime.IsZero() || gopts.endTime.After(time.Now()) {
+					t.Errorf("Default end time was not set up properly: now=%v, endTime=%v", time.Now(), gopts.endTime)
+				}
+				test.gopts.endTime = gopts.endTime
+			}
+			assert.Equal(t, test.gopts, gopts, "")
 		})
 	}
 }

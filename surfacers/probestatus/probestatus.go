@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -241,33 +240,6 @@ func (ps *Surfacer) debugLines(probeName string) string {
 	return b.String()
 }
 
-func (ps *Surfacer) graphEndtime(qv []string) time.Time {
-	defaultEndTime := time.Now()
-	if len(qv) <= 0 {
-		return defaultEndTime
-	}
-	iv, err := strconv.ParseInt(qv[0], 10, 64)
-	if err != nil {
-		ps.l.Errorf("Error parsing graph_endtime value: %v", err)
-		return defaultEndTime
-	}
-	return (time.Unix(iv, 0))
-}
-
-func (ps *Surfacer) graphDuration(qv []string) time.Duration {
-	const defaultDuration = time.Hour
-	if len(qv) <= 0 {
-		return defaultDuration
-	}
-
-	dv, err := time.ParseDuration(qv[0])
-	if err != nil {
-		ps.l.Errorf("Error parsing graph_duration: %v", err)
-		return defaultDuration
-	}
-	return dv
-}
-
 func (ps *Surfacer) writeData(hw *httpWriter) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -288,10 +260,6 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		return
 	}
 
-	// Compute graphEndtime, graphDuration using query params.
-	urlVals := hw.r.URL.Query()
-	graphEndtime, graphDuration := ps.graphEndtime(urlVals["graph_endtime"]), ps.graphDuration(urlVals["graph_duration"])
-
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
@@ -299,10 +267,20 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 	debugData := make(map[string]template.HTML)
 	graphData := make(map[string]template.JS)
 
-	for _, probeName := range ps.probeNames {
+	probes := ps.probeNames
+	if v := hw.r.URL.Query()["probe"]; v != nil {
+		probes = strings.Split(v[len(v)-1], ",")
+	}
+	maxDuration := time.Duration(ps.c.GetTimeseriesSize()) * ps.resolution
+	graphOpts := graphOptsFromURL(hw.r.URL.Query(), maxDuration, ps.l)
+
+	for _, probeName := range probes {
 		statusTable[probeName] = template.HTML(ps.statusTable(probeName, ps.dashDurations))
 		debugData[probeName] = template.HTML(ps.debugLines(probeName))
-		graphData[probeName] = template.JS(computeGraphData(ps.metrics[probeName], graphEndtime, graphDuration).JSONBytes())
+
+		// Compute graph data and convert it into JSON for embedding.
+		gd := computeGraphData(ps.metrics[probeName], graphOpts)
+		graphData[probeName] = template.JS(gd.JSONBytes(ps.l))
 	}
 
 	var statusBuf bytes.Buffer
@@ -324,7 +302,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 	}{
 		BaseURL:     ps.c.GetUrl(),
 		Durations:   ps.dashDurationsText,
-		ProbeNames:  ps.probeNames,
+		ProbeNames:  probes,
 		StatusTable: statusTable,
 		GraphData:   graphData,
 		DebugData:   debugData,
