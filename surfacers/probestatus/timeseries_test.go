@@ -95,7 +95,7 @@ func TestTimeseries(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("numMetrics:%d", test.n), func(t *testing.T) {
-			ts := newTimeseries(time.Minute, 10)
+			ts := newTimeseries(time.Minute, 10, nil)
 
 			// Start test.n ago.
 			baseTime := time.Now().Truncate(time.Minute).Add(time.Duration(-test.n) * inputInterval)
