@@ -16,10 +16,19 @@ package probestatus
 
 import (
 	"encoding/json"
+	"net/url"
+	"strconv"
 	"time"
 
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/sysvars"
 )
+
+type graphOptions struct {
+	endTime  time.Time
+	duration time.Duration
+	res      time.Duration
+}
 
 func graphResolution(endTime time.Time, td time.Duration) time.Duration {
 	dataTime := endTime.Sub(sysvars.StartTime())
@@ -27,13 +36,53 @@ func graphResolution(endTime time.Time, td time.Duration) time.Duration {
 		td = dataTime
 	}
 
-	if td <= 6*time.Hour {
+	if td <= 12*time.Hour {
 		return time.Minute
 	}
-	if td <= 24*time.Hour {
+	if td <= 72*time.Hour {
 		return 5 * time.Minute
 	}
 	return 15 * time.Minute
+}
+
+func graphOptsFromURL(qv url.Values, maxDuration time.Duration, l *logger.Logger) *graphOptions {
+	gopts := &graphOptions{
+		endTime:  time.Now(),
+		duration: maxDuration,
+	}
+
+	for key, vals := range qv {
+		val := vals[len(vals)-1]
+		switch key {
+		case "graph_endtime":
+			iv, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				l.Errorf("Error parsing graph_endtime value: %v", err)
+				continue
+			}
+			gopts.endTime = time.Unix(iv, 0)
+		case "graph_duration":
+			dv, err := time.ParseDuration(val)
+			if err != nil {
+				l.Errorf("Error parsing graph_duration value: %v", err)
+				continue
+			}
+			gopts.duration = dv
+		case "graph_res":
+			dv, err := time.ParseDuration(val)
+			if err != nil {
+				l.Errorf("Error parsing graph_res value: %v", err)
+				continue
+			}
+			gopts.res = dv
+		}
+	}
+
+	if gopts.res == 0 {
+		gopts.res = graphResolution(gopts.endTime, gopts.duration)
+	}
+
+	return gopts
 }
 
 func (gd *graphData) syncGraphLines(startTime, endTime map[string]time.Time) {
@@ -93,20 +142,20 @@ type graphPoints struct {
 	freqs              []int64
 }
 
-func computeGraphPoints(baseTS *timeseries, endTime time.Time, td, res time.Duration) *graphPoints {
+func computeGraphPoints(baseTS *timeseries, gopts *graphOptions) *graphPoints {
 	// Return nothing if duration is too small.
-	if td < baseTS.res {
+	if gopts.duration < baseTS.res {
 		return nil
 	}
 
 	ts := baseTS.shallowCopy()
 
-	gp := &graphPoints{endTime: endTime}
+	gp := &graphPoints{endTime: gopts.endTime}
 
 	// Truncate latest if endTime is before the current timeseries time.
 	ts.l.Debugf("timeseries before any change: ts.oldest=%d, ts.latest=%d", ts.oldest, ts.latest)
-	if endTime.Before(ts.currentTS) {
-		ts.latest = ts.agoIndex(int(ts.currentTS.Sub(endTime) / ts.res))
+	if gopts.endTime.Before(ts.currentTS) {
+		ts.latest = ts.agoIndex(int(ts.currentTS.Sub(gopts.endTime) / ts.res))
 	} else {
 		gp.endTime = ts.currentTS
 	}
@@ -117,16 +166,16 @@ func computeGraphPoints(baseTS *timeseries, endTime time.Time, td, res time.Dura
 	}
 
 	// Let's move oldest now if needed.
-	if int(td/ts.res) < ts.size() {
-		ts.oldest = ts.agoIndex(int(td / ts.res))
-		gp.startTime = gp.endTime.Add(-td)
+	if int(gopts.duration/ts.res) < ts.size() {
+		ts.oldest = ts.agoIndex(int(gopts.duration / ts.res))
+		gp.startTime = gp.endTime.Add(-gopts.duration)
 	} else {
 		gp.startTime = gp.endTime.Add(-time.Duration(ts.size()) * ts.res)
 	}
 
 	ts.l.Debugf("timeseries after startTime truncated: ts.oldest=%d, ts.latest=%d", ts.oldest, ts.latest)
 
-	step := int(res / ts.res)
+	step := int(gopts.res / ts.res)
 	if step == 0 {
 		step = 1
 	}
@@ -163,22 +212,27 @@ type graphData struct {
 	Freqs              map[string][]int64
 }
 
-func (gd *graphData) JSONBytes() []byte {
-	gdJSON, _ := json.Marshal(gd)
+func (gd *graphData) JSONBytes(l *logger.Logger) []byte {
+	gdJSON, err := json.Marshal(gd)
+	// In a bug free code, this should never happen.
+	if err != nil {
+		l.Errorf("Error converting graph data to JSON: %v", err)
+		return nil
+	}
 	return gdJSON
 }
 
-func computeGraphData(metrics map[string]*timeseries, endTime time.Time, td time.Duration) *graphData {
+func computeGraphData(metrics map[string]*timeseries, gopts *graphOptions) *graphData {
 	gd := &graphData{
 		Values:     make(map[string][]float64),
 		Freqs:      make(map[string][]int64),
-		ResSeconds: int(graphResolution(endTime, td).Seconds()),
+		ResSeconds: int(gopts.res.Seconds()),
 	}
 
 	startTimes, endTimes := make(map[string]time.Time), make(map[string]time.Time)
 
 	for targetName, ts := range metrics {
-		gp := computeGraphPoints(ts, endTime, td, time.Duration(gd.ResSeconds)*time.Second)
+		gp := computeGraphPoints(ts, gopts)
 		if gp == nil {
 			continue
 		}
