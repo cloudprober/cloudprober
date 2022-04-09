@@ -14,17 +14,20 @@
 
 package probestatus
 
-import "github.com/cloudprober/cloudprober/web/resources"
-
 var probeStatusTmpl = `
 <html>
 <!DOCTYPE html>
 <meta charset="utf-8">
 
 <head>
-` + resources.Style + `
+
+<script>
+  var startTime = '{{.StartTime}}';
+</script>
 
 <link href="{{.BaseURL}}/static/c3.min.css" rel="stylesheet">
+<link href="{{.BaseURL}}/static/probestatus.css" rel="stylesheet">
+
 <script src="{{.BaseURL}}/static/jquery-3.6.0.min.js" charset="utf-8"></script>
 <script src="{{.BaseURL}}/static/d3.v5.min.js" charset="utf-8"></script>
 <script src="{{.BaseURL}}/static/c3.min.js" charset="utf-8"></script>
@@ -45,9 +48,27 @@ populateD();
 </head>
 
 <body>
-<b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
-<b>Version</b>: {{.Version}}<br>
-<b>Config</b>: <a href="/config">/config</a><br>
+  <div style="float:left">
+    <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
+    <b>Version</b>: {{.Version}}<br>
+    <b>Config</b>: <a href="/config">/config</a><br>
+  </div>
+
+  <div style="float:right" class="graph-options">
+    <label style="font-weight:bold" for="graph-duration">Graph Duration:</label>
+    <input type="text" list="graph-duration-list" id="graph-duration" style="width: 50px;"/>
+    <datalist name="graph-duration-list" id="graph-duration-list" >
+      <option>15m</option>
+      <option>3h</option>
+      <option>6h</option>
+      <option>12h</option>
+      <option>24h</option>
+      <option>72h</option>
+    </datalist>
+    <label style="font-weight:bold" for="graph-endtime">Endtime:</label>
+    <input type="datetime-local" id="graph-endtime" name="graph-endtime" style="width: 200px;">
+  </div>
+  <br><br><br><br>
 
 {{$durations := .Durations}}
 {{$statusTable := .StatusTable}}
