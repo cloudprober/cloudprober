@@ -58,8 +58,8 @@ function populateProbeData() {
     x.push(dtStr);
   }
   d[probe].data.columns.push(x);
-  if (x.length < 31) {
-    d[probe].point.show = true;
+  if (x.length > 500) {
+    d[probe].point.r = 1;
   }
 
   // Data colums
