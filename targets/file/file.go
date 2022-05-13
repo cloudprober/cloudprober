@@ -28,20 +28,27 @@ import (
 	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
+	"google.golang.org/protobuf/proto"
 )
 
 // New returns new file targets.
 func New(opts *configpb.TargetsConf, res *dnsRes.Resolver, l *logger.Logger) (*client.Client, error) {
 	lister, err := file.New(&file_configpb.ProviderConfig{
-		FilePath: []string{opts.GetFilePath()},
+		FilePath:  []string{opts.GetFilePath()},
+		ReEvalSec: proto.Int32(opts.GetReEvalSec()),
 	}, l)
 	if err != nil {
 		return nil, err
 	}
 
+	// We can be really aggressive about client refresh interval as "file" RDS
+	// provider is smart about using the last_modified field of the response,
+	// and client checking for targets before file has been reloaded will not
+	// trigger unnecessary recreation of target objects.
+	// Ref: https://github.com/cloudprober/cloudprober/blob/5bec0db1ac908e69bff0fbca3182415c4e267d64/rds/client/client.go#L103
 	clientConf := &client_configpb.ClientConf{
 		Request:   &rdspb.ListResourcesRequest{Filter: opts.GetFilter()},
-		ReEvalSec: opts.ReEvalSec,
+		ReEvalSec: proto.Int32(1),
 	}
 
 	return client.New(clientConf, func(_ context.Context, req *rdspb.ListResourcesRequest) (*rdspb.ListResourcesResponse, error) {
