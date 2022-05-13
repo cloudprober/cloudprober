@@ -47,11 +47,6 @@ import (
 // max(DefaultTargetsUpdateInterval, probe_interval)
 var DefaultTargetsUpdateInterval = 1 * time.Minute
 
-// maxGapBetweenTargets defines the maximum gap between probe loops for each
-// target. Actual gap is either configured or determined by the probe interval
-// and number of targets.
-const maxGapBetweenTargets = 1 * time.Second
-
 const (
 	maxResponseSizeForMetrics = 128
 	targetsUpdateInterval     = 1 * time.Minute
@@ -82,10 +77,6 @@ type Probe struct {
 	method   string
 	url      string
 	oauthTS  oauth2.TokenSource
-
-	// Run counter, used to decide when to update targets or export
-	// stats.
-	runCnt int64
 
 	// How often to resolve targets (in probe counts), it's the minimum of
 	targetsUpdateInterval time.Duration
@@ -129,6 +120,68 @@ func (p *Probe) oauthToken() (string, error) {
 	return "", fmt.Errorf("got unknown token: %v", tok)
 }
 
+func (p *Probe) getTransport() (*http.Transport, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	dialer := &net.Dialer{
+		Timeout:   p.opts.Timeout,
+		KeepAlive: 30 * time.Second, // TCP keep-alive
+	}
+	if p.opts.SourceIP != nil {
+		dialer.LocalAddr = &net.TCPAddr{
+			IP: p.opts.SourceIP,
+		}
+	}
+	transport.DialContext = dialer.DialContext
+	transport.MaxIdleConns = 256
+	transport.TLSHandshakeTimeout = p.opts.Timeout
+
+	if p.c.GetProxyUrl() != "" {
+		url, err := url.Parse(p.c.GetProxyUrl())
+		if err != nil {
+			return nil, fmt.Errorf("error parsing proxy URL (%s): %v", p.c.GetProxyUrl(), err)
+		}
+		transport.Proxy = http.ProxyURL(url)
+	}
+
+	if p.c.GetDisableCertValidation() || p.c.GetTlsConfig() != nil {
+		if transport.TLSClientConfig == nil {
+			transport.TLSClientConfig = &tls.Config{}
+		}
+
+		if p.c.GetDisableCertValidation() {
+			p.l.Warning("disable_cert_validation is deprecated as of v0.10.6. Instead of this, please use \"tls_config {disable_cert_validation: true}\"")
+			transport.TLSClientConfig.InsecureSkipVerify = true
+		}
+
+		if p.c.GetTlsConfig() != nil {
+			if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, p.c.GetTlsConfig()); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// If HTTP keep-alives are not enabled (default), disable HTTP keep-alive in
+	// transport.
+	if !p.c.GetKeepAlive() {
+		transport.DisableKeepAlives = true
+	} else {
+		// If it's been more than 2 probe intervals since connection was used, close it.
+		transport.IdleConnTimeout = 2 * p.opts.Interval
+		if p.c.GetRequestsPerProbe() > 1 {
+			transport.MaxIdleConnsPerHost = int(p.c.GetRequestsPerProbe())
+		}
+	}
+
+	if p.c.GetDisableHttp2() {
+		// HTTP/2 is enabled by default if server supports it. Setting
+		// TLSNextProto to an empty dict is the only way to disable it.
+		transport.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
+		transport.ForceAttemptHTTP2 = false
+	}
+
+	return transport, nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -160,65 +213,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	p.requestBody = []byte(p.c.GetBody())
 
-	// Create a transport for our use. This is mostly based on
-	// http.DefaultTransport with some timeouts changed.
-	// TODO(manugarg): Considering cloning DefaultTransport once
-	// https://github.com/golang/go/issues/26013 is fixed.
-	dialer := &net.Dialer{
-		Timeout:   p.opts.Timeout,
-		KeepAlive: 30 * time.Second, // TCP keep-alive
-	}
-
-	if p.opts.SourceIP != nil {
-		dialer.LocalAddr = &net.TCPAddr{
-			IP: p.opts.SourceIP,
-		}
-	}
-
-	transport := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		DialContext:         dialer.DialContext,
-		MaxIdleConns:        256, // http.DefaultTransport.MaxIdleConns: 100.
-		TLSHandshakeTimeout: p.opts.Timeout,
-	}
-
-	if p.c.GetProxyUrl() != "" {
-		url, err := url.Parse(p.c.GetProxyUrl())
-		if err != nil {
-			return fmt.Errorf("error parsing proxy URL (%s): %v", p.c.GetProxyUrl(), err)
-		}
-		transport.Proxy = http.ProxyURL(url)
-	}
-
-	if p.c.GetDisableCertValidation() || p.c.GetTlsConfig() != nil {
-		if transport.TLSClientConfig == nil {
-			transport.TLSClientConfig = &tls.Config{}
-		}
-
-		if p.c.GetDisableCertValidation() {
-			p.l.Warning("disable_cert_validation is deprecated as of v0.10.6. Instead of this, please use \"tls_config {disable_cert_validation: true}\"")
-			transport.TLSClientConfig.InsecureSkipVerify = true
-		}
-
-		if p.c.GetTlsConfig() != nil {
-			if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, p.c.GetTlsConfig()); err != nil {
-				return err
-			}
-		}
-	}
-
-	// If HTTP keep-alives are not enabled (default), disable HTTP keep-alive in
-	// transport.
-	if !p.c.GetKeepAlive() {
-		transport.DisableKeepAlives = true
-	} else {
-		// If it's been more than 2 probe intervals since connection was used, close it.
-		transport.IdleConnTimeout = 2 * p.opts.Interval
-		if p.c.GetRequestsPerProbe() > 1 {
-			transport.MaxIdleConnsPerHost = int(p.c.GetRequestsPerProbe())
-		}
-	}
-
 	if p.c.GetOauthConfig() != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(p.c.GetOauthConfig(), p.l)
 		if err != nil {
@@ -227,12 +221,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.oauthTS = oauthTS
 	}
 
-	if p.c.GetDisableHttp2() {
-		// HTTP/2 is enabled by default if server supports it. Setting TLSNextProto
-		// to an empty dict is the only to disable it.
-		transport.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
+	transport, err := p.getTransport()
+	if err != nil {
+		return err
 	}
-
 	// Clients are safe for concurrent use by multiple goroutines.
 	p.clients = make([]*http.Client, p.c.GetRequestsPerProbe())
 	for i := 0; i < len(p.clients); i++ {
