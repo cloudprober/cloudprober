@@ -34,6 +34,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 )
 
@@ -524,6 +525,88 @@ func TestRunProbeWithOAuth(t *testing.T) {
 				if tt.lastAuthHeader != wantHeader {
 					t.Errorf("Auth header: %s, wanted: %s", tt.lastAuthHeader, wantHeader)
 				}
+			}
+		})
+	}
+}
+
+func TestGetTransport(t *testing.T) {
+	opts := options.DefaultOptions()
+	p := &Probe{opts: opts}
+
+	tests := []struct {
+		desc             string
+		keepAlive        bool
+		disableHTTP2     bool
+		proxy            string
+		disableCertCheck bool
+	}{
+		{
+			desc: "default transport",
+		},
+		{
+			desc:         "disable_http2",
+			disableHTTP2: true,
+		},
+		{
+			desc:      "disable_keepalive",
+			keepAlive: true,
+		},
+		{
+			desc:  "with_proxy",
+			proxy: "http://test-proxy",
+		},
+		{
+			desc:             "disable_cert_check",
+			disableCertCheck: true,
+		},
+		{
+			desc:             "all_custom",
+			disableHTTP2:     true,
+			keepAlive:        true,
+			proxy:            "http://test-proxy",
+			disableCertCheck: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			p.c = &configpb.ProbeConf{
+				DisableHttp2:          &test.disableHTTP2,
+				KeepAlive:             &test.keepAlive,
+				RequestsPerProbe:      proto.Int32(10),
+				ProxyUrl:              &test.proxy,
+				DisableCertValidation: &test.disableCertCheck,
+			}
+
+			transport, err := p.getTransport()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			assert.Equal(t, opts.Timeout, transport.TLSHandshakeTimeout)
+			assert.Equal(t, !test.keepAlive, transport.DisableKeepAlives)
+			assert.Equal(t, !test.disableHTTP2, transport.ForceAttemptHTTP2)
+
+			if test.disableHTTP2 {
+				assert.NotNil(t, transport.TLSNextProto)
+				assert.Empty(t, transport.TLSNextProto)
+			} else {
+				assert.Nil(t, transport.TLSNextProto)
+			}
+
+			if test.keepAlive {
+				assert.Equal(t, 10, transport.MaxIdleConnsPerHost)
+				assert.Equal(t, 2*opts.Interval, transport.IdleConnTimeout)
+			}
+
+			if test.proxy != "" {
+				proxy, _ := transport.Proxy(nil)
+				assert.Equal(t, test.proxy, proxy.String())
+			}
+
+			if test.disableCertCheck {
+				assert.Equal(t, true, transport.TLSClientConfig.InsecureSkipVerify)
 			}
 		})
 	}
