@@ -630,8 +630,7 @@ func (p *Probe) Start(startCtx context.Context, dataChan chan *metrics.EventMetr
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		// Don't run another probe if context is canceled already.
+	for ; ; <-ticker.C {
 		select {
 		case <-startCtx.Done():
 			return
