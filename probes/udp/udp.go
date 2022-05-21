@@ -166,7 +166,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	// #send/recv-channel-buffer = #targets * #sources * #probing-intervals-between-flushes
-	minChanLen := maxTargets * int(p.c.GetNumTxPorts()) * int(math.Ceil(float64(p.flushIntv/p.opts.Interval)))
+	minChanLen := maxTargets * int(p.c.GetNumTxPorts()) * int(math.Ceil(float64(p.flushIntv)/float64(p.opts.Interval)))
 	p.l.Infof("Creating sent, rcvd channels of length: %d", 2*minChanLen)
 	p.sentPackets = make(chan packetID, 2*minChanLen)
 	p.rcvdPackets = make(chan packetID, 2*minChanLen)

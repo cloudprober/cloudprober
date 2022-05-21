@@ -141,7 +141,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("error parsing command line (%s): %v", p.c.GetCommand(), err)
 	}
 	p.cmdName = cmdParts[0]
-	p.cmdArgs = cmdParts[1:len(cmdParts)]
+	p.cmdArgs = cmdParts[1:]
 
 	// Figure out labels we are interested in
 	p.updateLabelKeys()
