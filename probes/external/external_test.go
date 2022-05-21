@@ -84,12 +84,12 @@ func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteC
 		id := req.GetRequestId()
 
 		actionToResponse := map[string]*serverpb.ProbeReply{
-			"nopayload": &serverpb.ProbeReply{RequestId: proto.Int32(id)},
-			"payload": &serverpb.ProbeReply{
+			"nopayload": {RequestId: proto.Int32(id)},
+			"payload": {
 				RequestId: proto.Int32(id),
 				Payload:   proto.String(testPayload),
 			},
-			"payload_with_error": &serverpb.ProbeReply{
+			"payload_with_error": {
 				RequestId:    proto.Int32(id),
 				Payload:      proto.String(testPayload),
 				ErrorMessage: proto.String("error"),

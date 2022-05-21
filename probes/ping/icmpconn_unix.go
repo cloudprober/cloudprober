@@ -30,10 +30,6 @@ import (
 // NativeEndian is the machine native endian implementation of ByteOrder.
 var NativeEndian binary.ByteOrder
 
-const (
-	protocolIP = 0
-)
-
 func sockaddr(sourceIP net.IP, ipVer int) (syscall.Sockaddr, error) {
 	a := &net.IPAddr{IP: sourceIP}
 
