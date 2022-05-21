@@ -136,6 +136,10 @@ func TestRestart(t *testing.T) {
 			Name: "SecondInitAndStart",
 		},
 	}
+
+	// We reuse ports to verify that we're cleaning up properly after each run.
+	ports := freePortsT(t, 3)
+
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -144,7 +148,6 @@ func TestRestart(t *testing.T) {
 				// Wait required for the cloudprober instance to fully shut down.
 				time.Sleep(time.Second)
 			}()
-			ports := freePortsT(t, 3)
 			cfg := &configpb.ProberConfig{
 				Port:     proto.Int32(ports[0]),
 				GrpcPort: proto.Int32(ports[1]),

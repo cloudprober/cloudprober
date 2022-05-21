@@ -462,8 +462,13 @@ func (p *Probe) updateTargets() {
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.updateTargets()
 
+	var recvLoopWG sync.WaitGroup
 	for _, conn := range p.connList {
-		go p.recvLoop(ctx, conn)
+		recvLoopWG.Add(1)
+		go func(conn *net.UDPConn) {
+			p.recvLoop(ctx, conn)
+			recvLoopWG.Done()
+		}(conn)
 	}
 
 	probeTicker := time.NewTicker(p.opts.Interval)
@@ -476,6 +481,12 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			flushTicker.Stop()
 			probeTicker.Stop()
 			statsExportTicker.Stop()
+
+			p.l.Infof("Waiting for recvloop to return before closing listeners")
+			recvLoopWG.Wait()
+			for _, conn := range p.connList {
+				conn.Close()
+			}
 			return
 		case <-probeTicker.C:
 			p.runProbe()
