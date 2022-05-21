@@ -20,7 +20,6 @@ package probes
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sync"
 
 	"github.com/cloudprober/cloudprober/metrics"
@@ -44,17 +43,6 @@ var (
 	extensionMap        = make(map[int]func() Probe)
 	extensionMapMu      sync.Mutex
 )
-
-func runOnThisHost(runOn string, hostname string) (bool, error) {
-	if runOn == "" {
-		return true, nil
-	}
-	r, err := regexp.Compile(runOn)
-	if err != nil {
-		return false, err
-	}
-	return r.MatchString(hostname), nil
-}
 
 // Probe interface represents a probe.
 //
