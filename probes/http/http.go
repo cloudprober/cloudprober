@@ -100,6 +100,7 @@ type probeResult struct {
 	respCodes                *metrics.Map
 	respBodies               *metrics.Map
 	validationFailure        *metrics.Map
+	sslExpirationSeconds     *int64
 }
 
 func (p *Probe) oauthToken() (string, error) {
@@ -333,6 +334,11 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	resp.Body.Close()
 	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
 
+	if resp.TLS != nil {
+		expiry := int64(resp.TLS.PeerCertificates[0].NotAfter.Sub(time.Now()).Seconds())
+		result.sslExpirationSeconds = &expiry
+	}
+
 	if p.opts.Validators != nil {
 		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{Response: resp, ResponseBody: respBody}, result.validationFailure, p.l)
 
@@ -411,6 +417,10 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 		AddLabel("ptype", "http").
 		AddLabel("probe", p.name).
 		AddLabel("dst", targetName)
+
+	if result.sslExpirationSeconds != nil {
+		em.AddMetric("ssl_expiration_seconds", metrics.NewInt(*result.sslExpirationSeconds))
+	}
 
 	if result.respBodies != nil {
 		em.AddMetric("resp-body", result.respBodies)
