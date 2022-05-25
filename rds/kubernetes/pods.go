@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server/filter"
+	"google.golang.org/protobuf/proto"
 )
 
 type podsLister struct {
@@ -100,14 +100,15 @@ func parsePodsJSON(resp []byte) (keys []resourceKey, pods map[resourceKey]*podIn
 		return
 	}
 
-	keys = make([]resourceKey, len(itemList.Items))
+	keys = make([]resourceKey, 0, len(itemList.Items))
 	pods = make(map[resourceKey]*podInfo)
-	for i, item := range itemList.Items {
+	for _, item := range itemList.Items {
 		if item.Status.Phase != "Running" {
 			continue
 		}
-		keys[i] = resourceKey{item.Metadata.Namespace, item.Metadata.Name}
-		pods[keys[i]] = item
+		key := resourceKey{item.Metadata.Namespace, item.Metadata.Name}
+		keys = append(keys, key)
+		pods[key] = item
 	}
 
 	return

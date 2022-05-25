@@ -19,8 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 func testPodInfo(name, ns, ip string, labels map[string]string) *podInfo {
@@ -114,31 +115,54 @@ func TestParseResourceList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", podsListFile)
 	}
-	_, podsByKey, err := parsePodsJSON(data)
 
+	keys, cache, err := parsePodsJSON(data)
 	if err != nil {
 		t.Fatalf("Error while parsing pods JSON data: %v", err)
 	}
-
-	for _, ns := range []string{"prod", "dev"} {
-		cpPodKey := resourceKey{ns, "cloudprober-54778d95f5-7hqtd"}
-		if podsByKey[cpPodKey] == nil {
-			t.Errorf("didn't get pod by the key: %+v", cpPodKey)
-			continue
-		}
-
-		if podsByKey[cpPodKey].Metadata.Labels["app"] != "cloudprober" {
-			t.Errorf("cloudprober pod app label: got=%s, want=cloudprober", podsByKey[cpPodKey].Metadata.Labels["app"])
-		}
-
-		cpPodIP := "10.28.0.3"
-		if podsByKey[cpPodKey].Status.PodIP != cpPodIP {
-			t.Errorf("cloudprober pod ip: got=%s, want=%s", podsByKey[cpPodKey].Status.PodIP, cpPodIP)
-		}
+	pl := &podsLister{
+		keys:  keys,
+		cache: cache,
 	}
 
-	// Verify that we didn't the pending pod.
-	if podsByKey[resourceKey{"default", "test"}] != nil {
-		t.Error("got a non-running pod in the list: test")
+	var tests = []struct {
+		ns         string
+		wantName   string
+		wantIP     string
+		wantLabels [][2]string
+	}{
+		{
+			ns:       "prod",
+			wantName: "cloudprober-54778d95f5-7hqtd",
+			wantIP:   "10.28.0.3",
+		},
+		{
+			ns:       "dev",
+			wantName: "cloudprober-54778d95f5-7hqtd-dev",
+			wantIP:   "10.22.0.3",
+		},
+		{
+			ns:       "default",
+			wantName: "test-running", // Only running pod shows up.
+			wantIP:   "10.28.1.3",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.ns, func(t *testing.T) {
+			filtersPB := []*pb.Filter{{Key: proto.String("namespace"), Value: proto.String(test.ns)}}
+			results, _ := pl.listResources(&pb.ListResourcesRequest{Filter: filtersPB})
+
+			if test.wantName == "" {
+				assert.Len(t, results, 0)
+				return
+			}
+
+			assert.Len(t, results, 1)
+			result := results[0]
+			assert.Equal(t, result.GetName(), test.wantName)
+			assert.Equal(t, result.GetIp(), test.wantIP)
+
+		})
 	}
 }
