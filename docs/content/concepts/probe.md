@@ -18,8 +18,8 @@ A probe is defined as a set of the following fields:
 `interval_msec` | How often to run the probe (in milliseconds).
 `timeout_msec`  | Probe timeout (in milliseconds).
 `targets`       | Targets to run probe against.
-`validator`     | Probe validators, further explained [here](/how-to/validators). 
-`<type>_probe`  | Probe type specific configuration. 
+`validator`     | Probe validators, further explained [here](/how-to/validators).
+`<type>_probe`  | Probe type specific configuration.
 
 Please take a look at the [ProbeDef protobuf](https://github.com/cloudprober/cloudprober/blob/master/probes/proto/config.proto) for further details on various fields and options. All probe types export following metrics at a minimum:
 
@@ -28,7 +28,6 @@ Please take a look at the [ProbeDef protobuf](https://github.com/cloudprober/clo
 |`total`   | Total number of probes. |
 |`success` | Number of successful probes. Deficit between _total_ and _success_ indicates failures.|
 |`latency` | Cumulative probe latency (by default in microseconds). Latency can also be configured to be a [distribution](/how-to/percentiles/) (histogram) metric through a config option (`latency_distribution`). By default it's just the sum of the latencies observed so far. Average latency can be computed using _rate(latency) / rate(success)_.|
-
 
 ## Probe Types
 
@@ -67,6 +66,11 @@ response is received. Apart from the core probe metrics (total, success, and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.
 
+* __SSL Certificate Expiry__:
+   If the target serves a SSL Certificate, cloudprober will walk the certificate chain and
+   export the earliest expiry time in seconds as a metric. The metric is named `ssl_earliest_cert_expiry_sec`,
+   and will only be exported when the expiry time in seconds is a positive number.
+
 ### UDP
 
 [`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/udp) | [`Config
@@ -98,7 +102,7 @@ data through the standard channel.
 
 External probe can be configured in two modes:
 
-*  __ONCE__:
+* __ONCE__:
    In this mode, an external program is executed for each probe run. Exit
    status of the program determines the success or failure of the probe.
    External probe can optionally be configured to interpret external program's
@@ -106,7 +110,7 @@ External probe can be configured in two modes:
    program to maintain state and multiple forks can be expensive depending on
    the frequency of the probes.
 
-*  __SERVER__:
+* __SERVER__:
    In this mode, external program is expected to run in server mode. Cloudprober
    automatically starts the external program if it's not running at the time of
    the probe execution. Cloudprober and external probe process communicate with

@@ -94,12 +94,13 @@ type Probe struct {
 }
 
 type probeResult struct {
-	total, success, timeouts int64
-	connEvent                int64
-	latency                  metrics.Value
-	respCodes                *metrics.Map
-	respBodies               *metrics.Map
-	validationFailure        *metrics.Map
+	total, success, timeouts     int64
+	connEvent                    int64
+	latency                      metrics.Value
+	respCodes                    *metrics.Map
+	respBodies                   *metrics.Map
+	validationFailure            *metrics.Map
+	sslEarliestExpirationSeconds int64
 }
 
 func (p *Probe) oauthToken() (string, error) {
@@ -333,6 +334,19 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	resp.Body.Close()
 	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
 
+	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
+		now := time.Now()
+		minExpirySeconds := resp.TLS.PeerCertificates[0].NotAfter.Sub(now).Seconds()
+
+		for i := 1; i < len(resp.TLS.PeerCertificates); i++ {
+			if resp.TLS.PeerCertificates[i].NotAfter.Sub(now).Seconds() < minExpirySeconds {
+				minExpirySeconds = resp.TLS.PeerCertificates[i].NotAfter.Sub(now).Seconds()
+			}
+		}
+
+		result.sslEarliestExpirationSeconds = int64(minExpirySeconds)
+	}
+
 	if p.opts.Validators != nil {
 		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{Response: resp, ResponseBody: respBody}, result.validationFailure, p.l)
 
@@ -381,7 +395,8 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 
 func (p *Probe) newResult() *probeResult {
 	result := &probeResult{
-		respCodes: metrics.NewMap("code", metrics.NewInt(0)),
+		respCodes:                    metrics.NewMap("code", metrics.NewInt(0)),
+		sslEarliestExpirationSeconds: -1,
 	}
 
 	if p.opts.Validators != nil {
@@ -411,6 +426,10 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 		AddLabel("ptype", "http").
 		AddLabel("probe", p.name).
 		AddLabel("dst", targetName)
+
+	if result.sslEarliestExpirationSeconds >= 0 {
+		em.AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
+	}
 
 	if result.respBodies != nil {
 		em.AddMetric("resp-body", result.respBodies)
