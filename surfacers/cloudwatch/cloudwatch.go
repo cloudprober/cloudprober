@@ -22,9 +22,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/sysvars"
@@ -44,12 +45,12 @@ type CWSurfacer struct {
 	c         *configpb.SurfacerConf
 	opts      *options.Options
 	writeChan chan *metrics.EventMetrics
-	session   *cloudwatch.CloudWatch
+	session   *cloudwatch.Client
 	l         *logger.Logger
 
-	// A cache of []*cloudwatch.MetricDatum's, used for batch writing to the
+	// A cache of []types.MetricDatum's, used for batch writing to the
 	// cloudwatch api.
-	cwMetricDatumCache []*cloudwatch.MetricDatum
+	cwMetricDatumCache []types.MetricDatum
 }
 
 func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
@@ -59,7 +60,7 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 			cw.l.Infof("Context canceled, stopping the surfacer write loop")
 			return
 		case em := <-cw.writeChan:
-			cw.recordEventMetrics(em)
+			cw.recordEventMetrics(ctx, em)
 		}
 	}
 }
@@ -67,7 +68,7 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 // recordEventMetrics takes an EventMetric, which can contain multiple metrics
 // of varying types, and loops through each metric in the EventMetric, parsing
 // each metric into a structure that is supported by Cloudwatch
-func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
+func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventMetrics) {
 	for _, metricKey := range em.MetricsKeys() {
 		if !cw.opts.AllowMetric(metricKey) {
 			continue
@@ -75,26 +76,26 @@ func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
 
 		switch value := em.Metric(metricKey).(type) {
 		case metrics.NumValue:
-			cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.Float64(), emLabelsToDimensions(em), em.Timestamp, em.LatencyUnit))
+			cw.publishMetrics(ctx, cw.newCWMetricDatum(metricKey, value.Float64(), emLabelsToDimensions(em), em.Timestamp, em.LatencyUnit))
 
 		case *metrics.Map:
 			for _, mapKey := range value.Keys() {
 				dimensions := emLabelsToDimensions(em)
-				dimensions = append(dimensions, &cloudwatch.Dimension{
+				dimensions = append(dimensions, types.Dimension{
 					Name:  aws.String(value.MapName),
 					Value: aws.String(mapKey),
 				})
-				cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp, em.LatencyUnit))
+				cw.publishMetrics(ctx, cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp, em.LatencyUnit))
 			}
 
 		case *metrics.Distribution:
 			for i, distributionBound := range value.Data().LowerBounds {
-				dimensions := append(emLabelsToDimensions(em), &cloudwatch.Dimension{
+				dimensions := append(emLabelsToDimensions(em), types.Dimension{
 					Name:  aws.String(distributionDimensionName),
 					Value: aws.String(strconv.FormatFloat(distributionBound, 'f', -1, 64)),
 				})
 
-				cw.publishMetrics(cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp, em.LatencyUnit))
+				cw.publishMetrics(ctx, cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp, em.LatencyUnit))
 			}
 		}
 	}
@@ -102,9 +103,9 @@ func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
 
 // Publish the metrics to cloudwatch, using the namespace provided from
 // configuration.
-func (cw *CWSurfacer) publishMetrics(md *cloudwatch.MetricDatum) {
+func (cw *CWSurfacer) publishMetrics(ctx context.Context, md types.MetricDatum) {
 	if len(cw.cwMetricDatumCache) >= maxMetricDatums {
-		_, err := cw.session.PutMetricData(&cloudwatch.PutMetricDataInput{
+		_, err := cw.session.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 			Namespace:  aws.String(cw.c.GetNamespace()),
 			MetricData: cw.cwMetricDatumCache,
 		})
@@ -120,33 +121,36 @@ func (cw *CWSurfacer) publishMetrics(md *cloudwatch.MetricDatum) {
 }
 
 // Create a new cloudwatch metriddatum using the values passed in.
-func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []*cloudwatch.Dimension, timestamp time.Time, latencyUnit time.Duration) *cloudwatch.MetricDatum {
+func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []types.Dimension, timestamp time.Time, latencyUnit time.Duration) types.MetricDatum {
+	// TODO: change protobuff resolution to use int32 instead of int64
+	storageResolution := aws.Int32(int32(cw.c.GetResolution()))
+
 	// define the metric datum with default values
-	metricDatum := cloudwatch.MetricDatum{
+	metricDatum := types.MetricDatum{
 		Dimensions:        dimensions,
 		MetricName:        aws.String(metricname),
 		Value:             aws.Float64(value),
-		StorageResolution: aws.Int64(cw.c.GetResolution()),
+		StorageResolution: storageResolution,
 		Timestamp:         aws.Time(timestamp),
-		Unit:              aws.String(cloudwatch.StandardUnitCount),
+		Unit:              types.StandardUnitCount,
 	}
 
 	// the cloudwatch api will throw warnings when a timeseries has multiple
 	// units, to avoid this always calculate the value as milliseconds.
 	if metricname == "latency" {
-		metricDatum.Unit = aws.String(cloudwatch.StandardUnitMilliseconds)
+		metricDatum.Unit = types.StandardUnitMilliseconds
 		metricDatum.Value = aws.Float64(value * float64(latencyUnit) / float64(time.Millisecond))
 	}
 
-	return &metricDatum
+	return metricDatum
 }
 
 // Take metric labels from an event metric and parse them into a Cloudwatch Dimension struct.
-func emLabelsToDimensions(em *metrics.EventMetrics) []*cloudwatch.Dimension {
-	dimensions := []*cloudwatch.Dimension{}
+func emLabelsToDimensions(em *metrics.EventMetrics) []types.Dimension {
+	dimensions := make([]types.Dimension, 0, len(em.LabelsKeys()))
 
 	for _, k := range em.LabelsKeys() {
-		dimensions = append(dimensions, &cloudwatch.Dimension{
+		dimensions = append(dimensions, types.Dimension{
 			Name:  aws.String(k),
 			Value: aws.String(em.Label(k)),
 		})
@@ -177,27 +181,25 @@ func getRegion(config *configpb.SurfacerConf) string {
 // New creates a new instance of a cloudwatch surfacer, based on the config
 // passed in. It then hands off to a goroutine to surface metrics to cloudwatch
 // across a buffered channel.
-func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*CWSurfacer, error) {
-	region := getRegion(config)
+func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*CWSurfacer, error) {
+	region := getRegion(conf)
 
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-		Config: aws.Config{
-			Region: &region,
-		},
-	}))
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	if err != nil {
+		return nil, err
+	}
 
 	cw := &CWSurfacer{
-		c:         config,
+		c:         conf,
 		opts:      opts,
 		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
-		session:   cloudwatch.New(sess),
+		session:   cloudwatch.NewFromConfig(cfg),
 		l:         l,
 	}
 
 	// Set the capacity of this slice to the max metric value, to avoid having to
 	// grow the slice.
-	cw.cwMetricDatumCache = make([]*cloudwatch.MetricDatum, 0, maxMetricDatums)
+	cw.cwMetricDatumCache = make([]types.MetricDatum, 0, maxMetricDatums)
 
 	go cw.processIncomingMetrics(ctx)
 

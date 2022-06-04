@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto"
@@ -81,16 +81,16 @@ func TestEmLabelsToDimensions(t *testing.T) {
 
 	tests := map[string]struct {
 		em   *metrics.EventMetrics
-		want []*cloudwatch.Dimension
+		want []types.Dimension
 	}{
 		"no label": {
 			em:   metrics.NewEventMetrics(timestamp),
-			want: []*cloudwatch.Dimension{},
+			want: []types.Dimension{},
 		},
 		"one label": {
 			em: metrics.NewEventMetrics(timestamp).
 				AddLabel("ptype", "sysvars"),
-			want: []*cloudwatch.Dimension{
+			want: []types.Dimension{
 				{
 					Name:  aws.String("ptype"),
 					Value: aws.String("sysvars"),
@@ -102,7 +102,7 @@ func TestEmLabelsToDimensions(t *testing.T) {
 				AddLabel("ptype", "sysvars").
 				AddLabel("probe", "sysvars").
 				AddLabel("test", "testing123"),
-			want: []*cloudwatch.Dimension{
+			want: []types.Dimension{
 				{
 					Name:  aws.String("ptype"),
 					Value: aws.String("sysvars"),
@@ -136,151 +136,151 @@ func TestNewCWMetricDatum(t *testing.T) {
 		surfacer   CWSurfacer
 		metricname string
 		value      float64
-		dimensions []*cloudwatch.Dimension
+		dimensions []types.Dimension
 		timestamp  time.Time
 		duration   time.Duration
-		want       *cloudwatch.MetricDatum
+		want       types.MetricDatum
 	}{
 		"simple": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "testingmetric",
 			value:      float64(20),
-			dimensions: []*cloudwatch.Dimension{
+			dimensions: []types.Dimension{
 				{
 					Name: aws.String("test"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
-			want: &cloudwatch.MetricDatum{
-				Dimensions: []*cloudwatch.Dimension{
+			want: types.MetricDatum{
+				Dimensions: []types.Dimension{
 					{
 						Name: aws.String("test"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("testingmetric"),
 				Value:             aws.Float64(float64(20)),
-				StorageResolution: aws.Int64(60),
+				StorageResolution: aws.Int32(60),
 				Timestamp:         aws.Time(timestamp),
-				Unit:              aws.String(cloudwatch.StandardUnitCount),
+				Unit:              types.StandardUnitCount,
 			},
 		},
 		"le_dimension_count_unit": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "testingmetric",
 			value:      float64(20),
-			dimensions: []*cloudwatch.Dimension{
+			dimensions: []types.Dimension{
 				{
 					Name: aws.String("test"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
-			want: &cloudwatch.MetricDatum{
-				Dimensions: []*cloudwatch.Dimension{
+			want: types.MetricDatum{
+				Dimensions: []types.Dimension{
 					{
 						Name: aws.String("test"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("testingmetric"),
 				Value:             aws.Float64(float64(20)),
-				StorageResolution: aws.Int64(60),
+				StorageResolution: aws.Int32(60),
 				Timestamp:         aws.Time(timestamp),
-				Unit:              aws.String("Count"),
+				Unit:              types.StandardUnitCount,
 			},
 		},
 		"latency_name_nanosecond_unit": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "latency",
 			value:      float64(20),
-			dimensions: []*cloudwatch.Dimension{
+			dimensions: []types.Dimension{
 				{
 					Name: aws.String("name"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
 			duration:  time.Nanosecond,
-			want: &cloudwatch.MetricDatum{
-				Dimensions: []*cloudwatch.Dimension{
+			want: types.MetricDatum{
+				Dimensions: []types.Dimension{
 					{
 						Name: aws.String("name"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("latency"),
 				Value:             aws.Float64(0.00002),
-				StorageResolution: aws.Int64(60),
+				StorageResolution: aws.Int32(60),
 				Timestamp:         aws.Time(timestamp),
-				Unit:              aws.String("Milliseconds"),
+				Unit:              types.StandardUnitMilliseconds,
 			},
 		},
 		"latency_name_microseconds_unit": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "latency",
 			value:      float64(20),
-			dimensions: []*cloudwatch.Dimension{
+			dimensions: []types.Dimension{
 				{
 					Name: aws.String("name"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
 			duration:  time.Microsecond,
-			want: &cloudwatch.MetricDatum{
-				Dimensions: []*cloudwatch.Dimension{
+			want: types.MetricDatum{
+				Dimensions: []types.Dimension{
 					{
 						Name: aws.String("name"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("latency"),
 				Value:             aws.Float64(0.02),
-				StorageResolution: aws.Int64(60),
+				StorageResolution: aws.Int32(60),
 				Timestamp:         aws.Time(timestamp),
-				Unit:              aws.String("Milliseconds"),
+				Unit:              types.StandardUnitMilliseconds,
 			},
 		},
 		"latency_name_milliseconds_unit": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "latency",
 			value:      float64(20),
-			dimensions: []*cloudwatch.Dimension{
+			dimensions: []types.Dimension{
 				{
 					Name: aws.String("name"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
 			duration:  time.Millisecond,
-			want: &cloudwatch.MetricDatum{
-				Dimensions: []*cloudwatch.Dimension{
+			want: types.MetricDatum{
+				Dimensions: []types.Dimension{
 					{
 						Name: aws.String("name"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("latency"),
 				Value:             aws.Float64(20),
-				StorageResolution: aws.Int64(60),
+				StorageResolution: aws.Int32(60),
 				Timestamp:         aws.Time(timestamp),
-				Unit:              aws.String("Milliseconds"),
+				Unit:              types.StandardUnitMilliseconds,
 			},
 		},
 		"latency_name_seconds_unit": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "latency",
 			value:      float64(20),
-			dimensions: []*cloudwatch.Dimension{
+			dimensions: []types.Dimension{
 				{
 					Name: aws.String("name"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
 			duration:  time.Second,
-			want: &cloudwatch.MetricDatum{
-				Dimensions: []*cloudwatch.Dimension{
+			want: types.MetricDatum{
+				Dimensions: []types.Dimension{
 					{
 						Name: aws.String("name"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("latency"),
 				Value:             aws.Float64(20000),
-				StorageResolution: aws.Int64(60),
+				StorageResolution: aws.Int32(60),
 				Timestamp:         aws.Time(timestamp),
-				Unit:              aws.String("Milliseconds"),
+				Unit:              types.StandardUnitMilliseconds,
 			},
 		},
 	}

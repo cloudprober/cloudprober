@@ -15,43 +15,39 @@
 package sysvars
 
 import (
-	"fmt"
-	"net/http"
-	"time"
+	"context"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/cloudprober/cloudprober/logger"
 )
 
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
-	cfg := &aws.Config{}
-	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
-	if !tryHard {
-		cfg.MaxRetries = aws.Int(0)
-		cfg.EC2MetadataDisableTimeoutOverride = aws.Bool(true)
-		cfg.HTTPClient = &http.Client{
-			Timeout: 100 * time.Millisecond,
-		}
-	}
-	s, err := session.NewSession(cfg)
+	// TODO: should we pass context in here?
+	ctx := context.Background()
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		// We ignore session errors. It's not clear what can cause them.
-		l.Warningf("sysvars_ec2: could not create AWS session: %v", err)
+		l.Warningf("sysvars_ec2: failed to load default config: %v", err)
 		return false, nil
 	}
 
-	md := ec2metadata.New(s)
-	// Doing the availability check in module since we need a session
-	if md.Available() == false {
-		return false, nil
-	}
+	// TODO: tryHard mode
+	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
+	// if !tryHard {
+	// 	cfg.MaxRetries = aws.Int(0)
+	// 	cfg.EC2MetadataDisableTimeoutOverride = aws.Bool(true)
+	// 	cfg.HTTPClient = &http.Client{
+	// 		Timeout: 100 * time.Millisecond,
+	// 	}
+	// }
 
-	id, err := md.GetInstanceIdentityDocument()
+	client := imds.NewFromConfig(cfg)
+
+	id, err := client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 	if err != nil {
 		sysVars["EC2_METADATA_Available"] = "false"
-		return true, fmt.Errorf("sysvars_ec2: could not get instance identity document %v", err)
+		l.Warningf("sysvars_ec2: failed to get instance identity document: %v", err)
+		return false, nil
 	}
 
 	sysVars["EC2_METADATA_Available"] = "true"
