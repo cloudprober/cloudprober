@@ -16,38 +16,55 @@ package sysvars
 
 import (
 	"context"
+	"errors"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	"github.com/aws/smithy-go"
 	"github.com/cloudprober/cloudprober/logger"
 )
 
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
-	// TODO: should we pass context in here?
 	ctx := context.Background()
-	cfg, err := config.LoadDefaultConfig(ctx)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRetryer(func() aws.Retryer {
+		if !tryHard {
+			return retry.AddWithMaxAttempts(retry.NewStandard(), 1)
+		}
+		return nil
+	}))
 	if err != nil {
 		l.Warningf("sysvars_ec2: failed to load default config: %v", err)
 		return false, nil
 	}
 
-	// TODO: tryHard mode
-	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
-	// if !tryHard {
-	// 	cfg.MaxRetries = aws.Int(0)
-	// 	cfg.EC2MetadataDisableTimeoutOverride = aws.Bool(true)
-	// 	cfg.HTTPClient = &http.Client{
-	// 		Timeout: 100 * time.Millisecond,
-	// 	}
-	// }
-
 	client := imds.NewFromConfig(cfg)
 
+	if !tryHard {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
+	}
+
 	id, err := client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
+	// the premise behind the error handling here, is that we want to evaluate if we are running in ec2 or not.
 	if err != nil {
-		sysVars["EC2_METADATA_Available"] = "false"
+		// if we received a CanceledError, we can assume that we are not running in EC2
+		var oe *smithy.CanceledError
+		if errors.As(err, &oe) {
+			return false, nil
+		}
+
+		// if this is the first time evaluating the instance identity, then inform the user we
+		// are running in EC2, but failed to discover the instance identity.
 		l.Warningf("sysvars_ec2: failed to get instance identity document: %v", err)
-		return false, nil
+		if _, exists := sysVars["EC2_METADATA_Available"]; !exists {
+			sysVars["EC2_METADATA_Available"] = "false"
+		}
+
+		return true, nil
 	}
 
 	sysVars["EC2_METADATA_Available"] = "true"
