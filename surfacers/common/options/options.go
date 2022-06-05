@@ -16,9 +16,12 @@
 package options
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
@@ -68,6 +71,7 @@ type Options struct {
 	MetricsBufferSize int
 	Config            *surfacerpb.SurfacerDef
 	Logger            *logger.Logger
+	HTTPServeMux      *http.ServeMux
 
 	allowLabelFilters  []*labelFilter
 	ignoreLabelFilters []*labelFilter
@@ -129,8 +133,15 @@ func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef, l *logger.Logger) (*Op
 	opts := &Options{
 		Config:            sdef,
 		Logger:            l,
+		HTTPServeMux:      runconfig.DefaultHTTPServeMux(),
 		MetricsBufferSize: int(sdef.GetMetricsBufferSize()),
 	}
+
+	serveMux := runconfig.DefaultHTTPServeMux()
+	if serveMux == nil {
+		return nil, errors.New("default ServeMux is not configured, called before cloudprober initialization")
+	}
+	opts.HTTPServeMux = serveMux
 
 	var err error
 	opts.allowLabelFilters, err = parseMetricsFilter(sdef.GetAllowMetricsWithLabel())

@@ -153,14 +153,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
-	http.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
+	opts.HTTPServeMux.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
 		doneChan := make(chan struct{}, 1)
 		ps.queryChan <- &httpWriter{w, r, doneChan}
 		<-doneChan
 	})
-	http.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
+	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
 
 	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
 	return ps
