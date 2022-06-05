@@ -237,7 +237,6 @@ func Start(ctx context.Context) {
 			grpcSrv.Stop()
 		}
 		cloudProber.cancelInitCtx()
-		runconfig.ClearDefaultGRPCServer()
 		cloudProber.Lock()
 		defer cloudProber.Unlock()
 		cloudProber.defaultServerLn = nil
