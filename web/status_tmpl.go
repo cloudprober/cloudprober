@@ -25,7 +25,7 @@ var statusTmpl = `
 
 <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
 <b>Version</b>: {{.Version}}<br>
-<b>Config</b>: <a href="/config">/config</a><br>
+<b>Other Links</b>: <a href="/config">/config</a>, <a href="/probestatus">/probestatus</a><br>
 
 <h3>Probes:</h3>
 {{.ProbesStatus}}

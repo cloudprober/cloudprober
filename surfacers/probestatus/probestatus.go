@@ -110,6 +110,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		config = &configpb.SurfacerConf{}
 	}
 
+	if config.GetDisable() {
+		return nil
+	}
+
 	res := time.Duration(config.GetResolutionSec()) * time.Second
 	if res == 0 {
 		res = time.Minute
@@ -166,6 +170,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 // goroutine that actually processes the data and updates the in-memory
 // database.
 func (ps *Surfacer) Write(_ context.Context, em *metrics.EventMetrics) {
+	if ps == nil {
+		return
+	}
+
 	select {
 	case ps.emChan <- em:
 	default:
