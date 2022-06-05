@@ -122,8 +122,7 @@ func (cw *CWSurfacer) publishMetrics(ctx context.Context, md types.MetricDatum) 
 
 // Create a new cloudwatch metriddatum using the values passed in.
 func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []types.Dimension, timestamp time.Time, latencyUnit time.Duration) types.MetricDatum {
-	// TODO: change protobuff resolution to use int32 instead of int64
-	storageResolution := aws.Int32(int32(cw.c.GetResolution()))
+	storageResolution := aws.Int32(cw.c.GetResolution())
 
 	// define the metric datum with default values
 	metricDatum := types.MetricDatum{

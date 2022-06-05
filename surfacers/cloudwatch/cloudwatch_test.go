@@ -31,7 +31,7 @@ import (
 func newTestCWSurfacer() CWSurfacer {
 	l, _ := logger.New(context.TODO(), "test-logger")
 	namespace := "sre/test/cloudprober"
-	resolution := int64(60)
+	resolution := int32(60)
 
 	return CWSurfacer{
 		l: l,

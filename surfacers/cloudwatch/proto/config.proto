@@ -11,7 +11,7 @@ message SurfacerConf {
   // The cloudwatch resolution value, lowering this below 60 will incur
   // additional charges as the metrics will be charged at a high resolution
   // rate.
-  optional int64 resolution = 2 [default = 60];
+  optional int32 resolution = 2 [default = 60];
 
   // The AWS Region, used to create a CloudWatch session.
   // The order of fallback for evaluating the AWS Region:
