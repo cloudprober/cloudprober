@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/metrics"
 	fileconfigpb "github.com/cloudprober/cloudprober/surfacers/file/proto"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
@@ -30,13 +31,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func resetHTTPHandlers(t *testing.T) {
-	t.Helper()
-	http.DefaultServeMux = new(http.ServeMux)
-}
-
 func TestDefaultConfig(t *testing.T) {
-	resetHTTPHandlers(t)
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	surfacers, err := Init(context.Background(), []*surfacerpb.SurfacerDef{})
 	if err != nil {
@@ -57,7 +53,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestEmptyConfig(t *testing.T) {
-	resetHTTPHandlers(t)
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{{}})
 	if err != nil {
@@ -69,7 +65,7 @@ func TestEmptyConfig(t *testing.T) {
 }
 
 func TestInferType(t *testing.T) {
-	resetHTTPHandlers(t)
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	tmpfile, err := ioutil.TempFile("", "example")
 	if err != nil {
@@ -121,7 +117,7 @@ var testEventMetrics = []*metrics.EventMetrics{
 }
 
 func TestUserDefinedAndFiltering(t *testing.T) {
-	resetHTTPHandlers(t)
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	ts1, ts2 := &testSurfacer{}, &testSurfacer{}
 	Register("s1", ts1)
@@ -181,7 +177,7 @@ func TestUserDefinedAndFiltering(t *testing.T) {
 }
 
 func TestFailureMetric(t *testing.T) {
-	resetHTTPHandlers(t)
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	ts1, ts2 := &testSurfacer{}, &testSurfacer{}
 	Register("s1", ts1)

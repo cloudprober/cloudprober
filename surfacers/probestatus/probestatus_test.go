@@ -17,11 +17,15 @@ package probestatus
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -48,7 +52,7 @@ func TestNewAndRecord(t *testing.T) {
 	ps := New(ctx, &configpb.SurfacerConf{
 		TimeseriesSize:     proto.Int32(10),
 		MaxTargetsPerProbe: proto.Int32(2),
-	}, nil, nil)
+	}, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
 
 	probeTargets := map[string][]string{
 		"p":  {"t1", "t2"},
@@ -99,5 +103,65 @@ func TestPageCache(t *testing.T) {
 	c, valid = pc.contentIfValid()
 	if valid {
 		t.Errorf("Got unexpected valid content from pageCache: %s", string(c))
+	}
+}
+
+func TestDisabledAndHandlers(t *testing.T) {
+	tests := []struct {
+		desc         string
+		disabled     bool
+		url          string
+		patternMatch map[string]string
+	}{
+		{
+			desc:     "disabled",
+			disabled: true,
+			patternMatch: map[string]string{
+				"/probestatus": "",
+			},
+		},
+		{
+			desc: "default",
+			patternMatch: map[string]string{
+				"/probestatus": "/probestatus",
+			},
+		},
+		{
+			desc: "different_url",
+			url:  "/status",
+			patternMatch: map[string]string{
+				"/probestatus": "",
+				"/status":      "/status",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			defer cancelFunc()
+
+			conf := &configpb.SurfacerConf{
+				Disable: proto.Bool(test.disabled),
+			}
+			if test.url != "" {
+				conf.Url = proto.String(test.url)
+			}
+			opts := &options.Options{HTTPServeMux: http.NewServeMux()}
+			ps := New(ctx, conf, opts, nil)
+
+			if test.disabled {
+				if ps != nil {
+					t.Errorf("surfacer should be nil if it's disabled")
+				}
+				// Verify no panic on writing to a nil surfacer.
+				ps.Write(ctx, &metrics.EventMetrics{Timestamp: time.Now()})
+			}
+
+			for url, pattern := range test.patternMatch {
+				_, matchedPattern := opts.HTTPServeMux.Handler(httptest.NewRequest("", url, nil))
+				assert.Equal(t, pattern, matchedPattern)
+			}
+		})
 	}
 }
