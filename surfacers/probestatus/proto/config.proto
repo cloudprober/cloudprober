@@ -21,4 +21,8 @@ message SurfacerConf {
 
     // Page cache time
     optional int32 cache_time_sec = 5 [default=2];
+
+    // Probestatus surfacer is enabled by default. To disable it, set this
+    // option.
+    optional bool disable = 6;
 }
