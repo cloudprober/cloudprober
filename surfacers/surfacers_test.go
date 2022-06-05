@@ -17,6 +17,7 @@ package surfacers
 import (
 	"context"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"reflect"
 	"testing"
@@ -25,30 +26,51 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	fileconfigpb "github.com/cloudprober/cloudprober/surfacers/file/proto"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
+func resetHTTPHandlers(t *testing.T) {
+	t.Helper()
+	http.DefaultServeMux = new(http.ServeMux)
+}
+
 func TestDefaultConfig(t *testing.T) {
-	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{})
+	resetHTTPHandlers(t)
+
+	surfacers, err := Init(context.Background(), []*surfacerpb.SurfacerDef{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(s) != len(defaultSurfacers) {
-		t.Errorf("Didn't get default surfacers for no config")
+
+	var wantSurfacers, gotSurfacers []string
+	for _, s := range defaultSurfacers {
+		wantSurfacers = append(wantSurfacers, s.GetType().String())
 	}
+	wantSurfacers = append(wantSurfacers, surfacerpb.Type_PROBESTATUS.String())
+
+	for _, s := range surfacers {
+		gotSurfacers = append(gotSurfacers, s.Type)
+	}
+
+	assert.Equal(t, wantSurfacers, gotSurfacers)
 }
 
 func TestEmptyConfig(t *testing.T) {
+	resetHTTPHandlers(t)
+
 	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(s) != 0 {
-		t.Errorf("Got surfacers for zero config: %v", s)
+	if len(s) != len(requiredSurfacers) {
+		t.Errorf("Got non-required surfacers for zero config: %v", s)
 	}
 }
 
 func TestInferType(t *testing.T) {
+	resetHTTPHandlers(t)
+
 	tmpfile, err := ioutil.TempFile("", "example")
 	if err != nil {
 		t.Fatalf("error creating tempfile for test")
@@ -69,8 +91,8 @@ func TestInferType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(s) != 1 {
-		t.Errorf("len(s)=%d, expected=1", len(s))
+	if len(s) < 1 {
+		t.Errorf("len(s)=%d, expected>=1", len(s))
 	}
 
 	if s[0].Type != "FILE" {
@@ -99,6 +121,8 @@ var testEventMetrics = []*metrics.EventMetrics{
 }
 
 func TestUserDefinedAndFiltering(t *testing.T) {
+	resetHTTPHandlers(t)
+
 	ts1, ts2 := &testSurfacer{}, &testSurfacer{}
 	Register("s1", ts1)
 	Register("s2", ts2)
@@ -125,9 +149,15 @@ func TestUserDefinedAndFiltering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected initialization error: %v", err)
 	}
-	for i, s := range si {
-		if s.Name != wantSurfacers[i] {
-			t.Errorf("Got surfacer: %s, want surfacer: %s", s.Name, wantSurfacers[i])
+
+	gotSurfacers := make(map[string]*SurfacerInfo)
+	for _, s := range si {
+		gotSurfacers[s.Name] = s
+	}
+
+	for _, name := range wantSurfacers {
+		if gotSurfacers[name] == nil {
+			t.Errorf("Didn't get the surfacer: %s, all surfacers: %v", name, gotSurfacers)
 		}
 	}
 
@@ -151,6 +181,8 @@ func TestUserDefinedAndFiltering(t *testing.T) {
 }
 
 func TestFailureMetric(t *testing.T) {
+	resetHTTPHandlers(t)
+
 	ts1, ts2 := &testSurfacer{}, &testSurfacer{}
 	Register("s1", ts1)
 	Register("s2", ts2)
