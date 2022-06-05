@@ -60,9 +60,7 @@ var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (b
 		// if this is the first time evaluating the instance identity, then inform the user we
 		// are running in EC2, but failed to discover the instance identity.
 		l.Warningf("sysvars_ec2: failed to get instance identity document: %v", err)
-		if _, exists := sysVars["EC2_METADATA_Available"]; !exists {
-			sysVars["EC2_METADATA_Available"] = "false"
-		}
+		sysVars["EC2_METADATA_Available"] = "false"
 
 		return true, nil
 	}
