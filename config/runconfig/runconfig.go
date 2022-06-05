@@ -20,6 +20,7 @@ package runconfig
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 
 	rdsserver "github.com/cloudprober/cloudprober/rds/server"
@@ -33,6 +34,7 @@ type runConfig struct {
 	grpcSrv   *grpc.Server
 	version   string
 	rdsServer *rdsserver.Server
+	httpMux   *http.ServeMux
 }
 
 var rc runConfig
@@ -93,4 +95,16 @@ func LocalRDSServer() *rdsserver.Server {
 	rc.RLock()
 	defer rc.RUnlock()
 	return rc.rdsServer
+}
+
+func SetDefaultHTTPServeMux(mux *http.ServeMux) {
+	rc.Lock()
+	defer rc.Unlock()
+	rc.httpMux = mux
+}
+
+func DefaultHTTPServeMux() *http.ServeMux {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.httpMux
 }
