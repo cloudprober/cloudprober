@@ -19,7 +19,6 @@ invocation. e.g., servers injected by external cloudprober users.
 package runconfig
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 
@@ -31,30 +30,19 @@ import (
 // e.g., servers injected by external cloudprober users.
 type runConfig struct {
 	sync.RWMutex
-	grpcSrv   *grpc.Server
-	version   string
-	rdsServer *rdsserver.Server
-	httpMux   *http.ServeMux
+	grpcSrv      *grpc.Server
+	version      string
+	rdsServer    *rdsserver.Server
+	httpServeMux *http.ServeMux
 }
 
 var rc runConfig
 
 // SetDefaultGRPCServer sets the default gRPC server.
-func SetDefaultGRPCServer(s *grpc.Server) error {
+func SetDefaultGRPCServer(s *grpc.Server) {
 	rc.Lock()
 	defer rc.Unlock()
-	if rc.grpcSrv != nil {
-		return fmt.Errorf("gRPC server already set to %v", rc.grpcSrv)
-	}
 	rc.grpcSrv = s
-	return nil
-}
-
-// ClearDefaultGRPCServer sets the default gRPC server to nil.
-func ClearDefaultGRPCServer() {
-	rc.Lock()
-	defer rc.Unlock()
-	rc.grpcSrv = nil
 }
 
 // DefaultGRPCServer returns the configured gRPC server and nil if gRPC server
@@ -97,14 +85,17 @@ func LocalRDSServer() *rdsserver.Server {
 	return rc.rdsServer
 }
 
+// SetDefaultHTTPServeMux stores the default HTTP ServeMux in runconfig. This
+// allows other modules to add their own handlers to the common ServeMux.
 func SetDefaultHTTPServeMux(mux *http.ServeMux) {
 	rc.Lock()
 	defer rc.Unlock()
-	rc.httpMux = mux
+	rc.httpServeMux = mux
 }
 
+// DefaultHTTPServeMux returns the default HTTP ServeMux.
 func DefaultHTTPServeMux() *http.ServeMux {
 	rc.RLock()
 	defer rc.RUnlock()
-	return rc.httpMux
+	return rc.httpServeMux
 }

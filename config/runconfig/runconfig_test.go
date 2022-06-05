@@ -14,13 +14,8 @@ func TestRunConfig(t *testing.T) {
 	if testSrv == nil {
 		t.Fatal("Unable to create a test gRPC server")
 	}
-	if err := SetDefaultGRPCServer(testSrv); err != nil {
-		t.Fatalf("Unable to set default gRPC server: %v", err)
-	}
+	SetDefaultGRPCServer(testSrv)
 	if srv := DefaultGRPCServer(); srv != testSrv {
 		t.Fatalf("Error retrieving stored service. Got %v Want %v", srv, testSrv)
-	}
-	if err := SetDefaultGRPCServer(testSrv); err == nil {
-		t.Errorf("RunConfig allowed overriding of an already set variable.")
 	}
 }
