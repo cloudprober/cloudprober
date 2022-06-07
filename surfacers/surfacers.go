@@ -156,6 +156,8 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerpb.Type {
 		return surfacerpb.Type_CLOUDWATCH
 	case *surfacerpb.SurfacerDef_DatadogSurfacer:
 		return surfacerpb.Type_DATADOG
+	case *surfacerpb.SurfacerDef_ProbestatusSurfacer:
+		return surfacerpb.Type_PROBESTATUS
 	}
 
 	return surfacerpb.Type_NONE
