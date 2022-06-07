@@ -62,7 +62,7 @@ func TestEmptyConfig(t *testing.T) {
 }
 
 func TestInferType(t *testing.T) {
-	confToType := map[string]*surfacerpb.SurfacerDef{
+	typeToConf := map[string]*surfacerpb.SurfacerDef{
 		"CLOUDWATCH":  {Surfacer: &surfacerpb.SurfacerDef_CloudwatchSurfacer{}},
 		"DATADOG":     {Surfacer: &surfacerpb.SurfacerDef_DatadogSurfacer{}},
 		"FILE":        {Surfacer: &surfacerpb.SurfacerDef_FileSurfacer{}},
@@ -77,12 +77,12 @@ func TestInferType(t *testing.T) {
 		if k == "NONE" || k == "USER_DEFINED" {
 			continue
 		}
-		if confToType[k] == nil {
+		if typeToConf[k] == nil {
 			t.Errorf("Missing infertype test for %s", k)
 		}
 	}
 
-	for ctype, sdef := range confToType {
+	for ctype, sdef := range typeToConf {
 		t.Run(ctype, func(t *testing.T) {
 			stype := inferType(sdef)
 			assert.Equal(t, ctype, stype.String())
