@@ -495,6 +495,12 @@ enable them by running the following command:
 response is received. Apart from the core probe metrics (total, success, and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.</p>
+<ul>
+<li><strong>SSL Certificate Expiry</strong>:
+If the target serves a SSL Certificate, cloudprober will walk the certificate chain and
+export the earliest expiry time in seconds as a metric. The metric is named <code>ssl_earliest_cert_expiry_sec</code>,
+and will only be exported when the expiry time in seconds is a positive number.</li>
+</ul>
 <h3 id="udp">UDP</h3>
 <p><a href="http://github.com/cloudprober/cloudprober/tree/master/probes/udp"><code>Code</code></a> | <a href="http://github.com/cloudprober/cloudprober/tree/master/probes/udp/proto/config.proto"><code>Config options</code></a></p>
 <p>UDP probe sends a UDP packet to the configured targets. UDP probe (and all
