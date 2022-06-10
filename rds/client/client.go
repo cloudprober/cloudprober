@@ -101,7 +101,8 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 	// If server doesn't support caching, response's last_modified will be 0 and
 	// we'll skip the following block.
 	if response.GetLastModified() != 0 && response.GetLastModified() <= client.lastModified {
-		client.l.Infof("rds_client: Not refreshing state. Local last-modified: %d, response's last-modified: %d.", client.lastModified, response.GetLastModified())
+		// Once we figure out logs throttling story, change this to Info log.
+		client.l.Debugf("rds_client: Not refreshing state. Local last-modified: %d, response's last-modified: %d.", client.lastModified, response.GetLastModified())
 		return
 	}
 
