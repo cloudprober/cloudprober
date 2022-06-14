@@ -449,7 +449,8 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 	clients := make([]*http.Client, p.c.GetRequestsPerProbe())
 	for i := range clients {
-		// This is to allow testing to use non-HTTP RoundTripper.
+		// We check for http.Transport because tests use a custom
+		// RoundTripper implementation.
 		if ht, ok := p.baseTransport.(*http.Transport); ok {
 			t := ht.Clone()
 			if p.c.GetProtocol() == configpb.ProbeConf_HTTPS && p.c.GetResolveFirst() {
