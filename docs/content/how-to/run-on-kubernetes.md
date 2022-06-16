@@ -188,7 +188,6 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.kubernetes.io/autoupdate: "true"
-  labels:
   name: resource-reader
   namespace: default
 rules:
