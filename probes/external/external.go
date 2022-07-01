@@ -28,6 +28,7 @@ package external
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -96,6 +98,7 @@ type Probe struct {
 	results    map[string]*result // probe results keyed by targets
 	dataChan   chan *metrics.EventMetrics
 
+	runCommandFunc func(ctx context.Context, cmd string, args []string) ([]byte, error)
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
 	payloadParser *payload.Parser
@@ -538,8 +541,51 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 
 // runCommand encapsulates command executor in a variable so that we can
 // override it for testing.
-var runCommand = func(ctx context.Context, cmd string, args []string) ([]byte, error) {
-	return exec.CommandContext(ctx, cmd, args...).Output()
+func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, error) {
+	if p.runCommandFunc != nil {
+		return p.runCommandFunc(ctx, cmd, args)
+	}
+
+	c := exec.Command(cmd, args...)
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	var stdout, stderr bytes.Buffer
+	c.Stdout, c.Stderr = &stdout, &stderr
+
+	waitDone := make(chan struct{})
+	defer close(waitDone)
+
+	if err := c.Start(); err != nil {
+		return stdout.Bytes(), err
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			// Kill the whole process group.
+			syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
+		case <-waitDone:
+			return
+		}
+	}()
+	err := c.Wait()
+
+	// Start a goroutine to wait on exited processes in the process group.
+	go func() {
+		var err error
+		// Use timer to make sure we don't created unterminated goroutines.
+		timeout := time.NewTimer(time.Second)
+		defer timeout.Stop()
+		for err == nil {
+			select {
+			case <-timeout.C:
+				return
+			default:
+			}
+			_, err = syscall.Wait4(-c.Process.Pid, nil, syscall.WNOHANG, nil)
+		}
+	}()
+
+	return stdout.Bytes(), err
 }
 
 func (p *Probe) runOnceProbe(ctx context.Context) {
@@ -561,7 +607,7 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
 			result.total++
 			startTime := time.Now()
-			b, err := runCommand(ctx, p.cmdName, args)
+			b, err := p.runCommand(ctx, p.cmdName, args)
 
 			success := true
 			if err != nil {
