@@ -33,10 +33,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -625,6 +628,16 @@ func (p *Probe) runProbe(startCtx context.Context) {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(startCtx context.Context, dataChan chan *metrics.EventMetrics) {
+	// Handle exiting of the processes that may be started by the external
+	// probe process, but may end after the external probe process itself has
+	// exited. Typically such processes are handled by the "init" process, but
+	// in docker environment, Cloudprober may be running as an init processes.
+	// See https://github.com/cloudprober/cloudprober/issues/165.
+	if runtime.GOOS == "linux" {
+		sigchld := 0x11
+		signal.Ignore(syscall.Signal(sigchld))
+	}
+
 	p.dataChan = dataChan
 
 	ticker := time.NewTicker(p.opts.Interval)
