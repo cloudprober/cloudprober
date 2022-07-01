@@ -22,5 +22,8 @@ import (
 )
 
 func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, error) {
+	if p.runCommandFunc != nil {
+		return p.runCommandFunc(ctx, cmd, args)
+	}
 	return exec.CommandContext(ctx, cmd, args...).Output()
 }
