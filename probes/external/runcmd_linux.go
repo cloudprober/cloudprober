@@ -64,5 +64,9 @@ func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]by
 		}
 	}()
 
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr.Stderr = stderr.Bytes()
+	}
+
 	return stdout.Bytes(), err
 }
