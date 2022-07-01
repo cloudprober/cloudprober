@@ -558,7 +558,14 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
 			result.total++
 			startTime := time.Now()
-			b, err := p.runCommand(ctx, p.cmdName, args)
+
+			var b []byte
+			var err error
+			if p.runCommandFunc != nil {
+				b, err = p.runCommandFunc(ctx, p.cmdName, args)
+			} else {
+				b, err = p.runCommand(ctx, p.cmdName, args)
+			}
 
 			success := true
 			if err != nil {

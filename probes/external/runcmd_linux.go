@@ -25,10 +25,6 @@ import (
 )
 
 func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, error) {
-	if p.runCommandFunc != nil {
-		return p.runCommandFunc(ctx, cmd, args)
-	}
-
 	c := exec.Command(cmd, args...)
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var stdout, stderr bytes.Buffer
