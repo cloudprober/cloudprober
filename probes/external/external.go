@@ -33,10 +33,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -625,6 +627,10 @@ func (p *Probe) runProbe(startCtx context.Context) {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(startCtx context.Context, dataChan chan *metrics.EventMetrics) {
+	// This is required to clean up child processes started by external probe
+	// processes.
+	signal.Ignore(syscall.SIGCHLD)
+
 	p.dataChan = dataChan
 
 	ticker := time.NewTicker(p.opts.Interval)
