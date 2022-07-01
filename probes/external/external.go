@@ -28,7 +28,6 @@ package external
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -38,7 +37,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -98,7 +96,9 @@ type Probe struct {
 	results    map[string]*result // probe results keyed by targets
 	dataChan   chan *metrics.EventMetrics
 
+	// This is used for overriding run command logic for testing.
 	runCommandFunc func(ctx context.Context, cmd string, args []string) ([]byte, error)
+
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
 	payloadParser *payload.Parser
@@ -537,55 +537,6 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 			success: false,
 		}, p.results[req.target])
 	}
-}
-
-// runCommand encapsulates command executor in a variable so that we can
-// override it for testing.
-func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, error) {
-	if p.runCommandFunc != nil {
-		return p.runCommandFunc(ctx, cmd, args)
-	}
-
-	c := exec.Command(cmd, args...)
-	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	var stdout, stderr bytes.Buffer
-	c.Stdout, c.Stderr = &stdout, &stderr
-
-	waitDone := make(chan struct{})
-	defer close(waitDone)
-
-	if err := c.Start(); err != nil {
-		return stdout.Bytes(), err
-	}
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			// Kill the whole process group.
-			syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
-		case <-waitDone:
-			return
-		}
-	}()
-	err := c.Wait()
-
-	// Start a goroutine to wait on exited processes in the process group.
-	go func() {
-		var err error
-		// Use timer to make sure we don't created unterminated goroutines.
-		timeout := time.NewTimer(time.Second)
-		defer timeout.Stop()
-		for err == nil {
-			select {
-			case <-timeout.C:
-				return
-			default:
-			}
-			_, err = syscall.Wait4(-c.Process.Pid, nil, syscall.WNOHANG, nil)
-		}
-	}()
-
-	return stdout.Bytes(), err
 }
 
 func (p *Probe) runOnceProbe(ctx context.Context) {
