@@ -14,6 +14,12 @@
 
 //go:build linux
 
+// This file defines Linux specific implementaion of runCommand. We don't use
+// the standard exec.CommandOutput method as it doesn't provide a way to clean
+// up the further processes started by the command. We start the given command
+// in a new process group, and kill the whole process group on time out.
+// Background: https://github.com/cloudprober/cloudprober/issues/165.
+
 package external
 
 import (
@@ -30,17 +36,18 @@ func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]by
 	var stdout, stderr bytes.Buffer
 	c.Stdout, c.Stderr = &stdout, &stderr
 
-	waitDone := make(chan struct{})
-	defer close(waitDone)
-
 	if err := c.Start(); err != nil {
 		return stdout.Bytes(), err
 	}
 
+	// This goroutine is similar to the one started by exec.Start if command is
+	// created with exec.CommandContext(..). The difference is that we kill the
+	// whole process group instead of just one process.
+	waitDone := make(chan struct{})
+	defer close(waitDone)
 	go func() {
 		select {
 		case <-ctx.Done():
-			// Kill the whole process group.
 			syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
 		case <-waitDone:
 			return
@@ -48,10 +55,12 @@ func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]by
 	}()
 	err := c.Wait()
 
-	// Start a goroutine to wait on exited processes in the process group.
+	// Start a goroutine to wait on the processes in the process group, to
+	// avoid zombies. We use a timer to make sure we don't create an
+	// unbounded number of goroutines in case a command hangs even on SIGKILL.
 	go func() {
 		var err error
-		// Use timer to make sure we don't created unterminated goroutines.
+
 		timeout := time.NewTimer(time.Second)
 		defer timeout.Stop()
 		for err == nil {
