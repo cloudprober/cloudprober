@@ -341,11 +341,8 @@ func TestProbeOnceMode(t *testing.T) {
 	p.mode = "once"
 	tgts := []string{"target1", "target2"}
 
-	oldRunCommand := runCommand
-	defer func() { runCommand = oldRunCommand }()
-
 	// Set runCommand to a function that runs successfully and returns a pyload.
-	runCommand = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, error) {
+	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, error) {
 		var resp []string
 		resp = append(resp, fmt.Sprintf("cmd \"%s\"", cmd))
 		resp = append(resp, fmt.Sprintf("num-args %d", len(cmdArgs)))
@@ -362,7 +359,7 @@ func TestProbeOnceMode(t *testing.T) {
 	runAndVerifyProbe(t, p, tgts, total, success)
 
 	// Try with failing command now
-	runCommand = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, error) {
+	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, error) {
 		return nil, fmt.Errorf("error executing %s", cmd)
 	}
 

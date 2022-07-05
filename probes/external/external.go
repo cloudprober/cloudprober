@@ -96,6 +96,9 @@ type Probe struct {
 	results    map[string]*result // probe results keyed by targets
 	dataChan   chan *metrics.EventMetrics
 
+	// This is used for overriding run command logic for testing.
+	runCommandFunc func(ctx context.Context, cmd string, args []string) ([]byte, error)
+
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
 	payloadParser *payload.Parser
@@ -536,12 +539,6 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 	}
 }
 
-// runCommand encapsulates command executor in a variable so that we can
-// override it for testing.
-var runCommand = func(ctx context.Context, cmd string, args []string) ([]byte, error) {
-	return exec.CommandContext(ctx, cmd, args...).Output()
-}
-
 func (p *Probe) runOnceProbe(ctx context.Context) {
 	var wg sync.WaitGroup
 
@@ -561,7 +558,14 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
 			result.total++
 			startTime := time.Now()
-			b, err := runCommand(ctx, p.cmdName, args)
+
+			var b []byte
+			var err error
+			if p.runCommandFunc != nil {
+				b, err = p.runCommandFunc(ctx, p.cmdName, args)
+			} else {
+				b, err = p.runCommand(ctx, p.cmdName, args)
+			}
 
 			success := true
 			if err != nil {
