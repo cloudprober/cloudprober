@@ -139,6 +139,8 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 		return nil
 	}
 
+	req.ContentLength = int64(len(p.requestBody))
+
 	var probeHostHeader string
 	for _, header := range p.c.GetHeaders() {
 		if header.GetName() == "Host" {
