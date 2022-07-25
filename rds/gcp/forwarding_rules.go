@@ -25,13 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/gcp/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server/filter"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // frData struct encapsulates information for a fowarding rule.
@@ -61,10 +61,9 @@ var ForwardingRulesFilters = struct {
 // that's populated at a regular interval by making the GCE API calls.
 // Listing actually only returns the current contents of that cache.
 type forwardingRulesLister struct {
-	project      string
-	c            *configpb.ForwardingRules
-	thisInstance string
-	l            *logger.Logger
+	project string
+	c       *configpb.ForwardingRules
+	l       *logger.Logger
 
 	mu            sync.RWMutex
 	namesPerScope map[string][]string           // "us-central1": ["fr1", "fr2"]

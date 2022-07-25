@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestListMessages(t *testing.T) {
@@ -46,11 +46,11 @@ func TestListMessages(t *testing.T) {
 	want = []string{"m2"}
 	resources, err = lister.listResources(&pb.ListResourcesRequest{
 		Filter: []*pb.Filter{
-			&pb.Filter{
+			{
 				Key:   proto.String("subscription"),
 				Value: proto.String("s1"),
 			},
-			&pb.Filter{
+			{
 				Key:   proto.String("updated_within"),
 				Value: proto.String("5m"),
 			},
@@ -66,7 +66,7 @@ func TestListMessages(t *testing.T) {
 	want = []string{"m1", "m2", "m3"}
 	resources, _ = lister.listResources(&pb.ListResourcesRequest{
 		Filter: []*pb.Filter{
-			&pb.Filter{
+			{
 				Key:   proto.String("subscription"),
 				Value: proto.String("s"),
 			},

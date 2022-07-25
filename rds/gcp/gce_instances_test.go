@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type testNetIf struct {
@@ -103,8 +103,8 @@ var testInstancesData = []*testInstance{
 		name: "ins1",
 		zone: "z-1",
 		netIf: []*testNetIf{
-			&testNetIf{"10.216.0.1", "104.100.143.1", "192.168.1.0/24", "2600:2d00:4030:a47:c0a8:2110:0:0", "2600:2d00:4030:a47:c0a8:2110:1:0"},
-			&testNetIf{"10.216.1.1", "", "", "", ""},
+			{"10.216.0.1", "104.100.143.1", "192.168.1.0/24", "2600:2d00:4030:a47:c0a8:2110:0:0", "2600:2d00:4030:a47:c0a8:2110:1:0"},
+			{"10.216.1.1", "", "", "", ""},
 		},
 		labels: map[string]string{
 			"env":  "staging",
@@ -115,8 +115,8 @@ var testInstancesData = []*testInstance{
 		name: "ins2",
 		zone: "z-2",
 		netIf: []*testNetIf{
-			&testNetIf{"10.216.0.2", "104.100.143.2", "192.168.2.0", "", ""},
-			&testNetIf{"10.216.1.2", "104.100.143.3", "", "", ""},
+			{"10.216.0.2", "104.100.143.2", "192.168.2.0", "", ""},
+			{"10.216.1.2", "104.100.143.3", "", "", ""},
 		},
 		labels: map[string]string{
 			"env":  "prod",
@@ -127,8 +127,8 @@ var testInstancesData = []*testInstance{
 		name: "ins3",
 		zone: "z-2",
 		netIf: []*testNetIf{
-			&testNetIf{"10.216.0.3", "104.100.143.4", "192.168.3.0", "", ""},
-			&testNetIf{"10.216.1.3", "104.100.143.5", "", "", ""},
+			{"10.216.0.3", "104.100.143.4", "192.168.3.0", "", ""},
+			{"10.216.1.3", "104.100.143.5", "", "", ""},
 		},
 		labels: map[string]string{
 			"env":  "prod",
@@ -416,15 +416,15 @@ func TestExpand(t *testing.T) {
 		"ig-us-central1-a-01-efgh",
 	}
 	wantLabels := []map[string]string{
-		map[string]string{"app": "cloudprober", "shard": "00"},
-		map[string]string{"app": "cloudprober", "shard": "01"},
+		{"app": "cloudprober", "shard": "00"},
+		{"app": "cloudprober", "shard": "01"},
 	}
 	wantNetworks := [][][4]string{
-		[][4]string{
+		{
 			{"10.0.0.2", "194.197.208.201", "2600:2d00:4030:a47:c0a8:2110:0:0", "2600:2d00:4030:a47:c0a8:2110:1:0"},
 			{"10.0.0.3", "194.197.208.202", "2600:2d00:4030:a47:c0a8:2110:0:1", ""},
 		},
-		[][4]string{{"10.0.1.3", "194.197.209.202", "", ""}},
+		{{"10.0.1.3", "194.197.209.202", "", ""}},
 	}
 
 	if !reflect.DeepEqual(gotNames, wantNames) {

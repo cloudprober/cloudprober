@@ -36,11 +36,11 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/gcp/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // DefaultProviderID is the povider id to use for this provider if a provider
@@ -59,17 +59,14 @@ var ResourceTypes = struct {
 	"pubsub_messages",
 }
 
-var resourcePathTmpl = "<resource_type>[/<project-id>]"
-
 type lister interface {
 	listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error)
 }
 
 // Provider implements a GCP provider for a ResourceDiscovery server.
 type Provider struct {
-	localProject string
-	projects     []string
-	listers      map[string]map[string]lister
+	projects []string
+	listers  map[string]map[string]lister
 }
 
 func (p *Provider) listerForResourcePath(resourcePath string) (lister, error) {
