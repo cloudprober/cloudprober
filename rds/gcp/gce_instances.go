@@ -27,12 +27,13 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/protobuf/proto"
+	md "github.com/cloudprober/cloudprober/common/metadata"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/gcp/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server/filter"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/protobuf/proto"
 )
 
 // This is how long we wait between API calls per zone.
@@ -372,7 +373,7 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 
 func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
 	var thisInstance string
-	if metadata.OnGCE() {
+	if metadata.OnGCE() && !md.IsKubernetes() {
 		var err error
 		thisInstance, err = metadata.InstanceName()
 		if err != nil {
