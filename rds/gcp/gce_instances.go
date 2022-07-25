@@ -36,8 +36,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// This is how long we wait between API calls per zone.
-const defaultAPICallInterval = 250 * time.Microsecond
 const computeScope = "https://www.googleapis.com/auth/compute.readonly"
 
 type accessConfig struct {
