@@ -258,8 +258,8 @@ func (ps *PromSurfacer) checkLabelName(k string) string {
 		return promLabel
 	}
 
-	ps.l.Infof("Checking validity of new label: %s", k)
 	// We'll come here only once per label name.
+	ps.l.Debugf("Checking validity of new label: %s", k)
 
 	// Prometheus doesn't support "-" in metric names.
 	labelName := strings.Replace(k, "-", "_", -1)
@@ -286,8 +286,8 @@ func (ps *PromSurfacer) promMetricName(k string) string {
 		return metricName
 	}
 
-	ps.l.Infof("Checking validity of new metric: %s", k)
 	// We'll come here only once per metric name.
+	ps.l.Debugf("Checking validity of new metric: %s", k)
 
 	// Prometheus doesn't support "-" in metric names.
 	metricName := strings.Replace(k, "-", "_", -1)
