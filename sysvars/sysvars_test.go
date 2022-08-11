@@ -24,9 +24,9 @@ import (
 
 func TestProvidersToCheck(t *testing.T) {
 	flagToProviders := map[string][]string{
-		"auto": []string{"gce", "ec2"},
-		"gce":  []string{"gce"},
-		"ec2":  []string{"ec2"},
+		"auto": {"gce", "ec2"},
+		"gce":  {"gce"},
+		"ec2":  {"ec2"},
 		"none": nil,
 	}
 
