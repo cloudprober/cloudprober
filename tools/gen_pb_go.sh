@@ -16,7 +16,7 @@
 
 # This script generates Go code for the config protobufs.
 
-PROTOC_VERSION="3.17.3"
+PROTOC_VERSION="21.5"
 PROJECT="cloudprober"
 
 GOPATH=$(go env GOPATH)
@@ -91,7 +91,7 @@ cd $PROJECTROOT
 # Create a temporary director to generate protobuf Go files.
 TMPDIR=$(mktemp -d)
 mkdir -p ${TMPDIR}/github.com/cloudprober
-cp -a $PROJECT $TMPDIR/github.com/cloudprober
+rsync -mr --exclude='.git' --include='*/' --include='*.proto' --exclude='*' $PROJECT $TMPDIR/github.com/cloudprober
 cd $TMPDIR
 
 find github.com/cloudprober/$PROJECT -type d | \
@@ -111,4 +111,4 @@ find github.com/cloudprober/$PROJECT -name "*.pb.go" | \
   done
 
 cd -
-rm -rf $TMPDIR
+
