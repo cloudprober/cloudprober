@@ -60,6 +60,9 @@ message ProviderConfig {
   // Note: Ingress support is experimental and may change in future.
   optional Ingresses ingresses = 5;
 
+  // Label to filter resources by. This is useful for large clusters.
+  map<string, string> label = 20;
+
   // Kubernetes API server address. If not specified, we assume in-cluster mode
   // and get it from the local environment variables.
   optional string api_server_address = 91;

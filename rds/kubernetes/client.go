@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
@@ -52,6 +53,18 @@ func (c *client) httpRequest(url string) (*http.Request, error) {
 	}
 	if c.bearer != "" {
 		req.Header.Add("Authorization", c.bearer)
+	}
+
+	// Add labelSelector parameter if we want to filter by labels.
+	if len(c.cfg.GetLabel()) != 0 {
+		var labels []string
+		for k, v := range c.cfg.GetLabel() {
+			labels = append(labels, k+"="+v)
+		}
+		sort.Strings(labels)
+		values := req.URL.Query()
+		values.Add("labelSelector", strings.Join(labels, ","))
+		req.URL.RawQuery = values.Encode()
 	}
 
 	return req, nil
