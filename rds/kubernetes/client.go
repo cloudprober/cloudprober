@@ -37,12 +37,11 @@ var (
 
 // client encapsulates an in-cluster kubeapi client.
 type client struct {
-	cfg           *configpb.ProviderConfig
-	httpC         *http.Client
-	apiHost       string
-	bearer        string
-	labelSelector string
-	l             *logger.Logger
+	cfg     *configpb.ProviderConfig
+	httpC   *http.Client
+	apiHost string
+	bearer  string
+	l       *logger.Logger
 }
 
 func (c *client) httpRequest(url string) (*http.Request, error) {
@@ -55,9 +54,9 @@ func (c *client) httpRequest(url string) (*http.Request, error) {
 		req.Header.Add("Authorization", c.bearer)
 	}
 
-	if c.labelSelector != "" {
+	if len(c.cfg.GetLabelSelector()) != 0 {
 		values := req.URL.Query()
-		values.Add("labelSelector", c.labelSelector)
+		values.Add("labelSelector", strings.Join(c.cfg.GetLabelSelector(), ","))
 		req.URL.RawQuery = values.Encode()
 	}
 
@@ -138,27 +137,6 @@ func (c *client) initHTTPClient() error {
 	return nil
 }
 
-func (c *client) parseLabelSelector() error {
-	if len(c.cfg.GetLabelSelector()) == 0 {
-		return nil
-	}
-	var labels []string
-
-	for _, ls := range c.cfg.GetLabelSelector() {
-		op := ls.GetOp()
-
-		if op == "" {
-			op = "="
-		} else if op != "=" && op != "!=" {
-			return fmt.Errorf("label selector operator (%s) can only be \"=\" or \"!=\"", op)
-		}
-
-		labels = append(labels, fmt.Sprintf("%s%s%s", ls.GetKey(), op, ls.GetValue()))
-	}
-	c.labelSelector = strings.Join(labels, ",")
-	return nil
-}
-
 func newClient(cfg *configpb.ProviderConfig, l *logger.Logger) (*client, error) {
 	c := &client{
 		cfg: cfg,
@@ -170,10 +148,6 @@ func newClient(cfg *configpb.ProviderConfig, l *logger.Logger) (*client, error) 
 	}
 
 	if err := c.initAPIHost(); err != nil {
-		return nil, err
-	}
-
-	if err := c.parseLabelSelector(); err != nil {
 		return nil, err
 	}
 

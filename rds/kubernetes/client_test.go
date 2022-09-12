@@ -131,71 +131,43 @@ func TestNewClientWithTLS(t *testing.T) {
 	}
 }
 
-func TestParseLabelSelector(t *testing.T) {
+func TestClientHTTPRequest(t *testing.T) {
 	tests := []struct {
 		name          string
-		labelSelector [][3]string
-		want          string
-		errContains   string
+		labelselector []string
+		wantURL       string
 	}{
 		{
-			name: "no-label",
-			want: "",
+			name:    "no-label",
+			wantURL: "https://test-api-host/api/v1/pods",
 		},
 		{
-			name: "with-label",
-			labelSelector: [][3]string{
-				{"app", "cloudprober"},
-			},
-			want: "app=cloudprober",
+			name:          "with-label",
+			labelselector: []string{"app=cloudprober"},
+			wantURL:       "https://test-api-host/api/v1/pods?labelSelector=app%3Dcloudprober",
 		},
 		{
-			name: "with-two-labels",
-			labelSelector: [][3]string{
-				{"app", "cloudprober"},
-				{"env", "prod", "="},
-			},
-			want: "app=cloudprober,env=prod",
-		},
-		{
-			name: "with-negative-labels",
-			labelSelector: [][3]string{
-				{"app", "cloudprober"},
-				{"env", "dev", "!="},
-			},
-			want: "app=cloudprober,env!=dev",
-		},
-		{
-			name: "with-negative-labels",
-			labelSelector: [][3]string{
-				{"app", "cloudprober", "~="},
-				{"env", "dev", "!="},
-			},
-			errContains: "~=",
+			name:          "with-two-labels",
+			labelselector: []string{"app=cloudprober", "env!=dev"},
+			wantURL:       "https://test-api-host/api/v1/pods?labelSelector=app%3Dcloudprober%2Cenv%21%3Ddev",
 		},
 	}
 
+	testAPIHost := "test-api-host"
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := &cpb.ProviderConfig{}
-			for _, ls := range test.labelSelector {
-				cfg.LabelSelector = append(cfg.LabelSelector, &cpb.LabelSelector{
-					Key:   proto.String(ls[0]),
-					Value: proto.String(ls[1]),
-					Op:    proto.String(ls[2]),
-				})
+			tc := &client{
+				apiHost: testAPIHost,
+				cfg: &cpb.ProviderConfig{
+					LabelSelector: test.labelselector,
+				},
 			}
-			tc := &client{cfg: cfg}
-
-			err := tc.parseLabelSelector()
-			if test.errContains != "" {
-				assert.ErrorContains(t, err, test.errContains)
-				return
-			} else {
-				assert.NoError(t, err)
+			req, err := tc.httpRequest("api/v1/pods")
+			if err != nil {
+				t.Errorf("Got unexpected error: %v", err)
 			}
 
-			assert.Equal(t, test.want, tc.labelSelector)
+			assert.Equal(t, test.wantURL, req.URL.String())
 		})
 	}
 
