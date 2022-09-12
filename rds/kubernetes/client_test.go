@@ -131,48 +131,71 @@ func TestNewClientWithTLS(t *testing.T) {
 	}
 }
 
-func TestClientHTTPRequest(t *testing.T) {
+func TestParseLabelSelector(t *testing.T) {
 	tests := []struct {
-		name    string
-		labels  map[string]string
-		wantURL string
+		name          string
+		labelSelector [][3]string
+		want          string
+		errContains   string
 	}{
 		{
-			name:    "no-label",
-			wantURL: "https://test-api-host/api/v1/pods",
+			name: "no-label",
+			want: "",
 		},
 		{
 			name: "with-label",
-			labels: map[string]string{
-				"app": "cloudprober",
+			labelSelector: [][3]string{
+				{"app", "cloudprober"},
 			},
-			wantURL: "https://test-api-host/api/v1/pods?labelSelector=app%3Dcloudprober",
+			want: "app=cloudprober",
 		},
 		{
 			name: "with-two-labels",
-			labels: map[string]string{
-				"app": "cloudprober",
-				"env": "prod",
+			labelSelector: [][3]string{
+				{"app", "cloudprober"},
+				{"env", "prod", "="},
 			},
-			wantURL: "https://test-api-host/api/v1/pods?labelSelector=app%3Dcloudprober%2Cenv%3Dprod",
+			want: "app=cloudprober,env=prod",
+		},
+		{
+			name: "with-negative-labels",
+			labelSelector: [][3]string{
+				{"app", "cloudprober"},
+				{"env", "dev", "!="},
+			},
+			want: "app=cloudprober,env!=dev",
+		},
+		{
+			name: "with-negative-labels",
+			labelSelector: [][3]string{
+				{"app", "cloudprober", "~="},
+				{"env", "dev", "!="},
+			},
+			errContains: "~=",
 		},
 	}
 
-	testAPIHost := "test-api-host"
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tc := &client{
-				apiHost: testAPIHost,
-				cfg: &cpb.ProviderConfig{
-					Label: test.labels,
-				},
+			cfg := &cpb.ProviderConfig{}
+			for _, ls := range test.labelSelector {
+				cfg.LabelSelector = append(cfg.LabelSelector, &cpb.LabelSelector{
+					Key:   proto.String(ls[0]),
+					Value: proto.String(ls[1]),
+					Op:    proto.String(ls[2]),
+				})
 			}
-			req, err := tc.httpRequest("api/v1/pods")
-			if err != nil {
-				t.Errorf("Got unexpected error: %v", err)
+			tc := &client{cfg: cfg}
+
+			err := tc.parseLabelSelector()
+			if test.errContains != "" {
+				assert.ErrorContains(t, err, test.errContains)
+				return
+			} else {
+				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, test.wantURL, req.URL.String())
+			assert.Equal(t, test.want, tc.labelSelector)
 		})
 	}
 

@@ -37,6 +37,14 @@ message Services {}
 
 message Ingresses {}
 
+message LabelSelector {
+  required string key = 1;
+  required string value = 2;
+
+  // Only allowed values are "=" and "!=". Default is "=".
+  optional string op = 3;
+}
+
 // Kubernetes provider config.
 message ProviderConfig {
   // Namespace to list resources for. If not specified, we default to all
@@ -61,7 +69,16 @@ message ProviderConfig {
   optional Ingresses ingresses = 5;
 
   // Label to filter resources by. This is useful for large clusters.
-  map<string, string> label = 20;
+  // label_selector {
+  //    key: "app"
+  //    value: "cloudprober"
+  // }
+  // label_selector {
+  //    key: "env"
+  //    value: "dev"
+  //    op: "!="
+  // }
+  repeated LabelSelector label_selector = 20;
 
   // Kubernetes API server address. If not specified, we assume in-cluster mode
   // and get it from the local environment variables.
