@@ -20,9 +20,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	cpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 var testCACert = `
@@ -128,4 +129,46 @@ func TestNewClientWithTLS(t *testing.T) {
 	if tc.httpC == nil || tc.httpC.Transport.(*http.Transport).TLSClientConfig == nil {
 		t.Errorf("Client's HTTP client or TLS config are unexpectedly nil.")
 	}
+}
+
+func TestClientHTTPRequest(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelselector []string
+		wantURL       string
+	}{
+		{
+			name:    "no-label",
+			wantURL: "https://test-api-host/api/v1/pods",
+		},
+		{
+			name:          "with-label",
+			labelselector: []string{"app=cloudprober"},
+			wantURL:       "https://test-api-host/api/v1/pods?labelSelector=app%3Dcloudprober",
+		},
+		{
+			name:          "with-two-labels",
+			labelselector: []string{"app=cloudprober", "env!=dev"},
+			wantURL:       "https://test-api-host/api/v1/pods?labelSelector=app%3Dcloudprober%2Cenv%21%3Ddev",
+		},
+	}
+
+	testAPIHost := "test-api-host"
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tc := &client{
+				apiHost: testAPIHost,
+				cfg: &cpb.ProviderConfig{
+					LabelSelector: test.labelselector,
+				},
+			}
+			req, err := tc.httpRequest("api/v1/pods")
+			if err != nil {
+				t.Errorf("Got unexpected error: %v", err)
+			}
+
+			assert.Equal(t, test.wantURL, req.URL.String())
+		})
+	}
+
 }

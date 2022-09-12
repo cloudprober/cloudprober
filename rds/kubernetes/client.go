@@ -54,6 +54,12 @@ func (c *client) httpRequest(url string) (*http.Request, error) {
 		req.Header.Add("Authorization", c.bearer)
 	}
 
+	if len(c.cfg.GetLabelSelector()) != 0 {
+		values := req.URL.Query()
+		values.Add("labelSelector", strings.Join(c.cfg.GetLabelSelector(), ","))
+		req.URL.RawQuery = values.Encode()
+	}
+
 	return req, nil
 }
 
