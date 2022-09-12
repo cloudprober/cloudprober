@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
@@ -156,7 +155,6 @@ func (c *client) parseLabelSelector() error {
 
 		labels = append(labels, fmt.Sprintf("%s%s%s", ls.GetKey(), op, ls.GetValue()))
 	}
-	sort.Strings(labels)
 	c.labelSelector = strings.Join(labels, ",")
 	return nil
 }
