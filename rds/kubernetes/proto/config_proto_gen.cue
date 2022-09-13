@@ -37,6 +37,10 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	// Note: Ingress support is experimental and may change in future.
 	ingresses?: #Ingresses @protobuf(5,Ingresses)
 
+	// Label selectors to filter resources. This is useful for large clusters.
+	// label_selector: ["app=cloudprober", "env!=dev"]
+	labelSelector?: [...string] @protobuf(20,string,name=label_selector)
+
 	// Kubernetes API server address. If not specified, we assume in-cluster mode
 	// and get it from the local environment variables.
 	apiServerAddress?: string @protobuf(91,string,name=api_server_address)
