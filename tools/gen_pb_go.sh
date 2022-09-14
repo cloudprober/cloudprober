@@ -83,18 +83,29 @@ fi
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
-echo "Generating Go code for protobufs.."
+# Install cue from Go
+go install cuelang.org/go/cmd/cue@latest
+
+echo "Generating Go code and CUE schema for protobufs.."
 echo "======================================================================"
 # Generate protobuf code from the root directory to ensure proper import paths.
 cd $PROJECTROOT
 
 # Create a temporary director to generate protobuf Go files.
 TMPDIR=$(mktemp -d)
+echo $TMPDIR
 mkdir -p ${TMPDIR}/github.com/cloudprober
-rsync -mr --exclude='.git' --include='*/' --include='*.proto' --exclude='*' $PROJECT $TMPDIR/github.com/cloudprober
+rsync -mr --exclude='.git' --include='*/' --include='*.proto' --include='*.cue' --exclude='*' $PROJECT $TMPDIR/github.com/cloudprober
+
 cd $TMPDIR
 
-find github.com/cloudprober/$PROJECT -type d | \
+MODULE=github.com/cloudprober/cloudprober
+
+echo "Generating CUE schema from protobufs.."
+cue import proto -I . ${MODULE}/config/proto/config.proto --proto_enum json -f
+
+# Generate Go code for proto
+find ${MODULE} -type d | \
   while read -r dir
   do
     # Ignore directories with no proto files.
@@ -103,7 +114,7 @@ find github.com/cloudprober/$PROJECT -type d | \
   done
 
 # Copy generated files back to their original location.
-find github.com/cloudprober/$PROJECT -name "*.pb.go" | \
+find ${MODULE} \( -name *.pb.go -o -name *proto_gen.cue \) | \
   while read -r pbgofile
   do
     dst=${PROJECTROOT}/${pbgofile/github.com\/cloudprober\//}
@@ -111,4 +122,3 @@ find github.com/cloudprober/$PROJECT -name "*.pb.go" | \
   done
 
 cd -
-
