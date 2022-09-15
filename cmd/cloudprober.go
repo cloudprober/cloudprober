@@ -27,18 +27,20 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"strings"
 	"syscall"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
 	"flag"
-	"github.com/golang/glog"
+
+	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/common/file"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
+	"github.com/golang/glog"
 )
 
 var (
@@ -125,7 +127,17 @@ func configFileToString(fileName string) string {
 
 func getConfig() string {
 	if *configFile != "" {
-		return configFileToString(*configFile)
+		if strings.HasSuffix(*configFile, ".yaml") {
+			// We got a YAML file. Try to parse it using CUE.
+			b, err := cloudprober.YAMLToTextproto(configFileToString(*configFile))
+			if err != nil {
+				glog.Exitf("Error parsing YAML: %v", err)
+			}
+			glog.Info(string(b))
+			return string(b)
+		} else {
+			return configFileToString(*configFile)
+		}
 	}
 	// On GCE first check if there is a config in custom metadata
 	// attributes.
