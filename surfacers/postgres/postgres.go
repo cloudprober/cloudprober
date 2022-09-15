@@ -200,7 +200,7 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 			return err
 		}
 		for _, pgMetric := range emToPGMetrics(em) {
-			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, sortedGenerateValues(pgMetric.labels, s.c.GetLabelToColumn())); err != nil {
+			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, generateSortedValues(pgMetric.labels, s.c.GetLabelToColumn())); err != nil {
 				return err
 			}
 		}
@@ -298,8 +298,8 @@ func generateColumns(ltc []*configpb.LabelToColumn) []string {
 	return append([]string{"time", "metric_name", "value"}, clms...)
 }
 
-// sortedGenerateValues sorts column values
-func sortedGenerateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []string {
+// generateSortedValues sorts column values
+func generateSortedValues(labels map[string]string, ltc []*configpb.LabelToColumn) []string {
 	var mtrs []string
 	for k, v := range labels {
 		for _, a := range ltc {

@@ -133,7 +133,7 @@ func Test_generateColumns(t *testing.T) {
 	}
 }
 
-func Test_sortedGenerateValues(t *testing.T) {
+func Test_generateSortedValues(t *testing.T) {
 	label1 := "test-label-1"
 	label2 := "test-label-2"
 	column1 := "test-column-1"
@@ -165,8 +165,8 @@ func Test_sortedGenerateValues(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := sortedGenerateValues(tt.args.labels, tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("sortedGenerateValues() = %v, want %v", got, tt.want)
+			if got := generateSortedValues(tt.args.labels, tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("generateSortedValues() = %v, want %v", got, tt.want)
 			}
 		})
 	}
