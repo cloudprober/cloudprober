@@ -31,9 +31,9 @@ package postgres
 
 import (
 	"context"
-
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"sort"
 
 	"database/sql"
 	"encoding/json"
@@ -184,25 +184,50 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 // writeMetrics parses events metrics into postgres rows, starts a transaction
 // and inserts all discreet metric rows represented by the EventMetrics
 func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
+	var stmt *sql.Stmt
+
 	// Begin a transaction.
 	txn, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 
-	// Prepare a statement to COPY table from the STDIN.
-	stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), "time", "metric_name", "value", "labels"))
-	if err != nil {
-		return err
-	}
-
-	for _, pgMetric := range emToPGMetrics(em) {
-		var s string
-		if s, err = labelsJSON(pgMetric.labels); err != nil {
+	// Transaction for defined columns
+	if len(s.c.GetLabelToColumn()) > 0 {
+		// Prepare a statement to COPY table from the STDIN.
+		stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), generateColumns(s.c.GetLabelToColumn())...))
+		if err != nil {
 			return err
 		}
-		if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
+		for _, pgMetric := range emToPGMetrics(em) {
+			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, sortedGenerateValues(pgMetric.labels, s.c.GetLabelToColumn())); err != nil {
+				return err
+			}
+		}
+
+		if _, err = stmt.Exec(); err != nil {
 			return err
+		}
+		if err = stmt.Close(); err != nil {
+			return err
+		}
+
+		return txn.Commit()
+	} else {
+		// Prepare a statement to COPY table from the STDIN.
+		stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), "time", "metric_name", "value", "labels"))
+		if err != nil {
+			return err
+		}
+
+		for _, pgMetric := range emToPGMetrics(em) {
+			var s string
+			if s, err = labelsJSON(pgMetric.labels); err != nil {
+				return err
+			}
+			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -261,4 +286,28 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	default:
 		s.l.Errorf("Surfacer's write channel is full, dropping new data.")
 	}
+}
+
+// generateColumns generates all columns
+func generateColumns(ltc []*configpb.LabelToColumn) []string {
+	var clms []string
+	for _, v := range ltc {
+		clms = append(clms, v.GetColumn())
+	}
+	sort.Strings(clms)
+	return append([]string{"time", "metric_name", "value"}, clms...)
+}
+
+// sortedGenerateValues sorts column values
+func sortedGenerateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []string {
+	var mtrs []string
+	for k, v := range labels {
+		for _, a := range ltc {
+			if a.GetLabel() == k {
+				mtrs = append(mtrs, v)
+			}
+		}
+	}
+	sort.Strings(mtrs)
+	return mtrs
 }

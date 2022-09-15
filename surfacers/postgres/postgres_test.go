@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
 	"reflect"
 	"testing"
 	"time"
@@ -96,4 +97,77 @@ func isRowExpected(row pgMetric, t time.Time, metricName string, value string, l
 	}
 
 	return true
+}
+
+func Test_generateColumns(t *testing.T) {
+	label := "test-label"
+	column := "test-column"
+
+	type args struct {
+		columns []*configpb.LabelToColumn
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "test",
+			args: args{
+				[]*configpb.LabelToColumn{{
+					Label:  &label,
+					Column: &column,
+				}},
+			},
+			want: []string{
+				"time", "metric_name", "value", "test-column",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := generateColumns(tt.args.columns); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("generateColumns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_sortedGenerateValues(t *testing.T) {
+	label1 := "test-label-1"
+	label2 := "test-label-2"
+	column1 := "test-column-1"
+	column2 := "test-column-2"
+
+	type args struct {
+		labels map[string]string
+		ltc    []*configpb.LabelToColumn
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "test",
+			args: args{
+				labels: map[string]string{label2: "value-2", label1: "value-1"},
+				ltc: []*configpb.LabelToColumn{{
+					Label:  &label2,
+					Column: &column2,
+				}, {
+					Label:  &label1,
+					Column: &column1,
+				}},
+			},
+			want: []string{"value-1", "value-2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sortedGenerateValues(tt.args.labels, tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("sortedGenerateValues() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
