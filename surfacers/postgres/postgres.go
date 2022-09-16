@@ -291,7 +291,7 @@ func generateColumns(ltc []*configpb.LabelToColumn) []string {
 	return append([]string{"time", "metric_name", "value"}, clms...)
 }
 
-// generateValues sorts column values
+// generateValues generates column values or places NULL in the event label/value does not exist
 func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []interface{} {
 	var mtrs []interface{}
 
