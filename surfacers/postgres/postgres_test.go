@@ -133,11 +133,11 @@ func Test_generateColumns(t *testing.T) {
 	}
 }
 
-func Test_generateSortedValues(t *testing.T) {
-	label1 := "test-label-1"
-	label2 := "test-label-2"
-	column1 := "test-column-1"
-	column2 := "test-column-2"
+func Test_generateValues(t *testing.T) {
+	label1 := "dst"
+	label2 := "code"
+	column1 := "dst"
+	column2 := "code"
 
 	type args struct {
 		labels map[string]string
@@ -146,12 +146,12 @@ func Test_generateSortedValues(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []string
+		want []interface{}
 	}{
 		{
 			name: "test",
 			args: args{
-				labels: map[string]string{label2: "value-2", label1: "value-1"},
+				labels: map[string]string{label2: "200", label1: "google.com"},
 				ltc: []*configpb.LabelToColumn{{
 					Label:  &label2,
 					Column: &column2,
@@ -160,13 +160,13 @@ func Test_generateSortedValues(t *testing.T) {
 					Column: &column1,
 				}},
 			},
-			want: []string{"value-1", "value-2"},
+			want: []interface{}{"200", "google.com"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := generateSortedValues(tt.args.labels, tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("generateSortedValues() = %v, want %v", got, tt.want)
+			if got := generateValues(tt.args.labels, tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("generateValues() = %v, want %v", got, tt.want)
 			}
 		})
 	}

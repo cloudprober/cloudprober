@@ -31,15 +31,13 @@ package postgres
 
 import (
 	"context"
-	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/metrics"
-	"sort"
-
 	"database/sql"
 	"encoding/json"
 	"strconv"
 	"time"
 
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/lib/pq"
 
 	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
@@ -195,27 +193,23 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 	// Transaction for defined columns
 	if len(s.c.GetLabelToColumn()) > 0 {
 		// Prepare a statement to COPY table from the STDIN.
-		stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), generateColumns(s.c.GetLabelToColumn())...))
+		stmt, err = txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), generateColumns(s.c.GetLabelToColumn())...))
 		if err != nil {
 			return err
 		}
+
 		for _, pgMetric := range emToPGMetrics(em) {
-			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, generateSortedValues(pgMetric.labels, s.c.GetLabelToColumn())); err != nil {
+			mtrs := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
+			for _, v := range generateValues(pgMetric.labels, s.c.GetLabelToColumn()) {
+				mtrs = append(mtrs, v)
+			}
+			if _, err = stmt.Exec(mtrs...); err != nil {
 				return err
 			}
 		}
-
-		if _, err = stmt.Exec(); err != nil {
-			return err
-		}
-		if err = stmt.Close(); err != nil {
-			return err
-		}
-
-		return txn.Commit()
 	} else {
 		// Prepare a statement to COPY table from the STDIN.
-		stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), "time", "metric_name", "value", "labels"))
+		stmt, err = txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), "time", "metric_name", "value", "labels"))
 		if err != nil {
 			return err
 		}
@@ -294,20 +288,20 @@ func generateColumns(ltc []*configpb.LabelToColumn) []string {
 	for _, v := range ltc {
 		clms = append(clms, v.GetColumn())
 	}
-	sort.Strings(clms)
 	return append([]string{"time", "metric_name", "value"}, clms...)
 }
 
-// generateSortedValues sorts column values
-func generateSortedValues(labels map[string]string, ltc []*configpb.LabelToColumn) []string {
-	var mtrs []string
-	for k, v := range labels {
-		for _, a := range ltc {
-			if a.GetLabel() == k {
-				mtrs = append(mtrs, v)
-			}
+// generateValues sorts column values
+func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []interface{} {
+	var mtrs []interface{}
+
+	for _, a := range ltc {
+		if val, ok := labels[a.GetLabel()]; ok {
+			mtrs = append(mtrs, val)
+		} else {
+			mtrs = append(mtrs, sql.NullByte{})
 		}
 	}
-	sort.Strings(mtrs)
+
 	return mtrs
 }
