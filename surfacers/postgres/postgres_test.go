@@ -1,12 +1,10 @@
 package postgres
 
 import (
-	"database/sql"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 
 	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
@@ -141,38 +139,29 @@ func TestGenerateValues(t *testing.T) {
 	}
 }
 
-func TestSurfacerGenerateColumns(t *testing.T) {
+func TestGenerateColumns(t *testing.T) {
 	label1 := "dst"
 	label2 := "code"
 	column1 := "dst"
 	column2 := "code"
 
-	type fields struct {
-		c         *configpb.SurfacerConf
-		columns   []string
-		writeChan chan *metrics.EventMetrics
-		l         *logger.Logger
-		openDB    func(connectionString string) (*sql.DB, error)
-		db        *sql.DB
+	type args struct {
+		ltc []*configpb.LabelToColumn
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   []string
+		name string
+		args args
+		want []string
 	}{
 		{
 			name: "test-1",
-			fields: fields{
-				c: &configpb.SurfacerConf{
-					LabelsToColumn: &configpb.LabelsToColumn{LabelToColumn: []*configpb.LabelToColumn{{
-						Label:  &label2,
-						Column: &column2,
-					}, {
-						Label:  &label1,
-						Column: &column1,
-					}}},
-				},
-				columns: nil,
+			args: args{ltc: []*configpb.LabelToColumn{{
+				Label:  &label2,
+				Column: &column2,
+			}, {
+				Label:  &label1,
+				Column: &column1,
+			}},
 			},
 			want: []string{
 				"time", "metric_name", "value", "code", "dst",
@@ -180,12 +169,7 @@ func TestSurfacerGenerateColumns(t *testing.T) {
 		},
 		{
 			name: "test-2",
-			fields: fields{
-				c: &configpb.SurfacerConf{
-					LabelsToColumn: nil,
-				},
-				columns: nil,
-			},
+			args: args{ltc: nil},
 			want: []string{
 				"time", "metric_name", "value", "labels",
 			},
@@ -193,16 +177,7 @@ func TestSurfacerGenerateColumns(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Surfacer{
-				c:         tt.fields.c,
-				columns:   tt.fields.columns,
-				writeChan: tt.fields.writeChan,
-				l:         tt.fields.l,
-				openDB:    tt.fields.openDB,
-				db:        tt.fields.db,
-			}
-			s.generateColumns()
-			if got := s.columns; !reflect.DeepEqual(got, tt.want) {
+			if got := generateColumns(tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("generateColumns() = %v, want %v", got, tt.want)
 			}
 		})

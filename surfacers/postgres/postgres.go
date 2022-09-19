@@ -192,7 +192,7 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 	}
 
 	// Transaction for defined columns
-	if len(s.c.GetLabelsToColumn().GetLabelToColumn()) > 0 {
+	if len(s.c.GetLabelToColumn()) > 0 {
 		// Prepare a statement to COPY table from the STDIN.
 		stmt, err = txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
 		if err != nil {
@@ -200,16 +200,9 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 		}
 
 		for _, pgMetric := range emToPGMetrics(em) {
-			// An example proposal to drop 'sysvar' ptype metrics
-			//if *s.c.DropGoMetrics {
-			//	if val, ok := pgMetric.labels["ptype"]; ok && val == "sysvars" {
-			//		continue
-			//	}
-			//}
-
 			// args are the column values generated based on the chosen labels
 			args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
-			for _, v := range generateValues(pgMetric.labels, s.c.GetLabelsToColumn().GetLabelToColumn()) {
+			for _, v := range generateValues(pgMetric.labels, s.c.GetLabelToColumn()) {
 				args = append(args, v)
 			}
 			if _, err = stmt.Exec(args...); err != nil {
@@ -256,8 +249,9 @@ func (s *Surfacer) init(ctx context.Context) error {
 	}
 	s.writeChan = make(chan *metrics.EventMetrics, s.c.GetMetricsBufferSize())
 
-	// Generate the desired columns either with 'labels' by default or select 'labels' based on the labels_to_column fields
-	s.generateColumns()
+	// Generate the desired columns either with 'labels' by default
+	// or select 'labels' based on the label_to_column fields
+	s.columns = generateColumns(s.c.GetLabelToColumn())
 
 	// Start a goroutine to run forever, polling on the writeChan. Allows
 	// for the surfacer to write asynchronously to the serial port.
@@ -294,7 +288,8 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	}
 }
 
-// generateValues generates column values or places NULL in the event label/value does not exist
+// generateValues generates column values or places NULL
+// in the event label/value does not exist
 func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []interface{} {
 	var args []interface{}
 
@@ -309,14 +304,17 @@ func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []i
 	return args
 }
 
-// generateValues generates column values or places NULL in the event label/value does not exist
-func (s *Surfacer) generateColumns() {
-	if len(s.c.GetLabelsToColumn().GetLabelToColumn()) > 0 {
-		s.columns = append([]string{"time", "metric_name", "value"}, make([]string, len(s.c.GetLabelsToColumn().GetLabelToColumn()))...)
-		for i, v := range s.c.GetLabelsToColumn().GetLabelToColumn() {
-			s.columns[i+3] = v.GetColumn()
+// generateValues generates column values or places NULL
+// in the event label/value does not exist
+func generateColumns(ltc []*configpb.LabelToColumn) []string {
+	var columns []string
+	if len(ltc) > 0 {
+		columns = append([]string{"time", "metric_name", "value"}, make([]string, len(ltc))...)
+		for i, v := range ltc {
+			columns[i+3] = v.GetColumn()
 		}
 	} else {
-		s.columns = []string{"time", "metric_name", "value", "labels"}
+		columns = []string{"time", "metric_name", "value", "labels"}
 	}
+	return columns
 }
