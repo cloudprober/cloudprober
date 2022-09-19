@@ -183,8 +183,6 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 // writeMetrics parses events metrics into postgres rows, starts a transaction
 // and inserts all discreet metric rows represented by the EventMetrics
 func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
-	var stmt *sql.Stmt
-
 	// Begin a transaction.
 	txn, err := s.db.Begin()
 	if err != nil {
@@ -192,7 +190,7 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 	}
 
 	// Prepare a statement to COPY table from the STDIN.
-	stmt, err = txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
+	stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
 	if err != nil {
 		return err
 	}
