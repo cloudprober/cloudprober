@@ -1,12 +1,15 @@
 package postgres
 
 import (
-	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
+	"database/sql"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+
+	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
 )
 
 func Test_emToPGMetrics_No_Distribution(t *testing.T) {
@@ -99,41 +102,7 @@ func isRowExpected(row pgMetric, t time.Time, metricName string, value string, l
 	return true
 }
 
-func Test_generateColumns(t *testing.T) {
-	label := "test-label"
-	column := "test-column"
-
-	type args struct {
-		columns []*configpb.LabelToColumn
-	}
-	tests := []struct {
-		name string
-		args args
-		want []string
-	}{
-		{
-			name: "test",
-			args: args{
-				[]*configpb.LabelToColumn{{
-					Label:  &label,
-					Column: &column,
-				}},
-			},
-			want: []string{
-				"time", "metric_name", "value", "test-column",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := generateColumns(tt.args.columns); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("generateColumns() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_generateValues(t *testing.T) {
+func TestGenerateValues(t *testing.T) {
 	label1 := "dst"
 	label2 := "code"
 	column1 := "dst"
@@ -167,6 +136,74 @@ func Test_generateValues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := generateValues(tt.args.labels, tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("generateValues() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSurfacerGenerateColumns(t *testing.T) {
+	label1 := "dst"
+	label2 := "code"
+	column1 := "dst"
+	column2 := "code"
+
+	type fields struct {
+		c         *configpb.SurfacerConf
+		columns   []string
+		writeChan chan *metrics.EventMetrics
+		l         *logger.Logger
+		openDB    func(connectionString string) (*sql.DB, error)
+		db        *sql.DB
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []string
+	}{
+		{
+			name: "test-1",
+			fields: fields{
+				c: &configpb.SurfacerConf{
+					LabelsToColumn: &configpb.LabelsToColumn{LabelToColumn: []*configpb.LabelToColumn{{
+						Label:  &label2,
+						Column: &column2,
+					}, {
+						Label:  &label1,
+						Column: &column1,
+					}}},
+				},
+				columns: nil,
+			},
+			want: []string{
+				"time", "metric_name", "value", "code", "dst",
+			},
+		},
+		{
+			name: "test-2",
+			fields: fields{
+				c: &configpb.SurfacerConf{
+					LabelsToColumn: nil,
+				},
+				columns: nil,
+			},
+			want: []string{
+				"time", "metric_name", "value", "labels",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Surfacer{
+				c:         tt.fields.c,
+				columns:   tt.fields.columns,
+				writeChan: tt.fields.writeChan,
+				l:         tt.fields.l,
+				openDB:    tt.fields.openDB,
+				db:        tt.fields.db,
+			}
+			s.generateColumns()
+			if got := s.columns; !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("generateColumns() = %v, want %v", got, tt.want)
 			}
 		})
 	}
