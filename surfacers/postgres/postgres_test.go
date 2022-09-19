@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+
+	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
 )
 
 func Test_emToPGMetrics_No_Distribution(t *testing.T) {
@@ -96,4 +98,88 @@ func isRowExpected(row pgMetric, t time.Time, metricName string, value string, l
 	}
 
 	return true
+}
+
+func TestGenerateValues(t *testing.T) {
+	label1 := "dst"
+	label2 := "code"
+	column1 := "dst"
+	column2 := "code"
+
+	type args struct {
+		labels map[string]string
+		ltc    []*configpb.LabelToColumn
+	}
+	tests := []struct {
+		name string
+		args args
+		want []interface{}
+	}{
+		{
+			name: "test",
+			args: args{
+				labels: map[string]string{label2: "200", label1: "google.com"},
+				ltc: []*configpb.LabelToColumn{{
+					Label:  &label2,
+					Column: &column2,
+				}, {
+					Label:  &label1,
+					Column: &column1,
+				}},
+			},
+			want: []interface{}{"200", "google.com"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := generateValues(tt.args.labels, tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("generateValues() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerateColumns(t *testing.T) {
+	label1 := "dst"
+	label2 := "code"
+	column1 := "dst"
+	column2 := "code"
+
+	type args struct {
+		ltc []*configpb.LabelToColumn
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "test-1",
+			args: args{ltc: []*configpb.LabelToColumn{{
+				Label:  &label2,
+				Column: &column2,
+			}, {
+				Label:  &label1,
+				Column: &column1,
+			}},
+			},
+			want: []string{
+				"time", "metric_name", "value", "code", "dst",
+			},
+		},
+		{
+			name: "test-2",
+			args: args{ltc: nil},
+			want: []string{
+				"time", "metric_name", "value", "labels",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := generateColumns(tt.args.ltc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("generateColumns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
