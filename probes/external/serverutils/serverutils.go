@@ -17,6 +17,7 @@ package serverutils
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -100,33 +101,49 @@ func WriteMessage(pb proto.Message, w io.Writer) error {
 	return nil
 }
 
-// Serve blocks indefinitely, servicing probe requests. Note that this function is
-// provided mainly to help external probe server implementations. Cloudprober doesn't
+// ServeContext blocks until canceled, servicing probe requests. It
+// communicates over os.Stdin and os.Stdout, so nothing else in the
+// program can use them. Note that this function is provided mainly to
+// help external probe server implementations. Cloudprober doesn't
 // make use of it. Example usage:
 //	import (
+//		"context"
 //		serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 //		"github.com/cloudprober/cloudprober/probes/external/serverutils"
 //	)
-//	func runProbe(opts []*cppb.ProbeRequest_Option) {
+//	func runProbe(ctx Context.context, opts []*cppb.ProbeRequest_Option) {
 //  	...
 //	}
-//	serverutils.Serve(func(req *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
-// 		payload, errMsg, _ := runProbe(req.GetOptions())
+//	serverutils.ServeContext(ctx, func(ctx context.Context, req *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
+// 		payload, errMsg, _ := runProbe(ctx, req.GetOptions())
 //		reply.Payload = proto.String(payload)
 //		if errMsg != "" {
 //			reply.ErrorMessage = proto.String(errMsg)
 //		}
 //	})
-func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
+func ServeContext(ctx context.Context, probeFunc func(context.Context, *serverpb.ProbeRequest, *serverpb.ProbeReply)) {
 	stdin := bufio.NewReader(os.Stdin)
 
+	go func() {
+		// There is no neat way to do this in go, but there
+		// are several ugly ways. The simplest is to close
+		// stdin and let all the readers fail.
+		<-ctx.Done()
+		os.Stdin.Close()
+	}()
+	
 	repliesChan := make(chan *serverpb.ProbeReply)
 
 	// Write replies to stdout. These are not required to be in-order.
 	go func() {
-		for rep := range repliesChan {
-			if err := WriteMessage(rep, os.Stdout); err != nil {
-				log.Fatal(err)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case rep := <-repliesChan:
+				if err := WriteMessage(rep, os.Stdout); err != nil {
+					log.Fatal(err)
+				}
 			}
 
 		}
@@ -135,7 +152,10 @@ func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
 	// Read requests from stdin, and dispatch probes to service them.
 	for {
 		request, err := ReadProbeRequest(stdin)
-		if err != nil {
+		if ctx.Err() != nil {
+			// Catches errors cascading from os.Stdin.Close - if we're canceled, nobody cares
+			return
+		} else if err != nil {
 			log.Fatalf("Failed reading request: %v", err)
 		}
 		go func() {
@@ -143,18 +163,25 @@ func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
 				RequestId: request.RequestId,
 			}
 			done := make(chan bool, 1)
-			timeout := time.After(time.Duration(*request.TimeLimit) * time.Millisecond)
+			pctx, cancel := context.WithTimeout(ctx, time.Duration(*request.TimeLimit) * time.Millisecond)
+			defer cancel()
 			go func() {
-				probeFunc(request, reply)
+				probeFunc(pctx, request, reply)
 				done <- true
 			}()
 			select {
 			case <-done:
 				repliesChan <- reply
-			case <-timeout:
-				// drop the request on the floor.
-				fmt.Fprintf(os.Stderr, "Timeout for request %v\n", *reply.RequestId)
+			case <-pctx.Done():
+				fmt.Fprintf(os.Stderr, "Dropping request %v: %s\n", *reply.RequestId, pctx.Err())
 			}
 		}()
 	}
+}
+
+// Serve blocks indefinitely, servicing probe requests. Otherwise equivalent to ServeContext.
+func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
+	ServeContext(context.Background(), func(_ context.Context, request *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
+		probeFunc(request, reply)
+	})
 }

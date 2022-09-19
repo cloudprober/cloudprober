@@ -65,7 +65,7 @@ func main() {
 	}
 
 	if *serverMode {
-		serverutils.Serve(func(request *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
+		serverutils.ServeContext(ctx, func(ctx context.Context, request *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
 
 			opts := parseProbeRequest(request)
 			if val, ok := opts["table"]; ok {
@@ -78,6 +78,7 @@ func main() {
 				reply.ErrorMessage = proto.String(err.Error())
 			}
 		})
+		return
 	}
 
 	payload, err := bigquery.Probe(ctx, runner, dstTable)
