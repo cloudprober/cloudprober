@@ -191,31 +191,24 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 		return err
 	}
 
+	// Prepare a statement to COPY table from the STDIN.
+	stmt, err = txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
+	if err != nil {
+		return err
+	}
+
 	// Transaction for defined columns
 	if len(s.c.GetLabelToColumn()) > 0 {
-		// Prepare a statement to COPY table from the STDIN.
-		stmt, err = txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
-		if err != nil {
-			return err
-		}
-
 		for _, pgMetric := range emToPGMetrics(em) {
 			// args are the column values generated based on the chosen labels
 			args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
-			for _, v := range generateValues(pgMetric.labels, s.c.GetLabelToColumn()) {
-				args = append(args, v)
-			}
+			args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
+
 			if _, err = stmt.Exec(args...); err != nil {
 				return err
 			}
 		}
 	} else {
-		// Prepare a statement to COPY table from the STDIN.
-		stmt, err = txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
-		if err != nil {
-			return err
-		}
-
 		for _, pgMetric := range emToPGMetrics(em) {
 			var s string
 			if s, err = labelsJSON(pgMetric.labels); err != nil {
