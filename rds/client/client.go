@@ -149,9 +149,16 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
 	}
 
-	ip := net.ParseIP(cr.ip)
+	var ip net.IP
+	var err error
+	if strings.Contains(cr.ip, "/") {
+		ip, _, err = net.ParseCIDR(cr.ip)
+	} else {
+		ip = net.ParseIP(cr.ip)
+	}
+
 	// If not a valid IP, use DNS resolver to resolve it.
-	if ip == nil {
+	if err != nil || ip == nil {
 		return client.resolver.Resolve(cr.ip, ipVer)
 	}
 
