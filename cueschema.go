@@ -1,12 +1,16 @@
 package cloudprober
 
 import (
+	"bufio"
+	"bytes"
 	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -19,6 +23,19 @@ import (
 var vfs embed.FS
 
 const entryPoint = "config/proto/config_proto_gen.cue"
+
+var enumFieldNames = []string{
+	"format",
+	"ip_type",
+	"ip_version",
+	"method",
+	"method_type",
+	"metrics_kind",
+	"mode",
+	"protocol",
+	"query_type",
+	"type",
+}
 
 func cueSchemaOverlay(overlay map[string]load.Source) error {
 	cwd, err := os.Getwd()
@@ -82,6 +99,27 @@ func loadCueSchema() (cue.Value, error) {
 	return proberConfigDef, nil
 }
 
+func fixEnum(in []byte) []byte {
+	var sb strings.Builder
+
+	re := regexp.MustCompile(fmt.Sprintf("^([ ]*(?:%s): )\"(.*)\"$", strings.Join(enumFieldNames, "|")))
+	scanner := bufio.NewScanner(bytes.NewReader(in))
+
+	for scanner.Scan() {
+		b := scanner.Bytes()
+		matches := re.FindSubmatch(b)
+		if len(matches) >= 3 {
+			sb.Write(matches[1]) // [.. type: ]
+			sb.Write(matches[2]) // [PING|HTTP|...]
+		} else {
+			sb.Write(b)
+		}
+		sb.WriteByte('\n')
+	}
+
+	return []byte(sb.String())
+}
+
 func YAMLToTextproto(yamlStr string) ([]byte, error) {
 	// We got a YAML file. Try to parse it using CUE.
 	proberConfigDef, err := loadCueSchema()
@@ -104,5 +142,5 @@ func YAMLToTextproto(yamlStr string) ([]byte, error) {
 		return nil, fmt.Errorf("error encoding cue value (%v) into textproto: %v", v, err)
 	}
 
-	return b, nil
+	return fixEnum(b), nil
 }

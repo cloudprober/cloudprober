@@ -133,7 +133,7 @@ func getConfig() string {
 			if err != nil {
 				glog.Exitf("Error parsing YAML: %v", err)
 			}
-			glog.Info(string(b))
+			glog.Infof("YAML->Textproto:\n%s", string(b))
 			return string(b)
 		} else {
 			return configFileToString(*configFile)
