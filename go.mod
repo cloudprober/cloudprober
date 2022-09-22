@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/bigquery v1.8.0
 	cloud.google.com/go/logging v1.4.2
 	cloud.google.com/go/pubsub v1.8.1
+	cuelang.org/go v0.4.3
 	github.com/aws/aws-sdk-go v1.35.7
 	github.com/golang/glog v1.0.0
 	github.com/golang/protobuf v1.5.2
@@ -25,7 +26,6 @@ require (
 )
 
 require (
-	cuelang.org/go v0.4.3 // indirect
 	github.com/cockroachdb/apd/v2 v2.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/proto v1.6.15 // indirect
