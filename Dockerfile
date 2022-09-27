@@ -8,7 +8,7 @@
 # This stage is used to find the correct binary for the platform. We store the
 # correct binary at /stage-0-workdir/cloudprober, and in the next stage discard
 # the rest.
-FROM busybox AS stage0
+FROM alpine AS stage0
 WORKDIR /stage-0-workdir
 COPY cloudprober-linux-* ./
 
@@ -20,7 +20,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
 RUN if [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
   mv cloudprober-linux-armv7 cloudprober; fi
 
-FROM busybox
+FROM alpine
 COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=stage0 /stage-0-workdir/cloudprober /
 
