@@ -403,19 +403,23 @@ func (p *Probe) newResult() *probeResult {
 }
 
 func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName string, dataChan chan *metrics.EventMetrics) {
+	addLabelsAndPublish := func(em *metrics.EventMetrics) {
+		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", targetName)
+		for _, al := range p.opts.AdditionalLabels {
+			em.AddLabel(al.KeyValueForTarget(targetName))
+		}
+		p.opts.LogMetrics(em)
+		dataChan <- em
+	}
+
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric(p.opts.LatencyMetricName, result.latency).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
-		AddMetric("resp-code", result.respCodes).
-		AddLabel("ptype", "http").
-		AddLabel("probe", p.name).
-		AddLabel("dst", targetName)
+		AddMetric("resp-code", result.respCodes)
 
-	if result.sslEarliestExpirationSeconds >= 0 {
-		em.AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
-	}
+	em.LatencyUnit = p.opts.LatencyUnit
 
 	if result.respBodies != nil {
 		em.AddMetric("resp-body", result.respBodies)
@@ -425,18 +429,20 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 		em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
 	}
 
-	em.LatencyUnit = p.opts.LatencyUnit
-
-	for _, al := range p.opts.AdditionalLabels {
-		em.AddLabel(al.KeyValueForTarget(targetName))
-	}
-
 	if result.validationFailure != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	p.opts.LogMetrics(em)
-	dataChan <- em
+	addLabelsAndPublish(em)
+
+	// SSL earliest cert expiry is exported in an independent EM as it's a
+	// GAUGE metrics.
+	if result.sslEarliestExpirationSeconds >= 0 {
+		em := metrics.NewEventMetrics(ts).
+			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
+		em.Kind = metrics.GAUGE
+		addLabelsAndPublish(em)
+	}
 }
 
 // Returns clients for a target. We use a different HTTP client (transport) for
