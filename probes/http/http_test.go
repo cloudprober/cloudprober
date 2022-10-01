@@ -52,10 +52,8 @@ func patchWithTestTransport(p *Probe) {
 	if p.oauthTS != nil {
 		keepAuthHeader = true
 	}
-	for _, c := range p.clients {
-		c.Transport = &testTransport{
-			keepAuthHeader: keepAuthHeader,
-		}
+	p.baseTransport = &testTransport{
+		keepAuthHeader: keepAuthHeader,
 	}
 }
 
@@ -121,7 +119,8 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 	target := endpoint.Endpoint{Name: "test.com"}
 	result := p.newResult()
 	req := p.httpRequestForTarget(target, nil)
-	p.runProbe(context.Background(), target, req, result)
+
+	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 
 	return result, nil
 }
@@ -263,20 +262,20 @@ func TestProbeWithBody(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error while initializing probe: %v", err)
 	}
-	p.clients = []*http.Client{{Transport: &testTransport{}}}
+	p.baseTransport = &testTransport{}
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
 	result := p.newResult()
 	req := p.httpRequestForTarget(target, nil)
-	p.runProbe(context.Background(), target, req, result)
+	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 	got := result.respBodies.String()
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
 	}
 
 	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background(), target, req, result)
+	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 	expectedMap.IncKey(testBody)
 	expected = expectedMap.String()
 	got = result.respBodies.String()
@@ -313,13 +312,13 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 		t.Errorf("Error while initializing probe: %v", err)
 	}
 	tt := &testTransport{}
-	p.clients = []*http.Client{{Transport: tt}}
+	p.baseTransport = tt
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
 	result := p.newResult()
 	req := p.httpRequestForTarget(target, nil)
-	p.runProbe(context.Background(), target, req, result)
+	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 
 	got := string(tt.lastRequestBody)
 	if got != testBody {
@@ -327,7 +326,7 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	}
 
 	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background(), target, req, result)
+	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 	got = string(tt.lastRequestBody)
 	if got != testBody {
 		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
@@ -514,13 +513,14 @@ func TestRunProbeWithOAuth(t *testing.T) {
 				ts.err = nil
 			}
 
-			p.runProbe(context.Background(), testTarget, req, result)
+			clients := p.clientsForTarget(testTarget)
+			p.runProbe(context.Background(), testTarget, clients, req, result)
 
 			if result.success != wantSuccess || result.total != wantTotal {
 				t.Errorf("success=%d,wanted=%d; total=%d,wanted=%d", result.success, wantSuccess, result.total, wantTotal)
 			}
 
-			for _, client := range p.clients {
+			for _, client := range clients {
 				tt := client.Transport.(*testTransport)
 				if tt.lastAuthHeader != wantHeader {
 					t.Errorf("Auth header: %s, wanted: %s", tt.lastAuthHeader, wantHeader)

@@ -88,6 +88,14 @@ var defaultSurfacers = []*surfacerpb.SurfacerDef{
 	},
 }
 
+// Required surfacers. These surfacers are enabled by default unless explicitly
+// disabled in their own configs.
+var requiredSurfacers = []*surfacerpb.SurfacerDef{
+	{
+		Type: surfacerpb.Type_PROBESTATUS.Enum(),
+	},
+}
+
 // Surfacer is an interface for all metrics surfacing systems
 type Surfacer interface {
 	// Function for writing a piece of metric data to a specified metric
@@ -148,6 +156,8 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerpb.Type {
 		return surfacerpb.Type_CLOUDWATCH
 	case *surfacerpb.SurfacerDef_DatadogSurfacer:
 		return surfacerpb.Type_DATADOG
+	case *surfacerpb.SurfacerDef_ProbestatusSurfacer:
+		return surfacerpb.Type_PROBESTATUS
 	}
 
 	return surfacerpb.Type_NONE
@@ -227,6 +237,8 @@ func Init(ctx context.Context, sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo
 		sDefs = defaultSurfacers
 	}
 
+	foundSurfacers := make(map[surfacerpb.Type]bool)
+
 	var result []*SurfacerInfo
 	for _, sDef := range sDefs {
 		sType := sDef.GetType()
@@ -247,12 +259,27 @@ func Init(ctx context.Context, sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo
 			return nil, err
 		}
 
+		foundSurfacers[sType] = true
+
 		result = append(result, &SurfacerInfo{
 			Surfacer: s,
 			Type:     sType.String(),
 			Name:     sDef.GetName(),
 			Conf:     formatutils.ConfToString(conf),
 		})
+	}
+
+	for _, s := range requiredSurfacers {
+		if !foundSurfacers[s.GetType()] {
+			surfacer, _, err := initSurfacer(ctx, s, s.GetType())
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, &SurfacerInfo{
+				Surfacer: surfacer,
+				Type:     s.GetType().String(),
+			})
+		}
 	}
 	return result, nil
 }

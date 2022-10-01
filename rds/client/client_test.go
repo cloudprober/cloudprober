@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/client/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
@@ -30,6 +29,7 @@ import (
 	serverpb "github.com/cloudprober/cloudprober/rds/server/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
+	"github.com/golang/protobuf/proto"
 )
 
 type testProvider struct {
@@ -81,6 +81,12 @@ var testResources = []*pb.Resource{
 		Labels: map[string]string{"zone": "us-central1-a"},
 	},
 	{
+		Name:   proto.String("testR23v6"),
+		Ip:     proto.String("ffff:dd1:006f:3800:0:5:0:0/96"),
+		Port:   proto.Int32(8080),
+		Labels: map[string]string{"zone": "us-central1-a"},
+	},
+	{
 		Name:   proto.String("testR3"),
 		Ip:     proto.String("testR3.test.com"),
 		Port:   proto.Int32(80),
@@ -95,31 +101,32 @@ var testResources = []*pb.Resource{
 	},
 }
 
-var testResourcesMap = map[string][]*pb.Resource{
-	testProviderName: testResources,
-}
-
 // Expected resource list, note that we remove the duplicate resource from the
 // expected output.
 var expectedList = testResources[:len(testResources)-1]
 
 var expectedIPByVersion = map[string]map[int]string{
-	"testR21": map[int]string{
+	"testR21": {
 		0: "10.0.2.1",
 		4: "10.0.2.1",
 		6: "err",
 	},
-	"testR22": map[int]string{
+	"testR22": {
 		0: "10.0.2.2",
 		4: "10.0.2.2",
 		6: "err",
 	},
-	"testR22v6": map[int]string{
+	"testR22v6": {
 		0: "::1",
 		4: "err",
 		6: "::1",
 	},
-	"testR3": map[int]string{
+	"testR23v6": {
+		0: "ffff:dd1:6f:3800:0:5::",
+		4: "err",
+		6: "ffff:dd1:6f:3800:0:5::",
+	},
+	"testR3": {
 		0: "10.1.1.2",
 		4: "10.1.1.2",
 		6: "::2",
@@ -127,7 +134,7 @@ var expectedIPByVersion = map[string]map[int]string{
 }
 
 var testNameToIP = map[string][]net.IP{
-	"testR3.test.com": []net.IP{net.ParseIP("10.1.1.2"), net.ParseIP("::2")},
+	"testR3.test.com": {net.ParseIP("10.1.1.2"), net.ParseIP("::2")},
 }
 
 func (tp *testProvider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {

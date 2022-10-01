@@ -72,6 +72,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 
 // Init initializes cloudprober web interface handler.
 func Init() {
-	http.HandleFunc("/config", configHandler)
-	http.HandleFunc("/status", statusHandler)
+	srvMux := runconfig.DefaultHTTPServeMux()
+	srvMux.HandleFunc("/config", configHandler)
+	srvMux.HandleFunc("/status", statusHandler)
 }

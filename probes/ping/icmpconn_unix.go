@@ -119,6 +119,44 @@ type icmpPacketConn struct {
 	udpConn *net.UDPConn
 }
 
+func timestampFromControlMessage(oob []byte) (time.Time, error) {
+	cmsgs, err := syscall.ParseSocketControlMessage(oob)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	for _, m := range cmsgs {
+		// We are interested only in socket-level control messages
+		// (syscall.SOL_SOCKET)
+		if m.Header.Level != syscall.SOL_SOCKET {
+			continue
+		}
+
+		// SCM_TIMESTAMP is the type of the timestamp control message.
+		// Note that syscall.SO_TIMESTAMP == syscall.SCM_TIMESTAMP for linux, but
+		// that doesn't have to be true for other operating systems, e.g. Mac OS X.
+		if m.Header.Type == syscall.SCM_TIMESTAMP {
+			// Some old 32-bit systems may use smaller struct for timeval. See
+			// https://github.com/cloudprober/cloudprober/issues/175 for reference.
+			if len(m.Data) == 8 {
+				sec := NativeEndian.Uint32(m.Data)
+				usec := NativeEndian.Uint32(m.Data[4:])
+				return time.Unix(int64(sec), int64(usec)*1e3), nil
+			}
+
+			if len(m.Data) < 16 {
+				return time.Time{}, fmt.Errorf("timestamp control message data size (%d) is less than timestamp size (16 bytes)", len(m.Data))
+			}
+
+			sec := NativeEndian.Uint64(m.Data)
+			usec := NativeEndian.Uint64(m.Data[8:])
+			return time.Unix(int64(sec), int64(usec)*1e3), nil
+		}
+	}
+
+	return time.Time{}, nil
+}
+
 func (ipc *icmpPacketConn) read(buf []byte) (n int, addr net.Addr, recvTime time.Time, err error) {
 	// We need to convert to IPConn/UDPConn so that we can read out-of-band data
 	// using ReadMsg<IP,UDP> functions. PacketConn interface doesn't have method
@@ -135,34 +173,7 @@ func (ipc *icmpPacketConn) read(buf []byte) (n int, addr net.Addr, recvTime time
 	if err != nil {
 		return
 	}
-
-	cmsgs, cmErr := syscall.ParseSocketControlMessage(oob[:oobn])
-	if cmErr != nil {
-		err = cmErr
-		return
-	}
-
-	for _, m := range cmsgs {
-		// We are interested only in socket-level control messages
-		// (syscall.SOL_SOCKET)
-		if m.Header.Level != syscall.SOL_SOCKET {
-			continue
-		}
-
-		// SCM_TIMESTAMP is the type of the timestamp control message.
-		// Note that syscall.SO_TIMESTAMP == syscall.SCM_TIMESTAMP for linux, but
-		// that doesn't have to be true for other operating systems, e.g. Mac OS X.
-		if m.Header.Type == syscall.SCM_TIMESTAMP {
-			if len(m.Data) < 16 {
-				err = fmt.Errorf("timestamp control message data size (%d) is less than timestamp size (16 bytes)", len(m.Data))
-				return
-			}
-			sec := NativeEndian.Uint64(m.Data)
-			usec := NativeEndian.Uint64(m.Data[8:])
-			recvTime = time.Unix(int64(sec), int64(usec)*1e3)
-		}
-	}
-
+	recvTime, err = timestampFromControlMessage(oob[:oobn])
 	return
 }
 

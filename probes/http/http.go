@@ -60,16 +60,7 @@ type Probe struct {
 	c    *configpb.ProbeConf
 	l    *logger.Logger
 
-	// We use a different HTTP client (transport) for each request within a
-	// probe cycle. For example, if you configure requests_per_probe as 100,
-	// we'll create and use 100 HTTP clients. This is to provide a more
-	// deterministic way to create multiple connections to a single target
-	// (while still using keep_alive to avoid the cost of TCP connection setup
-	// in the probing path). This behavior is desirable if you want to hit as
-	// many backends as possible, behind a single VIP. Note that clients will
-	// still be shared by the targets within a probe, which is ok as each
-	// target will anyway have a differet connection.
-	clients []*http.Client
+	baseTransport http.RoundTripper
 
 	// book-keeping params
 	targets  []endpoint.Endpoint
@@ -226,13 +217,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if err != nil {
 		return err
 	}
-	// Clients are safe for concurrent use by multiple goroutines.
-	p.clients = make([]*http.Client, p.c.GetRequestsPerProbe())
-	for i := 0; i < len(p.clients); i++ {
-		p.clients[i] = &http.Client{
-			Transport: transport.Clone(),
-		}
-	}
+
+	p.baseTransport = transport
 
 	p.statsExportFrequency = p.opts.StatsExportInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
 	if p.statsExportFrequency == 0 {
@@ -365,12 +351,12 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *http.Request, result *probeResult) {
+func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, clients []*http.Client, req *http.Request, result *probeResult) {
 	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelReqCtx()
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doHTTPRequest(req.WithContext(reqCtx), p.clients[0], target.Name, result, nil)
+		p.doHTTPRequest(req.WithContext(reqCtx), clients[0], target.Name, result, nil)
 		return
 	}
 
@@ -387,7 +373,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 			defer wg.Done()
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doHTTPRequest(req.WithContext(reqCtx), p.clients[numReq], targetName, result, &resultMu)
+			p.doHTTPRequest(req.WithContext(reqCtx), clients[numReq], targetName, result, &resultMu)
 		}(req, numReq, target.Name, result)
 	}
 	wg.Wait()
@@ -417,19 +403,23 @@ func (p *Probe) newResult() *probeResult {
 }
 
 func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName string, dataChan chan *metrics.EventMetrics) {
+	addLabelsAndPublish := func(em *metrics.EventMetrics) {
+		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", targetName)
+		for _, al := range p.opts.AdditionalLabels {
+			em.AddLabel(al.KeyValueForTarget(targetName))
+		}
+		p.opts.LogMetrics(em)
+		dataChan <- em
+	}
+
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric(p.opts.LatencyMetricName, result.latency).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
-		AddMetric("resp-code", result.respCodes).
-		AddLabel("ptype", "http").
-		AddLabel("probe", p.name).
-		AddLabel("dst", targetName)
+		AddMetric("resp-code", result.respCodes)
 
-	if result.sslEarliestExpirationSeconds >= 0 {
-		em.AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
-	}
+	em.LatencyUnit = p.opts.LatencyUnit
 
 	if result.respBodies != nil {
 		em.AddMetric("resp-body", result.respBodies)
@@ -439,18 +429,48 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 		em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
 	}
 
-	em.LatencyUnit = p.opts.LatencyUnit
-
-	for _, al := range p.opts.AdditionalLabels {
-		em.AddLabel(al.KeyValueForTarget(targetName))
-	}
-
 	if result.validationFailure != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	p.opts.LogMetrics(em)
-	dataChan <- em
+	addLabelsAndPublish(em)
+
+	// SSL earliest cert expiry is exported in an independent EM as it's a
+	// GAUGE metrics.
+	if result.sslEarliestExpirationSeconds >= 0 {
+		em := metrics.NewEventMetrics(ts).
+			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
+		em.Kind = metrics.GAUGE
+		addLabelsAndPublish(em)
+	}
+}
+
+// Returns clients for a target. We use a different HTTP client (transport) for
+// each request within a probe cycle. For example, if you configure
+// requests_per_probe as 100, we'll create and use 100 HTTP clients. This
+// is to provide a more deterministic way to create multiple connections to
+// a single target (while still using keep_alive to avoid the cost of TCP
+// connection setup in the probing path). This behavior is desirable if you
+// want to hit as many backends as possible, behind a single VIP.
+func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
+	clients := make([]*http.Client, p.c.GetRequestsPerProbe())
+	for i := range clients {
+		// We check for http.Transport because tests use a custom
+		// RoundTripper implementation.
+		if ht, ok := p.baseTransport.(*http.Transport); ok {
+			t := ht.Clone()
+			if p.c.GetProtocol() == configpb.ProbeConf_HTTPS && p.c.GetResolveFirst() {
+				if t.TLSClientConfig == nil {
+					t.TLSClientConfig = &tls.Config{}
+				}
+				t.TLSClientConfig.ServerName = urlHostForTarget(target)
+			}
+			clients[i] = &http.Client{Transport: t}
+		} else {
+			clients[i] = &http.Client{Transport: p.baseTransport}
+		}
+	}
+	return clients
 }
 
 func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
@@ -461,7 +481,6 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 
 	result := p.newResult()
 	req := p.httpRequestForTarget(target, nil)
-
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
 
@@ -475,7 +494,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 		// was an invalid target), skip this probe cycle. Note that request
 		// creation gets retried at a regular interval (stats export interval).
 		if req != nil {
-			p.runProbe(ctx, target, req, result)
+			p.runProbe(ctx, target, p.clientsForTarget(target), req, result)
 		}
 
 		// Export stats if it's the time to do so.

@@ -110,6 +110,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		config = &configpb.SurfacerConf{}
 	}
 
+	if config.GetDisable() {
+		return nil
+	}
+
 	res := time.Duration(config.GetResolutionSec()) * time.Second
 	if res == 0 {
 		res = time.Minute
@@ -149,14 +153,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
-	http.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
+	opts.HTTPServeMux.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
 		doneChan := make(chan struct{}, 1)
 		ps.queryChan <- &httpWriter{w, r, doneChan}
 		<-doneChan
 	})
-	http.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
+	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
 
 	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
 	return ps
@@ -166,6 +170,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 // goroutine that actually processes the data and updates the in-memory
 // database.
 func (ps *Surfacer) Write(_ context.Context, em *metrics.EventMetrics) {
+	if ps == nil {
+		return
+	}
+
 	select {
 	case ps.emChan <- em:
 	default:

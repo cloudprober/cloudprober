@@ -166,6 +166,7 @@ func InitFromConfig(configFile string) error {
 	if err != nil {
 		return err
 	}
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	var grpcLn net.Listener
 	if cfg.GetGrpcPort() != 0 {
@@ -225,18 +226,17 @@ func Start(ctx context.Context) {
 	defer cloudProber.Unlock()
 
 	// Default servers
-	srv := &http.Server{}
+	httpSrv := &http.Server{Handler: runconfig.DefaultHTTPServeMux()}
 	grpcSrv := runconfig.DefaultGRPCServer()
 
 	// Set up a goroutine to cleanup if context ends.
 	go func() {
 		<-ctx.Done()
-		srv.Close() // This will close the listener as well.
+		httpSrv.Close() // This will close the listener as well.
 		if grpcSrv != nil {
 			grpcSrv.Stop()
 		}
 		cloudProber.cancelInitCtx()
-		runconfig.ClearDefaultGRPCServer()
 		cloudProber.Lock()
 		defer cloudProber.Unlock()
 		cloudProber.defaultServerLn = nil
@@ -246,7 +246,7 @@ func Start(ctx context.Context) {
 		cloudProber.prober = nil
 	}()
 
-	go srv.Serve(cloudProber.defaultServerLn)
+	go httpSrv.Serve(cloudProber.defaultServerLn)
 	if grpcSrv != nil && cloudProber.defaultGRPCLn != nil {
 		go grpcSrv.Serve(cloudProber.defaultGRPCLn)
 	}

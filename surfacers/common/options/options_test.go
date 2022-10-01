@@ -15,10 +15,13 @@
 package options
 
 import (
+	"net/http"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/surfacers/proto"
 	"google.golang.org/protobuf/proto"
@@ -194,4 +197,11 @@ func TestAllowMetric(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
+	code := m.Run()
+	runconfig.SetDefaultHTTPServeMux(nil)
+	os.Exit(code)
 }

@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/gcp/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server/filter"
 	"google.golang.org/api/option"
+	"google.golang.org/protobuf/proto"
 )
 
 /*
@@ -54,10 +54,9 @@ var PubSubFilters = struct {
 // that's populated at a regular interval by making the GCP API calls.
 // Listing actually only returns the current contents of that cache.
 type pubsubMsgsLister struct {
-	project    string
-	c          *configpb.PubSubMessages
-	apiVersion string
-	l          *logger.Logger
+	project string
+	c       *configpb.PubSubMessages
+	l       *logger.Logger
 
 	mu     sync.RWMutex // Mutex for names and cache
 	cache  map[string]map[string]time.Time

@@ -25,9 +25,11 @@ import (
 	"strings"
 	"time"
 
+	"flag"
+
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
-	"flag"
+	md "github.com/cloudprober/cloudprober/common/metadata"
 	"github.com/golang/glog"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -197,11 +199,13 @@ func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 	}
 
 	// Add instance_name to common labels if available.
-	instanceName, err := metadata.InstanceName()
-	if err != nil {
-		l.Infof("Error getting instance name on GCE. Possibly running on GKE: %v", err)
-	} else {
-		loggerOpts = append(loggerOpts, logging.CommonLabels(map[string]string{"instance_name": instanceName}))
+	if !md.IsKubernetes() {
+		instanceName, err := metadata.InstanceName()
+		if err != nil {
+			l.Infof("Error getting instance name on GCE: %v", err)
+		} else {
+			loggerOpts = append(loggerOpts, logging.CommonLabels(map[string]string{"instance_name": instanceName}))
+		}
 	}
 
 	l.logger = l.logc.Logger(logName, loggerOpts...)

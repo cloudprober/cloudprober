@@ -19,14 +19,16 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/prometheus/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 func newEventMetrics(sent, rcvd int64, respCodes map[string]int64, ptype, probe string) *metrics.EventMetrics {
@@ -89,7 +91,7 @@ func newPromSurfacer(t *testing.T, writeTimestamp bool) *PromSurfacer {
 		IncludeTimestamp: proto.Bool(writeTimestamp),
 	}
 	l, _ := logger.New(context.Background(), "promtheus_test")
-	ps, err := New(context.Background(), c, nil, l)
+	ps, err := New(context.Background(), c, &options.Options{HTTPServeMux: http.NewServeMux()}, l)
 	if err != nil {
 		t.Fatal("Error while initializing prometheus surfacer", err)
 	}

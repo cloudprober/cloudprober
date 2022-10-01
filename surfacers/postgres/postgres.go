@@ -31,15 +31,13 @@ package postgres
 
 import (
 	"context"
-
-	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/metrics"
-
 	"database/sql"
 	"encoding/json"
 	"strconv"
 	"time"
 
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/lib/pq"
 
 	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
@@ -156,7 +154,8 @@ func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 // Surfacer structures for writing to postgres.
 type Surfacer struct {
 	// Configuration
-	c *configpb.SurfacerConf
+	c       *configpb.SurfacerConf
+	columns []string
 
 	// Channel for incoming data.
 	writeChan chan *metrics.EventMetrics
@@ -191,18 +190,31 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 	}
 
 	// Prepare a statement to COPY table from the STDIN.
-	stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), "time", "metric_name", "value", "labels"))
+	stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
 	if err != nil {
 		return err
 	}
 
-	for _, pgMetric := range emToPGMetrics(em) {
-		var s string
-		if s, err = labelsJSON(pgMetric.labels); err != nil {
-			return err
+	// Transaction for defined columns
+	if len(s.c.GetLabelToColumn()) > 0 {
+		for _, pgMetric := range emToPGMetrics(em) {
+			// args are the column values generated based on the chosen labels
+			args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
+			args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
+
+			if _, err = stmt.Exec(args...); err != nil {
+				return err
+			}
 		}
-		if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
-			return err
+	} else {
+		for _, pgMetric := range emToPGMetrics(em) {
+			var s string
+			if s, err = labelsJSON(pgMetric.labels); err != nil {
+				return err
+			}
+			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -227,6 +239,10 @@ func (s *Surfacer) init(ctx context.Context) error {
 		return err
 	}
 	s.writeChan = make(chan *metrics.EventMetrics, s.c.GetMetricsBufferSize())
+
+	// Generate the desired columns either with 'labels' by default
+	// or select 'labels' based on the label_to_column fields
+	s.columns = generateColumns(s.c.GetLabelToColumn())
 
 	// Start a goroutine to run forever, polling on the writeChan. Allows
 	// for the surfacer to write asynchronously to the serial port.
@@ -261,4 +277,35 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	default:
 		s.l.Errorf("Surfacer's write channel is full, dropping new data.")
 	}
+}
+
+// generateValues generates column values or places NULL
+// in the event label/value does not exist
+func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []interface{} {
+	var args []interface{}
+
+	for _, v := range ltc {
+		if val, ok := labels[v.GetLabel()]; ok {
+			args = append(args, val)
+		} else {
+			args = append(args, sql.NullByte{})
+		}
+	}
+
+	return args
+}
+
+// generateValues generates column values or places NULL
+// in the event label/value does not exist
+func generateColumns(ltc []*configpb.LabelToColumn) []string {
+	var columns []string
+	if len(ltc) > 0 {
+		columns = append([]string{"time", "metric_name", "value"}, make([]string, len(ltc))...)
+		for i, v := range ltc {
+			columns[i+3] = v.GetColumn()
+		}
+	} else {
+		columns = []string{"time", "metric_name", "value", "labels"}
+	}
+	return columns
 }

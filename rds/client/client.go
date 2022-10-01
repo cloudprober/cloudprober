@@ -101,7 +101,8 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 	// If server doesn't support caching, response's last_modified will be 0 and
 	// we'll skip the following block.
 	if response.GetLastModified() != 0 && response.GetLastModified() <= client.lastModified {
-		client.l.Infof("rds_client: Not refreshing state. Local last-modified: %d, response's last-modified: %d.", client.lastModified, response.GetLastModified())
+		// Once we figure out logs throttling story, change this to Info log.
+		client.l.Debugf("rds_client: Not refreshing state. Local last-modified: %d, response's last-modified: %d.", client.lastModified, response.GetLastModified())
 		return
 	}
 
@@ -148,9 +149,16 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
 	}
 
-	ip := net.ParseIP(cr.ip)
+	var ip net.IP
+	var err error
+	if strings.Contains(cr.ip, "/") {
+		ip, _, err = net.ParseCIDR(cr.ip)
+	} else {
+		ip = net.ParseIP(cr.ip)
+	}
+
 	// If not a valid IP, use DNS resolver to resolve it.
-	if ip == nil {
+	if err != nil || ip == nil {
 		return client.resolver.Resolve(cr.ip, ipVer)
 	}
 
