@@ -3,6 +3,7 @@ package proto
 import (
 	"github.com/cloudprober/cloudprober/validators/http/proto"
 	proto_1 "github.com/cloudprober/cloudprober/validators/integrity/proto"
+	proto_5 "github.com/cloudprober/cloudprober/validators/json/proto"
 )
 
 #Validator: {
@@ -12,6 +13,9 @@ import (
 	} | {
 		// Data integrity validator
 		integrityValidator: proto_1.#Validator @protobuf(3,integrity.Validator,name=integrity_validator)
+	} | {
+		// JSON validator
+		jsonValidator: proto_5.#Validator @protobuf(5,json.Validator,name=json_validator)
 	} | {
 		// Regex validator
 		regex: string @protobuf(4,string)

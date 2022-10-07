@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package cloudprober.validators.json;
+
+option go_package = "github.com/cloudprober/cloudprober/validators/json/proto";
+
+// JSON validator configuration.
+message Validator {
+  // If jq filter is specified, validator passes only applying jq_filter to the
+  // probe output, e.g. HTTP API response, results in a truthy value.
+  optional string jq_filter = 1;
+}
