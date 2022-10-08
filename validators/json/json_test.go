@@ -38,10 +38,10 @@ var testInput = `
       "state": "sell_only"
     },
     {
-	  "active": true,
-	  "id": "6f2afc33",
-	  "state": "sell_only"
-	}
+      "active": true,
+      "id": "6f2afc33",
+      "state": "sell_only"
+    }
   ]
 }
 `
