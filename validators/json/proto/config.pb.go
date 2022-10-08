@@ -26,8 +26,10 @@ type Validator struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// If jq filter is specified, validator passes only applying jq_filter to the
-	// probe output, e.g. HTTP API response, results in a truthy value.
+	// If jq filter is specified, validator passes only if applying jq_filter to
+	// the probe output, e.g. HTTP API response, results in 'true' boolean.
+	// See the following test file for some examples:
+	// https://github.com/cloudprober/cloudprober/blob/master/validators/json/json_test.go
 	JqFilter *string `protobuf:"bytes,1,opt,name=jq_filter,json=jqFilter" json:"jq_filter,omitempty"`
 }
 
