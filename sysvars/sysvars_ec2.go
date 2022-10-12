@@ -20,32 +20,40 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/cloudprober/cloudprober/logger"
 )
 
+// loadAWSConfig will evaluate if we should apply retries or not to the AWS config
+func loadAWSConfig(ctx context.Context, tryHard bool) (aws.Config, error) {
+	retryMaxAttempts := 3
+
+	// if we are not trying hard, then we can disable any retries
+	if !tryHard {
+		retryMaxAttempts = 0
+	}
+
+	return config.LoadDefaultConfig(ctx, config.WithRetryMaxAttempts(retryMaxAttempts))
+}
+
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
 	ctx := context.Background()
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRetryer(func() aws.Retryer {
-		if !tryHard {
-			return retry.AddWithMaxAttempts(retry.NewStandard(), 1)
-		}
-		return nil
-	}))
+
+	// if we are not trying hard, then we can apply a strict timeout on the AWS API calls
+	if !tryHard {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
+	}
+
+	cfg, err := loadAWSConfig(ctx, tryHard)
 	if err != nil {
 		l.Warningf("sysvars_ec2: failed to load default config: %v", err)
 		return false, nil
 	}
 
 	client := imds.NewFromConfig(cfg)
-
-	if !tryHard {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
-		defer cancel()
-	}
 
 	id, err := client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 	// the premise behind the error handling here, is that we want to evaluate if we are running in ec2 or not.
