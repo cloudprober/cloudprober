@@ -45,8 +45,10 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/lameduck"
 	"github.com/golang/glog"
+	"github.com/google/go-cpy/cpy"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
@@ -59,8 +61,8 @@ type Prober struct {
 	ldLister  endpoint.Lister
 	Surfacers []*surfacers.SurfacerInfo
 
-	// Probe channel to handle starting of the new probes.
-	grpcStartProbeCh chan string
+	// Context to use when starting probes
+	probeStartContext context.Context
 
 	// Per-probe cancelFunc map.
 	probeCancelFunc map[string]context.CancelFunc
@@ -118,6 +120,18 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 	return nil
 }
 
+func (pr *Prober) removeProbe(name string) error {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	if pr.Probes[name] == nil {
+		return status.Errorf(codes.NotFound, "removeProbe called for non-existent probe: %s", name)
+	}
+	pr._stopProbeWithNoLock(name)
+	delete(pr.Probes, name)
+	return nil
+}
+
 // Init initialize prober with the given config file.
 func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) error {
 	pr.c = cfg
@@ -126,7 +140,6 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	// Initialize cloudprober gRPC service if configured.
 	srv := runconfig.DefaultGRPCServer()
 	if srv != nil {
-		pr.grpcStartProbeCh = make(chan string)
 		spb.RegisterCloudproberServer(srv, pr)
 	}
 
@@ -167,7 +180,6 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 			pr.l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
 		}
 	}
-
 	var err error
 
 	// Initialize shared targets
@@ -204,6 +216,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 
 // Start starts a previously initialized Cloudprober.
 func (pr *Prober) Start(ctx context.Context) {
+	pr.probeStartContext = ctx
 	pr.dataChan = make(chan *metrics.EventMetrics, 100000)
 
 	go func() {
@@ -241,29 +254,77 @@ func (pr *Prober) Start(ctx context.Context) {
 	} else {
 		pr.startProbesWithJitter(ctx)
 	}
-	if runconfig.DefaultGRPCServer() != nil {
-		// Start a goroutine to handle starting of the probes added through gRPC.
-		// AddProbe adds new probes to the pr.grpcStartProbeCh channel and this
-		// goroutine reads from that channel and starts the probe using the overall
-		// Start context.
-		go func() {
-			for {
-				select {
-				case name := <-pr.grpcStartProbeCh:
-					pr.startProbe(ctx, name)
-				}
-			}
-		}()
-	}
 }
 
+// Starts a probe without acquiring the lock
+func (pr *Prober) _startProbeWithNoLock(ctx context.Context, name string) {
+	probeCtx, cancelFunc := context.WithCancel(ctx)
+	pr.probeCancelFunc[name] = cancelFunc
+	go pr.Probes[name].Start(probeCtx, pr.dataChan)
+}
 func (pr *Prober) startProbe(ctx context.Context, name string) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
-	probeCtx, cancelFunc := context.WithCancel(ctx)
-	pr.probeCancelFunc[name] = cancelFunc
-	go pr.Probes[name].Start(probeCtx, pr.dataChan)
+	pr._startProbeWithNoLock(ctx, name)
+}
+
+// StartProbe starts a single probe using the initial Prober context
+func (pr *Prober) StartProbe(name string) {
+	pr.startProbe(pr.probeStartContext, name)
+}
+
+// StartAllProbes starts all registered probes using the initial Prober context
+func (pr *Prober) StartAllProbes() {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	for name := range pr.Probes {
+		pr._startProbeWithNoLock(pr.probeStartContext, name)
+	}
+}
+
+// Stops a probe without acquiring the lock
+func (pr *Prober) _stopProbeWithNoLock(name string) {
+	if pr.Probes[name] == nil {
+		pr.l.Criticalf("stopProbe called on non-existent probe: %s", name)
+	}
+	if pr.probeCancelFunc[name] == nil {
+		pr.l.Infof("stopProbe called on not-started probe: %s", name)
+	} else {
+		pr.probeCancelFunc[name]()
+		delete(pr.probeCancelFunc, name)
+	}
+}
+
+// StopProbe stops a probe by name
+func (pr *Prober) StopProbe(name string) {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	pr._stopProbeWithNoLock(name)
+}
+
+// StopAllProbes stops all currently running probes
+func (pr *Prober) StopAllProbes() {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	for name := range pr.Probes {
+		pr._stopProbeWithNoLock(name)
+	}
+}
+
+func (pr *Prober) getProbes() map[string]*probes.ProbeInfo {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	var copier = cpy.New(
+		cpy.Func(proto.Clone),
+		cpy.IgnoreAllUnexported(),
+	)
+	result := copier.Copy(pr.Probes).(map[string]*probes.ProbeInfo)
+	return result
 }
 
 // startProbesWithJitter try to space out probes over time, as much as possible,

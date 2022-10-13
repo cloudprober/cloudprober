@@ -34,10 +34,7 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	if err := pr.addProbe(p); err != nil {
 		return &pb.AddProbeResponse{}, err
 	}
-
-	// Send probe to the start probe channel to be started by a goroutine started
-	// at the prober start time.
-	pr.grpcStartProbeCh <- p.GetName()
+	pr.StartProbe(p.GetName())
 
 	return &pb.AddProbeResponse{}, nil
 }
@@ -45,33 +42,20 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 // RemoveProbe gRPC method cancels the given probe and removes its from the
 // prober's internal database.
 func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (*pb.RemoveProbeResponse, error) {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
 	name := req.GetProbeName()
 
 	if name == "" {
 		return &pb.RemoveProbeResponse{}, status.Errorf(codes.InvalidArgument, "probe name cannot be empty")
 	}
 
-	if pr.Probes[name] == nil {
-		return &pb.RemoveProbeResponse{}, status.Errorf(codes.NotFound, "probe %s not found", name)
-	}
-
-	pr.probeCancelFunc[name]()
-	delete(pr.Probes, name)
-
-	return &pb.RemoveProbeResponse{}, nil
+	return &pb.RemoveProbeResponse{}, pr.removeProbe(name)
 }
 
 // ListProbes gRPC method returns the list of probes from the in-memory database.
 func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*pb.ListProbesResponse, error) {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
 	resp := &pb.ListProbesResponse{}
 
-	for name, p := range pr.Probes {
+	for name, p := range pr.getProbes() {
 		resp.Probe = append(resp.Probe, &pb.Probe{
 			Name:   proto.String(name),
 			Config: p.ProbeDef,
