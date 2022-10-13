@@ -33,20 +33,10 @@ import (
 
 func testProber() *Prober {
 	pr := &Prober{
-		Probes:           make(map[string]*probes.ProbeInfo),
-		probeCancelFunc:  make(map[string]context.CancelFunc),
-		grpcStartProbeCh: make(chan string),
+		Probes:            make(map[string]*probes.ProbeInfo),
+		probeCancelFunc:   make(map[string]context.CancelFunc),
+		probeStartContext: context.Background(),
 	}
-
-	// Start a never-ending loop to clear pr.grpcStartProbeCh channel.
-	go func() {
-		for {
-			select {
-			case name := <-pr.grpcStartProbeCh:
-				pr.startProbe(context.Background(), name)
-			}
-		}
-	}()
 
 	return pr
 }
@@ -79,15 +69,16 @@ func (p *testProbe) Start(ctx context.Context, dataChan chan *metrics.EventMetri
 
 // We use an EXTENSION probe for testing. Following has the same effect as:
 // This has the same effect as using the following in your config:
-// probe {
-//    name: "<name>"
-//    targets {
-//     dummy_targets{}
-//    }
-//    [cloudprober.probes.testdata.fancy_probe] {
-//      name: "fancy"
-//    }
-// }
+//
+//	probe {
+//	   name: "<name>"
+//	   targets {
+//	    dummy_targets{}
+//	   }
+//	   [cloudprober.probes.testdata.fancy_probe] {
+//	     name: "fancy"
+//	   }
+//	}
 func testProbeDef(name string) *probes_configpb.ProbeDef {
 	probeDef := &probes_configpb.ProbeDef{
 		Name: proto.String(name),

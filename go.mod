@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go v1.35.7
 	github.com/golang/glog v1.0.0
 	github.com/golang/protobuf v1.5.2
+	github.com/google/go-cpy v0.0.0-20211218193943-a9c933c06932
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hoisie/redis v0.0.0-20160730154456-b5c6e81454e0
 	github.com/kylelemons/godebug v1.1.0
@@ -36,7 +37,7 @@ require (
 	github.com/envoyproxy/go-control-plane v0.9.9-0.20210217033140-668b12f5399d // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
-	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
