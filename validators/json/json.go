@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package json provides json validator for the Cloudprober's
+// Package json provides JSON validator for the Cloudprober's
 // validator framework.
 package json
 
@@ -30,9 +30,9 @@ type Validator struct {
 	jqQuery *gojq.Query
 }
 
-// Init initializes the regex validator.
-// It compiles the regex in the configuration and returns an error if regex
-// doesn't compile for some reason.
+// Init initializes the JSON validator.
+// It parses the jq filter in the configuration and returns an error if it
+// doesn't parse for some reason.
 func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 	cfg, ok := config.(*configpb.Validator)
 	if !ok {
@@ -51,17 +51,18 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 	return nil
 }
 
-// Validate the provided responseBody and return true if responseBody matches
-// the configured regex.
+// Validate the provided responseBody. If no jq filter is configured, it
+// returns true if responseBody is a valid JSON. If jq filter is configured,
+// validator returns true if jq filter returns true.
 func (v *Validator) Validate(responseBody []byte) (bool, error) {
-	var in interface{}
-	err := json.Unmarshal(responseBody, &in)
+	var input interface{}
+	err := json.Unmarshal(responseBody, &input)
 	if err != nil {
 		return false, err
 	}
 
 	if v.jqQuery != nil {
-		iter := v.jqQuery.Run(in)
+		iter := v.jqQuery.Run(input)
 
 		var lastItem interface{}
 		for {
