@@ -44,7 +44,9 @@ message ProbeConf {
   // we hand over the target and relative_url directly to the golang's HTTP
   // module, Otherwise, we resolve the target first to an IP address and
   // make a request using that while passing target name as Host header.
-  optional bool resolve_first = 4 [default = false];
+  // By default we resolve first if it's a discovered resource, e.g., a k8s
+  // endpoint.
+  optional bool resolve_first = 4;
 
   // Export response (body) count as a metric
   optional bool export_response_as_metrics = 5 [default = false];
