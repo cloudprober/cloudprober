@@ -118,7 +118,7 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 
 	target := endpoint.Endpoint{Name: "test.com"}
 	result := p.newResult()
-	req := p.httpRequestForTarget(target, nil)
+	req := p.httpRequestForTarget(target)
 
 	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 
@@ -267,7 +267,7 @@ func TestProbeWithBody(t *testing.T) {
 
 	// Probe 1st run
 	result := p.newResult()
-	req := p.httpRequestForTarget(target, nil)
+	req := p.httpRequestForTarget(target)
 	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 	got := result.respBodies.String()
 	if got != expected {
@@ -317,7 +317,7 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 
 	// Probe 1st run
 	result := p.newResult()
-	req := p.httpRequestForTarget(target, nil)
+	req := p.httpRequestForTarget(target)
 	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 
 	got := string(tt.lastRequestBody)
@@ -493,7 +493,7 @@ func TestRunProbeWithOAuth(t *testing.T) {
 	}
 	patchWithTestTransport(p)
 
-	req := p.httpRequestForTarget(testTarget, nil)
+	req := p.httpRequestForTarget(testTarget)
 	result := p.newResult()
 
 	var wantSuccess, wantTotal int64
