@@ -205,6 +205,10 @@ func verifyEndpoints(t *testing.T, epList []endpoint.Endpoint, expectedList []*p
 			t.Errorf("Resource port: got=%d, want=%d", epList[i].Port, res.GetPort())
 		}
 
+		if epList[i].IP.String() != parseIP(res.GetIp()).String() {
+			t.Errorf("Resource IP: got=%s, want=%s", epList[i].IP.String(), res.GetIp())
+		}
+
 		if !reflect.DeepEqual(epList[i].Labels, res.GetLabels()) {
 			t.Errorf("Resource labels: got=%v, want=%v", epList[i].Labels, res.GetLabels())
 		}

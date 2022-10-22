@@ -17,6 +17,7 @@
 package endpoint
 
 import (
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ type Endpoint struct {
 	Labels      map[string]string
 	LastUpdated time.Time
 	Port        int
+	IP          net.IP
 }
 
 // Key returns a string key that uniquely identifies that endpoint.
