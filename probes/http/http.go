@@ -480,7 +480,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	var runCnt int64
 
 	result := p.newResult()
-	req := p.httpRequestForTarget(target, nil)
+	req := p.httpRequestForTarget(target)
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
 
@@ -505,7 +505,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 			// If we are resolving first, this is also a good time to recreate HTTP
 			// request in case target's IP has changed.
 			if p.c.GetResolveFirst() {
-				req = p.httpRequestForTarget(target, nil)
+				req = p.httpRequestForTarget(target)
 			}
 		}
 	}
