@@ -17,6 +17,7 @@ package sysvars
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -25,7 +26,8 @@ import (
 )
 
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
-	ctx := context.Background()
+	ctx, cancel := createContext(tryHard)
+	defer cancel()
 
 	client, err := createAWSIMDSClient(ctx, tryHard)
 	if err != nil {
@@ -37,7 +39,6 @@ var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (b
 	// The premise behind the error handling here, is that we want to evaluate
 	// if we are running in ec2 or not.
 	if err != nil {
-		sysVars["EC2_METADATA_Available"] = "false"
 		return false, fmt.Errorf("sysvars_ec2: could not get instance identity document %v", err)
 	}
 
@@ -54,6 +55,16 @@ var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (b
 	return true, nil
 }
 
+// createContext will create a new context, and if tryHard is false then
+// use a shorter timeout
+func createContext(tryHard bool) (context.Context, context.CancelFunc) {
+	if !tryHard {
+		return context.WithTimeout(context.Background(), time.Millisecond*100)
+	}
+
+	return context.WithCancel(context.Background())
+}
+
 // createAWSIMDSClient creates a new IMDS client, with retries enabled if tryHard is true,
 // and retries disabled if tryHard is false
 func createAWSIMDSClient(ctx context.Context, tryHard bool) (*imds.Client, error) {
@@ -65,7 +76,8 @@ func createAWSIMDSClient(ctx context.Context, tryHard bool) (*imds.Client, error
 	return imds.NewFromConfig(cfg), nil
 }
 
-// loadAWSConfig will evaluate if we should apply retries or not to the AWS config
+// loadAWSConfig will overwrite the default retryer with a nopretryer if tryHard
+// is false
 // https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/retries-timeouts/
 func loadAWSConfig(ctx context.Context, tryHard bool) (aws.Config, error) {
 	if !tryHard {

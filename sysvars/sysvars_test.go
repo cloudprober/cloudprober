@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 )
@@ -117,6 +118,40 @@ func TestInitCloudMetadata(t *testing.T) {
 			}
 			if !reflect.DeepEqual(sysVars, test.expected) {
 				t.Errorf("sysVars=%v, expected=%v", sysVars, test.expected)
+			}
+		})
+	}
+}
+
+func TestCreateContext(t *testing.T) {
+	tests := map[string]struct {
+		tryHard        bool
+		timeoutOptions struct {
+			timeoutAvailable bool
+			timeoutDuration  time.Duration // the time in which the timeout should occur
+		}
+	}{
+		"notTryingHard": {false, struct {
+			timeoutAvailable bool
+			timeoutDuration  time.Duration
+		}{true, time.Second * 1}},
+		"tryingHard": {true, struct {
+			timeoutAvailable bool
+			timeoutDuration  time.Duration
+		}{false, time.Millisecond * 0}},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := createContext(tc.tryHard)
+			defer cancel()
+
+			if tc.timeoutOptions.timeoutAvailable {
+				select {
+				case <-ctx.Done():
+				case <-time.After(tc.timeoutOptions.timeoutDuration):
+					t.Errorf("timeout did not occur in: %s", tc.timeoutOptions.timeoutDuration)
+				}
 			}
 		})
 	}
