@@ -15,7 +15,6 @@
 package sysvars
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -117,30 +116,6 @@ func TestInitCloudMetadata(t *testing.T) {
 			}
 			if !reflect.DeepEqual(sysVars, test.expected) {
 				t.Errorf("sysVars=%v, expected=%v", sysVars, test.expected)
-			}
-		})
-	}
-}
-
-func TestLoadAWSConfig(t *testing.T) {
-	tests := map[string]struct {
-		tryHard       bool
-		retryAttempts int
-	}{
-		"notTryingHard": {false, 0},
-		"tryingHard":    {true, 3},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			ctx := context.Background()
-			cfg, err := loadAWSConfig(ctx, tc.tryHard)
-			if err != nil {
-				t.Error(err)
-			}
-
-			if cfg.RetryMaxAttempts != tc.retryAttempts {
-				t.Errorf("tryHard: %t, expected: %d, received: %d", tc.tryHard, tc.retryAttempts, cfg.RetryMaxAttempts)
 			}
 		})
 	}

@@ -17,7 +17,6 @@ package sysvars
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -25,32 +24,14 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-// loadAWSConfig will evaluate if we should apply retries or not to the AWS config
-func loadAWSConfig(ctx context.Context, tryHard bool) (aws.Config, error) {
-	if !tryHard {
-		return config.LoadDefaultConfig(ctx, config.WithRetryMaxAttempts(0))
-	}
-
-	return config.LoadDefaultConfig(ctx)
-}
-
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
 	ctx := context.Background()
 
-	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
-	if !tryHard {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
-		defer cancel()
-	}
-
-	cfg, err := loadAWSConfig(ctx, tryHard)
+	client, err := createAWSIMDSClient(ctx, tryHard)
 	if err != nil {
-		l.Warningf("sysvars_ec2: failed to load default config: %v", err)
-		return false, nil
+		l.Warningf("sysvars_ec2: could not create AWS session: %v", err)
+		return false, err
 	}
-
-	client := imds.NewFromConfig(cfg)
 
 	id, err := client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 	// The premise behind the error handling here, is that we want to evaluate
@@ -71,4 +52,27 @@ var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (b
 	sysVars["EC2_RamdiskID"] = id.RamdiskID
 	sysVars["EC2_Architecture"] = id.Architecture
 	return true, nil
+}
+
+// createAWSIMDSClient creates a new IMDS client, with retries enabled if tryHard is true,
+// and retries disabled if tryHard is false
+func createAWSIMDSClient(ctx context.Context, tryHard bool) (*imds.Client, error) {
+	cfg, err := loadAWSConfig(ctx, tryHard)
+	if err != nil {
+		return nil, err
+	}
+
+	return imds.NewFromConfig(cfg), nil
+}
+
+// loadAWSConfig will evaluate if we should apply retries or not to the AWS config
+// https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/retries-timeouts/
+func loadAWSConfig(ctx context.Context, tryHard bool) (aws.Config, error) {
+	if !tryHard {
+		return config.LoadDefaultConfig(ctx, config.WithRetryer(func() aws.Retryer {
+			return aws.NopRetryer{}
+		}))
+	}
+
+	return config.LoadDefaultConfig(ctx)
 }
