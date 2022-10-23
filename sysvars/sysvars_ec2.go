@@ -27,20 +27,17 @@ import (
 
 // loadAWSConfig will evaluate if we should apply retries or not to the AWS config
 func loadAWSConfig(ctx context.Context, tryHard bool) (aws.Config, error) {
-	retryMaxAttempts := 3
-
-	// if we are not trying hard, then we can disable any retries
 	if !tryHard {
-		retryMaxAttempts = 0
+		return config.LoadDefaultConfig(ctx, config.WithRetryMaxAttempts(0))
 	}
 
-	return config.LoadDefaultConfig(ctx, config.WithRetryMaxAttempts(retryMaxAttempts))
+	return config.LoadDefaultConfig(ctx)
 }
 
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
 	ctx := context.Background()
 
-	// if we are not trying hard, then we can apply a strict timeout on the AWS API calls
+	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
 	if !tryHard {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
@@ -56,7 +53,8 @@ var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (b
 	client := imds.NewFromConfig(cfg)
 
 	id, err := client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
-	// the premise behind the error handling here, is that we want to evaluate if we are running in ec2 or not.
+	// The premise behind the error handling here, is that we want to evaluate
+	// if we are running in ec2 or not.
 	if err != nil {
 		sysVars["EC2_METADATA_Available"] = "false"
 		return false, fmt.Errorf("sysvars_ec2: could not get instance identity document %v", err)
