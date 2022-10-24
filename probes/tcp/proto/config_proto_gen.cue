@@ -8,8 +8,10 @@ package proto
 
 	// Whether to resolve the target before making the request. If set to false,
 	// we hand over the target golang's net.Dial module, Otherwise, we resolve
-	// the target first to an IP address and make a request using that.
-	resolveFirst?: bool @protobuf(2,bool,name=resolve_first,"default=false")
+	// the target first to an IP address and make a request using that. By
+	// default we resolve first if it's a discovered resource, e.g., a k8s
+	// endpoint.
+	resolveFirst?: bool @protobuf(2,bool,name=resolve_first)
 
 	// Interval between targets.
 	intervalBetweenTargetsMsec?: int32 @protobuf(3,int32,name=interval_between_targets_msec,"default=10")

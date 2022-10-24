@@ -125,10 +125,17 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 
 	host := target.Name
 	ipLabel := ""
-	if p.c.GetResolveFirst() {
-		ip, err := p.opts.Targets.Resolve(host, p.opts.IPVersion)
+
+	resolveFirst := false
+	if p.c.ResolveFirst != nil {
+		resolveFirst = p.c.GetResolveFirst()
+	} else {
+		resolveFirst = target.IP != nil
+	}
+	if resolveFirst {
+		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
-			p.l.Error("target: ", host, ", resolve error: ", err.Error())
+			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
 			return
 		}
 		host = ip.String()

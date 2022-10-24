@@ -12,8 +12,10 @@ message ProbeConf {
 
   // Whether to resolve the target before making the request. If set to false,
   // we hand over the target golang's net.Dial module, Otherwise, we resolve
-  // the target first to an IP address and make a request using that.
-  optional bool resolve_first = 2 [default = false];
+  // the target first to an IP address and make a request using that. By
+  // default we resolve first if it's a discovered resource, e.g., a k8s
+  // endpoint.
+  optional bool resolve_first = 2;
 
   // Interval between targets.
   optional int32 interval_between_targets_msec = 3 [default = 10];
