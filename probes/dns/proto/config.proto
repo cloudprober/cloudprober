@@ -59,8 +59,10 @@ message ProbeConf {
   // if DNS response status is NOERROR.
   optional uint32 min_answers = 4 [default = 0];
 
-  // Whether to resolve the target before making the request. If set to false,
-  // we hand over the target directly to the DNS client. Otherwise, we resolve
-  // the target first to an IP address.
-  optional bool resolve_first = 5 [default = false];
+  // Whether to resolve the target (target is DNS server here) before making
+  // the request. If set to false, we hand over the target directly to the DNS
+  // client. Otherwise, we resolve the target first to an IP address.  By
+  // default we resolve first if it's a discovered resource, e.g., a k8s
+  // endpoint.
+  optional bool resolve_first = 5;
 }

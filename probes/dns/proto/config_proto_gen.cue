@@ -96,8 +96,10 @@ package proto
 	// if DNS response status is NOERROR.
 	minAnswers?: uint32 @protobuf(4,uint32,name=min_answers,"default=0")
 
-	// Whether to resolve the target before making the request. If set to false,
-	// we hand over the target directly to the DNS client. Otherwise, we resolve
-	// the target first to an IP address.
-	resolveFirst?: bool @protobuf(5,bool,name=resolve_first,"default=false")
+	// Whether to resolve the target (target is DNS server here) before making
+	// the request. If set to false, we hand over the target directly to the DNS
+	// client. Otherwise, we resolve the target first to an IP address.  By
+	// default we resolve first if it's a discovered resource, e.g., a k8s
+	// endpoint.
+	resolveFirst?: bool @protobuf(5,bool,name=resolve_first)
 }

@@ -192,12 +192,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	return true
 }
 
-// resolveFunc resolves the given host for the IP version.
-// This type is mainly used for testing. For all other cases, a nil function
-// should be passed to the runProbe function.
-type resolveFunc func(host string, ipVer int) (net.IP, error)
-
-func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF resolveFunc) {
+func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 	// Refresh the list of targets to probe.
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -230,11 +225,15 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF re
 
 			ipLabel := ""
 			fullTarget := net.JoinHostPort(target.Name, strconv.Itoa(port))
-			if p.c.GetResolveFirst() {
-				if resolveF == nil {
-					resolveF = p.opts.Targets.Resolve
-				}
-				ip, err := resolveF(target.Name, p.opts.IPVersion)
+
+			resolveFirst := false
+			if p.c.ResolveFirst != nil {
+				resolveFirst = p.c.GetResolveFirst()
+			} else {
+				resolveFirst = target.IP != nil
+			}
+			if resolveFirst {
+				ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 				if err != nil {
 					p.l.Warningf("Target(%s): Resolve error: %v", target.Name, err)
 					resultsChan <- result
@@ -295,6 +294,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			return
 		default:
 		}
-		p.runProbe(resultsChan, nil)
+		p.runProbe(resultsChan)
 	}
 }
