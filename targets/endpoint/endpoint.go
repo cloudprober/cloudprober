@@ -17,11 +17,14 @@
 package endpoint
 
 import (
+	"fmt"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cloudprober/cloudprober/common/iputils"
 )
 
 // Endpoint represents a targets and associated parameters.
@@ -53,6 +56,12 @@ type Lister interface {
 	ListEndpoints() []Endpoint
 }
 
+type Resolver interface {
+	// Resolve, given a target and IP Version will return the IP address for that
+	// target.
+	Resolve(name string, ipVer int) (net.IP, error)
+}
+
 // EndpointsFromNames is convenience function to build a list of endpoints
 // from only names. It leaves the Port field in Endpoint unset and initializes
 // Labels field to an empty map.
@@ -63,6 +72,20 @@ func EndpointsFromNames(names []string) []Endpoint {
 		result[i].Labels = make(map[string]string)
 	}
 	return result
+}
+
+// Key returns a string key that uniquely identifies that endpoint.
+// Endpoint key consists of endpoint name, port and labels.
+func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver) (net.IP, error) {
+	if ep.IP != nil {
+		if ipVersion == 0 || iputils.IPVersion(ep.IP) == ipVersion {
+			return ep.IP, nil
+		}
+
+		return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s", ipVersion, ep.IP.String(), ep.Name)
+	}
+
+	return resolver.Resolve(ep.Name, ipVersion)
 }
 
 // NamesFromEndpoints is convenience function to build a list of names
