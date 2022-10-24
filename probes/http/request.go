@@ -17,11 +17,9 @@ package http
 import (
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 
-	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
@@ -85,18 +83,6 @@ func relURLForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
-func (p *Probe) resolveTarget(target endpoint.Endpoint) (net.IP, error) {
-	if target.IP != nil {
-		if p.opts.IPVersion == 0 || iputils.IPVersion(target.IP) == p.opts.IPVersion {
-			return target.IP, nil
-		}
-
-		return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s", p.opts.IPVersion, target.IP.String(), target.Name)
-	}
-
-	return p.opts.Targets.Resolve(target.Name, p.opts.IPVersion)
-}
-
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
@@ -115,7 +101,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 		resolveFirst = target.IP != nil
 	}
 	if resolveFirst {
-		ip, err := p.resolveTarget(target)
+		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
 			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
 			return nil
