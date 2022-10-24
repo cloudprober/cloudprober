@@ -25,6 +25,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/validators"
 	validatorpb "github.com/cloudprober/cloudprober/validators/proto"
 	"github.com/golang/protobuf/proto"
@@ -71,12 +72,12 @@ func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Dura
 func (*mockClient) setReadTimeout(time.Duration) {}
 func (*mockClient) setSourceIP(net.IP)           {}
 
-func runProbe(t *testing.T, testName string, p *Probe, resolveF resolveFunc, total, success int64) {
+func runProbe(t *testing.T, testName string, p *Probe, total, success int64) {
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	resultsChan := make(chan statskeeper.ProbeResult, len(p.targets))
-	p.runProbe(resultsChan, resolveF)
+	p.runProbe(resultsChan)
 
 	// The resultsChan output iterates through p.targets in the same order.
 	for _, target := range p.targets {
@@ -104,33 +105,40 @@ func TestRun(t *testing.T) {
 	if err := p.Init("dns_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, "basic", p, nil, 1, 1)
+	runProbe(t, "basic", p, 1, 1)
+}
+
+type testTargets struct {
+	Name string
+	IP   net.IP
+}
+
+func (tt *testTargets) ListEndpoints() []endpoint.Endpoint {
+	return []endpoint.Endpoint{{Name: tt.Name, IP: tt.IP}}
+}
+
+func (tt *testTargets) Resolve(string, int) (net.IP, error) {
+	return nil, nil
 }
 
 func TestResolveFirst(t *testing.T) {
 	p := &Probe{}
 	opts := options.DefaultOptions()
-	opts.Targets = targets.StaticTargets("foo")
+
+	tt := &testTargets{Name: "foo", IP: net.ParseIP("8.8.8.8")}
+	opts.Targets = tt
 	opts.ProbeConf = &configpb.ProbeConf{ResolveFirst: proto.Bool(true)}
 	if err := p.Init("dns_test_resolve_first", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 
 	t.Run("success", func(t *testing.T) {
-		resolveF := func(target string, ipVer int) (net.IP, error) {
-			if target == "foo" {
-				return net.ParseIP("8.8.8.8"), nil
-			}
-			return nil, fmt.Errorf("resolve error")
-		}
-		runProbe(t, "resolve_first_success", p, resolveF, 1, 1)
+		runProbe(t, "resolve_first_success", p, 1, 1)
 	})
 
+	tt.IP = nil
 	t.Run("error", func(t *testing.T) {
-		resolveF := func(target string, ipVer int) (net.IP, error) {
-			return nil, fmt.Errorf("resolve error")
-		}
-		runProbe(t, "resolve_first_error", p, resolveF, 1, 0)
+		runProbe(t, "resolve_first_error", p, 1, 0)
 	})
 }
 
@@ -148,7 +156,7 @@ func TestProbeType(t *testing.T) {
 	if err := p.Init("dns_probe_type_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, "probetype", p, nil, 1, 0)
+	runProbe(t, "probetype", p, 1, 0)
 }
 
 func TestBadName(t *testing.T) {
@@ -164,7 +172,7 @@ func TestBadName(t *testing.T) {
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, "baddomain", p, nil, 1, 0)
+	runProbe(t, "baddomain", p, 1, 0)
 }
 
 func TestAnswerCheck(t *testing.T) {
@@ -181,7 +189,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect success minAnswers == num answers returned == 1.
-	runProbe(t, "matchminanswers", p, nil, 1, 1)
+	runProbe(t, "matchminanswers", p, 1, 1)
 
 	opts.ProbeConf = &configpb.ProbeConf{
 		MinAnswers: proto.Uint32(2),
@@ -190,7 +198,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect failure because only one answer returned and two wanted.
-	runProbe(t, "toofewanswers", p, nil, 1, 0)
+	runProbe(t, "toofewanswers", p, 1, 0)
 }
 
 func TestValidator(t *testing.T) {
@@ -223,6 +231,6 @@ func TestValidator(t *testing.T) {
 		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
 			t.Fatalf("Error creating probe: %v", err)
 		}
-		runProbe(t, tst.name, p, nil, 1, tst.successCt)
+		runProbe(t, tst.name, p, 1, tst.successCt)
 	}
 }

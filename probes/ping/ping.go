@@ -216,7 +216,7 @@ func (p *Probe) updateTargets() {
 		// Update results map:
 		p.updateResultForTarget(target.Name)
 
-		ip, err := p.opts.Targets.Resolve(target.Name, p.ipVer)
+		ip, err := target.Resolve(p.ipVer, p.opts.Targets)
 		if err != nil {
 			p.l.Warning("Bad target: ", target.Name, ". Err: ", err.Error())
 			p.target2addr[target.Name] = nil

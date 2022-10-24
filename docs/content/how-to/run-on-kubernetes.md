@@ -1,9 +1,9 @@
 ---
 menu:
-    main:
-        parent: "How-Tos"
-        weight: 20
-title: "Running On Kubernetes"
+  main:
+    parent: 'How-Tos'
+    weight: 20
+title: 'Running On Kubernetes'
 date: 2019-10-08T17:24:32-07:00
 ---
 
@@ -11,7 +11,7 @@ Kubernetes is a popular platform for running containers, and Cloudprober contain
 
 ## ConfigMap
 
-In Kubernetes, a convenient way to provide config to containers is to use config maps.  Let's create a config that specifies a probe to monitor "google.com".
+In Kubernetes, a convenient way to provide config to containers is to use config maps. Let's create a config that specifies a probe to monitor "google.com".
 
 ```bash
 probe {
@@ -41,7 +41,6 @@ kubectl create configmap cloudprober-config \
   kubectl replace -f -
 ```
 
-
 ## Deployment Map
 
 Now let's add a `deployment.yaml` to add the config volume and cloudprober container:
@@ -59,28 +58,25 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: "${CONFIG_CHECKSUM}"
+        checksum/config: '${CONFIG_CHECKSUM}'
       labels:
         app: cloudprober
     spec:
       volumes:
-      - name: cloudprober-config
-        configMap:
-          name: cloudprober-config
-      containers:
-      - name: cloudprober
-        image: cloudprober/cloudprober
-        command: ["/cloudprober"]
-        args: [
-          "--config_file","/cfg/cloudprober.cfg",
-          "--logtostderr"
-        ]
-        volumeMounts:
         - name: cloudprober-config
-          mountPath: /cfg
-        ports:
-        - name: http
-          containerPort: 9313
+          configMap:
+            name: cloudprober-config
+      containers:
+        - name: cloudprober
+          image: cloudprober/cloudprober
+          command: ['/cloudprober']
+          args: ['--config_file', '/cfg/cloudprober.cfg', '--logtostderr']
+          volumeMounts:
+            - name: cloudprober-config
+              mountPath: /cfg
+          ports:
+            - name: http
+              containerPort: 9313
 ---
 apiVersion: v1
 kind: Service
@@ -90,9 +86,9 @@ metadata:
     app: cloudprober
 spec:
   ports:
-  - port: 9313
-    protocol: TCP
-    targetPort: 9313
+    - port: 9313
+      protocol: TCP
+      targetPort: 9313
   selector:
     app: cloudprober
   type: NodePort
@@ -129,8 +125,6 @@ kubectl port-forward svc/cloudprober 9313:9313
 
 Once you've verified that everything is working as expected, you can go on setting up metrics collection through prometheus (or stackdriver) in usual ways.
 
-
-
 ## Kubernetes Targets
 
 If you're running on Kuberenetes, you'd probably want to monitor Kubernetes resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober supports dynamic [targets discovery](/concepts/targets/) of Kubernetes resources.
@@ -149,9 +143,8 @@ probe {
       resource_path: "k8s://endpoints/cloudprober"
     }
   }
-  
+
   http_probe {
-    resolve_first: true
     relative_url: "/status"
   }
 }
@@ -172,7 +165,7 @@ This config adds a probe for endpoints named 'cloudprober'. Kubernetes targets c
 
 ### Kubernetes RDS Targets
 
-As explained [here](/concepts/targets/#resource-discovery-service), cloudprober uses RDS for dynamic targets discovery. In the above config, we add an internal RDS server that provides expansion for kubernetes `endpoints` (other supported types are -- _pods_, _services_).  Inside the probe, we specify targets of the type [rds_targets](/concepts/targets/#resource-discovery-service) with resource path, `k8s://endpoints/cloudprober`. This resource path specifies resource of the type 'endpoints' and with the name 'cloudprober' (Hint: you can skip the name part of the resource path to discover all endpoints in the cluster).
+As explained [here](/concepts/targets/#resource-discovery-service), cloudprober uses RDS for dynamic targets discovery. In the above config, we add an internal RDS server that provides expansion for kubernetes `endpoints` (other supported types are -- _pods_, _services_). Inside the probe, we specify targets of the type [rds_targets](/concepts/targets/#resource-discovery-service) with resource path, `k8s://endpoints/cloudprober`. This resource path specifies resource of the type 'endpoints' and with the name 'cloudprober' (Hint: you can skip the name part of the resource path to discover all endpoints in the cluster).
 
 ### Cluster Resources Access
 
