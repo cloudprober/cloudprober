@@ -407,7 +407,7 @@
 
 			<p>Kubernetes is a popular platform for running containers, and Cloudprober container runs on Kubernetes right out of the box. This document shows how you can use config map to provide config to cloudprober and reload cloudprober on config changes.</p>
 <h2 id="configmap">ConfigMap</h2>
-<p>In Kubernetes, a convenient way to provide config to containers is to use config maps.  Let's create a config that specifies a probe to monitor &ldquo;google.com&rdquo;.</p>
+<p>In Kubernetes, a convenient way to provide config to containers is to use config maps. Let's create a config that specifies a probe to monitor &ldquo;google.com&rdquo;.</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
   name: <span class="s2">&#34;google-http&#34;</span>
   type: HTTP
@@ -439,28 +439,25 @@
 </span><span class="w">  </span>template<span class="p">:</span><span class="w">
 </span><span class="w">    </span>metadata<span class="p">:</span><span class="w">
 </span><span class="w">      </span>annotations<span class="p">:</span><span class="w">
-</span><span class="w">        </span>checksum/config<span class="p">:</span><span class="w"> </span><span class="s2">&#34;${CONFIG_CHECKSUM}&#34;</span><span class="w">
+</span><span class="w">        </span>checksum/config<span class="p">:</span><span class="w"> </span><span class="s1">&#39;${CONFIG_CHECKSUM}&#39;</span><span class="w">
 </span><span class="w">      </span>labels<span class="p">:</span><span class="w">
 </span><span class="w">        </span>app<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
 </span><span class="w">    </span>spec<span class="p">:</span><span class="w">
 </span><span class="w">      </span>volumes<span class="p">:</span><span class="w">
-</span><span class="w">      </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>cloudprober-config<span class="w">
-</span><span class="w">        </span>configMap<span class="p">:</span><span class="w">
-</span><span class="w">          </span>name<span class="p">:</span><span class="w"> </span>cloudprober-config<span class="w">
-</span><span class="w">      </span>containers<span class="p">:</span><span class="w">
-</span><span class="w">      </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
-</span><span class="w">        </span>image<span class="p">:</span><span class="w"> </span>cloudprober/cloudprober<span class="w">
-</span><span class="w">        </span>command<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;/cloudprober&#34;</span><span class="p">]</span><span class="w">
-</span><span class="w">        </span>args<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
-</span><span class="w">          </span><span class="s2">&#34;--config_file&#34;</span><span class="p">,</span><span class="s2">&#34;/cfg/cloudprober.cfg&#34;</span><span class="p">,</span><span class="w">
-</span><span class="w">          </span><span class="s2">&#34;--logtostderr&#34;</span><span class="w">
-</span><span class="w">        </span><span class="p">]</span><span class="w">
-</span><span class="w">        </span>volumeMounts<span class="p">:</span><span class="w">
 </span><span class="w">        </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>cloudprober-config<span class="w">
-</span><span class="w">          </span>mountPath<span class="p">:</span><span class="w"> </span>/cfg<span class="w">
-</span><span class="w">        </span>ports<span class="p">:</span><span class="w">
-</span><span class="w">        </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>http<span class="w">
-</span><span class="w">          </span>containerPort<span class="p">:</span><span class="w"> </span><span class="m">9313</span><span class="w">
+</span><span class="w">          </span>configMap<span class="p">:</span><span class="w">
+</span><span class="w">            </span>name<span class="p">:</span><span class="w"> </span>cloudprober-config<span class="w">
+</span><span class="w">      </span>containers<span class="p">:</span><span class="w">
+</span><span class="w">        </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
+</span><span class="w">          </span>image<span class="p">:</span><span class="w"> </span>cloudprober/cloudprober<span class="w">
+</span><span class="w">          </span>command<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;/cloudprober&#39;</span><span class="p">]</span><span class="w">
+</span><span class="w">          </span>args<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;--config_file&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;/cfg/cloudprober.cfg&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;--logtostderr&#39;</span><span class="p">]</span><span class="w">
+</span><span class="w">          </span>volumeMounts<span class="p">:</span><span class="w">
+</span><span class="w">            </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>cloudprober-config<span class="w">
+</span><span class="w">              </span>mountPath<span class="p">:</span><span class="w"> </span>/cfg<span class="w">
+</span><span class="w">          </span>ports<span class="p">:</span><span class="w">
+</span><span class="w">            </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>http<span class="w">
+</span><span class="w">              </span>containerPort<span class="p">:</span><span class="w"> </span><span class="m">9313</span><span class="w">
 </span><span class="w"></span>---<span class="w">
 </span><span class="w"></span>apiVersion<span class="p">:</span><span class="w"> </span>v1<span class="w">
 </span><span class="w"></span>kind<span class="p">:</span><span class="w"> </span>Service<span class="w">
@@ -470,9 +467,9 @@
 </span><span class="w">    </span>app<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
 </span><span class="w"></span>spec<span class="p">:</span><span class="w">
 </span><span class="w">  </span>ports<span class="p">:</span><span class="w">
-</span><span class="w">  </span>-<span class="w"> </span>port<span class="p">:</span><span class="w"> </span><span class="m">9313</span><span class="w">
-</span><span class="w">    </span>protocol<span class="p">:</span><span class="w"> </span>TCP<span class="w">
-</span><span class="w">    </span>targetPort<span class="p">:</span><span class="w"> </span><span class="m">9313</span><span class="w">
+</span><span class="w">    </span>-<span class="w"> </span>port<span class="p">:</span><span class="w"> </span><span class="m">9313</span><span class="w">
+</span><span class="w">      </span>protocol<span class="p">:</span><span class="w"> </span>TCP<span class="w">
+</span><span class="w">      </span>targetPort<span class="p">:</span><span class="w"> </span><span class="m">9313</span><span class="w">
 </span><span class="w">  </span>selector<span class="p">:</span><span class="w">
 </span><span class="w">    </span>app<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
 </span><span class="w">  </span>type<span class="p">:</span><span class="w"> </span>NodePort<span class="w">
@@ -507,9 +504,8 @@ cloudprober   NodePort   10.31.249.108   &lt;none&gt;        9313:31367/TCP   94
       resource_path: <span class="s2">&#34;k8s://endpoints/cloudprober&#34;</span>
     <span class="o">}</span>
   <span class="o">}</span>
-  
+
   http_probe <span class="o">{</span>
-    resolve_first: <span class="nb">true</span>
     relative_url: <span class="s2">&#34;/status&#34;</span>
   <span class="o">}</span>
 <span class="o">}</span>
@@ -526,7 +522,7 @@ rds_server <span class="o">{</span>
 <span class="o">}</span>
 </code></pre></div><p>This config adds a probe for endpoints named &lsquo;cloudprober&rsquo;. Kubernetes targets configuration is further explained in the section below.</p>
 <h3 id="kubernetes-rds-targets">Kubernetes RDS Targets</h3>
-<p>As explained <a href="https://cloudprober.org/concepts/targets/#resource-discovery-service">here</a>, cloudprober uses RDS for dynamic targets discovery. In the above config, we add an internal RDS server that provides expansion for kubernetes <code>endpoints</code> (other supported types are &ndash; <em>pods</em>, <em>services</em>).  Inside the probe, we specify targets of the type <a href="https://cloudprober.org/concepts/targets/#resource-discovery-service">rds_targets</a> with resource path, <code>k8s://endpoints/cloudprober</code>. This resource path specifies resource of the type &lsquo;endpoints&rsquo; and with the name &lsquo;cloudprober&rsquo; (Hint: you can skip the name part of the resource path to discover all endpoints in the cluster).</p>
+<p>As explained <a href="https://cloudprober.org/concepts/targets/#resource-discovery-service">here</a>, cloudprober uses RDS for dynamic targets discovery. In the above config, we add an internal RDS server that provides expansion for kubernetes <code>endpoints</code> (other supported types are &ndash; <em>pods</em>, <em>services</em>). Inside the probe, we specify targets of the type <a href="https://cloudprober.org/concepts/targets/#resource-discovery-service">rds_targets</a> with resource path, <code>k8s://endpoints/cloudprober</code>. This resource path specifies resource of the type &lsquo;endpoints&rsquo; and with the name &lsquo;cloudprober&rsquo; (Hint: you can skip the name part of the resource path to discover all endpoints in the cluster).</p>
 <h3 id="cluster-resources-access">Cluster Resources Access</h3>
 <p>RDS server that we added above discovers cluster resources using kubernetes APIs. It assumes that we are interested in the cluster we are running it in, and uses in-cluster config to talk to the kubernetes API server. For this set up to work, we need to give our container read-only access to kubernetes resources:</p>
 <div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml"><span class="c"># Define a ClusterRole (resource-reader) for read-only access to the cluster</span><span class="w">
