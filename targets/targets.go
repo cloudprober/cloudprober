@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	rdsclient "github.com/cloudprober/cloudprober/rds/client"
@@ -42,6 +41,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets/gce"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
+	"github.com/golang/protobuf/proto"
 )
 
 // globalResolver is a singleton DNS resolver that is used as the default
@@ -79,13 +79,7 @@ var (
 // instance of Targets will be needed.
 type Targets interface {
 	endpoint.Lister
-	resolver
-}
-
-type resolver interface {
-	// Resolve, given a target and IP Version will return the IP address for that
-	// target.
-	Resolve(name string, ipVer int) (net.IP, error)
+	endpoint.Resolver
 }
 
 // staticLister is a simple list of hosts that does not change. This corresponds
@@ -124,7 +118,7 @@ func (d *dummy) Resolve(name string, ipVer int) (net.IP, error) {
 // is supported.
 type targets struct {
 	lister   endpoint.Lister
-	resolver resolver
+	resolver endpoint.Resolver
 	re       *regexp.Regexp
 	ldLister endpoint.Lister
 	l        *logger.Logger
