@@ -153,6 +153,11 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
+	if config.GetUrl() != "/probestatus" {
+		opts.HTTPServeMux.HandleFunc("/probestatus", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, config.GetUrl(), http.StatusMovedPermanently)
+		})
+	}
 	opts.HTTPServeMux.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
