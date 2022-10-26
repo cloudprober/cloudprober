@@ -44,7 +44,7 @@ func runningConfig() string {
 	var statusBuf bytes.Buffer
 
 	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
-	startTime := sysvars.StartTime()
+	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime)
 
 	tmpl, _ := template.New("runningConfig").Parse(runningConfigTmpl)
@@ -52,7 +52,7 @@ func runningConfig() string {
 		Version, StartTime, Uptime, ProbesStatus, ServersStatus, SurfacersStatus interface{}
 	}{
 		Version:         runconfig.Version(),
-		StartTime:       startTime.Format(time.RFC1123),
+		StartTime:       startTime,
 		Uptime:          uptime.String(),
 		ProbesStatus:    execTmpl(probes.StatusTmpl, probeInfo),
 		SurfacersStatus: execTmpl(surfacers.StatusTmpl, surfacerInfo),
