@@ -1,38 +1,39 @@
 body {
-    font-family: "Roboto", "Helvetica", "Arial", sans-serif;
-    font-size: 14px;
-    line-height: 1.3;
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  line-height: 1.3;
 }
 
 .debugging {
-    font-size: 12px;
+  font-size: 12px;
 }
 
 table.status-list {
-    border-collapse: collapse;
-    border-spacing: 0;
-    margin-top: 10px;
-    margin-bottom: 20px;
-    font-family: monospace;
-    font-size: 14px;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin-top: 10px;
+  margin-bottom: 20px;
+  font-family: monospace;
+  font-size: 14px;
 }
 
 table.status-list td,
 th {
-    border: 1px solid gray;
-    padding: 0.25em 0.5em;
-    max-width: 200px;
+  border: 1px solid gray;
+  padding: 0.25em 0.5em;
+  max-width: 300px;
+  word-wrap: break-word;
 }
 
 pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .graph-options {
-    border-collapse: collapse;
-    border-spacing: 0;
-    font-family: monospace;
-    font-size: 12px;
-    padding: 0.25em 0.5em;
-  }
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 0.25em 0.5em;
+}
