@@ -16,7 +16,7 @@ package web
 
 import "github.com/cloudprober/cloudprober/web/resources"
 
-var statusTmpl = `
+var runningConfigTmpl = `
 <html>
 
 <head>
@@ -25,7 +25,7 @@ var statusTmpl = `
 
 <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
 <b>Version</b>: {{.Version}}<br>
-<b>Other Links</b>: <a href="/config">/config</a>, <a href="/probestatus">/probestatus</a><br>
+<b>Other Links</b>: <a href="/config">/config</a> (<a href="/config-running">running</a>), <a href="/status">/status</a><br>
 
 <h3>Probes:</h3>
 {{.ProbesStatus}}
