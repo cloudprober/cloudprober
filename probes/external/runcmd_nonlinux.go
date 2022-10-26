@@ -21,6 +21,10 @@ import (
 	"os/exec"
 )
 
-func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, error) {
-	return exec.CommandContext(ctx, cmd, args...).Output()
+func (p *Probe) runCommand(ctx context.Context, cmd string, args []string, envVars []string) ([]byte, error) {
+	toRun := exec.CommandContext(ctx, cmd, args...)
+	if len(envVars) > 0 {
+		toRun.Env = append(toRun.Env, envVars...)
+	}
+	return toRun.Output()
 }

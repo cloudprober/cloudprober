@@ -80,6 +80,7 @@ type Probe struct {
 	mode    string
 	cmdName string
 	cmdArgs []string
+	envVars []string
 	opts    *options.Options
 	c       *configpb.ProbeConf
 	l       *logger.Logger
@@ -97,7 +98,7 @@ type Probe struct {
 	dataChan   chan *metrics.EventMetrics
 
 	// This is used for overriding run command logic for testing.
-	runCommandFunc func(ctx context.Context, cmd string, args []string) ([]byte, error)
+	runCommandFunc func(ctx context.Context, cmd string, args []string, envVars []string) ([]byte, error)
 
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
@@ -145,6 +146,18 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.cmdName = cmdParts[0]
 	p.cmdArgs = cmdParts[1:]
+
+	for _, envVar := range p.c.GetEnvVars() {
+		if envVar.GetName() == "" {
+			return fmt.Errorf("error parsing Env Vars (%s)", p.c.GetEnvVars())
+		}
+		val := "1" // default to a truthy value
+		if envVar.GetValue() != "" {
+			val = envVar.GetValue()
+		}
+
+		p.envVars = append(p.envVars, fmt.Sprintf("%s=%s", envVar.GetName(), val))
+	}
 
 	// Figure out labels we are interested in
 	p.updateLabelKeys()
@@ -271,6 +284,9 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	}
 	if p.cmdStderr, err = cmd.StderrPipe(); err != nil {
 		return err
+	}
+	if len(p.envVars) > 0 {
+		cmd.Env = append(cmd.Env, p.envVars...)
 	}
 
 	go func() {
@@ -562,9 +578,9 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			var b []byte
 			var err error
 			if p.runCommandFunc != nil {
-				b, err = p.runCommandFunc(ctx, p.cmdName, args)
+				b, err = p.runCommandFunc(ctx, p.cmdName, args, p.envVars)
 			} else {
-				b, err = p.runCommand(ctx, p.cmdName, args)
+				b, err = p.runCommand(ctx, p.cmdName, args, p.envVars)
 			}
 
 			success := true
