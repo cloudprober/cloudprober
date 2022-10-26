@@ -117,21 +117,21 @@ func TestDisabledAndHandlers(t *testing.T) {
 			desc:     "disabled",
 			disabled: true,
 			patternMatch: map[string]string{
-				"/probestatus": "",
+				"/status": "",
 			},
 		},
 		{
 			desc: "default",
 			patternMatch: map[string]string{
-				"/probestatus": "/probestatus",
+				"/status": "/status",
 			},
 		},
 		{
 			desc: "different_url",
-			url:  "/status",
+			url:  "/status2",
 			patternMatch: map[string]string{
-				"/probestatus": "",
-				"/status":      "/status",
+				"/status":  "",
+				"/status2": "/status2",
 			},
 		},
 	}

@@ -51,7 +51,7 @@ populateD();
   <div style="float:left">
     <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
     <b>Version</b>: {{.Version}}<br>
-    <b>Other Links</b>: <a href="/config">/config</a>, <a href="/status">/status</a><br>
+    <b>Other Links</b>: <a href="/config">/config</a> (<a href="/config-running">running</a>)<br>
   </div>
 
   <div style="float:right" class="graph-options">
