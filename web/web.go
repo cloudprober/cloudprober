@@ -39,15 +39,15 @@ func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 	return template.HTML(statusBuf.String())
 }
 
-// Status returns cloudprober status string.
-func Status() string {
+// parsedConfig returns cloudprober parsed config.
+func parsedConfig() string {
 	var statusBuf bytes.Buffer
 
 	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
 	startTime := sysvars.StartTime()
 	uptime := time.Since(startTime)
 
-	tmpl, _ := template.New("statusTmpl").Parse(statusTmpl)
+	tmpl, _ := template.New("statusTmpl").Parse(parsedConfigTmpl)
 	tmpl.Execute(&statusBuf, struct {
 		Version, StartTime, Uptime, ProbesStatus, ServersStatus, SurfacersStatus interface{}
 	}{
@@ -66,13 +66,13 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, cloudprober.GetTextConfig())
 }
 
-func statusHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, Status())
+func parsedConfigHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, parsedConfig())
 }
 
 // Init initializes cloudprober web interface handler.
 func Init() {
 	srvMux := runconfig.DefaultHTTPServeMux()
 	srvMux.HandleFunc("/config", configHandler)
-	srvMux.HandleFunc("/status", statusHandler)
+	srvMux.HandleFunc("/config-parsed", parsedConfigHandler)
 }
