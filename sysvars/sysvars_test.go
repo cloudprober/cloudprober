@@ -163,23 +163,22 @@ func TestLoadAWSConfig(t *testing.T) {
 	// the retryer is limited, and based on the variadic functions passed
 	// in to the config generation.
 
-	tests := map[string]struct {
-		tryHard      bool
-		retryOptions struct {
-			retryerAvailable bool
-			retryCount       int
-		}
+	tests := map[string]struct{
+	        tryHard               bool
+		retryerAvailable bool
+           	retryCount          int
 	}{
-		"notTryingHard": {false, struct {
-			retryerAvailable bool
-			retryCount       int
-		}{true, 1}},
-		"tryingHard": {true, struct {
-			retryerAvailable bool
-			retryCount       int
-		}{false, 0}},
+		"notTryingHard": {
+			tryHard:          false,
+		    	retryerAvailable: true,
+		    	retryCount:       1,
+		},
+		"tryingHard": {
+		    	tryHard:	 false,
+		    	retryerAvailable: false,
+		    	retryCount:       0,
+		},
 	}
-
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
@@ -188,9 +187,9 @@ func TestLoadAWSConfig(t *testing.T) {
 				t.Error(err)
 			}
 
-			if tc.retryOptions.retryerAvailable {
-				if cfg.Retryer().MaxAttempts() != tc.retryOptions.retryCount {
-					t.Errorf("retry test: %s, retry count expected: %d, got: %d", name, tc.retryOptions.retryCount, cfg.Retryer().MaxAttempts())
+ 			if tc.retryerAvailable {
+				if cfg.Retryer().MaxAttempts() != tc.retryCount {
+					t.Errorf("retry test: %s, retry count expected: %d, got: %d", name, tc.retryCount, cfg.Retryer().MaxAttempts())
 				}
 			}
 		})
