@@ -26,14 +26,22 @@ import (
 )
 
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
-	ctx, cancel := createContext(tryHard)
-	defer cancel()
+	ctx := context.Background()
 
-	client, err := createAWSIMDSClient(ctx, tryHard)
+	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
+	if !tryHard {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
+	}
+
+	cfg, err := loadAWSConfig(ctx, tryHard)
 	if err != nil {
-		l.Warningf("sysvars_ec2: could not create AWS session: %v", err)
+		l.Warningf("sysvars_ec2: failed to load config: %v", err)
 		return false, err
 	}
+
+	client := imds.NewFromConfig(cfg)
 
 	id, err := client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 	// The premise behind the error handling here, is that we want to evaluate
@@ -53,27 +61,6 @@ var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (b
 	sysVars["EC2_RamdiskID"] = id.RamdiskID
 	sysVars["EC2_Architecture"] = id.Architecture
 	return true, nil
-}
-
-// createContext will create a new context, and if tryHard is false then
-// use a shorter timeout
-func createContext(tryHard bool) (context.Context, context.CancelFunc) {
-	if !tryHard {
-		return context.WithTimeout(context.Background(), time.Millisecond*100)
-	}
-
-	return context.WithCancel(context.Background())
-}
-
-// createAWSIMDSClient creates a new IMDS client, with retries enabled if tryHard is true,
-// and retries disabled if tryHard is false
-func createAWSIMDSClient(ctx context.Context, tryHard bool) (*imds.Client, error) {
-	cfg, err := loadAWSConfig(ctx, tryHard)
-	if err != nil {
-		return nil, err
-	}
-
-	return imds.NewFromConfig(cfg), nil
 }
 
 // loadAWSConfig will overwrite the default retryer with a nopretryer if tryHard

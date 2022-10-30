@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 )
@@ -123,60 +122,26 @@ func TestInitCloudMetadata(t *testing.T) {
 	}
 }
 
-func TestCreateContext(t *testing.T) {
-	tests := map[string]struct {
-		tryHard        bool
-		timeoutOptions struct {
-			timeoutAvailable bool
-			timeoutDuration  time.Duration // the time in which the timeout should occur
-		}
-	}{
-		"notTryingHard": {false, struct {
-			timeoutAvailable bool
-			timeoutDuration  time.Duration
-		}{true, time.Second * 1}},
-		"tryingHard": {true, struct {
-			timeoutAvailable bool
-			timeoutDuration  time.Duration
-		}{false, time.Millisecond * 0}},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			ctx, cancel := createContext(tc.tryHard)
-			defer cancel()
-
-			if tc.timeoutOptions.timeoutAvailable {
-				select {
-				case <-ctx.Done():
-				case <-time.After(tc.timeoutOptions.timeoutDuration):
-					t.Errorf("timeout did not occur in: %s", tc.timeoutOptions.timeoutDuration)
-				}
-			}
-		})
-	}
-}
-
 func TestLoadAWSConfig(t *testing.T) {
 	// The aws.Config struct that is returned from loadAWSConfig
 	// is partially complete, which means the testing done around
 	// the retryer is limited, and based on the variadic functions passed
 	// in to the config generation.
 
-	tests := map[string]struct{
-	        tryHard               bool
+	tests := map[string]struct {
+		tryHard          bool
 		retryerAvailable bool
-           	retryCount          int
+		retryCount       int
 	}{
 		"notTryingHard": {
 			tryHard:          false,
-		    	retryerAvailable: true,
-		    	retryCount:       1,
+			retryerAvailable: true,
+			retryCount:       1,
 		},
 		"tryingHard": {
-		    	tryHard:	 false,
-		    	retryerAvailable: false,
-		    	retryCount:       0,
+			tryHard:          false,
+			retryerAvailable: false,
+			retryCount:       0,
 		},
 	}
 	for name, tc := range tests {
@@ -187,7 +152,7 @@ func TestLoadAWSConfig(t *testing.T) {
 				t.Error(err)
 			}
 
- 			if tc.retryerAvailable {
+			if tc.retryerAvailable {
 				if cfg.Retryer().MaxAttempts() != tc.retryCount {
 					t.Errorf("retry test: %s, retry count expected: %d, got: %d", name, tc.retryCount, cfg.Retryer().MaxAttempts())
 				}
