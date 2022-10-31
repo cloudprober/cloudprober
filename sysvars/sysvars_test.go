@@ -15,6 +15,7 @@
 package sysvars
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -24,9 +25,9 @@ import (
 
 func TestProvidersToCheck(t *testing.T) {
 	flagToProviders := map[string][]string{
-		"auto": []string{"gce", "ec2"},
-		"gce":  []string{"gce"},
-		"ec2":  []string{"ec2"},
+		"auto": {"gce", "ec2"},
+		"gce":  {"gce"},
+		"ec2":  {"ec2"},
 		"none": nil,
 	}
 
@@ -116,6 +117,45 @@ func TestInitCloudMetadata(t *testing.T) {
 			}
 			if !reflect.DeepEqual(sysVars, test.expected) {
 				t.Errorf("sysVars=%v, expected=%v", sysVars, test.expected)
+			}
+		})
+	}
+}
+
+func TestLoadAWSConfig(t *testing.T) {
+	// The aws.Config struct that is returned from loadAWSConfig
+	// is partially complete, which means the testing done around
+	// the retryer is limited, and based on the variadic functions passed
+	// in to the config generation.
+
+	tests := map[string]struct {
+		tryHard          bool
+		retryerAvailable bool
+		retryCount       int
+	}{
+		"notTryingHard": {
+			tryHard:          false,
+			retryerAvailable: true,
+			retryCount:       1,
+		},
+		"tryingHard": {
+			tryHard:          false,
+			retryerAvailable: false,
+			retryCount:       0,
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			cfg, err := loadAWSConfig(ctx, tc.tryHard)
+			if err != nil {
+				t.Error(err)
+			}
+
+			if tc.retryerAvailable {
+				if cfg.Retryer().MaxAttempts() != tc.retryCount {
+					t.Errorf("retry test: %s, retry count expected: %d, got: %d", name, tc.retryCount, cfg.Retryer().MaxAttempts())
+				}
 			}
 		})
 	}
