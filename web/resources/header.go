@@ -26,7 +26,7 @@ import (
 
 var t = template.Must(template.New("header").Parse(`
 <header>
-  <a href="http://cloudprober.org">Cloudprober</a> (<a href="http://github.com/cloudprober/cloudprober">Github</a>)
+  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
 </header> 
 <hr/>
 <div style="float:left">
