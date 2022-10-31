@@ -40,14 +40,14 @@ func Header() template.HTML {
 	var buf bytes.Buffer
 
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
-	uptime := time.Since(startTime)
+	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
 	t.Execute(&buf, struct {
 		Version, StartTime, Uptime, RightDiv interface{}
 	}{
 		Version:   runconfig.Version(),
 		StartTime: startTime,
-		Uptime:    uptime.String(),
+		Uptime:    uptime,
 	})
 
 	return template.HTML(buf.String())
