@@ -32,7 +32,7 @@ var t = template.Must(template.New("header").Parse(`
 <div style="float:left">
   <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
   <b>Version</b>: {{.Version}}<br>
-  <b>Other Links</b>: <a href="/config">/config</a> (<a href="/config-running">running</a>), <a href="/status">/status</a><br>
+  <b>Other Links</b>: <a href="/config-running">/config</a> (<a href="/config">raw</a>), <a href="/status">/status</a><br>
 </div>
 `))
 
