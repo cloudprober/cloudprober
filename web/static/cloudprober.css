@@ -66,3 +66,9 @@ pre {
   font-size: 12px;
   padding: 0.25em 0.5em;
 }
+
+input[type='checkbox'] {
+  vertical-align: middle;
+  position: relative;
+  bottom: 1px;
+}
