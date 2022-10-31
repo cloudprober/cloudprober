@@ -23,6 +23,10 @@ var htmlTmpl = `
 
 <script>
   var startTime = '{{.StartTime}}';
+  var allProbes = [];
+  {{range $probeName := .AllProbes}}
+    allProbes.push('{{$probeName}}');
+  {{end}}
 </script>
 
 <link href="{{.BaseURL}}/static/c3.min.css" rel="stylesheet">
@@ -71,6 +75,8 @@ populateD();
 {{$debugData := .DebugData}}
 
 <h3> Success Ratio </h3>
+<div id="probe-selector" style="background: #E1F6FF; padding: 5px 5px; border-radius: 2px 2px"></div>
+
 {{range $probeName := .ProbeNames}}
 <p>
   <b>Probe: {{$probeName}}</b><br>

@@ -47,7 +47,7 @@ const (
 	metricsBufferSize = 10000
 )
 
-var dropAfterNoDataFor = 24 * time.Hour
+var dropAfterNoDataFor = 6 * time.Hour
 
 // queriesQueueSize defines how many queries can we queue before we start
 // blocking on previous queries to finish.
@@ -332,7 +332,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	probes := ps.probeNames
 	if v := hw.r.URL.Query()["probe"]; v != nil {
-		probes = strings.Split(v[len(v)-1], ",")
+		probes = v
 	}
 	maxDuration := time.Duration(ps.c.GetTimeseriesSize()) * ps.resolution
 	graphOpts := graphOptsFromURL(hw.r.URL.Query(), maxDuration, ps.l)
@@ -352,6 +352,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		BaseURL     string
 		Durations   []string
 		ProbeNames  []string
+		AllProbes   []string // Unfiltered probes
 		StatusTable map[string]template.HTML
 		GraphData   map[string]template.JS
 		DebugData   map[string]template.HTML
@@ -361,6 +362,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		BaseURL:     ps.c.GetUrl(),
 		Durations:   ps.dashDurationsText,
 		ProbeNames:  probes,
+		AllProbes:   ps.probeNames,
 		StatusTable: statusTable,
 		GraphData:   graphData,
 		DebugData:   debugData,
