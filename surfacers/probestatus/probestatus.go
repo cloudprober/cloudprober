@@ -30,20 +30,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
 	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/web/resources"
 )
 
 //go:embed static/*
 var content embed.FS
 
+var statusTmpl = template.Must(template.New("statusTmpl").Parse(htmlTmpl))
+
 const (
 	metricsBufferSize = 10000
 )
+
+var dropAfterNoDataFor = 24 * time.Hour
 
 // queriesQueueSize defines how many queries can we queue before we start
 // blocking on previous queries to finish.
@@ -100,6 +104,7 @@ type Surfacer struct {
 	// Dashboard Metadata
 	dashDurations     []time.Duration
 	dashDurationsText []string
+	startTime         time.Time
 }
 
 // New returns a probestatus surfacer based on the config provided. It sets up
@@ -126,8 +131,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		queryChan:    make(chan *httpWriter, queriesQueueSize),
 		metrics:      make(map[string]map[string]*timeseries),
 		probeTargets: make(map[string][]string),
-		resolution:   res,
-		l:            l,
+		startTime:    sysvars.StartTime().Truncate(time.Millisecond),
+
+		resolution: res,
+		l:          l,
 	}
 
 	ps.dashDurations, ps.dashDurationsText = dashboardDurations(ps.resolution * time.Duration(ps.c.GetTimeseriesSize()))
@@ -226,15 +233,61 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 	})
 }
 
-func (ps *Surfacer) statusTable(probeName string, durations []time.Duration) string {
+func (ps *Surfacer) deleteTargetWithNoLock(probeName, targetName string) {
+	delete(ps.metrics[probeName], targetName)
+
+	targets := ps.probeTargets[probeName]
+
+	targetIndex := -1
+	for i, tgt := range targets {
+		if tgt == targetName {
+			targetIndex = i
+			break
+		}
+	}
+	if targetIndex != -1 {
+		ps.probeTargets[probeName] = append(targets[:targetIndex], targets[targetIndex+1:]...)
+	}
+}
+
+func (ps *Surfacer) statusTable(probeName string) string {
 	var b strings.Builder
 	for _, targetName := range ps.probeTargets[probeName] {
-		b.WriteString("<tr><td><b>" + targetName + "</b></td>")
 		ts := ps.metrics[probeName][targetName]
+		if ts == nil {
+			continue
+		}
 
+		b.WriteString("<tr><td><b>" + targetName + "</b></td>")
+
+		durations := trimDurations(ps.dashDurations, time.Since(ps.startTime))
+
+		gotSomeData := false        // To track if we got some data
+		var noDataFor time.Duration // No data for at least this long
+		tdTmpl := "<td>%.4f</td>"   // Default table cell template
 		for _, td := range durations {
 			t, s := ts.computeDelta(td)
-			b.WriteString(fmt.Sprintf("<td>%.4f</td>", float64(s)/float64(t)))
+			if t == -1 {
+				b.WriteString("<td class=greyed style=font-size:smaller>No Data</td>")
+				noDataFor = td
+				// After no data, ask further values stale.
+				tdTmpl = "<td class=\"tooltip greyed\">%.4f<span class=tooltiptext>Stale value</span></td>"
+				continue
+			}
+			gotSomeData = true
+			b.WriteString(fmt.Sprintf(tdTmpl, float64(s)/float64(t)))
+		}
+
+		// No data for a while, drop this target.
+		if noDataFor >= dropAfterNoDataFor || !gotSomeData {
+			ps.deleteTargetWithNoLock(probeName, targetName)
+		}
+
+		// Pad up in the end.
+		if len(durations) < len(ps.dashDurations) {
+			for i := len(durations); i < len(ps.dashDurations); i++ {
+				b.WriteString("<td class=\"tooltip greyed\">...<span class=tooltiptext>No data yet</span></td>")
+			}
 		}
 	}
 	return b.String()
@@ -273,9 +326,6 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		return
 	}
 
-	startTime := sysvars.StartTime().Truncate(time.Millisecond)
-	uptime := time.Since(startTime).Truncate(time.Millisecond)
-
 	statusTable := make(map[string]template.HTML)
 	debugData := make(map[string]template.HTML)
 	graphData := make(map[string]template.JS)
@@ -288,7 +338,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 	graphOpts := graphOptsFromURL(hw.r.URL.Query(), maxDuration, ps.l)
 
 	for _, probeName := range probes {
-		statusTable[probeName] = template.HTML(ps.statusTable(probeName, ps.dashDurations))
+		statusTable[probeName] = template.HTML(ps.statusTable(probeName))
 		debugData[probeName] = template.HTML(ps.debugLines(probeName))
 
 		// Compute graph data and convert it into JSON for embedding.
@@ -298,20 +348,15 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	var statusBuf bytes.Buffer
 
-	tmpl, err := template.New("statusTmpl").Parse(probeStatusTmpl)
-	if err != nil {
-		ps.l.Errorf("Error parsing probe status template: %v", err)
-		return
-	}
-	err = tmpl.Execute(&statusBuf, struct {
-		BaseURL           string
-		Durations         []string
-		ProbeNames        []string
-		StatusTable       map[string]template.HTML
-		GraphData         map[string]template.JS
-		DebugData         map[string]template.HTML
-		Version           string
-		StartTime, Uptime fmt.Stringer
+	err := statusTmpl.Execute(&statusBuf, struct {
+		BaseURL     string
+		Durations   []string
+		ProbeNames  []string
+		StatusTable map[string]template.HTML
+		GraphData   map[string]template.JS
+		DebugData   map[string]template.HTML
+		Header      template.HTML
+		StartTime   fmt.Stringer
 	}{
 		BaseURL:     ps.c.GetUrl(),
 		Durations:   ps.dashDurationsText,
@@ -319,9 +364,8 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		StatusTable: statusTable,
 		GraphData:   graphData,
 		DebugData:   debugData,
-		Version:     runconfig.Version(),
-		StartTime:   startTime,
-		Uptime:      uptime,
+		Header:      resources.Header(),
+		StartTime:   ps.startTime,
 	})
 	if err != nil {
 		ps.l.Errorf("Error executing probe status template: %v", err)
