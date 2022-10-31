@@ -15,43 +15,39 @@
 package sysvars
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/cloudprober/cloudprober/logger"
 )
 
 var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (bool, error) {
-	cfg := &aws.Config{}
+	ctx := context.Background()
+
 	// If not trying hard (cloud_metadata != ec2), use shorter timeout.
 	if !tryHard {
-		cfg.MaxRetries = aws.Int(0)
-		cfg.EC2MetadataDisableTimeoutOverride = aws.Bool(true)
-		cfg.HTTPClient = &http.Client{
-			Timeout: 100 * time.Millisecond,
-		}
-	}
-	s, err := session.NewSession(cfg)
-	if err != nil {
-		// We ignore session errors. It's not clear what can cause them.
-		l.Warningf("sysvars_ec2: could not create AWS session: %v", err)
-		return false, nil
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
 	}
 
-	md := ec2metadata.New(s)
-	// Doing the availability check in module since we need a session
-	if md.Available() == false {
-		return false, nil
+	cfg, err := loadAWSConfig(ctx, tryHard)
+	if err != nil {
+		l.Warningf("sysvars_ec2: failed to load config: %v", err)
+		return false, err
 	}
 
-	id, err := md.GetInstanceIdentityDocument()
+	client := imds.NewFromConfig(cfg)
+
+	id, err := client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
+	// The premise behind the error handling here, is that we want to evaluate
+	// if we are running in ec2 or not.
 	if err != nil {
-		sysVars["EC2_METADATA_Available"] = "false"
-		return true, fmt.Errorf("sysvars_ec2: could not get instance identity document %v", err)
+		return false, fmt.Errorf("sysvars_ec2: could not get instance identity document %v", err)
 	}
 
 	sysVars["EC2_METADATA_Available"] = "true"
@@ -65,4 +61,17 @@ var ec2Vars = func(sysVars map[string]string, tryHard bool, l *logger.Logger) (b
 	sysVars["EC2_RamdiskID"] = id.RamdiskID
 	sysVars["EC2_Architecture"] = id.Architecture
 	return true, nil
+}
+
+// loadAWSConfig will overwrite the default retryer with a nopretryer if tryHard
+// is false
+// https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/retries-timeouts/
+func loadAWSConfig(ctx context.Context, tryHard bool) (aws.Config, error) {
+	if !tryHard {
+		return config.LoadDefaultConfig(ctx, config.WithRetryer(func() aws.Retryer {
+			return aws.NopRetryer{}
+		}))
+	}
+
+	return config.LoadDefaultConfig(ctx)
 }
