@@ -17,18 +17,44 @@ package web
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"html/template"
 	"net/http"
-	"time"
 
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/servers"
 	"github.com/cloudprober/cloudprober/surfacers"
-	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/web/resources"
 )
+
+//go:embed static/*
+var content embed.FS
+
+var runningConfigTmpl = `
+<html>
+
+<head>
+  <link href="/static/cloudprober.css" rel="stylesheet">
+</head>
+
+<body>
+{{.Header}}
+<br><br><br><br>
+
+<h3>Probes:</h3>
+{{.ProbesStatus}}
+
+<h3>Surfacers:</h3>
+{{.SurfacersStatus}}
+
+<h3>Servers:</h3>
+{{.ServersStatus}}
+</body>
+</html>
+`
 
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 	var statusBuf bytes.Buffer
@@ -44,16 +70,12 @@ func runningConfig() string {
 	var statusBuf bytes.Buffer
 
 	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
-	startTime := sysvars.StartTime().Truncate(time.Millisecond)
-	uptime := time.Since(startTime)
 
 	tmpl, _ := template.New("runningConfig").Parse(runningConfigTmpl)
 	tmpl.Execute(&statusBuf, struct {
-		Version, StartTime, Uptime, ProbesStatus, ServersStatus, SurfacersStatus interface{}
+		Header, ProbesStatus, ServersStatus, SurfacersStatus interface{}
 	}{
-		Version:         runconfig.Version(),
-		StartTime:       startTime,
-		Uptime:          uptime.String(),
+		Header:          resources.Header(),
 		ProbesStatus:    execTmpl(probes.StatusTmpl, probeInfo),
 		SurfacersStatus: execTmpl(surfacers.StatusTmpl, surfacerInfo),
 		ServersStatus:   execTmpl(servers.StatusTmpl, serverInfo),
@@ -62,17 +84,14 @@ func runningConfig() string {
 	return statusBuf.String()
 }
 
-func configHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, cloudprober.GetTextConfig())
-}
-
-func runningConfigHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, runningConfig())
-}
-
 // Init initializes cloudprober web interface handler.
 func Init() {
 	srvMux := runconfig.DefaultHTTPServeMux()
-	srvMux.HandleFunc("/config", configHandler)
-	srvMux.HandleFunc("/config-running", runningConfigHandler)
+	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, cloudprober.GetTextConfig())
+	})
+	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, runningConfig())
+	})
+	srvMux.Handle("/static/", http.FileServer(http.FS(content)))
 }

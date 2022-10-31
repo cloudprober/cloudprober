@@ -26,6 +26,18 @@ var baseDurations = []time.Duration{
 	72 * time.Hour, 168 * time.Hour, 720 * time.Hour, // Days
 }
 
+func trimDurations(allDurations []time.Duration, maxInterval time.Duration) []time.Duration {
+	var durations []time.Duration
+	for _, dur := range allDurations {
+		if dur > maxInterval {
+			durations = append(durations, dur)
+			break
+		}
+		durations = append(durations, dur)
+	}
+	return durations
+}
+
 func dashboardDurations(maxDuration time.Duration) ([]time.Duration, []string) {
 	var result []time.Duration
 	for _, td := range baseDurations {

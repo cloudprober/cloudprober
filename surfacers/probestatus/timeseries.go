@@ -98,6 +98,15 @@ func (ts *timeseries) size() int {
 }
 
 func (ts *timeseries) computeDelta(td time.Duration) (int64, int64) {
+	// If current data is older than what we're looking for, return -1. We use
+	// this information to decide whether to show availability data for this
+	// period or not. This is to take care of the deleted targets.
+	// Note we add a grace period of 2*ts.res before returning -1, so the data
+	// in the status tables can be up to 2 min old.
+	if time.Since(ts.currentTS) > td+2*ts.res {
+		return -1, -1
+	}
+
 	startIndex := ts.agoIndex(int(td / ts.res))
 	if startIndex == ts.latest {
 		return 0, 0
