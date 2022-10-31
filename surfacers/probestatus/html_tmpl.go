@@ -14,7 +14,7 @@
 
 package probestatus
 
-var probeStatusTmpl = `
+var htmlTmpl = `
 <html>
 <!DOCTYPE html>
 <meta charset="utf-8">
@@ -26,7 +26,7 @@ var probeStatusTmpl = `
 </script>
 
 <link href="{{.BaseURL}}/static/c3.min.css" rel="stylesheet">
-<link href="{{.BaseURL}}/static/probestatus.css" rel="stylesheet">
+<link href="/static/cloudprober.css" rel="stylesheet">
 
 <script src="{{.BaseURL}}/static/jquery-3.6.0.min.js" charset="utf-8"></script>
 <script src="{{.BaseURL}}/static/d3.v5.min.js" charset="utf-8"></script>
@@ -48,11 +48,7 @@ populateD();
 </head>
 
 <body>
-  <div style="float:left">
-    <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
-    <b>Version</b>: {{.Version}}<br>
-    <b>Other Links</b>: <a href="/config">/config</a> (<a href="/config-running">running</a>)<br>
-  </div>
+  {{.Header}}
 
   <div style="float:right" class="graph-options">
     <label style="font-weight:bold" for="graph-duration">Graph Duration:</label>

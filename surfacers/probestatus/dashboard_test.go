@@ -15,9 +15,12 @@
 package probestatus
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDashboardDurations(t *testing.T) {
@@ -55,6 +58,26 @@ func TestShortDur(t *testing.T) {
 			if got != want {
 				t.Errorf("Got string=%s, wanted=%s", got, want)
 			}
+		})
+	}
+}
+
+func TestTrimDurations(t *testing.T) {
+	dashDurations := []time.Duration{time.Minute, 5 * time.Minute, time.Hour, 6 * time.Hour}
+
+	tests := map[string][]time.Duration{
+		"24h": dashDurations,
+		"5h":  dashDurations,
+		"45m": dashDurations[:3],
+		"3m":  dashDurations[:2],
+		"10s": dashDurations[:1],
+	}
+
+	for maxIntervalStr, wantDurations := range tests {
+		t.Run(fmt.Sprintf("maxInterval: %s", maxIntervalStr), func(t *testing.T) {
+			maxInterval, _ := time.ParseDuration(maxIntervalStr)
+			durations := trimDurations(dashDurations, maxInterval)
+			assert.Equal(t, wantDurations, durations)
 		})
 	}
 }

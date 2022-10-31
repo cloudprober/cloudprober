@@ -35,7 +35,7 @@ func TestTimeseries(t *testing.T) {
 		{
 			// No data yet
 			n: 0, oldest: 0, latest: 0,
-			totalDeltas: []int64{0, 0, 0, 0},
+			totalDeltas: []int64{-1, -1, -1, -1},
 		},
 		{
 			// [1]
