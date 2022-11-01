@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
@@ -110,13 +111,17 @@ type Surfacer struct {
 // New returns a probestatus surfacer based on the config provided. It sets up
 // a goroutine to process both the incoming EventMetrics and the web requests
 // for the URL handler /metrics.
-func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) *Surfacer {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	if config == nil {
 		config = &configpb.SurfacerConf{}
 	}
 
 	if config.GetDisable() {
-		return nil
+		return nil, nil
+	}
+
+	if httputils.IsHandled(opts.HTTPServeMux, config.GetUrl()) {
+		return nil, fmt.Errorf("probestatus surfacer URL (%s) is already registered", config.GetUrl())
 	}
 
 	res := time.Duration(config.GetResolutionSec()) * time.Second
@@ -160,11 +165,6 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
-	if config.GetUrl() != "/probestatus" {
-		opts.HTTPServeMux.HandleFunc("/probestatus", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, config.GetUrl(), http.StatusMovedPermanently)
-		})
-	}
 	opts.HTTPServeMux.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
@@ -172,10 +172,19 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		ps.queryChan <- &httpWriter{w, r, doneChan}
 		<-doneChan
 	})
+
+	if !httputils.IsHandled(opts.HTTPServeMux, "/probestatus") {
+		opts.HTTPServeMux.Handle("/probestatus", http.RedirectHandler(config.GetUrl(), http.StatusFound))
+	}
+
 	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
 
+	if !httputils.IsHandled(opts.HTTPServeMux, "/") {
+		opts.HTTPServeMux.Handle("/", http.RedirectHandler(config.GetUrl(), http.StatusFound))
+	}
+
 	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
-	return ps
+	return ps, nil
 }
 
 // Write queues the incoming data into a channel. This channel is watched by a

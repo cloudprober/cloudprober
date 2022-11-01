@@ -30,15 +30,16 @@ import (
 	"syscall"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
 	"flag"
-	"github.com/golang/glog"
+
+	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/common/file"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
+	"github.com/golang/glog"
 )
 
 var (
@@ -177,13 +178,15 @@ func main() {
 
 	setupProfiling()
 
-	err := cloudprober.InitFromConfig(getConfig())
-	if err != nil {
+	if err := cloudprober.InitFromConfig(getConfig()); err != nil {
 		glog.Exitf("Error initializing cloudprober. Err: %v", err)
 	}
 
 	// web.Init sets up web UI for cloudprober.
-	web.Init()
+	if err := web.Init(); err != nil {
+		glog.Exitf("Error initializing web interface. Err: %v", err)
+	}
+
 	startCtx := context.Background()
 
 	if *stopTime == 0 {
