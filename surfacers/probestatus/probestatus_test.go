@@ -49,7 +49,7 @@ func TestNewAndRecord(t *testing.T) {
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	ps := New(ctx, &configpb.SurfacerConf{
+	ps, _ := New(ctx, &configpb.SurfacerConf{
 		TimeseriesSize:     proto.Int32(10),
 		MaxTargetsPerProbe: proto.Int32(2),
 	}, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
@@ -148,7 +148,7 @@ func TestDisabledAndHandlers(t *testing.T) {
 				conf.Url = proto.String(test.url)
 			}
 			opts := &options.Options{HTTPServeMux: http.NewServeMux()}
-			ps := New(ctx, conf, opts, nil)
+			ps, _ := New(ctx, conf, opts, nil)
 
 			if test.disabled {
 				if ps != nil {
