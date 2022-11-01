@@ -130,7 +130,7 @@ func TestDisabledAndHandlers(t *testing.T) {
 			desc: "different_url",
 			url:  "/status2",
 			patternMatch: map[string]string{
-				"/status":  "",
+				"/status":  "/", // Default HTTP Handler
 				"/status2": "/status2",
 			},
 		},
