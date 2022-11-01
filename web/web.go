@@ -23,6 +23,7 @@ import (
 	"net/http"
 
 	"github.com/cloudprober/cloudprober"
+	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/servers"
@@ -85,8 +86,13 @@ func runningConfig() string {
 }
 
 // Init initializes cloudprober web interface handler.
-func Init() {
+func Init() error {
 	srvMux := runconfig.DefaultHTTPServeMux()
+	for _, url := range []string{"/config", "/config-running", "/static/"} {
+		if httputils.IsHandled(srvMux, url) {
+			return fmt.Errorf("url %s is already handled", url)
+		}
+	}
 	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, cloudprober.GetTextConfig())
 	})
@@ -94,4 +100,5 @@ func Init() {
 		fmt.Fprint(w, runningConfig())
 	})
 	srvMux.Handle("/static/", http.FileServer(http.FS(content)))
+	return nil
 }

@@ -207,8 +207,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		surfacer, err = datadog.New(ctx, s.GetDatadogSurfacer(), opts, l)
 		conf = s.GetDatadogSurfacer()
 	case surfacerpb.Type_PROBESTATUS:
-		surfacer = probestatus.New(ctx, s.GetProbestatusSurfacer(), opts, l)
-		err = nil
+		surfacer, err = probestatus.New(ctx, s.GetProbestatusSurfacer(), opts, l)
 		conf = s.GetProbestatusSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
