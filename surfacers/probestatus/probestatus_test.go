@@ -15,7 +15,6 @@
 package probestatus
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -80,29 +79,31 @@ func TestNewAndRecord(t *testing.T) {
 }
 
 func TestPageCache(t *testing.T) {
-	pc := &pageCache{
-		maxAge: time.Second,
-	}
+	pc := newPageCache(1)
 
-	c, valid := pc.contentIfValid()
+	c, valid := pc.contentIfValid("test-url")
 	if valid {
 		t.Errorf("Got valid content from new cache: %s", string(c))
 	}
 
-	testContent := []byte("test-content")
-	pc.setContent(testContent)
-	c, valid = pc.contentIfValid()
-	if !valid {
-		t.Errorf("Got unexpected invalid")
+	testContent := map[string][]byte{
+		"url1": []byte("test-content1"),
+		"url2": []byte("test-content2"),
 	}
-	if !bytes.Equal(c, testContent) {
-		t.Errorf("Got=%s, wanted=%s", string(c), string(testContent))
+	for url, c := range testContent {
+		pc.setContent(url, c)
+	}
+
+	for url, tc := range testContent {
+		c, valid = pc.contentIfValid(url)
+		assert.True(t, valid, "Got unexpected invalid")
+		assert.Equal(t, string(tc), string(c))
 	}
 
 	time.Sleep(time.Second)
-	c, valid = pc.contentIfValid()
-	if valid {
-		t.Errorf("Got unexpected valid content from pageCache: %s", string(c))
+	for url, _ := range testContent {
+		_, valid = pc.contentIfValid(url)
+		assert.False(t, valid, "Got unexpected valid")
 	}
 }
 
