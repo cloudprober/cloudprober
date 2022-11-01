@@ -64,26 +64,34 @@ type httpWriter struct {
 
 type pageCache struct {
 	mu         sync.RWMutex
-	content    []byte
-	cachedTime time.Time
+	content    map[string][]byte
+	cachedTime map[string]time.Time
 	maxAge     time.Duration
 }
 
-func (pc *pageCache) contentIfValid() ([]byte, bool) {
+func newPageCache(cacheTimeSec int) *pageCache {
+	return &pageCache{
+		content:    make(map[string][]byte),
+		cachedTime: make(map[string]time.Time),
+		maxAge:     time.Duration(cacheTimeSec) * time.Second,
+	}
+}
+
+func (pc *pageCache) contentIfValid(url string) ([]byte, bool) {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
 
-	if time.Since(pc.cachedTime) > pc.maxAge {
+	if time.Since(pc.cachedTime[url]) > pc.maxAge {
 		return nil, false
 	}
-	return pc.content, true
+	return pc.content[url], true
 }
 
-func (pc *pageCache) setContent(content []byte) {
+func (pc *pageCache) setContent(url string, content []byte) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
-	pc.content, pc.cachedTime = content, time.Now()
+	pc.content[url], pc.cachedTime[url] = content, time.Now()
 }
 
 // Surfacer implements a status surfacer for Cloudprober.
@@ -143,9 +151,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	}
 
 	ps.dashDurations, ps.dashDurationsText = dashboardDurations(ps.resolution * time.Duration(ps.c.GetTimeseriesSize()))
-	ps.pageCache = &pageCache{
-		maxAge: time.Duration(ps.c.GetCacheTimeSec()) * time.Second,
-	}
+	ps.pageCache = newPageCache(int(ps.c.GetCacheTimeSec()))
 
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
@@ -329,7 +335,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		}
 	}()
 
-	content, valid := ps.pageCache.contentIfValid()
+	content, valid := ps.pageCache.contentIfValid(hw.r.URL.String())
 	if valid {
 		hw.w.Write(content)
 		return
@@ -382,6 +388,6 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		ps.l.Errorf("Error executing probe status template: %v", err)
 		return
 	}
-	ps.pageCache.setContent(statusBuf.Bytes())
+	ps.pageCache.setContent(hw.r.URL.String(), statusBuf.Bytes())
 	hw.w.Write(statusBuf.Bytes())
 }
