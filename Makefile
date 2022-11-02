@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 VERSION ?= $(shell git describe --tags)
 BUILD_DATE ?= $(shell date +%s)
-DIRTY = $(shell git diff --shortstat 2> /dev/null | wc -l)
+DIRTY = $(shell git diff --shortstat 2> /dev/null | wc -l | xargs) # xargs strips whitespace.
 GIT_TAG := $(shell git describe --exact-match --tags HEAD 2>/dev/null || /bin/true)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
