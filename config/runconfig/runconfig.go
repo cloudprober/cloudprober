@@ -21,6 +21,7 @@ package runconfig
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	rdsserver "github.com/cloudprober/cloudprober/rds/server"
 	"google.golang.org/grpc"
@@ -30,10 +31,11 @@ import (
 // e.g., servers injected by external cloudprober users.
 type runConfig struct {
 	sync.RWMutex
-	grpcSrv      *grpc.Server
-	version      string
-	rdsServer    *rdsserver.Server
-	httpServeMux *http.ServeMux
+	grpcSrv        *grpc.Server
+	version        string
+	buildTimestamp time.Time
+	rdsServer      *rdsserver.Server
+	httpServeMux   *http.ServeMux
 }
 
 var rc runConfig
@@ -67,6 +69,20 @@ func Version() string {
 	rc.RLock()
 	defer rc.RUnlock()
 	return rc.version
+}
+
+// SetBuildTimestamp sets the cloudprober build timestamp.
+func SetBuildTimestamp(ts time.Time) {
+	rc.Lock()
+	defer rc.Unlock()
+	rc.buildTimestamp = ts
+}
+
+// BuildTimestamp returns the recorded build timestamp.
+func BuildTimestamp() time.Time {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.buildTimestamp
 }
 
 // SetLocalRDSServer stores local RDS server in the runconfig. It can later

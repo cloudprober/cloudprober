@@ -1,5 +1,7 @@
 SHELL := /bin/bash
 VERSION ?= $(shell git describe --tags)
+BUILD_DATE ?= $(shell date +%s)
+DIRTY = $(shell git diff --shortstat 2> /dev/null | wc -l)
 GIT_TAG := $(shell git describe --exact-match --tags HEAD 2>/dev/null || /bin/true)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
@@ -7,7 +9,7 @@ BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
 CACERTS ?= /etc/ssl/certs/ca-certificates.crt
 SOURCES := $(shell find . -name '*.go')
-LDFLAGS ?= "-s -w -X main.version=$(VERSION) -extldflags -static"
+LDFLAGS ?= "-s -w -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) -X main.dirty=$(DIRTY) -extldflags -static"
 BINARY_SOURCE ?= "./cmd/cloudprober.go"
 
 LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
