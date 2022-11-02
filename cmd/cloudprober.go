@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -45,6 +46,7 @@ import (
 var (
 	configFile       = flag.String("config_file", "", "Config file")
 	versionFlag      = flag.Bool("version", false, "Print version and exit")
+	buildInfoFlag    = flag.Bool("buildinfo", false, "Print build info and exit")
 	stopTime         = flag.Duration("stop_time", 0, "How long to wait for cleanup before process exits on SIGINT and SIGTERM")
 	cpuprofile       = flag.String("cpuprof", "", "Write cpu profile to file")
 	memprofile       = flag.String("memprof", "", "Write heap profile to file")
@@ -56,9 +58,11 @@ var (
 	configTestVars = map[string]string(nil)
 )
 
-// This gets overwritten by using -ldflags="-X main.version=${VERSION}" at
+// These variables get overwritten by using -ldflags="-X main.<var>=<value?" at
 // the build time.
-var version = "undefined"
+var version string
+var buildTimestamp string
+var dirty string
 
 func setupConfigTestVars() {
 	configTestVars = map[string]string{
@@ -148,10 +152,27 @@ func getConfig() string {
 func main() {
 	flag.Parse()
 
+	if dirty == "1" {
+		version = version + " (dirty)"
+	}
+
 	runconfig.SetVersion(version)
+	if buildTimestamp != "" {
+		ts, err := strconv.ParseInt(buildTimestamp, 10, 64)
+		if err != nil {
+			glog.Exitf("Error parsing build timestamp (%s). Err: %v", buildTimestamp, err)
+		}
+		runconfig.SetBuildTimestamp(time.Unix(ts, 0))
+	}
 
 	if *versionFlag {
-		fmt.Println(version)
+		fmt.Println(runconfig.Version())
+		return
+	}
+
+	if *buildInfoFlag {
+		fmt.Println(runconfig.Version())
+		fmt.Println("Built at: ", runconfig.BuildTimestamp())
 		return
 	}
 

@@ -32,6 +32,7 @@ var t = template.Must(template.New("header").Parse(`
 <div style="float:left">
   <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
   <b>Version</b>: {{.Version}}<br>
+  <b>Built at</b>: {{.BuiltAt}}<br>
   <b>Other Links</b>: <a href="/config-running">/config</a> (<a href="/config">raw</a>), <a href="/status">/status</a><br>
 </div>
 `))
@@ -43,9 +44,10 @@ func Header() template.HTML {
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
 	t.Execute(&buf, struct {
-		Version, StartTime, Uptime, RightDiv interface{}
+		Version, BuiltAt, StartTime, Uptime, RightDiv interface{}
 	}{
 		Version:   runconfig.Version(),
+		BuiltAt:   runconfig.BuildTimestamp(),
 		StartTime: startTime,
 		Uptime:    uptime,
 	})
