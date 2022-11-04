@@ -25,6 +25,7 @@ type timeseries struct {
 	latest, oldest int
 	res            time.Duration
 	currentTS      time.Time
+	startTime      time.Time
 	l              *logger.Logger
 }
 
@@ -43,9 +44,10 @@ func newTimeseries(resolution time.Duration, size int, l *logger.Logger) *timese
 		resolution = time.Minute
 	}
 	return &timeseries{
-		a:   make([]*datum, size),
-		res: resolution,
-		l:   l,
+		a:         make([]*datum, size),
+		res:       resolution,
+		startTime: time.Now(),
+		l:         l,
 	}
 }
 
