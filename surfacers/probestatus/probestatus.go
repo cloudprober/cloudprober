@@ -275,12 +275,20 @@ func (ps *Surfacer) statusTable(probeName string) string {
 
 		b.WriteString("<tr><td><b>" + targetName + "</b></td>")
 
-		durations := trimDurations(ps.dashDurations, time.Since(ps.startTime))
-
 		gotSomeData := false        // To track if we got some data
 		var noDataFor time.Duration // No data for at least this long
 		tdTmpl := "<td>%.4f</td>"   // Default table cell template
-		for _, td := range durations {
+
+		noFurtherData := false
+		maxInterval := time.Since(ts.startTime)
+		for _, td := range ps.dashDurations {
+			if noFurtherData {
+				b.WriteString("<td align=center class=\"tooltip greyed\">...<span class=tooltiptext>No data yet</span></td>")
+				continue
+			}
+			if td > maxInterval {
+				noFurtherData = true
+			}
 			t, s := ts.computeDelta(td)
 			if t == -1 {
 				b.WriteString("<td class=greyed style=font-size:smaller>No Data</td>")
@@ -296,13 +304,6 @@ func (ps *Surfacer) statusTable(probeName string) string {
 		// No data for a while, drop this target.
 		if noDataFor >= dropAfterNoDataFor || !gotSomeData {
 			ps.deleteTargetWithNoLock(probeName, targetName)
-		}
-
-		// Pad up in the end.
-		if len(durations) < len(ps.dashDurations) {
-			for i := len(durations); i < len(ps.dashDurations); i++ {
-				b.WriteString("<td class=\"tooltip greyed\">...<span class=tooltiptext>No data yet</span></td>")
-			}
 		}
 	}
 	return b.String()
