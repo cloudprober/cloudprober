@@ -28,10 +28,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	testProbe = "test-probe"
-)
-
 func testEM(t *testing.T, tm time.Time, probe, target string, total, success int, latency float64) *metrics.EventMetrics {
 	t.Helper()
 	return metrics.NewEventMetrics(tm).
@@ -101,7 +97,7 @@ func TestPageCache(t *testing.T) {
 	}
 
 	time.Sleep(time.Second)
-	for url, _ := range testContent {
+	for url := range testContent {
 		_, valid = pc.contentIfValid(url)
 		assert.False(t, valid, "Got unexpected valid")
 	}
