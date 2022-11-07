@@ -168,12 +168,12 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	}
 }
 
-func createTestProbe(cmd string, envVars map[string]string) *Probe {
-	return createTestProbeWithEnv(cmd, envVars)
+func createTestProbe(cmd string) *Probe {
+	return createTestProbeWithEnv(cmd, nil)
 }
 
 func createTestProbeWithEnv(cmd string, envVars map[string]string) *Probe {
-	var env []*ProbeConf_EnvVar
+	var env []*configpb.ProbeConf_EnvVar
 	for name, value := range envVars {
 		env = append(env, &configpb.ProbeConf_EnvVar{
 			Name:  proto.String(name),
@@ -350,10 +350,10 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 func TestProbeOnceMode(t *testing.T) {
 	testCmd := "/test/cmd --arg1 --arg2"
 	testEnv := []string{"foo=bar", "hello=dolly"}
-	testEnvMap := make(map[string]string{})
+	testEnvMap := make(map[string]string)
 	for _, entry := range testEnv {
 		keyval := strings.Split(entry, "=")
-		testEnvMap[keyval[0]] = testEnvMap[keyval[1]]
+		testEnvMap[keyval[0]] = keyval[1]
 	}
 
 	p := createTestProbeWithEnv(testCmd, testEnvMap)
@@ -363,6 +363,19 @@ func TestProbeOnceMode(t *testing.T) {
 	// Set runCommand to a function that runs successfully and returns a pyload.
 	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string, envVars []string) ([]byte, error) {
 		var resp []string
+		// check env vars
+		for _, expectedEnvVar := range testEnv {
+			found := false
+			for _, foundEnvVar := range envVars {
+				if foundEnvVar == expectedEnvVar {
+					found = true
+					break
+				}
+			}
+			if found == false {
+				t.Errorf("env var missing! expected %s in %v", expectedEnvVar, envVars)
+			}
+		}
 		resp = append(resp, fmt.Sprintf("cmd \"%s\"", cmd))
 		resp = append(resp, fmt.Sprintf("num-args %d", len(cmdArgs)))
 		resp = append(resp, fmt.Sprintf("num-env-vars %d", len(envVars)))
@@ -435,7 +448,7 @@ func TestProbeOnceMode(t *testing.T) {
 		tgtNumEnvVars := metricsMap["num-env-vars"][tgt][0].Metric("num-env-vars").(metrics.NumValue).Int64()
 		expectedNumEnvVars := int64(len(testEnv))
 		if tgtNumEnvVars != expectedNumEnvVars {
-			t.Errorf("Wrong metric value for target (%s) from the command output. got=%s, expected=%s", tgt, tgtNumEnvVars, expectedNumEnvVars)
+			t.Errorf("Wrong metric value for target (%s) from the command output. got=%d, expected=%d", tgt, tgtNumEnvVars, expectedNumEnvVars)
 		}
 	}
 }
