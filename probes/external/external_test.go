@@ -168,7 +168,19 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	}
 }
 
-func createTestProbe(cmd string) *Probe {
+func createTestProbe(cmd string, envVars map[string]string) *Probe {
+	return createTestProbeWithEnv(cmd, envVars)
+}
+
+func createTestProbeWithEnv(cmd string, envVars map[string]string) *Probe {
+	var env []*ProbeConf_EnvVar
+	for name, value := range envVars {
+		env = append(env, &configpb.ProbeConf_EnvVar{
+			Name:  proto.String(name),
+			Value: proto.String(value),
+		})
+	}
+
 	probeConf := &configpb.ProbeConf{
 		Options: []*configpb.ProbeConf_Option{
 			{
@@ -181,6 +193,7 @@ func createTestProbe(cmd string) *Probe {
 			},
 		},
 		Command: &cmd,
+		EnvVars: env,
 	}
 
 	p := &Probe{
@@ -336,8 +349,14 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 
 func TestProbeOnceMode(t *testing.T) {
 	testCmd := "/test/cmd --arg1 --arg2"
+	testEnv := []string{"foo=bar", "hello=dolly"}
+	testEnvMap := make(map[string]string{})
+	for _, entry := range testEnv {
+		keyval := strings.Split(entry, "=")
+		testEnvMap[keyval[0]] = testEnvMap[keyval[1]]
+	}
 
-	p := createTestProbe(testCmd)
+	p := createTestProbeWithEnv(testCmd, testEnvMap)
 	p.mode = "once"
 	tgts := []string{"target1", "target2"}
 
@@ -346,6 +365,7 @@ func TestProbeOnceMode(t *testing.T) {
 		var resp []string
 		resp = append(resp, fmt.Sprintf("cmd \"%s\"", cmd))
 		resp = append(resp, fmt.Sprintf("num-args %d", len(cmdArgs)))
+		resp = append(resp, fmt.Sprintf("num-env-vars %d", len(envVars)))
 		return []byte(strings.Join(resp, "\n")), nil
 	}
 
@@ -376,7 +396,7 @@ func TestProbeOnceMode(t *testing.T) {
 	}
 	metricsMap := testutils.MetricsMap(ems)
 
-	if metricsMap["num-args"] == nil && metricsMap["cmd"] == nil {
+	if metricsMap["num-args"] == nil && metricsMap["cmd"] == nil && metricsMap["num-env-vars"] == nil {
 		t.Errorf("Didn't get all metrics from the external process output.")
 	}
 
@@ -394,7 +414,7 @@ func TestProbeOnceMode(t *testing.T) {
 			}
 		}
 
-		for _, m := range []string{"num-args", "cmd"} {
+		for _, m := range []string{"num-args", "cmd", "num-env-vars"} {
 			if len(metricsMap[m][tgt]) != 1 {
 				t.Errorf("Wrong number of values for metric (%s) for target (%s) from the command output. Got=%d, Expected=1", m, tgt, len(metricsMap[m][tgt]))
 			}
@@ -410,6 +430,12 @@ func TestProbeOnceMode(t *testing.T) {
 		expectedCmd := fmt.Sprintf("\"%s\"", strings.Split(testCmd, " ")[0])
 		if tgtCmd != expectedCmd {
 			t.Errorf("Wrong metric value for target (%s) from the command output. got=%s, expected=%s", tgt, tgtCmd, expectedCmd)
+		}
+
+		tgtNumEnvVars := metricsMap["num-env-vars"][tgt][0].Metric("num-env-vars").(metrics.NumValue).Int64()
+		expectedNumEnvVars := int64(len(testEnv))
+		if tgtNumEnvVars != expectedNumEnvVars {
+			t.Errorf("Wrong metric value for target (%s) from the command output. got=%s, expected=%s", tgt, tgtNumEnvVars, expectedNumEnvVars)
 		}
 	}
 }
