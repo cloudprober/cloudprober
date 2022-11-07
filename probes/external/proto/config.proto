@@ -31,7 +31,7 @@ message ProbeConf {
     optional string name = 1;
     optional string value = 2;
   }
-  repeated EnvVar envVars = 6;
+  repeated EnvVar env_vars = 6;
 
   // Options for the SERVER mode probe requests. These options are passed on to
   // the external probe server as part of the ProbeRequest. Values are

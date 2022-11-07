@@ -30,7 +30,7 @@ import "github.com/cloudprober/cloudprober/metrics/payload/proto"
 		name?:  string @protobuf(1,string)
 		value?: string @protobuf(2,string)
 	}
-	envVars?: [...#EnvVar] @protobuf(6,EnvVar)
+	envVars?: [...#EnvVar] @protobuf(6,EnvVar,name=env_vars)
 
 	// Options for the SERVER mode probe requests. These options are passed on to
 	// the external probe server as part of the ProbeRequest. Values are
