@@ -1,8 +1,8 @@
 {
   "kind": "IngressList",
-  "apiVersion": "networking.k8s.io/v1beta1",
+  "apiVersion": "networking.k8s.io/v1",
   "metadata": {
-    "selfLink": "/apis/networking.k8s.io/v1beta1/namespaces/default/ingresses",
+    "selfLink": "/apis/networking.k8s.io/v1/namespaces/default/ingresses",
     "resourceVersion": "23189581"
   },
   "items": [
@@ -10,7 +10,7 @@
       "metadata": {
         "name": "rds-ingress",
         "namespace": "default",
-        "selfLink": "/apis/networking.k8s.io/v1beta1/namespaces/default/ingresses/rds-ingress",
+        "selfLink": "/apis/networking.k8s.io/v1/namespaces/default/ingresses/rds-ingress",
         "uid": "edff7c95-cc29-4b39-a99d-b9f5435125f1",
         "resourceVersion": "23051471",
         "generation": 4,
@@ -20,7 +20,7 @@
           "ingress.kubernetes.io/forwarding-rule": "k8s-fw-default-rds-ingress--69e25e1d9eaff894",
           "ingress.kubernetes.io/target-proxy": "k8s-tp-default-rds-ingress--69e25e1d9eaff894",
           "ingress.kubernetes.io/url-map": "k8s-um-default-rds-ingress--69e25e1d9eaff894",
-          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"networking.k8s.io/v1beta1\",\"kind\":\"Ingress\",\"metadata\":{\"annotations\":{},\"name\":\"rds-ingress\",\"namespace\":\"default\"},\"spec\":{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9314},\"rules\":[{\"host\":\"foo.bar.com\",\"http\":{\"paths\":[{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9313},\"path\":\"/health\"},{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9314},\"path\":\"/rds\"}]}},{\"host\":\"prometheus.bar.com\",\"http\":{\"paths\":[{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9313},\"path\":\"/\"}]}}]}}\n"
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"networking.k8s.io/v1\",\"kind\":\"Ingress\",\"metadata\":{\"annotations\":{},\"name\":\"rds-ingress\",\"namespace\":\"default\"},\"spec\":{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9314},\"rules\":[{\"host\":\"foo.bar.com\",\"http\":{\"paths\":[{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9313},\"path\":\"/health\"},{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9314},\"path\":\"/rds\"}]}},{\"host\":\"prometheus.bar.com\",\"http\":{\"paths\":[{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9313},\"path\":\"/\"}]}}]}}\n"
         },
         "finalizers": [
           "networking.gke.io/ingress-finalizer"
