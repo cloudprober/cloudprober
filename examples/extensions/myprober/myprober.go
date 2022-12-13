@@ -7,12 +7,12 @@ import (
 	"os"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/glog"
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/examples/extensions/myprober/myprobe"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/web"
+	"github.com/golang/glog"
 )
 
 var (
@@ -60,13 +60,14 @@ func main() {
 	probes.RegisterProbeType(int(myprobe.E_RedisProbe.Field),
 		func() probes.Probe { return &myprobe.Probe{} })
 
-	err := cloudprober.InitFromConfig(getConfig())
-	if err != nil {
+	if err := cloudprober.InitFromConfig(getConfig()); err != nil {
 		glog.Exitf("Error initializing cloudprober. Err: %v", err)
 	}
 
 	// web.Init sets up web UI for cloudprober.
-	web.Init()
+	if err := web.Init(); err != nil {
+		glog.Exitf("Error initializing web interface. Err: %v", err)
+	}
 
 	cloudprober.Start(context.Background())
 

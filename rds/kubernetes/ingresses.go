@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server/filter"
+	"github.com/golang/protobuf/proto"
 )
 
 type ingressesLister struct {
@@ -41,11 +41,10 @@ type ingressesLister struct {
 }
 
 func ingressesURL(ns string) string {
-	// TODO(manugarg): Update version to v1 once it's more widely available.
 	if ns == "" {
-		return "apis/networking.k8s.io/v1beta1/ingresses"
+		return "apis/networking.k8s.io/v1/ingresses"
 	}
-	return fmt.Sprintf("apis/networking.k8s.io/v1beta1/namespaces/%s/ingresses", ns)
+	return fmt.Sprintf("apis/networking.k8s.io/v1/namespaces/%s/ingresses", ns)
 }
 
 func (lister *ingressesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {

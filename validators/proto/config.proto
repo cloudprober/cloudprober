@@ -4,6 +4,7 @@ package cloudprober.validators;
 
 import "github.com/cloudprober/cloudprober/validators/http/proto/config.proto";
 import "github.com/cloudprober/cloudprober/validators/integrity/proto/config.proto";
+import "github.com/cloudprober/cloudprober/validators/json/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/validators/proto";
 
@@ -14,6 +15,9 @@ message Validator {
 
     // Data integrity validator
     integrity.Validator integrity_validator = 3;
+
+    // JSON validator
+    json.Validator json_validator = 5;
 
     // Regex validator
     string regex = 4;

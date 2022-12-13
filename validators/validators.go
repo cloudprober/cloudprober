@@ -23,6 +23,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/validators/http"
 	"github.com/cloudprober/cloudprober/validators/integrity"
+	"github.com/cloudprober/cloudprober/validators/json"
 	configpb "github.com/cloudprober/cloudprober/validators/proto"
 	"github.com/cloudprober/cloudprober/validators/regex"
 )
@@ -76,6 +77,16 @@ func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validat
 	case *configpb.Validator_IntegrityValidator:
 		v := &integrity.Validator{}
 		if err := v.Init(validatorConf.GetIntegrityValidator(), l); err != nil {
+			return nil, err
+		}
+		validator.Validate = func(input *Input) (bool, error) {
+			return v.Validate(input.ResponseBody)
+		}
+		return
+
+	case *configpb.Validator_JsonValidator:
+		v := &json.Validator{}
+		if err := v.Init(validatorConf.GetJsonValidator(), l); err != nil {
 			return nil, err
 		}
 		validator.Validate = func(input *Input) (bool, error) {

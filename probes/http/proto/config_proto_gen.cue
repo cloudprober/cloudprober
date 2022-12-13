@@ -55,7 +55,9 @@ import (
 	// we hand over the target and relative_url directly to the golang's HTTP
 	// module, Otherwise, we resolve the target first to an IP address and
 	// make a request using that while passing target name as Host header.
-	resolveFirst?: bool @protobuf(4,bool,name=resolve_first,"default=false")
+	// By default we resolve first if it's a discovered resource, e.g., a k8s
+	// endpoint.
+	resolveFirst?: bool @protobuf(4,bool,name=resolve_first)
 
 	// Export response (body) count as a metric
 	exportResponseAsMetrics?: bool @protobuf(5,bool,name=export_response_as_metrics,"default=false")

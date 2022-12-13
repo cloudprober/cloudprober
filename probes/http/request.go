@@ -17,7 +17,6 @@ package http
 import (
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 
@@ -40,11 +39,6 @@ type requestBody struct {
 func (rb *requestBody) Read(p []byte) (int, error) {
 	return copy(p, rb.b), io.EOF
 }
-
-// resolveFunc resolves the given host for the IP version.
-// This type is mainly used for testing. For all other cases, a nil function
-// should be passed to the httpRequestForTarget function.
-type resolveFunc func(host string, ipVer int) (net.IP, error)
 
 func hostWithPort(host string, port int) string {
 	if port == 0 {
@@ -89,7 +83,7 @@ func relURLForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
-func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveFunc) *http.Request {
+func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
 	// If port is not configured explicitly, use target's port if available.
@@ -100,12 +94,14 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 	urlHost := urlHostForTarget(target)
 	ipForLabel := ""
 
-	if p.c.GetResolveFirst() {
-		if resolveF == nil {
-			resolveF = p.opts.Targets.Resolve
-		}
-
-		ip, err := resolveF(target.Name, p.opts.IPVersion)
+	resolveFirst := false
+	if p.c.ResolveFirst != nil {
+		resolveFirst = p.c.GetResolveFirst()
+	} else {
+		resolveFirst = target.IP != nil
+	}
+	if resolveFirst {
+		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
 			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
 			return nil

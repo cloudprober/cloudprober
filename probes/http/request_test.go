@@ -19,11 +19,11 @@ import (
 	"net"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/golang/protobuf/proto"
 )
 
 func TestHostWithPort(t *testing.T) {
@@ -175,7 +175,7 @@ type testData struct {
 	wantURLHost string
 }
 
-func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, expectedPort int, resolveF resolveFunc) {
+func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, expectedPort int) {
 	t.Helper()
 
 	p := &Probe{
@@ -200,11 +200,12 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 	target := endpoint.Endpoint{
 		Name: td.targetName,
 		Port: targetPort,
+		IP:   net.ParseIP(td.resolvedIP),
 		Labels: map[string]string{
 			"fqdn": td.targetFQDN,
 		},
 	}
-	req := p.httpRequestForTarget(target, resolveF)
+	req := p.httpRequestForTarget(target)
 
 	wantURL := fmt.Sprintf("http://%s", hostWithPort(td.wantURLHost, expectedPort))
 	if req.URL.String() != wantURL {
@@ -220,13 +221,6 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 
 func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
 	t.Helper()
-
-	var resolveF resolveFunc
-	if td.resolveFirst {
-		resolveF = func(target string, ipVer int) (net.IP, error) {
-			return net.ParseIP(td.resolvedIP), nil
-		}
-	}
 
 	for _, ports := range []struct {
 		probePort    int
@@ -250,7 +244,7 @@ func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s_probe_port_%d_endpoint_port_%d", td.desc, ports.probePort, ports.targetPort), func(t *testing.T) {
-			createRequestAndVerify(t, td, ports.probePort, ports.targetPort, ports.expectedPort, resolveF)
+			createRequestAndVerify(t, td, ports.probePort, ports.targetPort, ports.expectedPort)
 		})
 	}
 }

@@ -51,7 +51,8 @@ var (
 )
 
 type cacheRecord struct {
-	ip          string
+	ip          net.IP
+	ipStr       string
 	port        int
 	labels      map[string]string
 	lastUpdated time.Time
@@ -94,6 +95,17 @@ func (client *Client) refreshState(timeout time.Duration) {
 	client.updateState(response)
 }
 
+func parseIP(ipStr string) net.IP {
+	if strings.Contains(ipStr, "/") {
+		ip, _, err := net.ParseCIDR(ipStr)
+		if err != nil {
+			return nil
+		}
+		return ip
+	}
+	return net.ParseIP(ipStr)
+}
+
 func (client *Client) updateState(response *pb.ListResourcesResponse) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -116,10 +128,17 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 			client.l.Warningf("Got resource (%s) again, ignoring this instance: {%v}. Previous record: %+v.", res.GetName(), res, *oldRes)
 			continue
 		}
-		if oldcache[res.GetName()] != nil && res.GetIp() != oldcache[res.GetName()].ip {
-			client.l.Infof("Resource (%s) ip has changed: %s -> %s.", res.GetName(), oldcache[res.GetName()].ip, res.GetIp())
+		if oldcache[res.GetName()] != nil && res.GetIp() != oldcache[res.GetName()].ipStr {
+			client.l.Infof("Resource (%s) ip has changed: %s -> %s.", res.GetName(), oldcache[res.GetName()].ipStr, res.GetIp())
 		}
-		client.cache[res.GetName()] = &cacheRecord{res.GetIp(), int(res.GetPort()), res.Labels, time.Unix(res.GetLastUpdated(), 0)}
+
+		client.cache[res.GetName()] = &cacheRecord{
+			ip:          parseIP(res.GetIp()),
+			ipStr:       res.GetIp(),
+			port:        int(res.GetPort()),
+			labels:      res.Labels,
+			lastUpdated: time.Unix(res.GetLastUpdated(), 0),
+		}
 		client.names[i] = res.GetName()
 		i++
 	}
@@ -133,7 +152,8 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 	defer client.mu.RUnlock()
 	result := make([]endpoint.Endpoint, len(client.names))
 	for i, name := range client.names {
-		result[i] = endpoint.Endpoint{Name: name, Port: client.cache[name].port, Labels: client.cache[name].labels, LastUpdated: client.cache[name].lastUpdated}
+		cr := client.cache[name]
+		result[i] = endpoint.Endpoint{Name: name, IP: cr.ip, Port: cr.port, Labels: cr.labels, LastUpdated: cr.lastUpdated}
 	}
 	return result
 }
@@ -141,25 +161,22 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 // Resolve returns the IP address for the given resource. If no IP address is
 // associated with the resource, an error is returned.
 func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
-	client.mu.RLock()
-	defer client.mu.RUnlock()
+	var ip net.IP
+	var ipStr string
 
-	cr, ok := client.cache[name]
-	if !ok || cr.ip == "" {
+	client.mu.RLock()
+	if cr, ok := client.cache[name]; ok {
+		ip, ipStr = cr.ip, cr.ipStr
+	}
+	client.mu.RUnlock()
+
+	if ipStr == "" {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
 	}
 
-	var ip net.IP
-	var err error
-	if strings.Contains(cr.ip, "/") {
-		ip, _, err = net.ParseCIDR(cr.ip)
-	} else {
-		ip = net.ParseIP(cr.ip)
-	}
-
 	// If not a valid IP, use DNS resolver to resolve it.
-	if err != nil || ip == nil {
-		return client.resolver.Resolve(cr.ip, ipVer)
+	if ip == nil {
+		return client.resolver.Resolve(ipStr, ipVer)
 	}
 
 	if ipVer == 0 || iputils.IPVersion(ip) == ipVer {
