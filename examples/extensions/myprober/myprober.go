@@ -7,12 +7,12 @@ import (
 	"os"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/glog"
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/examples/extensions/myprober/myprobe"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/web"
+	"github.com/golang/glog"
 )
 
 var (
@@ -68,7 +68,7 @@ func main() {
 	// web.Init sets up web UI for cloudprober.
 	web.Init()
 
-	cloudprober.Start(context.Background())
+	cloudprober.Start(context.Background(), func() {})
 
 	// Wait forever
 	select {}

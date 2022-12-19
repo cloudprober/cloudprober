@@ -202,7 +202,7 @@ func TestRestart(t *testing.T) {
 			if err != nil {
 				t.Fatalf("InitFromConfig(ctx, %v): %v", string(b), err)
 			}
-			Start(ctx)
+			Start(ctx, func() {})
 
 			// Wait for results from the surfacer, or 30s,
 			// whichever comes first. Since the export rate is 1s,

@@ -56,6 +56,9 @@ import (
 	//   }
 	// }
 	sharedTargets?: [...#SharedTargets] @protobuf(4,SharedTargets,name=shared_targets)
+
+	// Whether to lameduck itself when the instance cloudprober is running on live-migrates.
+	lameduckOnMaintenance?: bool @protobuf(5,bool,name=lameduck_on_maintenance,"default=false")
 	// Common services related options.
 	// Next tag: 106
 

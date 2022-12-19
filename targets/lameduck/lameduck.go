@@ -26,7 +26,6 @@ import (
 	"sync"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	rdsclient "github.com/cloudprober/cloudprober/rds/client"
@@ -39,12 +38,15 @@ import (
 	configpb "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/cloudprober/cloudprober/targets/rtc/rtcservice"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // Lameducker provides an interface to Lameduck/Unlameduck an instance.
 //
-// Cloudprober doesn't currently (as of July, 2018) use this interface by
-// itself. It's provided here so that other software (e.g. probing deployment
+// Cloudprober uses this to lameduck itself (currently only) when
+// the GCE instance it's running on is about to be live-migrated.
+// It's also provided here so that other software (e.g. probing deployment
 // management software) can lameduck/unlameduck instances in a way that
 // Cloudprober understands.
 type Lameducker interface {

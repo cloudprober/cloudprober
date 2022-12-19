@@ -59,6 +59,9 @@ message ProberConfig {
   // }
   repeated SharedTargets shared_targets = 4;
 
+  // Whether to lameduck itself when the instance cloudprober is running on live-migrates.
+  optional bool lameduck_on_maintenance = 5 [default = false];
+
   // Common services related options.
   // Next tag: 106
 

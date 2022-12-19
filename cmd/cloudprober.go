@@ -32,13 +32,13 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"flag"
-	"github.com/golang/glog"
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/common/file"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
+	"github.com/golang/glog"
 )
 
 var (
@@ -190,23 +190,22 @@ func main() {
 		*stopTime = time.Duration(cloudprober.GetConfig().GetStopTimeSec()) * time.Second
 	}
 
-	if *stopTime != 0 {
-		// Set up signal handling for the cancelation of the start context.
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		ctx, cancelF := context.WithCancel(startCtx)
-		startCtx = ctx
-
-		go func() {
-			sig := <-sigs
-			glog.Warningf("Received signal \"%v\", canceling the start context and waiting for %v before closing", sig, *stopTime)
-			cancelF()
-			time.Sleep(*stopTime)
-			os.Exit(0)
-		}()
-	}
-	cloudprober.Start(startCtx)
+	// Set up signal handling for the cancelation of the start context.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancelF := context.WithCancel(startCtx)
+	startCtx = ctx
+	cloudprober.Start(startCtx, cancelF)
 
 	// Wait forever
-	select {}
+	select {
+	case sig := <-sigs:
+		glog.Warningf("Received signal \"%v\", canceling the start context and waiting for %v before closing", sig, *stopTime)
+		cancelF()
+		time.Sleep(*stopTime)
+		os.Exit(0)
+	case _ = <-startCtx.Done():
+		time.Sleep(*stopTime)
+		os.Exit(0)
+	}
 }

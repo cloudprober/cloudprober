@@ -24,6 +24,7 @@ package cloudprober
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -32,6 +33,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cloudprober/cloudprober/targets/lameduck"
+
+	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
@@ -68,6 +72,8 @@ var cloudProber struct {
 	textConfig      string
 	config          *configpb.ProberConfig
 	cancelInitCtx   context.CancelFunc
+	lameducker      lameduck.Lameducker
+	globalLogger    *logger.Logger
 	sync.Mutex
 }
 
@@ -155,7 +161,7 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
-	globalLogger, err := logger.NewCloudproberLog("global")
+	cloudProber.globalLogger, err = logger.NewCloudproberLog("global")
 	if err != nil {
 		return fmt.Errorf("error in initializing global logger: %v", err)
 	}
@@ -166,7 +172,6 @@ func InitFromConfig(configFile string) error {
 	if err != nil {
 		return err
 	}
-	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	var grpcLn net.Listener
 	if cfg.GetGrpcPort() != 0 {
@@ -205,7 +210,7 @@ func InitFromConfig(configFile string) error {
 	// close their listeners.
 	// TODO(manugarg): Plumb init context from cmd/cloudprober.
 	initCtx, cancelFunc := context.WithCancel(context.TODO())
-	if err := pr.Init(initCtx, cfg, globalLogger); err != nil {
+	if err := pr.Init(initCtx, cfg, cloudProber.globalLogger); err != nil {
 		cancelFunc()
 		ln.Close()
 		return err
@@ -221,7 +226,7 @@ func InitFromConfig(configFile string) error {
 }
 
 // Start starts a previously initialized Cloudprober.
-func Start(ctx context.Context) {
+func Start(ctx context.Context, cancelFunc context.CancelFunc) {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
 
@@ -256,6 +261,52 @@ func Start(ctx context.Context) {
 	}
 
 	cloudProber.prober.Start(ctx)
+
+	if cloudProber.config.GetLameduckOnMaintenance() {
+		if !metadata.OnGCE() {
+			cloudProber.globalLogger.Errorf("lameduck_on_maintenance specified but not running on supported cloud, continue.")
+			cancelFunc()
+			return
+		}
+		var err error
+		cloudProber.lameducker, err = lameduck.NewLameducker(cloudProber.config.GetGlobalTargetsOptions().GetLameDuckOptions(), nil, cloudProber.globalLogger)
+		if err != nil {
+			cloudProber.globalLogger.Errorf("Error initializing lameducker.")
+			return
+		}
+
+		go func() {
+			lameduckTarget, err := metadata.InstanceName()
+			if err != nil {
+				cloudProber.globalLogger.Errorf("Error getting instance name: ", err)
+				cancelFunc()
+			}
+			var lastMaintenanceEventText string = "NONE"
+			err = metadata.Subscribe("instance/maintenance-event", func(currentMaintenanceEventText string, ok bool) error {
+				if !ok {
+					return errors.New("Event notification key is missing!")
+				}
+				if lastMaintenanceEventText != "NONE" {
+					// Since we start with NONE, if lastMaintenanceEventText is not NONE we were lameducked
+					lastMaintenanceEventText = currentMaintenanceEventText
+					if currentMaintenanceEventText == "NONE" {
+						return cloudProber.lameducker.Unlameduck(lameduckTarget)
+					}
+				} else {
+					//lastMaintenanceEventText is "NONE", if current is not also NONE we need to lameduck
+					if currentMaintenanceEventText != "NONE" {
+						lastMaintenanceEventText = currentMaintenanceEventText
+						return cloudProber.lameducker.Lameduck(lameduckTarget)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				cloudProber.globalLogger.Errorf("Error while listening for maintenance events: ", err)
+			}
+			cancelFunc()
+		}()
+	}
 }
 
 // GetConfig returns the prober config.
