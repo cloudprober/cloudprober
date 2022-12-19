@@ -1,4 +1,4 @@
-// Copyright 2018-2022 The Cloudprober Authors.
+// Copyright 2022 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,27 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package web
+// Package httputils implements HTTP related utilities.
+package httputils
 
-import "github.com/cloudprober/cloudprober/web/resources"
+import (
+	"net/http"
+	"net/http/httptest"
+)
 
-var statusTmpl = `
-<html>
-
-<head>
-` + resources.Style + `
-</head>
-
-<b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
-<b>Version</b>: {{.Version}}<br>
-<b>Other Links</b>: <a href="/config">/config</a>, <a href="/probestatus">/probestatus</a><br>
-
-<h3>Probes:</h3>
-{{.ProbesStatus}}
-
-<h3>Surfacers:</h3>
-{{.SurfacersStatus}}
-
-<h3>Servers:</h3>
-{{.ServersStatus}}
-`
+func IsHandled(mux *http.ServeMux, url string) bool {
+	_, matchedPattern := mux.Handler(httptest.NewRequest("", url, nil))
+	return matchedPattern == url
+}

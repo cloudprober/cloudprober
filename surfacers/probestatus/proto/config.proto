@@ -17,7 +17,9 @@ message SurfacerConf {
     optional int32 max_targets_per_probe = 3 [default = 20];
 
     // ProbeStatus URL
-    optional string url = 4 [default = "/probestatus"];
+    // Note that older default URL /probestatus forwards to this URL to avoid
+    // breaking older default setups.
+    optional string url = 4 [default = "/status"];
 
     // Page cache time
     optional int32 cache_time_sec = 5 [default=2];

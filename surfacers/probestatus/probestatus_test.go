@@ -15,7 +15,6 @@
 package probestatus
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -27,10 +26,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
-)
-
-const (
-	testProbe = "test-probe"
 )
 
 func testEM(t *testing.T, tm time.Time, probe, target string, total, success int, latency float64) *metrics.EventMetrics {
@@ -49,7 +44,7 @@ func TestNewAndRecord(t *testing.T) {
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	ps := New(ctx, &configpb.SurfacerConf{
+	ps, _ := New(ctx, &configpb.SurfacerConf{
 		TimeseriesSize:     proto.Int32(10),
 		MaxTargetsPerProbe: proto.Int32(2),
 	}, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
@@ -80,29 +75,31 @@ func TestNewAndRecord(t *testing.T) {
 }
 
 func TestPageCache(t *testing.T) {
-	pc := &pageCache{
-		maxAge: time.Second,
-	}
+	pc := newPageCache(1)
 
-	c, valid := pc.contentIfValid()
+	c, valid := pc.contentIfValid("test-url")
 	if valid {
 		t.Errorf("Got valid content from new cache: %s", string(c))
 	}
 
-	testContent := []byte("test-content")
-	pc.setContent(testContent)
-	c, valid = pc.contentIfValid()
-	if !valid {
-		t.Errorf("Got unexpected invalid")
+	testContent := map[string][]byte{
+		"url1": []byte("test-content1"),
+		"url2": []byte("test-content2"),
 	}
-	if !bytes.Equal(c, testContent) {
-		t.Errorf("Got=%s, wanted=%s", string(c), string(testContent))
+	for url, c := range testContent {
+		pc.setContent(url, c)
+	}
+
+	for url, tc := range testContent {
+		c, valid = pc.contentIfValid(url)
+		assert.True(t, valid, "Got unexpected invalid")
+		assert.Equal(t, string(tc), string(c))
 	}
 
 	time.Sleep(time.Second)
-	c, valid = pc.contentIfValid()
-	if valid {
-		t.Errorf("Got unexpected valid content from pageCache: %s", string(c))
+	for url := range testContent {
+		_, valid = pc.contentIfValid(url)
+		assert.False(t, valid, "Got unexpected valid")
 	}
 }
 
@@ -117,21 +114,21 @@ func TestDisabledAndHandlers(t *testing.T) {
 			desc:     "disabled",
 			disabled: true,
 			patternMatch: map[string]string{
-				"/probestatus": "",
+				"/status": "",
 			},
 		},
 		{
 			desc: "default",
 			patternMatch: map[string]string{
-				"/probestatus": "/probestatus",
+				"/status": "/status",
 			},
 		},
 		{
 			desc: "different_url",
-			url:  "/status",
+			url:  "/status2",
 			patternMatch: map[string]string{
-				"/probestatus": "",
-				"/status":      "/status",
+				"/status":  "/", // Default HTTP Handler
+				"/status2": "/status2",
 			},
 		},
 	}
@@ -148,7 +145,7 @@ func TestDisabledAndHandlers(t *testing.T) {
 				conf.Url = proto.String(test.url)
 			}
 			opts := &options.Options{HTTPServeMux: http.NewServeMux()}
-			ps := New(ctx, conf, opts, nil)
+			ps, _ := New(ctx, conf, opts, nil)
 
 			if test.disabled {
 				if ps != nil {

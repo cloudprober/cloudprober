@@ -13,7 +13,9 @@ package proto
 	maxTargetsPerProbe?: int32 @protobuf(3,int32,name=max_targets_per_probe,"default=20")
 
 	// ProbeStatus URL
-	url?: string @protobuf(4,string,#"default="/probestatus""#)
+	// Note that older default URL /probestatus forwards to this URL to avoid
+	// breaking older default setups.
+	url?: string @protobuf(4,string,#"default="/status""#)
 
 	// Page cache time
 	cacheTimeSec?: int32 @protobuf(5,int32,name=cache_time_sec,"default=2")

@@ -15,34 +15,42 @@
 // Package resources provides webpages related resources.
 package resources
 
-var Style = `
-<style type="text/css">
-body {
-  font-family: "Roboto","Helvetica","Arial",sans-serif;
-	font-size: 14px;
-  line-height: 1.3;
-}
+import (
+	"bytes"
+	"html/template"
+	"time"
 
-.debugging {
-  font-size: 12px;
-}
+	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/sysvars"
+)
 
-table.status-list {
-  border-collapse: collapse;
-  border-spacing: 0;
-	margin-top: 10px;
-	margin-bottom: 20px;
-	font-family: monospace;
-	font-size: 14px;
+var t = template.Must(template.New("header").Parse(`
+<header>
+  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
+</header> 
+<hr/>
+<div style="float:left">
+  <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
+  <b>Version</b>: {{.Version}}<br>
+  <b>Built at</b>: {{.BuiltAt}}<br>
+  <b>Other Links</b>: <a href="/config-running">/config</a> (<a href="/config">raw</a>), <a href="/status">/status</a><br>
+</div>
+`))
+
+func Header() template.HTML {
+	var buf bytes.Buffer
+
+	startTime := sysvars.StartTime().Truncate(time.Millisecond)
+	uptime := time.Since(startTime).Truncate(time.Millisecond)
+
+	t.Execute(&buf, struct {
+		Version, BuiltAt, StartTime, Uptime, RightDiv interface{}
+	}{
+		Version:   runconfig.Version(),
+		BuiltAt:   runconfig.BuildTimestamp(),
+		StartTime: startTime,
+		Uptime:    uptime,
+	})
+
+	return template.HTML(buf.String())
 }
-table.status-list td,th {
-  border: 1px solid gray;
-  padding: 0.25em 0.5em;
-	max-width: 200px;
-}
-pre {
-    white-space: pre-wrap;
-		word-wrap: break-word;
-}
-</style>
-`
