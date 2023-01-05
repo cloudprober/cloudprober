@@ -70,6 +70,16 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		return onGCE, nil
 	}
 
+	// If fetching instance name fails, we are on some restricted platform of
+	// GCE. Exit sooner with no error.
+	if instance, err := metadata.InstanceName(); err != nil {
+		l.Warningf("Error getting instance name on GCE, using HOSTNAME environment variable: %v", err)
+		vars["instance"] = os.Getenv("HOSTNAME")
+		return onGCE, nil
+	} else {
+		vars["instance"] = instance
+	}
+
 	// Helper function we use below.
 	getLastToken := func(value string) string {
 		tokens := strings.Split(value, "/")
@@ -125,14 +135,6 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 	zoneParts := strings.Split(vars["zone"], "-")
 	vars["region"] = strings.Join(zoneParts[0:len(zoneParts)-1], "-")
 	addGceNicInfo(vars, l)
-
-	// Fetching instance name fails on some versions of GKE.
-	if instance, err := metadata.InstanceName(); err != nil {
-		l.Warningf("Error getting instance name on GCE, using HOSTNAME environment variable: %v", err)
-		vars["instance"] = os.Getenv("HOSTNAME")
-	} else {
-		vars["instance"] = instance
-	}
 
 	labels, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
 	if err != nil {
