@@ -43,6 +43,10 @@ func TestParseValueFromString(t *testing.T) {
 			wantType: NewFloat(1),
 		},
 		{
+			val:      "-.234",
+			wantType: NewFloat(1),
+		},
+		{
 			val:     ".-234",
 			wantErr: true,
 		},
