@@ -176,6 +176,10 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
+	if opts.ProbeConf == nil {
+		opts.ProbeConf = &configpb.ProbeConf{}
+	}
+
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return fmt.Errorf("not http config")
