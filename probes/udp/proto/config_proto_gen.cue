@@ -30,4 +30,10 @@ package proto
 	// 16 packets to every target (1 per tx port).
 	// Note that setting this field to true will increase the probe traffic.
 	useAllTxPortsPerProbe?: bool @protobuf(8,bool,name=use_all_tx_ports_per_probe,"default=false")
+
+	// maxTargets is the maximum number of targets supported by this probe type.
+	// If there are more targets, they are pruned from the list to bring targets
+	// list under maxTargets.  A large number of targets has impact on resource
+	// consumption.
+	maxTargets?: int32 @protobuf(9,int32,name=max_targets,"default=500")
 }
