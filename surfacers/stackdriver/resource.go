@@ -19,6 +19,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	md "github.com/cloudprober/cloudprober/common/metadata"
+	"github.com/cloudprober/cloudprober/logger"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 
@@ -46,15 +47,19 @@ func kubernetesResource(projectID string) (*monitoring.MonitoredResource, error)
 	}, nil
 }
 
-func gceResource(projectID string) (*monitoring.MonitoredResource, error) {
+func gceResource(projectID string, l *logger.Logger) (*monitoring.MonitoredResource, error) {
 	name, err := metadata.InstanceName()
 	if err != nil {
-		return nil, err
+		name, err = metadata.Hostname()
+		if err != nil {
+			l.Warningf("Stackdriver surfacer: Error getting GCE instance or host name (%v), ignoring..", err)
+		}
 	}
 
 	zone, err := metadata.Zone()
 	if err != nil {
-		return nil, err
+		l.Warningf("Stackdriver surfacer: Error getting GCE zone (%v), ignoring..", err)
+		zone = ""
 	}
 
 	return &monitoring.MonitoredResource{
@@ -71,9 +76,9 @@ func gceResource(projectID string) (*monitoring.MonitoredResource, error) {
 	}, nil
 }
 
-func monitoredResourceOnGCE(projectID string) (*monitoring.MonitoredResource, error) {
+func monitoredResourceOnGCE(projectID string, l *logger.Logger) (*monitoring.MonitoredResource, error) {
 	if md.IsKubernetes() {
 		return kubernetesResource(projectID)
 	}
-	return gceResource(projectID)
+	return gceResource(projectID, l)
 }
