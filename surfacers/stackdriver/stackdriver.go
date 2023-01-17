@@ -118,7 +118,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			}
 		}
 
-		mr, err := monitoredResourceOnGCE(s.projectName)
+		mr, err := monitoredResourceOnGCE(s.projectName, l)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing monitored resource for stackdriver on GCE: %v", err)
 		}
