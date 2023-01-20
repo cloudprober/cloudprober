@@ -124,7 +124,7 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 		}
 	}
 	transport.DialContext = dialer.DialContext
-	transport.MaxIdleConns = 256
+	transport.MaxIdleConns = int(p.c.GetMaxIdleConns())
 	transport.TLSHandshakeTimeout = p.opts.Timeout
 
 	if p.c.GetProxyUrl() != "" {
