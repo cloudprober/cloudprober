@@ -488,6 +488,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
 
+	clients := p.clientsForTarget(target)
 	for ts := time.Now(); true; ts = <-ticker.C {
 		// Don't run another probe if context is canceled already.
 		if ctxDone(ctx) {
@@ -498,7 +499,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 		// was an invalid target), skip this probe cycle. Note that request
 		// creation gets retried at a regular interval (stats export interval).
 		if req != nil {
-			p.runProbe(ctx, target, p.clientsForTarget(target), req, result)
+			p.runProbe(ctx, target, clients, req, result)
 		}
 
 		// Export stats if it's the time to do so.
