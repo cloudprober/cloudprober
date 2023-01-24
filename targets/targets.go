@@ -246,6 +246,13 @@ func StaticTargets(hosts string) Targets {
 	return t
 }
 
+func StaticEndpoints(eps []endpoint.Endpoint) Targets {
+	t, _ := baseTargets(nil, nil, nil)
+	t.lister = &staticLister{list: eps}
+	t.resolver = globalResolver
+	return t
+}
+
 // RDSClientConf converts RDS targets into RDS client configuration.
 func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (rdsclient.ListResourcesFunc, *rdsclientpb.ClientConf, error) {
 	var listResourcesFunc rdsclient.ListResourcesFunc
