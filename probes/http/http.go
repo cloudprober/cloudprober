@@ -276,10 +276,11 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 
+	connEvent := 0
 	if p.c.GetKeepAlive() {
 		trace := &httptrace.ClientTrace{
 			ConnectDone: func(_, addr string, err error) {
-				result.connEvent++
+				connEvent++
 				if err != nil {
 					p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
 					return
@@ -301,6 +302,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	}
 
 	result.total++
+	result.connEvent += result.connEvent
 
 	if err != nil {
 		if isClientTimeout(err) {
