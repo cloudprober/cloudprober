@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build aix || darwin || dragonfly || freebsd || netbsd || openbsd || solaris
-// +build aix darwin dragonfly freebsd netbsd openbsd solaris
+//go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
 
 package ping
 
@@ -81,6 +81,17 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragme
 	if err := syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_TIMESTAMP, 1); err != nil {
 		syscall.Close(s)
 		return nil, os.NewSyscallError("setsockopt", err)
+	}
+	if disableFragmentation && ipVer == 4 && runtime.GOOS == "linux" {
+		// copied from https://github.com/golang/go/blob/master/src/syscall/zerrors_linux_.*.go to avoid issues
+		// compiling on non-linux unix systems.
+		const linux_IP_MTU_DISCOVER := 0xa
+		const linux_IP_PMTUDISC_DO := 0x2
+		// Set don't fragment bit.
+		if err := syscall.SetsockoptInt(s, syscall.IPPROTO_IP, linux_IP_MTU_DISCOVER, linux_IP_PMTUDISC_DO); err != nil {
+			syscall.Close(s)
+			return nil, os.NewSyscallError("setsockopt", err)
+		}
 	}
 
 	sa, err := sockaddr(sourceIP, ipVer)
