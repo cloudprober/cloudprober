@@ -114,12 +114,16 @@ func enableDebugLog(debugLog bool, debugLogRe string, logName string) bool {
 //
 // Logger{} is a valid object that will log through the traditional logger.
 //
+// labels is a map which is present in every log entry and all custom
+// metadata about the log entries can be inserted into this map.
+// For example probe id can be inserted into this map.
 type Logger struct {
 	name                string
 	logc                *logging.Client
 	logger              *logging.Logger
 	debugLog            bool
 	disableCloudLogging bool
+	labels              map[string]string
 	// TODO(manugarg): Logger should eventually embed the probe id and each probe
 	// should get a different Logger object (embedding that probe's probe id) but
 	// sharing the same logging client. We could then make probe id one of the
@@ -141,17 +145,25 @@ func NewCloudproberLog(component string) (*Logger, error) {
 
 // New returns a new Logger object with cloud logging client initialized if running on GCE.
 func New(ctx context.Context, logName string) (*Logger, error) {
+	return NewCloudLoggerWithLabels(ctx, logName, make(map[string]string))
+}
+
+// NewCloudLoggerWithLabels returns a new Logger object with a cloud logging
+// client initialized with custom labels if running on GCE.
+func NewCloudLoggerWithLabels(ctx context.Context, logName string, labels map[string]string) (*Logger, error) {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
 	l := &Logger{
 		name:                logName,
+		labels:              labels,
 		debugLog:            enableDebugLog(*debugLog, *debugLogList, logName),
 		disableCloudLogging: *disableCloudLogging,
 	}
-
 	if !metadata.OnGCE() || l.disableCloudLogging {
 		return l, nil
 	}
-
-	l.Infof("Running on GCE. Logs for %s will go to Cloud (Stackdriver).", logName)
+	l.Infof("Running on GCE. Logs for %s will go to Cloud (Stackdriver).", l.name)
 	if err := l.EnableStackdriverLogging(ctx); err != nil {
 		return nil, err
 	}
@@ -187,6 +199,16 @@ func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 		return err
 	}
 
+	// Add instance_name to common labels if available.
+	if !md.IsKubernetes() {
+		instanceName, err := metadata.InstanceName()
+		if err != nil {
+			l.Infof("Error getting instance name on GCE: %v", err)
+		} else {
+			l.labels["instance_name"] = instanceName
+		}
+	}
+
 	loggerOpts := []logging.LoggerOption{
 		// Encourage batching of write requests.
 		// Flush logs to remote logging after 1000 entries (default is 10).
@@ -196,16 +218,8 @@ func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 		// We want flushing to be mostly driven by the buffer size (configured
 		// above), rather than time.
 		logging.DelayThreshold(10 * time.Second),
-	}
-
-	// Add instance_name to common labels if available.
-	if !md.IsKubernetes() {
-		instanceName, err := metadata.InstanceName()
-		if err != nil {
-			l.Infof("Error getting instance name on GCE: %v", err)
-		} else {
-			loggerOpts = append(loggerOpts, logging.CommonLabels(map[string]string{"instance_name": instanceName}))
-		}
+		// Common labels that will be present in all log entries.
+		logging.CommonLabels(l.labels),
 	}
 
 	l.logger = l.logc.Logger(logName, loggerOpts...)
