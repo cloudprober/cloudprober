@@ -91,15 +91,16 @@ type Probe struct {
 	l    *logger.Logger
 
 	// book-keeping params
-	ipVer             int
-	targets           []endpoint.Endpoint
-	results           map[string]*result
-	conn              icmpConn
-	runCnt            uint64
-	target2addr       map[string]net.Addr
-	ip2target         map[[16]byte]string
-	useDatagramSocket bool
-	statsExportFreq   int // Export frequency
+	ipVer                int
+	targets              []endpoint.Endpoint
+	results              map[string]*result
+	conn                 icmpConn
+	runCnt               uint64
+	target2addr          map[string]net.Addr
+	ip2target            map[[16]byte]string
+	useDatagramSocket    bool
+	disableFragmentation bool
+	statsExportFreq      int // Export frequency
 }
 
 // Init initliazes the probe with the given params.
@@ -161,6 +162,7 @@ func (p *Probe) initInternal() error {
 	p.ip2target = make(map[[16]byte]string)
 	p.target2addr = make(map[string]net.Addr)
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
+	p.disableFragmentation = p.c.GetDisableFragmentation()
 
 	// Update targets run peiodically as well.
 	p.updateTargets()
@@ -204,7 +206,7 @@ func (p *Probe) listen() error {
 	}
 
 	var err error
-	p.conn, err = newICMPConn(sourceIP, p.ipVer, p.useDatagramSocket)
+	p.conn, err = newICMPConn(sourceIP, p.ipVer, p.useDatagramSocket, p.disableFragmentation)
 	return err
 }
 

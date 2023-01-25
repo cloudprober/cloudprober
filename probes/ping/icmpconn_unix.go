@@ -55,7 +55,7 @@ func sockaddr(sourceIP net.IP, ipVer int) (syscall.Sockaddr, error) {
 //      implementation ignores the protocol field entirely.
 //   2. ListenPacket doesn't support setting socket options (we need
 //      SO_TIMESTAMP) in a straightforward way.
-func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketConn, error) {
+func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragmentation bool) (*icmpPacketConn, error) {
 	var family, proto int
 
 	switch ipVer {
@@ -80,6 +80,13 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketC
 	if err := syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_TIMESTAMP, 1); err != nil {
 		syscall.Close(s)
 		return nil, os.NewSyscallError("setsockopt", err)
+	}
+	if disableFragmentation {
+		// Set don't fragment bit.
+		if err := syscall.SetsockoptInt(s, syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO); err != nil {
+			syscall.Close(s)
+			return nil, os.NewSyscallError("setsockopt", err)
+		}
 	}
 
 	sa, err := sockaddr(sourceIP, ipVer)

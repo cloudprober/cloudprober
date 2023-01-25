@@ -35,4 +35,7 @@ package proto
 	// craft the outgoing ICMP packet payload in a certain format and verify that
 	// the reply payload matches the same format.
 	disableIntegrityCheck?: bool @protobuf(13,bool,name=disable_integrity_check,"default=false")
+
+	// Do not allow OS-level fragmentation, only works on unix systems.
+	disableFragmentation?: bool @protobuf(14,bool,name=disable_fragmentation,"default=false")
 }
