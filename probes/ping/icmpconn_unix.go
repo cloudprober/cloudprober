@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build aix || dragonfly || freebsd || netbsd || openbsd || solaris
-// +build aix dragonfly freebsd netbsd openbsd solaris
+//go:build aix || darwin || dragonfly || freebsd || netbsd || openbsd || solaris
+// +build aix darwin dragonfly freebsd netbsd openbsd solaris
 
 package ping
 
