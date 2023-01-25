@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build aix || dragonfly || freebsd || netbsd || openbsd || solaris
-// +build aix dragonfly freebsd netbsd openbsd solaris
+//go:build linux
+// +build linux
 
 package ping
 
@@ -50,13 +50,12 @@ func sockaddr(sourceIP net.IP, ipVer int) (syscall.Sockaddr, error) {
 // listenPacket listens for incoming ICMP packets addressed to sourceIP.
 // We need to write our own listenPacket instead of using "net.ListenPacket"
 // for the following reasons:
-//  1. ListenPacket doesn't support ICMP for SOCK_DGRAM sockets. You create
-//     datagram sockets by specifying network as "udp", but UDP new connection
-//     implementation ignores the protocol field entirely.
-//  2. ListenPacket doesn't support setting socket options (we need
-//     SO_TIMESTAMP) in a straightforward way.
+//   1. ListenPacket doesn't support ICMP for SOCK_DGRAM sockets. You create
+//      datagram sockets by specifying network as "udp", but UDP new connection
+//      implementation ignores the protocol field entirely.
+//   2. ListenPacket doesn't support setting socket options (we need
+//      SO_TIMESTAMP) in a straightforward way.
 func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragmentation bool) (*icmpPacketConn, error) {
-	// Note that the disableFragmentation bit only applies on Linux systems.
 	var family, proto int
 
 	switch ipVer {
@@ -81,6 +80,13 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragme
 	if err := syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_TIMESTAMP, 1); err != nil {
 		syscall.Close(s)
 		return nil, os.NewSyscallError("setsockopt", err)
+	}
+	if ipVer == 4 && disableFragmentation {
+		// Set don't fragment bit.
+		if err := syscall.SetsockoptInt(s, syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO); err != nil {
+			syscall.Close(s)
+			return nil, os.NewSyscallError("setsockopt", err)
+		}
 	}
 
 	sa, err := sockaddr(sourceIP, ipVer)
@@ -210,4 +216,3 @@ func init() {
 		NativeEndian = binary.BigEndian
 	}
 }
-

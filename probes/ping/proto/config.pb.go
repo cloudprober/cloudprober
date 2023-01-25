@@ -54,7 +54,7 @@ type ProbeConf struct {
 	// craft the outgoing ICMP packet payload in a certain format and verify that
 	// the reply payload matches the same format.
 	DisableIntegrityCheck *bool `protobuf:"varint,13,opt,name=disable_integrity_check,json=disableIntegrityCheck,def=0" json:"disable_integrity_check,omitempty"`
-	// Do not allow OS-level fragmentation, only works on unix systems.
+	// Do not allow OS-level fragmentation, only works on Linux systems.
 	DisableFragmentation *bool `protobuf:"varint,14,opt,name=disable_fragmentation,json=disableFragmentation,def=0" json:"disable_fragmentation,omitempty"`
 }
 
