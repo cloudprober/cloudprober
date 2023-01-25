@@ -200,8 +200,8 @@ func (ipc *icmpPacketConn) setReadDeadline(t time.Time) {
 	ipc.c.SetReadDeadline(t)
 }
 
-func newICMPConn(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketConn, error) {
-	return listenPacket(sourceIP, ipVer, datagramSocket)
+func newICMPConn(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragmentation bool) (*icmpPacketConn, error) {
+	return listenPacket(sourceIP, ipVer, datagramSocket, disableFragmentation)
 }
 
 // Find out native endianness when this packages is loaded.
