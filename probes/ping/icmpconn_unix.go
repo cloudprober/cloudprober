@@ -85,8 +85,8 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragme
 	if disableFragmentation && ipVer == 4 && runtime.GOOS == "linux" {
 		// copied from https://github.com/golang/go/blob/master/src/syscall/zerrors_linux_.*.go to avoid issues
 		// compiling on non-linux unix systems.
-		const linux_IP_MTU_DISCOVER := 0xa
-		const linux_IP_PMTUDISC_DO := 0x2
+		const linux_IP_MTU_DISCOVER = 0xa
+		const linux_IP_PMTUDISC_DO = 0x2
 		// Set don't fragment bit.
 		if err := syscall.SetsockoptInt(s, syscall.IPPROTO_IP, linux_IP_MTU_DISCOVER, linux_IP_PMTUDISC_DO); err != nil {
 			syscall.Close(s)
