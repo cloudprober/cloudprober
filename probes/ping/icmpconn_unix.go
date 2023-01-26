@@ -84,7 +84,9 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragme
 		return nil, os.NewSyscallError("setsockopt", err)
 	}
 	if disableFragmentation && ipVer == 4 && runtime.GOOS == "linux" {
-		// copied from https://github.com/golang/go/blob/master/src/syscall/zerrors_linux_.*.go to avoid issues
+		// Copied from
+		// https://github.com/golang/go/blob/master/src/syscall/zerrors_linux_.*.go
+		// to make build work for non-linux systems.
 		// compiling on non-linux unix systems.
 		const linux_IP_MTU_DISCOVER = 0xa
 		const linux_IP_PMTUDISC_DO = 0x2
