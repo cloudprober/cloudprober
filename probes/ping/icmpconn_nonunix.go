@@ -29,7 +29,8 @@ type icmpPacketConn struct {
 	c *icmp.PacketConn
 }
 
-func newICMPConn(sourceIP net.IP, ipVer int, datagramSocket bool) (icmpConn, error) {
+func newICMPConn(sourceIP net.IP, ipVer int, datagramSocket bool, disableFragmentation bool) (icmpConn, error) {
+	// Note that the disableFragmentation bit only applies on Linux systems.
 	network := map[int]string{
 		4: "ip4:icmp",
 		6: "ip6:ipv6-icmp",
