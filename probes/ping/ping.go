@@ -164,6 +164,11 @@ func (p *Probe) initInternal() error {
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
 	p.disableFragmentation = p.c.GetDisableFragmentation()
 
+	if p.disableFragmentation && (runtime.GOOS != "linux" || p.ipVer == 6) {
+		p.l.Warning("disable_fragmentation option is applicable only to IPv4 Linux, ignoring it.")
+		p.disableFragmentation = false
+	}
+
 	// Update targets run peiodically as well.
 	p.updateTargets()
 
@@ -206,7 +211,7 @@ func (p *Probe) listen() error {
 	}
 
 	var err error
-	p.conn, err = newICMPConn(sourceIP, p.ipVer, p.useDatagramSocket, p.disableFragmentation)
+	p.conn, err = p.newICMPConn(sourceIP)
 	return err
 }
 
