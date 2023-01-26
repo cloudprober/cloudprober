@@ -176,10 +176,6 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	if opts.ProbeConf == nil {
-		opts.ProbeConf = &configpb.ProbeConf{}
-	}
-
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return fmt.Errorf("not http config")
@@ -190,6 +186,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 
 	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
 	if totalDuration > p.opts.Interval {
