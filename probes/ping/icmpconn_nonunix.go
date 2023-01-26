@@ -36,7 +36,7 @@ func (p *Probe) newICMPConn(sourceIP net.IP) (icmpConn, error) {
 		6: "ip6:ipv6-icmp",
 	}[p.ipVer]
 
-	if datagramSocket {
+	if p.useDatagramSocket {
 		network = "udp" + strconv.Itoa(p.ipVer)
 	}
 
