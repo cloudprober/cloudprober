@@ -36,4 +36,7 @@ message ProbeConf {
   // craft the outgoing ICMP packet payload in a certain format and verify that
   // the reply payload matches the same format.
   optional bool disable_integrity_check = 13 [default = false];
+
+  // Do not allow OS-level fragmentation, only works on Linux systems.
+  optional bool disable_fragmentation = 14 [default = false];
 }
