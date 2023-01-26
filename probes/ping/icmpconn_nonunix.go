@@ -30,7 +30,6 @@ type icmpPacketConn struct {
 }
 
 func (p *Probe) newICMPConn(sourceIP net.IP) (icmpConn, error) {
-	// Note that the disableFragmentation bit only applies on Linux systems.
 	network := map[int]string{
 		4: "ip4:icmp",
 		6: "ip6:ipv6-icmp",
