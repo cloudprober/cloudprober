@@ -1,4 +1,4 @@
-// Copyright 2017-2021 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ package udp
 import (
 	"context"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -39,6 +40,13 @@ import (
 type serverConnStats struct {
 	sync.Mutex
 	msgCt map[string]int
+}
+
+func debugLog(t *testing.T, format string, args ...interface{}) {
+	if os.Getenv("ACTIONS_RUNNER_DEBUG") != "true" {
+		return
+	}
+	t.Logf(format, args...)
 }
 
 func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Duration) (int, *serverConnStats) {
@@ -72,7 +80,7 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 				}
 				continue
 			}
-			t.Logf("Message from %s, size: %d", addr.String(), msgLen)
+			debugLog(t, "Message from %s, size: %d", addr.String(), msgLen)
 			scs.Lock()
 			scs.msgCt[addr.String()]++
 			scs.Unlock()
@@ -87,7 +95,7 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 				if _, err := conn.WriteToUDP(b, addr); err != nil {
 					t.Logf("Error sending message %s: %v", b, err)
 				}
-				t.Logf("Sent message to %s", addr.String())
+				debugLog(t, "Sent message to %s", addr.String())
 			}(append([]byte{}, b[:msgLen]...), addr)
 		}
 	}()
@@ -182,7 +190,7 @@ func runProbe(t *testing.T, interval, timeout time.Duration, probesToSend int, s
 	if len(scs.msgCt) != len(p.connList) {
 		t.Errorf("Got packets over %d connections, required %d", len(scs.msgCt), len(p.connList))
 	}
-	t.Logf("Echo server stats: %v", scs.msgCt)
+	debugLog(t, "Echo server stats: %v", scs.msgCt)
 
 	cancelCtx()
 	wg.Wait()
@@ -213,7 +221,7 @@ func TestSuccessMultipleCasesResultPerPort(t *testing.T) {
 	for _, c := range cases {
 		ctx, cancelServerCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, false, c.delay*time.Millisecond)
-		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
+		debugLog(t, "Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
 
 		conf := &configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(c.useAllPorts),
@@ -265,7 +273,8 @@ func TestSuccessMultipleCasesDefaultResult(t *testing.T) {
 	for _, c := range cases {
 		ctx, cancelServerCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, false, c.delay*time.Millisecond)
-		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
+		debugLog(t, "Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
+
 		conf := &configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(c.useAllPorts),
 			Port:                  proto.Int32(int32(port)),
@@ -360,7 +369,7 @@ func TestLossAndDelayed(t *testing.T) {
 		ctx, cancelServerCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, c.drop, c.delay*time.Millisecond)
 
-		t.Logf("Case(%s): started server on port %d with loss %v delay %v", c.name, port, c.drop, c.delay)
+		debugLog(t, "Case(%s): started server on port %d with loss %v delay %v", c.name, port, c.drop, c.delay)
 
 		conf := &configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(true),
