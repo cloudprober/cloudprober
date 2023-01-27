@@ -49,8 +49,7 @@ jobs:
         run: echo "DISABLE_IPV6_TESTS=yes" >> $env:GITHUB_ENV
 
       - name: Get dependencies
-        run: |
-          go get -v -t -d ./...
+        run: go get -v -t -d ./...
 
       - name: Build
         run: go build -v .
@@ -60,7 +59,9 @@ jobs:
         run: sudo sudo sysctl -w net.ipv4.ping_group_range="0 500000"
 
       - name: Test
-        run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
+        run: |
+          go install gotest.tools/gotestsum@latest
+          gotestsum -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic ./...
 
       - name: Privileged ping tests.
         if: ${{ matrix.os != 'windows-latest' }}
