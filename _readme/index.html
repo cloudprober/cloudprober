@@ -420,46 +420,69 @@ what's broken in your system.</p>
 <p><img src="http://cloudprober.org/diagrams/cloudprober_use_case.svg" alt="Cloudprober Use Case"></p>
 <h2 id="features">Features</h2>
 <ul>
-<li>Automated target discovery for Cloud targets. <strong>GCE</strong> and <strong>Kubernetes</strong>
-are supported out-of-the-box, other Cloud providers can be added easily.</li>
-<li>Integration with open source monitoring stack of
-<a href="http://prometheus.io">Prometheus</a> and <a href="http://grafana.com">Grafana</a>.
-Cloudprober exports probe results as counter based metrics that work well
-with Prometheus and Grafana.</li>
-<li>Out of the box, config based integration with popular monitoring systems:
-<a href="http://prometheus.io">Prometheus</a>,
-<a href="https://www.datadoghq.com/">DataDog</a>,
-<a href="https://www.postgresql.org/">PostgreSQL</a>,
-<a href="https://cloud.google.com/stackdriver/">StackDriver</a>,
-<a href="https://aws.amazon.com/cloudwatch/">CloudWatch</a>.</li>
-<li>Fast and efficient built-in implementations for the most common types of
-checks: PING (ICMP), HTTP, UDP, DNS. Especially PING and UDP probes are
-implemented in such a way that thousands of hosts can be probed with
-minimal resources.</li>
-<li>Arbitrary, complex probes can be run through the external probe type. For
-example, you could write a simple script to insert and delete a row in your
-database, and execute this script through the &lsquo;EXTERNAL&rsquo; probe type.</li>
-<li>Standard metrics - <em>total</em>, <em>success</em>, <em>latency</em>. Latency can be configured
-to be a distribution (histogram) metric, allowing calculations of
-percentiles.</li>
-<li>Strong focus on ease of deployment. Cloudprober is written entirely in Go,
-and compiles into a static binary. It can be easily deployed, either as a
-standalone binary or through docker containers. Thanks to the automated,
-continuous, target discovery, there is usually no need to re-deploy or
-re-configure cloudprober in response to most of the changes.</li>
-<li>Low footprint. Cloudprober docker image is small, containing just the
-statically compiled binary and it takes very little CPU and RAM to run even
-a large number of probes.</li>
-<li>Extensible architecture. Cloudprober can be easily extended along most of
+<li>
+<p>Out of the box, config based, integration with many popular monitoring systems:</p>
+<ul>
+<li><a href="https://prometheus.io">Prometheus/Grafana</a></li>
+<li><a href="https://www.datadoghq.com/">DataDog</a></li>
+<li><a href="https://www.postgresql.org/">PostgreSQL</a></li>
+<li><a href="https://aws.amazon.com/cloudwatch/">AWS CloudWatch</a></li>
+<li><a href="https://cloud.google.com/stackdriver/">StackDriver / Google Cloud Monitoring</a></li>
+</ul>
+</li>
+<li>
+<p>Multiple options for checks:</p>
+<ul>
+<li><em>Efficient, highly scalable</em>, built-in probes:
+<a href="https://github.com/cloudprober/cloudprober/blob/master/probes/http/proto/config.proto">HTTP</a>,
+<a href="https://github.com/cloudprober/cloudprober/blob/master/probes/ping/proto/config.proto">PING</a>,
+<a href="https://github.com/cloudprober/cloudprober/blob/master/probes/tcp/proto/config.proto">TCP</a>,
+<a href="https://github.com/cloudprober/cloudprober/blob/master/probes/dns/proto/config.proto">DNS</a>,
+<a href="https://github.com/cloudprober/cloudprober/blob/master/probes/grpc/proto/config.proto">gRPC</a>,
+<a href="https://github.com/cloudprober/cloudprober/blob/master/probes/udp/proto/config.proto">UDP</a>.</li>
+<li>Run custom checks through the <em>&quot;<a href="https://cloudprober.org/how-to/external-probe/">external</a>&quot;</em> probe type.</li>
+</ul>
+</li>
+<li>
+<p>Automated targets discovery to make Cloud deployments as painless as possible:</p>
+<ul>
+<li><em><a href="https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets">Kubernetes</a></em> resources.</li>
+<li><em><a href="https://github.com/cloudprober/cloudprober/blob/master/rds/gcp/proto/config.proto">GCP</a></em> instances, forwarding rules, and pub/sub messages.</li>
+<li><em><a href="https://github.com/cloudprober/cloudprober/blob/master/rds/file/proto/config.proto#L34">File</a></em> based targets.</li>
+</ul>
+</li>
+<li>
+<p>Deployment friendly:</p>
+<ul>
+<li>Written entirely in Go, and compiles into a static binary.</li>
+<li>Deploy as a standalone binary, or through docker containers.</li>
+<li>Continuous, automated target discovery, to ensure that most infrastructure changes don't require
+re-deployment.</li>
+</ul>
+</li>
+<li>
+<p>Low footprint. Cloudprober takes advantage of the Go's concurrency paradigms,
+and makes most of the available processing power.</p>
+</li>
+<li>
+<p>Configurable metrics:</p>
+<ul>
+<li>Configurable metrics labels, based on the resource labels.</li>
+<li>Latency histograms for percentile calculations.</li>
+</ul>
+</li>
+<li>
+<p>Extensible architecture. Cloudprober can be easily extended along most of
 the dimensions. Adding support for other Cloud targets, monitoring systems
-and even a new probe type, is straight-forward and fairly easy.</li>
+and even a new probe type, is straight-forward and fairly easy.</p>
+</li>
 </ul>
 <h2 id="getting-started">Getting Started</h2>
 <p>Visit <a href="http://cloudprober.org/getting-started">Getting Started</a> page to get
 started with Cloudprober.</p>
 <h2 id="feedback">Feedback</h2>
 <p>We'd love to hear your feedback. If you're using Cloudprober, would you please
-mind sharing how you use it by adding a comment <a href="https://github.com/google/cloudprober/issues/123">here</a>. It will be a great help in
+mind sharing how you use it by adding a comment <a href="https://github.com/cloudprober/cloudprober/discussions/121">here</a>. It will be a great help in
 planning Cloudprober's future progression.</p>
 <p>Join <a href="https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE">Cloudprober Slack</a> or <a href="https://github.com/cloudprober/cloudprober/discussions">Github discussions</a> for questions and discussion
 about Cloudprober.</p>
