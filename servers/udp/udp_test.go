@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/servers/udp/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 // Return true if the underlying error indicates a udp.Client timeout.
@@ -109,7 +110,9 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 	go server.Start(context.Background(), nil)
 	// try 100 Samples
 	for i := 0; i < 100; i++ {
-		t.Logf("Creating connection %d to %s", i, serverAddr)
+		if os.Getenv("ACTIONS_RUNNER_DEBUG") == "true" {
+			t.Logf("Creating connection %d to %s", i, serverAddr)
+		}
 		conn, err := net.Dial("udp", serverAddr)
 		if err != nil {
 			t.Fatal(err)
@@ -118,7 +121,9 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 		conn.Close()
 	}
 	// try 10 samples on the same connection
-	t.Logf("Creating many-packet connection to %s", serverAddr)
+	if os.Getenv("ACTIONS_RUNNER_DEBUG") == "true" {
+		t.Logf("Creating many-packet connection to %s", serverAddr)
+	}
 	conn, err := net.Dial("udp", serverAddr)
 	if err != nil {
 		t.Fatal(err)
