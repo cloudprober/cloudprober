@@ -427,16 +427,18 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		p.Start(ctx, dataChan)
 	}()
 
-	// Let probe run for about 20 times, exporting data 10 times
-	time.Sleep(300 * time.Millisecond)
-	cancelF()
-	wg.Wait() // Verifies that probe really stopped.
-
-	ems, err := testutils.MetricsFromChannel(dataChan, 100, 100*time.Millisecond)
-	// We should receive at least 6 eventmetrics: 2 probe cycle x 3 targets.
-	if err != nil && len(ems) < 6 {
+	// Let's wait for 500ms. Probes should run about 50 times during this
+	// period. For 3 targets, we should get about 150 eventmetrics, but let's
+	// just wait for 60 EventMetrics, which should happen within 200ms on a
+	// well running system.
+	ems, err := testutils.MetricsFromChannel(dataChan, 60, 500*time.Millisecond)
+	if err != nil && len(ems) < 9 { // 3 EventMetrics for each target.
 		t.Errorf("Error getting 6 eventmetrics from data channel: %v", err)
 	}
+
+	// Let probe run for about 20 times, exporting data 10 times
+	cancelF()
+	wg.Wait() // Verifies that probe really stopped.
 
 	latestVal := func(ems []*metrics.EventMetrics, name string) int {
 		return int(ems[len(ems)-1].Metric(name).(*metrics.Int).Int64())
