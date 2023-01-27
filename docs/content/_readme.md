@@ -20,12 +20,12 @@ what's broken in your system.
 
 ## Features
 
-*  Out of the box, config based, integration with popular monitoring systems:
+*  Out of the box, config based, integration with many popular monitoring systems:
    * [Prometheus/Grafana](https://prometheus.io)
    * [DataDog](https://www.datadoghq.com/)
    * [PostgreSQL](https://www.postgresql.org/)
-   * [StackDriver](https://cloud.google.com/stackdriver/)
    * [AWS CloudWatch](https://aws.amazon.com/cloudwatch/)
+   * [StackDriver / Google Cloud Monitoring](https://cloud.google.com/stackdriver/)
 
 *  Multiple options for checks:
    *  _Efficient, highly scalable_, built-in probes:
@@ -50,14 +50,14 @@ what's broken in your system.
 
 *   Low footprint. Cloudprober takes advantage of the Go's concurrency paradigms,
     and makes most of the available processing power.
-
-*   Extensible architecture. Cloudprober can be easily extended along most of
-    the dimensions. Adding support for other Cloud targets, monitoring systems
-    and even a new probe type, is straight-forward and fairly easy.
     
 *  Configurable metrics:
    * Configurable metrics labels, based on the resource labels.
    * Latency histograms for percentile calculations.
+
+*   Extensible architecture. Cloudprober can be easily extended along most of
+    the dimensions. Adding support for other Cloud targets, monitoring systems
+    and even a new probe type, is straight-forward and fairly easy.
 
 ## Getting Started
 
