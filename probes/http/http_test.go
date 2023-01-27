@@ -428,7 +428,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 	}()
 
 	// Let probe run for about 20 times, exporting data 10 times
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 	cancelF()
 	wg.Wait() // Verifies that probe really stopped.
 
@@ -451,6 +451,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		}
 
 		metricsCount := len(totalVals)
+		t.Logf("Total metrics for %s: %d", tgt, len(totalVals))
 		if metricsCount < 3 {
 			t.Errorf("Too few metrics for %s: %v (less than 3)", tgt, totalVals)
 			continue
