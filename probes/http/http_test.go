@@ -429,9 +429,9 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 
 	// Let's wait for 500ms. Probes should run about 50 times during this
 	// period. For 3 targets, we should get about 150 eventmetrics, but let's
-	// just wait for 60 EventMetrics, which should happen within 200ms on a
+	// just wait for 30 EventMetrics, which should happen within 100ms on a
 	// well running system.
-	ems, err := testutils.MetricsFromChannel(dataChan, 60, 500*time.Millisecond)
+	ems, err := testutils.MetricsFromChannel(dataChan, 30, 500*time.Millisecond)
 	if err != nil && len(ems) < 9 { // 3 EventMetrics for each target.
 		t.Errorf("Error getting 6 eventmetrics from data channel: %v", err)
 	}
