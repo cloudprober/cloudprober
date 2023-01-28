@@ -342,7 +342,9 @@ type testServer struct {
 
 func newTestServer(ctx context.Context, ipVer int) (*testServer, error) {
 	ts := &testServer{}
-	ln, err := net.Listen(map[int]string{4: "tcp4", 6: "tcp6", 0: "tcp"}[ipVer], ":0")
+	network := map[int]string{4: "tcp4", 6: "tcp6", 0: "tcp"}[ipVer]
+	addr := map[int]string{4: "127.0.0.1:0", 6: "[::1]:0", 0: "localhost:0"}[ipVer]
+	ln, err := net.Listen(network, addr)
 	if err != nil {
 		return nil, err
 	}
