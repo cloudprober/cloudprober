@@ -21,13 +21,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - name: Set up Go 1.18
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.18
-          cache: true
-        id: go
-
       - name: Check out code into the Go module directory
         if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
         uses: actions/checkout@v2
@@ -40,6 +33,13 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+          cache: true
+        id: go
 
       - name: Set DISABLE_IPV6_TESTS on Windows OS
         if: ${{ matrix.os == 'windows-latest' }}
@@ -73,13 +73,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - name: Set up Go 1.18
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.18
-          cache: true
-        id: go
-
       - name: Check out code into the Go module directory
         if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
         uses: actions/checkout@v2
@@ -92,6 +85,13 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+          cache: true
+        id: go
 
       - run: make cloudprober-linux-{amd64,arm64,armv7}
         if: ${{ matrix.os == 'ubuntu-latest' }}
