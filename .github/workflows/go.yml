@@ -29,7 +29,7 @@ jobs:
 
       - name: Check out code into the Go module directory
         if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -61,7 +61,7 @@ jobs:
       - name: Test
         run: |
           go install gotest.tools/gotestsum@latest
-          gotestsum -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic ./...
+          gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
 
       - name: Privileged ping tests.
         if: ${{ matrix.os != 'windows-latest' }}
