@@ -40,10 +40,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag }}
 
-      - name: Set environment varible to skip UDP test on MAC OS
-        if: ${{ matrix.os == 'macos-latest' }}
-        run: echo "EXTRA_TEST_FLAGS=-tags skip_udp_probe_test" >> $GITHUB_ENV
-
       - name: Set DISABLE_IPV6_TESTS on Windows OS
         if: ${{ matrix.os == 'windows-latest' }}
         run: echo "DISABLE_IPV6_TESTS=yes" >> $env:GITHUB_ENV
