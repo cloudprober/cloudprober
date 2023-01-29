@@ -25,6 +25,7 @@ package external
 import (
 	"bytes"
 	"context"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -37,6 +38,8 @@ func (p *Probe) runCommand(ctx context.Context, cmd string, args []string, envVa
 	c.Stdout, c.Stderr = &stdout, &stderr
 
 	if len(envVars) > 0 {
+		// make sure environment variables are passed down
+		c.Env = append(c.Env, os.Environ()...)
 		c.Env = append(c.Env, envVars...)
 	}
 

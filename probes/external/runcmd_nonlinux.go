@@ -18,12 +18,15 @@ package external
 
 import (
 	"context"
+	"os"
 	"os/exec"
 )
 
 func (p *Probe) runCommand(ctx context.Context, cmd string, args []string, envVars []string) ([]byte, error) {
 	toRun := exec.CommandContext(ctx, cmd, args...)
 	if len(envVars) > 0 {
+		// make sure to pass down environment variables
+		toRun.Env = append(toRun.Env, os.Environ()...)
 		toRun.Env = append(toRun.Env, envVars...)
 	}
 	return toRun.Output()
