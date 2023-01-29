@@ -7,6 +7,7 @@ on:
       - 'helm-test*'
     paths:
       - 'helm/Chart.yaml'
+      - '.github/workflows/hugo.yml'
     tags:
       - 'v*'
 
