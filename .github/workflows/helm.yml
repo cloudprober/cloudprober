@@ -70,4 +70,6 @@ jobs:
         run: |
           mkdir -p charts
           cd charts; helm package ../cloudprober/helm/.; cd -
+          helm repo index
+          rm -rf cloudprober
           git status
