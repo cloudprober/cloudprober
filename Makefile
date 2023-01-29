@@ -40,13 +40,13 @@ $(BINARY): $(SOURCES)
 ca-certificates.crt: $(CACERTS)
 	cp $(CACERTS) ca-certificates.crt
 
-docker_genpb: Dockerfile.genpb
-	docker build -f Dockerfile.genpb . -t cloudprober:genpb
-	docker run -v $(shell pwd):/cloudprober -v /tmp:/tmp cloudprober:genpb tools/gen_pb_go.sh
+docker_genpb: Dockerfile.dev
+	docker build -f Dockerfile.dev . -t cloudprober:dev
+	docker run -v $(shell pwd):/cloudprober -v /tmp:/tmp cloudprober:dev tools/gen_pb_go.sh
 
-docker_test: Dockerfile.genpb
-	docker build -f Dockerfile.genpb . -t cloudprober:genpb
-	docker run -v $(shell pwd):/cloudprober -v /tmp:/tmp cloudprober:genpb make test
+docker_test: Dockerfile.dev
+	docker build -f Dockerfile.dev . -t cloudprober:dev
+	docker run -v $(shell pwd):/cloudprober -v /tmp:/tmp cloudprober:dev make test
 
 docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) ca-certificates.crt Dockerfile
 	docker buildx build --push \
