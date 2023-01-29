@@ -4,16 +4,12 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'helm/**'
       - 'docs/**'
       - '.github/workflows/hugo.yml'
-      - '.github/workflows/helm.yml'
   pull_request:
     paths-ignore:
-      - 'helm/**'
       - 'docs/**'
       - '.github/workflows/hugo.yml'
-      - '.github/workflows/helm.yml'
   workflow_dispatch:
     inputs:
       tag:
