@@ -104,12 +104,13 @@ type OutputMetricsOptions struct {
 	// example: "op_latency 4.7,5.6,5.9,6.1,4.9". To be able to build distribution
 	// from these values, these metrics should be pre-configured in external
 	// probe:
-	// dist_metric {
-	//   key: "op_latency"
-	//   value {
-	//     explicit_buckets: "1,2,4,8,16,32,64,128,256"
-	//   }
-	// }
+	//
+	//	dist_metric {
+	//	  key: "op_latency"
+	//	  value {
+	//	    explicit_buckets: "1,2,4,8,16,32,64,128,256"
+	//	  }
+	//	}
 	DistMetric map[string]*proto.Dist `protobuf:"bytes,4,rep,name=dist_metric,json=distMetric" json:"dist_metric,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 

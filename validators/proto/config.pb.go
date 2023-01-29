@@ -30,6 +30,7 @@ type Validator struct {
 
 	Name *string `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
 	// Types that are assignable to Type:
+	//
 	//	*Validator_HttpValidator
 	//	*Validator_IntegrityValidator
 	//	*Validator_JsonValidator

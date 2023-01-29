@@ -113,20 +113,21 @@ type ProviderConfig struct {
 	// File that contains resources in either textproto or json format.
 	// Example in textproto format:
 	//
-	// resource {
-	//   name: "switch-xx-01"
-	//   ip: "10.11.112.3"
-	//   port: 8080
-	//   labels {
-	//     key: "device_type"
-	//     value: "switch"
-	//   }
-	// }
-	// resource {
-	//   name: "switch-yy-01"
-	//   ip: "10.16.110.12"
-	//   port: 8080
-	// }
+	//	resource {
+	//	  name: "switch-xx-01"
+	//	  ip: "10.11.112.3"
+	//	  port: 8080
+	//	  labels {
+	//	    key: "device_type"
+	//	    value: "switch"
+	//	  }
+	//	}
+	//
+	//	resource {
+	//	  name: "switch-yy-01"
+	//	  ip: "10.16.110.12"
+	//	  port: 8080
+	//	}
 	FilePath []string               `protobuf:"bytes,1,rep,name=file_path,json=filePath" json:"file_path,omitempty"`
 	Format   *ProviderConfig_Format `protobuf:"varint,2,opt,name=format,enum=cloudprober.rds.file.ProviderConfig_Format" json:"format,omitempty"`
 	// If specified, file will be re-read at the given interval.

@@ -96,6 +96,7 @@ type TargetsConf struct {
 	// with future iterations.
 	Project []string `protobuf:"bytes,1,rep,name=project" json:"project,omitempty"`
 	// Types that are assignable to Type:
+	//
 	//	*TargetsConf_Instances
 	//	*TargetsConf_ForwardingRules
 	Type isTargetsConf_Type `protobuf_oneof:"type"`

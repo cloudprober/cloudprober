@@ -227,16 +227,17 @@ type ProbeDef struct {
 	// you're using latency_distribution for some probes, and regular metric for
 	// other probes, and you want to differentiate between the two.
 	// For example:
-	//   probe {
-	//     name: "web1_latency"
-	//     latency_distribution: {...}
-	//     latency_metric_name: "latency_dist"
-	//     ...
-	//   }
-	//   probe {
-	//     name: "app1"
-	//     ...
-	//   }
+	//
+	//	probe {
+	//	  name: "web1_latency"
+	//	  latency_distribution: {...}
+	//	  latency_metric_name: "latency_dist"
+	//	  ...
+	//	}
+	//	probe {
+	//	  name: "app1"
+	//	  ...
+	//	}
 	LatencyMetricName *string `protobuf:"bytes,15,opt,name=latency_metric_name,json=latencyMetricName,def=latency" json:"latency_metric_name,omitempty"`
 	// Validators are in experimental phase right now and can change at any time.
 	// NOTE: Only PING, HTTP and DNS probes support validators.
@@ -245,6 +246,7 @@ type ProbeDef struct {
 	// directly, or a network interface.
 	//
 	// Types that are assignable to SourceIpConfig:
+	//
 	//	*ProbeDef_SourceIp
 	//	*ProbeDef_SourceInterface
 	SourceIpConfig isProbeDef_SourceIpConfig `protobuf_oneof:"source_ip_config"`
@@ -256,22 +258,27 @@ type ProbeDef struct {
 	//
 	// By default this field is set in the following way:
 	// For all probes except UDP:
-	//   stats_export_interval=max(interval, 10s)
+	//
+	//	stats_export_interval=max(interval, 10s)
+	//
 	// For UDP:
-	//   stats_export_interval=max(2*max(interval, timeout), 10s)
+	//
+	//	stats_export_interval=max(2*max(interval, timeout), 10s)
 	StatsExportIntervalMsec *int32 `protobuf:"varint,13,opt,name=stats_export_interval_msec,json=statsExportIntervalMsec" json:"stats_export_interval_msec,omitempty"`
 	// Additional labels to add to the probe results. Label's value can either be
 	// static or can be derived from target's labels.
 	//
 	// Example:
-	//   additional_label {
-	//     key: "src_zone"
-	//     value: "{{.zone}}"
-	//   }
-	//   additional_label {
-	//     key: "app"
-	//     value: "@target.label.app@"
-	//   }
+	//
+	//	additional_label {
+	//	  key: "src_zone"
+	//	  value: "{{.zone}}"
+	//	}
+	//	additional_label {
+	//	  key: "app"
+	//	  value: "@target.label.app@"
+	//	}
+	//
 	// (See a more detailed example at: examples/additional_label/cloudprober.cfg)
 	AdditionalLabel []*AdditionalLabel `protobuf:"bytes,14,rep,name=additional_label,json=additionalLabel" json:"additional_label,omitempty"`
 	// (Experimental) If set, test is inversed, i.e. we count it as success if
@@ -282,6 +289,7 @@ type ProbeDef struct {
 	// Note: This field is currently experimental, and may change in future.
 	NegativeTest *bool `protobuf:"varint,18,opt,name=negative_test,json=negativeTest" json:"negative_test,omitempty"`
 	// Types that are assignable to Probe:
+	//
 	//	*ProbeDef_PingProbe
 	//	*ProbeDef_HttpProbe
 	//	*ProbeDef_DnsProbe

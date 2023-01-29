@@ -41,7 +41,7 @@ type ProbeConf struct {
 	// don't allow unprivileged pings by default. To enable unprivileged pings on
 	// some Linux distributions, you may need to run the following command:
 	//
-	//     sudo sysctl -w net.ipv4.ping_group_range="0 <large valid group id>"
+	//	sudo sysctl -w net.ipv4.ping_group_range="0 <large valid group id>"
 	//
 	// net.ipv4.ping_group_range system setting takes two integers that specify
 	// the group id range that is allowed to execute the unprivileged pings. Note

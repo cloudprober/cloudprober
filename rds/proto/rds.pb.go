@@ -24,8 +24,8 @@ type IPConfig_IPType int32
 
 const (
 	// Default IP of the resource.
-	//  - Private IP for instance resource
-	//  - Forwarding rule IP for forwarding rule.
+	//   - Private IP for instance resource
+	//   - Forwarding rule IP for forwarding rule.
 	IPConfig_DEFAULT IPConfig_IPType = 0
 	// Instance's external IP.
 	IPConfig_PUBLIC IPConfig_IPType = 1

@@ -32,20 +32,21 @@ type TargetsConf struct {
 	// File that contains resources in either textproto or json format.
 	// Example in textproto format:
 	//
-	// resource {
-	//   name: "switch-xx-01"
-	//   ip: "10.11.112.3"
-	//   port: 8080
-	//   labels {
-	//     key: "device_type"
-	//     value: "switch"
-	//   }
-	// }
-	// resource {
-	//   name: "switch-yy-01"
-	//   ip: "10.16.110.12"
-	//   port: 8080
-	// }
+	//	resource {
+	//	  name: "switch-xx-01"
+	//	  ip: "10.11.112.3"
+	//	  port: 8080
+	//	  labels {
+	//	    key: "device_type"
+	//	    value: "switch"
+	//	  }
+	//	}
+	//
+	//	resource {
+	//	  name: "switch-yy-01"
+	//	  ip: "10.16.110.12"
+	//	  port: 8080
+	//	}
 	FilePath *string                       `protobuf:"bytes,1,opt,name=file_path,json=filePath" json:"file_path,omitempty"`
 	Filter   []*proto.Filter               `protobuf:"bytes,2,rep,name=filter" json:"filter,omitempty"`
 	Format   *proto1.ProviderConfig_Format `protobuf:"varint,3,opt,name=format,enum=cloudprober.rds.file.ProviderConfig_Format" json:"format,omitempty"`

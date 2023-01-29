@@ -184,29 +184,33 @@ type SurfacerDef struct {
 	MetricsBufferSize *int64 `protobuf:"varint,3,opt,name=metrics_buffer_size,json=metricsBufferSize,def=10000" json:"metrics_buffer_size,omitempty"`
 	// If specified, only allow metrics that match any of these label filters.
 	// Example:
-	// allow_metrics_with_label {
-	//   key: "probe",
-	//   value: "check_homepage",
-	// }
+	//
+	//	allow_metrics_with_label {
+	//	  key: "probe",
+	//	  value: "check_homepage",
+	//	}
 	AllowMetricsWithLabel []*LabelFilter `protobuf:"bytes,4,rep,name=allow_metrics_with_label,json=allowMetricsWithLabel" json:"allow_metrics_with_label,omitempty"`
 	// Ignore metrics that match any of these label filters. Ignore has precedence
 	// over allow filters.
 	// Example:
-	// ignore_metrics_with_label {
-	//   key: "probe",
-	//   value: "sysvars",
-	// }
+	//
+	//	ignore_metrics_with_label {
+	//	  key: "probe",
+	//	  value: "sysvars",
+	//	}
 	IgnoreMetricsWithLabel []*LabelFilter `protobuf:"bytes,5,rep,name=ignore_metrics_with_label,json=ignoreMetricsWithLabel" json:"ignore_metrics_with_label,omitempty"`
 	// Allow and ignore metrics based on their names. You can specify regexes
 	// here. Ignore has precendence over allow.
 	// Examples:
-	//  ignore_metrics_with_name: "validation_failure"
-	//  allow_metrics_with_name: "(total|success|latency)"
+	//
+	//	ignore_metrics_with_name: "validation_failure"
+	//	allow_metrics_with_name: "(total|success|latency)"
 	//
 	// For efficiency reasons, filtering by metric name has to be implemented by
 	// individual surfacers (while going through metrics within an EventMetrics).
 	// Currently following surfacers implement it:
-	//     CLOUDWATCH, PROMETHEUS, STACKDRIVER
+	//
+	//	CLOUDWATCH, PROMETHEUS, STACKDRIVER
 	AllowMetricsWithName  *string `protobuf:"bytes,6,opt,name=allow_metrics_with_name,json=allowMetricsWithName" json:"allow_metrics_with_name,omitempty"`
 	IgnoreMetricsWithName *string `protobuf:"bytes,7,opt,name=ignore_metrics_with_name,json=ignoreMetricsWithName" json:"ignore_metrics_with_name,omitempty"`
 	// Whether to add failure metric or not. For stackdriver surfacer, we add
@@ -224,6 +228,7 @@ type SurfacerDef struct {
 	// enum)
 	//
 	// Types that are assignable to Surfacer:
+	//
 	//	*SurfacerDef_PrometheusSurfacer
 	//	*SurfacerDef_StackdriverSurfacer
 	//	*SurfacerDef_FileSurfacer

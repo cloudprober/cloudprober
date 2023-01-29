@@ -92,6 +92,7 @@ type Provider struct {
 	// providers based on this id.
 	Id *string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	// Types that are assignable to Config:
+	//
 	//	*Provider_FileConfig
 	//	*Provider_GcpConfig
 	//	*Provider_KubernetesConfig

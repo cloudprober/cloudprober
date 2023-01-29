@@ -39,15 +39,17 @@ type Validator struct {
 	// headers.
 	//
 	// Success Header:
-	//   If specified, HTTP response headers should match the success_header for
-	//   validation to succeed. Example:
-	//     success_header: {
-	//       name: "Strict-Transport-Security"
-	//       value_regex: "max-age=31536000"
-	//     }
+	//
+	//	If specified, HTTP response headers should match the success_header for
+	//	validation to succeed. Example:
+	//	  success_header: {
+	//	    name: "Strict-Transport-Security"
+	//	    value_regex: "max-age=31536000"
+	//	  }
 	SuccessHeader *Validator_Header `protobuf:"bytes,3,opt,name=success_header,json=successHeader" json:"success_header,omitempty"`
 	// Failure Header:
-	//   If HTTP response headers match failure_header, validation fails.
+	//
+	//	If HTTP response headers match failure_header, validation fails.
 	FailureHeader *Validator_Header `protobuf:"bytes,4,opt,name=failure_header,json=failureHeader" json:"failure_header,omitempty"`
 }
 

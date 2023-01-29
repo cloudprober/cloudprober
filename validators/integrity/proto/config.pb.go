@@ -34,6 +34,7 @@ type Validator struct {
 	// last 4 bytes should be set to zero byte ('\0')
 	//
 	// Types that are assignable to Pattern:
+	//
 	//	*Validator_PatternString
 	//	*Validator_PatternNumBytes
 	Pattern isValidator_Pattern `protobuf_oneof:"pattern"`

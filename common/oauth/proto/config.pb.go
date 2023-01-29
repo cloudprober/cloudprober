@@ -26,6 +26,7 @@ type Config struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Type:
+	//
 	//	*Config_BearerToken
 	//	*Config_GoogleCredentials
 	Type isConfig_Type `protobuf_oneof:"type"`
@@ -108,6 +109,7 @@ type BearerToken struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Source:
+	//
 	//	*BearerToken_File
 	//	*BearerToken_Cmd
 	//	*BearerToken_GceServiceAccount

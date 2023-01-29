@@ -93,6 +93,7 @@ type ServerDef struct {
 
 	Type *ServerDef_Type `protobuf:"varint,1,req,name=type,enum=cloudprober.servers.ServerDef_Type" json:"type,omitempty"`
 	// Types that are assignable to Server:
+	//
 	//	*ServerDef_HttpServer
 	//	*ServerDef_UdpServer
 	//	*ServerDef_GrpcServer
