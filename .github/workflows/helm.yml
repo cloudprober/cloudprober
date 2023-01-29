@@ -17,18 +17,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo hosting code
-        if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          repo: 'cloudprober/helm-charts'
+          repository: 'cloudprober/helm-charts'
 
       - name: Check out charts code
-        if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          repo: 'cloudprober/cloudprober'
           path: 'cloudprober'
 
       - name: Set cloudprober version for release
@@ -56,20 +53,20 @@ jobs:
       - name: Update chart version
         run: |
           baseVersion=$(sed -n '/version: /s/version: //p' cloudprober/helm/Chart.yaml)
-          echo "Base version: $baseVersion"
+          echo ">> Base version: $baseVersion"
           bv=( ${baseVersion//./ } )
 
           cpVersion=${CLOUDPROBER_VERSION/v/}
-          echo "Cloudprober version: $cpVersion"
+          echo ">> Cloudprober version: $cpVersion"
           cv=( ${cpVersion//./ } )
 
           newVersion=$((${bv[0]} + ${cv[0]})).$((${bv[1]} + ${cv[1]})).$((${bv[2]} + ${cv[2]}))
-          echo "New version: $newVersion"
+          echo ">> New version: $newVersion"
 
           sed -i "s/version: .*$/version: $newVersion/" cloudprober/helm/Chart.yaml
           sed -i "s/appVersion: .*$/appVersion: \'${CLOUDPROBER_VERSION}\'/" cloudprober/helm/Chart.yaml
 
-          echo "New Chart.yaml"
+          echo ">> New Chart.yaml"
           cat cloudprober/helm/Chart.yaml
 
       - name: Package chart
