@@ -42,13 +42,7 @@ import (
 )
 
 const (
-	maxMsgSize = 65536
-	// maxTargets is the maximum number of targets supported by this probe type.
-	// If there are more targets, they are pruned from the list to bring targets
-	// list under maxTargets.
-	// TODO(manugarg): Make it configurable with documentation on its implication
-	// on resource consumption.
-	maxTargets     = 500
+	maxMsgSize     = 65536
 	payloadPattern = "cloudprober"
 )
 
@@ -166,7 +160,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	// #send/recv-channel-buffer = #targets * #sources * #probing-intervals-between-flushes
-	minChanLen := maxTargets * int(p.c.GetNumTxPorts()) * int(math.Ceil(float64(p.flushIntv)/float64(p.opts.Interval)))
+	minChanLen := int(p.c.GetMaxTargets()) * int(p.c.GetNumTxPorts()) * int(math.Ceil(float64(p.flushIntv)/float64(p.opts.Interval)))
 	p.l.Infof("Creating sent, rcvd channels of length: %d", 2*minChanLen)
 	p.sentPackets = make(chan packetID, 2*minChanLen)
 	p.rcvdPackets = make(chan packetID, 2*minChanLen)
@@ -451,9 +445,9 @@ func (p *Probe) runProbe() {
 
 func (p *Probe) updateTargets() {
 	p.targets = p.opts.Targets.ListEndpoints()
-	if len(p.targets) > maxTargets {
-		p.l.Warningf("Number of targets (%d) > maxTargets (%d). Truncating the targets list.", len(p.targets), maxTargets)
-		p.targets = p.targets[:maxTargets]
+	if len(p.targets) > int(p.c.GetMaxTargets()) {
+		p.l.Warningf("Number of targets (%d) > maxTargets (%d). Truncating the targets list.", len(p.targets), p.c.GetMaxTargets())
+		p.targets = p.targets[:p.c.GetMaxTargets()]
 	}
 	p.initProbeRunResults()
 }

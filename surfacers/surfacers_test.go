@@ -17,7 +17,6 @@ package surfacers
 import (
 	"context"
 	"net/http"
-	"reflect"
 	"testing"
 	"time"
 
@@ -164,8 +163,9 @@ func TestUserDefinedAndFiltering(t *testing.T) {
 
 	for i, ts := range []*testSurfacer{ts1, ts2} {
 		wantEMs := wantEventMetrics[i]
-		if !reflect.DeepEqual(ts.received, wantEMs) {
-			t.Errorf("ts[%d]: Received EventMetrics: %v, want EventMetrics: %v", i, ts.received, wantEMs)
+		assert.Equal(t, len(wantEMs), len(ts.received))
+		for i, em := range wantEMs {
+			assert.Equal(t, em.String(), ts.received[i].String())
 		}
 	}
 }
@@ -221,8 +221,9 @@ func TestFailureMetric(t *testing.T) {
 
 	for i, ts := range []*testSurfacer{ts1, ts2} {
 		wantEMs := wantEventMetrics[i]
-		if !reflect.DeepEqual(ts.received, wantEMs) {
-			t.Errorf("ts[%d]: Received EventMetrics: %v, want EventMetrics: %v", i, ts.received, wantEMs)
+		assert.Equal(t, len(wantEMs), len(ts.received))
+		for i, em := range wantEMs {
+			assert.Equal(t, em.String(), ts.received[i].String())
 		}
 	}
 }

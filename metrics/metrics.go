@@ -50,7 +50,7 @@ func ParseValueFromString(val string) (Value, error) {
 	c := val[0]
 	switch {
 	// A float value
-	case '0' <= c && c <= '9':
+	case c == '-' || c == '.' || ('0' <= c && c <= '9'):
 		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return nil, err

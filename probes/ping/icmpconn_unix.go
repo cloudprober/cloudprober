@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -50,15 +51,16 @@ func sockaddr(sourceIP net.IP, ipVer int) (syscall.Sockaddr, error) {
 // listenPacket listens for incoming ICMP packets addressed to sourceIP.
 // We need to write our own listenPacket instead of using "net.ListenPacket"
 // for the following reasons:
-//   1. ListenPacket doesn't support ICMP for SOCK_DGRAM sockets. You create
-//      datagram sockets by specifying network as "udp", but UDP new connection
-//      implementation ignores the protocol field entirely.
-//   2. ListenPacket doesn't support setting socket options (we need
-//      SO_TIMESTAMP) in a straightforward way.
-func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketConn, error) {
+//  1. ListenPacket doesn't support ICMP for SOCK_DGRAM sockets. You create
+//     datagram sockets by specifying network as "udp", but UDP new connection
+//     implementation ignores the protocol field entirely.
+//  2. ListenPacket doesn't support setting socket options (we need
+//     SO_TIMESTAMP) in a straightforward way.
+func (p *Probe) listenPacket(sourceIP net.IP) (*icmpPacketConn, error) {
+	// Note that the disableFragmentation bit only applies on Linux systems.
 	var family, proto int
 
-	switch ipVer {
+	switch p.ipVer {
 	case 4:
 		family, proto = syscall.AF_INET, protocolICMP
 	case 6:
@@ -66,7 +68,7 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketC
 	}
 
 	sockType := syscall.SOCK_RAW
-	if datagramSocket {
+	if p.useDatagramSocket {
 		sockType = syscall.SOCK_DGRAM
 	}
 
@@ -81,8 +83,21 @@ func listenPacket(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketC
 		syscall.Close(s)
 		return nil, os.NewSyscallError("setsockopt", err)
 	}
+	if p.disableFragmentation && p.ipVer == 4 && runtime.GOOS == "linux" {
+		// Copied from
+		// https://github.com/golang/go/blob/master/src/syscall/zerrors_linux_.*.go
+		// to make build work for non-linux systems.
+		// compiling on non-linux unix systems.
+		const linux_IP_MTU_DISCOVER = 0xa
+		const linux_IP_PMTUDISC_DO = 0x2
+		// Set don't fragment bit.
+		if err := syscall.SetsockoptInt(s, syscall.IPPROTO_IP, linux_IP_MTU_DISCOVER, linux_IP_PMTUDISC_DO); err != nil {
+			syscall.Close(s)
+			return nil, os.NewSyscallError("setsockopt", err)
+		}
+	}
 
-	sa, err := sockaddr(sourceIP, ipVer)
+	sa, err := sockaddr(sourceIP, p.ipVer)
 	if err != nil {
 		syscall.Close(s)
 		return nil, err
@@ -193,8 +208,8 @@ func (ipc *icmpPacketConn) setReadDeadline(t time.Time) {
 	ipc.c.SetReadDeadline(t)
 }
 
-func newICMPConn(sourceIP net.IP, ipVer int, datagramSocket bool) (*icmpPacketConn, error) {
-	return listenPacket(sourceIP, ipVer, datagramSocket)
+func (p *Probe) newICMPConn(sourceIP net.IP) (*icmpPacketConn, error) {
+	return p.listenPacket(sourceIP)
 }
 
 // Find out native endianness when this packages is loaded.

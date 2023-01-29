@@ -20,7 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -333,26 +335,91 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	}
 }
 
-func TestMultipleTargetsMultipleRequests(t *testing.T) {
+type testServer struct {
+	addr *net.TCPAddr
+	srv  *http.Server
+}
+
+func newTestServer(ctx context.Context, ipVer int) (*testServer, error) {
+	ts := &testServer{}
+	network := map[int]string{4: "tcp4", 6: "tcp6", 0: "tcp"}[ipVer]
+	addr := map[int]string{4: "127.0.0.1:0", 6: "[::1]:0", 0: "localhost:0"}[ipVer]
+	ln, err := net.Listen(network, addr)
+	if err != nil {
+		return nil, err
+	}
+	ts.addr = ln.Addr().(*net.TCPAddr)
+
+	serverMux := http.NewServeMux()
+	serverMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.Host, "fail-test.com") {
+			time.Sleep(2 * time.Second)
+		}
+		w.Write([]byte("ok"))
+	})
+
+	ts.srv = &http.Server{
+		Handler: serverMux,
+	}
+
+	// Setup a background function to close server if context is canceled.
+	go func() {
+		<-ctx.Done()
+		ts.srv.Close()
+	}()
+
+	go func() {
+		ts.srv.Serve(ln)
+	}()
+
+	return ts, nil
+}
+
+func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer int, keepAlive bool) {
+	ctx, cancelF := context.WithCancel(context.Background())
+	defer cancelF()
+
+	ts, err := newTestServer(ctx, ipVer)
+	if err != nil {
+		t.Errorf("Error starting test HTTP server: %v", err)
+		return
+	}
+	t.Logf("Started test HTTP server at: %v", ts.addr)
+
 	testTargets := []string{"test.com", "fail-test.com", "fails-to-resolve.com"}
-	reqPerProbe := int64(3)
+	var eps []endpoint.Endpoint
+	for _, name := range testTargets {
+		ip := ts.addr.IP
+		if name == "fails-to-resolve.com" {
+			ip = nil
+		}
+		eps = append(eps, endpoint.Endpoint{
+			Name: name,
+			IP:   ip,
+		})
+	}
+
 	opts := &options.Options{
-		Targets:             targets.StaticTargets(strings.Join(testTargets, ",")),
+		Targets:             targets.StaticEndpoints(eps),
 		Interval:            10 * time.Millisecond,
-		StatsExportInterval: 20 * time.Millisecond,
-		ProbeConf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
-		LogMetrics:          func(_ *metrics.EventMetrics) {},
+		Timeout:             9 * time.Millisecond,
+		StatsExportInterval: 10 * time.Millisecond,
+		ProbeConf: &configpb.ProbeConf{
+			Port:             proto.Int32(int32(ts.addr.Port)),
+			RequestsPerProbe: proto.Int32(int32(reqPerProbe)),
+			ResolveFirst:     proto.Bool(true),
+			KeepAlive:        proto.Bool(keepAlive),
+		},
+		IPVersion:  ipVer,
+		LogMetrics: func(_ *metrics.EventMetrics) {},
 	}
 
 	p := &Probe{}
-	err := p.Init("http_test", opts)
+	err = p.Init("http_test", opts)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 		return
 	}
-	patchWithTestTransport(p)
-
-	ctx, cancelF := context.WithCancel(context.Background())
 	dataChan := make(chan *metrics.EventMetrics, 100)
 
 	var wg sync.WaitGroup
@@ -362,48 +429,71 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 		p.Start(ctx, dataChan)
 	}()
 
-	// target -> [success, total]
-	wantData := map[string][2]int64{
-		"test.com": {2 * reqPerProbe, 2 * reqPerProbe},
-
-		// Test transport is configured to fail this.
-		"fail-test.com": {0, 2 * reqPerProbe},
-
-		// No probes sent because of bad target (http)
-		"fails-to-resolve.com": {0, 0},
+	// Let's wait for 500ms. Probes should run about 50 times during this
+	// period. For 3 targets, we should get about 150 eventmetrics, but let's
+	// just wait for 60 EventMetrics, which should happen within 200ms on a
+	// well running system.
+	ems, err := testutils.MetricsFromChannel(dataChan, 60, 500*time.Millisecond)
+	if err != nil && len(ems) < 9 { // 3 EventMetrics for each target.
+		t.Errorf("Error getting 6 eventmetrics from data channel: %v", err)
 	}
 
-	ems, err := testutils.MetricsFromChannel(dataChan, 100, time.Second)
-	// We should receive at least 4 eventmetrics: 2 probe cycle x 2 targets.
-	if err != nil && len(ems) < 4 {
-		t.Errorf("Error getting 4 eventmetrics from data channel: %v", err)
-	}
-
-	// Following verifies that we are able to cleanly stop the probe.
+	// Let probe run for about 20 times, exporting data 10 times
 	cancelF()
-	wg.Wait()
+	wg.Wait() // Verifies that probe really stopped.
+
+	latestVal := func(ems []*metrics.EventMetrics, name string) int {
+		return int(ems[len(ems)-1].Metric(name).(*metrics.Int).Int64())
+	}
 
 	dataMap := testutils.MetricsMap(ems)
-	for tgt, d := range wantData {
-		wantSuccessVal, wantTotalVal := d[0], d[1]
+	for _, tgt := range testTargets {
 		successVals, totalVals := dataMap["success"][tgt], dataMap["total"][tgt]
-
-		if len(successVals) < 1 {
-			t.Errorf("Success metric for %s: %v (less than 1)", tgt, successVals)
-			continue
-		}
-		latestVal := successVals[len(successVals)-1].Metric("success").(*metrics.Int).Int64()
-		if latestVal < wantSuccessVal {
-			t.Errorf("Got success value for target (%s): %d, want: %d", tgt, latestVal, wantSuccessVal)
+		var connEventVals []*metrics.EventMetrics
+		if keepAlive {
+			connEventVals = dataMap["connect_event"][tgt]
 		}
 
-		if len(totalVals) < 1 {
-			t.Errorf("Total metric for %s: %v (less than 1)", tgt, totalVals)
+		metricsCount := len(totalVals)
+		t.Logf("Total metrics for %s: %d", tgt, len(totalVals))
+		if metricsCount < 3 {
+			t.Errorf("Too few metrics for %s: %v (less than 3)", tgt, totalVals)
 			continue
 		}
-		latestVal = totalVals[len(totalVals)-1].Metric("total").(*metrics.Int).Int64()
-		if latestVal < wantTotalVal {
-			t.Errorf("Got total value for target (%s): %d, want: %d", tgt, latestVal, wantTotalVal)
+
+		// Expected values on a good system: metricsCount * reqPerProbe
+		// Let's go with more conservative values and divide by 3 to take
+		// slowness of CI/CD systems into account:
+		wantCounter := (metricsCount * reqPerProbe) / 3
+		minTotal, minSuccess := wantCounter, wantCounter
+		if tgt == "fails-to-resolve.com" {
+			minTotal, minSuccess = 0, 0
+		}
+		if tgt == "fail-test.com" {
+			minSuccess = 0
+		}
+		assert.LessOrEqualf(t, minTotal, latestVal(totalVals, "total"), "total for target: %s", tgt)
+		assert.LessOrEqualf(t, minSuccess, latestVal(successVals, "success"), "success for target: %s", tgt)
+
+		if keepAlive && tgt == "test.com" {
+			maxConnEvent := reqPerProbe * 2
+			assert.GreaterOrEqualf(t, maxConnEvent, latestVal(connEventVals, "connect_event"), "connect_event for target: %s", tgt)
+		}
+	}
+}
+
+func TestMultipleTargetsMultipleRequests(t *testing.T) {
+	for _, ipVer := range []int{0, 4, 6} {
+		// Disable windows IPv6 tests.
+		if ipVer == 6 && os.Getenv("DISABLE_IPV6_TESTS") == "yes" {
+			return
+		}
+		for _, reqPerProbe := range []int{1, 3} {
+			for _, keepAlive := range []bool{false, true} {
+				t.Run(fmt.Sprintf("ip_ver=%d,req_per_probe=%d,keepAlive=%v", ipVer, reqPerProbe, keepAlive), func(t *testing.T) {
+					testMultipleTargetsMultipleRequests(t, reqPerProbe, ipVer, keepAlive)
+				})
+			}
 		}
 	}
 }

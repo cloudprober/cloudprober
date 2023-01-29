@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,40 +30,19 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
-	probepb "github.com/cloudprober/cloudprober/probes/proto"
 	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/resolver"
 	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var once sync.Once
 var srvAddr string
-var baseProbeConf = `
-name: "grpc"
-type: GRPC
-targets {
-	host_names: "%s"
-}
-interval_msec: 1000
-timeout_msec: %d
-grpc_probe {
-	%s
-	num_conns: %d
-	connect_timeout_msec: 2000
-}
-`
-
-func probeCfg(tgts, cred string, timeout, numConns int) (*probepb.ProbeDef, error) {
-	conf := fmt.Sprintf(baseProbeConf, tgts, timeout, cred, numConns)
-	cfg := &probepb.ProbeDef{}
-	err := proto.UnmarshalText(conf, cfg)
-	return cfg, err
-}
 
 type Server struct {
 	delay time.Duration
@@ -106,7 +84,7 @@ func (s *Server) BlobWrite(ctx context.Context, req *pb.BlobWriteRequest) (*pb.B
 }
 
 // globalGRPCServer sets up runconfig and returns a gRPC server.
-func globalGRPCServer() (string, error) {
+func globalGRPCServer(delay time.Duration) (string, error) {
 	var err error
 	once.Do(func() {
 		var ln net.Listener
@@ -115,7 +93,7 @@ func globalGRPCServer() (string, error) {
 			return
 		}
 		grpcSrv := grpc.NewServer()
-		srv := &Server{delay: time.Second / 2, msg: make([]byte, 1024)}
+		srv := &Server{delay: delay, msg: make([]byte, 1024)}
 		spb.RegisterProberServer(grpcSrv, srv)
 		go grpcSrv.Serve(ln)
 		tcpAddr := ln.Addr().(*net.TCPAddr)
@@ -129,25 +107,21 @@ func globalGRPCServer() (string, error) {
 // 2 connections, 1 probe/sec/conn, stats exported every 5 sec
 // 	=> 5-10 results/interval. Test looks for minimum of 7 results.
 func TestGRPCSuccess(t *testing.T) {
-	addr, err := globalGRPCServer()
+	interval, timeout := 100*time.Millisecond, 100*time.Millisecond
+	addr, err := globalGRPCServer(timeout / 2)
 	if err != nil {
 		t.Fatalf("Error initializing global config: %v", err)
 	}
-	cfg, err := probeCfg(addr, "", 1000, 2)
-	if err != nil {
-		t.Fatalf("Error unmarshalling config: %v", err)
-	}
-	l := &logger.Logger{}
 
 	iters := 5
-	statsExportInterval := time.Duration(iters) * time.Second
+	statsExportInterval := time.Duration(iters) * interval
 
 	probeOpts := &options.Options{
 		Targets:             targets.StaticTargets(addr),
-		Timeout:             time.Second * 1,
-		Interval:            time.Second * 1,
-		ProbeConf:           cfg.GetGrpcProbe(),
-		Logger:              l,
+		Interval:            interval,
+		Timeout:             timeout,
+		ProbeConf:           &configpb.ProbeConf{NumConns: proto.Int32(2)},
+		Logger:              &logger.Logger{},
 		StatsExportInterval: statsExportInterval,
 		LogMetrics:          func(em *metrics.EventMetrics) {},
 	}
@@ -161,38 +135,23 @@ func TestGRPCSuccess(t *testing.T) {
 		defer wg.Done()
 		p.Start(ctx, dataChan)
 	}()
-	time.Sleep(statsExportInterval * 2)
-	found := false
-	expectedLabels := map[string]string{
-		"ptype": "grpc",
-		"dst":   addr,
-		"probe": "grpc-success",
+
+	expectedLabels := map[string]string{"ptype": "grpc", "dst": addr, "probe": "grpc-success"}
+
+	ems, err := testutils.MetricsFromChannel(dataChan, 2, 1500*time.Millisecond)
+	if err != nil || len(ems) != 2 {
+		t.Errorf("Err: %v", err)
 	}
 
-	for i := 0; i < 2; i++ {
-		select {
-		case em := <-dataChan:
-			t.Logf("Probe results: %v", em.String())
-			total := em.Metric("total").(*metrics.Int)
-			success := em.Metric("success").(*metrics.Int)
-			expect := int64(iters) + 2
-			if total.Int64() < expect || success.Int64() < expect {
-				t.Errorf("Got total=%d success=%d, expecting at least %d for each", total.Int64(), success.Int64(), expect)
-			}
-			gotLabels := make(map[string]string)
-			for _, k := range em.LabelsKeys() {
-				gotLabels[k] = em.Label(k)
-			}
-			if !reflect.DeepEqual(gotLabels, expectedLabels) {
-				t.Errorf("Unexpected labels: got: %v, expected: %v", gotLabels, expectedLabels)
-			}
-			found = true
-		default:
-			time.Sleep(time.Second)
+	for i, em := range ems {
+		expectedMinCount := int64((i + 1) * (iters + 1))
+		assert.GreaterOrEqual(t, em.Metric("total").(*metrics.Int).Int64(), expectedMinCount, "message#: %d, total, em: %s", i, em.String())
+		assert.GreaterOrEqual(t, em.Metric("success").(*metrics.Int).Int64(), expectedMinCount, "message#: %d, success, em: %s", i, em.String())
+		gotLabels := make(map[string]string)
+		for _, k := range em.LabelsKeys() {
+			gotLabels[k] = em.Label(k)
 		}
-	}
-	if !found {
-		t.Errorf("No probe results found")
+		assert.Equal(t, expectedLabels, gotLabels)
 	}
 
 	cancel()
@@ -204,22 +163,18 @@ func TestGRPCSuccess(t *testing.T) {
 // 2 connections, 0.5 connect attempt/sec/conn, stats exported every 6 sec
 //  => 3 - 6 connect errors/sec. Test looks for minimum of 4 attempts.
 func TestConnectFailures(t *testing.T) {
+	interval, timeout := 100*time.Millisecond, 100*time.Millisecond
 	addr := "localhost:9"
-	cfg, err := probeCfg(addr, "", 1000, 2)
-	if err != nil {
-		t.Fatalf("Error unmarshalling config: %v", err)
-	}
-	l := &logger.Logger{}
 
 	iters := 6
-	statsExportInterval := time.Duration(iters) * time.Second
+	statsExportInterval := time.Duration(6) * interval
 
 	probeOpts := &options.Options{
 		Targets:             targets.StaticTargets(addr),
-		Timeout:             time.Second * 1,
-		Interval:            time.Second * 1,
-		ProbeConf:           cfg.GetGrpcProbe(),
-		Logger:              l,
+		Interval:            interval,
+		Timeout:             timeout,
+		ProbeConf:           &configpb.ProbeConf{NumConns: proto.Int32(2)},
+		Logger:              &logger.Logger{},
 		StatsExportInterval: statsExportInterval,
 		LogMetrics:          func(em *metrics.EventMetrics) {},
 	}
@@ -234,29 +189,18 @@ func TestConnectFailures(t *testing.T) {
 		defer wg.Done()
 		p.Start(ctx, dataChan)
 	}()
-	time.Sleep(statsExportInterval * 2)
-	found := false
-	for i := 0; i < 2; i++ {
-		select {
-		case em := <-dataChan:
-			t.Logf("Probe results: %v", em.String())
-			total := em.Metric("total").(*metrics.Int)
-			success := em.Metric("success").(*metrics.Int)
-			connectErrs := em.Metric("connecterrors").(*metrics.Int)
-			expect := int64(iters/2) + 1
-			if success.Int64() > 0 {
-				t.Errorf("Got %d probe successes, want all failures", success.Int64())
-			}
-			if total.Int64() < expect || connectErrs.Int64() < expect {
-				t.Errorf("Got total=%d connectErrs=%d, expecting at least %d for each", total.Int64(), connectErrs.Int64(), expect)
-			}
-			found = true
-		default:
-			time.Sleep(time.Second)
-		}
+
+	ems, err := testutils.MetricsFromChannel(dataChan, 2, 1500*time.Millisecond)
+	if err != nil || len(ems) != 2 {
+		t.Errorf("Err: %v", err)
 	}
-	if !found {
-		t.Errorf("No probe results found")
+
+	for i, em := range ems {
+		expectedMinCount := int64((i + 1) * (iters + 1))
+		assert.GreaterOrEqual(t, em.Metric("total").(*metrics.Int).Int64(), expectedMinCount, "message#: %d, total, em: %s", i, em.String())
+		assert.GreaterOrEqual(t, em.Metric("connecterrors").(*metrics.Int).Int64(), expectedMinCount, "message#: %d, connecterrors, em: %s", i, em.String())
+		// 0 success
+		assert.Equal(t, int64(0), em.Metric("success").(*metrics.Int).Int64(), "message#: %d, success, em: %s", i, em.String())
 	}
 
 	cancel()
@@ -264,29 +208,27 @@ func TestConnectFailures(t *testing.T) {
 }
 
 func TestProbeTimeouts(t *testing.T) {
-	addr, err := globalGRPCServer()
+	interval, timeout := 100*time.Millisecond, 10*time.Millisecond
+
+	addr, err := globalGRPCServer(timeout * 2)
 	if err != nil {
 		t.Fatalf("Error initializing global config: %v", err)
 	}
-	cfg, err := probeCfg(addr, "", 1000, 1)
-	if err != nil {
-		t.Fatalf("Error unmarshalling config: %v", err)
-	}
-	l := &logger.Logger{}
 
 	iters := 5
-	statsExportInterval := time.Duration(iters) * time.Second
+	statsExportInterval := time.Duration(iters) * interval
 
 	probeOpts := &options.Options{
 		Targets:             targets.StaticTargets(addr),
-		Timeout:             time.Millisecond * 100,
-		Interval:            time.Second * 1,
-		ProbeConf:           cfg.GetGrpcProbe(),
-		Logger:              l,
+		Interval:            interval,
+		Timeout:             timeout,
+		ProbeConf:           &configpb.ProbeConf{NumConns: proto.Int32(1)},
+		Logger:              &logger.Logger{},
 		LatencyUnit:         time.Millisecond,
 		StatsExportInterval: statsExportInterval,
 		LogMetrics:          func(em *metrics.EventMetrics) {},
 	}
+
 	p := &Probe{}
 	p.Init("grpc-reqtimeout", probeOpts)
 	dataChan := make(chan *metrics.EventMetrics, 5)
@@ -298,38 +240,19 @@ func TestProbeTimeouts(t *testing.T) {
 		defer wg.Done()
 		p.Start(ctx, dataChan)
 	}()
-	ems, err := testutils.MetricsFromChannel(dataChan, 2, statsExportInterval*3)
-	if err != nil {
-		t.Fatalf("Error retrieving metrics: %v", err)
-	}
-	mm := testutils.MetricsMap(ems)
-	for target, vals := range mm["success"] {
-		for _, v := range vals {
-			success := v.Metric("success").(*metrics.Int)
-			if success.Int64() > 0 {
-				t.Errorf("Tgt %s unexpectedly succeeds, got=%d, want=0.", target, success.Int64())
-				break
-			}
-		}
+
+	ems, err := testutils.MetricsFromChannel(dataChan, 2, 3*statsExportInterval)
+	if err != nil || len(ems) != 2 {
+		t.Errorf("Err: %v", err)
 	}
 
-	found := false
-	for target, vals := range mm["total"] {
-		prevTotal := int64(0)
-		for _, v := range vals {
-			total := v.Metric("total").(*metrics.Int)
-			delta := total.Int64() - prevTotal
-			// Even a single probe in iter is treated as success.
-			if delta <= 0 {
-				t.Errorf("Tgt %s did not get enough probes, got=%d, want>=1", target, delta)
-				break
-			}
-			found = true
-		}
+	for i, em := range ems {
+		expectedMinCount := int64((i + 1) * (iters/2 + 1))
+		assert.GreaterOrEqual(t, em.Metric("total").(*metrics.Int).Int64(), expectedMinCount, "message#: %d, total, em: %s", i, em.String())
+		// 0 success
+		assert.Equal(t, int64(0), em.Metric("success").(*metrics.Int).Int64(), "message#: %d, success, em: %s", i, em.String())
 	}
-	if !found {
-		t.Errorf("No probe results found")
-	}
+
 	cancel()
 	wg.Wait()
 }
@@ -359,44 +282,35 @@ func (t *testTargets) Resolve(name string, ipVer int) (net.IP, error) {
 	return t.r.Resolve(name, ipVer)
 }
 
-func sumIntMetrics(inp []*metrics.EventMetrics, metricName string) int64 {
-	sum := metrics.NewInt(0)
-	for _, em := range inp {
-		sum.Add(em.Metric(metricName))
-	}
-	return sum.Int64()
-}
-
 func TestTargets(t *testing.T) {
-	addr, err := globalGRPCServer()
+	interval, timeout := 100*time.Millisecond, 100*time.Millisecond
+
+	addr, err := globalGRPCServer(timeout / 2)
 	if err != nil {
 		t.Fatalf("Error initializing global config: %v", err)
 	}
-	cfg, err := probeCfg(addr, "", 1000, 2)
-	if err != nil {
-		t.Fatalf("Error unmarshalling config: %v", err)
-	}
-	l := &logger.Logger{}
-
-	goodTargets := targets.StaticTargets(addr).ListEndpoints()
-	badTargets := targets.StaticTargets("localhost:1,localhost:2").ListEndpoints()
 
 	// Target discovery changes from good to bad targets after 2 statsExports.
 	// And probe continues for 10 more stats exports.
-	statsExportInterval := 1 * time.Second
-	TargetsUpdateInterval = 2 * time.Second
-	probeRunTime := 12 * time.Second
+	statsExportInterval := 1 * interval
+	probeRunTime := 12 * interval
+
+	TargetsUpdateInterval = 2 * interval
+	badTargets := targets.StaticTargets("localhost:1,localhost:2").ListEndpoints()
+	goodTargets := targets.StaticTargets(addr).ListEndpoints()
+	// This targets switches from bad targets to good targets after 1 interval.
+	tgts := newTargets(goodTargets, badTargets, TargetsUpdateInterval-interval)
 
 	probeOpts := &options.Options{
-		Targets:             newTargets(goodTargets, badTargets, TargetsUpdateInterval-time.Second),
-		Timeout:             time.Second,
-		Interval:            time.Second * 1,
-		ProbeConf:           cfg.GetGrpcProbe(),
-		Logger:              l,
+		Targets:             tgts,
+		Timeout:             timeout,
+		Interval:            interval,
+		ProbeConf:           &configpb.ProbeConf{NumConns: proto.Int32(2)},
 		LatencyUnit:         time.Millisecond,
 		StatsExportInterval: statsExportInterval,
 		LogMetrics:          func(em *metrics.EventMetrics) {},
 	}
+
 	p := &Probe{}
 	p.Init("grpc", probeOpts)
 	p.dialOpts = append(p.dialOpts, grpc.WithBlock())
@@ -414,6 +328,14 @@ func TestTargets(t *testing.T) {
 		t.Fatalf("Error retrieving metrics: %v", err)
 	}
 	mm := testutils.MetricsMap(ems)
+
+	sumIntMetrics := func(ems []*metrics.EventMetrics, metricName string) int64 {
+		sum := metrics.NewInt(0)
+		for _, em := range ems {
+			sum.Add(em.Metric(metricName))
+		}
+		return sum.Int64()
+	}
 
 	connErrTargets := make(map[string]int64)
 	connErrIterCount := 0
@@ -442,12 +364,8 @@ func TestTargets(t *testing.T) {
 		}
 	}
 
-	if len(successTargets) == 0 {
-		t.Errorf("Got zero targets with success, want at least one.")
-	}
-	if len(connErrTargets) == 0 {
-		t.Errorf("Got zero targets with connection errors, want at least one.")
-	}
+	assert.GreaterOrEqual(t, len(successTargets), 0, "zero targets with success, want at least one.")
+	assert.GreaterOrEqual(t, len(connErrTargets), 0, "zero targets with conn errors, want at least one.")
 	if successIterCount >= connErrIterCount {
 		t.Errorf("Got successIters(%d) >= connErrIters(%d), want '<'.", successIterCount, connErrIterCount)
 	}

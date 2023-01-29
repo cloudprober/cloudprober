@@ -30,20 +30,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
 	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/web/resources"
 )
 
 //go:embed static/*
 var content embed.FS
 
+var statusTmpl = template.Must(template.New("statusTmpl").Parse(htmlTmpl))
+
 const (
 	metricsBufferSize = 10000
 )
+
+var dropAfterNoDataFor = 6 * time.Hour
 
 // queriesQueueSize defines how many queries can we queue before we start
 // blocking on previous queries to finish.
@@ -59,26 +64,34 @@ type httpWriter struct {
 
 type pageCache struct {
 	mu         sync.RWMutex
-	content    []byte
-	cachedTime time.Time
+	content    map[string][]byte
+	cachedTime map[string]time.Time
 	maxAge     time.Duration
 }
 
-func (pc *pageCache) contentIfValid() ([]byte, bool) {
+func newPageCache(cacheTimeSec int) *pageCache {
+	return &pageCache{
+		content:    make(map[string][]byte),
+		cachedTime: make(map[string]time.Time),
+		maxAge:     time.Duration(cacheTimeSec) * time.Second,
+	}
+}
+
+func (pc *pageCache) contentIfValid(url string) ([]byte, bool) {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
 
-	if time.Since(pc.cachedTime) > pc.maxAge {
+	if time.Since(pc.cachedTime[url]) > pc.maxAge {
 		return nil, false
 	}
-	return pc.content, true
+	return pc.content[url], true
 }
 
-func (pc *pageCache) setContent(content []byte) {
+func (pc *pageCache) setContent(url string, content []byte) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
-	pc.content, pc.cachedTime = content, time.Now()
+	pc.content[url], pc.cachedTime[url] = content, time.Now()
 }
 
 // Surfacer implements a status surfacer for Cloudprober.
@@ -100,18 +113,23 @@ type Surfacer struct {
 	// Dashboard Metadata
 	dashDurations     []time.Duration
 	dashDurationsText []string
+	startTime         time.Time
 }
 
 // New returns a probestatus surfacer based on the config provided. It sets up
 // a goroutine to process both the incoming EventMetrics and the web requests
 // for the URL handler /metrics.
-func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) *Surfacer {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	if config == nil {
 		config = &configpb.SurfacerConf{}
 	}
 
 	if config.GetDisable() {
-		return nil
+		return nil, nil
+	}
+
+	if httputils.IsHandled(opts.HTTPServeMux, config.GetUrl()) {
+		return nil, fmt.Errorf("probestatus surfacer URL (%s) is already registered", config.GetUrl())
 	}
 
 	res := time.Duration(config.GetResolutionSec()) * time.Second
@@ -126,14 +144,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		queryChan:    make(chan *httpWriter, queriesQueueSize),
 		metrics:      make(map[string]map[string]*timeseries),
 		probeTargets: make(map[string][]string),
-		resolution:   res,
-		l:            l,
+		startTime:    sysvars.StartTime().Truncate(time.Millisecond),
+
+		resolution: res,
+		l:          l,
 	}
 
 	ps.dashDurations, ps.dashDurationsText = dashboardDurations(ps.resolution * time.Duration(ps.c.GetTimeseriesSize()))
-	ps.pageCache = &pageCache{
-		maxAge: time.Duration(ps.c.GetCacheTimeSec()) * time.Second,
-	}
+	ps.pageCache = newPageCache(int(ps.c.GetCacheTimeSec()))
 
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
@@ -153,11 +171,6 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
-	if config.GetUrl() != "/probestatus" {
-		opts.HTTPServeMux.HandleFunc("/probestatus", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, config.GetUrl(), http.StatusMovedPermanently)
-		})
-	}
 	opts.HTTPServeMux.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
@@ -165,10 +178,19 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		ps.queryChan <- &httpWriter{w, r, doneChan}
 		<-doneChan
 	})
+
+	if !httputils.IsHandled(opts.HTTPServeMux, "/probestatus") {
+		opts.HTTPServeMux.Handle("/probestatus", http.RedirectHandler(config.GetUrl(), http.StatusFound))
+	}
+
 	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
 
+	if !httputils.IsHandled(opts.HTTPServeMux, "/") {
+		opts.HTTPServeMux.Handle("/", http.RedirectHandler(config.GetUrl(), http.StatusFound))
+	}
+
 	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
-	return ps
+	return ps, nil
 }
 
 // Write queues the incoming data into a channel. This channel is watched by a
@@ -226,15 +248,62 @@ func (ps *Surfacer) record(em *metrics.EventMetrics) {
 	})
 }
 
-func (ps *Surfacer) statusTable(probeName string, durations []time.Duration) string {
+func (ps *Surfacer) deleteTargetWithNoLock(probeName, targetName string) {
+	delete(ps.metrics[probeName], targetName)
+
+	targets := ps.probeTargets[probeName]
+
+	targetIndex := -1
+	for i, tgt := range targets {
+		if tgt == targetName {
+			targetIndex = i
+			break
+		}
+	}
+	if targetIndex != -1 {
+		ps.probeTargets[probeName] = append(targets[:targetIndex], targets[targetIndex+1:]...)
+	}
+}
+
+func (ps *Surfacer) statusTable(probeName string) string {
 	var b strings.Builder
 	for _, targetName := range ps.probeTargets[probeName] {
-		b.WriteString("<tr><td><b>" + targetName + "</b></td>")
 		ts := ps.metrics[probeName][targetName]
+		if ts == nil {
+			continue
+		}
 
-		for _, td := range durations {
+		b.WriteString("<tr><td><b>" + targetName + "</b></td>")
+
+		gotSomeData := false        // To track if we got some data
+		var noDataFor time.Duration // No data for at least this long
+		tdTmpl := "<td>%.4f</td>"   // Default table cell template
+
+		noFurtherData := false
+		maxInterval := time.Since(ts.startTime)
+		for _, td := range ps.dashDurations {
+			if noFurtherData {
+				b.WriteString("<td align=center class=\"tooltip greyed\">...<span class=tooltiptext>No data yet</span></td>")
+				continue
+			}
+			if td > maxInterval {
+				noFurtherData = true
+			}
 			t, s := ts.computeDelta(td)
-			b.WriteString(fmt.Sprintf("<td>%.4f</td>", float64(s)/float64(t)))
+			if t == -1 {
+				b.WriteString("<td class=greyed style=font-size:smaller>No Data</td>")
+				noDataFor = td
+				// After no data, ask further values stale.
+				tdTmpl = "<td class=\"tooltip greyed\">%.4f<span class=tooltiptext>Stale value</span></td>"
+				continue
+			}
+			gotSomeData = true
+			b.WriteString(fmt.Sprintf(tdTmpl, float64(s)/float64(t)))
+		}
+
+		// No data for a while, drop this target.
+		if noDataFor >= dropAfterNoDataFor || !gotSomeData {
+			ps.deleteTargetWithNoLock(probeName, targetName)
 		}
 	}
 	return b.String()
@@ -267,14 +336,11 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		}
 	}()
 
-	content, valid := ps.pageCache.contentIfValid()
+	content, valid := ps.pageCache.contentIfValid(hw.r.URL.String())
 	if valid {
 		hw.w.Write(content)
 		return
 	}
-
-	startTime := sysvars.StartTime().Truncate(time.Millisecond)
-	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
 	statusTable := make(map[string]template.HTML)
 	debugData := make(map[string]template.HTML)
@@ -282,13 +348,13 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	probes := ps.probeNames
 	if v := hw.r.URL.Query()["probe"]; v != nil {
-		probes = strings.Split(v[len(v)-1], ",")
+		probes = v
 	}
 	maxDuration := time.Duration(ps.c.GetTimeseriesSize()) * ps.resolution
 	graphOpts := graphOptsFromURL(hw.r.URL.Query(), maxDuration, ps.l)
 
 	for _, probeName := range probes {
-		statusTable[probeName] = template.HTML(ps.statusTable(probeName, ps.dashDurations))
+		statusTable[probeName] = template.HTML(ps.statusTable(probeName))
 		debugData[probeName] = template.HTML(ps.debugLines(probeName))
 
 		// Compute graph data and convert it into JSON for embedding.
@@ -298,35 +364,31 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	var statusBuf bytes.Buffer
 
-	tmpl, err := template.New("statusTmpl").Parse(probeStatusTmpl)
-	if err != nil {
-		ps.l.Errorf("Error parsing probe status template: %v", err)
-		return
-	}
-	err = tmpl.Execute(&statusBuf, struct {
-		BaseURL           string
-		Durations         []string
-		ProbeNames        []string
-		StatusTable       map[string]template.HTML
-		GraphData         map[string]template.JS
-		DebugData         map[string]template.HTML
-		Version           string
-		StartTime, Uptime fmt.Stringer
+	err := statusTmpl.Execute(&statusBuf, struct {
+		BaseURL     string
+		Durations   []string
+		ProbeNames  []string
+		AllProbes   []string // Unfiltered probes
+		StatusTable map[string]template.HTML
+		GraphData   map[string]template.JS
+		DebugData   map[string]template.HTML
+		Header      template.HTML
+		StartTime   fmt.Stringer
 	}{
 		BaseURL:     ps.c.GetUrl(),
 		Durations:   ps.dashDurationsText,
 		ProbeNames:  probes,
+		AllProbes:   ps.probeNames,
 		StatusTable: statusTable,
 		GraphData:   graphData,
 		DebugData:   debugData,
-		Version:     runconfig.Version(),
-		StartTime:   startTime,
-		Uptime:      uptime,
+		Header:      resources.Header(),
+		StartTime:   ps.startTime,
 	})
 	if err != nil {
 		ps.l.Errorf("Error executing probe status template: %v", err)
 		return
 	}
-	ps.pageCache.setContent(statusBuf.Bytes())
+	ps.pageCache.setContent(hw.r.URL.String(), statusBuf.Bytes())
 	hw.w.Write(statusBuf.Bytes())
 }

@@ -124,7 +124,7 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 		}
 	}
 	transport.DialContext = dialer.DialContext
-	transport.MaxIdleConns = 256
+	transport.MaxIdleConns = int(p.c.GetMaxIdleConns())
 	transport.TLSHandshakeTimeout = p.opts.Timeout
 
 	if p.c.GetProxyUrl() != "" {
@@ -186,6 +186,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 
 	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
 	if totalDuration > p.opts.Interval {
@@ -272,10 +275,11 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 
+	connEvent := 0
 	if p.c.GetKeepAlive() {
 		trace := &httptrace.ClientTrace{
 			ConnectDone: func(_, addr string, err error) {
-				result.connEvent++
+				connEvent++
 				if err != nil {
 					p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
 					return
@@ -297,6 +301,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	}
 
 	result.total++
+	result.connEvent += result.connEvent
 
 	if err != nil {
 		if isClientTimeout(err) {
@@ -484,6 +489,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
 
+	clients := p.clientsForTarget(target)
 	for ts := time.Now(); true; ts = <-ticker.C {
 		// Don't run another probe if context is canceled already.
 		if ctxDone(ctx) {
@@ -494,7 +500,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 		// was an invalid target), skip this probe cycle. Note that request
 		// creation gets retried at a regular interval (stats export interval).
 		if req != nil {
-			p.runProbe(ctx, target, p.clientsForTarget(target), req, result)
+			p.runProbe(ctx, target, clients, req, result)
 		}
 
 		// Export stats if it's the time to do so.

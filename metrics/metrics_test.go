@@ -16,55 +16,69 @@ package metrics
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseValueFromString(t *testing.T) {
-	var val string
-
-	// Bad value, should return an error
-	val = "234g"
-	_, err := ParseValueFromString(val)
-	if err == nil {
-		t.Errorf("ParseValueFromString(%s) returned no error", val)
+	var tests = []struct {
+		val      string
+		wantType Value
+		wantErr  bool
+	}{
+		{
+			val:     "234g",
+			wantErr: true,
+		},
+		{
+			val:      "234",
+			wantType: NewFloat(1),
+		},
+		{
+			val:      "-234",
+			wantType: NewFloat(1),
+		},
+		{
+			val:      ".234",
+			wantType: NewFloat(1),
+		},
+		{
+			val:      "-.234",
+			wantType: NewFloat(1),
+		},
+		{
+			val:     ".-234",
+			wantErr: true,
+		},
+		{
+			val:      "\"234\"",
+			wantType: NewString(""),
+		},
+		{
+			val:      "map:code 200:10 404:1",
+			wantType: NewMap("m", NewFloat(1)),
+		},
+		{
+			val:      "dist:sum:899|count:221|lb:-Inf,0.5,2,7.5|bc:34,54,121,12",
+			wantType: NewDistribution([]float64{1}),
+		},
 	}
 
-	// Float value
-	val = "234"
-	v, err := ParseValueFromString(val)
-	if err != nil {
-		t.Errorf("ParseValueFromString(%s) returned error: %v", val, err)
-	}
-	if _, ok := v.(*Float); !ok {
-		t.Errorf("ParseValueFromString(%s) returned a non-float: %v", val, v)
-	}
+	for _, test := range tests {
+		t.Run("value="+test.val, func(t *testing.T) {
+			v, err := ParseValueFromString(test.val)
 
-	// String value, aggregation disabled
-	val = "\"234\""
-	v, err = ParseValueFromString(val)
-	if err != nil {
-		t.Errorf("ParseValueFromString(%s) returned error: %v", val, err)
-	}
-	if _, ok := v.(String); !ok {
-		t.Errorf("ParseValueFromString(%s) returned a non-string: %v", val, v)
-	}
-
-	// Map value
-	val = "map:code 200:10 404:1"
-	v, err = ParseValueFromString(val)
-	if err != nil {
-		t.Errorf("ParseValueFromString(%s) returned error: %v", val, err)
-	}
-	if _, ok := v.(*Map); !ok {
-		t.Errorf("ParseValueFromString(%s) returned a non-map: %v", val, v)
-	}
-
-	// Dist value
-	val = "dist:sum:899|count:221|lb:-Inf,0.5,2,7.5|bc:34,54,121,12"
-	v, err = ParseValueFromString(val)
-	if err != nil {
-		t.Errorf("ParseValueFromString(%s) returned error: %v", val, err)
-	}
-	if _, ok := v.(*Distribution); !ok {
-		t.Errorf("ParseValueFromString(%s) returned a non-dist: %v", val, v)
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("Got unexpected error: %v", err)
+				}
+				return
+			}
+			if test.wantErr {
+				t.Errorf("Didn't get the expected error, got parsed value: %v", v)
+				return
+			}
+			assert.IsType(t, test.wantType, v)
+		})
 	}
 }
