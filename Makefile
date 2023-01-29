@@ -38,6 +38,10 @@ $(BINARY): $(SOURCES)
 ca-certificates.crt: $(CACERTS)
 	cp $(CACERTS) ca-certificates.crt
 
+docker_genpb: Dockerfile.genpb
+	docker build -f Dockerfile.genpb . -t cloudprober:genpb
+	docker run -v $(shell pwd):/cloudprober -v /tmp:/tmp cloudprober:genpb tools/gen_pb_go.sh
+
 docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) ca-certificates.crt Dockerfile
 	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \

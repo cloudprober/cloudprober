@@ -1,0 +1,17 @@
+# This Dockerfile is intended for generating protobuf-related
+# code. This does require golang to pull in dependencies.
+# 
+# syntax=docker/dockerfile:1
+FROM golang:1-bullseye
+
+# install tools/gen_pb_go.sh dependencies
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		unzip \
+		rsync \
+	; \
+	rm -rf /var/lib/apt-lists/*
+
+VOLUME ["/cloudprober", "/tmp"]
+WORKDIR /cloudprober
