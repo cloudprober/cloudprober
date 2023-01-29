@@ -358,7 +358,7 @@ func TestProbeOnceMode(t *testing.T) {
 
 	p := createTestProbeWithEnv(testCmd, testEnvMap)
 	p.mode = "once"
-	tgts := []string{"target1", "target2"}
+	tgts := []string{"target1", "target2", "target3"}
 
 	// Set runCommand to a function that runs successfully and returns a pyload.
 	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string, envVars []string) ([]byte, error) {
