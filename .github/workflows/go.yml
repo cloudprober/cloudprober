@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'helm/**'
+      - 'docs/**'
+      - '.github/workflows/hugo.yml'
   pull_request:
   workflow_dispatch:
     inputs:
