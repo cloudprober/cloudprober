@@ -383,7 +383,6 @@ func TestProbeOnceMode(t *testing.T) {
 	}
 
 	total, success := make(map[string]int64), make(map[string]int64)
-
 	for _, tgt := range tgts {
 		total[tgt]++
 		success[tgt]++
@@ -401,9 +400,25 @@ func TestProbeOnceMode(t *testing.T) {
 	}
 	runAndVerifyProbe(t, p, tgts, total, success)
 
-	// Total numbder of event metrics:
-	// num_of_runs x num_targets x (1 for default metrics + 1 for payload metrics)
-	ems, err := testutils.MetricsFromChannel(p.dataChan, 8, time.Second)
+	// Calculate how many metrics we should expect in the channel
+	defaultMetricsCount := 1
+	additionalMetricsCount := 3 // cmd, num-args, num-env-vars. If you add a new custom metric, increment this
+	totalSuccesses := int64(0)
+	for _, v := range success {
+		totalSuccesses += v
+	}
+	totalRuns := int64(0)
+	for _, v := range total {
+		totalRuns += v
+	}
+
+	expectedMetricsCountInChannel := (additionalMetricsCount * int(totalSuccesses)) + (defaultMetricsCount * int(totalRuns))
+	if len(p.dataChan) != expectedMetricsCountInChannel {
+		t.Fatalf("unexpected metrics count, cannot continue verifying. Expected: %d, Found: %d", expectedMetricsCountInChannel, len(p.dataChan))
+	}
+
+	// yank metrics
+	ems, err := testutils.MetricsFromChannel(p.dataChan, expectedMetricsCountInChannel, time.Second)
 	if err != nil {
 		t.Error(err)
 	}
