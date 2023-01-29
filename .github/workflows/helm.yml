@@ -69,5 +69,5 @@ jobs:
       - name: Package chart
         run: |
           mkdir -p charts
-          cd charts; helm package cloudprober/helm; cd -
+          cd charts; helm package ../cloudprober/helm/.; cd -
           git status
