@@ -130,6 +130,9 @@ type Logger struct {
 	// metadata on all logging messages.
 }
 
+// Option can be used for adding additional metadata information in logger.
+type Option func(*Logger)
+
 // NewCloudproberLog is a convenient wrapper around New that sets context to
 // context.Background and attaches cloudprober prefix to log names.
 func NewCloudproberLog(component string) (*Logger, error) {
@@ -144,30 +147,34 @@ func NewCloudproberLog(component string) (*Logger, error) {
 }
 
 // New returns a new Logger object with cloud logging client initialized if running on GCE.
-func New(ctx context.Context, logName string) (*Logger, error) {
-	return NewCloudLoggerWithLabels(ctx, logName, make(map[string]string))
-}
-
-// NewCloudLoggerWithLabels returns a new Logger object with a cloud logging
-// client initialized with custom labels if running on GCE.
-func NewCloudLoggerWithLabels(ctx context.Context, logName string, labels map[string]string) (*Logger, error) {
-	if labels == nil {
-		labels = make(map[string]string)
-	}
+func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	l := &Logger{
 		name:                logName,
-		labels:              labels,
 		debugLog:            enableDebugLog(*debugLog, *debugLogList, logName),
 		disableCloudLogging: *disableCloudLogging,
+	}
+	for _, opt := range opts {
+		opt(l)
+	}
+	if l.labels == nil {
+		l.labels = make(map[string]string)
 	}
 	if !metadata.OnGCE() || l.disableCloudLogging {
 		return l, nil
 	}
 	l.Infof("Running on GCE. Logs for %s will go to Cloud (Stackdriver).", l.name)
+
 	if err := l.EnableStackdriverLogging(ctx); err != nil {
 		return nil, err
 	}
 	return l, nil
+}
+
+// WithLabels function can be used to set any parameter in Logger struct.
+func WithLabels(labels map[string]string) Option {
+	return func(l *Logger) {
+		l.labels = labels
+	}
 }
 
 // EnableStackdriverLogging enables logging to stackdriver.
