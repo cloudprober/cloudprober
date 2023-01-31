@@ -43,41 +43,36 @@ fi
 echo PROJECTROOT=${PROJECTROOT}
 
 # Make sure protobuf compilation is set up correctly.
-export protoc_path=$(which protoc)
-if [ -z ${protoc_path} ] || [ ! -x  ${protoc_path} ]; then
-  echo "protoc (protobuf compiler) not found on the path. Trying to install it "
-  echo "from the internet. To avoid repeating this step, please install protoc"
-  echo " from https://github.com/google/protobuf, at a system-wide location, "
-  echo "that is accessible through PATH environment variable."
-  echo "======================================================================"
-  sleep 1
+echo "Trying to install it from the internet."
+echo "============================================"
+sleep 1
 
-  if [ "$(uname -s)" == "Darwin" ]; then
-    os="osx"
-  elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
-    os="linux"
-  else
-    echo "OS unsupported by this this build script. Please install protoc manually."
-  fi
-  arch=$(uname -m)
-  protoc_package="protoc-${PROTOC_VERSION}-${os}-${arch}.zip"
-  protoc_package_url="https://github.com/google/protobuf/releases/download/v${PROTOC_VERSION}/${protoc_package}"
-
-  TMPDIR=$(mktemp -d)
-  cd $TMPDIR
-  echo -e "Downloading protobuf compiler from..\n${protoc_package_url}"
-  echo "======================================================================"
-  wget "${protoc_package_url}"
-  unzip "${protoc_package}"
-  export protoc_path=${PWD}/bin/protoc
-  cd -
-
-  function cleanup {
-    echo "Removing temporary directory used for protoc installation: ${TMPDIR}"
-    rm  -r "${TMPDIR}"
-  }
-  trap cleanup EXIT
+if [ "$(uname -s)" == "Darwin" ]; then
+  os="osx"
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+  os="linux"
+else
+  echo "OS unsupported by this this build script. Please install protoc manually."
 fi
+
+arch=$(uname -m)
+protoc_package="protoc-${PROTOC_VERSION}-${os}-${arch}.zip"
+protoc_package_url="https://github.com/google/protobuf/releases/download/v${PROTOC_VERSION}/${protoc_package}"
+
+TMPDIR=$(mktemp -d)
+cd $TMPDIR
+echo -e "Downloading protobuf compiler from..\n${protoc_package_url}"
+echo "======================================================================"
+wget "${protoc_package_url}"
+unzip "${protoc_package}"
+export protoc_path=${PWD}/bin/protoc
+cd -
+
+function cleanup {
+  echo "Removing temporary directory used for protoc installation: ${TMPDIR}"
+  rm  -r "${TMPDIR}"
+}
+trap cleanup EXIT
 
 # Get go plugin for protoc
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
