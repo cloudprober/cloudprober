@@ -16,6 +16,7 @@ package stackdriver
 
 import (
 	"os"
+	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	md "github.com/cloudprober/cloudprober/common/metadata"
@@ -45,6 +46,26 @@ func kubernetesResource(projectID string) (*monitoring.MonitoredResource, error)
 			"container_name": os.Getenv("CONTAINER_NAME"),
 		},
 	}, nil
+}
+
+func cloudRunResource(projectID string, l *logger.Logger) *monitoring.MonitoredResource {
+	region, err := metadata.Get("instance/region")
+	if err != nil {
+		l.Warningf("Stackdriver surfacer: Error getting Cloud Run region (%v), ignoring..", err)
+		region = ""
+	}
+	location := region[strings.LastIndex(region, "/")+1:]
+
+	// We can likely use cluster-location instance attribute for location. Using
+	// zone provides more granular scope though.
+	return &monitoring.MonitoredResource{
+		Type: "cloud_run_job",
+		Labels: map[string]string{
+			"project_id": projectID,
+			"location":   location,
+			"job_name":   os.Getenv("CLOUD_RUN_JOB"),
+		},
+	}
 }
 
 func gceResource(projectID string, l *logger.Logger) (*monitoring.MonitoredResource, error) {
@@ -79,6 +100,9 @@ func gceResource(projectID string, l *logger.Logger) (*monitoring.MonitoredResou
 func monitoredResourceOnGCE(projectID string, l *logger.Logger) (*monitoring.MonitoredResource, error) {
 	if md.IsKubernetes() {
 		return kubernetesResource(projectID)
+	}
+	if md.IsCloudRunJob() {
+		return cloudRunResource(projectID, l), nil
 	}
 	return gceResource(projectID, l)
 }
