@@ -16,7 +16,7 @@ LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
 BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)
 
 ifeq "$(GIT_TAG)" ""
-	DOCKER_TAGS := -t $(DOCKER_IMAGE):master
+	DOCKER_TAGS := -t $(DOCKER_IMAGE):master -t $(DOCKER_IMAGE):main
 else
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG) -t $(DOCKER_IMAGE):latest
 endif
