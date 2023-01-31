@@ -173,7 +173,12 @@ func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 // logger.New(ctx, logName, logger.WithLabels(myLabels))
 func WithLabels(labels map[string]string) Option {
 	return func(l *Logger) {
-		l.labels = labels
+		if l.labels == nil {
+			l.labels = make(map[string]string)
+		}
+		for k, v := range labels {
+			l.labels[k] = v
+		}
 	}
 }
 
