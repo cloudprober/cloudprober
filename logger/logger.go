@@ -150,15 +150,14 @@ func NewCloudproberLog(component string) (*Logger, error) {
 func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	l := &Logger{
 		name:                logName,
+		labels:              make(map[string]string),
 		debugLog:            enableDebugLog(*debugLog, *debugLogList, logName),
 		disableCloudLogging: *disableCloudLogging,
 	}
 	for _, opt := range opts {
 		opt(l)
 	}
-	if l.labels == nil {
-		l.labels = make(map[string]string)
-	}
+
 	if !metadata.OnGCE() || l.disableCloudLogging {
 		return l, nil
 	}
@@ -170,7 +169,8 @@ func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	return l, nil
 }
 
-// WithLabels function can be used to set any parameter in Logger struct.
+// WithLabels option can be used to add a set of labels to all logs, e.g.
+// logger.New(ctx, logName, logger.WithLabels(myLabels))
 func WithLabels(labels map[string]string) Option {
 	return func(l *Logger) {
 		l.labels = labels
