@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 #
-# Copyright 2017 Google Inc.
+# Copyright 2017-2023 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ fi
 echo PROJECTROOT=${PROJECTROOT}
 
 # Make sure protobuf compilation is set up correctly.
-echo "Trying to install it from the internet."
+echo "Install protoc from the internet."
 echo "============================================"
 sleep 1
 
