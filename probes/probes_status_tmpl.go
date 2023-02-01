@@ -33,7 +33,7 @@ var StatusTmpl = template.Must(template.New("statusTmpl").Parse(`
   </tr>
   {{ range . }}
   <tr>
-    <td><a href="/probestatus?probe={{.Name}}">{{.Name}}</a></td>
+    <td><a href="/status?probe={{.Name}}">{{.Name}}</a></td>
     <td>{{.Type}}</td>
     <td>{{.Interval}}</td>
     <td>{{.Timeout}}</td>
