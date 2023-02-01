@@ -48,7 +48,7 @@ func kubernetesResource(projectID string) (*monitoring.MonitoredResource, error)
 	}, nil
 }
 
-func cloudRunResource(projectID, job string, l *logger.Logger) *monitoring.MonitoredResource {
+func cloudRunResource(projectID, job, taskID string, l *logger.Logger) *monitoring.MonitoredResource {
 	region, err := metadata.Get("instance/region")
 	if err != nil {
 		l.Warningf("Stackdriver surfacer: Error getting Cloud Run region (%v), ignoring..", err)
@@ -66,6 +66,8 @@ func cloudRunResource(projectID, job string, l *logger.Logger) *monitoring.Monit
 			"project_id": projectID,
 			"location":   location,
 			"job":        job,
+			"task_id":    taskID,
+			"namespace":  "cloudprober",
 		},
 	}
 }
@@ -104,10 +106,10 @@ func monitoredResourceOnGCE(projectID string, l *logger.Logger) (*monitoring.Mon
 		return kubernetesResource(projectID)
 	}
 	if md.IsCloudRunJob() {
-		return cloudRunResource(projectID, os.Getenv("CLOUD_RUN_JOB"), l), nil
+		return cloudRunResource(projectID, os.Getenv("CLOUD_RUN_JOB"), os.Getenv("CLOUD_RUN_TASK_INDEX"), l), nil
 	}
 	if md.IsCloudRunService() {
-		return cloudRunResource(projectID, os.Getenv("K_SERVICE"), l), nil
+		return cloudRunResource(projectID, os.Getenv("K_SERVICE"), os.Getenv("K_REVISION"), l), nil
 	}
 	return gceResource(projectID, l)
 }
