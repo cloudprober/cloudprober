@@ -24,6 +24,11 @@ import (
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 
+const (
+	cloudRunTypeJob     = "cloud_run_job"
+	cloudRunTypeService = "cloud_run_revision"
+)
+
 func kubernetesResource(projectID string) (*monitoring.MonitoredResource, error) {
 	namespace := md.KubernetesNamespace()
 
@@ -48,7 +53,7 @@ func kubernetesResource(projectID string) (*monitoring.MonitoredResource, error)
 	}, nil
 }
 
-func cloudRunResource(projectID string, l *logger.Logger) *monitoring.MonitoredResource {
+func cloudRunResource(projectID string, cloudRunType string, l *logger.Logger) *monitoring.MonitoredResource {
 	region, err := metadata.Get("instance/region")
 	if err != nil {
 		l.Warningf("Stackdriver surfacer: Error getting Cloud Run region (%v), ignoring..", err)
@@ -56,15 +61,24 @@ func cloudRunResource(projectID string, l *logger.Logger) *monitoring.MonitoredR
 	}
 	location := region[strings.LastIndex(region, "/")+1:]
 
+	labels := map[string]string{
+		"project_id": projectID,
+		"location":   location,
+	}
+
+	if cloudRunType == cloudRunTypeJob {
+		labels["job_name"] = os.Getenv("CLOUD_RUN_JOB")
+	}
+
+	if cloudRunType == cloudRunTypeService {
+		labels["service_name"] = os.Getenv("K_SERVICE")
+	}
+
 	// We can likely use cluster-location instance attribute for location. Using
 	// zone provides more granular scope though.
 	return &monitoring.MonitoredResource{
-		Type: "cloud_run_job",
-		Labels: map[string]string{
-			"project_id": projectID,
-			"location":   location,
-			"job_name":   os.Getenv("CLOUD_RUN_JOB"),
-		},
+		Type:   "cloud_run_job",
+		Labels: labels,
 	}
 }
 
@@ -102,7 +116,10 @@ func monitoredResourceOnGCE(projectID string, l *logger.Logger) (*monitoring.Mon
 		return kubernetesResource(projectID)
 	}
 	if md.IsCloudRunJob() {
-		return cloudRunResource(projectID, l), nil
+		return cloudRunResource(projectID, cloudRunTypeJob, l), nil
+	}
+	if md.IsCloudRunService() {
+		return cloudRunResource(projectID, cloudRunTypeService, l), nil
 	}
 	return gceResource(projectID, l)
 }
