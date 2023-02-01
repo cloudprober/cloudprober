@@ -48,7 +48,7 @@ func kubernetesResource(projectID string) (*monitoring.MonitoredResource, error)
 	}, nil
 }
 
-func cloudRunResource(projectID string, job string, l *logger.Logger) *monitoring.MonitoredResource {
+func cloudRunResource(projectID, job string, l *logger.Logger) *monitoring.MonitoredResource {
 	region, err := metadata.Get("instance/region")
 	if err != nil {
 		l.Warningf("Stackdriver surfacer: Error getting Cloud Run region (%v), ignoring..", err)
