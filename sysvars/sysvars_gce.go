@@ -75,6 +75,11 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		return onGCE, nil
 	}
 
+	if md.IsCloudRunService() {
+		vars["service_name"] = os.Getenv("K_SERVICE")
+		return onGCE, nil
+	}
+
 	// If fetching instance name fails, we are on some restricted platform of
 	// GCE. Exit sooner with no error.
 	if instance, err := metadata.InstanceName(); err != nil {

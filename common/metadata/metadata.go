@@ -43,3 +43,8 @@ func KubernetesNamespace() string {
 func IsCloudRunJob() bool {
 	return os.Getenv("CLOUD_RUN_JOB") != ""
 }
+
+// IsCloudRunService return true if we are running as a CloudRun service.
+func IsCloudRunService() bool {
+	return os.Getenv("K_SERVICE") != ""
+}
