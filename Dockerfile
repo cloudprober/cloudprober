@@ -8,21 +8,16 @@
 # This stage is used to find the correct binary for the platform. We store the
 # correct binary at /stage-0-workdir/cloudprober, and in the next stage discard
 # the rest.
-FROM alpine AS stage0
-WORKDIR /stage-0-workdir
+FROM alpine
 COPY cloudprober-linux-* ./
 
 ARG TARGETPLATFORM
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-  mv cloudprober-linux-amd64 cloudprober; fi
+  mv cloudprober-linux-amd64 cloudprober && rm cloudprober-linux-*; fi
 RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-  mv cloudprober-linux-arm64 cloudprober; fi
+  mv cloudprober-linux-arm64 cloudprober && rm cloudprober-linux-*; fi
 RUN if [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
-  mv cloudprober-linux-armv7 cloudprober; fi
-
-FROM alpine
-COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=stage0 /stage-0-workdir/cloudprober /
+  mv cloudprober-linux-armv7 cloudprober && rm cloudprober-linux-*; fi
 
 # Metadata params
 ARG BUILD_DATE
