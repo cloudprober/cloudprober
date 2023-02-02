@@ -7,7 +7,6 @@ GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
 BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
-CACERTS ?= /etc/ssl/certs/ca-certificates.crt
 SOURCES := $(shell find . -name '*.go')
 LDFLAGS ?= "-s -w -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) -X main.dirty=$(DIRTY) -extldflags -static"
 BINARY_SOURCE ?= "./cmd/cloudprober.go"
@@ -37,10 +36,7 @@ $(foreach bin,$(BINARIES),$(eval $(call make-binary-target,$(bin))))
 $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
-ca-certificates.crt: $(CACERTS)
-	cp $(CACERTS) ca-certificates.crt
-
-docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) ca-certificates.crt Dockerfile
+docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) Dockerfile
 	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(VERSION) \
