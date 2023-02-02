@@ -22,6 +22,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	_ "net/http/pprof"
 	"os"
@@ -31,8 +32,6 @@ import (
 	"syscall"
 	"time"
 
-	"flag"
-
 	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/common/file"
@@ -41,6 +40,7 @@ import (
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
 	"github.com/golang/glog"
+	_ "github.com/motemen/go-loghttp/global"
 )
 
 var (

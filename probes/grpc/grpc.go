@@ -46,7 +46,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/alts"
-	"google.golang.org/grpc/credentials/local"
+	"google.golang.org/grpc/credentials/insecure"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
@@ -130,7 +130,7 @@ func (p *Probe) setupDialOpts() error {
 	}
 
 	if oauthCfg == nil && altsCfg == nil && p.c.GetTlsConfig() == nil {
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
+		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
 	return nil

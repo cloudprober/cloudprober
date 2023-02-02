@@ -5,7 +5,7 @@ import (
 	proto_1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 )
 
-// Next tag: 12
+// Next tag: 13
 #ProbeConf: {
 	// Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
 	// oauth_config: { bearer_token { gce_service_account: "default" } }
@@ -35,6 +35,9 @@ import (
 	// If TLSConfig is specified, it's used for authentication.
 	// Note that only one of ALTSConfig and TLSConfig can be enabled at a time.
 	tlsConfig?: proto_1.#TLSConfig @protobuf(9,tlsconfig.TLSConfig,name=tls_config)
+
+	// if plaintext is specified, TLS will not be used.
+	plaintext?: bool @protobuf(12,bool)
 
 	#MethodType: {"ECHO", #enumValue: 1} |
 		{"READ", #enumValue: 2} |
