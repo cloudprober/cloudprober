@@ -15,6 +15,8 @@ on:
       tag:
         description: 'Tag to run workflow for'
         required: true
+  release:
+    types: [published]
 
 jobs:
   build-and-test:
