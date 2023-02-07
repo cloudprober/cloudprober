@@ -66,7 +66,7 @@ func cloudRunResource(projectID, job, taskID string, l *logger.Logger) *monitori
 			"project_id": projectID,
 			"location":   location,
 			"job":        job,
-			"task_id":    taskID,
+			"task_id":    md.UniqueID(),
 			"namespace":  "cloudprober",
 		},
 	}
