@@ -7,7 +7,7 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/grpc/proto";
 
-// Next tag: 12
+// Next tag: 13
 message ProbeConf {
   // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
   // oauth_config: { bearer_token { gce_service_account: "default" } }
@@ -36,6 +36,9 @@ message ProbeConf {
   // If TLSConfig is specified, it's used for authentication.
   // Note that only one of ALTSConfig and TLSConfig can be enabled at a time.
   optional tlsconfig.TLSConfig tls_config = 9;
+
+  // if insecure_transport is set to true, TLS will not be used.
+  optional bool insecure_transport = 12;
 
   enum MethodType {
     ECHO = 1;
