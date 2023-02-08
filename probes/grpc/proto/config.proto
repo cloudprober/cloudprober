@@ -37,8 +37,8 @@ message ProbeConf {
   // Note that only one of ALTSConfig and TLSConfig can be enabled at a time.
   optional tlsconfig.TLSConfig tls_config = 9;
 
-  // if allow_insecure is set to true, TLS will not be used.
-  optional bool allow_insecure = 12;
+  // if insecure_transport is set to true, TLS will not be used.
+  optional bool insecure_transport = 12;
 
   enum MethodType {
     ECHO = 1;

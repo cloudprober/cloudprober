@@ -99,11 +99,9 @@ type probeRunResult struct {
 	connectErrors metrics.Int
 }
 
-/*
-getTransportCreds attempts to fetch the transport creds from the probe config,
-returning any errors encountered
-if no creds are set, it nil
-*/
+// getTransportCreds attempts to fetch the transport creds from the probe config,
+// returning any errors encountered
+// if no creds are set, it returns nil
 func (p *Probe) getTransportCreds() (grpc.DialOption, error) {
 	if p.c.AltsConfig != nil && p.c.TlsConfig != nil {
 		return nil, errors.New("only one of alts_config and tls_config can be set at a time")
@@ -124,7 +122,7 @@ func (p *Probe) getTransportCreds() (grpc.DialOption, error) {
 		}
 		return grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)), nil
 	}
-	if p.c.GetAllowInsecure() {
+	if p.c.GetInsecureTransport() {
 		return grpc.WithTransportCredentials(insecure.NewCredentials()), nil
 	}
 	return nil, nil

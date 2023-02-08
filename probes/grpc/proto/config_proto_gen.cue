@@ -36,8 +36,8 @@ import (
 	// Note that only one of ALTSConfig and TLSConfig can be enabled at a time.
 	tlsConfig?: proto_1.#TLSConfig @protobuf(9,tlsconfig.TLSConfig,name=tls_config)
 
-	// if allow_insecure is set to true, TLS will not be used.
-	allowInsecure?: bool @protobuf(12,bool,name=allow_insecure)
+	// if insecure_transport is set to true, TLS will not be used.
+	insecureTransport?: bool @protobuf(12,bool,name=insecure_transport)
 
 	#MethodType: {"ECHO", #enumValue: 1} |
 		{"READ", #enumValue: 2} |
