@@ -39,7 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/probeutils"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
@@ -99,10 +99,7 @@ type probeRunResult struct {
 	connectErrors metrics.Int
 }
 
-// getTransportCreds attempts to fetch the transport creds from the probe config,
-// returning any errors encountered
-// if no creds are set, it returns nil
-func (p *Probe) getTransportCreds() (grpc.DialOption, error) {
+func (p *Probe) transportCredentials() (credentials.TransportCredentials, error) {
 	if p.c.AltsConfig != nil && p.c.TlsConfig != nil {
 		return nil, errors.New("only one of alts_config and tls_config can be set at a time")
 
@@ -113,17 +110,17 @@ func (p *Probe) getTransportCreds() (grpc.DialOption, error) {
 			TargetServiceAccounts:    altsCfg.GetTargetServiceAccount(),
 			HandshakerServiceAddress: altsCfg.GetHandshakerServiceAddress(),
 		}
-		return grpc.WithTransportCredentials(alts.NewClientCreds(altsOpts)), nil
+		return alts.NewClientCreds(altsOpts), nil
 	}
 	if p.c.GetTlsConfig() != nil {
 		tlsCfg := &tls.Config{}
 		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
 			return nil, fmt.Errorf("tls_config error: %v", err)
 		}
-		return grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)), nil
+		return credentials.NewTLS(tlsCfg), nil
 	}
 	if p.c.GetInsecureTransport() {
-		return grpc.WithTransportCredentials(insecure.NewCredentials()), nil
+		return insecure.NewCredentials(), nil
 	}
 	return nil, nil
 }
@@ -139,15 +136,15 @@ func (p *Probe) setupDialOpts() error {
 		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
 	}
 
-	transportCfg, err := p.getTransportCreds()
+	transportCreds, err := p.transportCredentials()
 	if err != nil {
 		return fmt.Errorf("error reading transport credentials: %v", err)
 	}
-	if transportCfg != nil {
-		p.dialOpts = append(p.dialOpts, transportCfg)
+	if transportCreds != nil {
+		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(transportCreds))
 	}
 
-	if oauthCfg == nil && transportCfg == nil {
+	if oauthCfg == nil && transportCreds == nil {
 		// if no auth configured, use local auth by default
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
 	}
