@@ -1,13 +1,9 @@
-# This Dockerfile expects "cloudprober" binary and ca-certificates to exist
-# in the working directory.
+# This Dockerfile expects "cloudprober" multi-platform binaries to exist in the
+# same directory.
 #
 # Docker image built using this can executed in the following manner:
 #   docker run --net host -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
 #                         cloudprober/cloudprober
-
-# This stage is used to find the correct binary for the platform. We store the
-# correct binary at /stage-0-workdir/cloudprober, and in the next stage discard
-# the rest.
 FROM alpine
 COPY cloudprober-linux-* ./
 
