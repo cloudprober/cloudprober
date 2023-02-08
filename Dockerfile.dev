@@ -1,0 +1,10 @@
+# Dockerfile for quick development and testing
+# To build:
+#    docker build -t cloudprober:test . -f Dockerfile.dev
+FROM golang:1.18-alpine
+
+WORKDIR /app
+COPY . /
+COPY examples/surfacers/stackdriver_surfacer.cfg /etc/cloudprober.cfg
+RUN go build -o /cloudprober /cmd/cloudprober.go 
+ENTRYPOINT ["/cloudprober", "--logtostderr"]
