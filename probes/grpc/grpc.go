@@ -99,7 +99,39 @@ type probeRunResult struct {
 	connectErrors metrics.Int
 }
 
+/*
+getTransportCreds attempts to fetch the transport creds from the probe config,
+returning any errors encountered
+if no creds are set, it nil
+*/
+func (p *Probe) getTransportCreds() (grpc.DialOption, error) {
+	if p.c.AltsConfig != nil && p.c.TlsConfig != nil {
+		return nil, errors.New("only one of alts_config and tls_config can be set at a time")
+
+	}
+	altsCfg := p.c.GetAltsConfig()
+	if altsCfg != nil {
+		altsOpts := &alts.ClientOptions{
+			TargetServiceAccounts:    altsCfg.GetTargetServiceAccount(),
+			HandshakerServiceAddress: altsCfg.GetHandshakerServiceAddress(),
+		}
+		return grpc.WithTransportCredentials(alts.NewClientCreds(altsOpts)), nil
+	}
+	if p.c.GetTlsConfig() != nil {
+		tlsCfg := &tls.Config{}
+		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
+			return nil, fmt.Errorf("tls_config error: %v", err)
+		}
+		return grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)), nil
+	}
+	if p.c.GetAllowInsecure() {
+		return grpc.WithTransportCredentials(insecure.NewCredentials()), nil
+	}
+	return nil, nil
+}
+
 func (p *Probe) setupDialOpts() error {
+
 	oauthCfg := p.c.GetOauthConfig()
 	if oauthCfg != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(oauthCfg, p.l)
@@ -109,31 +141,16 @@ func (p *Probe) setupDialOpts() error {
 		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
 	}
 
-	if p.c.AltsConfig != nil && p.c.TlsConfig != nil {
-		return errors.New("only one of alts_config and tls_config can be set at a time")
+	transportCfg, err := p.getTransportCreds()
+	if err != nil {
+		return fmt.Errorf("error reading transport credentials: %v", err)
+	}
+	if transportCfg != nil {
+		p.dialOpts = append(p.dialOpts, transportCfg)
 	}
 
-	altsCfg := p.c.GetAltsConfig()
-	if altsCfg != nil {
-		altsOpts := &alts.ClientOptions{
-			TargetServiceAccounts:    altsCfg.GetTargetServiceAccount(),
-			HandshakerServiceAddress: altsCfg.GetHandshakerServiceAddress(),
-		}
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(alts.NewClientCreds(altsOpts)))
-	}
-
-	if p.c.GetTlsConfig() != nil {
-		tlsCfg := &tls.Config{}
-		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
-			return fmt.Errorf("tls_config error: %v", err)
-		}
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
-	}
-	if p.c.GetAllowInsecure() {
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-
-	if oauthCfg == nil && altsCfg == nil && p.c.GetTlsConfig() == nil && !p.c.GetAllowInsecure() {
+	if oauthCfg == nil && transportCfg == nil {
+		// if no auth configured, use local auth by default
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
 	}
 	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
