@@ -5,7 +5,7 @@ import (
 	proto_1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 )
 
-// Next tag: 13
+// Next tag: 14
 #ProbeConf: {
 	// Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
 	// oauth_config: { bearer_token { gce_service_account: "default" } }
@@ -74,4 +74,10 @@ import (
 	// Example URI scheme: "google-c2p:///"
 	// See https://github.com/grpc/grpc/blob/master/doc/naming.md for more details
 	uriScheme?: string @protobuf(8,string,name=uri_scheme)
+
+	#Header: {
+		name?:  string @protobuf(1,string)
+		value?: string @protobuf(2,string)
+	}
+	headers?: [...#Header] @protobuf(13,Header)
 }

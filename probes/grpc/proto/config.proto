@@ -7,7 +7,7 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/grpc/proto";
 
-// Next tag: 13
+// Next tag: 14
 message ProbeConf {
   // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
   // oauth_config: { bearer_token { gce_service_account: "default" } }
@@ -69,4 +69,12 @@ message ProbeConf {
   // Example URI scheme: "google-c2p:///"
   // See https://github.com/grpc/grpc/blob/master/doc/naming.md for more details
   optional string uri_scheme = 8;
+  
+  message Header {
+    optional string name = 1;
+    optional string value = 2;
+  }
+  
+  repeated Header headers = 13;
+
 }
