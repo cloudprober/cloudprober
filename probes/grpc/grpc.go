@@ -382,13 +382,18 @@ func (p *Probe) newResult(tgt string) *probeRunResult {
 	}
 }
 
+// setHeaders attaches a list of headers to the given context
+// it iterates over the headers defined in the probe configuration
 func (p *Probe) setHeaders(ctx context.Context) context.Context {
-	// arman debug
-	headers := map[string]string{
-		"x-request-id": "123",
-		"Cookie":       "soft=chewy",
+	headers := p.c.GetHeaders()
+	parsed := make(map[string]string, len(headers))
+
+	// map each header to the parsed map
+	for _, header := range headers {
+		parsed[header.GetName()] = header.GetValue()
 	}
-	return metadata.NewOutgoingContext(ctx, metadata.New(headers))
+	// create metadata from headers & attach to context
+	return metadata.NewOutgoingContext(ctx, metadata.New(parsed))
 }
 
 // Start starts and runs the probe indefinitely.
