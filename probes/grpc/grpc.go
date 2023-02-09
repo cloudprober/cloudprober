@@ -50,6 +50,7 @@ import (
 	"google.golang.org/grpc/credentials/local"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
 
@@ -381,10 +382,19 @@ func (p *Probe) newResult(tgt string) *probeRunResult {
 	}
 }
 
+func (p *Probe) setHeaders(ctx context.Context) context.Context {
+	// arman debug
+	headers := map[string]string{
+		"x-request-id": "123",
+		"Cookie":       "soft=chewy",
+	}
+	return metadata.NewOutgoingContext(ctx, metadata.New(headers))
+}
+
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.results = make(map[string]*probeRunResult)
-	p.updateTargetsAndStartProbes(ctx)
+	p.updateTargetsAndStartProbes(p.setHeaders(ctx))
 
 	ticker := time.NewTicker(p.opts.StatsExportInterval)
 	defer ticker.Stop()
