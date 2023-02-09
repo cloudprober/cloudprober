@@ -50,6 +50,7 @@ import (
 	"google.golang.org/grpc/credentials/local"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
 
@@ -318,6 +319,8 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 		}
 
 		reqCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+		reqCtx = p.ctxWithHeaders(reqCtx)
+
 		var success int64
 		var delta time.Duration
 		start := time.Now()
@@ -379,6 +382,20 @@ func (p *Probe) newResult(tgt string) *probeRunResult {
 		target:  tgt,
 		latency: latencyValue,
 	}
+}
+
+// ctxWitHeaders attaches a list of headers to the given context
+// it iterates over the headers defined in the probe configuration
+func (p *Probe) ctxWithHeaders(ctx context.Context) context.Context {
+	headers := p.c.GetHeaders()
+	parsed := make(map[string]string, len(headers))
+
+	// map each header to the parsed map
+	for _, header := range headers {
+		parsed[header.GetName()] = header.GetValue()
+	}
+	// create metadata from headers & attach to context
+	return metadata.NewOutgoingContext(ctx, metadata.New(parsed))
 }
 
 // Start starts and runs the probe indefinitely.
