@@ -319,6 +319,8 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 		}
 
 		reqCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+		reqCtx = p.ctxWithHeaders(reqCtx)
+
 		var success int64
 		var delta time.Duration
 		start := time.Now()
@@ -382,9 +384,9 @@ func (p *Probe) newResult(tgt string) *probeRunResult {
 	}
 }
 
-// setHeaders attaches a list of headers to the given context
+// ctxWitHeaders attaches a list of headers to the given context
 // it iterates over the headers defined in the probe configuration
-func (p *Probe) setHeaders(ctx context.Context) context.Context {
+func (p *Probe) ctxWithHeaders(ctx context.Context) context.Context {
 	headers := p.c.GetHeaders()
 	parsed := make(map[string]string, len(headers))
 
@@ -399,7 +401,7 @@ func (p *Probe) setHeaders(ctx context.Context) context.Context {
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.results = make(map[string]*probeRunResult)
-	p.updateTargetsAndStartProbes(p.setHeaders(ctx))
+	p.updateTargetsAndStartProbes(ctx)
 
 	ticker := time.NewTicker(p.opts.StatsExportInterval)
 	defer ticker.Stop()
