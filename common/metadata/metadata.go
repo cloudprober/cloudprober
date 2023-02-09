@@ -18,9 +18,9 @@ Package metadata implements metadata related utilities.
 package metadata
 
 import (
+	"fmt"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -77,6 +77,6 @@ func UniqueID() string {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 
-	uniqueID.id = "cloudprober-" + strings.ToLower(string(b)) + "-" + strconv.Itoa(int(t.Unix()%10000))
+	uniqueID.id = fmt.Sprintf("cloudprober-%s-%04d", strings.ToLower(string(b)), t.Unix()%10000)
 	return uniqueID.id
 }
