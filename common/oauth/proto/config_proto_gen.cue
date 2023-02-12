@@ -14,9 +14,9 @@ package proto
 	tokenUrl?: string @protobuf(1,string,name=token_url)
 	method?:   string @protobuf(2,string)
 
-	// data can be repeated. If it is repeated we just combine them with a '&'
-	// in between. If data appears to be a valid json, we automaticall add the
-	// header: "Content-Type: application/json" (you can still override it).
+	// data can be repeated. If it is repeated we combine the values with a '&'
+	// in between. If data appears to be a valid json, we automatically add the
+	// content-type header: "Content-Type: application/json" (can be overridden).
 	data?: [...string] @protobuf(3,string)
 
 	#Header: {

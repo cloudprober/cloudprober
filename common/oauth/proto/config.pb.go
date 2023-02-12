@@ -121,9 +121,9 @@ type JWT struct {
 
 	TokenUrl string `protobuf:"bytes,1,opt,name=token_url,json=tokenUrl,proto3" json:"token_url,omitempty"`
 	Method   string `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`
-	// data can be repeated. If it is repeated we just combine them with a '&'
-	// in between. If data appears to be a valid json, we automaticall add the
-	// header: "Content-Type: application/json" (you can still override it).
+	// data can be repeated. If it is repeated we combine the values with a '&'
+	// in between. If data appears to be a valid json, we automatically add the
+	// content-type header: "Content-Type: application/json" (can be overridden).
 	Data []string `protobuf:"bytes,3,rep,name=data,proto3" json:"data,omitempty"`
 	// HTTP request headers
 	Header []*JWT_Header `protobuf:"bytes,8,rep,name=header,proto3" json:"header,omitempty"`
