@@ -37,6 +37,32 @@ message RDSTargets {
   optional rds.IPConfig ip_config = 4;
 }
 
+message K8sTargets {
+  optional string namespace = 1;
+
+  // labelSelector uses the same format as kubernetes API calls. 
+  // Example:
+  //   labelSelector: "k8s-app"       # label k8s-app exists
+  //   labelSelector: "role=frontend" # label role=frontend
+  //   labelSelector: "!canary"       # canary label doesn't exist
+  repeated string labelSelector = 2;
+
+  oneof resources {
+    string services = 3;
+    string endpoints = 4;
+    string ingresses = 5;
+    string pods = 6;
+  }
+
+
+  optional int32 re_eval_sec = 19;
+
+  // IP config to specify the IP address to pick for a resource.
+  optional rds.IPConfig ip_config = 20;
+
+  optional rds.ClientConf.ServerOptions rds_server_options = 21;
+}
+
 message TargetsDef {
   oneof type {
     // Static host names, for example:
@@ -84,6 +110,15 @@ message TargetsDef {
     //   file_path: "/var/run/cloudprober/vips.textpb"
     // }
     file.TargetsConf file_targets = 4;
+
+    // K8s targets.
+    // Example:
+    // k8s {
+    //   namespace: "qa"
+    //   labelSelector: "k8s-app"
+    //   services: ""
+    // }
+    K8sTargets k8s = 6;
 
     // Empty targets to meet the probe definition requirement where there are
     // actually no targets, for example in case of some external probes.

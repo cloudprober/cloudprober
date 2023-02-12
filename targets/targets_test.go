@@ -24,30 +24,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	testdatapb "github.com/cloudprober/cloudprober/targets/testdata"
+	"github.com/golang/protobuf/proto"
 )
-
-// getMissing returns a list of items in "elems" missing from "from". Cannot
-// handle duplicate elements.
-func getMissing(elems []string, from []string) []string {
-	var missing []string
-	set := make(map[string]bool, len(from))
-	for _, e := range from {
-		set[e] = true
-	}
-
-	for _, e := range elems {
-		if !set[e] {
-			missing = append(missing, e)
-		}
-	}
-	return missing
-}
 
 type mockLister struct {
 	list []endpoint.Endpoint
@@ -303,7 +286,7 @@ func TestRDSClientConf(t *testing.T) {
 				}
 			}
 
-			_, cc, err := RDSClientConf(pb, globalOpts, nil)
+			_, cc, err := rdsClientConf(pb, globalOpts, nil)
 			if (err != nil) != r.wantErr {
 				t.Errorf("wantErr: %v, got err: %v", r.wantErr, err)
 			}

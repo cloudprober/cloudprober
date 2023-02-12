@@ -34,6 +34,31 @@ import (
 	ipConfig?: proto_1.#IPConfig @protobuf(4,rds.IPConfig,name=ip_config)
 }
 
+#K8sTargets: {
+	namespace?: string @protobuf(1,string)
+
+	// labelSelector uses the same format as kubernetes API calls.
+	// Example:
+	//   labelSelector: "k8s-app"       # label k8s-app exists
+	//   labelSelector: "role=frontend" # label role=frontend
+	//   labelSelector: "!canary"       # canary label doesn't exist
+	labelSelector?: [...string] @protobuf(2,string)
+	{} | {
+		services: string @protobuf(3,string)
+	} | {
+		endpoints: string @protobuf(4,string)
+	} | {
+		ingresses: string @protobuf(5,string)
+	} | {
+		pods: string @protobuf(6,string)
+	}
+	reEvalSec?: int32 @protobuf(19,int32,name=re_eval_sec)
+
+	// IP config to specify the IP address to pick for a resource.
+	ipConfig?:         proto_1.#IPConfig                @protobuf(20,rds.IPConfig,name=ip_config)
+	rdsServerOptions?: proto.#ClientConf.#ServerOptions @protobuf(21,rds.ClientConf.ServerOptions,name=rds_server_options)
+}
+
 #TargetsDef: {
 	{} | {
 		// Static host names, for example:
@@ -81,6 +106,15 @@ import (
 		//   file_path: "/var/run/cloudprober/vips.textpb"
 		// }
 		fileTargets: proto_A.#TargetsConf @protobuf(4,file.TargetsConf,name=file_targets)
+	} | {
+		// K8s targets.
+		// Example:
+		// k8s {
+		//   namespace: "qa"
+		//   labelSelector: "k8s-app"
+		//   services: ""
+		// }
+		k8s: #K8sTargets @protobuf(6,K8sTargets)
 	} | {
 		// Empty targets to meet the probe definition requirement where there are
 		// actually no targets, for example in case of some external probes.
