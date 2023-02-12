@@ -26,6 +26,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/protobuf/proto"
 )
 
 type bearerTokenSource struct {
@@ -91,6 +92,11 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 		return nil, err
 	}
 	ts.cache = tok
+
+	// With the move proto3, set default value explicitly.
+	if ts.c.RefreshIntervalSec == nil {
+		ts.c.RefreshIntervalSec = proto.Float32(30)
+	}
 
 	if ts.c.GetRefreshIntervalSec() == 0 {
 		return ts, nil
