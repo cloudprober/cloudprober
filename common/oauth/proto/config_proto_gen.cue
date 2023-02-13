@@ -2,10 +2,30 @@ package proto
 
 #Config: {
 	{} | {
+		httpRequest: #HTTPRequest @protobuf(3,HTTPRequest,name=http_request)
+	} | {
 		bearerToken: #BearerToken @protobuf(1,BearerToken,name=bearer_token)
 	} | {
 		googleCredentials: #GoogleCredentials @protobuf(2,GoogleCredentials,name=google_credentials)
 	}
+}
+
+#HTTPRequest: {
+	tokenUrl?: string @protobuf(1,string,name=token_url)
+	method?:   string @protobuf(2,string)
+
+	// Data to be sent as request body. If there are multiple "data" fields, we combine
+	// their values with a '&' in between. Note: 1) If data appears to be a valid json,
+	// we automatically set the content-type header to "application/json", 2) If data
+	// appears to be a query string we set content-type to
+	// "application/x-www-form-urlencoded". Content type header can still be overridden
+	// using the header field below.
+	data?: [...string] @protobuf(3,string)
+
+	// HTTP request headers
+	header?: {
+		[string]: string
+	} @protobuf(8,map[string]string)
 }
 
 // Bearer token is added to the HTTP request through an HTTP header:
@@ -26,7 +46,8 @@ package proto
 
 	// How often to refresh token. As OAuth token usually expire, we need to
 	// refresh them on a regular interval. If set to 0, caching is disabled.
-	refreshIntervalSec?: float32 @protobuf(90,float,name=refresh_interval_sec,"default=60")
+	// Default is 60s.
+	refreshIntervalSec?: float32 @protobuf(90,float,name=refresh_interval_sec)
 }
 
 // Google credentials in JSON format. We simply use oauth2/google package to

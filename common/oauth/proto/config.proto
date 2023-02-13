@@ -1,14 +1,33 @@
-syntax = "proto2";
+syntax = "proto3";
 
 package cloudprober.oauth;
 
 option go_package = "github.com/cloudprober/cloudprober/common/oauth/proto";
 
+
 message Config {
   oneof type {
+    HTTPRequest http_request = 3;
     BearerToken bearer_token = 1;
     GoogleCredentials google_credentials = 2;
   }
+}
+
+message HTTPRequest {
+  string token_url = 1;
+  
+  string method = 2;
+
+  // Data to be sent as request body. If there are multiple "data" fields, we combine
+  // their values with a '&' in between. Note: 1) If data appears to be a valid json,
+  // we automatically set the content-type header to "application/json", 2) If data
+  // appears to be a query string we set content-type to
+  // "application/x-www-form-urlencoded". Content type header can still be overridden
+  // using the header field below.
+  repeated string data = 3;
+
+  // HTTP request headers
+  map<string,string> header = 8;
 }
 
 // Bearer token is added to the HTTP request through an HTTP header:
@@ -29,19 +48,20 @@ message BearerToken {
 
   // How often to refresh token. As OAuth token usually expire, we need to
   // refresh them on a regular interval. If set to 0, caching is disabled.
-  optional float refresh_interval_sec = 90 [default = 60];
+  // Default is 60s.
+  optional float refresh_interval_sec = 90;
 }
 
 // Google credentials in JSON format. We simply use oauth2/google package to
 // use these credentials.
 message GoogleCredentials {
-  optional string json_file = 1;
+  string json_file = 1;
   repeated string scope = 2;
 
   // Use encoded JWT directly as access token, instead of implementing the whole
   // OAuth2.0 flow.
-  optional bool jwt_as_access_token = 4;
+  bool jwt_as_access_token = 4;
 
   // Audience works only if jwt_as_access_token is true.
-  optional string audience = 3;
+  string audience = 3;
 }
