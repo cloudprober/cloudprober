@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -92,23 +93,31 @@ func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, erro
 	}, nil
 }
 
-func isJSON(s string) bool {
-	return json.Valid([]byte(s))
+func setContentType(req *http.Request, data []string) {
+	if len(data) == 1 {
+		if json.Valid([]byte(data[0])) {
+			req.Header.Set("Content-Type", "application/json")
+			return
+		}
+	}
+	if _, err := url.ParseQuery(strings.Join(data, "&")); err == nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return
+	}
 }
 
 func newHTTPTokenSource(c *configpb.HTTPRequest, l *logger.Logger) (oauth2.TokenSource, error) {
-	body := bytes.NewReader([]byte(strings.Join(c.GetData(), "&")))
+	data := strings.Join(c.GetData(), "&")
+
+	body := bytes.NewReader([]byte(data))
 
 	req, err := http.NewRequest(c.GetMethod(), c.GetTokenUrl(), body)
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %v", err)
 	}
 
-	if len(c.GetData()) == 1 {
-		if isJSON(c.GetData()[0]) {
-			req.Header.Set("Content-Type", "application/json")
-		}
-	}
+	setContentType(req, c.GetData())
+
 	for _, h := range c.GetHeader() {
 		req.Header.Set(h.GetName(), h.GetValue())
 	}

@@ -15,8 +15,10 @@ package proto
 	method?:   string @protobuf(2,string)
 
 	// data can be repeated. If it is repeated we combine the values with a '&'
-	// in between. If data appears to be a valid json, we automatically add the
-	// content-type header: "Content-Type: application/json" (can be overridden).
+	// in between. Note: 1) If data appears to be a valid json, we automatically set
+	// the content-type header to "application/json", 2) If data appears to be a query
+	// string we set content-type to "application/x-www-form-urlencoded". Content type
+	// header can still be overridden using the header field below.
 	data?: [...string] @protobuf(3,string)
 
 	#Header: {

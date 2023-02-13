@@ -82,30 +82,43 @@ func TestNewHTTPTokenSource(t *testing.T) {
 	tests := []struct {
 		name        string
 		data        []string
-		header      [][2]string
+		contentType string
 		wantReqBody string
-		wantHeader  map[string][]string
+		wantCT      string
 		wantErr     bool
 	}{
 		{
-			name:        "simple",
-			data:        []string{"clientId:testID", "clientSecret:testSecret"},
-			wantReqBody: "clientId:testID&clientSecret:testSecret",
-		},
-		{
-			name:        "simple_json",
+			name:        "json_body",
 			data:        []string{`{"clientId":"testID", "clientSecret":"testSecret"}`},
 			wantReqBody: `{"clientId":"testID", "clientSecret":"testSecret"}`,
-			wantHeader:  map[string][]string{"Content-Type": {"application/json"}},
+			wantCT:      "application/json",
+		},
+		{
+			name:        "query_body",
+			data:        []string{"clientId=testID", "clientSecret=testSecret"},
+			wantReqBody: "clientId=testID&clientSecret=testSecret",
+			wantCT:      "application/x-www-form-urlencoded",
+		},
+		{
+			name:        "explicit_header_override",
+			data:        []string{"clientId=testID", "clientSecret=testSecret"},
+			contentType: "form-data",
+			wantReqBody: "clientId=testID&clientSecret=testSecret",
+			wantCT:      "form-data",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &configpb.HTTPRequest{}
 			c.Data = tt.data
-			for _, h := range tt.header {
-				c.Header = append(c.Header, &configpb.HTTPRequest_Header{Name: proto.String(h[0]), Value: proto.String(h[1])})
+
+			if tt.contentType != "" {
+				c.Header = append(c.Header, &configpb.HTTPRequest_Header{
+					Name:  proto.String("Content-Type"),
+					Value: &tt.contentType,
+				})
 			}
+
 			ts_, err := newHTTPTokenSource(c, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newHTTPTokenSource() error = %v, wantErr %v", err, tt.wantErr)
@@ -115,10 +128,7 @@ func TestNewHTTPTokenSource(t *testing.T) {
 			got, _ := io.ReadAll(ts.req.Body)
 			assert.Equal(t, tt.wantReqBody, string(got))
 
-			assert.Equal(t, len(tt.wantHeader), len(ts.req.Header), "req header count")
-			for k := range ts.req.Header {
-				assert.Equal(t, tt.wantHeader[k], ts.req.Header.Values(k), "req header: %s", k)
-			}
+			assert.Equal(t, tt.wantCT, ts.req.Header.Get("Content-Type"), "Content-Type Header")
 		})
 	}
 }
