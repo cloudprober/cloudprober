@@ -15,17 +15,25 @@
 package oauth
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 var global struct {
 	callCounter int
 	mu          sync.RWMutex
+}
+
+func resetCallCounter() {
+	global.mu.Lock()
+	defer global.mu.Unlock()
+	global.callCounter = 0
 }
 
 func incCallCounter() {
@@ -60,59 +68,51 @@ func TestNewBearerToken(t *testing.T) {
 	getTokenFromCmd = testTokenFromCmd
 	getTokenFromGCEMetadata = testTokenFromGCEMetadata
 
-	testConfig := "file: \"f\""
-	verifyBearerTokenSource(t, true, testConfig, "f_file_token")
-
-	// Disable caching by setting refresh_interval_sec to 0.
-	testConfig = "file: \"f\"\nrefresh_interval_sec: 0"
-	verifyBearerTokenSource(t, false, testConfig, "f_file_token")
-
-	testConfig = "cmd: \"c\""
-	verifyBearerTokenSource(t, true, testConfig, "c_cmd_token")
-
-	testConfig = "gce_service_account: \"default\""
-	verifyBearerTokenSource(t, true, testConfig, "default_gce_token")
-}
-
-func verifyBearerTokenSource(t *testing.T, cacheEnabled bool, testConfig, expectedToken string) {
-	t.Helper()
-
-	testC := &configpb.BearerToken{}
-	err := proto.UnmarshalText(testConfig, testC)
-	if err != nil {
-		t.Fatalf("error parsing test config (%s): %v", testConfig, err)
+	var tests = []struct {
+		config    string
+		wantToken string
+		noCache   bool
+	}{
+		{
+			config:    "file: \"f\"",
+			wantToken: "f_file_token",
+		},
+		{
+			config:    "file: \"f\"\nrefresh_interval_sec: 0",
+			wantToken: "f_file_token",
+			noCache:   true,
+		},
+		{
+			config:    "cmd: \"c\"",
+			wantToken: "c_cmd_token",
+		},
+		{
+			config:    "gce_service_account: \"default\"",
+			wantToken: "default_gce_token",
+		},
 	}
 
-	// Call counter should always increase during token source creation.
-	expectedC := callCounter() + 1
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s:cache:%v", test.config, !test.noCache), func(t *testing.T) {
+			resetCallCounter()
+			testC := &configpb.BearerToken{}
+			assert.NoError(t, proto.UnmarshalText(test.config, testC), "error parsing test config")
 
-	cts, err := newBearerTokenSource(testC, nil)
-	if err != nil {
-		t.Errorf("got unexpected error: %v", err)
-	}
+			// Call counter should always increase during token source creation.
+			expectedC := callCounter() + 1
+			cts, err := newBearerTokenSource(testC, nil)
+			assert.NoError(t, err, "error while creating new token source")
+			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")
 
-	cc := callCounter()
-	if cc != expectedC {
-		t.Errorf("unexpected call counter: got=%d, expected=%d", cc, expectedC)
-	}
-
-	tok, err := cts.Token()
-	if err != nil {
-		t.Errorf("unexpected error while retrieving token from config (%s): %v", testConfig, err)
-	}
-
-	if tok.AccessToken != expectedToken {
-		t.Errorf("Got token: %s, expected: %s", tok.AccessToken, expectedToken)
-	}
-
-	// Call counter will increase after Token call only if caching is disabled.
-	if !cacheEnabled {
-		expectedC++
-	}
-	cc = callCounter()
-
-	if cc != expectedC {
-		t.Errorf("unexpected call counter: got=%d, expected=%d", cc, expectedC)
+			// Get token again
+			if test.noCache {
+				expectedC++
+			}
+			tok, err := cts.Token()
+			assert.NoError(t, err, "error getting token")
+			assert.Equal(t, test.wantToken, tok.AccessToken, "Token mismatch")
+			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (2nd call)")
+		})
 	}
 }
 
