@@ -29,7 +29,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type jwtTokenSource struct {
+type httpTokenSource struct {
 	req    *http.Request
 	tok    *oauth2.Token
 	mu     sync.RWMutex
@@ -49,7 +49,7 @@ func redact(s string) string {
 	return s[0:20] + " ........ " + s[len(s)-20:]
 }
 
-func (ts *jwtTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, error) {
+func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, error) {
 	var resp *http.Response
 	var err error
 	if ts.httpDo != nil {
@@ -70,7 +70,7 @@ func (ts *jwtTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, error
 	if err != nil {
 		return nil, fmt.Errorf("error reading token URL response: %v", err)
 	}
-	ts.l.Infof("oauth2.jwt: response from token URL: %s", redact(string(respBody)))
+	ts.l.Infof("oauth2: response from token URL: %s", redact(string(respBody)))
 
 	// Parse and verify token
 	tok := &token{}
@@ -81,10 +81,10 @@ func (ts *jwtTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, error
 		return nil, fmt.Errorf("access_token not found in token URL response: %v", tok)
 	}
 	if tok.ExpiresIn == 0 {
-		ts.l.Warningf("oauth.jwt: token's expiration time is not set, we'll renew everytime")
+		ts.l.Warningf("oauth2: token's expiration time is not set, we'll renew everytime")
 	}
 
-	ts.l.Infof("oauth2.jwt: token expires in: %d sec", tok.ExpiresIn)
+	ts.l.Infof("oauth2: token expires in: %d sec", tok.ExpiresIn)
 
 	return &oauth2.Token{
 		AccessToken: tok.AccessToken,
@@ -96,7 +96,7 @@ func isJSON(s string) bool {
 	return json.Valid([]byte(s))
 }
 
-func newJWTTokenSource(c *configpb.JWT, l *logger.Logger) (oauth2.TokenSource, error) {
+func newHTTPTokenSource(c *configpb.HTTPRequest, l *logger.Logger) (oauth2.TokenSource, error) {
 	body := bytes.NewReader([]byte(strings.Join(c.GetData(), "&")))
 
 	req, err := http.NewRequest(c.GetMethod(), c.GetTokenUrl(), body)
@@ -113,13 +113,13 @@ func newJWTTokenSource(c *configpb.JWT, l *logger.Logger) (oauth2.TokenSource, e
 		req.Header.Set(h.GetName(), h.GetValue())
 	}
 
-	return &jwtTokenSource{
+	return &httpTokenSource{
 		req: req,
 		l:   l,
 	}, nil
 }
 
-func (ts *jwtTokenSource) Token() (*oauth2.Token, error) {
+func (ts *httpTokenSource) Token() (*oauth2.Token, error) {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
 
@@ -133,7 +133,7 @@ func (ts *jwtTokenSource) Token() (*oauth2.Token, error) {
 
 	// We give an extra minute for usage.
 	if ts.tok.Expiry.Before(time.Now().Add(time.Minute)) {
-		ts.l.Infof("jwt: token expired, getting a new one")
+		ts.l.Infof("oauth2: token expired, getting a new one")
 		tok, err := ts.tokenFromHTTP(ts.req)
 		if err != nil {
 			return nil, err

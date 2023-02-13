@@ -2,15 +2,15 @@ package proto
 
 #Config: {
 	{} | {
+		httpRequest: #HTTPRequest @protobuf(3,HTTPRequest,name=http_request)
+	} | {
 		bearerToken: #BearerToken @protobuf(1,BearerToken,name=bearer_token)
 	} | {
 		googleCredentials: #GoogleCredentials @protobuf(2,GoogleCredentials,name=google_credentials)
-	} | {
-		jwt: #JWT @protobuf(3,JWT)
 	}
 }
 
-#JWT: {
+#HTTPRequest: {
 	tokenUrl?: string @protobuf(1,string,name=token_url)
 	method?:   string @protobuf(2,string)
 

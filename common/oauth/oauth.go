@@ -35,8 +35,8 @@ func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSo
 	case *configpb.Config_BearerToken:
 		return newBearerTokenSource(c.GetBearerToken(), l)
 
-	case *configpb.Config_Jwt:
-		return newJWTTokenSource(c.GetJwt(), l)
+	case *configpb.Config_HttpRequest:
+		return newHTTPTokenSource(c.GetHttpRequest(), l)
 
 	case *configpb.Config_GoogleCredentials:
 		f := c.GetGoogleCredentials().GetJsonFile()

@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func Test_jwtTokenSource_Token(t *testing.T) {
+func TestHTTPTokenSource_Token(t *testing.T) {
 	tests := []struct {
 		name       string
 		cachedTok  *oauth2.Token
@@ -57,7 +57,7 @@ func Test_jwtTokenSource_Token(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := &jwtTokenSource{
+			ts := &httpTokenSource{
 				tok: tt.cachedTok,
 				httpDo: func(*http.Request) (*http.Response, error) {
 					return &http.Response{Body: io.NopCloser(bytes.NewReader([]byte(tt.httpResp))), StatusCode: http.StatusOK}, nil
@@ -78,7 +78,7 @@ func Test_jwtTokenSource_Token(t *testing.T) {
 	}
 }
 
-func TestNewJWTTokenSource(t *testing.T) {
+func TestNewHTTPTokenSource(t *testing.T) {
 	tests := []struct {
 		name        string
 		data        []string
@@ -101,17 +101,17 @@ func TestNewJWTTokenSource(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &configpb.JWT{}
+			c := &configpb.HTTPRequest{}
 			c.Data = tt.data
 			for _, h := range tt.header {
-				c.Header = append(c.Header, &configpb.JWT_Header{Name: proto.String(h[0]), Value: proto.String(h[1])})
+				c.Header = append(c.Header, &configpb.HTTPRequest_Header{Name: proto.String(h[0]), Value: proto.String(h[1])})
 			}
-			ts_, err := newJWTTokenSource(c, nil)
+			ts_, err := newHTTPTokenSource(c, nil)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("newJWTTokenSource() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("newHTTPTokenSource() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			ts := ts_.(*jwtTokenSource)
+			ts := ts_.(*httpTokenSource)
 			got, _ := io.ReadAll(ts.req.Body)
 			assert.Equal(t, tt.wantReqBody, string(got))
 

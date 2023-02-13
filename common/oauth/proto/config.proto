@@ -7,13 +7,13 @@ option go_package = "github.com/cloudprober/cloudprober/common/oauth/proto";
 
 message Config {
   oneof type {
+    HTTPRequest http_request = 3;
     BearerToken bearer_token = 1;
     GoogleCredentials google_credentials = 2;
-    JWT jwt = 3;
   }
 }
 
-message JWT {
+message HTTPRequest {
   string token_url = 1;
   
   string method = 2;
