@@ -24,7 +24,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestHTTPTokenSource_Token(t *testing.T) {
@@ -113,10 +112,9 @@ func TestNewHTTPTokenSource(t *testing.T) {
 			c.Data = tt.data
 
 			if tt.contentType != "" {
-				c.Header = append(c.Header, &configpb.HTTPRequest_Header{
-					Name:  proto.String("Content-Type"),
-					Value: &tt.contentType,
-				})
+				c.Header = map[string]string{
+					"Content-Type": tt.contentType,
+				}
 			}
 
 			ts_, err := newHTTPTokenSource(c, nil)

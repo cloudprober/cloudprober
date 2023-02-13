@@ -118,8 +118,8 @@ func newHTTPTokenSource(c *configpb.HTTPRequest, l *logger.Logger) (oauth2.Token
 
 	setContentType(req, c.GetData())
 
-	for _, h := range c.GetHeader() {
-		req.Header.Set(h.GetName(), h.GetValue())
+	for k, v := range c.GetHeader() {
+		req.Header.Set(k, v)
 	}
 
 	return &httpTokenSource{
