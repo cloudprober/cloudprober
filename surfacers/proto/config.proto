@@ -10,6 +10,7 @@ import "github.com/cloudprober/cloudprober/surfacers/probestatus/proto/config.pr
 import "github.com/cloudprober/cloudprober/surfacers/prometheus/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/pubsub/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/bigquery/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/surfacers/proto";
 
@@ -24,6 +25,7 @@ enum Type {
   CLOUDWATCH = 6;  // Experimental mode.
   DATADOG = 7;     // Experimental mode.
   PROBESTATUS = 8; // Experimental mode.
+  BIGQUERY = 9;
   USER_DEFINED = 99;
 }
 
@@ -103,5 +105,6 @@ message SurfacerDef {
     cloudwatch.SurfacerConf cloudwatch_surfacer = 15;
     datadog.SurfacerConf datadog_surfacer = 16;
     probestatus.SurfacerConf probestatus_surfacer = 17;
+    bigquery.SurfacerConf bigquery_surfacer = 18;
   }
 }

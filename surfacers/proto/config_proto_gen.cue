@@ -9,6 +9,7 @@ import (
 	proto_E "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto"
 	proto_B "github.com/cloudprober/cloudprober/surfacers/datadog/proto"
 	proto_36 "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
+	proto_9 "github.com/cloudprober/cloudprober/surfacers/bigquery/proto"
 )
 
 // Enumeration for each type of surfacer we can parse and create
@@ -25,8 +26,9 @@ import (
 		#enumValue: 7
 	} | {
 		"PROBESTATUS"// Experimental mode.
-						#enumValue: 8
-	} | {"USER_DEFINED", #enumValue: 99}
+					#enumValue: 8
+	} | {"BIGQUERY", #enumValue: 9} |
+	{"USER_DEFINED", #enumValue: 99}
 
 #Type_value: {
 	NONE:         0
@@ -38,6 +40,7 @@ import (
 	CLOUDWATCH:   6
 	DATADOG:      7
 	PROBESTATUS:  8
+	BIGQUERY:     9
 	USER_DEFINED: 99
 }
 
@@ -122,5 +125,7 @@ import (
 		datadogSurfacer: proto_B.#SurfacerConf @protobuf(16,datadog.SurfacerConf,name=datadog_surfacer)
 	} | {
 		probestatusSurfacer: proto_36.#SurfacerConf @protobuf(17,probestatus.SurfacerConf,name=probestatus_surfacer)
+	} | {
+		bigquerySurfacer: proto_9.#SurfacerConf @protobuf(18,bigquery.SurfacerConf,name=bigquery_surfacer)
 	}
 }
