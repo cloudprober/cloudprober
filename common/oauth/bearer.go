@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloudprober Authors.
+// Copyright 2019-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package oauth
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -31,40 +32,53 @@ import (
 
 type bearerTokenSource struct {
 	c                   *configpb.BearerToken
-	getTokenFromBackend func(*configpb.BearerToken) (string, error)
-	cache               string
+	getTokenFromBackend func(*configpb.BearerToken) (*oauth2.Token, error)
+	cache               *oauth2.Token
 	mu                  sync.RWMutex
 	l                   *logger.Logger
 }
 
-var getTokenFromFile = func(c *configpb.BearerToken) (string, error) {
-	b, err := file.ReadFile(c.GetFile())
+func bytesToToken(b []byte) *oauth2.Token {
+	tok := &jsonToken{}
+	err := json.Unmarshal(b, tok)
 	if err != nil {
-		return "", err
+		return &oauth2.Token{AccessToken: string(b)}
 	}
-	return string(b), nil
+	return &oauth2.Token{
+		AccessToken: tok.AccessToken,
+		Expiry:      time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
+	}
 }
 
-var getTokenFromCmd = func(c *configpb.BearerToken) (string, error) {
+var getTokenFromFile = func(c *configpb.BearerToken) (*oauth2.Token, error) {
+	b, err := file.ReadFile(c.GetFile())
+	if err != nil {
+		return nil, err
+	}
+	return bytesToToken(b), nil
+}
+
+var getTokenFromCmd = func(c *configpb.BearerToken) (*oauth2.Token, error) {
 	var cmd *exec.Cmd
 
 	cmdParts := strings.Split(c.GetCmd(), " ")
-	cmd = exec.Command(cmdParts[0], cmdParts[1:len(cmdParts)]...)
+	cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to execute command: %v", cmd)
+		return nil, fmt.Errorf("failed to execute command: %v", cmd)
 	}
-	return string(out), nil
+
+	return bytesToToken(out), nil
 }
 
-var getTokenFromGCEMetadata = func(c *configpb.BearerToken) (string, error) {
+var getTokenFromGCEMetadata = func(c *configpb.BearerToken) (*oauth2.Token, error) {
 	ts := google.ComputeTokenSource(c.GetGceServiceAccount())
 	tok, err := ts.Token()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return tok.AccessToken, nil
+	return tok, nil
 }
 
 func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.TokenSource, error) {
@@ -93,7 +107,7 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 	}
 	ts.cache = tok
 
-	// With the move proto3, set default value explicitly.
+	// With the move to proto3, set default value explicitly.
 	if ts.c.RefreshIntervalSec == nil {
 		ts.c.RefreshIntervalSec = proto.Float32(30)
 	}
@@ -104,8 +118,15 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 
 	go func() {
 		interval := time.Duration(ts.c.GetRefreshIntervalSec()) * time.Second
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-		for range time.Tick(interval) {
+		for range ticker.C {
+			// If we've been getting JSON token with non-zero expiry, skip
+			// refreshing periodically.
+			if ts.cache != nil && !ts.cache.Expiry.IsZero() {
+				return
+			}
 			tok, err := ts.getTokenFromBackend(ts.c)
 
 			if err != nil {
@@ -126,20 +147,16 @@ func (ts *bearerTokenSource) Token() (*oauth2.Token, error) {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
 
-	if ts.c.GetRefreshIntervalSec() == 0 {
+	if ts.cache == nil || ts.cache.Expiry.Before(time.Now().Add(time.Minute)) {
 		tok, err := ts.getTokenFromBackend(ts.c)
-
 		if err != nil {
-			if ts.cache == "" {
-				return nil, err
+			if ts.cache != nil {
+				ts.l.Errorf("oauth.bearerTokenSource: failed to refresh the token: %v, returning stale token", err)
+				return ts.cache, nil
 			}
-
-			ts.l.Errorf("oauth.bearerTokenSource: failed to get token: %v, using cache", err)
-			return &oauth2.Token{AccessToken: ts.cache}, nil
+			return nil, err
 		}
-
-		return &oauth2.Token{AccessToken: tok}, nil
+		ts.cache = tok
 	}
-
-	return &oauth2.Token{AccessToken: ts.cache}, nil
+	return ts.cache, nil
 }

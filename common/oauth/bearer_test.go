@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloudprober Authors.
+// Copyright 2019-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,15 @@
 package oauth
 
 import (
-	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/oauth2"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var global struct {
@@ -48,19 +49,40 @@ func callCounter() int {
 	return global.callCounter
 }
 
-func testTokenFromFile(c *configpb.BearerToken) (string, error) {
+func testTokenFromFile(c *configpb.BearerToken) (*oauth2.Token, error) {
+	suffix := ""
+	if callCounter() > 0 {
+		suffix = "_new"
+	}
 	incCallCounter()
-	return c.GetFile() + "_file_token", nil
+	exp := time.Time{}
+	if strings.HasSuffix(c.GetFile(), "json") {
+		exp = time.Now().Add(time.Hour)
+	}
+
+	return &oauth2.Token{AccessToken: c.GetFile() + "_file_token" + suffix, Expiry: exp}, nil
 }
 
-func testTokenFromCmd(c *configpb.BearerToken) (string, error) {
+func testTokenFromCmd(c *configpb.BearerToken) (*oauth2.Token, error) {
+	suffix := ""
+	if callCounter() > 0 {
+		suffix = "_new"
+	}
 	incCallCounter()
-	return c.GetCmd() + "_cmd_token", nil
+	exp := time.Now().Add(time.Hour)
+	if strings.HasSuffix(c.GetCmd(), "lowexp") {
+		exp = time.Now().Add(time.Millisecond)
+	}
+	return &oauth2.Token{AccessToken: c.GetCmd() + "_cmd_token" + suffix, Expiry: exp}, nil
 }
 
-func testTokenFromGCEMetadata(c *configpb.BearerToken) (string, error) {
+func testTokenFromGCEMetadata(c *configpb.BearerToken) (*oauth2.Token, error) {
+	suffix := ""
+	if callCounter() > 0 {
+		suffix = "_new"
+	}
 	incCallCounter()
-	return c.GetGceServiceAccount() + "_gce_token", nil
+	return &oauth2.Token{AccessToken: c.GetGceServiceAccount() + "_gce_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
 func TestNewBearerToken(t *testing.T) {
@@ -69,22 +91,32 @@ func TestNewBearerToken(t *testing.T) {
 	getTokenFromGCEMetadata = testTokenFromGCEMetadata
 
 	var tests = []struct {
-		config    string
-		wantToken string
-		noCache   bool
+		config       string
+		wantToken    string
+		wantNewToken bool
 	}{
 		{
-			config:    "file: \"f\"",
-			wantToken: "f_file_token",
+			config:    "file: \"f_json\"",
+			wantToken: "f_json_file_token",
 		},
 		{
-			config:    "file: \"f\"\nrefresh_interval_sec: 0",
-			wantToken: "f_file_token",
-			noCache:   true,
+			config:       "file: \"f\"\nrefresh_interval_sec: 1",
+			wantToken:    "f_file_token",
+			wantNewToken: true, // refresh in 1s.
+		},
+		{
+			config:       "file: \"f_json\"\nrefresh_interval_sec: 1",
+			wantToken:    "f_json_file_token",
+			wantNewToken: false, // refresh interval is ignored for json
 		},
 		{
 			config:    "cmd: \"c\"",
 			wantToken: "c_cmd_token",
+		},
+		{
+			config:       "cmd: \"c_lowexp\"",
+			wantToken:    "c_lowexp_cmd_token",
+			wantNewToken: true,
 		},
 		{
 			config:    "gce_service_account: \"default\"",
@@ -93,10 +125,10 @@ func TestNewBearerToken(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("%s:cache:%v", test.config, !test.noCache), func(t *testing.T) {
+		t.Run(test.config, func(t *testing.T) {
 			resetCallCounter()
 			testC := &configpb.BearerToken{}
-			assert.NoError(t, proto.UnmarshalText(test.config, testC), "error parsing test config")
+			assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
 
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
@@ -105,70 +137,13 @@ func TestNewBearerToken(t *testing.T) {
 			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")
 
 			// Get token again
-			if test.noCache {
-				expectedC++
+			if test.wantNewToken {
+				time.Sleep(5 * time.Second) // Wait for refresh
+				test.wantToken += "_new"
 			}
 			tok, err := cts.Token()
 			assert.NoError(t, err, "error getting token")
 			assert.Equal(t, test.wantToken, tok.AccessToken, "Token mismatch")
-			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (2nd call)")
 		})
-	}
-}
-
-var (
-	calledTestTokenOnce   bool
-	calledTestTokenOnceMu sync.Mutex
-)
-
-func testTokenRefresh(c *configpb.BearerToken) (string, error) {
-	calledTestTokenOnceMu.Lock()
-	defer calledTestTokenOnceMu.Unlock()
-	if calledTestTokenOnce {
-		return "new-token", nil
-	}
-	calledTestTokenOnce = true
-	return "old-token", nil
-}
-
-// TestRefreshCycle verifies that token gets refreshed after the refresh
-// cycle.
-func TestRefreshCycle(t *testing.T) {
-	getTokenFromCmd = testTokenRefresh
-	// Disable caching by setting refresh_interval_sec to 0.
-	testConfig := "cmd: \"c\"\nrefresh_interval_sec: 1"
-
-	testC := &configpb.BearerToken{}
-	err := proto.UnmarshalText(testConfig, testC)
-	if err != nil {
-		t.Fatalf("error parsing test config (%s): %v", testConfig, err)
-	}
-
-	ts, err := newBearerTokenSource(testC, nil)
-	if err != nil {
-		t.Errorf("got unexpected error: %v", err)
-	}
-
-	tok, err := ts.Token()
-	if err != nil {
-		t.Errorf("unexpected error while retrieving token from config (%s): %v", testConfig, err)
-	}
-
-	oldToken := "old-token"
-	newToken := "new-token"
-
-	if tok.AccessToken != oldToken {
-		t.Errorf("ts.Token(): got=%s, expected=%s", tok, oldToken)
-	}
-
-	time.Sleep(5 * time.Second)
-
-	tok, err = ts.Token()
-	if err != nil {
-		t.Errorf("unexpected error while retrieving token from config (%s): %v", testConfig, err)
-	}
-
-	if tok.AccessToken != newToken {
-		t.Errorf("ts.Token(): got=%s, expected=%s", tok, newToken)
 	}
 }
