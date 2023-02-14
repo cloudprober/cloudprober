@@ -38,11 +38,6 @@ type httpTokenSource struct {
 	httpDo func(req *http.Request) (*http.Response, error)
 }
 
-type token struct {
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
-}
-
 func redact(s string) string {
 	if len(s) < 50 {
 		return s
@@ -74,7 +69,7 @@ func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, erro
 	ts.l.Infof("oauth2: response from token URL: %s", redact(string(respBody)))
 
 	// Parse and verify token
-	tok := &token{}
+	tok := &jsonToken{}
 	if err := json.Unmarshal([]byte(respBody), tok); err != nil {
 		return nil, fmt.Errorf("error parsing token URL response (%s) as JSON: %v", redact(string(respBody)), err)
 	}
