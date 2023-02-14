@@ -204,9 +204,11 @@ type BearerToken struct {
 	//	*BearerToken_Cmd
 	//	*BearerToken_GceServiceAccount
 	Source isBearerToken_Source `protobuf_oneof:"source"`
-	// How often to refresh token. As OAuth token usually expire, we need to
-	// refresh them on a regular interval. If set to 0, caching is disabled.
-	// Default is 60s.
+	// If above sources return JSON tokens with an expiry, we use that info to
+	// determine when to refresh tokens and refresh_interval_sec is completely
+	// ignored. If above sources return a string, we refresh from the source
+	// every 30s by default. To disable this behavior set refresh_interval_sec to
+	// zero.
 	RefreshIntervalSec *float32 `protobuf:"fixed32,90,opt,name=refresh_interval_sec,json=refreshIntervalSec,proto3,oneof" json:"refresh_interval_sec,omitempty"`
 }
 

@@ -28,6 +28,13 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+// jsonToken represents OAuth2 token. We use this struct to parse responses
+// token URL, command output, or file.
+type jsonToken struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
 // TokenSourceFromConfig builds a oauth2.TokenSource from the provided config.
 func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSource, error) {
 	switch c.Type.(type) {
