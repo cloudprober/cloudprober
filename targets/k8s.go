@@ -1,5 +1,3 @@
-package targets
-
 // Copyright 2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +12,8 @@ package targets
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package targets
+
 import (
 	"context"
 	"fmt"
@@ -25,6 +25,7 @@ import (
 	rdsclient "github.com/cloudprober/cloudprober/rds/client"
 	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
 	"github.com/cloudprober/cloudprober/rds/kubernetes"
+	k8sconfigpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server"
 	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
@@ -42,7 +43,7 @@ func key(namespace string, labelSelector []string, resourceType string) string {
 	return strings.Join([]string{namespace, strings.Join(labelSelector, ","), resourceType}, "+")
 }
 
-func initRDSServer(namespace string, labelSelector []string, resourceType string, reEvalSec int, l *logger.Logger) (*server.Server, error) {
+func initRDSServer(k string, kpc *k8sconfigpb.ProviderConfig, l *logger.Logger) (*server.Server, error) {
 	global.mu.Lock()
 	defer global.mu.Unlock()
 
@@ -50,12 +51,15 @@ func initRDSServer(namespace string, labelSelector []string, resourceType string
 		global.servers = make(map[string]*server.Server)
 	}
 
-	k := key(namespace, labelSelector, resourceType)
 	if global.servers[k] != nil {
 		return global.servers[k], nil
 	}
 
-	kc := kubernetes.DefaultProviderConfig(namespace, labelSelector, resourceType, reEvalSec)
+	kc := &serverconfigpb.Provider{
+		Id:     proto.String(kubernetes.DefaultProviderID),
+		Config: &serverconfigpb.Provider_KubernetesConfig{KubernetesConfig: kpc},
+	}
+
 	srv, err := server.New(context.Background(), &serverconfigpb.ServerConf{Provider: []*serverconfigpb.Provider{kc}}, nil, l)
 	if err != nil {
 		return nil, err
@@ -65,19 +69,33 @@ func initRDSServer(namespace string, labelSelector []string, resourceType string
 	return srv, nil
 }
 
-func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, error) {
-	var resources string
+func kubernetesProviderConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderConfig, string) {
+	pc := &k8sconfigpb.ProviderConfig{
+		Namespace:     proto.String(pb.GetNamespace()),
+		LabelSelector: pb.GetLabelSelector(),
+		ReEvalSec:     proto.Int32(int32(pb.GetReEvalSec())),
+	}
 
 	switch pb.GetResources().(type) {
 	case *targetspb.K8STargets_Endpoints:
-		resources = "endpoints"
+		pc.Endpoints = &k8sconfigpb.Endpoints{}
+		return pc, "endpoints"
 	case *targetspb.K8STargets_Services:
-		resources = "services"
+		pc.Services = &k8sconfigpb.Services{}
+		return pc, "services"
 	case *targetspb.K8STargets_Ingresses:
-		resources = "ingresses"
+		pc.Ingresses = &k8sconfigpb.Ingresses{}
+		return pc, "ingresses"
 	case *targetspb.K8STargets_Pods:
-		resources = "pods"
+		pc.Pods = &k8sconfigpb.Pods{}
+		return pc, "pods"
 	}
+
+	return nil, ""
+}
+
+func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, error) {
+	pc, resources := kubernetesProviderConfig(pb)
 
 	if pb.GetRdsServerOptions() != nil {
 		return rdsclient.New(&rdsclientpb.ClientConf{
@@ -90,7 +108,7 @@ func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, 
 		}, nil, l)
 	}
 
-	s, err := initRDSServer(pb.GetNamespace(), pb.GetLabelSelector(), resources, int(pb.GetReEvalSec()), l)
+	s, err := initRDSServer(key(pb.GetNamespace(), pb.GetLabelSelector(), resources), pc, l)
 	if err != nil {
 		return nil, fmt.Errorf("k8s: error creating resource discovery server: %v", err)
 	}

@@ -37,8 +37,6 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
-	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
-	"github.com/golang/protobuf/proto"
 )
 
 // DefaultProviderID is the povider id to use for this provider if a provider
@@ -170,30 +168,4 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 	}
 
 	return p, nil
-}
-
-// DefaultProviderConfig is a convenience function that builds and returns a
-// basic Kubernetes provider config based on the given parameters.
-func DefaultProviderConfig(namespace string, labelSelector []string, resType string, reEvalSec int) *serverconfigpb.Provider {
-	c := &configpb.ProviderConfig{
-		Namespace:     proto.String(namespace),
-		LabelSelector: labelSelector,
-		ReEvalSec:     proto.Int32(int32(reEvalSec)),
-	}
-
-	switch resType {
-	case ResourceTypes.Services:
-		c.Services = &configpb.Services{}
-	case ResourceTypes.Endpoints:
-		c.Endpoints = &configpb.Endpoints{}
-	case ResourceTypes.Ingresses:
-		c.Ingresses = &configpb.Ingresses{}
-	case ResourceTypes.Pods:
-		c.Pods = &configpb.Pods{}
-	}
-
-	return &serverconfigpb.Provider{
-		Id:     proto.String(DefaultProviderID),
-		Config: &serverconfigpb.Provider_KubernetesConfig{KubernetesConfig: c},
-	}
 }
