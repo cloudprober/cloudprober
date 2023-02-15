@@ -57,14 +57,13 @@ func getTokenFunc(exp time.Time, failSecond bool) func() (*oauth2.Token, error) 
 
 func Test_tokenCache_Token(t *testing.T) {
 	tests := []struct {
-		name         string
-		expiresIn    time.Duration
-		buffer       time.Duration
-		wait         time.Duration
-		nonJSONFlags bool
-		failSecond   bool
-		wantNewToken bool
-		wantErr      bool
+		name               string
+		expiresIn          time.Duration
+		buffer             time.Duration
+		wait               time.Duration
+		ignoreExpiryIfZero bool
+		failSecond         bool
+		wantNewToken       bool
 	}{
 		{
 			name:         "expired_token_1ms_expiry",
@@ -80,11 +79,11 @@ func Test_tokenCache_Token(t *testing.T) {
 			wantNewToken: true,
 		},
 		{
-			name:         "zero_expiry_but_ignore",
-			expiresIn:    -1, // Sets expiry to 0.
-			nonJSONFlags: true,
-			wait:         1 * time.Millisecond,
-			wantNewToken: false,
+			name:               "zero_expiry_but_ignore",
+			expiresIn:          -1, // Sets expiry to 0.
+			ignoreExpiryIfZero: true,
+			wait:               1 * time.Millisecond,
+			wantNewToken:       false,
 		},
 		{
 			name:         "unexpired_but_out_of_default_expiry_buffer_60s",
@@ -108,19 +107,12 @@ func Test_tokenCache_Token(t *testing.T) {
 			wantNewToken: true,
 		},
 		{
-			name:       "renew_fails",
-			failSecond: true,
-			expiresIn:  time.Millisecond,
-			wait:       10 * time.Millisecond,
-			wantErr:    true,
-		},
-		{
-			name:         "renew_fails_but_ignore_for_non_json",
-			failSecond:   true,
-			nonJSONFlags: true,
-			expiresIn:    time.Millisecond,
-			wait:         10 * time.Millisecond,
-			wantErr:      false,
+			name:               "renew_fails_return_cached_token",
+			failSecond:         true,
+			ignoreExpiryIfZero: true,
+			expiresIn:          time.Millisecond,
+			wait:               10 * time.Millisecond,
+			wantNewToken:       false,
 		},
 	}
 	for _, tt := range tests {
@@ -134,10 +126,7 @@ func Test_tokenCache_Token(t *testing.T) {
 			tc := &tokenCache{
 				getToken:            getTokenFunc(exp, tt.failSecond),
 				refreshExpiryBuffer: tt.buffer,
-			}
-			if tt.nonJSONFlags {
-				tc.ignoreExpiryIfZero = true
-				tc.returnCacheOnFail = true
+				ignoreExpiryIfZero:  tt.ignoreExpiryIfZero,
 			}
 
 			got, err := tc.Token()
@@ -151,17 +140,8 @@ func Test_tokenCache_Token(t *testing.T) {
 				wantToken = "test_token_new"
 			}
 			time.Sleep(tt.wait)
-			got, err = tc.Token()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("tokenCache.Token() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if err != nil {
-				return
-			}
-
+			got, _ = tc.Token()
 			assert.Equal(t, wantToken, got.AccessToken, "access token (2nd call)")
-
 		})
 	}
 }

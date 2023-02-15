@@ -28,10 +28,7 @@ type tokenCache struct {
 	refreshExpiryBuffer time.Duration
 	getToken            func() (*oauth2.Token, error)
 	l                   *logger.Logger
-
-	// Set for simple, non-JSON tokens
-	ignoreExpiryIfZero bool
-	returnCacheOnFail  bool
+	ignoreExpiryIfZero  bool // Set for non-JSON tokens
 }
 
 func (tc *tokenCache) setToken(tok *oauth2.Token) {
@@ -57,7 +54,7 @@ func (tc *tokenCache) Token() (*oauth2.Token, error) {
 
 	newTok, err := tc.getToken()
 	if err != nil {
-		if tc.returnCacheOnFail && tok != nil {
+		if tok != nil {
 			tc.l.Errorf("oauth: failed to refresh the token: %v, returning stale token", err)
 			return tok, nil
 		}

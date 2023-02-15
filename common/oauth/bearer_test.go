@@ -170,7 +170,6 @@ func TestNewBearerToken(t *testing.T) {
 				assert.Equal(t, test.wantRefExpBuf, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
 			}
 			assert.Equal(t, tc.ignoreExpiryIfZero, true)
-			assert.Equal(t, tc.returnCacheOnFail, true)
 
 			assert.NoError(t, err, "error while creating new token source")
 			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")

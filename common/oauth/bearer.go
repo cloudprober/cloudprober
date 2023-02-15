@@ -109,7 +109,6 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 	}
 	ts.cache = &tokenCache{
 		tok:                 tok,
-		returnCacheOnFail:   true,
 		refreshExpiryBuffer: time.Duration(ts.c.GetRefreshExpiryBufferSec()) * time.Second,
 		ignoreExpiryIfZero:  true,
 		getToken:            func() (*oauth2.Token, error) { return ts.getTokenFromBackend(c) },

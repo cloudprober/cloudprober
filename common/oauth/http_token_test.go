@@ -161,7 +161,6 @@ func TestNewHTTPTokenSource(t *testing.T) {
 				assert.Equal(t, tt.wantRefExpBuf, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
 			}
 			assert.Equal(t, tc.ignoreExpiryIfZero, false)
-			assert.Equal(t, tc.returnCacheOnFail, false)
 		})
 	}
 }
