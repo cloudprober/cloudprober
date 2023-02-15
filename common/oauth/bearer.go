@@ -158,14 +158,14 @@ func (ts *bearerTokenSource) Token() (*oauth2.Token, error) {
 		return tok, nil
 	}
 
-	tok, err := ts.getTokenFromBackend(ts.c)
+	newTok, err := ts.getTokenFromBackend(ts.c)
 	if err != nil {
 		if tok != nil {
 			ts.l.Errorf("oauth.bearerTokenSource: failed to refresh the token: %v, returning stale token", err)
-			return ts.cache, nil
+			return tok, nil
 		}
 		return nil, err
 	}
-	ts.setCache(tok)
-	return tok, nil
+	ts.setCache(newTok)
+	return newTok, nil
 }

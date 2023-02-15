@@ -15,6 +15,7 @@
 package oauth
 
 import (
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -52,6 +53,9 @@ func callCounter() int {
 func testTokenFromFile(c *configpb.BearerToken) (*oauth2.Token, error) {
 	suffix := ""
 	if callCounter() > 0 {
+		if strings.HasSuffix(c.GetFile(), "fail") {
+			return nil, errors.New("failed_reading_token")
+		}
 		suffix = "_new"
 	}
 	incCallCounter()
@@ -105,13 +109,19 @@ func TestNewBearerToken(t *testing.T) {
 		{
 			config:       "file: \"f\"\nrefresh_interval_sec: 1",
 			wantToken:    "f_file_token",
-			wait:         5 * time.Second,
+			wait:         3 * time.Second,
 			wantNewToken: true, // refresh in 1s.
+		},
+		{
+			config:       "file: \"f_fail\"\nrefresh_interval_sec: 1",
+			wantToken:    "f_fail_file_token",
+			wait:         3 * time.Second,
+			wantNewToken: false, // refresh in 1s, but fail, so go with cache.
 		},
 		{
 			config:       "file: \"f_json\"\nrefresh_interval_sec: 1",
 			wantToken:    "f_json_file_token",
-			wait:         5 * time.Second,
+			wait:         3 * time.Second,
 			wantNewToken: false, // refresh interval is ignored for json
 		},
 		{
