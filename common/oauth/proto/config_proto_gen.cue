@@ -48,6 +48,7 @@ package proto
 	}
 
 	// How long before the expiry do we refresh. Default is 60 (1m).
+	// TODO(manugarg): Consider setting default based on probe interval.
 	refreshExpiryBufferSec?: int32 @protobuf(10,int32,name=refresh_expiry_buffer_sec)
 
 	// If above sources return JSON tokens with an expiry, we use that info to

@@ -214,6 +214,7 @@ type BearerToken struct {
 	//	*BearerToken_GceServiceAccount
 	Source isBearerToken_Source `protobuf_oneof:"source"`
 	// How long before the expiry do we refresh. Default is 60 (1m).
+	// TODO(manugarg): Consider setting default based on probe interval.
 	RefreshExpiryBufferSec *int32 `protobuf:"varint,10,opt,name=refresh_expiry_buffer_sec,json=refreshExpiryBufferSec,proto3,oneof" json:"refresh_expiry_buffer_sec,omitempty"`
 	// If above sources return JSON tokens with an expiry, we use that info to
 	// determine when to refresh tokens and refresh_interval_sec is completely

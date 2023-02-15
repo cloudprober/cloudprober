@@ -50,6 +50,7 @@ message BearerToken {
   }
 
   // How long before the expiry do we refresh. Default is 60 (1m).
+  // TODO(manugarg): Consider setting default based on probe interval.
   optional int32 refresh_expiry_buffer_sec = 10;
 
   // If above sources return JSON tokens with an expiry, we use that info to
