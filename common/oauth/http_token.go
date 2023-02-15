@@ -36,6 +36,9 @@ type httpTokenSource struct {
 	mu     sync.RWMutex
 	l      *logger.Logger
 	httpDo func(req *http.Request) (*http.Response, error)
+
+	// Time buffer between refresh and expiry
+	refreshExpiryBuffer time.Duration
 }
 
 func redact(s string) string {
@@ -117,33 +120,39 @@ func newHTTPTokenSource(c *configpb.HTTPRequest, l *logger.Logger) (oauth2.Token
 		req.Header.Set(k, v)
 	}
 
-	return &httpTokenSource{
-		req: req,
-		l:   l,
-	}, nil
+	ts := &httpTokenSource{
+		req:                 req,
+		refreshExpiryBuffer: time.Minute,
+		l:                   l,
+	}
+	if c.RefreshExpiryBufferSec != nil {
+		ts.refreshExpiryBuffer = time.Duration(c.GetRefreshExpiryBufferSec()) * time.Second
+	}
+
+	return ts, nil
+}
+
+func (ts *httpTokenSource) setToken(tok *oauth2.Token) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.tok = tok
 }
 
 func (ts *httpTokenSource) Token() (*oauth2.Token, error) {
 	ts.mu.RLock()
-	defer ts.mu.RUnlock()
+	tok := ts.tok
+	ts.mu.RUnlock()
 
-	if ts.tok == nil {
-		tok, err := ts.tokenFromHTTP(ts.req)
-		if err != nil {
-			return nil, err
-		}
-		ts.tok = tok
+	if tok != nil && time.Until(tok.Expiry) > ts.refreshExpiryBuffer {
+		return tok, nil
 	}
 
 	// We give an extra minute for usage.
-	if ts.tok.Expiry.Before(time.Now().Add(time.Minute)) {
-		ts.l.Infof("oauth2: token expired, getting a new one")
-		tok, err := ts.tokenFromHTTP(ts.req)
-		if err != nil {
-			return nil, err
-		}
-		ts.tok = tok
+	ts.l.Infof("oauth2: getting a new token")
+	tok, err := ts.tokenFromHTTP(ts.req)
+	if err != nil {
+		return nil, err
 	}
-
-	return ts.tok, nil
+	ts.setToken(tok)
+	return tok, nil
 }

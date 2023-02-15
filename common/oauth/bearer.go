@@ -143,20 +143,29 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 	return ts, nil
 }
 
+func (ts *bearerTokenSource) setCache(tok *oauth2.Token) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.cache = tok
+}
+
 func (ts *bearerTokenSource) Token() (*oauth2.Token, error) {
 	ts.mu.RLock()
-	defer ts.mu.RUnlock()
+	tok := ts.cache
+	ts.mu.RUnlock()
 
-	if ts.cache == nil || ts.cache.Expiry.Before(time.Now().Add(time.Minute)) {
-		tok, err := ts.getTokenFromBackend(ts.c)
-		if err != nil {
-			if ts.cache != nil {
-				ts.l.Errorf("oauth.bearerTokenSource: failed to refresh the token: %v, returning stale token", err)
-				return ts.cache, nil
-			}
-			return nil, err
-		}
-		ts.cache = tok
+	if tok != nil && time.Until(tok.Expiry) > time.Duration(ts.c.GetRefreshExpiryBufferSec())*time.Second {
+		return tok, nil
 	}
-	return ts.cache, nil
+
+	tok, err := ts.getTokenFromBackend(ts.c)
+	if err != nil {
+		if tok != nil {
+			ts.l.Errorf("oauth.bearerTokenSource: failed to refresh the token: %v, returning stale token", err)
+			return ts.cache, nil
+		}
+		return nil, err
+	}
+	ts.setCache(tok)
+	return tok, nil
 }

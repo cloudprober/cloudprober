@@ -70,8 +70,10 @@ func testTokenFromCmd(c *configpb.BearerToken) (*oauth2.Token, error) {
 	}
 	incCallCounter()
 	exp := time.Now().Add(time.Hour)
-	if strings.HasSuffix(c.GetCmd(), "lowexp") {
-		exp = time.Now().Add(time.Millisecond)
+	if strings.Contains(c.GetCmd(), "_exp_") {
+		a := strings.Split(c.GetCmd(), "_")
+		d, _ := time.ParseDuration(a[len(a)-1])
+		exp = time.Now().Add(d)
 	}
 	return &oauth2.Token{AccessToken: c.GetCmd() + "_cmd_token" + suffix, Expiry: exp}, nil
 }
@@ -93,6 +95,7 @@ func TestNewBearerToken(t *testing.T) {
 	var tests = []struct {
 		config       string
 		wantToken    string
+		wait         time.Duration
 		wantNewToken bool
 	}{
 		{
@@ -102,11 +105,13 @@ func TestNewBearerToken(t *testing.T) {
 		{
 			config:       "file: \"f\"\nrefresh_interval_sec: 1",
 			wantToken:    "f_file_token",
+			wait:         5 * time.Second,
 			wantNewToken: true, // refresh in 1s.
 		},
 		{
 			config:       "file: \"f_json\"\nrefresh_interval_sec: 1",
 			wantToken:    "f_json_file_token",
+			wait:         5 * time.Second,
 			wantNewToken: false, // refresh interval is ignored for json
 		},
 		{
@@ -114,8 +119,21 @@ func TestNewBearerToken(t *testing.T) {
 			wantToken: "c_cmd_token",
 		},
 		{
-			config:       "cmd: \"c_lowexp\"",
-			wantToken:    "c_lowexp_cmd_token",
+			config:       "cmd: \"c_exp_1ms\"",
+			wantToken:    "c_exp_1ms_cmd_token",
+			wait:         10 * time.Millisecond, // Expires in 1ms
+			wantNewToken: true,
+		},
+		{
+			config:       "cmd: \"c_exp_1s\"",
+			wantToken:    "c_exp_1s_cmd_token",
+			wait:         10 * time.Millisecond, // Hasn't expired yet.
+			wantNewToken: false,
+		},
+		{
+			config:       "cmd: \"c_exp_1s\"\nrefresh_expiry_buffer_sec: 1",
+			wantToken:    "c_exp_1s_cmd_token",
+			wait:         10 * time.Millisecond, // Already invalid as buffer is 1s.
 			wantNewToken: true,
 		},
 		{
@@ -138,7 +156,7 @@ func TestNewBearerToken(t *testing.T) {
 
 			// Get token again
 			if test.wantNewToken {
-				time.Sleep(5 * time.Second) // Wait for refresh
+				time.Sleep(test.wait) // Wait for refresh
 				test.wantToken += "_new"
 			}
 			tok, err := cts.Token()
