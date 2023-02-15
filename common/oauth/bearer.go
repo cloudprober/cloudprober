@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/file"
@@ -33,8 +32,7 @@ import (
 type bearerTokenSource struct {
 	c                   *configpb.BearerToken
 	getTokenFromBackend func(*configpb.BearerToken) (*oauth2.Token, error)
-	cache               *oauth2.Token
-	mu                  sync.RWMutex
+	cache               *tokenCache
 	l                   *logger.Logger
 }
 
@@ -101,17 +99,32 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 		ts.getTokenFromBackend = getTokenFromGCEMetadata
 	}
 
+	if ts.c.RefreshExpiryBufferSec == nil {
+		ts.c.RefreshExpiryBufferSec = proto.Int32(60)
+	}
+
 	tok, err := ts.getTokenFromBackend(c)
 	if err != nil {
 		return nil, err
 	}
-	ts.cache = tok
+	ts.cache = &tokenCache{
+		tok:                 tok,
+		refreshExpiryBuffer: time.Duration(ts.c.GetRefreshExpiryBufferSec()) * time.Second,
+		ignoreExpiryIfZero:  true,
+		getToken:            func() (*oauth2.Token, error) { return ts.getTokenFromBackend(c) },
+		l:                   l,
+	}
 
-	// With the move to proto3, set default value explicitly.
+	// For JSON tokens return now.
+	if tok != nil && !tok.Expiry.IsZero() {
+		return ts, nil
+	}
+
+	// Default refresh interval
 	if ts.c.RefreshIntervalSec == nil {
 		ts.c.RefreshIntervalSec = proto.Float32(30)
 	}
-
+	// Explicitly set to zero, so no refreshing.
 	if ts.c.GetRefreshIntervalSec() == 0 {
 		return ts, nil
 	}
@@ -122,11 +135,6 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 		defer ticker.Stop()
 
 		for range ticker.C {
-			// If we've been getting JSON token with non-zero expiry, skip
-			// refreshing periodically.
-			if ts.cache != nil && !ts.cache.Expiry.IsZero() {
-				return
-			}
 			tok, err := ts.getTokenFromBackend(ts.c)
 
 			if err != nil {
@@ -134,9 +142,7 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 				continue
 			}
 
-			ts.mu.Lock()
-			ts.cache = tok
-			ts.mu.Unlock()
+			ts.cache.setToken(tok)
 		}
 	}()
 
@@ -144,19 +150,5 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 }
 
 func (ts *bearerTokenSource) Token() (*oauth2.Token, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
-	if ts.cache == nil || ts.cache.Expiry.Before(time.Now().Add(time.Minute)) {
-		tok, err := ts.getTokenFromBackend(ts.c)
-		if err != nil {
-			if ts.cache != nil {
-				ts.l.Errorf("oauth.bearerTokenSource: failed to refresh the token: %v, returning stale token", err)
-				return ts.cache, nil
-			}
-			return nil, err
-		}
-		ts.cache = tok
-	}
-	return ts.cache, nil
+	return ts.cache.Token()
 }

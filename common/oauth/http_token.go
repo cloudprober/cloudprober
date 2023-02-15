@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
@@ -32,8 +31,7 @@ import (
 
 type httpTokenSource struct {
 	req    *http.Request
-	tok    *oauth2.Token
-	mu     sync.RWMutex
+	cache  *tokenCache
 	l      *logger.Logger
 	httpDo func(req *http.Request) (*http.Response, error)
 }
@@ -117,33 +115,22 @@ func newHTTPTokenSource(c *configpb.HTTPRequest, l *logger.Logger) (oauth2.Token
 		req.Header.Set(k, v)
 	}
 
-	return &httpTokenSource{
+	ts := &httpTokenSource{
 		req: req,
 		l:   l,
-	}, nil
+	}
+	ts.cache = &tokenCache{
+		getToken:            func() (*oauth2.Token, error) { return ts.tokenFromHTTP(ts.req) },
+		refreshExpiryBuffer: time.Minute,
+		l:                   l,
+	}
+	if c.RefreshExpiryBufferSec != nil {
+		ts.cache.refreshExpiryBuffer = time.Duration(c.GetRefreshExpiryBufferSec()) * time.Second
+	}
+
+	return ts, nil
 }
 
 func (ts *httpTokenSource) Token() (*oauth2.Token, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
-	if ts.tok == nil {
-		tok, err := ts.tokenFromHTTP(ts.req)
-		if err != nil {
-			return nil, err
-		}
-		ts.tok = tok
-	}
-
-	// We give an extra minute for usage.
-	if ts.tok.Expiry.Before(time.Now().Add(time.Minute)) {
-		ts.l.Infof("oauth2: token expired, getting a new one")
-		tok, err := ts.tokenFromHTTP(ts.req)
-		if err != nil {
-			return nil, err
-		}
-		ts.tok = tok
-	}
-
-	return ts.tok, nil
+	return ts.cache.Token()
 }

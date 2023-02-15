@@ -28,6 +28,9 @@ message HTTPRequest {
 
   // HTTP request headers
   map<string,string> header = 8;
+
+  // How long before the expiry do we refresh. Default is 60 (1m).
+  optional int32 refresh_expiry_buffer_sec = 10;
 }
 
 // Bearer token is added to the HTTP request through an HTTP header:
@@ -45,6 +48,10 @@ message BearerToken {
     // GCE metadata token
     string gce_service_account = 3;
   }
+
+  // How long before the expiry do we refresh. Default is 60 (1m).
+  // TODO(manugarg): Consider setting default based on probe interval.
+  optional int32 refresh_expiry_buffer_sec = 10;
 
   // If above sources return JSON tokens with an expiry, we use that info to
   // determine when to refresh tokens and refresh_interval_sec is completely
