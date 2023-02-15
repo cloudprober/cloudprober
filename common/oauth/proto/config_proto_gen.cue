@@ -26,6 +26,9 @@ package proto
 	header?: {
 		[string]: string
 	} @protobuf(8,map[string]string)
+
+	// How long before the expiry do we refresh. Default is 60 (1m).
+	refreshExpiryBufferSec?: int32 @protobuf(10,int32,name=refresh_expiry_buffer_sec)
 }
 
 // Bearer token is added to the HTTP request through an HTTP header:
@@ -43,6 +46,10 @@ package proto
 		// GCE metadata token
 		gceServiceAccount: string @protobuf(3,string,name=gce_service_account)
 	}
+
+	// How long before the expiry do we refresh. Default is 60 (1m).
+	// TODO(manugarg): Consider setting default based on probe interval.
+	refreshExpiryBufferSec?: int32 @protobuf(10,int32,name=refresh_expiry_buffer_sec)
 
 	// If above sources return JSON tokens with an expiry, we use that info to
 	// determine when to refresh tokens and refresh_interval_sec is completely
