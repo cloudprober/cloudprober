@@ -24,6 +24,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestHTTPTokenSource_Token(t *testing.T) {
@@ -57,14 +58,18 @@ func TestHTTPTokenSource_Token(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := &httpTokenSource{
-				tok: tt.cachedTok,
 				httpDo: func(*http.Request) (*http.Response, error) {
 					return &http.Response{Body: io.NopCloser(bytes.NewReader([]byte(tt.httpResp))), StatusCode: http.StatusOK}, nil
 				},
 			}
+			ts.cache = &tokenCache{
+				tok:      tt.cachedTok,
+				getToken: func() (*oauth2.Token, error) { return ts.tokenFromHTTP(ts.req) },
+			}
+
 			got, err := ts.Token()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("jwtTokenSource.Token() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("httpTokenSource.Token() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err != nil {
@@ -85,6 +90,11 @@ func TestNewHTTPTokenSource(t *testing.T) {
 		wantReqBody string
 		wantCT      string
 		wantErr     bool
+
+		// Fields to test default refresh expiry buffer setting
+		verifyRefExpBuf bool
+		configRefExpBuf int
+		wantRefExpBuf   time.Duration
 	}{
 		{
 			name:        "json_body",
@@ -105,6 +115,19 @@ func TestNewHTTPTokenSource(t *testing.T) {
 			wantReqBody: "clientId=testID&clientSecret=testSecret",
 			wantCT:      "form-data",
 		},
+		{
+			name:            "verify_default_refresh_expiry_buffer",
+			verifyRefExpBuf: true,
+			wantRefExpBuf:   60 * time.Second,
+			wantCT:          "application/x-www-form-urlencoded",
+		},
+		{
+			name:            "verify_explicit_refresh_expiry_buffer",
+			verifyRefExpBuf: true,
+			configRefExpBuf: 10,
+			wantRefExpBuf:   10 * time.Second,
+			wantCT:          "application/x-www-form-urlencoded",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -117,6 +140,10 @@ func TestNewHTTPTokenSource(t *testing.T) {
 				}
 			}
 
+			if tt.verifyRefExpBuf && tt.configRefExpBuf != 0 {
+				c.RefreshExpiryBufferSec = proto.Int32(int32(tt.configRefExpBuf))
+			}
+
 			ts_, err := newHTTPTokenSource(c, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newHTTPTokenSource() error = %v, wantErr %v", err, tt.wantErr)
@@ -127,6 +154,14 @@ func TestNewHTTPTokenSource(t *testing.T) {
 			assert.Equal(t, tt.wantReqBody, string(got))
 
 			assert.Equal(t, tt.wantCT, ts.req.Header.Get("Content-Type"), "Content-Type Header")
+
+			// Verify token cache.
+			tc := ts.cache
+			if tt.verifyRefExpBuf {
+				assert.Equal(t, tt.wantRefExpBuf, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
+			}
+			assert.Equal(t, tc.ignoreExpiryIfZero, false)
+			assert.Equal(t, tc.returnCacheOnFail, false)
 		})
 	}
 }

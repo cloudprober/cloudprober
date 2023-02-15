@@ -97,63 +97,65 @@ func TestNewBearerToken(t *testing.T) {
 	getTokenFromGCEMetadata = testTokenFromGCEMetadata
 
 	var tests = []struct {
-		config       string
-		wantToken    string
-		wait         time.Duration
-		wantNewToken bool
+		name            string
+		config          string
+		wantToken       string
+		wait            time.Duration
+		wantNewToken    bool
+		verifyRefExpBuf bool
+		wantRefExpBuf   time.Duration
 	}{
 		{
 			config:    "file: \"f_json\"",
 			wantToken: "f_json_file_token",
 		},
 		{
-			config:       "file: \"f\"\nrefresh_interval_sec: 1",
-			wantToken:    "f_file_token",
-			wait:         3 * time.Second,
-			wantNewToken: true, // refresh in 1s.
-		},
-		{
-			config:       "file: \"f_fail\"\nrefresh_interval_sec: 1",
-			wantToken:    "f_fail_file_token",
-			wait:         3 * time.Second,
-			wantNewToken: false, // refresh in 1s, but fail, so go with cache.
-		},
-		{
-			config:       "file: \"f_json\"\nrefresh_interval_sec: 1",
-			wantToken:    "f_json_file_token",
-			wait:         3 * time.Second,
-			wantNewToken: false, // refresh interval is ignored for json
-		},
-		{
 			config:    "cmd: \"c\"",
 			wantToken: "c_cmd_token",
-		},
-		{
-			config:       "cmd: \"c_exp_1ms\"",
-			wantToken:    "c_exp_1ms_cmd_token",
-			wait:         10 * time.Millisecond, // Expires in 1ms
-			wantNewToken: true,
-		},
-		{
-			config:       "cmd: \"c_exp_1s\"",
-			wantToken:    "c_exp_1s_cmd_token",
-			wait:         10 * time.Millisecond, // Hasn't expired yet.
-			wantNewToken: false,
-		},
-		{
-			config:       "cmd: \"c_exp_1s\"\nrefresh_expiry_buffer_sec: 1",
-			wantToken:    "c_exp_1s_cmd_token",
-			wait:         10 * time.Millisecond, // Already invalid as buffer is 1s.
-			wantNewToken: true,
 		},
 		{
 			config:    "gce_service_account: \"default\"",
 			wantToken: "default_gce_token",
 		},
+		{
+			name:         "Refresh in 1s",
+			config:       "file: \"f\"\nrefresh_interval_sec: 1",
+			wantToken:    "f_file_token",
+			wait:         3 * time.Second,
+			wantNewToken: true,
+		},
+		{
+			name:         "Refresh fails, go with the cache",
+			config:       "file: \"f_fail\"\nrefresh_interval_sec: 1",
+			wantToken:    "f_fail_file_token",
+			wait:         3 * time.Second,
+			wantNewToken: false,
+		},
+		{
+			name:         "JSON from file, ignore refresh interval",
+			config:       "file: \"f_json\"\nrefresh_interval_sec: 1",
+			wantToken:    "f_json_file_token",
+			wait:         3 * time.Second,
+			wantNewToken: false,
+		},
+		{
+			name:            "Verify default refresh expiry buffer",
+			config:          "file: \"f\"",
+			wantToken:       "f_file_token",
+			verifyRefExpBuf: true,
+			wantRefExpBuf:   60 * time.Second,
+		},
+		{
+			name:            "Verify non-zero refresh expiry buffer",
+			config:          "file: \"f\"\nrefresh_expiry_buffer_sec: 10",
+			wantToken:       "f_file_token",
+			verifyRefExpBuf: true,
+			wantRefExpBuf:   10 * time.Second,
+		},
 	}
 
 	for _, test := range tests {
-		t.Run(test.config, func(t *testing.T) {
+		t.Run(test.name+":"+test.config, func(t *testing.T) {
 			resetCallCounter()
 			testC := &configpb.BearerToken{}
 			assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
@@ -161,6 +163,15 @@ func TestNewBearerToken(t *testing.T) {
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
 			cts, err := newBearerTokenSource(testC, nil)
+
+			// verify token cache
+			tc := cts.(*bearerTokenSource).cache
+			if test.verifyRefExpBuf {
+				assert.Equal(t, test.wantRefExpBuf, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
+			}
+			assert.Equal(t, tc.ignoreExpiryIfZero, true)
+			assert.Equal(t, tc.returnCacheOnFail, true)
+
 			assert.NoError(t, err, "error while creating new token source")
 			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")
 
