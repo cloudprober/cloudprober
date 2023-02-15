@@ -54,7 +54,8 @@ message K8sTargets {
     string pods = 6;
   }
 
-
+  // How often to re-check k8s API servers. Note this field will be irrelevant
+  // when (and if) we move to the watch API.
   optional int32 re_eval_sec = 19;
 
   // IP config to specify the IP address to pick for a resource.

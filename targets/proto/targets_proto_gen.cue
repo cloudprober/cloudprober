@@ -52,6 +52,9 @@ import (
 	} | {
 		pods: string @protobuf(6,string)
 	}
+
+	// How often to re-check k8s API servers. Note this field will be irrelevant
+	// when (and if) we move to the watch API.
 	reEvalSec?: int32 @protobuf(19,int32,name=re_eval_sec)
 
 	// IP config to specify the IP address to pick for a resource.

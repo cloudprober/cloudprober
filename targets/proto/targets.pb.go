@@ -132,7 +132,9 @@ type K8STargets struct {
 	//	*K8STargets_Ingresses
 	//	*K8STargets_Pods
 	Resources isK8STargets_Resources `protobuf_oneof:"resources"`
-	ReEvalSec *int32                 `protobuf:"varint,19,opt,name=re_eval_sec,json=reEvalSec" json:"re_eval_sec,omitempty"`
+	// How often to re-check k8s API servers. Note this field will be irrelevant
+	// when (and if) we move to the watch API.
+	ReEvalSec *int32 `protobuf:"varint,19,opt,name=re_eval_sec,json=reEvalSec" json:"re_eval_sec,omitempty"`
 	// IP config to specify the IP address to pick for a resource.
 	IpConfig         *proto1.IPConfig                `protobuf:"bytes,20,opt,name=ip_config,json=ipConfig" json:"ip_config,omitempty"`
 	RdsServerOptions *proto.ClientConf_ServerOptions `protobuf:"bytes,21,opt,name=rds_server_options,json=rdsServerOptions" json:"rds_server_options,omitempty"`
