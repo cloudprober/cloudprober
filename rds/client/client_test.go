@@ -29,7 +29,8 @@ import (
 	serverpb "github.com/cloudprober/cloudprober/rds/server/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
-	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 type testProvider struct {
@@ -51,11 +52,13 @@ func (tp *testProvider) verifyRequestResponse(t *testing.T, runCount int, ifModi
 		t.Errorf("Unexpected responses cache length: %d, want: %d", len(tp.responseCache), runCount)
 		return
 	}
-	if tp.requestCache[runCount-1].GetIfModifiedSince() != ifModifiedSince {
-		t.Errorf("Request's if_modified_since: %d, want: %d", tp.requestCache[runCount-1].GetIfModifiedSince(), ifModifiedSince)
-	}
-	if tp.responseCache[runCount-1].GetLastModified() != lastModified {
-		t.Errorf("Response's last_modified: %d, want: %d", tp.responseCache[runCount-1].GetLastModified(), lastModified)
+	if runCount > 0 {
+		if tp.requestCache[runCount-1].GetIfModifiedSince() != ifModifiedSince {
+			t.Errorf("Request's if_modified_since: %d, want: %d", tp.requestCache[runCount-1].GetIfModifiedSince(), ifModifiedSince)
+		}
+		if tp.responseCache[runCount-1].GetLastModified() != lastModified {
+			t.Errorf("Response's last_modified: %d, want: %d", tp.responseCache[runCount-1].GetLastModified(), lastModified)
+		}
 	}
 }
 
@@ -366,4 +369,46 @@ func TestCacheBehaviorWithoutServerSupport(t *testing.T) {
 	runCount++
 	tp.verifyRequestResponse(t, runCount, 0, 0)
 	verifyEndpoints(t, client.ListEndpoints(), expectedList[1:])
+}
+
+func TestOnDemandRefresh(t *testing.T) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	tp := &testProvider{resources: testResources}
+	srv, err := server.New(ctx, &serverpb.ServerConf{}, map[string]server.Provider{testProviderName: tp}, &logger.Logger{})
+	if err != nil {
+		t.Fatalf("Got error creating RDS server: %v", err)
+	}
+
+	c := &configpb.ClientConf{
+		Request: &pb.ListResourcesRequest{
+			Provider: proto.String(testProviderName),
+		},
+		ReEvalSec: proto.Int32(0),
+	}
+	client, err := New(c, srv.ListResources, &logger.Logger{})
+	if err != nil {
+		t.Fatalf("Got error initializing RDS client: %v", err)
+	}
+	client.resolver = dnsRes.NewWithResolve(func(name string) ([]net.IP, error) {
+		return testNameToIP[name], nil
+	})
+
+	// Verify cache is empty right now
+	assert.Empty(t, client.cache, "Client cache")
+	runCount := 0 // We don't expect any refresh state call
+	tp.verifyRequestResponse(t, runCount, 0, 0)
+
+	// First ListEndpoints call
+	verifyEndpoints(t, client.ListEndpoints(), expectedList)
+	assert.NotEmpty(t, client.cache, "Client cache")
+	runCount++
+	tp.verifyRequestResponse(t, runCount, 0, 0)
+
+	// Verify we pick up the changes
+	tp.resources = testResources[1:]
+	verifyEndpoints(t, client.ListEndpoints(), expectedList[1:])
+	runCount++
+	tp.verifyRequestResponse(t, runCount, 0, 0)
 }

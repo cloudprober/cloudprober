@@ -148,6 +148,11 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 
 // ListEndpoints returns the list of resources.
 func (client *Client) ListEndpoints() []endpoint.Endpoint {
+	// If ReEvalSec is set to 0 or less, we refresh state on demand.
+	if client.c.GetReEvalSec() <= 0 {
+		client.refreshState(30 * time.Second)
+	}
+
 	client.mu.RLock()
 	defer client.mu.RUnlock()
 	result := make([]endpoint.Endpoint, len(client.names))
@@ -253,6 +258,10 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 
 	if err := client.initListResourcesFunc(); err != nil {
 		return nil, fmt.Errorf("rds/client: error initializing listListResource function: %v", err)
+	}
+
+	if client.c.GetReEvalSec() <= 0 {
+		return client, nil
 	}
 
 	reEvalInterval := time.Duration(client.c.GetReEvalSec()) * time.Second
