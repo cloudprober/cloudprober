@@ -55,7 +55,7 @@ message K8sTargets {
   }
 
   // How often to re-check k8s API servers. Note this field will be irrelevant
-  // when (and if) we move to the watch API.
+  // when (and if) we move to the watch API. Default is 30s.
   optional int32 re_eval_sec = 19;
 
   optional rds.ClientConf.ServerOptions rds_server_options = 20;

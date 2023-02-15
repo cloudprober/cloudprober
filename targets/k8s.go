@@ -69,7 +69,10 @@ func initRDSServer(k string, kpc *k8sconfigpb.ProviderConfig, l *logger.Logger) 
 	return srv, nil
 }
 
-func kubernetesProviderConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderConfig, string) {
+func kubernetesProviderConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderConfig, string, string) {
+	if pb.GetReEvalSec() == 0 {
+		pb.ReEvalSec = proto.Int32(30)
+	}
 	pc := &k8sconfigpb.ProviderConfig{
 		Namespace:     proto.String(pb.GetNamespace()),
 		LabelSelector: pb.GetLabelSelector(),
@@ -79,39 +82,52 @@ func kubernetesProviderConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderCo
 	switch pb.GetResources().(type) {
 	case *targetspb.K8STargets_Endpoints:
 		pc.Endpoints = &k8sconfigpb.Endpoints{}
-		return pc, "endpoints"
+		return pc, "endpoints", pb.GetEndpoints()
 	case *targetspb.K8STargets_Services:
 		pc.Services = &k8sconfigpb.Services{}
-		return pc, "services"
+		return pc, "services", pb.GetServices()
 	case *targetspb.K8STargets_Ingresses:
 		pc.Ingresses = &k8sconfigpb.Ingresses{}
-		return pc, "ingresses"
+		return pc, "ingresses", pb.GetIngresses()
 	case *targetspb.K8STargets_Pods:
 		pc.Pods = &k8sconfigpb.Pods{}
-		return pc, "pods"
+		return pc, "pods", pb.GetPods()
 	}
 
-	return nil, ""
+	return nil, "", ""
 }
 
 func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, error) {
-	pc, resources := kubernetesProviderConfig(pb)
+	pc, resources, nameF := kubernetesProviderConfig(pb)
+	if resources == "" {
+		return nil, fmt.Errorf("targets.k8s: no kubernetes resources configured")
+	}
+
+	req := &rdspb.ListResourcesRequest{
+		Provider:     proto.String("k8s"),
+		ResourcePath: &resources,
+	}
+	if nameF != "" {
+		req.Filter = append(req.Filter, &rdspb.Filter{
+			Key:   proto.String("name"),
+			Value: &nameF,
+		})
+	}
+
+	conf := &rdsclientpb.ClientConf{
+		Request: req,
+		// No caching in RDS client, but server already caches.
+		ReEvalSec: proto.Int32(0),
+	}
 
 	if pb.GetRdsServerOptions() != nil {
-		return rdsclient.New(&rdsclientpb.ClientConf{
-			ServerOptions: pb.GetRdsServerOptions(),
-			Request: &rdspb.ListResourcesRequest{
-				Provider:     proto.String("k8s"),
-				ResourcePath: &resources,
-			},
-			// No caching in RDS client, but server already caches.
-			ReEvalSec: proto.Int32(0),
-		}, nil, l)
+		conf.ServerOptions = pb.GetRdsServerOptions()
+		return rdsclient.New(conf, nil, l)
 	}
 
 	s, err := initRDSServer(key(pb.GetNamespace(), pb.GetLabelSelector(), resources), pc, l)
 	if err != nil {
 		return nil, fmt.Errorf("k8s: error creating resource discovery server: %v", err)
 	}
-	return rdsclient.New(nil, s.ListResources, l)
+	return rdsclient.New(conf, s.ListResources, l)
 }
