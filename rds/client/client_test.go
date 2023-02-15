@@ -408,7 +408,7 @@ func TestOnDemandRefresh(t *testing.T) {
 
 	// Verify we pick up the changes
 	tp.resources = testResources[1:]
+	verifyEndpoints(t, client.ListEndpoints(), expectedList[1:])
 	runCount++
 	tp.verifyRequestResponse(t, runCount, 0, 0)
-	verifyEndpoints(t, client.ListEndpoints(), expectedList[1:])
 }
