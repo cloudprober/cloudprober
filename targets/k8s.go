@@ -105,6 +105,8 @@ func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, 
 				ResourcePath: &resources,
 				IpConfig:     pb.GetIpConfig(),
 			},
+			// No caching in RDS client, but server already caches.
+			ReEvalSec: proto.Int32(0),
 		}, nil, l)
 	}
 
