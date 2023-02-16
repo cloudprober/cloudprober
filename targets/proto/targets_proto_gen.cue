@@ -35,6 +35,8 @@ import (
 }
 
 #K8sTargets: {
+	// Targets namespace. If this field is unset, we select resources from all
+	// namespaces.
 	namespace?: string @protobuf(1,string)
 
 	// labelSelector uses the same format as kubernetes API calls.
@@ -43,6 +45,11 @@ import (
 	//   labelSelector: "role=frontend" # label role=frontend
 	//   labelSelector: "!canary"       # canary label doesn't exist
 	labelSelector?: [...string] @protobuf(2,string)
+	// Which resources to target. If value is not empty (""), we use it as a
+	// regex for resource names.
+	// Example:
+	//   services: ""             // All services.
+	//   endpoints: ".*-service"  // Endpoints ending with "service".
 	{} | {
 		services: string @protobuf(3,string)
 	} | {
@@ -53,8 +60,12 @@ import (
 		pods: string @protobuf(6,string)
 	}
 
-	// To select port for resources that may support multiple ports, e.g.
-	// endpoints and services.
+	// portFilter can be used to filter resources by port name. This is useful
+	// for resources like endpoints and services, where each resource may have
+	// multiple ports, and we may hit just a subset of those ports. portFilter
+	// takes a regex -- we apply it on port names if port name is available,
+	// otherwise we apply it port numbers.
+	// Example: ".*-dns", "metrics", ".*-service", etc.
 	portFilter?: string @protobuf(10,string)
 
 	// How often to re-check k8s API servers. Note this field will be irrelevant
@@ -112,6 +123,8 @@ import (
 		fileTargets: proto_A.#TargetsConf @protobuf(4,file.TargetsConf,name=file_targets)
 	} | {
 		// K8s targets.
+		// Note: k8s targets are still in the experimental phase. Their config API
+		// may change in the future.
 		// Example:
 		// k8s {
 		//   namespace: "qa"

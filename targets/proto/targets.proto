@@ -38,6 +38,8 @@ message RDSTargets {
 }
 
 message K8sTargets {
+  // Targets namespace. If this field is unset, we select resources from all
+  // namespaces.
   optional string namespace = 1;
 
   // labelSelector uses the same format as kubernetes API calls. 
@@ -47,6 +49,11 @@ message K8sTargets {
   //   labelSelector: "!canary"       # canary label doesn't exist
   repeated string labelSelector = 2;
 
+  // Which resources to target. If value is not empty (""), we use it as a
+  // regex for resource names.
+  // Example:
+  //   services: ""             // All services.
+  //   endpoints: ".*-service"  // Endpoints ending with "service".
   oneof resources {
     string services = 3;
     string endpoints = 4;
@@ -54,8 +61,12 @@ message K8sTargets {
     string pods = 6;
   }
 
-  // To select port for resources that may support multiple ports, e.g.
-  // endpoints and services.
+  // portFilter can be used to filter resources by port name. This is useful
+  // for resources like endpoints and services, where each resource may have
+  // multiple ports, and we may hit just a subset of those ports. portFilter
+  // takes a regex -- we apply it on port names if port name is available,
+  // otherwise we apply it port numbers.
+  // Example: ".*-dns", "metrics", ".*-service", etc.
   optional string portFilter = 10;
 
   // How often to re-check k8s API servers. Note this field will be irrelevant
@@ -114,6 +125,8 @@ message TargetsDef {
     file.TargetsConf file_targets = 4;
 
     // K8s targets.
+    // Note: k8s targets are still in the experimental phase. Their config API
+    // may change in the future.
     // Example:
     // k8s {
     //   namespace: "qa"

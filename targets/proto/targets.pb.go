@@ -119,6 +119,8 @@ type K8STargets struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Targets namespace. If this field is unset, we select resources from all
+	// namespaces.
 	Namespace *string `protobuf:"bytes,1,opt,name=namespace" json:"namespace,omitempty"`
 	// labelSelector uses the same format as kubernetes API calls.
 	// Example:
@@ -126,14 +128,24 @@ type K8STargets struct {
 	//   labelSelector: "role=frontend" # label role=frontend
 	//   labelSelector: "!canary"       # canary label doesn't exist
 	LabelSelector []string `protobuf:"bytes,2,rep,name=labelSelector" json:"labelSelector,omitempty"`
+	// Which resources to target. If value is not empty (""), we use it as a
+	// regex for resource names.
+	// Example:
+	//   services: ""             // All services.
+	//   endpoints: ".*-service"  // Endpoints ending with "service".
+	//
 	// Types that are assignable to Resources:
 	//	*K8STargets_Services
 	//	*K8STargets_Endpoints
 	//	*K8STargets_Ingresses
 	//	*K8STargets_Pods
 	Resources isK8STargets_Resources `protobuf_oneof:"resources"`
-	// To select port for resources that may support multiple ports, e.g.
-	// endpoints and services.
+	// portFilter can be used to filter resources by port name. This is useful
+	// for resources like endpoints and services, where each resource may have
+	// multiple ports, and we may hit just a subset of those ports. portFilter
+	// takes a regex -- we apply it on port names if port name is available,
+	// otherwise we apply it port numbers.
+	// Example: ".*-dns", "metrics", ".*-service", etc.
 	PortFilter *string `protobuf:"bytes,10,opt,name=portFilter" json:"portFilter,omitempty"`
 	// How often to re-check k8s API servers. Note this field will be irrelevant
 	// when (and if) we move to the watch API. Default is 30s.
@@ -463,6 +475,8 @@ type TargetsDef_FileTargets struct {
 
 type TargetsDef_K8S struct {
 	// K8s targets.
+	// Note: k8s targets are still in the experimental phase. Their config API
+	// may change in the future.
 	// Example:
 	// k8s {
 	//   namespace: "qa"
