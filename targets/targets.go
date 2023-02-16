@@ -103,7 +103,7 @@ type dummy struct {
 // List for dummy targets returns one empty string.  This is to ensure
 // that any iteration over targets will at least be executed once.
 func (d *dummy) ListEndpoints() []endpoint.Endpoint {
-	return []endpoint.Endpoint{endpoint.Endpoint{Name: ""}}
+	return []endpoint.Endpoint{{Name: ""}}
 }
 
 // Resolve will just return an unspecified IP address.  This can be
@@ -253,8 +253,8 @@ func StaticEndpoints(eps []endpoint.Endpoint) Targets {
 	return t
 }
 
-// RDSClientConf converts RDS targets into RDS client configuration.
-func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (rdsclient.ListResourcesFunc, *rdsclientpb.ClientConf, error) {
+// rdsClientConf converts RDS targets into RDS client configuration.
+func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (rdsclient.ListResourcesFunc, *rdsclientpb.ClientConf, error) {
 	var listResourcesFunc rdsclient.ListResourcesFunc
 
 	// Intialize server address with global options.
@@ -341,7 +341,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = s, s
 
 	case *targetspb.TargetsDef_RdsTargets:
-		listResourcesFunc, clientConf, err := RDSClientConf(targetsDef.GetRdsTargets(), globalOpts, l)
+		listResourcesFunc, clientConf, err := rdsClientConf(targetsDef.GetRdsTargets(), globalOpts, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): error creating RDS client: %v", err)
 		}
@@ -359,6 +359,13 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}
 		t.lister, t.resolver = ft, ft
+
+	case *targetspb.TargetsDef_K8S:
+		kt, err := k8sTargets(targetsDef.GetK8S(), l)
+		if err != nil {
+			return nil, fmt.Errorf("target.New(): error creating K8s targets: %v", err)
+		}
+		t.lister, t.resolver = kt, kt
 
 	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}

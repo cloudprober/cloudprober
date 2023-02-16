@@ -34,6 +34,46 @@ import (
 	ipConfig?: proto_1.#IPConfig @protobuf(4,rds.IPConfig,name=ip_config)
 }
 
+#K8sTargets: {
+	// Targets namespace. If this field is unset, we select resources from all
+	// namespaces.
+	namespace?: string @protobuf(1,string)
+
+	// labelSelector uses the same format as kubernetes API calls.
+	// Example:
+	//   labelSelector: "k8s-app"       # label k8s-app exists
+	//   labelSelector: "role=frontend" # label role=frontend
+	//   labelSelector: "!canary"       # canary label doesn't exist
+	labelSelector?: [...string] @protobuf(2,string)
+	// Which resources to target. If value is not empty (""), we use it as a
+	// regex for resource names.
+	// Example:
+	//   services: ""             // All services.
+	//   endpoints: ".*-service"  // Endpoints ending with "service".
+	{} | {
+		services: string @protobuf(3,string)
+	} | {
+		endpoints: string @protobuf(4,string)
+	} | {
+		ingresses: string @protobuf(5,string)
+	} | {
+		pods: string @protobuf(6,string)
+	}
+
+	// portFilter can be used to filter resources by port name. This is useful
+	// for resources like endpoints and services, where each resource may have
+	// multiple ports, and we may hit just a subset of those ports. portFilter
+	// takes a regex -- we apply it on port names if port name is available,
+	// otherwise we apply it port numbers.
+	// Example: ".*-dns", "metrics", ".*-service", etc.
+	portFilter?: string @protobuf(10,string)
+
+	// How often to re-check k8s API servers. Note this field will be irrelevant
+	// when (and if) we move to the watch API. Default is 30s.
+	reEvalSec?:        int32                            @protobuf(19,int32,name=re_eval_sec)
+	rdsServerOptions?: proto.#ClientConf.#ServerOptions @protobuf(20,rds.ClientConf.ServerOptions,name=rds_server_options)
+}
+
 #TargetsDef: {
 	{} | {
 		// Static host names, for example:
@@ -81,6 +121,17 @@ import (
 		//   file_path: "/var/run/cloudprober/vips.textpb"
 		// }
 		fileTargets: proto_A.#TargetsConf @protobuf(4,file.TargetsConf,name=file_targets)
+	} | {
+		// K8s targets.
+		// Note: k8s targets are still in the experimental phase. Their config API
+		// may change in the future.
+		// Example:
+		// k8s {
+		//   namespace: "qa"
+		//   labelSelector: "k8s-app"
+		//   services: ""
+		// }
+		k8s: #K8sTargets @protobuf(6,K8sTargets)
 	} | {
 		// Empty targets to meet the probe definition requirement where there are
 		// actually no targets, for example in case of some external probes.
