@@ -30,7 +30,7 @@ import (
 	"github.com/cloudprober/cloudprober/rds/server"
 	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var global struct {
@@ -111,6 +111,13 @@ func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, 
 		req.Filter = append(req.Filter, &rdspb.Filter{
 			Key:   proto.String("name"),
 			Value: &nameF,
+		})
+	}
+
+	if pb.GetPortFilter() != "" {
+		req.Filter = append(req.Filter, &rdspb.Filter{
+			Key:   proto.String("port"),
+			Value: pb.PortFilter,
 		})
 	}
 

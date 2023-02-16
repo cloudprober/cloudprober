@@ -54,6 +54,10 @@ message K8sTargets {
     string pods = 6;
   }
 
+  // To select port for resources that may support multiple ports, e.g.
+  // endpoints and services.
+  optional string portFilter = 10;
+
   // How often to re-check k8s API servers. Note this field will be irrelevant
   // when (and if) we move to the watch API. Default is 30s.
   optional int32 re_eval_sec = 19;

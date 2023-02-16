@@ -53,8 +53,12 @@ import (
 		pods: string @protobuf(6,string)
 	}
 
+	// To select port for resources that may support multiple ports, e.g.
+	// endpoints and services.
+	portFilter?: string @protobuf(10,string)
+
 	// How often to re-check k8s API servers. Note this field will be irrelevant
-	// when (and if) we move to the watch API.
+	// when (and if) we move to the watch API. Default is 30s.
 	reEvalSec?:        int32                            @protobuf(19,int32,name=re_eval_sec)
 	rdsServerOptions?: proto.#ClientConf.#ServerOptions @protobuf(20,rds.ClientConf.ServerOptions,name=rds_server_options)
 }
