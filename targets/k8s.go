@@ -69,7 +69,7 @@ func initRDSServer(k string, kpc *k8sconfigpb.ProviderConfig, l *logger.Logger) 
 	return srv, nil
 }
 
-func kubernetesProviderConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderConfig, string, string) {
+func parseConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderConfig, string, string) {
 	if pb.GetReEvalSec() == 0 {
 		pb.ReEvalSec = proto.Int32(30)
 	}
@@ -97,12 +97,7 @@ func kubernetesProviderConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderCo
 	return nil, "", ""
 }
 
-func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, error) {
-	pc, resources, nameF := kubernetesProviderConfig(pb)
-	if resources == "" {
-		return nil, fmt.Errorf("targets.k8s: no kubernetes resources configured")
-	}
-
+func rdsRequest(resources, nameF, portFilter string) *rdspb.ListResourcesRequest {
 	req := &rdspb.ListResourcesRequest{
 		Provider:     proto.String("k8s"),
 		ResourcePath: &resources,
@@ -110,19 +105,27 @@ func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, 
 	if nameF != "" {
 		req.Filter = append(req.Filter, &rdspb.Filter{
 			Key:   proto.String("name"),
-			Value: &nameF,
+			Value: proto.String(nameF),
 		})
 	}
 
-	if pb.GetPortFilter() != "" {
+	if portFilter != "" {
 		req.Filter = append(req.Filter, &rdspb.Filter{
 			Key:   proto.String("port"),
-			Value: pb.PortFilter,
+			Value: proto.String(portFilter),
 		})
+	}
+	return req
+}
+
+func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, error) {
+	pc, resources, nameF := parseConfig(pb)
+	if resources == "" {
+		return nil, fmt.Errorf("targets.k8s: no kubernetes resources configured")
 	}
 
 	conf := &rdsclientpb.ClientConf{
-		Request: req,
+		Request: rdsRequest(resources, nameF, pb.GetPortFilter()),
 		// No caching in RDS client, but server already caches.
 		ReEvalSec: proto.Int32(0),
 	}
