@@ -43,8 +43,12 @@ type SurfacerConf struct {
 	// time. Metrics will be stored locally in a cache until this
 	// limit is reached. 1000 is the maximum number of metrics
 	// supported by the Cloudwatch PutMetricData API.
-	// Reducing this number will increase PutMetricData costs.
-	MetricsBufferSize      *int32 `protobuf:"varint,4,opt,name=metrics_buffer_size,json=metricsBufferSize,def=1000" json:"metrics_buffer_size,omitempty"`
+	// Metrics will be published when the timer expires, or the buffer is
+	// full, whichever happens first.
+	MetricsBufferSize *int32 `protobuf:"varint,4,opt,name=metrics_buffer_size,json=metricsBufferSize,def=1000" json:"metrics_buffer_size,omitempty"`
+	// The maximum amount of time to hold metrics in the buffer (above).
+	// Metrics will be published when the timer expires, or the buffer is
+	// full, whichever happens first.
 	MetricsPublishTimerSec *int32 `protobuf:"varint,5,opt,name=metrics_publish_timer_sec,json=metricsPublishTimerSec,def=60" json:"metrics_publish_timer_sec,omitempty"`
 }
 

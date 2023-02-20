@@ -22,7 +22,12 @@ package proto
 	// time. Metrics will be stored locally in a cache until this
 	// limit is reached. 1000 is the maximum number of metrics
 	// supported by the Cloudwatch PutMetricData API.
-	// Reducing this number will increase PutMetricData costs.
-	metricsBufferSize?:      int32 @protobuf(4,int32,name=metrics_buffer_size,"default=1000")
+	// Metrics will be published when the timer expires, or the buffer is
+	// full, whichever happens first.
+	metricsBufferSize?: int32 @protobuf(4,int32,name=metrics_buffer_size,"default=1000")
+
+	// The maximum amount of time to hold metrics in the buffer (above).
+	// Metrics will be published when the timer expires, or the buffer is
+	// full, whichever happens first.
 	metricsPublishTimerSec?: int32 @protobuf(5,int32,name=metrics_publish_timer_sec,"default=60")
 }
