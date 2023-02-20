@@ -153,6 +153,10 @@ func (cw *CWSurfacer) addMetricToBuffer(md types.MetricDatum) {
 
 // publish the metric buffer to cloudwatch
 func (cw *CWSurfacer) publishMetrics(ctx context.Context) error {
+	if len(cw.metricDatumCache) == 0 {
+		return nil
+	}
+
 	_, err := cw.session.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 		Namespace:  aws.String(cw.c.GetNamespace()),
 		MetricData: cw.metricDatumCache,
