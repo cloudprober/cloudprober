@@ -56,6 +56,12 @@ else
 fi
 
 arch=$(uname -m)
+
+# protoc for arm64 on darwin is not available. Use universal binary instead.
+if [ "${os}" == "osx" ] && [ "${arch}" == "arm64" ]; then
+  arch="universal_binary"
+fi
+
 protoc_package="protoc-${PROTOC_VERSION}-${os}-${arch}.zip"
 protoc_package_url="https://github.com/google/protobuf/releases/download/v${PROTOC_VERSION}/${protoc_package}"
 
