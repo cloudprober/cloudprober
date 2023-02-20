@@ -96,7 +96,7 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 			return
 		case em := <-cw.writeChan:
 			cw.recordEventMetrics(ctx, em)
-		case <-cw.metricDatumCacheTicker.C:
+		case <-cw.metricDatumCacheTicker.C: // the ticker will reset when metrics are published in cw.publishMetrics
 			cw.publishMetrics(ctx)
 		}
 	}
