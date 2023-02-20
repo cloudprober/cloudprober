@@ -53,6 +53,43 @@ type CWSurfacer struct {
 	maxMetricDatums int
 }
 
+// New creates a new instance of a cloudwatch surfacer, based on the config
+// passed in. It then hands off to a goroutine to surface metrics to cloudwatch
+// across a buffered channel.
+func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*CWSurfacer, error) {
+	region := getRegion(conf)
+
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	if err != nil {
+		return nil, err
+	}
+
+	cw := &CWSurfacer{
+		c:                conf,
+		opts:             opts,
+		writeChan:        make(chan *metrics.EventMetrics, opts.MetricsBufferSize), // incoming internal metrics buffer
+		session:          cloudwatch.NewFromConfig(cfg),
+		l:                l,
+		metricDatumCache: make([]types.MetricDatum, 0, *conf.MetricsBufferSize), // buffer between cloudprober and cloudwatch apis
+		maxMetricDatums:  int(*conf.MetricsBufferSize),
+	}
+
+	go cw.processIncomingMetrics(ctx)
+
+	cw.l.Info("Initialised Cloudwatch surfacer")
+	return cw, nil
+}
+
+// Write is a function defined to comply with the surfacer interface, and enables the
+// cloudwatch surfacer to receive EventMetrics over the buffered channel.
+func (cw *CWSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
+	select {
+	case cw.writeChan <- em:
+	default:
+		cw.l.Error("Surfacer's write channel is full, dropping new data.")
+	}
+}
+
 func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 	for {
 		select {
@@ -174,41 +211,4 @@ func getRegion(config *configpb.SurfacerConf) string {
 	}
 
 	return ""
-}
-
-// New creates a new instance of a cloudwatch surfacer, based on the config
-// passed in. It then hands off to a goroutine to surface metrics to cloudwatch
-// across a buffered channel.
-func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*CWSurfacer, error) {
-	region := getRegion(conf)
-
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
-	if err != nil {
-		return nil, err
-	}
-
-	cw := &CWSurfacer{
-		c:                conf,
-		opts:             opts,
-		writeChan:        make(chan *metrics.EventMetrics, opts.MetricsBufferSize), // incoming internal metrics buffer
-		session:          cloudwatch.NewFromConfig(cfg),
-		l:                l,
-		metricDatumCache: make([]types.MetricDatum, 0, *conf.MetricsBufferSize), // buffer between cloudprober and cloudwatch apis
-		maxMetricDatums:  int(*conf.MetricsBufferSize),
-	}
-
-	go cw.processIncomingMetrics(ctx)
-
-	cw.l.Info("Initialised Cloudwatch surfacer")
-	return cw, nil
-}
-
-// Write is a function defined to comply with the surfacer interface, and enables the
-// cloudwatch surfacer to receive EventMetrics over the buffered channel.
-func (cw *CWSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
-	select {
-	case cw.writeChan <- em:
-	default:
-		cw.l.Error("Surfacer's write channel is full, dropping new data.")
-	}
 }
