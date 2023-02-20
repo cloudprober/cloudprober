@@ -101,7 +101,7 @@ func convertToBqType(colType, label string) (bigquery.Value, error) {
 
 func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) (map[string]bigquery.Value, error) {
 	bqRowMap := make(map[string]bigquery.Value)
-	for _, col := range s.c.GetColumns() {
+	for _, col := range s.c.GetBigqueryColumns() {
 		colName := col.GetName()
 		val, err := convertToBqType(col.GetType(), em.Label(colName))
 		if err != nil {
@@ -114,9 +114,8 @@ func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) (map[string]bigquery.Va
 
 func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) {
 	chanLen := len(s.writeChan)
-	bigqueryTimeout := time.Duration(s.c.GetBigqueryTimeout()) * time.Second
-	bqctx := context.Background()
-	bqctx, cancel := context.WithTimeout(bqctx, bigqueryTimeout)
+	bigqueryTimeout := time.Duration(s.c.GetBigqueryTimeoutSec()) * time.Second
+	bqctx, cancel := context.WithTimeout(ctx, bigqueryTimeout)
 	defer cancel()
 
 	for i := 0; i < chanLen; i += batchSize {
@@ -127,12 +126,11 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 
 			bqRowMap, err := s.parseBQCols(em)
 
-			if err == nil {
-				result := &bqrow{value: bqRowMap}
-				results = append(results, result)
-			} else {
+			if err != nil {
 				s.l.Errorf("%v", err)
+				continue
 			}
+			results = append(results, &bqrow{value: bqRowMap})
 		}
 
 		if len(results) > 0 {
@@ -144,8 +142,9 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 }
 
 func (s *Surfacer) writeToBQ(ctx context.Context, inserter iInserter) {
-	bigqueryInsertionTime := s.c.GetBatchInsertionTime()
+	bigqueryInsertionTime := s.c.GetBatchInsertionIntervalSec()
 	ticker := time.NewTicker(time.Duration(bigqueryInsertionTime) * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -170,7 +169,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 
 	inserter := client.Dataset(s.c.GetBigqueryDataset()).Table(s.c.GetBigqueryTable()).Inserter()
 	if inserter == nil {
-		s.l.Error("Error BQ inserter cannot be created!")
+		return fmt.Errorf("error bigquery inserter cannot be created")
 	}
 
 	// Start a goroutine to run forever, polling on the writeChan. Allows

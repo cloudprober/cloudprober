@@ -13,17 +13,22 @@ message SurfacerConf {
 
   optional int64 metrics_buffer_size = 4 [default = 100000];
 
-  repeated BQColumn columns = 5;
+  // It represents the bigquery table columns.
+  //  bigquery_columns {
+  //    name: "id",
+  //    type: "string",
+  //  }
+  repeated BQColumn bigquery_columns = 5;
 
   // This denotes the time interval after which data will be inserted in
   // bigquery. Default is 10 seconds. So after every 10 seconds all the em in
   // current will be inserted in bigquery in a batch size of 1000
-  optional int64 batch_insertion_time = 6 [default = 10];
+  optional int64 batch_insertion_interval_sec = 6 [default = 10];
 
   // It represents bigquery client timeout in seconds. So, if bigquery insertion
   // is not completed within this time period then the request will fail and the
   // failed rows will be retried later.
-  optional int64 bigquery_timeout = 7 [default = 30];
+  optional int64 bigquery_timeout_sec = 7 [default = 30];
 }
 
 message BQColumn {
