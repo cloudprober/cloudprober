@@ -87,7 +87,7 @@ func (cw *CWSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 }
 
 func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
-	tickerDuration := time.Duration(*cw.c.MetricsPublishTimerSec) * time.Millisecond
+	tickerDuration := time.Duration(*cw.c.MetricsPublishTimerSec) * time.Second
 	ticker := time.NewTicker(tickerDuration)
 
 	for {
