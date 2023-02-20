@@ -34,9 +34,6 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
 )
 
-// Cloudwatch API limit for metrics included in a PutMetricData call
-const maxMetricDatums int = 20
-
 // The dimension named used to identify distributions
 const distributionDimensionName string = "le"
 
@@ -50,7 +47,10 @@ type CWSurfacer struct {
 
 	// A cache of []types.MetricDatum's, used for batch writing to the
 	// cloudwatch api.
-	cwMetricDatumCache []types.MetricDatum
+	metricDatumCache []types.MetricDatum
+
+	// Cloudwatch API limit for metrics included in a PutMetricData call
+	maxMetricDatums int
 }
 
 func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
@@ -104,20 +104,19 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 // Publish the metrics to cloudwatch, using the namespace provided from
 // configuration.
 func (cw *CWSurfacer) publishMetrics(ctx context.Context, md types.MetricDatum) {
-	if len(cw.cwMetricDatumCache) >= maxMetricDatums {
+	if len(cw.metricDatumCache) >= cw.maxMetricDatums {
 		_, err := cw.session.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 			Namespace:  aws.String(cw.c.GetNamespace()),
-			MetricData: cw.cwMetricDatumCache,
+			MetricData: cw.metricDatumCache,
 		})
-
 		if err != nil {
 			cw.l.Errorf("Failed to publish metrics to cloudwatch: %s", err)
 		}
 
-		cw.cwMetricDatumCache = cw.cwMetricDatumCache[:0]
+		cw.metricDatumCache = cw.metricDatumCache[:0]
 	}
 
-	cw.cwMetricDatumCache = append(cw.cwMetricDatumCache, md)
+	cw.metricDatumCache = append(cw.metricDatumCache, md)
 }
 
 // Create a new cloudwatch metriddatum using the values passed in.
@@ -189,16 +188,14 @@ func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options
 	}
 
 	cw := &CWSurfacer{
-		c:         conf,
-		opts:      opts,
-		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
-		session:   cloudwatch.NewFromConfig(cfg),
-		l:         l,
+		c:                conf,
+		opts:             opts,
+		writeChan:        make(chan *metrics.EventMetrics, opts.MetricsBufferSize), // incoming internal metrics buffer
+		session:          cloudwatch.NewFromConfig(cfg),
+		l:                l,
+		metricDatumCache: make([]types.MetricDatum, 0, *conf.MetricsBufferSize), // buffer between cloudprober and cloudwatch apis
+		maxMetricDatums:  int(*conf.MetricsBufferSize),
 	}
-
-	// Set the capacity of this slice to the max metric value, to avoid having to
-	// grow the slice.
-	cw.cwMetricDatumCache = make([]types.MetricDatum, 0, maxMetricDatums)
 
 	go cw.processIncomingMetrics(ctx)
 

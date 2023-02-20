@@ -21,4 +21,11 @@ message SurfacerConf {
   // 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
   // https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/
   optional string region = 3;
+
+  // The maximum number of metrics that will be published at one
+  // time. Metrics will be stored locally in a cache until this 
+  // limit is reached. 1000 is the maximum number of metrics
+  // supported by the Cloudwatch PutMetricData API.
+  // Reducing this number will increase PutMetricData costs.
+  optional int32 metrics_buffer_size = 1000; 
 }

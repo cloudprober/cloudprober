@@ -17,4 +17,11 @@ package proto
 	// 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
 	// https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/
 	region?: string @protobuf(3,string)
+
+	// The maximum number of metrics that will be published at one
+	// time. Metrics will be stored locally in a cache until this
+	// limit is reached. 1000 is the maximum number of metrics
+	// supported by the Cloudwatch PutMetricData API.
+	// Reducing this number will increase PutMetricData costs.
+	metricsBufferSize?: int32 @protobuf(1000,int32,name=metrics_buffer_size)
 }
