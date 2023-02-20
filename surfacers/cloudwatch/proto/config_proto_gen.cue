@@ -23,5 +23,6 @@ package proto
 	// limit is reached. 1000 is the maximum number of metrics
 	// supported by the Cloudwatch PutMetricData API.
 	// Reducing this number will increase PutMetricData costs.
-	metricsBufferSize?: int32 @protobuf(1000,int32,name=metrics_buffer_size)
+	metricsBufferSize?:      int32 @protobuf(4,int32,name=metrics_buffer_size,"default=1000")
+	metricsPublishTimerSec?: int32 @protobuf(5,int32,name=metrics_publish_timer_sec,"default=60")
 }

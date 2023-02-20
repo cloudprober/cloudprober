@@ -27,5 +27,7 @@ message SurfacerConf {
   // limit is reached. 1000 is the maximum number of metrics
   // supported by the Cloudwatch PutMetricData API.
   // Reducing this number will increase PutMetricData costs.
-  optional int32 metrics_buffer_size = 1000; 
+  optional int32 metrics_buffer_size = 4 [default = 1000]; 
+
+  optional int32 metrics_publish_timer_sec = 5 [default = 60];
 }
