@@ -74,7 +74,7 @@ func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options
 
 	go cw.processIncomingMetrics(ctx)
 
-	cw.l.Info("Initialised Cloudwatch surfacer")
+	cw.l.Infof("Initialised Cloudwatch surfacer with batchsize: %d, publish timer (secs): %d\n", conf.GetMetricsBatchSize(), conf.GetMetricsPublishTimerSec())
 	return cw, nil
 }
 
@@ -96,7 +96,8 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 			return
 		case em := <-cw.writeChan:
 			cw.recordEventMetrics(ctx, em)
-		case <-cw.metricDatumCacheTicker.C: // the ticker will reset when metrics are published in cw.publishMetrics
+		case <-cw.metricDatumCacheTicker.C: // the ticker will reset when metrics are published in cw.addMetricAndPublish
+			cw.l.Infof("timer triggered, publishing %d metrics to cloudwatch", len(cw.metricDatumCache))
 			if len(cw.metricDatumCache) != 0 {
 				cw.publishMetrics(ctx)
 			}
@@ -146,11 +147,14 @@ func (cw *CWSurfacer) addMetricAndPublish(ctx context.Context, md types.MetricDa
 	cw.metricDatumCache = append(cw.metricDatumCache, md)
 	if len(cw.metricDatumCache) == int(cw.c.GetMetricsBatchSize()) {
 		cw.publishMetrics(ctx)
+		cw.metricDatumCacheTicker.Reset(time.Duration(cw.c.GetMetricsPublishTimerSec()) * time.Second) // reset the ticker
 	}
 }
 
 // Check if we should publish the metric buffer to cloudwatch
 func (cw *CWSurfacer) publishMetrics(ctx context.Context) {
+	cw.l.Infof("Publishing: %d metrics to cloudwatch\n", len(cw.metricDatumCache))
+
 	_, err := cw.session.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 		Namespace:  aws.String(cw.c.GetNamespace()),
 		MetricData: cw.metricDatumCache,
@@ -159,8 +163,7 @@ func (cw *CWSurfacer) publishMetrics(ctx context.Context) {
 		cw.l.Errorf("Error publishing metrics to cloudwatch: %v", err)
 	}
 
-	cw.metricDatumCache = cw.metricDatumCache[:0]                                              // reset the buffer
-	cw.metricDatumCacheTicker.Reset(time.Duration(*cw.c.MetricsPublishTimerSec) * time.Second) // reset the ticker
+	cw.metricDatumCache = cw.metricDatumCache[:0] // reset the buffer
 
 	return
 }
