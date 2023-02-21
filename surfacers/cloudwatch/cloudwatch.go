@@ -47,8 +47,7 @@ type CWSurfacer struct {
 
 	// A cache of []types.MetricDatum's, used for batch writing to the
 	// cloudwatch api.
-	metricDatumCache       []types.MetricDatum
-	metricDatumCacheTicker *time.Ticker
+	metricDatumCache []types.MetricDatum
 }
 
 // New creates a new instance of a cloudwatch surfacer, based on the config
@@ -63,13 +62,12 @@ func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options
 	}
 
 	cw := &CWSurfacer{
-		c:                      conf,
-		opts:                   opts,
-		writeChan:              make(chan *metrics.EventMetrics, opts.Config.GetMetricsBufferSize()), // incoming internal metrics buffer
-		session:                cloudwatch.NewFromConfig(cfg),
-		l:                      l,
-		metricDatumCache:       make([]types.MetricDatum, 0, int(conf.GetMetricsBatchSize())), // batching buffer between cloudprober and cloudwatch
-		metricDatumCacheTicker: time.NewTicker(time.Duration(conf.GetMetricsPublishTimerSec()) * time.Second),
+		c:                conf,
+		opts:             opts,
+		writeChan:        make(chan *metrics.EventMetrics, opts.Config.GetMetricsBufferSize()), // incoming internal metrics buffer
+		session:          cloudwatch.NewFromConfig(cfg),
+		l:                l,
+		metricDatumCache: make([]types.MetricDatum, 0, int(conf.GetMetricsBatchSize())), // batching buffer between cloudprober and cloudwatch
 	}
 
 	go cw.processIncomingMetrics(ctx)
@@ -89,14 +87,17 @@ func (cw *CWSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 }
 
 func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
+	publishTimer := time.NewTicker(time.Duration(cw.c.GetMetricsPublishTimerSec()) * time.Second)
+	defer publishTimer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			cw.l.Infof("Context canceled, stopping the surfacer write loop")
 			return
 		case em := <-cw.writeChan:
-			cw.recordEventMetrics(ctx, em)
-		case <-cw.metricDatumCacheTicker.C: // the ticker will reset when metrics are published in cw.addMetricAndPublish
+			cw.recordEventMetrics(ctx, publishTimer, em)
+		case <-publishTimer.C: // the ticker will reset when metrics are published in cw.addMetricAndPublish
 			if len(cw.metricDatumCache) != 0 {
 				cw.publishMetrics(ctx)
 			}
@@ -107,7 +108,7 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 // recordEventMetrics takes an EventMetric, which can contain multiple metrics
 // of varying types, and loops through each metric in the EventMetric, parsing
 // each metric into a structure that is supported by Cloudwatch
-func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventMetrics) {
+func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time.Ticker, em *metrics.EventMetrics) {
 	for _, metricKey := range em.MetricsKeys() {
 		if !cw.opts.AllowMetric(metricKey) {
 			continue
@@ -115,7 +116,9 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 
 		switch value := em.Metric(metricKey).(type) {
 		case metrics.NumValue:
-			cw.addMetricAndPublish(ctx, cw.newCWMetricDatum(metricKey, value.Float64(), emLabelsToDimensions(em), em.Timestamp, em.LatencyUnit))
+			dimensions := emLabelsToDimensions(em)
+			metricDatum := cw.newCWMetricDatum(metricKey, value.Float64(), dimensions, em.Timestamp, em.LatencyUnit)
+			cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
 
 		case *metrics.Map:
 			for _, mapKey := range value.Keys() {
@@ -124,7 +127,8 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 					Name:  aws.String(value.MapName),
 					Value: aws.String(mapKey),
 				})
-				cw.addMetricAndPublish(ctx, cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp, em.LatencyUnit))
+				metricDatum := cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp, em.LatencyUnit)
+				cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
 			}
 
 		case *metrics.Distribution:
@@ -133,24 +137,26 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 					Name:  aws.String(distributionDimensionName),
 					Value: aws.String(strconv.FormatFloat(distributionBound, 'f', -1, 64)),
 				})
-
-				cw.addMetricAndPublish(ctx, cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp, em.LatencyUnit))
+				metricDatum := cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp, em.LatencyUnit)
+				cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
 			}
 		}
 	}
 }
 
 // Add the metric to the local buffer, and if the buffer is full, publish the
-// metrics to cloudwatch
-func (cw *CWSurfacer) addMetricAndPublish(ctx context.Context, md types.MetricDatum) {
+// metrics to cloudwatch and reset the timer.
+func (cw *CWSurfacer) addMetricAndPublish(ctx context.Context, publishTimer *time.Ticker, md types.MetricDatum) {
 	cw.metricDatumCache = append(cw.metricDatumCache, md)
 	if len(cw.metricDatumCache) == int(cw.c.GetMetricsBatchSize()) {
 		cw.publishMetrics(ctx)
-		cw.metricDatumCacheTicker.Reset(time.Duration(cw.c.GetMetricsPublishTimerSec()) * time.Second) // reset the ticker
+
+		// resetting the ticker here prevents the next batch of metrics from being published early
+		publishTimer.Reset(time.Duration(cw.c.GetMetricsPublishTimerSec()) * time.Second)
 	}
 }
 
-// Check if we should publish the metric buffer to cloudwatch
+// publishMetrics will publish the metric buffer to cloudwatch APIs
 func (cw *CWSurfacer) publishMetrics(ctx context.Context) {
 	_, err := cw.session.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 		Namespace:  aws.String(cw.c.GetNamespace()),
