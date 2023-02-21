@@ -65,11 +65,11 @@ func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options
 	cw := &CWSurfacer{
 		c:                      conf,
 		opts:                   opts,
-		writeChan:              make(chan *metrics.EventMetrics, opts.MetricsBufferSize), // incoming internal metrics buffer
+		writeChan:              make(chan *metrics.EventMetrics, opts.Config.GetMetricsBufferSize()), // incoming internal metrics buffer
 		session:                cloudwatch.NewFromConfig(cfg),
 		l:                      l,
-		metricDatumCache:       make([]types.MetricDatum, 0, *conf.MetricsBufferSize), // buffer between cloudprober and cloudwatch apis
-		metricDatumCacheTicker: time.NewTicker(time.Duration(*conf.MetricsPublishTimerSec) * time.Second),
+		metricDatumCache:       make([]types.MetricDatum, 0, int(conf.GetMetricsBatchSize())), // batching buffer between cloudprober and cloudwatch
+		metricDatumCacheTicker: time.NewTicker(time.Duration(conf.GetMetricsPublishTimerSec()) * time.Second),
 	}
 
 	go cw.processIncomingMetrics(ctx)
@@ -144,7 +144,7 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 // metrics to cloudwatch
 func (cw *CWSurfacer) addMetricAndPublish(ctx context.Context, md types.MetricDatum) {
 	cw.metricDatumCache = append(cw.metricDatumCache, md)
-	if len(cw.metricDatumCache) == int(*cw.c.MetricsBufferSize) {
+	if len(cw.metricDatumCache) == int(cw.c.GetMetricsBatchSize()) {
 		cw.publishMetrics(ctx)
 	}
 }

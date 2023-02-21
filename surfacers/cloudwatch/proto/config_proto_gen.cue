@@ -24,7 +24,7 @@ package proto
 	// supported by the Cloudwatch PutMetricData API.
 	// Metrics will be published when the timer expires, or the buffer is
 	// full, whichever happens first.
-	metricsBufferSize?: int32 @protobuf(4,int32,name=metrics_buffer_size,"default=1000")
+	metricsBatchSize?: int32 @protobuf(4,int32,name=metrics_batch_size,"default=1000")
 
 	// The maximum amount of time to hold metrics in the buffer (above).
 	// Metrics will be published when the timer expires, or the buffer is
