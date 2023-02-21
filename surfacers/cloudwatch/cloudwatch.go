@@ -97,7 +97,6 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 		case em := <-cw.writeChan:
 			cw.recordEventMetrics(ctx, em)
 		case <-cw.metricDatumCacheTicker.C: // the ticker will reset when metrics are published in cw.addMetricAndPublish
-			cw.l.Infof("timer triggered, publishing %d metrics to cloudwatch", len(cw.metricDatumCache))
 			if len(cw.metricDatumCache) != 0 {
 				cw.publishMetrics(ctx)
 			}
@@ -153,8 +152,6 @@ func (cw *CWSurfacer) addMetricAndPublish(ctx context.Context, md types.MetricDa
 
 // Check if we should publish the metric buffer to cloudwatch
 func (cw *CWSurfacer) publishMetrics(ctx context.Context) {
-	cw.l.Infof("Publishing: %d metrics to cloudwatch\n", len(cw.metricDatumCache))
-
 	_, err := cw.session.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 		Namespace:  aws.String(cw.c.GetNamespace()),
 		MetricData: cw.metricDatumCache,
