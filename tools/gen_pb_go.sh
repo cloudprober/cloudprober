@@ -57,9 +57,9 @@ fi
 
 arch=$(uname -m)
 
-# protoc for arm64 on darwin is not available. Use universal binary instead.
+# On Apple arm64, protoc is called aarch64.
 if [ "${os}" == "osx" ] && [ "${arch}" == "arm64" ]; then
-  arch="universal_binary"
+  arch="aarch_64"
 fi
 
 protoc_package="protoc-${PROTOC_VERSION}-${os}-${arch}.zip"
