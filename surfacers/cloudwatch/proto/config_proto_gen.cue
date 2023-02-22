@@ -29,5 +29,5 @@ package proto
 	// The maximum amount of time to hold metrics in the buffer (above).
 	// Metrics will be published when the timer expires, or the buffer is
 	// full, whichever happens first.
-	metricsPublishTimerSec?: int32 @protobuf(5,int32,name=metrics_publish_timer_sec,"default=60")
+	batchTimerSec?: int32 @protobuf(5,int32,name=batch_timer_sec,"default=30")
 }

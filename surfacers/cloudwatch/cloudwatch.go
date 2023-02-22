@@ -72,7 +72,7 @@ func New(ctx context.Context, conf *configpb.SurfacerConf, opts *options.Options
 
 	go cw.processIncomingMetrics(ctx)
 
-	cw.l.Infof("Initialised Cloudwatch surfacer with batchsize: %d, publish timer (secs): %d\n", conf.GetMetricsBatchSize(), conf.GetMetricsPublishTimerSec())
+	cw.l.Infof("Initialised Cloudwatch surfacer with batchsize: %d, publish timer (secs): %d\n", conf.GetMetricsBatchSize(), conf.GetBatchTimerSec())
 	return cw, nil
 }
 
@@ -87,7 +87,7 @@ func (cw *CWSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 }
 
 func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
-	publishTimer := time.NewTicker(time.Duration(cw.c.GetMetricsPublishTimerSec()) * time.Second)
+	publishTimer := time.NewTicker(time.Duration(cw.c.GetBatchTimerSec()) * time.Second)
 	defer publishTimer.Stop()
 
 	for {
@@ -152,7 +152,7 @@ func (cw *CWSurfacer) addMetricAndPublish(ctx context.Context, publishTimer *tim
 		cw.publishMetrics(ctx)
 
 		// resetting the ticker here prevents the next batch of metrics from being published early
-		publishTimer.Reset(time.Duration(cw.c.GetMetricsPublishTimerSec()) * time.Second)
+		publishTimer.Reset(time.Duration(cw.c.GetBatchTimerSec()) * time.Second)
 	}
 }
 
