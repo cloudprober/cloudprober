@@ -97,6 +97,19 @@ The full list of configuration options for the cloudwatch surfacer is:
   // 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
   // https://docs.aws.amazon.com/sdk-for-go/api/aws/session/
   optional string region = 3;
+
+  // The maximum number of metrics that will be published at one
+  // time. Metrics will be stored locally in a cache until this 
+  // limit is reached. 1000 is the maximum number of metrics
+  // supported by the Cloudwatch PutMetricData API.
+  // Metrics will be published when the timer expires, or the buffer is
+  // full, whichever happens first.
+  optional int32 metrics_batch_size = 4 [default = 1000]; 
+
+  // The maximum amount of time to hold metrics in the buffer (above).
+  // Metrics will be published when the timer expires, or the buffer is
+  // full, whichever happens first. 
+  optional int32 batch_timer_sec = 5 [default = 30];
 ```
 
 (Source: https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
