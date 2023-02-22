@@ -109,7 +109,7 @@ The full list of configuration options for the cloudwatch surfacer is:
   // The maximum amount of time to hold metrics in the buffer (above).
   // Metrics will be published when the timer expires, or the buffer is
   // full, whichever happens first. 
-  optional int32 metrics_publish_timer_sec = 5 [default = 60];
+  optional int32 batch_timer_sec = 5 [default = 30];
 ```
 
 (Source: https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
