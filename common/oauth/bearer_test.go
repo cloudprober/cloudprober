@@ -163,6 +163,10 @@ func TestNewBearerToken(t *testing.T) {
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
 			cts, err := newBearerTokenSource(testC, nil)
+			if err != nil {
+				t.Errorf("error while creating new token source: %v", err)
+				return
+			}
 
 			// verify token cache
 			tc := cts.(*bearerTokenSource).cache
@@ -171,7 +175,6 @@ func TestNewBearerToken(t *testing.T) {
 			}
 			assert.Equal(t, tc.ignoreExpiryIfZero, true)
 
-			assert.NoError(t, err, "error while creating new token source")
 			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")
 
 			// Get token again

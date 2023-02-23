@@ -85,18 +85,22 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 		l: l,
 	}
 
+	tokenBackendFunc := getTokenFromGCEMetadata
+
 	switch ts.c.Source.(type) {
 	case *configpb.BearerToken_File:
-		ts.getTokenFromBackend = getTokenFromFile
+		tokenBackendFunc = getTokenFromFile
 
 	case *configpb.BearerToken_Cmd:
-		ts.getTokenFromBackend = getTokenFromCmd
+		tokenBackendFunc = getTokenFromCmd
 
 	case *configpb.BearerToken_GceServiceAccount:
-		ts.getTokenFromBackend = getTokenFromGCEMetadata
+		tokenBackendFunc = getTokenFromGCEMetadata
+	}
 
-	default:
-		ts.getTokenFromBackend = getTokenFromGCEMetadata
+	ts.getTokenFromBackend = func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		l.Debugf("oauth.bearerTokenSource: Getting a new token from: %v", c.GetSource())
+		return tokenBackendFunc(c)
 	}
 
 	if ts.c.RefreshExpiryBufferSec == nil {

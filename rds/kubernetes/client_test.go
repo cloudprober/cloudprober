@@ -23,6 +23,7 @@ import (
 	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	cpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/oauth2"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -80,23 +81,18 @@ func TestNewClientInCluster(t *testing.T) {
 	os.Setenv("KUBERNETES_SERVICE_PORT", "4123")
 
 	tc, err := newClient(&cpb.ProviderConfig{}, nil)
-	if err != nil {
-		t.Fatalf("error while creating new client: %v", err)
-	}
+	assert.NoError(t, err, "error creating client")
 
-	expectedAPIHost := "test-api-host:4123"
-	if tc.apiHost != "test-api-host:4123" {
-		t.Errorf("client.apiHost: got=%s, exepcted=%s", tc.apiHost, expectedAPIHost)
-	}
+	assert.Equal(t, "test-api-host:4123", tc.apiHost, "k8s API host")
+	assert.NotNil(t, tc.httpC, "HTTP Client")
 
-	expectedToken := "Bearer " + testToken
-	if tc.bearer != expectedToken {
-		t.Errorf("client.bearer: got=%s, exepcted=%s", tc.bearer, expectedToken)
-	}
+	transport := tc.httpC.Transport.(*oauth2.Transport)
 
-	if tc.httpC == nil || tc.httpC.Transport.(*http.Transport).TLSClientConfig == nil {
-		t.Errorf("Client's HTTP client or TLS config are unexpectedly nil.")
-	}
+	tok, err := transport.Source.Token()
+	assert.NoError(t, err, "Error getting token")
+	assert.Equal(t, testToken, tok.AccessToken, "access token")
+
+	assert.NotNil(t, transport.Base.(*http.Transport).TLSClientConfig, "TLS config")
 }
 
 func TestNewClientWithTLS(t *testing.T) {
