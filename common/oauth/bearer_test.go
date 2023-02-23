@@ -112,6 +112,7 @@ func TestNewBearerToken(t *testing.T) {
 		name         string
 		config       string
 		wantToken    string
+		wantErr      bool
 		wait         time.Duration
 		wantNewToken bool
 	}{
@@ -128,8 +129,12 @@ func TestNewBearerToken(t *testing.T) {
 			wantToken: "default_gce_token",
 		},
 		{
-			config:    "use_k8s_local_token: true",
+			config:    "k8s_local_token: true",
 			wantToken: "k8s_token",
+		},
+		{
+			config:  "k8s_local_token: false",
+			wantErr: true,
 		},
 		{
 			name:         "Refresh in 1s",
@@ -165,8 +170,10 @@ func TestNewBearerToken(t *testing.T) {
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
 			cts, err := newBearerTokenSource(testC, testRefreshExpiryBuffer, nil)
+			if (err != nil) != test.wantErr {
+				t.Errorf("newBearerTokenSource() error = %v, wantErr %v", err, test.wantErr)
+			}
 			if err != nil {
-				t.Errorf("error while creating new token source: %v", err)
 				return
 			}
 
@@ -209,11 +216,17 @@ func TestK8STokenSource(t *testing.T) {
 	tests := []struct {
 		testToken string
 		want      string
+		badFile   bool
 		wantErr   bool
 	}{
 		{
 			testToken: "test-token",
 			want:      "test-token",
+		},
+		{
+			testToken: "error",
+			badFile:   true,
+			wantErr:   true,
 		},
 	}
 	for _, tt := range tests {
@@ -221,17 +234,24 @@ func TestK8STokenSource(t *testing.T) {
 			tokenF := testFileWithContent(t, tt.testToken)
 			defer os.Remove(tokenF) // clean up
 
+			if tt.badFile {
+				tokenF = tokenF + "__random__bad_path__"
+			}
+
 			oldK8STokenFile := k8sTokenFile
 			k8sTokenFile = tokenF
 			defer func() { k8sTokenFile = oldK8STokenFile }()
 
-			got, _ := K8STokenSource(nil)
-			gotToken, err := got.Token()
+			ts, err := K8STokenSource(nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("K8STokenSource() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			if err != nil {
+				return
+			}
 
+			gotToken, _ := ts.Token()
 			assert.Equal(t, tt.testToken, gotToken.AccessToken, "access token")
 		})
 	}
