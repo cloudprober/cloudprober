@@ -24,9 +24,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/common/oauth"
+	oauthconfigpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
+	"golang.org/x/oauth2"
+	"google.golang.org/protobuf/proto"
 )
 
 // Variables defined by Kubernetes spec to find out local CA cert and token.
@@ -125,14 +129,26 @@ func (c *client) initHTTPClient() error {
 
 	transport.TLSClientConfig.RootCAs = caCertPool
 
-	c.httpC = &http.Client{Transport: transport}
-
-	// Read OAuth token from local file.
-	token, err := ioutil.ReadFile(LocalTokenFile)
+	ts, err := oauth.TokenSourceFromConfig(&oauthconfigpb.Config{
+		Type: &oauthconfigpb.Config_BearerToken{
+			BearerToken: &oauthconfigpb.BearerToken{
+				Source: &oauthconfigpb.BearerToken_File{
+					File: LocalTokenFile,
+				},
+				RefreshIntervalSec: proto.Float32(60),
+			},
+		},
+	}, c.l)
 	if err != nil {
-		return fmt.Errorf("error while reading in-cluster local token file (%s): %v", LocalTokenFile, err)
+		return fmt.Errorf("error while creating token source from in-cluster local token file (%s): %v", LocalTokenFile, err)
 	}
-	c.bearer = "Bearer " + string(token)
+
+	c.httpC = &http.Client{
+		Transport: &oauth2.Transport{
+			Source: ts,
+			Base:   transport,
+		},
+	}
 
 	return nil
 }
