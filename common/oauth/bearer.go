@@ -79,7 +79,7 @@ var getTokenFromGCEMetadata = func(c *configpb.BearerToken) (*oauth2.Token, erro
 	return tok, nil
 }
 
-func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.TokenSource, error) {
+func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
 	ts := &bearerTokenSource{
 		c: c,
 		l: l,
@@ -103,17 +103,13 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 		return tokenBackendFunc(c)
 	}
 
-	if ts.c.RefreshExpiryBufferSec == nil {
-		ts.c.RefreshExpiryBufferSec = proto.Int32(60)
-	}
-
 	tok, err := ts.getTokenFromBackend(c)
 	if err != nil {
 		return nil, err
 	}
 	ts.cache = &tokenCache{
 		tok:                 tok,
-		refreshExpiryBuffer: time.Duration(ts.c.GetRefreshExpiryBufferSec()) * time.Second,
+		refreshExpiryBuffer: refreshExpiryBuffer,
 		ignoreExpiryIfZero:  true,
 		getToken:            func() (*oauth2.Token, error) { return ts.getTokenFromBackend(c) },
 		l:                   l,

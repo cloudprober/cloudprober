@@ -20,6 +20,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cloudprober/cloudprober/common/file"
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
@@ -37,13 +38,19 @@ type jsonToken struct {
 
 // TokenSourceFromConfig builds a oauth2.TokenSource from the provided config.
 func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSource, error) {
+	// Set default
+	refreshExpiryBuffer := time.Minute
+	if c.RefreshExpiryBufferSec != nil {
+		refreshExpiryBuffer = time.Duration(c.GetRefreshExpiryBufferSec()) * time.Second
+	}
+
 	switch c.Type.(type) {
 
 	case *configpb.Config_BearerToken:
-		return newBearerTokenSource(c.GetBearerToken(), l)
+		return newBearerTokenSource(c.GetBearerToken(), refreshExpiryBuffer, l)
 
 	case *configpb.Config_HttpRequest:
-		return newHTTPTokenSource(c.GetHttpRequest(), l)
+		return newHTTPTokenSource(c.GetHttpRequest(), refreshExpiryBuffer, l)
 
 	case *configpb.Config_GoogleCredentials:
 		f := c.GetGoogleCredentials().GetJsonFile()
