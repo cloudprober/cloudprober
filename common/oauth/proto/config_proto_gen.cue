@@ -48,6 +48,10 @@ package proto
 	} | {
 		// GCE metadata token
 		gceServiceAccount: string @protobuf(3,string,name=gce_service_account)
+	} | {
+		// K8s service account token file:
+		// /var/run/secrets/kubernetes.io/serviceaccount/token
+		k8sLocalToken: bool @protobuf(4,bool,name=k8s_local_token)
 	}
 
 	// If above sources return JSON tokens with an expiry, we use that info to

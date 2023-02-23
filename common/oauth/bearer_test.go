@@ -16,6 +16,8 @@ package oauth
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -91,10 +93,20 @@ func testTokenFromGCEMetadata(c *configpb.BearerToken) (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: c.GetGceServiceAccount() + "_gce_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
+func testK8SToken(c *configpb.BearerToken) (*oauth2.Token, error) {
+	suffix := ""
+	if callCounter() > 0 {
+		suffix = "_new"
+	}
+	incCallCounter()
+	return &oauth2.Token{AccessToken: "k8s_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
+}
+
 func TestNewBearerToken(t *testing.T) {
 	getTokenFromFile = testTokenFromFile
 	getTokenFromCmd = testTokenFromCmd
 	getTokenFromGCEMetadata = testTokenFromGCEMetadata
+	getTokenFromK8sTokenFile = testK8SToken
 
 	var tests = []struct {
 		name         string
@@ -114,6 +126,10 @@ func TestNewBearerToken(t *testing.T) {
 		{
 			config:    "gce_service_account: \"default\"",
 			wantToken: "default_gce_token",
+		},
+		{
+			config:    "use_k8s_local_token: true",
+			wantToken: "k8s_token",
 		},
 		{
 			name:         "Refresh in 1s",
@@ -169,6 +185,54 @@ func TestNewBearerToken(t *testing.T) {
 			tok, err := cts.Token()
 			assert.NoError(t, err, "error getting token")
 			assert.Equal(t, test.wantToken, tok.AccessToken, "Token mismatch")
+		})
+	}
+}
+
+func testFileWithContent(t *testing.T, content string) string {
+	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatalf("Error creating temporary file for testing: %v", err)
+		return ""
+	}
+
+	if _, err := f.Write([]byte(content)); err != nil {
+		os.Remove(f.Name()) // clean up
+		t.Fatalf("Error writing %s to temporary file: %s", content, f.Name())
+		return ""
+	}
+
+	return f.Name()
+}
+
+func TestK8STokenSource(t *testing.T) {
+	tests := []struct {
+		testToken string
+		want      string
+		wantErr   bool
+	}{
+		{
+			testToken: "test-token",
+			want:      "test-token",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testToken, func(t *testing.T) {
+			tokenF := testFileWithContent(t, tt.testToken)
+			defer os.Remove(tokenF) // clean up
+
+			oldK8STokenFile := k8sTokenFile
+			k8sTokenFile = tokenF
+			defer func() { k8sTokenFile = oldK8STokenFile }()
+
+			got, _ := K8STokenSource(nil)
+			gotToken, err := got.Token()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("K8STokenSource() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			assert.Equal(t, tt.testToken, gotToken.AccessToken, "access token")
 		})
 	}
 }
