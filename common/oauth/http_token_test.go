@@ -24,7 +24,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestHTTPTokenSource_Token(t *testing.T) {
@@ -90,11 +89,6 @@ func TestNewHTTPTokenSource(t *testing.T) {
 		wantReqBody string
 		wantCT      string
 		wantErr     bool
-
-		// Fields to test default refresh expiry buffer setting
-		verifyRefExpBuf bool
-		configRefExpBuf int
-		wantRefExpBuf   time.Duration
 	}{
 		{
 			name:        "json_body",
@@ -115,19 +109,6 @@ func TestNewHTTPTokenSource(t *testing.T) {
 			wantReqBody: "clientId=testID&clientSecret=testSecret",
 			wantCT:      "form-data",
 		},
-		{
-			name:            "verify_default_refresh_expiry_buffer",
-			verifyRefExpBuf: true,
-			wantRefExpBuf:   60 * time.Second,
-			wantCT:          "application/x-www-form-urlencoded",
-		},
-		{
-			name:            "verify_explicit_refresh_expiry_buffer",
-			verifyRefExpBuf: true,
-			configRefExpBuf: 10,
-			wantRefExpBuf:   10 * time.Second,
-			wantCT:          "application/x-www-form-urlencoded",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,11 +121,8 @@ func TestNewHTTPTokenSource(t *testing.T) {
 				}
 			}
 
-			if tt.verifyRefExpBuf && tt.configRefExpBuf != 0 {
-				c.RefreshExpiryBufferSec = proto.Int32(int32(tt.configRefExpBuf))
-			}
-
-			ts_, err := newHTTPTokenSource(c, nil)
+			testRefreshExpiryBuffer := 10 * time.Second
+			ts_, err := newHTTPTokenSource(c, testRefreshExpiryBuffer, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newHTTPTokenSource() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -157,9 +135,7 @@ func TestNewHTTPTokenSource(t *testing.T) {
 
 			// Verify token cache.
 			tc := ts.cache
-			if tt.verifyRefExpBuf {
-				assert.Equal(t, tt.wantRefExpBuf, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
-			}
+			assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
 			assert.Equal(t, tc.ignoreExpiryIfZero, false)
 		})
 	}
