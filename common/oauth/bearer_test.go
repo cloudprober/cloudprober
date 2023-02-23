@@ -97,13 +97,11 @@ func TestNewBearerToken(t *testing.T) {
 	getTokenFromGCEMetadata = testTokenFromGCEMetadata
 
 	var tests = []struct {
-		name            string
-		config          string
-		wantToken       string
-		wait            time.Duration
-		wantNewToken    bool
-		verifyRefExpBuf bool
-		wantRefExpBuf   time.Duration
+		name         string
+		config       string
+		wantToken    string
+		wait         time.Duration
+		wantNewToken bool
 	}{
 		{
 			config:    "file: \"f_json\"",
@@ -138,20 +136,6 @@ func TestNewBearerToken(t *testing.T) {
 			wait:         3 * time.Second,
 			wantNewToken: false,
 		},
-		{
-			name:            "Verify default refresh expiry buffer",
-			config:          "file: \"f\"",
-			wantToken:       "f_file_token",
-			verifyRefExpBuf: true,
-			wantRefExpBuf:   60 * time.Second,
-		},
-		{
-			name:            "Verify non-zero refresh expiry buffer",
-			config:          "file: \"f\"\nrefresh_expiry_buffer_sec: 10",
-			wantToken:       "f_file_token",
-			verifyRefExpBuf: true,
-			wantRefExpBuf:   10 * time.Second,
-		},
 	}
 
 	for _, test := range tests {
@@ -160,9 +144,11 @@ func TestNewBearerToken(t *testing.T) {
 			testC := &configpb.BearerToken{}
 			assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
 
+			testRefreshExpiryBuffer := 10 * time.Second
+
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
-			cts, err := newBearerTokenSource(testC, nil)
+			cts, err := newBearerTokenSource(testC, testRefreshExpiryBuffer, nil)
 			if err != nil {
 				t.Errorf("error while creating new token source: %v", err)
 				return
@@ -170,9 +156,7 @@ func TestNewBearerToken(t *testing.T) {
 
 			// verify token cache
 			tc := cts.(*bearerTokenSource).cache
-			if test.verifyRefExpBuf {
-				assert.Equal(t, test.wantRefExpBuf, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
-			}
+			assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
 			assert.Equal(t, tc.ignoreExpiryIfZero, true)
 
 			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")

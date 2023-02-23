@@ -99,7 +99,7 @@ func setContentType(req *http.Request, data []string) {
 	}
 }
 
-func newHTTPTokenSource(c *configpb.HTTPRequest, l *logger.Logger) (oauth2.TokenSource, error) {
+func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
 	data := strings.Join(c.GetData(), "&")
 
 	body := bytes.NewReader([]byte(data))
@@ -121,11 +121,8 @@ func newHTTPTokenSource(c *configpb.HTTPRequest, l *logger.Logger) (oauth2.Token
 	}
 	ts.cache = &tokenCache{
 		getToken:            func() (*oauth2.Token, error) { return ts.tokenFromHTTP(ts.req) },
-		refreshExpiryBuffer: time.Minute,
+		refreshExpiryBuffer: refreshExpiryBuffer,
 		l:                   l,
-	}
-	if c.RefreshExpiryBufferSec != nil {
-		ts.cache.refreshExpiryBuffer = time.Duration(c.GetRefreshExpiryBufferSec()) * time.Second
 	}
 
 	return ts, nil
