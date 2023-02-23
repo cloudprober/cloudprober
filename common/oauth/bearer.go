@@ -179,5 +179,5 @@ func K8STokenSource(l *logger.Logger) (oauth2.TokenSource, error) {
 			K8SLocalToken: true,
 		},
 		RefreshIntervalSec: proto.Float32(60),
-	}, l)
+	}, time.Minute, l)
 }
