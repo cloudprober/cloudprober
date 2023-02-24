@@ -110,7 +110,7 @@ func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Dura
 
 	case *configpb.BearerToken_K8SLocalToken:
 		if !c.GetK8SLocalToken() {
-			return nil, fmt.Errorf("k8s_local_token cannot be false, config: %v", c.String())
+			return nil, fmt.Errorf("k8s_local_token cannot be false, config: <%v>", c.String())
 		}
 		tokenBackendFunc = getTokenFromK8sTokenFile
 
@@ -119,7 +119,7 @@ func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Dura
 	}
 
 	ts.getTokenFromBackend = func(c *configpb.BearerToken) (*oauth2.Token, error) {
-		l.Debugf("oauth.bearerTokenSource: Getting a new token from: %v", c.GetSource())
+		l.Debugf("oauth.bearerTokenSource: Getting a new token using config: %s", c.String())
 		return tokenBackendFunc(c)
 	}
 
