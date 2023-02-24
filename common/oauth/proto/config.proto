@@ -50,6 +50,10 @@ message BearerToken {
 
     // GCE metadata token
     string gce_service_account = 3;
+
+    // K8s service account token file:
+    // /var/run/secrets/kubernetes.io/serviceaccount/token
+    bool k8s_local_token = 4;
   }
 
   // If above sources return JSON tokens with an expiry, we use that info to
