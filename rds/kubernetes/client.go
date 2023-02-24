@@ -25,12 +25,10 @@ import (
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/oauth"
-	oauthconfigpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	"golang.org/x/oauth2"
-	"google.golang.org/protobuf/proto"
 )
 
 // Variables defined by Kubernetes spec to find out local CA cert and token.
@@ -103,7 +101,7 @@ func (c *client) initAPIHost() error {
 	return nil
 }
 
-func (c *client) initHTTPClient() error {
+func (c *client) httpTransportWithTLS() (*http.Transport, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 
 	if transport.TLSClientConfig == nil {
@@ -112,16 +110,15 @@ func (c *client) initHTTPClient() error {
 
 	if c.cfg.GetTlsConfig() != nil {
 		if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, c.cfg.GetTlsConfig()); err != nil {
-			return err
+			return nil, err
 		}
-		c.httpC = &http.Client{Transport: transport}
-		return nil
+		return transport, nil
 	}
 
 	// If TLS config is not provided, assume in-cluster.
 	certs, err := ioutil.ReadFile(LocalCACert)
 	if err != nil {
-		return fmt.Errorf("error while reading local ca.crt file (%s): %v", LocalCACert, err)
+		return nil, fmt.Errorf("error while reading local ca.crt file (%s): %v", LocalCACert, err)
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -129,43 +126,45 @@ func (c *client) initHTTPClient() error {
 
 	transport.TLSClientConfig.RootCAs = caCertPool
 
-	ts, err := oauth.TokenSourceFromConfig(&oauthconfigpb.Config{
-		Type: &oauthconfigpb.Config_BearerToken{
-			BearerToken: &oauthconfigpb.BearerToken{
-				Source: &oauthconfigpb.BearerToken_File{
-					File: LocalTokenFile,
-				},
-				RefreshIntervalSec: proto.Float32(60),
-			},
-		},
-	}, c.l)
-	if err != nil {
-		return fmt.Errorf("error while creating token source from in-cluster local token file (%s): %v", LocalTokenFile, err)
-	}
-
-	c.httpC = &http.Client{
-		Transport: &oauth2.Transport{
-			Source: ts,
-			Base:   transport,
-		},
-	}
-
-	return nil
+	return transport, nil
 }
 
-func newClient(cfg *configpb.ProviderConfig, l *logger.Logger) (*client, error) {
+func newClientWithoutToken(cfg *configpb.ProviderConfig, l *logger.Logger) (*client, error) {
 	c := &client{
 		cfg: cfg,
 		l:   l,
 	}
 
-	if err := c.initHTTPClient(); err != nil {
+	transport, err := c.httpTransportWithTLS()
+	if err != nil {
 		return nil, err
+	}
+
+	c.httpC = &http.Client{
+		Transport: transport,
 	}
 
 	if err := c.initAPIHost(); err != nil {
 		return nil, err
 	}
 
+	return c, nil
+}
+
+func newClient(cfg *configpb.ProviderConfig, l *logger.Logger) (*client, error) {
+	c, err := newClientWithoutToken(cfg, l)
+	if err != nil {
+		return nil, err
+	}
+
+	ts, err := oauth.K8STokenSource(l)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating token source from k8s token file: %v", err)
+	}
+
+	c.httpC.Transport = &oauth2.Transport{
+		Source: ts,
+		Base:   c.httpC.Transport,
+	}
 	return c, nil
 }

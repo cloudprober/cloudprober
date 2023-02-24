@@ -16,6 +16,8 @@ package oauth
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -91,15 +93,26 @@ func testTokenFromGCEMetadata(c *configpb.BearerToken) (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: c.GetGceServiceAccount() + "_gce_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
+func testK8SToken(c *configpb.BearerToken) (*oauth2.Token, error) {
+	suffix := ""
+	if callCounter() > 0 {
+		suffix = "_new"
+	}
+	incCallCounter()
+	return &oauth2.Token{AccessToken: "k8s_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
+}
+
 func TestNewBearerToken(t *testing.T) {
 	getTokenFromFile = testTokenFromFile
 	getTokenFromCmd = testTokenFromCmd
 	getTokenFromGCEMetadata = testTokenFromGCEMetadata
+	getTokenFromK8sTokenFile = testK8SToken
 
 	var tests = []struct {
 		name         string
 		config       string
 		wantToken    string
+		wantErr      bool
 		wait         time.Duration
 		wantNewToken bool
 	}{
@@ -114,6 +127,14 @@ func TestNewBearerToken(t *testing.T) {
 		{
 			config:    "gce_service_account: \"default\"",
 			wantToken: "default_gce_token",
+		},
+		{
+			config:    "k8s_local_token: true",
+			wantToken: "k8s_token",
+		},
+		{
+			config:  "k8s_local_token: false",
+			wantErr: true,
 		},
 		{
 			name:         "Refresh in 1s",
@@ -149,8 +170,10 @@ func TestNewBearerToken(t *testing.T) {
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
 			cts, err := newBearerTokenSource(testC, testRefreshExpiryBuffer, nil)
+			if (err != nil) != test.wantErr {
+				t.Errorf("newBearerTokenSource() error = %v, wantErr %v", err, test.wantErr)
+			}
 			if err != nil {
-				t.Errorf("error while creating new token source: %v", err)
 				return
 			}
 
@@ -169,6 +192,67 @@ func TestNewBearerToken(t *testing.T) {
 			tok, err := cts.Token()
 			assert.NoError(t, err, "error getting token")
 			assert.Equal(t, test.wantToken, tok.AccessToken, "Token mismatch")
+		})
+	}
+}
+
+func testFileWithContent(t *testing.T, content string) string {
+	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatalf("Error creating temporary file for testing: %v", err)
+		return ""
+	}
+
+	if _, err := f.Write([]byte(content)); err != nil {
+		os.Remove(f.Name()) // clean up
+		t.Fatalf("Error writing %s to temporary file: %s", content, f.Name())
+		return ""
+	}
+
+	return f.Name()
+}
+
+func TestK8STokenSource(t *testing.T) {
+	tests := []struct {
+		testToken string
+		want      string
+		badFile   bool
+		wantErr   bool
+	}{
+		{
+			testToken: "test-token",
+			want:      "test-token",
+		},
+		{
+			testToken: "error",
+			badFile:   true,
+			wantErr:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testToken, func(t *testing.T) {
+			tokenF := testFileWithContent(t, tt.testToken)
+			defer os.Remove(tokenF) // clean up
+
+			if tt.badFile {
+				tokenF = tokenF + "__random__bad_path__"
+			}
+
+			oldK8STokenFile := k8sTokenFile
+			k8sTokenFile = tokenF
+			defer func() { k8sTokenFile = oldK8STokenFile }()
+
+			ts, err := K8STokenSource(nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("K8STokenSource() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+
+			gotToken, _ := ts.Token()
+			assert.Equal(t, tt.testToken, gotToken.AccessToken, "access token")
 		})
 	}
 }

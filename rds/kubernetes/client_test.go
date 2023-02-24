@@ -23,7 +23,6 @@ import (
 	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	cpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/oauth2"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -61,7 +60,7 @@ func testFileWithContent(t *testing.T, content string) string {
 	return f.Name()
 }
 
-func TestNewClientInCluster(t *testing.T) {
+func TestNewClientWithNoOauth(t *testing.T) {
 	cacrtF := testFileWithContent(t, testCACert)
 	defer os.Remove(cacrtF) // clean up
 
@@ -73,26 +72,19 @@ func TestNewClientInCluster(t *testing.T) {
 	tokenF := testFileWithContent(t, testToken)
 	defer os.Remove(tokenF) // clean up
 
-	oldLocalTokenFile := LocalTokenFile
-	LocalTokenFile = tokenF
-	defer func() { LocalTokenFile = oldLocalTokenFile }()
-
 	os.Setenv("KUBERNETES_SERVICE_HOST", "test-api-host")
 	os.Setenv("KUBERNETES_SERVICE_PORT", "4123")
 
-	tc, err := newClient(&cpb.ProviderConfig{}, nil)
+	tc := &client{
+		cfg: &cpb.ProviderConfig{},
+	}
+	transport, err := tc.httpTransportWithTLS()
 	assert.NoError(t, err, "error creating client")
+	assert.NotNil(t, transport.TLSClientConfig, "TLS config")
 
+	err = tc.initAPIHost()
+	assert.NoError(t, err, "error initialize API host")
 	assert.Equal(t, "test-api-host:4123", tc.apiHost, "k8s API host")
-	assert.NotNil(t, tc.httpC, "HTTP Client")
-
-	transport := tc.httpC.Transport.(*oauth2.Transport)
-
-	tok, err := transport.Source.Token()
-	assert.NoError(t, err, "Error getting token")
-	assert.Equal(t, testToken, tok.AccessToken, "access token")
-
-	assert.NotNil(t, transport.Base.(*http.Transport).TLSClientConfig, "TLS config")
 }
 
 func TestNewClientWithTLS(t *testing.T) {
@@ -104,7 +96,7 @@ func TestNewClientWithTLS(t *testing.T) {
 	defer func() { LocalCACert = oldLocalCACert }()
 
 	testAPIServerAddr := "test-api-server-addr"
-	tc, err := newClient(&cpb.ProviderConfig{
+	tc, err := newClientWithoutToken(&cpb.ProviderConfig{
 		ApiServerAddress: &testAPIServerAddr,
 		TlsConfig: &tlsconfigpb.TLSConfig{
 			CaCertFile: proto.String(cacrtF),

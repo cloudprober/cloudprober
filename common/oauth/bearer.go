@@ -17,6 +17,7 @@ package oauth
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -28,6 +29,8 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/proto"
 )
+
+var k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 type bearerTokenSource struct {
 	c                   *configpb.BearerToken
@@ -79,13 +82,21 @@ var getTokenFromGCEMetadata = func(c *configpb.BearerToken) (*oauth2.Token, erro
 	return tok, nil
 }
 
+var getTokenFromK8sTokenFile = func(c *configpb.BearerToken) (*oauth2.Token, error) {
+	b, err := os.ReadFile(k8sTokenFile)
+	if err != nil {
+		return nil, err
+	}
+	return &oauth2.Token{AccessToken: string(b)}, nil
+}
+
 func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
 	ts := &bearerTokenSource{
 		c: c,
 		l: l,
 	}
 
-	tokenBackendFunc := getTokenFromGCEMetadata
+	var tokenBackendFunc func(*configpb.BearerToken) (*oauth2.Token, error)
 
 	switch ts.c.Source.(type) {
 	case *configpb.BearerToken_File:
@@ -96,10 +107,19 @@ func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Dura
 
 	case *configpb.BearerToken_GceServiceAccount:
 		tokenBackendFunc = getTokenFromGCEMetadata
+
+	case *configpb.BearerToken_K8SLocalToken:
+		if !c.GetK8SLocalToken() {
+			return nil, fmt.Errorf("k8s_local_token cannot be false, config: <%v>", c.String())
+		}
+		tokenBackendFunc = getTokenFromK8sTokenFile
+
+	default:
+		return nil, fmt.Errorf("unknown source: %v", ts.c.GetSource())
 	}
 
 	ts.getTokenFromBackend = func(c *configpb.BearerToken) (*oauth2.Token, error) {
-		l.Debugf("oauth.bearerTokenSource: Getting a new token from: %v", c.GetSource())
+		l.Debugf("oauth.bearerTokenSource: Getting a new token using config: %s", c.String())
 		return tokenBackendFunc(c)
 	}
 
@@ -151,4 +171,13 @@ func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Dura
 
 func (ts *bearerTokenSource) Token() (*oauth2.Token, error) {
 	return ts.cache.Token()
+}
+
+func K8STokenSource(l *logger.Logger) (oauth2.TokenSource, error) {
+	return newBearerTokenSource(&configpb.BearerToken{
+		Source: &configpb.BearerToken_K8SLocalToken{
+			K8SLocalToken: true,
+		},
+		RefreshIntervalSec: proto.Float32(60),
+	}, time.Minute, l)
 }
