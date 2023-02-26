@@ -36,6 +36,12 @@ func TestStaticTargets(t *testing.T) {
 			wantPorts: []int{0, 0, 0},
 		},
 		{
+			desc:      "valid hosts (space separator)",
+			hosts:     "www.google.com 127.0.0.1 2001::2001",
+			wantNames: []string{"www.google.com", "127.0.0.1", "2001::2001"},
+			wantPorts: []int{0, 0, 0},
+		},
+		{
 			desc:      "Ports in name",
 			hosts:     "www.google.com:80,127.0.0.1:8080,[2001::2001]:8081",
 			wantNames: []string{"www.google.com", "127.0.0.1", "2001::2001"},
