@@ -61,6 +61,7 @@ type Probe struct {
 	l    *logger.Logger
 
 	baseTransport http.RoundTripper
+	redirectFunc  func(req *http.Request, via []*http.Request) error
 
 	// book-keeping params
 	targets  []endpoint.Endpoint
@@ -222,6 +223,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	p.baseTransport = transport
+
+	if p.c.MaxRedirects != nil {
+		p.redirectFunc = func(req *http.Request, via []*http.Request) error {
+			if len(via) >= int(p.c.GetMaxRedirects()) {
+				return http.ErrUseLastResponse
+			}
+
+			return nil
+		}
+	}
 
 	p.statsExportFrequency = p.opts.StatsExportInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
 	if p.statsExportFrequency == 0 {
@@ -474,6 +485,8 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 		} else {
 			clients[i] = &http.Client{Transport: p.baseTransport}
 		}
+
+		clients[i].CheckRedirect = p.redirectFunc
 	}
 	return clients
 }
