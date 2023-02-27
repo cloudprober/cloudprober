@@ -90,9 +90,9 @@ message ProbeConf {
   // Maximum idle connections to keep alive
   optional int32 max_idle_conns = 17 [default = 256];
 
-  // The maximum amount of redirects the HTTP client will follow. 
-  // To disable redirects, use max_redirects = 0.
-  optional int32 max_redirects = 18 [default = 10];
+  // The maximum amount of redirects the HTTP client will follow.
+  // To disable redirects, use max_redirects: 0.
+  optional int32 max_redirects = 18;
 
   // Interval between targets.
   optional int32 interval_between_targets_msec = 97 [default = 10];

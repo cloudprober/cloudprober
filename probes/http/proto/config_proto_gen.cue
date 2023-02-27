@@ -102,8 +102,8 @@ import (
 	maxIdleConns?: int32 @protobuf(17,int32,name=max_idle_conns,"default=256")
 
 	// The maximum amount of redirects the HTTP client will follow.
-	// To disable redirects, use max_redirects = 0.
-	maxRedirects?: int32 @protobuf(18,int32,name=max_redirects,"default=10")
+	// To disable redirects, use max_redirects: 0.
+	maxRedirects?: int32 @protobuf(18,int32,name=max_redirects)
 
 	// Interval between targets.
 	intervalBetweenTargetsMsec?: int32 @protobuf(97,int32,name=interval_between_targets_msec,"default=10")
