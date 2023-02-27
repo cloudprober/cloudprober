@@ -94,7 +94,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
+
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 
 	p.network = "tcp"
 	if p.opts.IPVersion != 0 {
