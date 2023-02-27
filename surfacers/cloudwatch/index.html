@@ -475,6 +475,19 @@
 </span><span class="c1"></span>  <span class="c1">// 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
 </span><span class="c1"></span>  <span class="c1">// https://docs.aws.amazon.com/sdk-for-go/api/aws/session/
 </span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">region</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>  <span class="c1">// The maximum number of metrics that will be published at one
+</span><span class="c1"></span>  <span class="c1">// time. Metrics will be stored locally in a cache until this 
+</span><span class="c1"></span>  <span class="c1">// limit is reached. 1000 is the maximum number of metrics
+</span><span class="c1"></span>  <span class="c1">// supported by the Cloudwatch PutMetricData API.
+</span><span class="c1"></span>  <span class="c1">// Metrics will be published when the timer expires, or the buffer is
+</span><span class="c1"></span>  <span class="c1">// full, whichever happens first.
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">int32</span> <span class="n">metrics_batch_size</span> <span class="o">=</span> <span class="mi">4</span> <span class="p">[</span><span class="k">default</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">]</span><span class="p">;</span> <span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>  <span class="c1">// The maximum amount of time to hold metrics in the buffer (above).
+</span><span class="c1"></span>  <span class="c1">// Metrics will be published when the timer expires, or the buffer is
+</span><span class="c1"></span>  <span class="c1">// full, whichever happens first. 
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">int32</span> <span class="n">batch_timer_sec</span> <span class="o">=</span> <span class="mi">5</span> <span class="p">[</span><span class="k">default</span> <span class="o">=</span> <span class="mi">30</span><span class="p">]</span><span class="p">;</span><span class="err">
 </span></code></pre></div><p>(Source: <a href="https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto">https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto</a>)</p>
 <h2 id="calculating-the-metric-delta-with-cloudwatch-metric-maths">Calculating the metric delta with Cloudwatch Metric Maths</h2>
 <p>The metrics produced by Cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.</p>
