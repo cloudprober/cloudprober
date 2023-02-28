@@ -295,6 +295,10 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, msg
 func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result *probeRunResult) {
 	msgPattern := fmt.Sprintf("%s,%s%s,%03d", p.src, p.c.GetUriScheme(), tgt, index)
 
+	for _, al := range p.opts.AdditionalLabels {
+		al.UpdateForTarget(endpoint.Endpoint{Name: tgt}, "", 0)
+	}
+
 	conn := p.connectWithRetry(ctx, tgt, msgPattern, result)
 	if conn == nil {
 		return
@@ -432,7 +436,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			result.Unlock()
 			em.LatencyUnit = p.opts.LatencyUnit
 			for _, al := range p.opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(targetName))
+				em.AddLabel(al.KeyValueForTarget(endpoint.Endpoint{Name: targetName}))
 			}
 			p.opts.LogMetrics(em)
 			dataChan <- em

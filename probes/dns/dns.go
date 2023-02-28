@@ -244,7 +244,7 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 			}
 
 			for _, al := range p.opts.AdditionalLabels {
-				al.UpdateForTargetWithIPPort(target, ipLabel, port)
+				al.UpdateForTarget(target, ipLabel, port)
 			}
 
 			// Generate a new question for each probe so transaction IDs aren't repeated.

@@ -120,7 +120,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 			em.LatencyUnit = s.Opts.LatencyUnit
 
 			for _, al := range s.Opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(target.Name))
+				em.AddLabel(al.KeyValueForTarget(target))
 			}
 
 			s.Opts.LogMetrics(em)

@@ -418,11 +418,11 @@ func (p *Probe) newResult() *probeResult {
 	return result
 }
 
-func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName string, dataChan chan *metrics.EventMetrics) {
+func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
 	addLabelsAndPublish := func(em *metrics.EventMetrics) {
-		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", targetName)
+		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
 		for _, al := range p.opts.AdditionalLabels {
-			em.AddLabel(al.KeyValueForTarget(targetName))
+			em.AddLabel(al.KeyValueForTarget(target))
 		}
 		p.opts.LogMetrics(em)
 		dataChan <- em
@@ -521,7 +521,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 		// Export stats if it's the time to do so.
 		runCnt++
 		if (runCnt % p.statsExportFrequency) == 0 {
-			p.exportMetrics(ts, result, target.Name, dataChan)
+			p.exportMetrics(ts, result, target, dataChan)
 
 			// If we are resolving first, this is also a good time to recreate HTTP
 			// request in case target's IP has changed.
