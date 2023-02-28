@@ -105,7 +105,7 @@ func (prr probeResult) eventMetrics(probeName string, opts *options.Options, f f
 		AddLabel("dst", f.target)
 
 	for _, al := range opts.AdditionalLabels {
-		m.AddLabel(al.KeyValueForTarget(f.target))
+		m.AddLabel(al.KeyValueForTarget(endpoint.Endpoint{Name: f.target}))
 	}
 
 	if c.GetExportMetricsByPort() {
@@ -425,7 +425,7 @@ func (p *Probe) runProbe() {
 		}
 
 		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTargetWithIPPort(target, ip.String(), dstPort)
+			al.UpdateForTarget(endpoint.Endpoint{Name: target.Name}, ip.String(), dstPort)
 		}
 
 		for i := 0; i < packetsPerTarget; i++ {

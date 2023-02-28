@@ -66,7 +66,7 @@ type AdditionalLabel struct {
 }
 
 // UpdateForTarget updates addtional label based on target's name and labels.
-func (al *AdditionalLabel) UpdateForTargetWithIPPort(ep endpoint.Endpoint, ipAddr string, probePort int) {
+func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint, ipAddr string, probePort int) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 
@@ -96,23 +96,18 @@ func (al *AdditionalLabel) UpdateForTargetWithIPPort(ep endpoint.Endpoint, ipAdd
 			parts[2*i+1] = ep.Labels[tok.labelKey]
 		}
 	}
-	al.valueForTarget[ep.Name] = strings.Join(parts, "")
-}
-
-// UpdateForTarget updates addtional label based on target's name and labels.
-func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint) {
-	al.UpdateForTargetWithIPPort(ep, "", 0)
+	al.valueForTarget[ep.Key()] = strings.Join(parts, "")
 }
 
 // KeyValueForTarget returns key, value pair for the given target.
-func (al *AdditionalLabel) KeyValueForTarget(targetName string) (key, val string) {
+func (al *AdditionalLabel) KeyValueForTarget(ep endpoint.Endpoint) (key, val string) {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
 
 	if al.staticValue != "" {
 		return al.Key, al.staticValue
 	}
-	return al.Key, al.valueForTarget[targetName]
+	return al.Key, al.valueForTarget[ep.Key()]
 }
 
 // ParseAdditionalLabel parses an additional label proto message into an
