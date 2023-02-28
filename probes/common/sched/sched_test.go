@@ -87,7 +87,7 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 	s.init()
 
 	ctx, cancelF := context.WithCancel(context.Background())
-	s.updateTargetsAndStartProbes(ctx)
+	s.refreshTargets(ctx)
 	if len(s.cancelFuncs) != 2 {
 		t.Errorf("len(s.cancelFunc)=%d, want=2", len(s.cancelFuncs))
 	}
@@ -98,7 +98,7 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 	// Updates targets to just one target. This should cause one probe loop to
 	// exit. We should get only one data stream after that.
 	opts.Targets = targets.StaticTargets(testTargets[0])
-	s.updateTargetsAndStartProbes(ctx)
+	s.refreshTargets(ctx)
 	if len(s.cancelFuncs) != 1 {
 		t.Errorf("len(s.cancelFunc)=%d, want=1", len(s.cancelFuncs))
 	}
