@@ -15,6 +15,7 @@
 package targets
 
 import (
+	"fmt"
 	"testing"
 
 	k8sconfigpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
@@ -89,7 +90,6 @@ func Test_parseConfig(t *testing.T) {
 
 func Test_rdsRequest(t *testing.T) {
 	tests := []struct {
-		name       string
 		resources  string
 		nameF      string
 		portFilter string
@@ -104,11 +104,20 @@ func Test_rdsRequest(t *testing.T) {
 		},
 		{
 			resources: "test-resources",
-			nameF:     ".*-service",
+			nameF:     "service", // Match just service
 			want: &rdspb.ListResourcesRequest{
 				Provider:     proto.String("k8s"),
 				ResourcePath: proto.String("test-resources"),
-				Filter:       []*rdspb.Filter{{Key: proto.String("name"), Value: proto.String(".*-service")}},
+				Filter:       []*rdspb.Filter{{Key: proto.String("name"), Value: proto.String("^service$")}},
+			},
+		},
+		{
+			resources: "test-resources",
+			nameF:     "^.*-service",
+			want: &rdspb.ListResourcesRequest{
+				Provider:     proto.String("k8s"),
+				ResourcePath: proto.String("test-resources"),
+				Filter:       []*rdspb.Filter{{Key: proto.String("name"), Value: proto.String("^.*-service$")}},
 			},
 		},
 		{
@@ -119,14 +128,14 @@ func Test_rdsRequest(t *testing.T) {
 				Provider:     proto.String("k8s"),
 				ResourcePath: proto.String("test-resources"),
 				Filter: []*rdspb.Filter{
-					{Key: proto.String("name"), Value: proto.String(".*-service")},
+					{Key: proto.String("name"), Value: proto.String("^.*-service$")},
 					{Key: proto.String("port"), Value: proto.String(".*dns.*")},
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("name:%s,port:%s", tt.nameF, tt.portFilter), func(t *testing.T) {
 			assert.Equal(t, tt.want, rdsRequest(tt.resources, tt.nameF, tt.portFilter))
 		})
 	}
