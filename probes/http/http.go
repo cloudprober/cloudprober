@@ -479,7 +479,9 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 				if t.TLSClientConfig == nil {
 					t.TLSClientConfig = &tls.Config{}
 				}
-				t.TLSClientConfig.ServerName = urlHostForTarget(target)
+				if t.TLSClientConfig.ServerName == "" {
+					t.TLSClientConfig.ServerName = urlHostForTarget(target)
+				}
 			}
 			clients[i] = &http.Client{Transport: t}
 		} else {
