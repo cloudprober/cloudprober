@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"strconv"
 	"strings"
@@ -54,10 +55,11 @@ const (
 
 // Constants defining the default server host and port.
 const (
-	DefaultServerHost = ""
-	DefaultServerPort = 9313
-	ServerHostEnvVar  = "CLOUDPROBER_HOST"
-	ServerPortEnvVar  = "CLOUDPROBER_PORT"
+	DefaultServerHost   = ""
+	DefaultServerPort   = 9313
+	ServerHostEnvVar    = "CLOUDPROBER_HOST"
+	ServerPortEnvVar    = "CLOUDPROBER_PORT"
+	DisableHTTPDebugVar = "CLOUDPROBER_DISABLE_HTTP_PPROF"
 )
 
 // Global prober.Prober instance protected by a mutex.
@@ -125,6 +127,17 @@ func initDefaultServer(c *configpb.ProberConfig, l *logger.Logger) (net.Listener
 	return ln, nil
 }
 
+func setDebugHandlers(srvMux *http.ServeMux) {
+	if os.Getenv(DisableHTTPDebugVar) != "" {
+		return
+	}
+	srvMux.HandleFunc("/debug/pprof/", pprof.Index)
+	srvMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	srvMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	srvMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	srvMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+}
+
 // InitFromConfig initializes Cloudprober using the provided config.
 func InitFromConfig(configFile string) error {
 	// Return immediately if prober is already initialized.
@@ -166,7 +179,9 @@ func InitFromConfig(configFile string) error {
 	if err != nil {
 		return err
 	}
-	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
+	srvMux := http.NewServeMux()
+	setDebugHandlers(srvMux)
+	runconfig.SetDefaultHTTPServeMux(srvMux)
 
 	var grpcLn net.Listener
 	if cfg.GetGrpcPort() != 0 {

@@ -23,7 +23,6 @@ package main
 import (
 	"context"
 	"fmt"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime/pprof"
