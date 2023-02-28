@@ -333,7 +333,7 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 func (p *Probe) withAdditionalLabels(em *metrics.EventMetrics, target string) *metrics.EventMetrics {
 	for _, al := range p.opts.AdditionalLabels {
-		em.AddLabel(al.KeyValueForTarget(target))
+		em.AddLabel(al.KeyValueForTarget(endpoint.Endpoint{Name: target}))
 	}
 	return em
 }
@@ -609,7 +609,10 @@ func (p *Probe) updateTargets() {
 		}
 
 		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(target)
+			// Note it's a bit convoluted right now because we want to use the
+			// same key while updating additional labels that we use while
+			// retrieving additional labels in withAdditionalLabels.
+			al.UpdateForTarget(endpoint.Endpoint{Name: target.Name}, "", 0)
 		}
 	}
 }

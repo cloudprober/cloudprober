@@ -147,7 +147,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTargetWithIPPort(target, ipLabel, 0)
+		al.UpdateForTarget(target, ipLabel, 0)
 	}
 
 	port := int(p.c.GetPort())

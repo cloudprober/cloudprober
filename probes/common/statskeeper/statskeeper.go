@@ -87,7 +87,7 @@ func StatsKeeper(ctx context.Context, ptype, name string, opts *options.Options,
 					em.LatencyUnit = opts.LatencyUnit
 
 					for _, al := range opts.AdditionalLabels {
-						em.AddLabel(al.KeyValueForTarget(t.Name))
+						em.AddLabel(al.KeyValueForTarget(t))
 					}
 
 					if opts.LogMetrics != nil {

@@ -116,12 +116,18 @@ func TestParseAdditionalLabel(t *testing.T) {
 func TestUpdateAdditionalLabel(t *testing.T) {
 	aLabels := parseAdditionalLabels(configWithAdditionalLabels)
 
+	endpoints := map[string]endpoint.Endpoint{
+		"target1": {Name: "target1", Labels: map[string]string{}, Port: 80},
+		"target2": {Name: "target2", Labels: map[string]string{"zone": "zoneB"}, Port: 8080},
+		"target3": {Name: "target3", Port: 8080},
+	}
+
 	// Verify that we got the correct additional lables and also update them while
 	// iterating over them.
 	for _, al := range aLabels {
-		al.UpdateForTarget(endpoint.Endpoint{Name: "target1", Labels: map[string]string{}, Port: 80})
-		al.UpdateForTarget(endpoint.Endpoint{Name: "target2", Labels: map[string]string{"zone": "zoneB"}, Port: 8080})
-		al.UpdateForTargetWithIPPort(endpoint.Endpoint{Name: "target3", Port: 8080}, "target3-ip", 9000)
+		al.UpdateForTarget(endpoints["target1"], "", 0)
+		al.UpdateForTarget(endpoints["target2"], "", 0)
+		al.UpdateForTarget(endpoints["target3"], "target3-ip", 9000)
 	}
 
 	expectedLabels := map[string][][2]string{
@@ -161,7 +167,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 		var gotLabels [][2]string
 
 		for _, al := range aLabels {
-			k, v := al.KeyValueForTarget(target)
+			k, v := al.KeyValueForTarget(endpoints[target])
 			gotLabels = append(gotLabels, [2]string{k, v})
 		}
 
