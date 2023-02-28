@@ -103,6 +103,12 @@ func rdsRequest(resources, nameF, portFilter string) *rdspb.ListResourcesRequest
 		ResourcePath: &resources,
 	}
 	if nameF != "" {
+		if nameF[0] != '^' {
+			nameF = "^" + nameF
+		}
+		if nameF[len(nameF)-1] != '$' {
+			nameF = nameF + "$"
+		}
 		req.Filter = append(req.Filter, &rdspb.Filter{
 			Key:   proto.String("name"),
 			Value: proto.String(nameF),
