@@ -332,16 +332,20 @@ func (s *SDSurfacer) sdKind(kind metrics.Kind) string {
 //	- a labels key of the form label1_key=label1_val,label2_key=label2_val,
 //	  used for caching.
 //	- prefix for metric names, usually <ptype>/<probe>.
-func processLabels(em *metrics.EventMetrics) (labels map[string]string, labelsKey, metricPrefix string) {
+func (s *SDSurfacer) processLabels(em *metrics.EventMetrics) (labels map[string]string, labelsKey, metricPrefix string) {
 	labels = make(map[string]string)
 	var sortedLabels []string // we use this for cache key below
 	var ptype, probe string
+	metricPrefixConfig := s.c.GetMetricsPrefix()
+	usePType := true && metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE
+	useProbe := true && metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE ||
+									metricPrefixConfig == configpb.SurfacerConf_PROBE
 	for _, k := range em.LabelsKeys() {
-		if k == "ptype" {
+		if k == "ptype" && usePType {
 			ptype = em.Label(k)
 			continue
 		}
-		if k == "probe" {
+		if k == "probe" && useProbe {
 			probe = em.Label(k)
 			continue
 		}
@@ -350,10 +354,10 @@ func processLabels(em *metrics.EventMetrics) (labels map[string]string, labelsKe
 	}
 	labelsKey = strings.Join(sortedLabels, ",")
 
-	if ptype != "" {
+	if ptype != "" && usePType {
 		metricPrefix += ptype + "/"
 	}
-	if probe != "" {
+	if probe != "" && useProbe {
 		metricPrefix += probe + "/"
 	}
 	return
@@ -387,7 +391,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 		return
 	}
 
-	emLabels, cacheKey, metricPrefix := processLabels(em)
+	emLabels, cacheKey, metricPrefix := s.processLabels(em)
 
 	for _, k := range em.MetricsKeys() {
 		if !s.opts.AllowMetric(k) {
