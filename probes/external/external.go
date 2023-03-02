@@ -97,7 +97,7 @@ type Probe struct {
 	dataChan   chan *metrics.EventMetrics
 
 	// This is used for overriding run command logic for testing.
-	runCommandFunc func(ctx context.Context, cmd string, args []string) ([]byte, error)
+	runCommandFunc func(ctx context.Context, cmd string, args []string) ([]byte, []byte, error)
 
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
@@ -559,21 +559,25 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			result.total++
 			startTime := time.Now()
 
-			var b []byte
+			var stdout, stderr []byte
 			var err error
 			if p.runCommandFunc != nil {
-				b, err = p.runCommandFunc(ctx, p.cmdName, args)
+				stdout, stderr, err = p.runCommandFunc(ctx, p.cmdName, args)
 			} else {
-				b, err = p.runCommand(ctx, p.cmdName, args)
+				stdout, stderr, err = p.runCommand(ctx, p.cmdName, args)
 			}
 
 			success := true
 			if err != nil {
 				success = false
 				if exitErr, ok := err.(*exec.ExitError); ok {
-					p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
+					p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), stderr)
 				} else {
 					p.l.Errorf("Error executing the external program. Err: %v", err)
+				}
+			} else {
+				if len(stderr) != 0 {
+					p.l.Warningf("Stderr: %s", stderr)
 				}
 			}
 
@@ -581,7 +585,7 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 				target:  target.Name,
 				success: success,
 				latency: time.Since(startTime),
-				payload: string(b),
+				payload: string(stdout),
 			}, result)
 		}(target, p.results[target.Name])
 	}
