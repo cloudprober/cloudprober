@@ -11,12 +11,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/bigquery/proto"
 )
 
-const (
-	projectName = "test-project"
-	bqdataset   = "test-dataset"
-	bqtable     = "test-table"
-)
-
 type fakeInserter struct {
 	batchCount int
 }
@@ -46,7 +40,7 @@ func newSurfacerConfig(col map[string]string) *configpb.SurfacerConf {
 		ProjectName:     &projectName,
 		BigqueryDataset: &bqdataset,
 		BigqueryTable:   &bqtable,
-		Columns:         bqCols,
+		BigqueryColumns: bqCols,
 	}
 
 	return surfacerConf

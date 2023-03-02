@@ -15,10 +15,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/bigquery/proto"
 )
 
-const (
-	batchSize = 1000
-)
-
 type bqrow struct {
 	value map[string]bigquery.Value
 }
@@ -99,15 +95,50 @@ func convertToBqType(colType, label string) (bigquery.Value, error) {
 	}
 }
 
+func convertToJSON(labels map[string]string) (string, error) {
+	bs, err := json.Marshal(labels)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bs), nil
+}
+
+func getJSON(em *metrics.EventMetrics) (string, error) {
+	labels := make(map[string]string)
+	for _, k := range em.LabelsKeys() {
+		labels[k] = em.Label(k)
+	}
+	return convertToJSON(labels)
+}
+
 func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) (map[string]bigquery.Value, error) {
 	bqRowMap := make(map[string]bigquery.Value)
-	for _, col := range s.c.GetBigqueryColumns() {
-		colName := col.GetName()
-		val, err := convertToBqType(col.GetType(), em.Label(colName))
-		if err != nil {
-			return nil, fmt.Errorf("error occurred while parsing for field %v: %v", colName, err)
+
+	if s.c.GetInsertMetricValues() {
+		for _, k := range em.MetricsKeys() {
+			bqRowMap["metric_name"] = k
+			bqRowMap["metric_value"] = em.Metric(k)
+			bqRowMap["metric_time"] = em.Timestamp
 		}
-		bqRowMap[colName] = val
+	}
+
+	if len(s.c.GetBigqueryColumns()) > 0 {
+		for _, col := range s.c.GetBigqueryColumns() {
+			colName := col.GetColumnName()
+			label := col.GetLabel()
+			val, err := convertToBqType(col.GetColumnType(), em.Label(label))
+			if err != nil {
+				return nil, fmt.Errorf("error occurred while parsing for field %v: %v", colName, err)
+			}
+			bqRowMap[colName] = val
+		}
+	} else {
+		jsonVal, err := getJSON(em)
+		if err != nil {
+			return nil, err
+		}
+		bqRowMap["labels"] = jsonVal
 	}
 	return bqRowMap, nil
 }
@@ -117,6 +148,7 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 	bigqueryTimeout := time.Duration(s.c.GetBigqueryTimeoutSec()) * time.Second
 	bqctx, cancel := context.WithTimeout(ctx, bigqueryTimeout)
 	defer cancel()
+	batchSize := int(s.c.GetBigqueryBatchSize())
 
 	for i := 0; i < chanLen; i += batchSize {
 		var results []*bqrow
@@ -135,7 +167,9 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 
 		if len(results) > 0 {
 			if err := inserter.Put(bqctx, results); err != nil {
-				s.l.Errorf("failed uploading probe results to Bigquery due to surfacer: %v", err)
+				for _, row := range results {
+					s.l.Errorf("failed uploading row to Bigquery: %v, row: %v", err, row.value)
+				}
 			}
 		}
 	}

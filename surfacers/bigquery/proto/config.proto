@@ -15,8 +15,9 @@ message SurfacerConf {
 
   // It represents the bigquery table columns.
   //  bigquery_columns {
-  //    name: "id",
-  //    type: "string",
+  //    label: "id",
+  //    column_name: "id",
+  //    column_type: "string",
   //  }
   repeated BQColumn bigquery_columns = 5;
 
@@ -29,9 +30,16 @@ message SurfacerConf {
   // is not completed within this time period then the request will fail and the
   // failed rows will be retried later.
   optional int64 bigquery_timeout_sec = 7 [default = 30];
+
+  optional int64 bigquery_batch_size = 8 [default = 1000];
+
+  // It will insert metric_name and value in columns 'metric_name' and
+  // 'metric_values' if set to true
+  optional bool insert_metric_values = 9 [default = true];
 }
 
 message BQColumn {
-  optional string name = 1;
-  optional string type = 2;
+  optional string label = 1;
+  optional string column_name = 2;
+  optional string column_type = 3;
 }
