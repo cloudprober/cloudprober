@@ -11,6 +11,12 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/bigquery/proto"
 )
 
+const (
+	metricNameCol  = "metric_name"
+	metricValueCol = "metric_value"
+	metricTimeCol  = "metric_time"
+)
+
 type fakeInserter struct {
 	batchCount int
 }
@@ -20,7 +26,7 @@ func (i *fakeInserter) Put(ctx context.Context, values any) error {
 	return nil
 }
 
-func newSurfacerConfig(col map[string]string) *configpb.SurfacerConf {
+func newSurfacerConfig(col map[string]string, excludedCols []string) *configpb.SurfacerConf {
 	projectName := "test-project"
 	bqdataset := "test-dataset"
 	bqtable := "test-table"
@@ -30,17 +36,19 @@ func newSurfacerConfig(col map[string]string) *configpb.SurfacerConf {
 		colName := k
 		colType := v
 		bqCol := &configpb.BQColumn{
-			Name: &colName,
-			Type: &colType,
+			Label:      &colName,
+			ColumnName: &colName,
+			ColumnType: &colType,
 		}
 		bqCols = append(bqCols, bqCol)
 	}
 
 	surfacerConf := &configpb.SurfacerConf{
-		ProjectName:     &projectName,
-		BigqueryDataset: &bqdataset,
-		BigqueryTable:   &bqtable,
-		BigqueryColumns: bqCols,
+		ProjectName:         &projectName,
+		BigqueryDataset:     &bqdataset,
+		BigqueryTable:       &bqtable,
+		BigqueryColumns:     bqCols,
+		ExcludeMetricColumn: excludedCols,
 	}
 
 	return surfacerConf
@@ -216,8 +224,9 @@ func TestParseBQColsForValidRow(t *testing.T) {
 		"result": "string",
 		"size":   "integer",
 	}
+	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	s := &Surfacer{
-		c:         newSurfacerConfig(colTypeMap),
+		c:         newSurfacerConfig(colTypeMap, excludedCols),
 		l:         &logger.Logger{},
 		writeChan: make(chan *metrics.EventMetrics, 10),
 	}
@@ -226,22 +235,28 @@ func TestParseBQColsForValidRow(t *testing.T) {
 	for k, v := range colValueMap {
 		em.AddLabel(k, v)
 	}
+	em.AddMetric("TestBqCols", metrics.NewInt(1))
 
 	expectedBqCols := map[string]bigquery.Value{
 		"name":   "test",
 		"result": "success",
 		"size":   int64(1),
 	}
-
 	parseBqCols, err := s.parseBQCols(em)
 
 	if err != nil {
 		t.Fatalf("Error while parsing bq columns: %v", err)
 	}
 
+	if len(parseBqCols) == 0 {
+		t.Fatalf("Length of parsed columns should be greater than 0!")
+	}
+
 	for k, v := range expectedBqCols {
-		if parseBqCols[k] != v {
-			t.Fatalf("Mismatch in column values!\n Got=%v, Expected=%v", parseBqCols[k], v)
+		for _, metric := range parseBqCols {
+			if v != metric.value[k] {
+				t.Fatalf("Mismatch in column values!\n Got=%v, Expected=%v", v, metric.value[k])
+			}
 		}
 	}
 }
@@ -257,8 +272,9 @@ func TestParseBQColsForInvalidRow(t *testing.T) {
 		"result": "string",
 		"size":   "integer",
 	}
+	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	s := &Surfacer{
-		c:         newSurfacerConfig(colTypeMap),
+		c:         newSurfacerConfig(colTypeMap, excludedCols),
 		l:         &logger.Logger{},
 		writeChan: make(chan *metrics.EventMetrics, 10),
 	}
@@ -267,6 +283,7 @@ func TestParseBQColsForInvalidRow(t *testing.T) {
 	for k, v := range colValueMap {
 		em.AddLabel(k, v)
 	}
+	em.AddMetric("TestBqCols", metrics.NewInt(1))
 
 	_, err := s.parseBQCols(em)
 
@@ -288,11 +305,12 @@ func TestInsertRowsToBQ(t *testing.T) {
 		"result": "string",
 		"size":   "integer",
 	}
+	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	ctx := context.Background()
 
 	for _, tc := range tests {
 		s := &Surfacer{
-			c:         newSurfacerConfig(colTypeMap),
+			c:         newSurfacerConfig(colTypeMap, excludedCols),
 			l:         &logger.Logger{},
 			writeChan: make(chan *metrics.EventMetrics, tc),
 		}
@@ -301,6 +319,7 @@ func TestInsertRowsToBQ(t *testing.T) {
 		for k, v := range colValueMap {
 			em.AddLabel(k, v)
 		}
+		em.AddMetric("TestInsertRows", metrics.NewInt(2))
 
 		for i := 0; i < tc; i++ {
 			s.Write(ctx, em)
@@ -324,11 +343,12 @@ func TestBatchInsertion(t *testing.T) {
 	colTypeMap := map[string]string{
 		"id": "string",
 	}
+	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	ctx := context.Background()
 
 	for i, tc := range tests {
 		s := &Surfacer{
-			c:         newSurfacerConfig(colTypeMap),
+			c:         newSurfacerConfig(colTypeMap, excludedCols),
 			l:         &logger.Logger{},
 			writeChan: make(chan *metrics.EventMetrics, tc),
 		}
@@ -337,6 +357,7 @@ func TestBatchInsertion(t *testing.T) {
 		for k, v := range colValueMap {
 			em.AddLabel(k, v)
 		}
+		em.AddMetric("TestBatchInsertion", metrics.NewInt(3))
 
 		for i := 0; i < tc; i++ {
 			s.Write(ctx, em)
@@ -349,7 +370,7 @@ func TestBatchInsertion(t *testing.T) {
 		s.batchInsertRowsToBQ(ctx, inserter)
 
 		if inserter.batchCount != expectedCounts[i] {
-			t.Fatalf("Error in batch insertion for test case: %v!", tc)
+			t.Fatalf("Number of expected put calls %v, Got=%v for tc=%v!", expectedCounts[i], inserter.batchCount, tc)
 		}
 	}
 }
@@ -361,11 +382,12 @@ func TestWriteToBQ(t *testing.T) {
 	colTypeMap := map[string]string{
 		"id": "string",
 	}
+	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*11)
 	defer cancel()
 
 	s := &Surfacer{
-		c:         newSurfacerConfig(colTypeMap),
+		c:         newSurfacerConfig(colTypeMap, excludedCols),
 		l:         &logger.Logger{},
 		writeChan: make(chan *metrics.EventMetrics, 4500),
 	}
@@ -374,6 +396,7 @@ func TestWriteToBQ(t *testing.T) {
 	for k, v := range colValueMap {
 		em.AddLabel(k, v)
 	}
+	em.AddMetric("TestWriteToBQ", metrics.NewInt(5))
 
 	for i := 0; i < 4500; i++ {
 		s.Write(ctx, em)
