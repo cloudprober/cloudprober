@@ -449,14 +449,9 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
 				AddMetric("connecterrors", result.connectErrors.Clone()).
 				AddLabel("ptype", "grpc").
-				AddLabel("probe", p.name)
+				AddLabel("probe", p.name).
+				AddLabel("dst", target.Dst())
 			result.Unlock()
-
-			if target.Port == 0 {
-				em.AddLabel("dst", target.Name)
-			} else {
-				em.AddLabel("dst", net.JoinHostPort(target.Name, strconv.Itoa(target.Port)))
-			}
 
 			em.LatencyUnit = p.opts.LatencyUnit
 			for _, al := range p.opts.AdditionalLabels {
