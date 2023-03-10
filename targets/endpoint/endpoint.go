@@ -74,8 +74,16 @@ func EndpointsFromNames(names []string) []Endpoint {
 	return result
 }
 
-// Key returns a string key that uniquely identifies that endpoint.
-// Endpoint key consists of endpoint name, port and labels.
+// Dst return the "dst" label for the endpoint
+func (ep *Endpoint) Dst() string {
+	if ep.Port == 0 {
+		return ep.Name
+	}
+	return net.JoinHostPort(ep.Name, strconv.Itoa(ep.Port))
+}
+
+// Resolve resolves endpoint to an IP address. If endpoint has an embedded IP
+// address it uses that, otherwise a global reolver is used.
 func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver) (net.IP, error) {
 	if ep.IP != nil {
 		if ipVersion == 0 || iputils.IPVersion(ep.IP) == ipVersion {
