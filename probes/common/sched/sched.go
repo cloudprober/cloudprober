@@ -115,7 +115,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		if (runCnt % s.statsExportFrequency) == 0 {
 			em := result.Metrics(ts, s.Opts).
 				AddLabel("probe", s.ProbeName).
-				AddLabel("dst", target.Name)
+				AddLabel("dst", target.Dst())
 
 			em.LatencyUnit = s.Opts.LatencyUnit
 
