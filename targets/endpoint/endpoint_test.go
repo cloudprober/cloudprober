@@ -17,6 +17,8 @@ package endpoint
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEndpointsFromNames(t *testing.T) {
@@ -73,6 +75,32 @@ func TestKey(t *testing.T) {
 			if key != test.key {
 				t.Errorf("Got key: %s, want: %s", key, test.key)
 			}
+		})
+	}
+}
+
+func TestEndpointDst(t *testing.T) {
+	tests := []struct {
+		ep   Endpoint
+		want string
+	}{
+		{
+			ep: Endpoint{
+				Name: "ep-1",
+			},
+			want: "ep-1",
+		},
+		{
+			ep: Endpoint{
+				Name: "ep-2",
+				Port: 9313,
+			},
+			want: "ep-2:9313",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.ep.Key(), func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.ep.Dst(), "destination")
 		})
 	}
 }
