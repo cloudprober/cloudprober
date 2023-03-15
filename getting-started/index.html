@@ -425,9 +425,7 @@ how to download the unreleased binaries.</em>)</p>
 <p><strong>Docker Image</strong>
 You can download and run the <a href="https://github.com/cloudprober/cloudprober/wiki/Docker-versions">latest</a> docker image using
 the following command:</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run --net host cloudprober/cloudprober
-<span class="c1"># Note: &#34;--net host&#34; provides better network performance and makes port</span>
-<span class="c1"># forwarding management easier, but is not required.</span>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run ghcr.io/cloudprober/cloudprober
 </code></pre></div></li>
 </ul>
 <h2 id="configuration">Configuration</h2>
@@ -451,8 +449,8 @@ cat &gt; /tmp/cloudprober.cfg <span class="s">&lt;&lt;EOF
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">./cloudprober --config_file /tmp/cloudprober.cfg
 </code></pre></div><p>You can have the standard docker image use this config using the following
 command:</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run --net host -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg <span class="se">\
-</span><span class="se"></span>    cloudprober/cloudprober
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg <span class="se">\
+</span><span class="se"></span>    ghcr.io/cloudprober/cloudprober
 </code></pre></div><p>Note: While running on GCE, cloudprober config can also be provided through a
 custom metadata attribute: <strong>cloudprober_config</strong>.</p>
 <h2 id="verification">Verification</h2>
