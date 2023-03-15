@@ -29,9 +29,7 @@ https://github.com/cloudprober/cloudprober/wiki/Docker-versions) docker image us
 the following command:
 
   ```bash
-  docker run --net host cloudprober/cloudprober
-  # Note: "--net host" provides better network performance and makes port
-  # forwarding management easier, but is not required.
+  docker run ghcr.io/cloudprober/cloudprober
   ```
 
 ## Configuration
@@ -68,8 +66,8 @@ You can have the standard docker image use this config using the following
 command:
 
 ```bash
-docker run --net host -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg \
-    cloudprober/cloudprober
+docker run -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg \
+    ghcr.io/cloudprober/cloudprober
 ```
 
 Note: While running on GCE, cloudprober config can also be provided through a
