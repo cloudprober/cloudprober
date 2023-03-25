@@ -350,7 +350,9 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 
 	sleepBetweenZones := reEvalInterval / (2 * time.Duration(len(zones)+1))
 
+	currentZones := make(map[string]bool)
 	for _, zone := range zones {
+		currentZones[zone] = true
 		names, cache, err := il.expandForZone(zone)
 		if err != nil {
 			il.l.Errorf("gce_instances.expand: error while listing instances in zone %s: %v", zone, err)
@@ -364,6 +366,19 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 
 		numItems += len(names)
 		time.Sleep(sleepBetweenZones)
+	}
+
+	// Check if we've a case of deleted zone and we need to clear cache.
+	if len(il.namesPerScope) != len(currentZones) {
+		for zone := range il.namesPerScope {
+			if !currentZones[zone] {
+				il.l.Infof("gce_instances.expand: deleting now-missing zone: %s", zone)
+				il.mu.Lock()
+				delete(il.namesPerScope, zone)
+				delete(il.cachePerScope, zone)
+				il.mu.Unlock()
+			}
+		}
 	}
 
 	il.l.Infof("gce_instances.expand: got %d instances", numItems)

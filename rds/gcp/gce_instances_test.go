@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -461,4 +462,41 @@ func TestExpand(t *testing.T) {
 			}
 		}
 	}
+}
+
+func testGCPGetURL(t *testing.T, zonesFile string) func(*http.Client, string) ([]byte, error) {
+	return func(_ *http.Client, url string) ([]byte, error) {
+		switch url {
+		case "https://www.googleapis.com/compute/v1/projects/proj1/zones/us-central1-a/instances?filter=status%20eq%20%22RUNNING%22":
+			return readTestJSON(t, "instances.json"), nil
+		case "https://www.googleapis.com/compute/v1/projects/proj1/zones/us-central1-b/instances?filter=status%20eq%20%22RUNNING%22":
+			return []byte("{\"items\": []}"), nil // No instances in us-central1-b
+		case "https://www.googleapis.com/compute/v1/projects/proj1/zones":
+			return readTestJSON(t, zonesFile), nil
+		}
+		// Return error for non-matching URL.
+		return nil, fmt.Errorf("unknown url: %s", url)
+	}
+}
+
+func TestExpandWithDeleteZone(t *testing.T) {
+	project, apiVersion := "proj1", "v1"
+
+	il := &gceInstancesLister{
+		project:       project,
+		baseAPIPath:   "https://www.googleapis.com/compute/" + apiVersion + "/projects/" + project,
+		getURLFunc:    testGCPGetURL(t, "zones.json"),
+		cachePerScope: make(map[string]map[string]*instanceData),
+		namesPerScope: make(map[string][]string),
+	}
+
+	il.expand(time.Second)
+	assert.Equal(t, 2, len(il.namesPerScope), "cache keys")
+	assert.Equal(t, 2, len(il.cachePerScope), "cache keys")
+
+	il.getURLFunc = testGCPGetURL(t, "zones2.json")
+
+	il.expand(time.Second)
+	assert.Equal(t, 1, len(il.namesPerScope), "cache keys")
+	assert.Equal(t, 1, len(il.cachePerScope), "cache keys")
 }
