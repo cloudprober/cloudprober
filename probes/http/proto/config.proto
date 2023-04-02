@@ -7,7 +7,7 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/http/proto";
 
-// Next tag: 18
+// Next tag: 20
 message ProbeConf {
   enum ProtocolType {
     HTTP = 0;
@@ -86,6 +86,9 @@ message ProbeConf {
 
   // Proxy URL, e.g. http://myproxy:3128
   optional string proxy_url = 16;
+
+  // User agent. Default user agent is Go's default user agent.
+  optional string user_agent = 19;
 
   // Maximum idle connections to keep alive
   optional int32 max_idle_conns = 17 [default = 256];

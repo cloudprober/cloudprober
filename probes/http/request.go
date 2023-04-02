@@ -150,5 +150,9 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// on various conditions.
 	req.Host = hostHeaderForTarget(target, probeHostHeader, port)
 
+	if p.c.GetUserAgent() != "" {
+		req.Header.Set("User-Agent", p.c.GetUserAgent())
+	}
+
 	return req
 }
