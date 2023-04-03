@@ -65,6 +65,16 @@
       }
     </style>
 
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FHHPC1TNQV"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-FHHPC1TNQV');
+    </script>
+
     {{ range .Site.Params.custom_css }}
     <link rel="stylesheet" href="{{ . | absURL }}">
     {{ end }}
