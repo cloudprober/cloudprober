@@ -226,7 +226,7 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 	batchSize := int(s.c.GetMetricsBatchSize())
 
 	for i := 0; i < chanLen; i += batchSize {
-		var results []*bqrow
+		var bqRowsArr []*bqrow
 
 		for j := i; j < i+batchSize && j < chanLen; j++ {
 			em := <-s.writeChan
@@ -237,11 +237,11 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 				s.l.Errorf("%v", err)
 				continue
 			}
-			results = append(results, bqMetrics...)
+			bqRowsArr = append(bqRowsArr, bqMetrics...)
 		}
-		if len(results) > 0 {
-			if err := inserter.Put(bqctx, results); err != nil {
-				for _, row := range results {
+		if len(bqRowsArr) > 0 {
+			if err := inserter.Put(bqctx, bqRowsArr); err != nil {
+				for _, row := range bqRowsArr {
 					s.l.Errorf("failed uploading row to Bigquery: %v, row: %v", err, row.value)
 				}
 			}
