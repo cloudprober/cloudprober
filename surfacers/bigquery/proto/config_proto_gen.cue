@@ -17,17 +17,18 @@ package proto
 	// is not completed within this time period then the request will fail and the
 	// failed rows will be retried later.
 	bigqueryTimeoutSec?: int64 @protobuf(5,int64,name=bigquery_timeout_sec,"default=30")
-
-	// Any column name passes here won't be inserted in bigquery like
-	// 'metric_name', 'metric_value' or 'metric_time'
-	excludeMetricColumn?: [...string] @protobuf(6,string,name=exclude_metric_column)
-	metricsBufferSize?: int64 @protobuf(7,int64,name=metrics_buffer_size,"default=100000")
+	metricsBufferSize?:  int64 @protobuf(6,int64,name=metrics_buffer_size,"default=100000")
 
 	// This denotes the time interval after which data will be inserted in
 	// bigquery. Default is 10 seconds. So after every 10 seconds all the em in
 	// current will be inserted in bigquery in a default batch size of 1000
-	batchTimerSec?:    int64 @protobuf(8,int64,name=batch_timer_sec,"default=10")
-	metricsBatchSize?: int64 @protobuf(9,int64,name=metrics_batch_size,"default=1000")
+	batchTimerSec?:    int64 @protobuf(7,int64,name=batch_timer_sec,"default=10")
+	metricsBatchSize?: int64 @protobuf(8,int64,name=metrics_batch_size,"default=1000")
+
+	// Column name for metrics name, value and timestamp
+	metricTimeColName?:  string @protobuf(9,string,name=metric_time_col_name,#"default="metric_time""#)
+	metricNameColName?:  string @protobuf(10,string,name=metric_name_col_name,#"default="metric_name""#)
+	metricValueColName?: string @protobuf(11,string,name=metric_value_col_name,#"default="metric_value""#)
 }
 
 #BQColumn: {

@@ -12,6 +12,7 @@ import (
 	"cloud.google.com/go/bigquery"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/bigquery/proto"
 )
 
@@ -26,7 +27,8 @@ type iInserter interface {
 // Surfacer structures for writing to bigquery.
 type Surfacer struct {
 	// Configuration
-	c *configpb.SurfacerConf
+	c    *configpb.SurfacerConf
+	opts *options.Options
 
 	// Channel for incoming data.
 	writeChan chan *metrics.EventMetrics
@@ -38,10 +40,11 @@ type Surfacer struct {
 // New initializes a bigquery surfacer. bigquery surfacer inserts probe results
 // into a bigquery database.
 // ctx is used to manage background goroutine.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*Surfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	s := &Surfacer{
-		c: config,
-		l: l,
+		c:    config,
+		opts: opts,
+		l:    l,
 	}
 	return s, s.init(ctx)
 }
@@ -59,19 +62,15 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func convertToBqType(colType, label string) (bigquery.Value, error) {
+	if label == "" {
+		return "", nil
+	}
 	colType = strings.ToLower(colType)
 	switch colType {
 	case "string":
 		return label, nil
-	case "integer", "int":
+	case "integer", "int", "numeric":
 		val, err := strconv.ParseInt(label, 10, 64)
 		if err != nil {
 			return nil, err
@@ -112,35 +111,24 @@ func getJSON(em *metrics.EventMetrics) (string, error) {
 	return convertToJSON(labels)
 }
 
-func updateLabels(labels map[string]bigquery.Value, key string, val bigquery.Value) map[string]bigquery.Value {
-	labelsCopy := make(map[string]bigquery.Value)
-	for k, v := range labels {
-		labelsCopy[k] = v
+func copyMap(baseRow map[string]bigquery.Value) map[string]bigquery.Value {
+	baseRowCopy := make(map[string]bigquery.Value)
+	for k, v := range baseRow {
+		baseRowCopy[k] = v
 	}
-	labelsCopy[key] = val
-	return labelsCopy
+	return baseRowCopy
 }
 
-func updateMetricValues(bqRowMap map[string]bigquery.Value, metricName string, value bigquery.Value, timestamp time.Time, excludedColumns []string) map[string]bigquery.Value {
-	mapCopy := make(map[string]bigquery.Value)
-	for k, v := range bqRowMap {
-		mapCopy[k] = v
-	}
-	if !slices.Contains(excludedColumns, "metric_name") {
-		mapCopy["metric_name"] = metricName
-	}
-	if !slices.Contains(excludedColumns, "metric_value") {
-		mapCopy["metric_value"] = value
-	}
-	if !slices.Contains(excludedColumns, "metric_time") {
-		mapCopy["metric_time"] = timestamp
-	}
-	return mapCopy
+func updateMetricValues(bqRowMap map[string]bigquery.Value, metricName string, value bigquery.Value, timestamp time.Time, conf *configpb.SurfacerConf) map[string]bigquery.Value {
+	bqRowMap[conf.GetMetricNameColName()] = metricName
+	bqRowMap[conf.GetMetricValueColName()] = value
+	bqRowMap[conf.GetMetricTimeColName()] = timestamp
+	return bqRowMap
 }
 
-func distToBqMetrics(d *metrics.DistributionData, metricName string, labels map[string]bigquery.Value, timestamp time.Time, excludedColumns []string) []*bqrow {
-	sumMetric := updateMetricValues(labels, metricName+"_sum", d.Sum, timestamp, excludedColumns)
-	countMetric := updateMetricValues(labels, metricName+"_count", d.Count, timestamp, excludedColumns)
+func distToBqMetrics(d *metrics.DistributionData, metricName string, labels map[string]bigquery.Value, timestamp time.Time, conf *configpb.SurfacerConf) []*bqrow {
+	sumMetric := updateMetricValues(labels, metricName+"_sum", d.Sum, timestamp, conf)
+	countMetric := updateMetricValues(labels, metricName+"_count", d.Count, timestamp, conf)
 
 	bqMetrics := []*bqrow{
 		&bqrow{value: sumMetric},
@@ -159,51 +147,58 @@ func distToBqMetrics(d *metrics.DistributionData, metricName string, labels map[
 		} else {
 			lb = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
 		}
-		labelsWithBucket := updateLabels(labels, "le", lb)
-		labelsWithBucket = updateMetricValues(labelsWithBucket, metricName+"_bucket", val, timestamp, excludedColumns)
+		labelsWithBucket := copyMap(labels)
+		labelsWithBucket["le"] = lb
+		labelsWithBucket = updateMetricValues(labelsWithBucket, metricName+"_bucket", val, timestamp, conf)
 		bqMetrics = append(bqMetrics, &bqrow{value: labelsWithBucket})
 	}
 	return bqMetrics
 }
 
 func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) ([]*bqrow, error) {
-	labels := make(map[string]bigquery.Value)
-	var bqMetrics []*bqrow
+	baseRow := make(map[string]bigquery.Value)
+	var out []*bqrow
 
 	if len(s.c.GetBigqueryColumns()) > 0 {
 		for _, col := range s.c.GetBigqueryColumns() {
 			colName := col.GetColumnName()
-			label := col.GetLabel()
-			val, err := convertToBqType(col.GetColumnType(), em.Label(label))
+			label := em.Label(col.GetLabel())
+			val, err := convertToBqType(col.GetColumnType(), label)
 			if err != nil {
 				return nil, fmt.Errorf("error occurred while parsing for field %v: %v", colName, err)
 			}
-			labels[colName] = val
+			baseRow[colName] = val
 		}
 	} else {
 		jsonVal, err := getJSON(em)
 		if err != nil {
 			return nil, err
 		}
-		labels["labels"] = jsonVal
+		baseRow["labels"] = jsonVal
 	}
 
 	for _, metricName := range em.MetricsKeys() {
+		if !s.opts.AllowMetric(metricName) {
+			continue
+		}
+
 		val := em.Metric(metricName)
 
 		// Map metric
 		if mapVal, ok := val.(*metrics.Map); ok {
 			for _, k := range mapVal.Keys() {
-				bqRowMap := updateLabels(labels, mapVal.MapName, k)
-				bqRowMap = updateMetricValues(bqRowMap, metricName, mapVal.GetKey(k), em.Timestamp, s.c.GetExcludeMetricColumn())
-				bqMetrics = append(bqMetrics, &bqrow{value: labels})
+				bqRowMap := copyMap(baseRow)
+				bqRowMap[mapVal.MapName] = k
+				bqRowMap = updateMetricValues(bqRowMap, metricName, mapVal.GetKey(k), em.Timestamp, s.c)
+				out = append(out, &bqrow{value: bqRowMap})
 			}
 			continue
 		}
 
+		bqRowMap := copyMap(baseRow)
 		// Distribution metric
 		if distVal, ok := val.(*metrics.Distribution); ok {
-			bqMetrics = append(bqMetrics, distToBqMetrics(distVal.Data(), metricName, labels, em.Timestamp, s.c.GetExcludeMetricColumn())...)
+			out = append(out, distToBqMetrics(distVal.Data(), metricName, bqRowMap, em.Timestamp, s.c)...)
 			continue
 		}
 
@@ -211,17 +206,16 @@ func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) ([]*bqrow, error) {
 		// the "val" label and setting the metric value to 1.
 		// For example: version="1.11" becomes version{val="1.11"}=1
 		if _, ok := val.(metrics.String); ok {
-			bqRowMap := updateLabels(labels, "val", val)
-			bqRowMap = updateMetricValues(bqRowMap, metricName, "1", em.Timestamp, s.c.GetExcludeMetricColumn())
-			bqMetrics = append(bqMetrics, &bqrow{value: bqRowMap})
+			bqRowMap["val"] = val
+			bqRowMap = updateMetricValues(bqRowMap, metricName, "1", em.Timestamp, s.c)
+			out = append(out, &bqrow{value: bqRowMap})
 			continue
 		}
 
-		fmt.Printf("Expected statement!!")
-		bqMetric := updateMetricValues(labels, metricName, val.String(), em.Timestamp, s.c.GetExcludeMetricColumn())
-		bqMetrics = append(bqMetrics, &bqrow{value: bqMetric})
+		bqMetric := updateMetricValues(bqRowMap, metricName, val.String(), em.Timestamp, s.c)
+		out = append(out, &bqrow{value: bqMetric})
 	}
-	return bqMetrics, nil
+	return out, nil
 }
 
 func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) {
@@ -234,7 +228,7 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 	for i := 0; i < chanLen; i += batchSize {
 		var results []*bqrow
 
-		for j := i; j < min(i+batchSize, chanLen); j++ {
+		for j := i; j < i+batchSize && j < chanLen; j++ {
 			em := <-s.writeChan
 
 			bqMetrics, err := s.parseBQCols(em)
@@ -256,14 +250,12 @@ func (s *Surfacer) batchInsertRowsToBQ(ctx context.Context, inserter iInserter) 
 }
 
 func (s *Surfacer) writeToBQ(ctx context.Context, inserter iInserter) {
-	bigqueryInsertionTime := s.c.GetBatchTimerSec()
-	ticker := time.NewTicker(time.Duration(bigqueryInsertionTime) * time.Second)
+	ticker := time.NewTicker(time.Duration(s.c.GetBatchTimerSec()) * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			s.l.Infof("Context canceled, stopping the surfacer write loop")
-			s.batchInsertRowsToBQ(ctx, inserter)
 			return
 		case <-ticker.C:
 			s.batchInsertRowsToBQ(ctx, inserter)

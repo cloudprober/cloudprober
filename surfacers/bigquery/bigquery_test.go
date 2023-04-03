@@ -26,7 +26,7 @@ func (i *fakeInserter) Put(ctx context.Context, values any) error {
 	return nil
 }
 
-func newSurfacerConfig(col map[string]string, excludedCols []string) *configpb.SurfacerConf {
+func newSurfacerConfig(col map[string]string) *configpb.SurfacerConf {
 	projectName := "test-project"
 	bqdataset := "test-dataset"
 	bqtable := "test-table"
@@ -44,11 +44,10 @@ func newSurfacerConfig(col map[string]string, excludedCols []string) *configpb.S
 	}
 
 	surfacerConf := &configpb.SurfacerConf{
-		ProjectName:         &projectName,
-		BigqueryDataset:     &bqdataset,
-		BigqueryTable:       &bqtable,
-		BigqueryColumns:     bqCols,
-		ExcludeMetricColumn: excludedCols,
+		ProjectName:     &projectName,
+		BigqueryDataset: &bqdataset,
+		BigqueryTable:   &bqtable,
+		BigqueryColumns: bqCols,
 	}
 
 	return surfacerConf
@@ -182,37 +181,6 @@ func TestConvertToBQTypeForFailure(t *testing.T) {
 	}
 }
 
-func TestMin(t *testing.T) {
-	tests := []struct {
-		a    int
-		b    int
-		want int
-	}{
-		{
-			a:    10,
-			b:    20,
-			want: 10,
-		},
-		{
-			a:    20,
-			b:    10,
-			want: 10,
-		},
-		{
-			a:    10,
-			b:    10,
-			want: 10,
-		},
-	}
-
-	for _, tc := range tests {
-		res := min(tc.a, tc.b)
-		if res != tc.want {
-			t.Fatalf("min(%d, %d) = %d, expected %d", tc.a, tc.b, res, tc.want)
-		}
-	}
-}
-
 func TestParseBQColsForValidRow(t *testing.T) {
 	colValueMap := map[string]string{
 		"name":   "test",
@@ -224,9 +192,8 @@ func TestParseBQColsForValidRow(t *testing.T) {
 		"result": "string",
 		"size":   "integer",
 	}
-	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	s := &Surfacer{
-		c:         newSurfacerConfig(colTypeMap, excludedCols),
+		c:         newSurfacerConfig(colTypeMap),
 		l:         &logger.Logger{},
 		writeChan: make(chan *metrics.EventMetrics, 10),
 	}
@@ -261,37 +228,6 @@ func TestParseBQColsForValidRow(t *testing.T) {
 	}
 }
 
-func TestParseBQColsForInvalidRow(t *testing.T) {
-	colValueMap := map[string]string{
-		"name":   "test",
-		"result": "success",
-		"sizes":  "1",
-	}
-	colTypeMap := map[string]string{
-		"name":   "string",
-		"result": "string",
-		"size":   "integer",
-	}
-	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
-	s := &Surfacer{
-		c:         newSurfacerConfig(colTypeMap, excludedCols),
-		l:         &logger.Logger{},
-		writeChan: make(chan *metrics.EventMetrics, 10),
-	}
-
-	em := metrics.NewEventMetrics(time.Now())
-	for k, v := range colValueMap {
-		em.AddLabel(k, v)
-	}
-	em.AddMetric("TestBqCols", metrics.NewInt(1))
-
-	_, err := s.parseBQCols(em)
-
-	if err == nil {
-		t.Fatalf("No invalid row found!")
-	}
-}
-
 func TestInsertRowsToBQ(t *testing.T) {
 	tests := [4]int{134, 9, 43141, 34}
 
@@ -305,12 +241,11 @@ func TestInsertRowsToBQ(t *testing.T) {
 		"result": "string",
 		"size":   "integer",
 	}
-	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	ctx := context.Background()
 
 	for _, tc := range tests {
 		s := &Surfacer{
-			c:         newSurfacerConfig(colTypeMap, excludedCols),
+			c:         newSurfacerConfig(colTypeMap),
 			l:         &logger.Logger{},
 			writeChan: make(chan *metrics.EventMetrics, tc),
 		}
@@ -343,12 +278,11 @@ func TestBatchInsertion(t *testing.T) {
 	colTypeMap := map[string]string{
 		"id": "string",
 	}
-	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	ctx := context.Background()
 
 	for i, tc := range tests {
 		s := &Surfacer{
-			c:         newSurfacerConfig(colTypeMap, excludedCols),
+			c:         newSurfacerConfig(colTypeMap),
 			l:         &logger.Logger{},
 			writeChan: make(chan *metrics.EventMetrics, tc),
 		}
@@ -382,12 +316,11 @@ func TestWriteToBQ(t *testing.T) {
 	colTypeMap := map[string]string{
 		"id": "string",
 	}
-	excludedCols := []string{metricNameCol, metricValueCol, metricTimeCol}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*11)
 	defer cancel()
 
 	s := &Surfacer{
-		c:         newSurfacerConfig(colTypeMap, excludedCols),
+		c:         newSurfacerConfig(colTypeMap),
 		l:         &logger.Logger{},
 		writeChan: make(chan *metrics.EventMetrics, 4500),
 	}
