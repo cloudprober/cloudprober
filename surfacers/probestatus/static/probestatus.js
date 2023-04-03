@@ -32,7 +32,7 @@ var baseData = {
   },
 };
 
-function populateProbeData() {
+function populateProbeData(probe) {
   let gd = psd[probe];
 
   d[probe] = structuredClone(baseData);
@@ -43,9 +43,9 @@ function populateProbeData() {
 
   // Construct x-axis using startTime and endTime.
   for (let s = gd.StartTime; s < gd.EndTime; s = s + gd.ResSeconds) {
-    dt = new Date(s * 1000);
-    m = dt.getMonth() + 1;
-    dtStr =
+    const dt = new Date(s * 1000);
+    const m = dt.getMonth() + 1;
+    const dtStr =
       dt.getFullYear() +
       '/' +
       m +
@@ -63,7 +63,7 @@ function populateProbeData() {
   }
 
   // Data colums
-  for (tgt in gd.Values) {
+  for (const tgt in gd.Values) {
     let vals = gd.Values[tgt];
     let freqs = gd.Freqs[tgt];
     let c = [tgt];
@@ -79,7 +79,7 @@ function populateProbeData() {
 }
 
 function populateD() {
-  for (probe in psd) {
+  for (const probe in psd) {
     populateProbeData(probe);
   }
 }
