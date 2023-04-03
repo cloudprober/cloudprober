@@ -105,7 +105,7 @@ function setupGraphEndpoint() {
   });
 
   let params = new URLSearchParams(location.search);
-  if (typeof startTime != undefined) {
+  if (typeof startTime != 'undefined') {
     $('#graph-endtime').attr('min', dateToValStr(new Date(startTime)));
   }
   if (params.get('graph_endtime')) {
