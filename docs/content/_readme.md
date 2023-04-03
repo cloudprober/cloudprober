@@ -1,6 +1,7 @@
-![Go Build and Test](https://github.com/google/cloudprober/workflows/Go%20Build%20and%20Test/badge.svg)
-[![Appveyor Build status](https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true)](https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu)
 [![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)](https://hub.docker.com/v2/repositories/cloudprober/cloudprober/)
+![Go Build and Test](https://github.com/google/cloudprober/workflows/Go%20Build%20and%20Test/badge.svg)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 
 _NOTE: Cloudprober's active development has moved to
 [github.com/cloudprober/cloudprober](https://github.com/cloudprober/cloudprober)
