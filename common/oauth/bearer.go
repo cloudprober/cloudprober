@@ -51,43 +51,44 @@ func bytesToToken(b []byte) *oauth2.Token {
 	}
 }
 
-var getTokenFromFile = func(c *configpb.BearerToken) (*oauth2.Token, error) {
-	b, err := file.ReadFile(c.GetFile())
-	if err != nil {
-		return nil, err
-	}
-	return bytesToToken(b), nil
-}
+var tokenFunctions = struct {
+	fromFile, fromCmd, fromGCEMetadata, fromK8sTokenFile func(c *configpb.BearerToken) (*oauth2.Token, error)
+}{
+	fromFile: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		b, err := file.ReadFile(c.GetFile())
+		if err != nil {
+			return nil, err
+		}
+		return bytesToToken(b), nil
+	},
+	fromCmd: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		var cmd *exec.Cmd
 
-var getTokenFromCmd = func(c *configpb.BearerToken) (*oauth2.Token, error) {
-	var cmd *exec.Cmd
+		cmdParts := strings.Split(c.GetCmd(), " ")
+		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
 
-	cmdParts := strings.Split(c.GetCmd(), " ")
-	cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
+		out, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute command: %v", cmd)
+		}
 
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute command: %v", cmd)
-	}
-
-	return bytesToToken(out), nil
-}
-
-var getTokenFromGCEMetadata = func(c *configpb.BearerToken) (*oauth2.Token, error) {
-	ts := google.ComputeTokenSource(c.GetGceServiceAccount())
-	tok, err := ts.Token()
-	if err != nil {
-		return nil, err
-	}
-	return tok, nil
-}
-
-var getTokenFromK8sTokenFile = func(c *configpb.BearerToken) (*oauth2.Token, error) {
-	b, err := os.ReadFile(k8sTokenFile)
-	if err != nil {
-		return nil, err
-	}
-	return &oauth2.Token{AccessToken: string(b)}, nil
+		return bytesToToken(out), nil
+	},
+	fromGCEMetadata: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		ts := google.ComputeTokenSource(c.GetGceServiceAccount())
+		tok, err := ts.Token()
+		if err != nil {
+			return nil, err
+		}
+		return tok, nil
+	},
+	fromK8sTokenFile: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		b, err := os.ReadFile(k8sTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		return &oauth2.Token{AccessToken: string(b)}, nil
+	},
 }
 
 func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
@@ -100,19 +101,19 @@ func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Dura
 
 	switch ts.c.Source.(type) {
 	case *configpb.BearerToken_File:
-		tokenBackendFunc = getTokenFromFile
+		tokenBackendFunc = tokenFunctions.fromFile
 
 	case *configpb.BearerToken_Cmd:
-		tokenBackendFunc = getTokenFromCmd
+		tokenBackendFunc = tokenFunctions.fromCmd
 
 	case *configpb.BearerToken_GceServiceAccount:
-		tokenBackendFunc = getTokenFromGCEMetadata
+		tokenBackendFunc = tokenFunctions.fromGCEMetadata
 
 	case *configpb.BearerToken_K8SLocalToken:
 		if !c.GetK8SLocalToken() {
 			return nil, fmt.Errorf("k8s_local_token cannot be false, config: <%v>", c.String())
 		}
-		tokenBackendFunc = getTokenFromK8sTokenFile
+		tokenBackendFunc = tokenFunctions.fromK8sTokenFile
 
 	default:
 		return nil, fmt.Errorf("unknown source: %v", ts.c.GetSource())

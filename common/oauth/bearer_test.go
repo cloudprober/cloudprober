@@ -103,10 +103,15 @@ func testK8SToken(c *configpb.BearerToken) (*oauth2.Token, error) {
 }
 
 func TestNewBearerToken(t *testing.T) {
-	getTokenFromFile = testTokenFromFile
-	getTokenFromCmd = testTokenFromCmd
-	getTokenFromGCEMetadata = testTokenFromGCEMetadata
-	getTokenFromK8sTokenFile = testK8SToken
+	oldTokenFunctions := tokenFunctions
+	tokenFunctions.fromFile = testTokenFromFile
+	tokenFunctions.fromCmd = testTokenFromCmd
+	tokenFunctions.fromGCEMetadata = testTokenFromGCEMetadata
+	tokenFunctions.fromK8sTokenFile = testK8SToken
+
+	defer func() {
+		tokenFunctions = oldTokenFunctions
+	}()
 
 	var tests = []struct {
 		name         string
