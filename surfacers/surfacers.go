@@ -214,7 +214,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		surfacer, err = probestatus.New(ctx, s.GetProbestatusSurfacer(), opts, l)
 		conf = s.GetProbestatusSurfacer()
 	case surfacerpb.Type_BIGQUERY:
-		surfacer, err = bigquery.New(ctx, s.GetBigquerySurfacer(), l)
+		surfacer, err = bigquery.New(ctx, s.GetBigquerySurfacer(), opts, l)
 		conf = s.GetBigquerySurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
