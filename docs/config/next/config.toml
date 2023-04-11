@@ -1,0 +1,2 @@
+baseurl = "http://cloudprober.org"
+canonifyURLs = true

@@ -1,0 +1,7 @@
+[en]
+  languageName = "English"
+  contentDir = "content"
+  weight = 10
+  [en.params]
+    languageISO = "EN"
+    languageTag = "en-US"

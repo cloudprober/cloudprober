@@ -1,0 +1,13 @@
+$font-size-sm: $font-size-base * 0.8;
+
+$purple-100: rgb(83, 111, 227);
+$pink-500: red;
+
+$color-btn-bg: $purple-100;
+$color-btn-border: darken($purple-100, 5%);
+$color-btn-text: $white;
+
+$font-family-sans-serif: "Jost", -apple-system, blinkmacsystemfont, "Segoe UI",
+  roboto, "Helvetica Neue", arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+  "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+$font-family-base: $font-family-sans-serif;

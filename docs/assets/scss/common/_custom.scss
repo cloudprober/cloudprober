@@ -1,0 +1,16 @@
+/** Custom styles */
+h1 {
+  font-size: calc(1.3rem + 0.9vw);
+}
+
+h2 {
+  font-size: calc(1.2rem + 0.6vw);
+}
+
+h3 {
+  font-size: calc(1.1rem + 0.3vw);
+}
+
+::selection {
+  background: rgba(212, 53, 159, 0.2);
+}
