@@ -50,7 +50,7 @@
   });
   /* Register handler to log search on blur */
   var query = document.querySelector('.query');
-  if (!!query) {
+  if (query) {
     query.addEventListener('blur', function () {
       if (this.value) {
         var path = document.location.pathname;
