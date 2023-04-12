@@ -1,4 +1,4 @@
-baseurl = "https://doks-child-theme.netlify.app/"
+baseurl = "https://cloudprober.org"
 canonifyURLs = false
 disableAliases = true
 disableHugoGeneratorInject = true

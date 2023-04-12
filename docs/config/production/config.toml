@@ -1,2 +1,2 @@
-baseurl = "http://cloudprober.org"
+baseurl = "https://cloudprober.org"
 canonifyURLs = true
