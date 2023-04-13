@@ -1,7 +1,7 @@
 [[main]]
   name = "Get Started"
   identifier = "get-started"
-  url = "/docs/overview/getting-started"
+  url = "/docs/overview/cloudprober"
   weight = 30
 
 [[main]]

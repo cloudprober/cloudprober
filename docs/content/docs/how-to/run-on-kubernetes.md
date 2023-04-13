@@ -299,10 +299,10 @@ Cloudprober should now start monitoring cloudprober endpoints. To verify:
 # localhost:9313.
 kubectl port-forward svc/cloudprober 9313:9313 &
 
-# Check config
-curl localhost:9313/config
+# Check status
+curl localhost:9313/status
 
-# Check metrics
+# Check metrics (prometheus data format)
 curl localhost:9313/metrics
 ```
 
