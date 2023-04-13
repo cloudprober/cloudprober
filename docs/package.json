@@ -66,5 +66,15 @@
   },
   "otherDependencies": {
     "hugo": "0.101.0"
+  },
+  "prettier": {
+    "overrides": [
+      {
+        "files": "*.md",
+        "options": {
+          "proseWrap": "always"
+        }
+      }
+    ]
   }
 }
