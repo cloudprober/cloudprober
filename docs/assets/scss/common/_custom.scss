@@ -12,3 +12,8 @@
 .home h1 {
   font-size: calc(1.625rem + 1.3vw);
 }
+
+.alert {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+}

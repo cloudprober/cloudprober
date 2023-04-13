@@ -7,11 +7,19 @@ title: "Running On Kubernetes"
 date: 2022-11-01T17:24:32-07:00
 ---
 
-Kubernetes is a popular platform for running containers, and Cloudprober container runs on Kubernetes right out of the box. This document shows how you can use config map to provide config to cloudprober and reload cloudprober on config changes.
+Kubernetes is a popular platform for running containers, and Cloudprober
+container runs on Kubernetes right out of the box. This document shows how you
+can run Cloudprober on kubernetes, use ConfigMap for config, and discover
+kubernetes targets automatically.
+
+{{< alert context=info icon=ⓘ >}} If you use helm charts for k8s installations,
+[Cloudprober helm chart](https://github.com/cloudprober/helm-charts) provides
+the most convenient way to run Cloudprober on k8s. {{< /alert >}}
 
 ## ConfigMap
 
-In Kubernetes, a convenient way to provide config to containers is to use config maps. Let's create a config that specifies a probe to monitor "google.com".
+In Kubernetes, a convenient way to provide config to containers is to use config
+maps. Let's create a config that specifies a probe to monitor "google.com".
 
 ```bash
 probe {
@@ -26,14 +34,16 @@ probe {
 }
 ```
 
-Save this config in `cloudprober.cfg`, create a config map using the following command:
+Save this config in `cloudprober.cfg`, create a config map using the following
+command:
 
 ```bash
 kubectl create configmap cloudprober-config \
   --from-file=cloudprober.cfg=cloudprober.cfg
 ```
 
-If you change the config, you can update the config map using the following command:
+If you change the config, you can update the config map using the following
+command:
 
 ```bash
 kubectl create configmap cloudprober-config \
@@ -43,7 +53,8 @@ kubectl create configmap cloudprober-config \
 
 ## Deployment Map
 
-Now let's add a `deployment.yaml` to add the config volume and cloudprober container:
+Now let's add a `deployment.yaml` to add the config volume and cloudprober
+container:
 
 ```yaml
 apiVersion: apps/v1
@@ -94,7 +105,10 @@ spec:
   type: NodePort
 ```
 
-Note that we added an annotation to the deployment spec; this annotation allows us to update the deployment whenever cloudprober config changes. We can update this annotation based on the local cloudprober config content, and update the deployment using the following one-liner:
+Note that we added an annotation to the deployment spec; this annotation allows
+us to update the deployment whenever cloudprober config changes. We can update
+this annotation based on the local cloudprober config content, and update the
+deployment using the following one-liner:
 
 ```bash
 # Update the config checksum annotation in deployment.yaml before running
@@ -103,9 +117,12 @@ export CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) 
 cat deployment.yaml | envsubst | kubectl apply -f -
 ```
 
-(Note: If you use Helm for Kubernetes deployments, Helm provides [a more native way](https://helm.sh/docs/howto/charts_tips_and_tricks/#automatically-roll-deployments) to include config checksums in deployments.)
+(Note: If you use Helm for Kubernetes deployments, Helm provides
+[a more native way](https://helm.sh/docs/howto/charts_tips_and_tricks/#automatically-roll-deployments)
+to include config checksums in deployments.)
 
-Applying the above yaml file, should create a deployment with a service at port 9313:
+Applying the above yaml file, should create a deployment with a service at port
+9313:
 
 ```bash
 $ kubectl get deployment
@@ -117,19 +134,27 @@ NAME          TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
 cloudprober   NodePort   10.31.249.108   <none>        9313:31367/TCP   94m
 ```
 
-Now you should be able to access various cloudprober URLs (`/status` for status,`/config` for config, `/metrics` for prometheus-format metrics) from within the cluster. For quick verification you can also set up a port forwarder and access these URLs locally at `localhost:9313`:
+Now you should be able to access various cloudprober URLs (`/status` for
+status,`/config` for config, `/metrics` for prometheus-format metrics) from
+within the cluster. For quick verification you can also set up a port forwarder
+and access these URLs locally at `localhost:9313`:
 
 ```
 kubectl port-forward svc/cloudprober 9313:9313
 ```
 
-Once you've verified that everything is working as expected, you can go on setting up metrics collection through prometheus (or stackdriver) in usual ways.
+Once you've verified that everything is working as expected, you can go on
+setting up metrics collection through prometheus (or stackdriver) in usual ways.
 
 ## Kubernetes Targets
 
-If you're running on Kuberenetes, you'd probably want to monitor Kubernetes resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober supports dynamic [targets discovery](/concepts/targets/) of Kubernetes resources.
+If you're running on Kuberenetes, you'd probably want to monitor Kubernetes
+resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober
+supports dynamic [targets discovery](/concepts/targets/) of Kubernetes
+resources.
 
-For example, following config adds HTTP probing of Kubernetes endpoints named 'cloudprober' (equivalent to _kubectl get ep cloudprober_).
+For example, the following config adds an HTTP probe for the endpoints named
+`cloudprober` (equivalent to running _kubectl get ep cloudprober_).
 
 ```bash
 probe {
@@ -137,45 +162,83 @@ probe {
   type: HTTP
 
   targets {
-    # RDS (resource discovery service) targets
     # Equivalent to kubectl get ep cloudprober
-    rds_targets {
-      resource_path: "k8s://endpoints/cloudprober"
+    k8s_targets {
+      endpoints: "cloudprober"
     }
   }
 
+  # Note that the following http_probe automatically uses target's discovered
+  # port.
   http_probe {
     relative_url: "/status"
   }
 }
-
-# Run an RDS gRPC server to discover Kubernetes targets.
-rds_server {
-  provider {
-    # For all options, please take a look at:
-    # https://github.com/cloudprober/cloudprober/blob/master/rds/kubernetes/proto/config.proto#L38
-    kubernetes_config {
-      endpoints {}
-    }
-  }
-}
 ```
 
-This config adds a probe for endpoints named 'cloudprober'. Kubernetes targets configuration is further explained in the section below.
+### Supported Resource and Filters
 
-### Kubernetes RDS Targets
+Cloudprober supports discovery for the following k8s resources:
 
-As explained [here](/concepts/targets/#resource-discovery-service), cloudprober uses RDS for dynamic targets discovery. In the above config, we add an internal RDS server that provides expansion for kubernetes `endpoints` (other supported types are -- _pods_, _services_). Inside the probe, we specify targets of the type [rds_targets](/concepts/targets/#resource-discovery-service) with resource path, `k8s://endpoints/cloudprober`. This resource path specifies resource of the type 'endpoints' and with the name 'cloudprober' (Hint: you can skip the name part of the resource path to discover all endpoints in the cluster).
+- Services
+- Endpoints
+- Pods
+- Ingresses
+
+You can filter k8s resources using the following options:
+
+- `name`: (regex) Resource name filter. It can be a regex. Example:
+  ```shell
+  # Endpoints with names ending in "service"
+  k8s_targets {
+    endpoints: ".*-service"
+  }
+  ```
+- `namespace`: Namespace filter. Example:
+  ```shell
+  # Ingresses in "prod" namespace, ending in "lb"
+  k8s_targets {
+    namespace: "prod"
+    ingresses: ".*-lb"
+  }
+  ```
+- `labelSelector`: Label based selector. It can be repeated, and works similar
+  to the kubectl's --selector/-l flag. Example:
+  ```shell
+  k8s_targets {
+    pods: ".*"
+    labelSelector: "k8s-app"         # k8a-app label exists
+    labelSelector: "role=frontend"   # label "role" is set to "frontend"
+    labelSelector: "!no-monitoring"  # label "no-monitoring is not set"
+  }
+  ```
+- `portFilter`: (regex) Filter resources by port name or number (if port name is
+  not set). This is useful for resources like endpoints and services, where each
+  resource may have multiple ports. Example:
+  ```shell
+  k8s_targets {
+    endpoints: ".*-service"
+    portFilter: "http-.*"
+  }
+  ```
 
 ### Cluster Resources Access
 
-RDS server that we added above discovers cluster resources using kubernetes APIs. It assumes that we are interested in the cluster we are running it in, and uses in-cluster config to talk to the kubernetes API server. For this set up to work, we need to give our container read-only access to kubernetes resources:
+Cloudprober discovers k8s resources using kubernetes APIs. It assumes that we
+are interested in the cluster we are running it in, and uses in-cluster config
+to talk to the kubernetes API server. For this set up to work, we need to give
+our container read-only access to kubernetes resources:
 
 ```yaml
 # Define a ClusterRole (resource-reader) for read-only access to the cluster
 # resources and bind this ClusterRole to the default service account.
 
 cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudprober
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -202,7 +265,7 @@ metadata:
  namespace: default
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: cloudprober
   namespace: default
 roleRef:
  kind: ClusterRole
@@ -211,7 +274,8 @@ roleRef:
 EOF
 ```
 
-This will give `default` service account read-only access to the cluster resources. If you don't want to give the "default" user this access, you can create a new service account for cloudprober and use it in the deployment spec above.
+This will create a new service account `cloudprober` and will give it read-only
+access to the cluster resources.
 
 ### Push Config Update
 
@@ -242,4 +306,6 @@ curl localhost:9313/config
 curl localhost:9313/metrics
 ```
 
-If you're running on GKE and have not disabled cloud logging, you'll also see logs in [Stackdriver Logging](https://pantheon.corp.google.com/logs/viewer?resource=gce_instance).
+If you're running on GKE and have not disabled cloud logging, you'll also see
+logs in
+[Stackdriver Logging](https://pantheon.corp.google.com/logs/viewer?resource=gce_instance).
