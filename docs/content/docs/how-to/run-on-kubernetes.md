@@ -150,7 +150,8 @@ setting up metrics collection through prometheus (or stackdriver) in usual ways.
 
 If you're running on Kuberenetes, you'd probably want to monitor Kubernetes
 resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober
-supports dynamic [targets discovery](/concepts/targets/) of Kubernetes
+supports dynamic [targets
+discovery]({{< ref targets.md >}}#dynamically-discovered-targets) of Kubernetes
 resources.
 
 For example, the following config adds an HTTP probe for the endpoints named
