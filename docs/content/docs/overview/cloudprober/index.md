@@ -25,7 +25,8 @@ what's broken in your system.
 
 ## Features
 
-- Out of the box, config based, integration with many popular monitoring systems:
+- Out of the box, config based, integration with many popular monitoring
+  systems:
 
   - [Prometheus/Grafana](https://prometheus.io)
   - [DataDog](https://www.datadoghq.com/)
@@ -42,19 +43,23 @@ what's broken in your system.
     [DNS](https://github.com/cloudprober/cloudprober/blob/master/probes/dns/proto/config.proto),
     [gRPC](https://github.com/cloudprober/cloudprober/blob/master/probes/grpc/proto/config.proto),
     [UDP](https://github.com/cloudprober/cloudprober/blob/master/probes/udp/proto/config.proto).
-  - Run custom checks through the _"[external](https://cloudprober.org/how-to/external-probe/)"_ probe type.
+  - Run custom checks through the _"[external]({{< ref external-probe >}})"_
+    probe type.
 
-- Automated targets discovery to make Cloud deployments as painless as possible:
+- Automated [targets]({{< ref targets.md >}}) discovery to make Cloud
+  deployments as painless as possible:
 
-  - _[Kubernetes](https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets)_ resources.
-  - _[GCP](https://github.com/cloudprober/cloudprober/blob/master/rds/gcp/proto/config.proto)_ instances, forwarding rules, and pub/sub messages.
-  - _[File](https://github.com/cloudprober/cloudprober/blob/master/rds/file/proto/config.proto#L34)_ based targets.
+  - _[Kubernetes]({{< ref run-on-kubernetes.md >}}#kubernetes-targets)_
+    resources.
+  - _GCP_ instances, forwarding rules, and pub/sub messages.
+  - _[File]({{< ref targets.md >}}#file-based-targets)_ based targets.
 
 * Deployment friendly:
 
   - Written entirely in Go, and compiles into a static binary.
   - Deploy as a standalone binary, or through docker containers.
-  - Continuous, automated target discovery, to ensure that most infrastructure changes don't require re-deployment.
+  - Continuous, automated target discovery, to ensure that most infrastructure
+    changes don't require re-deployment.
 
 - Low footprint. Cloudprober takes advantage of the Go's concurrency paradigms,
   and makes most of the available processing power.
@@ -64,20 +69,23 @@ what's broken in your system.
   - Configurable metrics labels, based on the resource labels.
   - Latency histograms for percentile calculations.
 
-- Extensible architecture. Cloudprober can be easily extended along most of
-  the dimensions. Adding support for other Cloud targets, monitoring systems
-  and even a new probe type, is straight-forward and fairly easy.
+- Extensible architecture. Cloudprober can be easily extended along most of the
+  dimensions. Adding support for other Cloud targets, monitoring systems and
+  even a new probe type, is straight-forward and fairly easy.
 
 ## Getting Started
 
-Visit [Getting Started]({{< ref "getting-started.md" >}}) page to get
-started with Cloudprober.
+Visit [Getting Started]({{< ref "getting-started.md" >}}) page to get started
+with Cloudprober.
 
 ## Feedback
 
 We'd love to hear your feedback. If you're using Cloudprober, would you please
-mind sharing how you use it by adding a comment [here](https://github.com/cloudprober/cloudprober/discussions/121). It will be a great help in
-planning Cloudprober's future progression.
+mind sharing how you use it by adding a comment
+[here](https://github.com/cloudprober/cloudprober/discussions/121). It will be a
+great help in planning Cloudprober's future progression.
 
-Join [Cloudprober Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE) or [Github discussions](https://github.com/cloudprober/cloudprober/discussions) for questions and discussion
-about Cloudprober.
+Join
+[Cloudprober Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE)
+or [Github discussions](https://github.com/cloudprober/cloudprober/discussions)
+for questions and discussion about Cloudprober.
