@@ -101,7 +101,8 @@ and access these URLs locally at <code>localhost:9313</code>:</p><pre><code>kube
 </code></pre><p>Once you&rsquo;ve verified that everything is working as expected, you can go on
 setting up metrics collection through prometheus (or stackdriver) in usual ways.</p><h2 id=kubernetes-targets>Kubernetes Targets <a href=#kubernetes-targets class=anchor aria-hidden=true>#</a></h2><p>If you&rsquo;re running on Kuberenetes, you&rsquo;d probably want to monitor Kubernetes
 resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober
-supports dynamic <a href=https://cloudprober.org/concepts/targets/>targets discovery</a> of Kubernetes
+supports dynamic <a href=https://cloudprober.org/docs/how-to/targets/#dynamically-discovered-targets>targets
+discovery</a> of Kubernetes
 resources.</p><p>For example, the following config adds an HTTP probe for the endpoints named
 <code>cloudprober</code> (equivalent to running <em>kubectl get ep cloudprober</em>).</p><pre><code class=language-bash>probe {
   name: &quot;pod-to-endpoints&quot;
