@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
@@ -35,10 +36,10 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/resolver"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/protobuf/proto"
 )
 
 var once sync.Once
@@ -441,6 +442,66 @@ func TestHealthCheckProbe(t *testing.T) {
 			if test.errText != "" && !strings.Contains(err.Error(), test.errText) {
 				t.Errorf("Error (%s) doesn't contain expected error text (%s)", err.Error(), test.errText)
 			}
+		})
+	}
+}
+
+func TestTransportCreds(t *testing.T) {
+	tests := []struct {
+		name     string
+		c        *configpb.ProbeConf
+		wantInfo string
+		wantErr  bool
+	}{
+		{
+			name:     "no transport config",
+			c:        &configpb.ProbeConf{},
+			wantInfo: "",
+		},
+		{
+			name: "insecure_transport",
+			c: &configpb.ProbeConf{
+				InsecureTransport: proto.Bool(true),
+			},
+			wantInfo: "insecure",
+		},
+		{
+			name: "tls_transport",
+			c: &configpb.ProbeConf{
+				TlsConfig: &tlsconfigpb.TLSConfig{},
+			},
+			wantInfo: "tls",
+		},
+		{
+			name: "alts_transport",
+			c: &configpb.ProbeConf{
+				AltsConfig: &configpb.ProbeConf_ALTSConfig{},
+			},
+			wantInfo: "alts",
+		},
+		{
+			name: "error_tls_and_alts_transport",
+			c: &configpb.ProbeConf{
+				TlsConfig:  &tlsconfigpb.TLSConfig{},
+				AltsConfig: &configpb.ProbeConf_ALTSConfig{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				c: tt.c,
+			}
+			got, err := p.transportCredentials()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Probe.getTransportCreds() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantInfo == "" {
+				return
+			}
+			assert.Equal(t, tt.wantInfo, got.Info().SecurityProtocol)
 		})
 	}
 }

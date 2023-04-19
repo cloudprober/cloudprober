@@ -61,6 +61,7 @@ type Probe struct {
 	l    *logger.Logger
 
 	baseTransport http.RoundTripper
+	redirectFunc  func(req *http.Request, via []*http.Request) error
 
 	// book-keeping params
 	targets  []endpoint.Endpoint
@@ -222,6 +223,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	p.baseTransport = transport
+
+	if p.c.MaxRedirects != nil {
+		p.redirectFunc = func(req *http.Request, via []*http.Request) error {
+			if len(via) >= int(p.c.GetMaxRedirects()) {
+				return http.ErrUseLastResponse
+			}
+
+			return nil
+		}
+	}
 
 	p.statsExportFrequency = p.opts.StatsExportInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
 	if p.statsExportFrequency == 0 {
@@ -407,11 +418,11 @@ func (p *Probe) newResult() *probeResult {
 	return result
 }
 
-func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName string, dataChan chan *metrics.EventMetrics) {
+func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
 	addLabelsAndPublish := func(em *metrics.EventMetrics) {
-		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", targetName)
+		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
 		for _, al := range p.opts.AdditionalLabels {
-			em.AddLabel(al.KeyValueForTarget(targetName))
+			em.AddLabel(al.KeyValueForTarget(target))
 		}
 		p.opts.LogMetrics(em)
 		dataChan <- em
@@ -468,12 +479,16 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 				if t.TLSClientConfig == nil {
 					t.TLSClientConfig = &tls.Config{}
 				}
-				t.TLSClientConfig.ServerName = urlHostForTarget(target)
+				if t.TLSClientConfig.ServerName == "" {
+					t.TLSClientConfig.ServerName = urlHostForTarget(target)
+				}
 			}
 			clients[i] = &http.Client{Transport: t}
 		} else {
 			clients[i] = &http.Client{Transport: p.baseTransport}
 		}
+
+		clients[i].CheckRedirect = p.redirectFunc
 	}
 	return clients
 }
@@ -506,7 +521,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 		// Export stats if it's the time to do so.
 		runCnt++
 		if (runCnt % p.statsExportFrequency) == 0 {
-			p.exportMetrics(ts, result, target.Name, dataChan)
+			p.exportMetrics(ts, result, target, dataChan)
 
 			// If we are resolving first, this is also a good time to recreate HTTP
 			// request in case target's IP has changed.

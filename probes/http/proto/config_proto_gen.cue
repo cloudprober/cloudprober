@@ -5,7 +5,7 @@ import (
 	proto_1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 )
 
-// Next tag: 18
+// Next tag: 20
 #ProbeConf: {
 	#ProtocolType: {"HTTP", #enumValue: 0} |
 		{"HTTPS", #enumValue: 1}
@@ -98,8 +98,15 @@ import (
 	// Proxy URL, e.g. http://myproxy:3128
 	proxyUrl?: string @protobuf(16,string,name=proxy_url)
 
+	// User agent. Default user agent is Go's default user agent.
+	userAgent?: string @protobuf(19,string,name=user_agent)
+
 	// Maximum idle connections to keep alive
 	maxIdleConns?: int32 @protobuf(17,int32,name=max_idle_conns,"default=256")
+
+	// The maximum amount of redirects the HTTP client will follow.
+	// To disable redirects, use max_redirects: 0.
+	maxRedirects?: int32 @protobuf(18,int32,name=max_redirects)
 
 	// Interval between targets.
 	intervalBetweenTargetsMsec?: int32 @protobuf(97,int32,name=interval_between_targets_msec,"default=10")

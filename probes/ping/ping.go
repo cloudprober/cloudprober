@@ -231,7 +231,7 @@ func (p *Probe) updateTargets() {
 		}
 
 		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTargetWithIPPort(target, ip.String(), 0)
+			al.UpdateForTarget(target, ip.String(), 0)
 		}
 
 		var a net.Addr
@@ -536,7 +536,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			em.LatencyUnit = p.opts.LatencyUnit
 
 			for _, al := range p.opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(target.Name))
+				em.AddLabel(al.KeyValueForTarget(target))
 			}
 
 			if p.opts.Validators != nil {

@@ -112,7 +112,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTargetWithIPPort(target, ipForLabel, port)
+		al.UpdateForTarget(target, ipForLabel, port)
 	}
 
 	// Put square brackets around literal IPv6 hosts. This is the same logic as
@@ -149,6 +149,10 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// Host header is set by http.NewRequest based on the URL, update it based
 	// on various conditions.
 	req.Host = hostHeaderForTarget(target, probeHostHeader, port)
+
+	if p.c.GetUserAgent() != "" {
+		req.Header.Set("User-Agent", p.c.GetUserAgent())
+	}
 
 	return req
 }

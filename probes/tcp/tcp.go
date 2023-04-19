@@ -94,7 +94,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
+
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 
 	p.network = "tcp"
 	if p.opts.IPVersion != 0 {
@@ -143,7 +147,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTargetWithIPPort(target, ipLabel, 0)
+		al.UpdateForTarget(target, ipLabel, int(p.c.GetPort()))
 	}
 
 	port := int(p.c.GetPort())

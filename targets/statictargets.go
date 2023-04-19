@@ -27,7 +27,11 @@ func staticTargets(hosts string) (Targets, error) {
 	t, _ := baseTargets(nil, nil, nil)
 	sl := &staticLister{}
 
-	for _, host := range strings.Split(hosts, ",") {
+	hostsSlice := strings.Split(hosts, ",")
+	if len(hostsSlice) == 1 {
+		hostsSlice = strings.Fields(hosts)
+	}
+	for _, host := range hostsSlice {
 		host = strings.TrimSpace(host)
 
 		// Make sure there is no "/" in the host name. That typically happens

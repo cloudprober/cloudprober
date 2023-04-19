@@ -154,7 +154,7 @@ func (p *Probe) updateTargets() {
 
 	for _, target := range p.targets {
 		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(target)
+			al.UpdateForTarget(target, "", 0)
 		}
 	}
 }

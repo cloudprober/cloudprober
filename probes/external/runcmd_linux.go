@@ -30,14 +30,14 @@ import (
 	"time"
 )
 
-func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, error) {
+func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, []byte, error) {
 	c := exec.Command(cmd, args...)
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var stdout, stderr bytes.Buffer
 	c.Stdout, c.Stderr = &stdout, &stderr
 
 	if err := c.Start(); err != nil {
-		return stdout.Bytes(), err
+		return stdout.Bytes(), stderr.Bytes(), err
 	}
 
 	// This goroutine is similar to the one started by exec.Start if command is
@@ -73,9 +73,5 @@ func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]by
 		}
 	}()
 
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		exitErr.Stderr = stderr.Bytes()
-	}
-
-	return stdout.Bytes(), err
+	return stdout.Bytes(), stderr.Bytes(), err
 }

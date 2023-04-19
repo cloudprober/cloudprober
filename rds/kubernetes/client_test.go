@@ -60,7 +60,7 @@ func testFileWithContent(t *testing.T, content string) string {
 	return f.Name()
 }
 
-func TestNewClientInCluster(t *testing.T) {
+func TestNewClientWithNoOauth(t *testing.T) {
 	cacrtF := testFileWithContent(t, testCACert)
 	defer os.Remove(cacrtF) // clean up
 
@@ -72,31 +72,19 @@ func TestNewClientInCluster(t *testing.T) {
 	tokenF := testFileWithContent(t, testToken)
 	defer os.Remove(tokenF) // clean up
 
-	oldLocalTokenFile := LocalTokenFile
-	LocalTokenFile = tokenF
-	defer func() { LocalTokenFile = oldLocalTokenFile }()
-
 	os.Setenv("KUBERNETES_SERVICE_HOST", "test-api-host")
 	os.Setenv("KUBERNETES_SERVICE_PORT", "4123")
 
-	tc, err := newClient(&cpb.ProviderConfig{}, nil)
-	if err != nil {
-		t.Fatalf("error while creating new client: %v", err)
+	tc := &client{
+		cfg: &cpb.ProviderConfig{},
 	}
+	transport, err := tc.httpTransportWithTLS()
+	assert.NoError(t, err, "error creating client")
+	assert.NotNil(t, transport.TLSClientConfig, "TLS config")
 
-	expectedAPIHost := "test-api-host:4123"
-	if tc.apiHost != "test-api-host:4123" {
-		t.Errorf("client.apiHost: got=%s, exepcted=%s", tc.apiHost, expectedAPIHost)
-	}
-
-	expectedToken := "Bearer " + testToken
-	if tc.bearer != expectedToken {
-		t.Errorf("client.bearer: got=%s, exepcted=%s", tc.bearer, expectedToken)
-	}
-
-	if tc.httpC == nil || tc.httpC.Transport.(*http.Transport).TLSClientConfig == nil {
-		t.Errorf("Client's HTTP client or TLS config are unexpectedly nil.")
-	}
+	err = tc.initAPIHost()
+	assert.NoError(t, err, "error initialize API host")
+	assert.Equal(t, "test-api-host:4123", tc.apiHost, "k8s API host")
 }
 
 func TestNewClientWithTLS(t *testing.T) {
@@ -108,7 +96,7 @@ func TestNewClientWithTLS(t *testing.T) {
 	defer func() { LocalCACert = oldLocalCACert }()
 
 	testAPIServerAddr := "test-api-server-addr"
-	tc, err := newClient(&cpb.ProviderConfig{
+	tc, err := newClientWithoutToken(&cpb.ProviderConfig{
 		ApiServerAddress: &testAPIServerAddr,
 		TlsConfig: &tlsconfigpb.TLSConfig{
 			CaCertFile: proto.String(cacrtF),

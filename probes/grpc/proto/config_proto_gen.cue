@@ -5,7 +5,7 @@ import (
 	proto_1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 )
 
-// Next tag: 12
+// Next tag: 14
 #ProbeConf: {
 	// Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
 	// oauth_config: { bearer_token { gce_service_account: "default" } }
@@ -35,6 +35,9 @@ import (
 	// If TLSConfig is specified, it's used for authentication.
 	// Note that only one of ALTSConfig and TLSConfig can be enabled at a time.
 	tlsConfig?: proto_1.#TLSConfig @protobuf(9,tlsconfig.TLSConfig,name=tls_config)
+
+	// if insecure_transport is set to true, TLS will not be used.
+	insecureTransport?: bool @protobuf(12,bool,name=insecure_transport)
 
 	#MethodType: {"ECHO", #enumValue: 1} |
 		{"READ", #enumValue: 2} |
@@ -71,4 +74,10 @@ import (
 	// Example URI scheme: "google-c2p:///"
 	// See https://github.com/grpc/grpc/blob/master/doc/naming.md for more details
 	uriScheme?: string @protobuf(8,string,name=uri_scheme)
+
+	#Header: {
+		name?:  string @protobuf(1,string)
+		value?: string @protobuf(2,string)
+	}
+	headers?: [...#Header] @protobuf(13,Header)
 }

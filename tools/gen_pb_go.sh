@@ -56,6 +56,12 @@ else
 fi
 
 arch=$(uname -m)
+
+# On Apple arm64, protoc is called aarch64.
+if [ "${os}" == "osx" ] && [ "${arch}" == "arm64" ]; then
+  arch="aarch_64"
+fi
+
 protoc_package="protoc-${PROTOC_VERSION}-${os}-${arch}.zip"
 protoc_package_url="https://github.com/google/protobuf/releases/download/v${PROTOC_VERSION}/${protoc_package}"
 

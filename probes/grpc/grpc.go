@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
@@ -39,16 +40,18 @@ import (
 	"github.com/cloudprober/cloudprober/probes/probeutils"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/alts"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/local"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
 
@@ -98,7 +101,34 @@ type probeRunResult struct {
 	connectErrors metrics.Int
 }
 
+func (p *Probe) transportCredentials() (credentials.TransportCredentials, error) {
+	if p.c.AltsConfig != nil && p.c.TlsConfig != nil {
+		return nil, errors.New("only one of alts_config and tls_config can be set at a time")
+
+	}
+	altsCfg := p.c.GetAltsConfig()
+	if altsCfg != nil {
+		altsOpts := &alts.ClientOptions{
+			TargetServiceAccounts:    altsCfg.GetTargetServiceAccount(),
+			HandshakerServiceAddress: altsCfg.GetHandshakerServiceAddress(),
+		}
+		return alts.NewClientCreds(altsOpts), nil
+	}
+	if p.c.GetTlsConfig() != nil {
+		tlsCfg := &tls.Config{}
+		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
+			return nil, fmt.Errorf("tls_config error: %v", err)
+		}
+		return credentials.NewTLS(tlsCfg), nil
+	}
+	if p.c.GetInsecureTransport() {
+		return insecure.NewCredentials(), nil
+	}
+	return nil, nil
+}
+
 func (p *Probe) setupDialOpts() error {
+
 	oauthCfg := p.c.GetOauthConfig()
 	if oauthCfg != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(oauthCfg, p.l)
@@ -108,28 +138,16 @@ func (p *Probe) setupDialOpts() error {
 		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
 	}
 
-	if p.c.AltsConfig != nil && p.c.TlsConfig != nil {
-		return errors.New("only one of alts_config and tls_config can be set at a time")
+	transportCreds, err := p.transportCredentials()
+	if err != nil {
+		return fmt.Errorf("error reading transport credentials: %v", err)
+	}
+	if transportCreds != nil {
+		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(transportCreds))
 	}
 
-	altsCfg := p.c.GetAltsConfig()
-	if altsCfg != nil {
-		altsOpts := &alts.ClientOptions{
-			TargetServiceAccounts:    altsCfg.GetTargetServiceAccount(),
-			HandshakerServiceAddress: altsCfg.GetHandshakerServiceAddress(),
-		}
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(alts.NewClientCreds(altsOpts)))
-	}
-
-	if p.c.GetTlsConfig() != nil {
-		tlsCfg := &tls.Config{}
-		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
-			return fmt.Errorf("tls_config error: %v", err)
-		}
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
-	}
-
-	if oauthCfg == nil && altsCfg == nil && p.c.GetTlsConfig() == nil {
+	if oauthCfg == nil && transportCreds == nil {
+		// if no auth configured, use local auth by default
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
 	}
 	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
@@ -179,33 +197,32 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context) {
 
 	activeTargets := make(map[string]bool)
 	// Create results structure and start probe loop for new targets.
-	for _, tgtEp := range newTargets {
-		tgt := tgtEp.Name
-		if tgtEp.Port > 0 {
-			tgt = net.JoinHostPort(tgtEp.Name, strconv.Itoa(tgtEp.Port))
-		}
-		activeTargets[tgt] = true
-		if _, ok := p.results[tgt]; ok {
+	for _, target := range newTargets {
+		key := target.Key()
+
+		activeTargets[key] = true
+		if _, ok := p.results[key]; ok {
 			continue
 		}
-		updatedTargets[tgt] = "ADD"
-		p.results[tgt] = p.newResult(tgt)
+
+		updatedTargets[key] = "ADD"
+		p.results[key] = p.newResult(key)
 		probeCtx, probeCancelFunc := context.WithCancel(ctx)
 		for i := 0; i < int(p.c.GetNumConns()); i++ {
-			go p.oneTargetLoop(probeCtx, tgt, i, p.results[tgt])
+			go p.oneTargetLoop(probeCtx, target, i, p.results[key])
 		}
-		p.cancelFuncs[tgt] = probeCancelFunc
+		p.cancelFuncs[key] = probeCancelFunc
 	}
 
 	// Stop probing for deleted targets by invoking cancelFunc.
-	for tgt := range p.results {
-		if activeTargets[tgt] {
+	for key := range p.results {
+		if activeTargets[key] {
 			continue
 		}
-		p.cancelFuncs[tgt]()
-		updatedTargets[tgt] = "DELETE"
-		delete(p.results, tgt)
-		delete(p.cancelFuncs, tgt)
+		p.cancelFuncs[key]()
+		updatedTargets[key] = "DELETE"
+		delete(p.results, key)
+		delete(p.cancelFuncs, key)
 	}
 	p.targets = newTargets
 }
@@ -215,7 +232,20 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context) {
 // connection error. On success, it returns a client immediately.
 // Interval between connects is controlled by connect_timeout_msec, defaulting
 // to probe timeout.
-func (p *Probe) connectWithRetry(ctx context.Context, tgt, msgPattern string, result *probeRunResult) *grpc.ClientConn {
+func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, msgPattern string, result *probeRunResult) *grpc.ClientConn {
+	addr := target.Name
+	if target.IP != nil {
+		if p.opts.IPVersion == 0 || iputils.IPVersion(target.IP) == p.opts.IPVersion {
+			addr = target.IP.String()
+		} else {
+			p.l.Warningf("target IP (%v) doesn't match probe IP version (%d), letting system resolve it", target.IP, p.opts.IPVersion)
+		}
+	}
+
+	if target.Port > 0 {
+		addr = net.JoinHostPort(addr, strconv.Itoa(target.Port))
+	}
+
 	connectTimeout := p.opts.Timeout
 	if p.c.GetConnectTimeoutMsec() > 0 {
 		connectTimeout = time.Duration(p.c.GetConnectTimeoutMsec()) * time.Millisecond
@@ -232,9 +262,9 @@ func (p *Probe) connectWithRetry(ctx context.Context, tgt, msgPattern string, re
 		connCtx, cancelFunc := context.WithTimeout(ctx, connectTimeout)
 
 		if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
-			tgt = uriScheme + tgt
+			addr = uriScheme + addr
 		}
-		conn, err = grpc.DialContext(connCtx, tgt, p.dialOpts...)
+		conn, err = grpc.DialContext(connCtx, addr, p.dialOpts...)
 
 		cancelFunc()
 		if err != nil {
@@ -275,8 +305,12 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, msg
 }
 
 // oneTargetLoop connects to and then continuously probes a single target.
-func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result *probeRunResult) {
-	msgPattern := fmt.Sprintf("%s,%s%s,%03d", p.src, p.c.GetUriScheme(), tgt, index)
+func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index int, result *probeRunResult) {
+	msgPattern := fmt.Sprintf("%s,%s%s,%03d", p.src, p.c.GetUriScheme(), tgt.Name, index)
+
+	for _, al := range p.opts.AdditionalLabels {
+		al.UpdateForTarget(tgt, "", 0)
+	}
 
 	conn := p.connectWithRetry(ctx, tgt, msgPattern, result)
 	if conn == nil {
@@ -302,6 +336,8 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 		}
 
 		reqCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+		reqCtx = p.ctxWithHeaders(reqCtx)
+
 		var success int64
 		var delta time.Duration
 		start := time.Now()
@@ -365,6 +401,20 @@ func (p *Probe) newResult(tgt string) *probeRunResult {
 	}
 }
 
+// ctxWitHeaders attaches a list of headers to the given context
+// it iterates over the headers defined in the probe configuration
+func (p *Probe) ctxWithHeaders(ctx context.Context) context.Context {
+	headers := p.c.GetHeaders()
+	parsed := make(map[string]string, len(headers))
+
+	// map each header to the parsed map
+	for _, header := range headers {
+		parsed[header.GetName()] = header.GetValue()
+	}
+	// create metadata from headers & attach to context
+	return metadata.NewOutgoingContext(ctx, metadata.New(parsed))
+}
+
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.results = make(map[string]*probeRunResult)
@@ -386,7 +436,12 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		}
 
 		// Output results.
-		for targetName, result := range p.results {
+		for _, target := range p.targets {
+			result, ok := p.results[target.Key()]
+			if !ok {
+				continue
+			}
+
 			result.Lock()
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", result.total.Clone()).
@@ -395,11 +450,12 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				AddMetric("connecterrors", result.connectErrors.Clone()).
 				AddLabel("ptype", "grpc").
 				AddLabel("probe", p.name).
-				AddLabel("dst", targetName)
+				AddLabel("dst", target.Dst())
 			result.Unlock()
+
 			em.LatencyUnit = p.opts.LatencyUnit
 			for _, al := range p.opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(targetName))
+				em.AddLabel(al.KeyValueForTarget(target))
 			}
 			p.opts.LogMetrics(em)
 			dataChan <- em

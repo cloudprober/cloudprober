@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloudprober Authors.
+// Copyright 2019-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 package oauth
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/file"
@@ -26,80 +27,135 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/protobuf/proto"
 )
+
+var k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 type bearerTokenSource struct {
 	c                   *configpb.BearerToken
-	getTokenFromBackend func(*configpb.BearerToken) (string, error)
-	cache               string
-	mu                  sync.RWMutex
+	getTokenFromBackend func(*configpb.BearerToken) (*oauth2.Token, error)
+	cache               *tokenCache
 	l                   *logger.Logger
 }
 
-var getTokenFromFile = func(c *configpb.BearerToken) (string, error) {
-	b, err := file.ReadFile(c.GetFile())
+func bytesToToken(b []byte) *oauth2.Token {
+	tok := &jsonToken{}
+	err := json.Unmarshal(b, tok)
 	if err != nil {
-		return "", err
+		return &oauth2.Token{AccessToken: string(b)}
 	}
-	return string(b), nil
+	return &oauth2.Token{
+		AccessToken: tok.AccessToken,
+		Expiry:      time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
+	}
 }
 
-var getTokenFromCmd = func(c *configpb.BearerToken) (string, error) {
-	var cmd *exec.Cmd
+var tokenFunctions = struct {
+	fromFile, fromCmd, fromGCEMetadata, fromK8sTokenFile func(c *configpb.BearerToken) (*oauth2.Token, error)
+}{
+	fromFile: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		b, err := file.ReadFile(c.GetFile())
+		if err != nil {
+			return nil, err
+		}
+		return bytesToToken(b), nil
+	},
+	fromCmd: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		var cmd *exec.Cmd
 
-	cmdParts := strings.Split(c.GetCmd(), " ")
-	cmd = exec.Command(cmdParts[0], cmdParts[1:len(cmdParts)]...)
+		cmdParts := strings.Split(c.GetCmd(), " ")
+		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
 
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to execute command: %v", cmd)
-	}
-	return string(out), nil
+		out, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute command: %v", cmd)
+		}
+
+		return bytesToToken(out), nil
+	},
+	fromGCEMetadata: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		ts := google.ComputeTokenSource(c.GetGceServiceAccount())
+		tok, err := ts.Token()
+		if err != nil {
+			return nil, err
+		}
+		return tok, nil
+	},
+	fromK8sTokenFile: func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		b, err := os.ReadFile(k8sTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		return &oauth2.Token{AccessToken: string(b)}, nil
+	},
 }
 
-var getTokenFromGCEMetadata = func(c *configpb.BearerToken) (string, error) {
-	ts := google.ComputeTokenSource(c.GetGceServiceAccount())
-	tok, err := ts.Token()
-	if err != nil {
-		return "", err
-	}
-	return tok.AccessToken, nil
-}
-
-func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.TokenSource, error) {
+func newBearerTokenSource(c *configpb.BearerToken, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
 	ts := &bearerTokenSource{
 		c: c,
 		l: l,
 	}
 
+	var tokenBackendFunc func(*configpb.BearerToken) (*oauth2.Token, error)
+
 	switch ts.c.Source.(type) {
 	case *configpb.BearerToken_File:
-		ts.getTokenFromBackend = getTokenFromFile
+		tokenBackendFunc = tokenFunctions.fromFile
 
 	case *configpb.BearerToken_Cmd:
-		ts.getTokenFromBackend = getTokenFromCmd
+		tokenBackendFunc = tokenFunctions.fromCmd
 
 	case *configpb.BearerToken_GceServiceAccount:
-		ts.getTokenFromBackend = getTokenFromGCEMetadata
+		tokenBackendFunc = tokenFunctions.fromGCEMetadata
+
+	case *configpb.BearerToken_K8SLocalToken:
+		if !c.GetK8SLocalToken() {
+			return nil, fmt.Errorf("k8s_local_token cannot be false, config: <%v>", c.String())
+		}
+		tokenBackendFunc = tokenFunctions.fromK8sTokenFile
 
 	default:
-		ts.getTokenFromBackend = getTokenFromGCEMetadata
+		return nil, fmt.Errorf("unknown source: %v", ts.c.GetSource())
+	}
+
+	ts.getTokenFromBackend = func(c *configpb.BearerToken) (*oauth2.Token, error) {
+		l.Debugf("oauth.bearerTokenSource: Getting a new token using config: %s", c.String())
+		return tokenBackendFunc(c)
 	}
 
 	tok, err := ts.getTokenFromBackend(c)
 	if err != nil {
 		return nil, err
 	}
-	ts.cache = tok
+	ts.cache = &tokenCache{
+		tok:                 tok,
+		refreshExpiryBuffer: refreshExpiryBuffer,
+		ignoreExpiryIfZero:  true,
+		getToken:            func() (*oauth2.Token, error) { return ts.getTokenFromBackend(c) },
+		l:                   l,
+	}
 
+	// For JSON tokens return now.
+	if tok != nil && !tok.Expiry.IsZero() {
+		return ts, nil
+	}
+
+	// Default refresh interval
+	if ts.c.RefreshIntervalSec == nil {
+		ts.c.RefreshIntervalSec = proto.Float32(30)
+	}
+	// Explicitly set to zero, so no refreshing.
 	if ts.c.GetRefreshIntervalSec() == 0 {
 		return ts, nil
 	}
 
 	go func() {
 		interval := time.Duration(ts.c.GetRefreshIntervalSec()) * time.Second
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-		for range time.Tick(interval) {
+		for range ticker.C {
 			tok, err := ts.getTokenFromBackend(ts.c)
 
 			if err != nil {
@@ -107,9 +163,7 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 				continue
 			}
 
-			ts.mu.Lock()
-			ts.cache = tok
-			ts.mu.Unlock()
+			ts.cache.setToken(tok)
 		}
 	}()
 
@@ -117,23 +171,14 @@ func newBearerTokenSource(c *configpb.BearerToken, l *logger.Logger) (oauth2.Tok
 }
 
 func (ts *bearerTokenSource) Token() (*oauth2.Token, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
+	return ts.cache.Token()
+}
 
-	if ts.c.GetRefreshIntervalSec() == 0 {
-		tok, err := ts.getTokenFromBackend(ts.c)
-
-		if err != nil {
-			if ts.cache == "" {
-				return nil, err
-			}
-
-			ts.l.Errorf("oauth.bearerTokenSource: failed to get token: %v, using cache", err)
-			return &oauth2.Token{AccessToken: ts.cache}, nil
-		}
-
-		return &oauth2.Token{AccessToken: tok}, nil
-	}
-
-	return &oauth2.Token{AccessToken: ts.cache}, nil
+func K8STokenSource(l *logger.Logger) (oauth2.TokenSource, error) {
+	return newBearerTokenSource(&configpb.BearerToken{
+		Source: &configpb.BearerToken_K8SLocalToken{
+			K8SLocalToken: true,
+		},
+		RefreshIntervalSec: proto.Float32(60),
+	}, time.Minute, l)
 }

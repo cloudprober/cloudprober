@@ -26,4 +26,23 @@ package proto
 	// processing is paused while serving data to Stackdriver. This buffer is to
 	// make writes to Stackdriver surfacer non-blocking.
 	metricsBufferSize?: int64 @protobuf(5,int64,name=metrics_buffer_size,"default=10000")
+
+	#MetricPrefix: {
+		"NONE"// monitoring_url/metric_name
+		#enumValue: 0
+	} | {
+		"PROBE"// monitoring_url/probe/metric_name
+		#enumValue: 1
+	} | {
+		"PTYPE_PROBE"// monitoring_url/ptype/probe/metric_name
+		#enumValue: 2
+	}
+
+	#MetricPrefix_value: {
+		NONE:        0
+		PROBE:       1
+		PTYPE_PROBE: 2
+	}
+
+	metricsPrefix?: #MetricPrefix @protobuf(6,MetricPrefix,name=metrics_prefix,"default=PTYPE_PROBE") // using current behavior as default
 }

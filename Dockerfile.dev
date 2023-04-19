@@ -1,0 +1,13 @@
+# Dockerfile for quick development and testing
+# To build:
+#    docker build -t cloudprober:test . -f Dockerfile.dev
+FROM golang:1.18-alpine as build
+
+WORKDIR /app
+COPY . /
+RUN if [[ ! -f /cloudprober ]]; then go build -o /cloudprober /cmd/cloudprober.go; fi 
+
+FROM alpine
+COPY --from=build /cloudprober /cloudprober
+COPY cloudprober_test.cfg /etc/cloudprober.cfg
+ENTRYPOINT ["/cloudprober", "--logtostderr"]

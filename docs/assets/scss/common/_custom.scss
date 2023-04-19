@@ -1,0 +1,19 @@
+/** Custom styles */
+::selection {
+  background: rgba(118, 215, 254, 0.2);
+}
+
+.header-bar {
+  border-top: 0px;
+  border-image-source: none;
+  border-image-slice: 0;
+}
+
+.home h1 {
+  font-size: calc(1.625rem + 1.3vw);
+}
+
+.alert {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+}

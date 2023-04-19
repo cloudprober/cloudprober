@@ -115,12 +115,12 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		if (runCnt % s.statsExportFrequency) == 0 {
 			em := result.Metrics(ts, s.Opts).
 				AddLabel("probe", s.ProbeName).
-				AddLabel("dst", target.Name)
+				AddLabel("dst", target.Dst())
 
 			em.LatencyUnit = s.Opts.LatencyUnit
 
 			for _, al := range s.Opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(target.Name))
+				em.AddLabel(al.KeyValueForTarget(target))
 			}
 
 			s.Opts.LogMetrics(em)
@@ -133,11 +133,11 @@ func (s *Scheduler) Wait() {
 	s.waitGroup.Wait()
 }
 
-// UpdateTargetsAndStartProbes refreshes targets and starts probe loop for
+// refreshTargets refreshes targets and starts probe loop for
 // new targets and cancels probe loops for targets that are no longer active.
 // Note that this function is not concurrency safe. It is never called
 // concurrently by Start().
-func (s *Scheduler) updateTargetsAndStartProbes(ctx context.Context) {
+func (s *Scheduler) refreshTargets(ctx context.Context) {
 	s.targets = s.Opts.Targets.ListEndpoints()
 
 	s.Opts.Logger.Debugf("Probe(%s) got %d targets", s.ProbeName, len(s.targets))
@@ -199,7 +199,7 @@ func (s *Scheduler) UpdateTargetsAndStartProbes(ctx context.Context) {
 	// Initialize scheduler.
 	s.init()
 
-	s.updateTargetsAndStartProbes(ctx)
+	s.refreshTargets(ctx)
 
 	// Do more frequent listing of targets until we get a non-zero list of
 	// targets.
@@ -216,7 +216,7 @@ func (s *Scheduler) UpdateTargetsAndStartProbes(ctx context.Context) {
 		if len(s.targets) != 0 {
 			break
 		}
-		s.UpdateTargetsAndStartProbes(ctx)
+		s.refreshTargets(ctx)
 		time.Sleep(initialRefreshInterval)
 	}
 
@@ -228,7 +228,7 @@ func (s *Scheduler) UpdateTargetsAndStartProbes(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-targetsUpdateTicker.C:
-			s.UpdateTargetsAndStartProbes(ctx)
+			s.refreshTargets(ctx)
 		}
 	}
 }

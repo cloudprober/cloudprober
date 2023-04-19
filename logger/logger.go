@@ -108,9 +108,9 @@ func enableDebugLog(debugLog bool, debugLogRe string, logName string) bool {
 //
 // It falls back to logging through the traditional logger if:
 //
-//   * Not running on GCE,
-//   * Logging client is uninitialized (e.g. for testing),
-//   * Logging to cloud fails for some reason.
+//   - Not running on GCE,
+//   - Logging client is uninitialized (e.g. for testing),
+//   - Logging to cloud fails for some reason.
 //
 // Logger{} is a valid object that will log through the traditional logger.
 //
@@ -212,7 +212,7 @@ func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 	}
 
 	// Add instance_name to common labels if available.
-	if !md.IsKubernetes() {
+	if !md.IsKubernetes() && !md.IsCloudRunJob() && !md.IsCloudRunService() {
 		instanceName, err := metadata.InstanceName()
 		if err != nil {
 			l.Infof("Error getting instance name on GCE: %v", err)

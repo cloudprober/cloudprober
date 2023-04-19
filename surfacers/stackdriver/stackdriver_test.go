@@ -19,9 +19,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/kylelemons/godebug/pretty"
+	configpb "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 
@@ -43,6 +45,77 @@ func newTestSurfacer() SDSurfacer {
 				"zone":        "us-central1-a",
 			},
 		},
+	}
+}
+
+func TestProcessLabels(t *testing.T) {
+	s:= newTestSurfacer()
+	s.c = &configpb.SurfacerConf{
+		MetricsPrefix: configpb.SurfacerConf_PTYPE_PROBE.Enum(),
+		MonitoringUrl: proto.String("custom.googleapis.com/cloudprober/"),
+	}
+	testTimestamp := time.Now()
+	testProbe := "test_probe"
+	testPtype := "external"
+
+	tests := []struct {
+		description string
+		metricPrefixConfig *configpb.SurfacerConf_MetricPrefix
+		em          *metrics.EventMetrics
+		wantKeys    string
+		wantMetricPrefix string
+	}{
+		{
+			description: "metrics prefix with ptype and probe",
+			metricPrefixConfig: configpb.SurfacerConf_PTYPE_PROBE.Enum(),
+			em: metrics.NewEventMetrics(testTimestamp).
+				AddMetric("test_metric", metrics.NewString("metval")).
+				AddLabel("keyA", "valueA").
+				AddLabel("keyB", "valueB").
+				AddLabel("probe", testProbe).
+				AddLabel("ptype", testPtype),
+			wantKeys: "keyA=valueA,keyB=valueB",
+			wantMetricPrefix: "external/test_probe/",
+		},
+		{
+			description: "metrics prefix with only probe",
+			metricPrefixConfig: configpb.SurfacerConf_PROBE.Enum(),
+			em: metrics.NewEventMetrics(testTimestamp).
+				AddMetric("test_metric", metrics.NewString("metval")).
+				AddLabel("keyA", "valueA").
+				AddLabel("keyB", "valueB").
+				AddLabel("probe", testProbe).
+				AddLabel("ptype", testPtype),
+			wantKeys: "keyA=valueA,keyB=valueB,ptype=external",
+			wantMetricPrefix: "test_probe/",
+		},
+		{
+			description: "metrics prefix with none",
+			metricPrefixConfig: configpb.SurfacerConf_NONE.Enum(),
+			em: metrics.NewEventMetrics(testTimestamp).
+				AddMetric("test_metric", metrics.NewString("metval")).
+				AddLabel("keyA", "valueA").
+				AddLabel("keyB", "valueB").
+				AddLabel("probe", testProbe).
+				AddLabel("ptype", testPtype),
+			wantKeys: "keyA=valueA,keyB=valueB,probe=test_probe,ptype=external",
+			wantMetricPrefix: "",
+		},
+	}
+
+	for _, tt := range tests {
+		s.c = &configpb.SurfacerConf{
+			MetricsPrefix: tt.metricPrefixConfig,
+		}
+		_, key, metricPrefix := s.processLabels(tt.em)
+		if key != tt.wantKeys {
+			t.Errorf("Failed test: %s, expected keys: %s, actual: %s",
+				tt.description, tt.wantKeys, key)
+		}
+		if metricPrefix != tt.wantMetricPrefix {
+			t.Errorf("Failed test: %s, expected metricPrefix: %s, actual: %s",
+				tt.description, tt.wantMetricPrefix, metricPrefix)
+		}
 	}
 }
 

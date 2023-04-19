@@ -20,7 +20,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 )
 
@@ -70,7 +69,7 @@ func TestGoogleCredentials(t *testing.T) {
 	jsonF := createTempFile(t, []byte(testJSONKey()))
 
 	googleC := &configpb.GoogleCredentials{
-		JsonFile: proto.String(jsonF),
+		JsonFile: jsonF,
 	}
 
 	c := &configpb.Config{
@@ -85,7 +84,7 @@ func TestGoogleCredentials(t *testing.T) {
 	}
 
 	// Set audience, it should fail as jwt_as_access_token is not set.
-	googleC.Audience = proto.String("test-audience")
+	googleC.Audience = "test-audience"
 
 	_, err = TokenSourceFromConfig(c, nil)
 	if err == nil {
@@ -93,7 +92,7 @@ func TestGoogleCredentials(t *testing.T) {
 	}
 
 	// Set jwt_as_access_token, no errors now.
-	googleC.JwtAsAccessToken = proto.Bool(true)
+	googleC.JwtAsAccessToken = true
 
 	_, err = TokenSourceFromConfig(c, nil)
 	if err != nil {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var baseData = {
+let baseData = {
   data: {
     x: 'ts',
     xFormat: '%Y/%m/%d %H:%M',
@@ -32,7 +32,7 @@ var baseData = {
   },
 };
 
-function populateProbeData() {
+function populateProbeData(probe) {
   let gd = psd[probe];
 
   d[probe] = structuredClone(baseData);
@@ -43,9 +43,9 @@ function populateProbeData() {
 
   // Construct x-axis using startTime and endTime.
   for (let s = gd.StartTime; s < gd.EndTime; s = s + gd.ResSeconds) {
-    dt = new Date(s * 1000);
-    m = dt.getMonth() + 1;
-    dtStr =
+    const dt = new Date(s * 1000);
+    const m = dt.getMonth() + 1;
+    const dtStr =
       dt.getFullYear() +
       '/' +
       m +
@@ -63,11 +63,11 @@ function populateProbeData() {
   }
 
   // Data colums
-  for (tgt in gd.Values) {
+  for (const tgt in gd.Values) {
     let vals = gd.Values[tgt];
     let freqs = gd.Freqs[tgt];
     let c = [tgt];
-    for (var i = 0; i < vals.length; i++) {
+    for (let i = 0; i < vals.length; i++) {
       let val = vals[i];
       if (val == -1) {
         val = null;
@@ -79,7 +79,7 @@ function populateProbeData() {
 }
 
 function populateD() {
-  for (probe in psd) {
+  for (const probe in psd) {
     populateProbeData(probe);
   }
 }
@@ -92,11 +92,11 @@ function dateToValStr(dt) {
 function setupGraphEndpoint() {
   // Set up change handler.
   $('#graph-endtime').change(function () {
-    var v = $(this).val();
-    var params = new URLSearchParams(location.search);
+    let v = $(this).val();
+    let params = new URLSearchParams(location.search);
     if (v != '') {
-      var d = new Date($(this).val());
-      var t = d.getTime() / 1000;
+      let d = new Date($(this).val());
+      let t = d.getTime() / 1000;
       params.set('graph_endtime', t);
     } else {
       params.delete('graph_endtime');
@@ -104,8 +104,8 @@ function setupGraphEndpoint() {
     window.location.search = params.toString();
   });
 
-  var params = new URLSearchParams(location.search);
-  if (typeof startTime != undefined) {
+  let params = new URLSearchParams(location.search);
+  if (typeof startTime != 'undefined') {
     $('#graph-endtime').attr('min', dateToValStr(new Date(startTime)));
   }
   if (params.get('graph_endtime')) {
@@ -118,8 +118,8 @@ function setupGraphEndpoint() {
 
 function setupGraphDuration() {
   $('#graph-duration').change(function () {
-    var v = $(this).val();
-    var params = new URLSearchParams(location.search);
+    let v = $(this).val();
+    let params = new URLSearchParams(location.search);
     if (v != '') {
       params.set('graph_duration', $(this).val());
     } else {
@@ -128,7 +128,7 @@ function setupGraphDuration() {
     window.location.search = params.toString();
   });
 
-  var params = new URLSearchParams(location.search);
+  let params = new URLSearchParams(location.search);
   if (params.get('graph_duration')) {
     $('#graph-duration').val(params.get('graph_duration'));
   }
@@ -137,9 +137,9 @@ function setupGraphDuration() {
 // selectedProbes returns the selected probes in a map (object) to allow for
 // quick lookups and easy modification.
 function selectedProbes() {
-  var params = new URLSearchParams(window.location.search);
+  let params = new URLSearchParams(window.location.search);
   let currentProbes = params.getAll('probe');
-  var probeMap = {};
+  let probeMap = {};
   for (let i = 0; i < currentProbes.length; i++) {
     probeMap[currentProbes[i]] = true;
   }
@@ -148,7 +148,7 @@ function selectedProbes() {
 
 // Update probe query parameter to the provided list.
 function updateProbeParams(probes) {
-  var params = new URLSearchParams(window.location.search);
+  let params = new URLSearchParams(window.location.search);
   params.delete('probe');
   for (const probe of probes) {
     params.append('probe', probe);
@@ -163,7 +163,7 @@ function handleProbeSelect(e) {
     return;
   }
 
-  var probeMap = selectedProbes();
+  let probeMap = selectedProbes();
   if (e.target.checked) {
     probeMap[probe] = true;
   } else {
@@ -173,10 +173,10 @@ function handleProbeSelect(e) {
 }
 
 function geenrateProbeSelectors() {
-  var probeMap = selectedProbes();
+  let probeMap = selectedProbes();
 
-  var allChecked = Object.keys(probeMap).length === 0 ? 'checked ' : ' ';
-  var selectors = `Probes: <label><input class=probe-checkbox id=select-all type=checkbox ${allChecked}>All</label> `;
+  let allChecked = Object.keys(probeMap).length === 0 ? 'checked ' : ' ';
+  let selectors = `Probes: <label><input class=probe-checkbox id=select-all type=checkbox ${allChecked}>All</label> `;
 
   for (let i = 0; i < allProbes.length; i++) {
     let p = allProbes[i];
