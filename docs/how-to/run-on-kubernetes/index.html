@@ -80,7 +80,7 @@ spec:
 </code></pre><p>Note that we added an annotation to the deployment spec; this annotation allows
 us to update the deployment whenever cloudprober config changes. We can update
 this annotation based on the local cloudprober config content, and update the
-deployment using the following one-liner:</p><pre><code class=language-bash># Update the config checksum annotation in deployment.yaml before running
+deployment using the following one-liner:</p><pre><code class=language-shell># Update the config checksum annotation in deployment.yaml before running
 # kubectl apply.
 export CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) &amp;&amp; \
 cat deployment.yaml | envsubst | kubectl apply -f -
@@ -97,13 +97,13 @@ cloudprober   NodePort   10.31.249.108   &lt;none&gt;        9313:31367/TCP   94
 </code></pre><p>Now you should be able to access various cloudprober URLs (<code>/status</code> for
 status,<code>/config</code> for config, <code>/metrics</code> for prometheus-format metrics) from
 within the cluster. For quick verification you can also set up a port forwarder
-and access these URLs locally at <code>localhost:9313</code>:</p><pre><code>kubectl port-forward svc/cloudprober 9313:9313
+and access these URLs locally at <code>localhost:9313</code>:</p><pre><code class=language-shell>kubectl port-forward svc/cloudprober 9313:9313
 </code></pre><p>Once you&rsquo;ve verified that everything is working as expected, you can go on
-setting up metrics collection through prometheus (or stackdriver) in usual ways.</p><h2 id=kubernetes-targets>Kubernetes Targets <a href=#kubernetes-targets class=anchor aria-hidden=true>#</a></h2><p>If you&rsquo;re running on Kuberenetes, you&rsquo;d probably want to monitor Kubernetes
-resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober
-supports dynamic <a href=https://cloudprober.org/docs/how-to/targets/#dynamically-discovered-targets>targets
+setting up metrics collection through prometheus (or stackdriver) in usual ways.</p><h2 id=kubernetes-targets>Kubernetes Targets <a href=#kubernetes-targets class=anchor aria-hidden=true>#</a></h2><p>If you&rsquo;re running on Kubernetes, you&rsquo;d probably want to monitor Kubernetes
+resources (e.g. pods, endpoints, etc) as well. Cloudprober supports <a href=https://cloudprober.org/docs/how-to/targets/#dynamically-discovered-targets>dynamic
 discovery</a> of Kubernetes
-resources.</p><p>For example, the following config adds an HTTP probe for the endpoints named
+resources through the targets type
+<a href=https://github.com/cloudprober/cloudprober/blob/ad73fe489ea3ac69e7b0f81a465671df9adc8321/targets/proto/targets.proto#L40><code>k8s_targets</code></a>.</p><p>For example, the following config adds an HTTP probe for the endpoints named
 <code>cloudprober</code> (equivalent to running <em>kubectl get ep cloudprober</em>).</p><pre><code class=language-bash>probe {
   name: &quot;pod-to-endpoints&quot;
   type: HTTP
@@ -211,4 +211,4 @@ logs in
 <a href="https://pantheon.corp.google.com/logs/viewer?resource=gce_instance">Stackdriver Logging</a>.</p><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/how-to/external-probe/><div class="card my-1"><div class="card-body py-2">&larr; External Probe</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/how-to/additional-labels/><div class="card my-1"><div class="card-body py-2">Additional Labels &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.75b75e0b18f060e4e740ba1c1c8a2be9bb0a80a44e50230d70dee0a1cdb710cc43c01a73639c32db11d670dd2dcd27b0372964d45d63e6e56b4bae71a11882fc.js integrity="sha512-dbdeCxjwYOTnQLocHIor6bsKgKROUCMNcN7goc23EMxDwBpzY5wy2xHWcN0tzSewNylk1F1j5uVrS65xoRiC/A==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.39314b5ae9a8925ead8e68e108d14601131cde5cca03e58a44986cdffce72053ff762b785efaae9b413ad5a017ee92af04734172ec8034ccc7a8d00f0c505f26.js integrity="sha512-OTFLWumokl6tjmjhCNFGARMc3lzKA+WKRJhs3/znIFP/dit4Xvqum0E61aAX7pKvBHNBcuyANMzHqNAPDFBfJg==" crossorigin=anonymous defer></script></body></html>
