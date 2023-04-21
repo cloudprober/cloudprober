@@ -15,6 +15,8 @@
 package datadog
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"os"
@@ -83,13 +85,13 @@ func TestNewRequest(t *testing.T) {
 	testSeries := []ddSeries{
 		{
 			Metric: "cloudprober.success",
-			Points: [][]float64{[]float64{float64(ts), 99}},
+			Points: [][]float64{{float64(ts), 99}},
 			Tags:   &tags,
 			Type:   &metricType,
 		},
 		{
 			Metric: "cloudprober.total",
-			Points: [][]float64{[]float64{float64(ts), 100}},
+			Points: [][]float64{{float64(ts), 100}},
 			Tags:   &tags,
 			Type:   &metricType,
 		},
@@ -97,7 +99,6 @@ func TestNewRequest(t *testing.T) {
 
 	testClient := newClient("", "test-api-key", "test-app-key")
 	req, err := testClient.newRequest(testSeries)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -124,10 +125,93 @@ func TestNewRequest(t *testing.T) {
 		t.Errorf("Error reading request body: %v", err)
 	}
 	data := map[string][]ddSeries{}
-	if err := json.Unmarshal(b, &data); err != nil {
-		t.Errorf("Error unmarshaling request body: %v", err)
+
+	// Check if the request body is compressed
+	r, err := gzip.NewReader(bytes.NewReader(b))
+	if err != nil {
+		t.Errorf("Error creating gzip reader: %v", err)
 	}
+	defer r.Close()
+
+	// Check if the request body is valid JSON
+	if err := json.NewDecoder(r).Decode(&data); err != nil {
+		t.Errorf("Error decoding request body: %v", err)
+	}
+
+	// Check if the request body is valid
 	if !reflect.DeepEqual(data["series"], testSeries) {
-		t.Errorf("s.Series: %v, testSeries: %v", data["series"], testSeries)
+		t.Errorf("Got request body: %v, wanted: %v", data["series"], testSeries)
 	}
+}
+
+func TestCompressPayload(t *testing.T) {
+	tests := map[string]struct {
+		series []ddSeries
+		want   string
+	}{
+		"empty": {
+			series: []ddSeries{},
+			want:   "{\"series\":[]}",
+		},
+		"single": {
+			series: []ddSeries{
+				{
+					Metric: "cloudprober.success",
+					Points: [][]float64{{float64(1234567890), 99}},
+					Tags:   &[]string{"probe:cloudprober_http"},
+					Type:   &[]string{"count"}[0],
+				},
+			},
+			want: "{\"series\":[{\"metric\":\"cloudprober.success\",\"points\":[[1234567890,99]],\"tags\":[\"probe:cloudprober_http\"],\"type\":\"count\"}]}",
+		},
+		"multiple": {
+			series: []ddSeries{
+				{
+					Metric: "cloudprober.success",
+					Points: [][]float64{{float64(1234567890), 99}},
+					Tags:   &[]string{"probe:cloudprober_http"},
+					Type:   &[]string{"count"}[0],
+				},
+				{
+					Metric: "cloudprober.total",
+					Points: [][]float64{{float64(1234567890), 100}},
+					Tags:   &[]string{"probe:cloudprober_http"},
+					Type:   &[]string{"count"}[0],
+				},
+			},
+			want: "{\"series\":[{\"metric\":\"cloudprober.success\",\"points\":[[1234567890,99]],\"tags\":[\"probe:cloudprober_http\"],\"type\":\"count\"},{\"metric\":\"cloudprober.total\",\"points\":[[1234567890,100]],\"tags\":[\"probe:cloudprober_http\"],\"type\":\"count\"}]}",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := compressPayload(test.series)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			gotDecompressed, err := decompressPayload(got)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if gotDecompressed != test.want {
+				t.Errorf("Got: %s, wanted: %s", gotDecompressed, test.want)
+			}
+		})
+	}
+}
+
+func decompressPayload(payload *bytes.Buffer) (string, error) {
+	r, err := gzip.NewReader(payload)
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

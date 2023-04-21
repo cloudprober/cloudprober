@@ -16,6 +16,7 @@ package datadog
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -76,24 +77,18 @@ func newClient(server, apiKey, appKey string) *ddClient {
 func (c *ddClient) newRequest(series []ddSeries) (*http.Request, error) {
 	url := fmt.Sprintf("https://%s/api/v1/series", c.server)
 
-	// JSON encoding of the datadog series.
-	// {
-	//   "series": [{..},{..}]
-	// }
-	b, err := json.Marshal(map[string][]ddSeries{"series": series})
+	buf, err := compressPayload(series)
 	if err != nil {
 		return nil, err
 	}
 
-	body := &bytes.Buffer{}
-	if _, err := body.Write(b); err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", url, body)
+	req, err := http.NewRequest("POST", url, buf)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
 	req.Header.Set("DD-API-KEY", c.apiKey)
 	req.Header.Set("DD-APP-KEY", c.appKey)
@@ -118,4 +113,22 @@ func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries) error {
 	}
 
 	return nil
+}
+
+func compressPayload(series []ddSeries) (*bytes.Buffer, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	defer gz.Close()
+
+	// JSON encoding of the datadog series.
+	// {
+	//   "series": [{..},{..}]
+	// }
+	b, err := json.Marshal(map[string][]ddSeries{"series": series})
+	if err != nil {
+		return nil, err
+	}
+
+	gz.Write(b)
+	return &buf, nil
 }
