@@ -74,30 +74,46 @@ func newClient(server, apiKey, appKey string) *ddClient {
 	return c
 }
 
-func (c *ddClient) newRequest(series []ddSeries) (*http.Request, error) {
+func (c *ddClient) newRequest(series []ddSeries, compress bool) (*http.Request, error) {
 	url := fmt.Sprintf("https://%s/api/v1/series", c.server)
 
-	buf, err := compressPayload(series)
+	// JSON encoding of the datadog series.
+	// {
+	//   "series": [{..},{..}]
+	// }
+	json, err := json.Marshal(map[string][]ddSeries{"series": series})
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", url, buf)
+	var body *bytes.Buffer
+	if compress {
+		body, err = compressPayload(json)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		body = bytes.NewBuffer(json)
+	}
+
+	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Content-Encoding", "gzip")
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
 	req.Header.Set("DD-API-KEY", c.apiKey)
 	req.Header.Set("DD-APP-KEY", c.appKey)
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+
+	if compress {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 
 	return req, nil
 }
 
-func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries) error {
-	req, err := c.newRequest(series)
+func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries, compress bool) error {
+	req, err := c.newRequest(series, compress)
 	if err != nil {
 		return nil
 	}
@@ -115,20 +131,18 @@ func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries) error {
 	return nil
 }
 
-func compressPayload(series []ddSeries) (*bytes.Buffer, error) {
+func compressPayload(b []byte) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
+	gz, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
 	defer gz.Close()
 
-	// JSON encoding of the datadog series.
-	// {
-	//   "series": [{..},{..}]
-	// }
-	b, err := json.Marshal(map[string][]ddSeries{"series": series})
+	_, err = gz.Write(b)
 	if err != nil {
 		return nil, err
 	}
 
-	gz.Write(b)
 	return &buf, nil
 }

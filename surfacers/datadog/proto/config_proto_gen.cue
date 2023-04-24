@@ -13,4 +13,7 @@ package proto
 
 	// Datadog server, default: "api.datadoghq.com"
 	server?: string @protobuf(4,string)
+
+	// Compress metrics before sending them to Datadog.
+	compress?: bool @protobuf(7,bool,default)
 }

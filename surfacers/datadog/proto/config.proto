@@ -17,4 +17,7 @@ message SurfacerConf {
 
   // Datadog server, default: "api.datadoghq.com"
   optional string server = 4;
+
+  // Compress metrics before sending them to Datadog.
+  optional bool compress = 7 [default = true];
 }

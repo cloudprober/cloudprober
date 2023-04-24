@@ -15,7 +15,6 @@
 package datadog
 
 import (
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"io"
@@ -81,7 +80,6 @@ func TestNewRequest(t *testing.T) {
 	ts := time.Now().Unix()
 	tags := []string{"probe:cloudprober_http"}
 	metricType := "count"
-
 	testSeries := []ddSeries{
 		{
 			Metric: "cloudprober.success",
@@ -97,121 +95,70 @@ func TestNewRequest(t *testing.T) {
 		},
 	}
 
-	testClient := newClient("", "test-api-key", "test-app-key")
-	req, err := testClient.newRequest(testSeries)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	// Check URL
-	wantURL := "https://api.datadoghq.com/api/v1/series"
-	if req.URL.String() != wantURL {
-		t.Errorf("Got URL: %s, wanted: %s", req.URL.String(), wantURL)
-	}
-
-	// Check request headers
-	for k, v := range map[string]string{
-		"DD-API-KEY": "test-api-key",
-		"DD-APP-KEY": "test-app-key",
-	} {
-		if req.Header.Get(k) != v {
-			t.Errorf("%s header: %s, wanted: %s", k, req.Header.Get(k), v)
-		}
-	}
-
-	// Check request body
-	b, err := io.ReadAll(req.Body)
-	if err != nil {
-		t.Errorf("Error reading request body: %v", err)
-	}
-	data := map[string][]ddSeries{}
-
-	// Check if the request body is compressed
-	r, err := gzip.NewReader(bytes.NewReader(b))
-	if err != nil {
-		t.Errorf("Error creating gzip reader: %v", err)
-	}
-	defer r.Close()
-
-	// Check if the request body is valid JSON
-	if err := json.NewDecoder(r).Decode(&data); err != nil {
-		t.Errorf("Error decoding request body: %v", err)
-	}
-
-	// Check if the request body is valid
-	if !reflect.DeepEqual(data["series"], testSeries) {
-		t.Errorf("Got request body: %v, wanted: %v", data["series"], testSeries)
-	}
-}
-
-func TestCompressPayload(t *testing.T) {
 	tests := map[string]struct {
-		series []ddSeries
-		want   string
+		ddSeries []ddSeries
+		compress bool
 	}{
-		"empty": {
-			series: []ddSeries{},
-			want:   "{\"series\":[]}",
+		"no-compression": {
+			ddSeries: testSeries,
+			compress: false,
 		},
-		"single": {
-			series: []ddSeries{
-				{
-					Metric: "cloudprober.success",
-					Points: [][]float64{{float64(1234567890), 99}},
-					Tags:   &[]string{"probe:cloudprober_http"},
-					Type:   &[]string{"count"}[0],
-				},
-			},
-			want: "{\"series\":[{\"metric\":\"cloudprober.success\",\"points\":[[1234567890,99]],\"tags\":[\"probe:cloudprober_http\"],\"type\":\"count\"}]}",
-		},
-		"multiple": {
-			series: []ddSeries{
-				{
-					Metric: "cloudprober.success",
-					Points: [][]float64{{float64(1234567890), 99}},
-					Tags:   &[]string{"probe:cloudprober_http"},
-					Type:   &[]string{"count"}[0],
-				},
-				{
-					Metric: "cloudprober.total",
-					Points: [][]float64{{float64(1234567890), 100}},
-					Tags:   &[]string{"probe:cloudprober_http"},
-					Type:   &[]string{"count"}[0],
-				},
-			},
-			want: "{\"series\":[{\"metric\":\"cloudprober.success\",\"points\":[[1234567890,99]],\"tags\":[\"probe:cloudprober_http\"],\"type\":\"count\"},{\"metric\":\"cloudprober.total\",\"points\":[[1234567890,100]],\"tags\":[\"probe:cloudprober_http\"],\"type\":\"count\"}]}",
+		"compression": {
+			ddSeries: testSeries,
+			compress: true,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := compressPayload(test.series)
+			testClient := newClient("", "test-api-key", "test-app-key")
+			req, err := testClient.newRequest(test.ddSeries, test.compress)
 			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
+				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			gotDecompressed, err := decompressPayload(got)
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
+			// Check URL
+			wantURL := "https://api.datadoghq.com/api/v1/series"
+			if req.URL.String() != wantURL {
+				t.Fatalf("Got URL: %s, wanted: %s", req.URL.String(), wantURL)
 			}
 
-			if gotDecompressed != test.want {
-				t.Errorf("Got: %s, wanted: %s", gotDecompressed, test.want)
+			// Check request headers
+			for k, v := range map[string]string{
+				"DD-API-KEY": "test-api-key",
+				"DD-APP-KEY": "test-app-key",
+			} {
+				if req.Header.Get(k) != v {
+					t.Fatalf("%s header: %s, wanted: %s", k, req.Header.Get(k), v)
+				}
+			}
+
+			// Check request body
+			var body []byte
+			if test.compress {
+				gz, err := gzip.NewReader(req.Body)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				body, err = io.ReadAll(gz)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+			} else {
+				body, err = io.ReadAll(req.Body)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+			}
+
+			data := map[string][]ddSeries{}
+			if err := json.Unmarshal(body, &data); err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(data["series"], testSeries) {
+				t.Fatalf("Got series: %v, wanted: %v", data, testSeries)
 			}
 		})
 	}
-}
-
-func decompressPayload(payload *bytes.Buffer) (string, error) {
-	r, err := gzip.NewReader(payload)
-	if err != nil {
-		return "", err
-	}
-	defer r.Close()
-
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
 }

@@ -91,7 +91,7 @@ func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 // publish the metrics to datadog, buffering as necessary
 func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...ddSeries) {
 	if len(dd.ddSeriesCache) >= datadogMaxSeries {
-		if err := dd.client.submitMetrics(ctx, dd.ddSeriesCache); err != nil {
+		if err := dd.client.submitMetrics(ctx, dd.ddSeriesCache, dd.c.GetCompress()); err != nil {
 			dd.l.Errorf("Failed to publish %d series to datadog: %v", len(dd.ddSeriesCache), err)
 		}
 
@@ -105,7 +105,7 @@ func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...ddSeries) {
 func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time, kind metrics.Kind) ddSeries {
 	return ddSeries{
 		Metric: dd.prefix + metricName,
-		Points: [][]float64{[]float64{float64(timestamp.Unix()), value}},
+		Points: [][]float64{{float64(timestamp.Unix()), value}},
 		Tags:   &tags,
 		Type:   proto.String(datadogKind[kind]),
 	}
@@ -124,14 +124,14 @@ func emLabelsToTags(em *metrics.EventMetrics) []string {
 
 func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName string, tags []string, t time.Time, kind metrics.Kind) []ddSeries {
 	ret := []ddSeries{
-		ddSeries{
+		{
 			Metric: dd.prefix + metricName + ".sum",
-			Points: [][]float64{[]float64{float64(t.Unix()), d.Sum}},
+			Points: [][]float64{{float64(t.Unix()), d.Sum}},
 			Tags:   &tags,
 			Type:   proto.String(datadogKind[kind]),
 		}, {
 			Metric: dd.prefix + metricName + ".count",
-			Points: [][]float64{[]float64{float64(t.Unix()), float64(d.Count)}},
+			Points: [][]float64{{float64(t.Unix()), float64(d.Count)}},
 			Tags:   &tags,
 			Type:   proto.String(datadogKind[kind]),
 		},
