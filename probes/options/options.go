@@ -25,6 +25,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/alerts"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -48,6 +49,7 @@ type Options struct {
 	LogMetrics          func(*metrics.EventMetrics)
 	AdditionalLabels    []*AdditionalLabel
 	NegativeTest        bool
+	AlertHandlers       []*alerts.AlertHandler
 }
 
 const defaultStatsExtportIntv = 10 * time.Second
@@ -208,6 +210,17 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	}
 
 	opts.AdditionalLabels = parseAdditionalLabels(p)
+
+	for _, alertConf := range p.GetAlert() {
+		if alertConf.GetName() == "" {
+			alertConf.Name = p.GetName()
+		}
+		ah, err := alerts.NewAlertHandler(alertConf, opts.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("error in initializing alert handler: %v", err)
+		}
+		opts.AlertHandlers = append(opts.AlertHandlers, ah)
+	}
 
 	if !p.GetDebugOptions().GetLogMetrics() {
 		opts.LogMetrics = func(em *metrics.EventMetrics) {}

@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package cloudprober.probes.alerts;
+
+import "github.com/cloudprober/cloudprober/common/oauth/proto/config.proto";
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/probes/alerts/proto";
+
+// Generic HTTP request to notify on alert.
+// You can use alert labels as HTTP request parameters. For example,
+//  http_request {
+//    method: GET
+//    url: "https://api.pagerduty.com/v2/incidents"
+//    json_params {
+//      title: "type"
+//      value: "incident"
+//    }
+//    ...
+//  }
+message HTTPRequest {
+    string method = 1;
+    string url = 2;
+
+    map<string, string> headers = 3;
+
+    map<string, string> json_params = 4;
+    
+    // Additional body to be sent with the request.
+    string body = 5;
+    
+    // Proxy URL, e.g. http://myproxy:3128
+    optional string proxy_url = 6;
+
+    // OAuth Config
+    optional oauth.Config oauth_config = 11;
+
+    // TLS config
+    optional tlsconfig.TLSConfig tls_config = 12;
+}
+
+// Notify is not implemented yet.
+message Notify {
+    string cmd = 1;
+    string email = 2;
+    HTTPRequest http_request = 3;
+}
+
+message AlertConf {
+    // Name of the alert. Default is to use the probe name.
+    string name = 1;
+
+    // Thresholds for the alert.
+    float failure_threshold = 2;
+
+    // Duration threshold in seconds. If duration_threshold_sec is set, alert
+    // will be fired only if alert condition is true for
+    // duration_threshold_sec.
+    optional int32 duration_threshold_sec = 3;
+
+    // How to notify in case of alert.
+    Notify notify = 4;
+}
