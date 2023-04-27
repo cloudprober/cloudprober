@@ -105,7 +105,7 @@ func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...ddSeries) {
 func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time, kind metrics.Kind) ddSeries {
 	return ddSeries{
 		Metric: dd.prefix + metricName,
-		Points: [][]float64{[]float64{float64(timestamp.Unix()), value}},
+		Points: [][]float64{{float64(timestamp.Unix()), value}},
 		Tags:   &tags,
 		Type:   proto.String(datadogKind[kind]),
 	}
@@ -124,14 +124,14 @@ func emLabelsToTags(em *metrics.EventMetrics) []string {
 
 func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName string, tags []string, t time.Time, kind metrics.Kind) []ddSeries {
 	ret := []ddSeries{
-		ddSeries{
+		{
 			Metric: dd.prefix + metricName + ".sum",
-			Points: [][]float64{[]float64{float64(t.Unix()), d.Sum}},
+			Points: [][]float64{{float64(t.Unix()), d.Sum}},
 			Tags:   &tags,
 			Type:   proto.String(datadogKind[kind]),
 		}, {
 			Metric: dd.prefix + metricName + ".count",
-			Points: [][]float64{[]float64{float64(t.Unix()), float64(d.Count)}},
+			Points: [][]float64{{float64(t.Unix()), float64(d.Count)}},
 			Tags:   &tags,
 			Type:   proto.String(datadogKind[kind]),
 		},
@@ -168,7 +168,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	dd := &DDSurfacer{
 		c:         config,
 		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
-		client:    newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey()),
+		client:    newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey(), config.GetDisableCompression()),
 		l:         l,
 		prefix:    p,
 	}
