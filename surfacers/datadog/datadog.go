@@ -91,7 +91,7 @@ func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 // publish the metrics to datadog, buffering as necessary
 func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...ddSeries) {
 	if len(dd.ddSeriesCache) >= datadogMaxSeries {
-		if err := dd.client.submitMetrics(ctx, dd.ddSeriesCache, dd.c.GetCompress()); err != nil {
+		if err := dd.client.submitMetrics(ctx, dd.ddSeriesCache); err != nil {
 			dd.l.Errorf("Failed to publish %d series to datadog: %v", len(dd.ddSeriesCache), err)
 		}
 
@@ -168,7 +168,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	dd := &DDSurfacer{
 		c:         config,
 		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
-		client:    newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey()),
+		client:    newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey(), config.GetDisableCompression()),
 		l:         l,
 		prefix:    p,
 	}

@@ -28,10 +28,11 @@ import (
 const defaultServer = "api.datadoghq.com"
 
 type ddClient struct {
-	apiKey string
-	appKey string
-	server string
-	c      http.Client
+	apiKey         string
+	appKey         string
+	server         string
+	c              http.Client
+	useCompression bool
 }
 
 // ddSeries A metric to submit to Datadog. See:
@@ -52,12 +53,18 @@ type ddSeries struct {
 	Type *string `json:"type,omitempty"`
 }
 
-func newClient(server, apiKey, appKey string) *ddClient {
+func newClient(server, apiKey, appKey string, disableCompression bool) *ddClient {
+	// to avoid the double negative boolean evaluation in logic branches, and improve
+	// readability, flip the value of the configuration option from disabling compression to
+	// using compression.
+	useCompression := !disableCompression
+
 	c := &ddClient{
-		apiKey: apiKey,
-		appKey: appKey,
-		server: server,
-		c:      http.Client{},
+		apiKey:         apiKey,
+		appKey:         appKey,
+		server:         server,
+		c:              http.Client{},
+		useCompression: useCompression,
 	}
 	if c.apiKey == "" {
 		c.apiKey = os.Getenv("DD_API_KEY")
@@ -74,29 +81,30 @@ func newClient(server, apiKey, appKey string) *ddClient {
 	return c
 }
 
-func (c *ddClient) newRequest(series []ddSeries, compress bool) (*http.Request, error) {
+func (c *ddClient) newRequest(series []ddSeries) (*http.Request, error) {
 	url := fmt.Sprintf("https://%s/api/v1/series", c.server)
 
 	// JSON encoding of the datadog series.
 	// {
 	//   "series": [{..},{..}]
 	// }
-	json, err := json.Marshal(map[string][]ddSeries{"series": series})
+	json_body, err := json.Marshal(map[string][]ddSeries{"series": series})
 	if err != nil {
 		return nil, err
 	}
 
-	var body *bytes.Buffer
-	if compress {
-		body, err = compressPayload(json)
+	var payload *bytes.Buffer
+
+	if c.useCompression {
+		payload, err = compressPayload(json_body)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		body = bytes.NewBuffer(json)
+		payload = bytes.NewBuffer(json_body)
 	}
 
-	req, err := http.NewRequest("POST", url, body)
+	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -105,15 +113,15 @@ func (c *ddClient) newRequest(series []ddSeries, compress bool) (*http.Request, 
 	req.Header.Set("DD-APP-KEY", c.appKey)
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
-	if compress {
+	if c.useCompression {
 		req.Header.Set("Content-Encoding", "gzip")
 	}
 
 	return req, nil
 }
 
-func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries, compress bool) error {
-	req, err := c.newRequest(series, compress)
+func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries) error {
+	req, err := c.newRequest(series)
 	if err != nil {
 		return nil
 	}

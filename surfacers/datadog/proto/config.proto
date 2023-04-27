@@ -18,6 +18,7 @@ message SurfacerConf {
   // Datadog server, default: "api.datadoghq.com"
   optional string server = 4;
 
-  // Compress metrics before sending them to Datadog.
-  optional bool compress = 7 [default = true];
+  // Disable gzip compression of metric payload, when sending metrics to Datadog.
+  // Compression is enabled by default.
+  optional bool disable_compression = 7;
 }
