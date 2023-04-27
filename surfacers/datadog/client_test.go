@@ -15,8 +15,10 @@
 package datadog
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"io"
+	"math/rand"
 	"os"
 	"reflect"
 	"testing"
@@ -28,22 +30,25 @@ func TestNewClient(t *testing.T) {
 	eAPIKey, eAppKey := "e-apiKey", "e-appKey"
 
 	tests := []struct {
-		desc       string
-		apiKey     string
-		appKey     string
-		server     string
-		env        map[string]string
-		wantClient *ddClient
+		desc               string
+		apiKey             string
+		appKey             string
+		server             string
+		disableCompression bool
+		env                map[string]string
+		wantClient         *ddClient
 	}{
 		{
-			desc:   "keys-from-config",
-			apiKey: cAPIKey,
-			appKey: cAppKey,
-			server: "",
+			desc:               "keys-from-config",
+			apiKey:             cAPIKey,
+			appKey:             cAppKey,
+			server:             "",
+			disableCompression: false,
 			wantClient: &ddClient{
-				apiKey: cAPIKey,
-				appKey: cAppKey,
-				server: defaultServer,
+				apiKey:         cAPIKey,
+				appKey:         cAppKey,
+				server:         defaultServer,
+				useCompression: true,
 			},
 		},
 		{
@@ -52,11 +57,43 @@ func TestNewClient(t *testing.T) {
 				"DD_API_KEY": eAPIKey,
 				"DD_APP_KEY": eAppKey,
 			},
-			server: "test-server",
+			server:             "test-server",
+			disableCompression: false,
 			wantClient: &ddClient{
-				apiKey: eAPIKey,
-				appKey: eAppKey,
-				server: "test-server",
+				apiKey:         eAPIKey,
+				appKey:         eAppKey,
+				server:         "test-server",
+				useCompression: true,
+			},
+		},
+		{
+			desc: "compression-disabled",
+			env: map[string]string{
+				"DD_API_KEY": eAPIKey,
+				"DD_APP_KEY": eAppKey,
+			},
+			server:             "test-server",
+			disableCompression: true,
+			wantClient: &ddClient{
+				apiKey:         eAPIKey,
+				appKey:         eAppKey,
+				server:         "test-server",
+				useCompression: false,
+			},
+		},
+		{
+			desc: "compression-enabled",
+			env: map[string]string{
+				"DD_API_KEY": eAPIKey,
+				"DD_APP_KEY": eAppKey,
+			},
+			server:             "test-server",
+			disableCompression: false,
+			wantClient: &ddClient{
+				apiKey:         eAPIKey,
+				appKey:         eAppKey,
+				server:         "test-server",
+				useCompression: true,
 			},
 		},
 	}
@@ -67,7 +104,7 @@ func TestNewClient(t *testing.T) {
 				os.Setenv(k, v)
 			}
 
-			c := newClient(test.server, test.apiKey, test.appKey)
+			c := newClient(test.server, test.apiKey, test.appKey, test.disableCompression)
 			if !reflect.DeepEqual(c, test.wantClient) {
 				t.Errorf("got client: %v, want client: %v", c, test.wantClient)
 			}
@@ -80,54 +117,124 @@ func TestNewRequest(t *testing.T) {
 	tags := []string{"probe:cloudprober_http"}
 	metricType := "count"
 
-	testSeries := []ddSeries{
-		{
-			Metric: "cloudprober.success",
-			Points: [][]float64{[]float64{float64(ts), 99}},
-			Tags:   &tags,
-			Type:   &metricType,
-		},
-		{
-			Metric: "cloudprober.total",
-			Points: [][]float64{[]float64{float64(ts), 100}},
-			Tags:   &tags,
-			Type:   &metricType,
-		},
-	}
+	generateMetricsFunc := func(n int) []ddSeries {
+		var result []ddSeries
 
-	testClient := newClient("", "test-api-key", "test-app-key")
-	req, err := testClient.newRequest(testSeries)
+		for i := 0; i < n; i++ {
+			var metricName string
 
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+			switch i % 5 {
+			case 0:
+				metricName = "cloudprober.success"
+			case 1:
+				metricName = "cloudprober.total"
+			case 2:
+				metricName = "cloudprober.latency"
+			case 3:
+				metricName = "cloudprober.packet_loss"
+			case 4:
+				metricName = "cloudprober.error"
+			}
 
-	// Check URL
-	wantURL := "https://api.datadoghq.com/api/v1/series"
-	if req.URL.String() != wantURL {
-		t.Errorf("Got URL: %s, wanted: %s", req.URL.String(), wantURL)
-	}
+			point := rand.Float64()*100 + 1
 
-	// Check request headers
-	for k, v := range map[string]string{
-		"DD-API-KEY": "test-api-key",
-		"DD-APP-KEY": "test-app-key",
-	} {
-		if req.Header.Get(k) != v {
-			t.Errorf("%s header: %s, wanted: %s", k, req.Header.Get(k), v)
+			result = append(result, ddSeries{
+				Metric: metricName,
+				Points: [][]float64{{float64(ts), point}},
+				Tags:   &tags,
+				Type:   &metricType,
+			})
 		}
+
+		return result
 	}
 
-	// Check request body
-	b, err := io.ReadAll(req.Body)
-	if err != nil {
-		t.Errorf("Error reading request body: %v", err)
+	tests := map[string]struct {
+		ddSeries              []ddSeries
+		disableCompression    bool
+		wantCompressedPayload bool
+	}{
+		"disable-compression-with-small-payload": {
+			ddSeries:              generateMetricsFunc(1),
+			disableCompression:    true,
+			wantCompressedPayload: false,
+		},
+		"disable-compression-with-large-payload": {
+			ddSeries:              generateMetricsFunc(1000),
+			disableCompression:    true,
+			wantCompressedPayload: false,
+		},
+		"enable-compression-with-small-payload": {
+			ddSeries:              generateMetricsFunc(1),
+			disableCompression:    false,
+			wantCompressedPayload: true,
+		},
+		"enable-compression-large-payload": {
+			ddSeries:              generateMetricsFunc(1000),
+			disableCompression:    false,
+			wantCompressedPayload: true,
+		},
 	}
-	data := map[string][]ddSeries{}
-	if err := json.Unmarshal(b, &data); err != nil {
-		t.Errorf("Error unmarshaling request body: %v", err)
-	}
-	if !reflect.DeepEqual(data["series"], testSeries) {
-		t.Errorf("s.Series: %v, testSeries: %v", data["series"], testSeries)
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			testClient := newClient("", "test-api-key", "test-app-key", test.disableCompression)
+			req, err := testClient.newRequest(test.ddSeries)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Check URL
+			wantURL := "https://api.datadoghq.com/api/v1/series"
+			if req.URL.String() != wantURL {
+				t.Fatalf("Got URL: %s, wanted: %s", req.URL.String(), wantURL)
+			}
+
+			baseHeaders := map[string]string{
+				"Content-Type": "application/json; charset=utf-8",
+				"DD-API-KEY":   "test-api-key",
+				"DD-APP-KEY":   "test-app-key",
+			}
+
+			// check that we instruct upstream servers that we have transferred this file
+			// with gzip compression
+			if test.wantCompressedPayload {
+				baseHeaders["Content-Encoding"] = "gzip"
+			}
+
+			// Check request headers
+			for k, v := range baseHeaders {
+				if req.Header.Get(k) != v {
+					t.Fatalf("%s header: %s, wanted: %s", k, req.Header.Get(k), v)
+				}
+			}
+
+			// Check request body
+			var body []byte
+			if test.wantCompressedPayload {
+				gz, err := gzip.NewReader(req.Body)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				body, err = io.ReadAll(gz)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+			} else {
+				body, err = io.ReadAll(req.Body)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+			}
+
+			data := map[string][]ddSeries{}
+			if err := json.Unmarshal(body, &data); err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(data["series"], test.ddSeries) {
+				t.Fatalf("Got series: %v, wanted: %v", data, test.ddSeries)
+			}
+		})
 	}
 }
