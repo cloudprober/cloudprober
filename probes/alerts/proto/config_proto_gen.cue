@@ -1,6 +1,6 @@
 package proto
 
-// Notify is not implemented yet.
+// Notify is not implemented yet. We just log a warning when there is an alert.
 #Notify: {
 }
 

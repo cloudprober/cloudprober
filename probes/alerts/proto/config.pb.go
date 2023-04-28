@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Notify is not implemented yet.
+// Notify is not implemented yet. We just log a warning when there is an alert.
 type Notify struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
