@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package cloudprober.probes.alerts;
 
-option go_package = "github.com/cloudprober/cloudprober/probes/alerts/proto";
+option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
 
 // Notify is not implemented yet. We just log a warning when there is an alert.

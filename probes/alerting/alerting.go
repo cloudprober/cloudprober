@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package alerts implements alerting functionality in Cloudprober.
-package alerts
+// Package alerting implements alerting functionality in Cloudprober.
+package alerting
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	configpb "github.com/cloudprober/cloudprober/probes/alerts/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 

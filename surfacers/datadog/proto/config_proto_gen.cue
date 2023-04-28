@@ -15,5 +15,6 @@ package proto
 	server?: string @protobuf(4,string)
 
 	// Disable gzip compression of metric payload, when sending metrics to Datadog.
+	// Compression is enabled by default.
 	disableCompression?: bool @protobuf(7,bool,name=disable_compression)
 }
