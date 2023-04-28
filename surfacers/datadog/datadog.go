@@ -76,7 +76,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		client:        newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey(), config.GetDisableCompression()),
 		l:             l,
 		prefix:        p,
-		ddSeriesCache: make([]ddSeries, config.GetMetricsBatchSize()),
+		ddSeriesCache: make([]ddSeries, 0, config.GetMetricsBatchSize()),
 	}
 
 	go dd.receiveMetricsFromEvent(ctx)
