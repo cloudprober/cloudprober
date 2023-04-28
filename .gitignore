@@ -1,6 +1,16 @@
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
 docs/node_modules
 docs/public
 docs/resources
 vendor/
 **DS_Store
 **.hugo_build.lock
+*.bak

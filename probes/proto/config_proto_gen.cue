@@ -4,17 +4,18 @@ import (
 	"github.com/cloudprober/cloudprober/targets/proto"
 	proto_1 "github.com/cloudprober/cloudprober/metrics/proto"
 	proto_5 "github.com/cloudprober/cloudprober/validators/proto"
-	proto_A "github.com/cloudprober/cloudprober/probes/ping/proto"
-	proto_8 "github.com/cloudprober/cloudprober/probes/http/proto"
-	proto_E "github.com/cloudprober/cloudprober/probes/dns/proto"
-	proto_B "github.com/cloudprober/cloudprober/probes/external/proto"
-	proto_36 "github.com/cloudprober/cloudprober/probes/udp/proto"
-	proto_9 "github.com/cloudprober/cloudprober/probes/udplistener/proto"
-	proto_3 "github.com/cloudprober/cloudprober/probes/grpc/proto"
-	proto_A2 "github.com/cloudprober/cloudprober/probes/tcp/proto"
+	proto_A "github.com/cloudprober/cloudprober/probes/alerts/proto"
+	proto_8 "github.com/cloudprober/cloudprober/probes/ping/proto"
+	proto_E "github.com/cloudprober/cloudprober/probes/http/proto"
+	proto_B "github.com/cloudprober/cloudprober/probes/dns/proto"
+	proto_36 "github.com/cloudprober/cloudprober/probes/external/proto"
+	proto_9 "github.com/cloudprober/cloudprober/probes/udp/proto"
+	proto_3 "github.com/cloudprober/cloudprober/probes/udplistener/proto"
+	proto_A2 "github.com/cloudprober/cloudprober/probes/grpc/proto"
+	proto_F "github.com/cloudprober/cloudprober/probes/tcp/proto"
 )
 
-// Next tag: 19
+// Next tag: 101
 #ProbeDef: {
 	name?: string @protobuf(1,string)
 
@@ -171,22 +172,23 @@ import (
 	// This is currently implemented only by PING and TCP probes.
 	// Note: This field is currently experimental, and may change in future.
 	negativeTest?: bool @protobuf(18,bool,name=negative_test)
+	alert?: [...proto_A.#AlertConf] @protobuf(19,alerts.AlertConf)
 	{} | {
-		pingProbe: proto_A.#ProbeConf @protobuf(20,ping.ProbeConf,name=ping_probe)
+		pingProbe: proto_8.#ProbeConf @protobuf(20,ping.ProbeConf,name=ping_probe)
 	} | {
-		httpProbe: proto_8.#ProbeConf @protobuf(21,http.ProbeConf,name=http_probe)
+		httpProbe: proto_E.#ProbeConf @protobuf(21,http.ProbeConf,name=http_probe)
 	} | {
-		dnsProbe: proto_E.#ProbeConf @protobuf(22,dns.ProbeConf,name=dns_probe)
+		dnsProbe: proto_B.#ProbeConf @protobuf(22,dns.ProbeConf,name=dns_probe)
 	} | {
-		externalProbe: proto_B.#ProbeConf @protobuf(23,external.ProbeConf,name=external_probe)
+		externalProbe: proto_36.#ProbeConf @protobuf(23,external.ProbeConf,name=external_probe)
 	} | {
-		udpProbe: proto_36.#ProbeConf @protobuf(24,udp.ProbeConf,name=udp_probe)
+		udpProbe: proto_9.#ProbeConf @protobuf(24,udp.ProbeConf,name=udp_probe)
 	} | {
-		udpListenerProbe: proto_9.#ProbeConf @protobuf(25,udplistener.ProbeConf,name=udp_listener_probe)
+		udpListenerProbe: proto_3.#ProbeConf @protobuf(25,udplistener.ProbeConf,name=udp_listener_probe)
 	} | {
-		grpcProbe: proto_3.#ProbeConf @protobuf(26,grpc.ProbeConf,name=grpc_probe)
+		grpcProbe: proto_A2.#ProbeConf @protobuf(26,grpc.ProbeConf,name=grpc_probe)
 	} | {
-		tcpProbe: proto_A2.#ProbeConf @protobuf(27,tcp.ProbeConf,name=tcp_probe)
+		tcpProbe: proto_F.#ProbeConf @protobuf(27,tcp.ProbeConf,name=tcp_probe)
 	} | {
 		// This field's contents are passed on to the user defined probe, registered
 		// for this probe's name through probes.RegisterUserDefined().

@@ -3,6 +3,7 @@ syntax = "proto2";
 package cloudprober.probes;
 
 import "github.com/cloudprober/cloudprober/metrics/proto/dist.proto";
+import "github.com/cloudprober/cloudprober/probes/alerts/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/dns/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/external/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/grpc/proto/config.proto";
@@ -16,7 +17,7 @@ import "github.com/cloudprober/cloudprober/validators/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
-// Next tag: 19
+// Next tag: 101
 message ProbeDef {
   required string name = 1;
 
@@ -156,6 +157,8 @@ message ProbeDef {
   // This is currently implemented only by PING and TCP probes.
   // Note: This field is currently experimental, and may change in future.
   optional bool negative_test = 18;
+
+  repeated alerts.AlertConf alert = 19;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;
