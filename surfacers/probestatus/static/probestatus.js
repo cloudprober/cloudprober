@@ -36,7 +36,10 @@ function populateProbeData(probe) {
   let gd = psd[probe];
 
   d[probe] = structuredClone(baseData);
-  d[probe].bindto = '#chart_' + probe;
+
+  // . doesn't work well in the selector. See the following for more details:
+  // https://github.com/cloudprober/cloudprober/issues/362
+  d[probe].bindto = '#chart_' + probe.replace('.', '\\.');
 
   // Timestamps
   let x = ['ts'];
