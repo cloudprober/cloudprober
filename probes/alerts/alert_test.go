@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAlertHandler_Record(t *testing.T) {
+func TestAlertHandlerRecord(t *testing.T) {
 	tests := []struct {
 		name              string
 		failureThreshold  float32
