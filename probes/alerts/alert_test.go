@@ -67,7 +67,6 @@ func TestAlertHandler_Record(t *testing.T) {
 			ah := &AlertHandler{
 				failureThreshold:  tt.failureThreshold,
 				durationThreshold: tt.durationThreshold,
-				notifyConfig:      &notifyConfig{},
 				targets:           make(map[string]*targetState),
 				notifyCh:          make(chan *AlertInfo, 10),
 			}

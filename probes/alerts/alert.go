@@ -40,18 +40,13 @@ func (ts *targetState) reset() {
 	ts.alerted = false
 }
 
-type notifyConfig struct {
-	cmd   string
-	email string
-}
-
 // AlertHandler is responsible for handling alerts. It keeps track of the
 // health of targets and notifies the user if there is a failure.
 type AlertHandler struct {
 	name              string
 	failureThreshold  float32
 	durationThreshold time.Duration
-	notifyConfig      *notifyConfig
+	notifyConfig      *configpb.Notify
 	notifyCh          chan *AlertInfo // Used only for testing for now.
 
 	mu      sync.Mutex
@@ -78,12 +73,9 @@ func NewAlertHandler(conf *configpb.AlertConf, l *logger.Logger) (*AlertHandler,
 		name:              conf.GetName(),
 		failureThreshold:  conf.GetFailureThreshold(),
 		durationThreshold: time.Second * time.Duration(conf.GetDurationThresholdSec()),
-		notifyConfig: &notifyConfig{
-			cmd:   conf.GetNotify().GetCmd(),
-			email: conf.GetNotify().GetEmail(),
-		},
-		targets: make(map[string]*targetState),
-		l:       l,
+		notifyConfig:      conf.GetNotify(),
+		targets:           make(map[string]*targetState),
+		l:                 l,
 	}, nil
 }
 
@@ -108,7 +100,7 @@ func extractValues(em *metrics.EventMetrics) (int64, int64, error) {
 }
 
 func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, failureRatio float32) {
-	ah.l.Warningf("ALERT (%s): target (%v), failures higher than (%.2f) for longer than (%s)", ah.name, ep.Name, ah.failureThreshold, ah.durationThreshold)
+	ah.l.Warningf("ALERT (%s): target (%s), failures higher than (%.2f) since (%v)", ah.name, ep.Name, ah.failureThreshold, ts.firstFailure)
 
 	ts.alerted = true
 	if ah.notifyCh != nil {
