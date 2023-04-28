@@ -27,4 +27,8 @@ package proto
 	// Metrics will be published when the timer expires, or the buffer is
 	// full, whichever happens first.
 	batchTimerSec?: int32 @protobuf(6,int32,name=batch_timer_sec,"default=30")
+
+	// Disable gzip compression of metric payload, when sending metrics to Datadog.
+	// Compression is enabled by default.
+	disableCompression?: bool @protobuf(7,bool,name=disable_compression)
 }

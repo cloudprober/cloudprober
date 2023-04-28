@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package cloudprober.probes.alerts;
+
+option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
+
+
+// Notify is not implemented yet. We just log a warning when there is an alert.
+message Notify {
+}
+
+message AlertConf {
+    // Name of the alert. Default is to use the probe name.
+    string name = 1;
+
+    // Thresholds for the alert.
+    float failure_threshold = 2;
+
+    // Duration threshold in seconds. If duration_threshold_sec is set, alert
+    // will be fired only if alert condition is true for
+    // duration_threshold_sec.
+    optional int32 duration_threshold_sec = 3;
+
+    // How to notify in case of alert.
+    Notify notify = 4;
+}

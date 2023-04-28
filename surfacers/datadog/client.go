@@ -16,6 +16,7 @@ package datadog
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,10 +28,11 @@ import (
 const defaultServer = "api.datadoghq.com"
 
 type ddClient struct {
-	apiKey string
-	appKey string
-	server string
-	c      http.Client
+	apiKey         string
+	appKey         string
+	server         string
+	c              http.Client
+	useCompression bool
 }
 
 // ddSeries A metric to submit to Datadog. See:
@@ -51,12 +53,18 @@ type ddSeries struct {
 	Type *string `json:"type,omitempty"`
 }
 
-func newClient(server, apiKey, appKey string) *ddClient {
+func newClient(server, apiKey, appKey string, disableCompression bool) *ddClient {
+	// to avoid the double negative boolean evaluation in logic branches, and improve
+	// readability, flip the value of the configuration option from disabling compression to
+	// using compression.
+	useCompression := !disableCompression
+
 	c := &ddClient{
-		apiKey: apiKey,
-		appKey: appKey,
-		server: server,
-		c:      http.Client{},
+		apiKey:         apiKey,
+		appKey:         appKey,
+		server:         server,
+		c:              http.Client{},
+		useCompression: useCompression,
 	}
 	if c.apiKey == "" {
 		c.apiKey = os.Getenv("DD_API_KEY")
@@ -80,23 +88,34 @@ func (c *ddClient) newRequest(series []ddSeries) (*http.Request, error) {
 	// {
 	//   "series": [{..},{..}]
 	// }
-	b, err := json.Marshal(map[string][]ddSeries{"series": series})
+	json_body, err := json.Marshal(map[string][]ddSeries{"series": series})
 	if err != nil {
 		return nil, err
 	}
 
-	body := &bytes.Buffer{}
-	if _, err := body.Write(b); err != nil {
-		return nil, err
+	var payload *bytes.Buffer
+
+	if c.useCompression {
+		payload, err = compressPayload(json_body)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		payload = bytes.NewBuffer(json_body)
 	}
 
-	req, err := http.NewRequest("POST", url, body)
+	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("DD-API-KEY", c.apiKey)
 	req.Header.Set("DD-APP-KEY", c.appKey)
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+
+	if c.useCompression {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 
 	return req, nil
 }
@@ -118,4 +137,20 @@ func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries) error {
 	}
 
 	return nil
+}
+
+func compressPayload(b []byte) (*bytes.Buffer, error) {
+	var buf bytes.Buffer
+	gz, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+
+	_, err = gz.Write(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return &buf, nil
 }

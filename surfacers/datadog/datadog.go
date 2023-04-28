@@ -73,7 +73,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	dd := &DDSurfacer{
 		c:             config,
 		writeChan:     make(chan *metrics.EventMetrics, config.GetMetricsBatchSize()),
-		client:        newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey()),
+		client:        newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey(), config.GetDisableCompression()),
 		l:             l,
 		prefix:        p,
 		ddSeriesCache: make([]ddSeries, config.GetMetricsBatchSize()),

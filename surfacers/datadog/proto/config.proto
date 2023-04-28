@@ -31,4 +31,9 @@ message SurfacerConf {
   // Metrics will be published when the timer expires, or the buffer is
   // full, whichever happens first. 
   optional int32 batch_timer_sec = 6 [default = 30];
+
+  // Disable gzip compression of metric payload, when sending metrics to Datadog.
+  // Compression is enabled by default.
+  optional bool disable_compression = 7;
+
 }
