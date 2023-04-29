@@ -52,7 +52,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		c:       c,
 		l:       l,
 		cmdName: cmdParts[0],
-		cmdArgs: cmdParts[1:len(cmdParts)],
+		cmdArgs: cmdParts[1:],
 	}, nil
 }
 

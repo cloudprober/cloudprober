@@ -2,6 +2,8 @@ package proto
 
 // Notify is not implemented yet. We just log a warning when there is an alert.
 #Notify: {
+	// Command to run when alert is fired.
+	command?: string @protobuf(1,string)
 }
 
 #AlertConf: {

@@ -1,4 +1,4 @@
-// Copyright 2017-2022 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,6 @@ can have two modes: "once" and "server". In "once" mode, the external process is
 started for each probe run cycle, while in "server" mode, external process is
 started only if it's not running already and Cloudprober communicates with it
 over stdin/stdout for each probe cycle.
-
-TODO(manugarg): Add a way to test this program. Write another program that
-implements the probe server protocol and use that for testing.
 */
 package external
 
@@ -39,6 +36,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/template"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -175,55 +173,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	return nil
-}
-
-// substituteLabels replaces occurrences of @label@ with the values from
-// labels.  It returns the substituted string and a bool indicating if there
-// was a @label@ that did not exist in the labels map.
-func substituteLabels(in string, labels map[string]string) (string, bool) {
-	if len(labels) == 0 {
-		return in, !strings.Contains(in, "@")
-	}
-	delimiter := "@"
-	output := ""
-	words := strings.Split(in, delimiter)
-	count := len(words)
-	foundAll := true
-	for j, kwd := range words {
-		// Even number of words => just copy out.
-		if j%2 == 0 {
-			output += kwd
-			continue
-		}
-		// Special case: If there are an odd number of '@' (unbalanced), the last
-		// odd index doesn't actually have a closing '@', so we just append it as it
-		// is.
-		if j == count-1 {
-			output += delimiter
-			output += kwd
-			continue
-		}
-
-		// Special case: "@@" => "@"
-		if kwd == "" {
-			output += delimiter
-			continue
-		}
-
-		// Finally, the labels.
-		replace, ok := labels[kwd]
-		if ok {
-			output += replace
-			continue
-		}
-
-		// Nothing - put the token back in.
-		foundAll = false
-		output += delimiter
-		output += kwd
-		output += delimiter
-	}
-	return output, foundAll
 }
 
 type command interface {
@@ -391,9 +340,14 @@ func (p *Probe) sendRequest(requestID int32, ep endpoint.Endpoint) error {
 		Options:   []*serverpb.ProbeRequest_Option{},
 	}
 	for _, opt := range p.c.GetOptions() {
-		value, found := substituteLabels(opt.GetValue(), p.labels(ep))
-		if !found {
-			p.l.Warningf("Missing substitution in option %q", value)
+		value := opt.GetValue()
+		if len(p.labelKeys) != 0 { // If we're looking for substitions.
+			res, found := template.SubstituteLabels(value, p.labels(ep))
+			if !found {
+				p.l.Warningf("Missing substitution in option %q", value)
+			} else {
+				value = res
+			}
 		}
 		req.Options = append(req.Options, &serverpb.ProbeRequest_Option{
 			Name:  opt.Name,
@@ -547,12 +501,14 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 		go func(target endpoint.Endpoint, result *result) {
 			defer wg.Done()
 			args := make([]string, len(p.cmdArgs))
-			for i, arg := range p.cmdArgs {
-				res, found := substituteLabels(arg, p.labels(target))
-				if !found {
-					p.l.Warningf("Substitution not found in %q", arg)
+			if len(p.labelKeys) != 0 {
+				for i, arg := range p.cmdArgs {
+					res, found := template.SubstituteLabels(arg, p.labels(target))
+					if !found {
+						p.l.Warningf("Substitution not found in %q", arg)
+					}
+					args[i] = res
 				}
-				args[i] = res
 			}
 
 			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))

@@ -7,6 +7,8 @@ option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
 // Notify is not implemented yet. We just log a warning when there is an alert.
 message Notify {
+    // Command to run when alert is fired.
+    string command = 1;
 }
 
 message AlertConf {

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 )
@@ -101,6 +102,62 @@ func TestAlertHandlerRecord(t *testing.T) {
 					assert.Equal(t, tt.wantAlerts[i], a)
 				}
 			}
+		})
+	}
+}
+
+func TestNewAlertHandler(t *testing.T) {
+	tests := []struct {
+		name      string
+		conf      *configpb.AlertConf
+		probeName string
+		want      *AlertHandler
+		wantErr   bool
+	}{
+		{
+			name:      "simple",
+			probeName: "test-probe",
+			conf: &configpb.AlertConf{
+				Name:             "test-alert",
+				FailureThreshold: 0.5,
+			},
+			want: &AlertHandler{
+				name:              "test-alert",
+				probeName:         "test-probe",
+				failureThreshold:  0.5,
+				durationThreshold: time.Duration(0),
+				targets:           make(map[string]*targetState),
+			},
+		},
+		{
+			name:      "no-alert-name",
+			probeName: "test-probe",
+			conf: &configpb.AlertConf{
+				FailureThreshold: 0.5,
+			},
+			want: &AlertHandler{
+				name:              "test-probe",
+				probeName:         "test-probe",
+				failureThreshold:  0.5,
+				durationThreshold: time.Duration(0),
+				targets:           make(map[string]*targetState),
+			},
+		},
+		{
+			name:      "error-no-threshold",
+			probeName: "test-probe",
+			conf:      &configpb.AlertConf{},
+			wantErr:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewAlertHandler(tt.conf, tt.probeName, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewAlertHandler() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
