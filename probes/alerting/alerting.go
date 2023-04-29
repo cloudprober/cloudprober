@@ -44,6 +44,7 @@ func (ts *targetState) reset() {
 // health of targets and notifies the user if there is a failure.
 type AlertHandler struct {
 	name              string
+	probeName         string
 	failureThreshold  float32
 	durationThreshold time.Duration
 	notifyConfig      *configpb.Notify
@@ -54,23 +55,21 @@ type AlertHandler struct {
 	l       *logger.Logger
 }
 
-// AlertInfo contains information about an alert.
-type AlertInfo struct {
-	Target           endpoint.Endpoint
-	FailureRatio     float32
-	FailureThreshold float32
-	FailingSince     time.Time
-}
-
 // NewAlertHandler creates a new AlertHandler from the given config.
 // If the config is invalid, an error is returned.
-func NewAlertHandler(conf *configpb.AlertConf, l *logger.Logger) (*AlertHandler, error) {
+func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logger) (*AlertHandler, error) {
 	if conf.GetFailureThreshold() == 0 {
 		return nil, fmt.Errorf("invalid failure_threshold (0)")
 	}
 
+	name := conf.GetName()
+	if name == "" {
+		name = probeName
+	}
+
 	return &AlertHandler{
-		name:              conf.GetName(),
+		name:              name,
+		probeName:         probeName,
 		failureThreshold:  conf.GetFailureThreshold(),
 		durationThreshold: time.Second * time.Duration(conf.GetDurationThresholdSec()),
 		notifyConfig:      conf.GetNotify(),
@@ -97,22 +96,6 @@ func extractValues(em *metrics.EventMetrics) (int64, int64, error) {
 	success := numV.Int64()
 
 	return total, success, nil
-}
-
-func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, failureRatio float32) {
-	ah.l.Warningf("ALERT (%s): target (%s), failures higher than (%.2f) since (%v)", ah.name, ep.Name, ah.failureThreshold, ts.firstFailure)
-
-	ts.alerted = true
-	if ah.notifyCh != nil {
-		ah.notifyCh <- &AlertInfo{
-			Target:           ep,
-			FailureRatio:     failureRatio,
-			FailureThreshold: ah.failureThreshold,
-			FailingSince:     ts.firstFailure,
-		}
-	}
-
-	// TODO: Implement actual notification logic here.
 }
 
 func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) error {
