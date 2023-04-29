@@ -143,8 +143,8 @@ function selectedProbes() {
   let params = new URLSearchParams(window.location.search);
   let currentProbes = params.getAll('probe');
   let probeMap = {};
-  for (let i = 0; i < currentProbes.length; i++) {
-    probeMap[currentProbes[i]] = true;
+  for (const element of currentProbes) {
+    probeMap[element] = true;
   }
   return probeMap;
 }
@@ -181,8 +181,7 @@ function geenrateProbeSelectors() {
   let allChecked = Object.keys(probeMap).length === 0 ? 'checked ' : ' ';
   let selectors = `Probes: <label><input class=probe-checkbox id=select-all type=checkbox ${allChecked}>All</label> `;
 
-  for (let i = 0; i < allProbes.length; i++) {
-    let p = allProbes[i];
+  for (const p of allProbes) {
     let checked = probeMap[p] ? 'checked ' : ' ';
     selectors += `<label> | <input class=probe-checkbox id=select-${p} type=checkbox ${checked}>${p}</label>`;
   }
