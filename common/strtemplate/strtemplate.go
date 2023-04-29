@@ -13,9 +13,9 @@
 // limitations under the License.
 
 /*
-Package template implements string templating functionality for Cloudprober.
+Package strtemplate implements string templating functionality for Cloudprober.
 */
-package template
+package strtemplate
 
 import (
 	"strings"

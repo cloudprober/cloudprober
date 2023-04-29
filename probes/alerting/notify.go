@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/template"
+	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/google/shlex"
 )
@@ -86,7 +86,7 @@ func (ah *AlertHandler) notifyCommand(ctx context.Context, command string, field
 
 	var parts []string
 	for _, part := range cmdParts {
-		res, foundAll := template.SubstituteLabels(part, fields)
+		res, foundAll := strtemplate.SubstituteLabels(part, fields)
 		if foundAll {
 			part = res
 		}

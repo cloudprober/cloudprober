@@ -36,7 +36,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/template"
+	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -342,7 +342,7 @@ func (p *Probe) sendRequest(requestID int32, ep endpoint.Endpoint) error {
 	for _, opt := range p.c.GetOptions() {
 		value := opt.GetValue()
 		if len(p.labelKeys) != 0 { // If we're looking for substitions.
-			res, found := template.SubstituteLabels(value, p.labels(ep))
+			res, found := strtemplate.SubstituteLabels(value, p.labels(ep))
 			if !found {
 				p.l.Warningf("Missing substitution in option %q", value)
 			} else {
@@ -503,7 +503,7 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			args := make([]string, len(p.cmdArgs))
 			if len(p.labelKeys) != 0 {
 				for i, arg := range p.cmdArgs {
-					res, found := template.SubstituteLabels(arg, p.labels(target))
+					res, found := strtemplate.SubstituteLabels(arg, p.labels(target))
 					if !found {
 						p.l.Warningf("Substitution not found in %q", arg)
 					}

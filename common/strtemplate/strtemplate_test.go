@@ -15,7 +15,7 @@
 /*
 Package template implements string templating functionality for Cloudprober.
 */
-package template
+package strtemplate
 
 import (
 	"testing"
@@ -33,12 +33,12 @@ func TestSubstituteLabels(t *testing.T) {
 	}{
 		{
 			name: "multiple clean substitutions",
-			in:   "--servername=@target@ --port=@port@",
+			in:   "--target=@target@ --alert=@alert@",
 			labels: map[string]string{
-				"target": "www.google.com",
-				"port":   "443",
+				"target": "cloudprober.org",
+				"alert":  "WebsiteDown",
 			},
-			want:      "--servername=www.google.com --port=443",
+			want:      "--target=cloudprober.org --alert=WebsiteDown",
 			wantFound: true,
 		},
 		{
