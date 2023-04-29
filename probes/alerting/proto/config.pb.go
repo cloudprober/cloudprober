@@ -20,7 +20,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Notify is not implemented yet. We just log a warning when there is an alert.
 type Notify struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -35,6 +34,10 @@ type Notify struct {
 	//  @value@: Value that triggered the alert.
 	//  @threshold@: Threshold that was crossed.
 	//  @since@: Time since the alert condition started.
+	//
+	// For example, if you want to send an email when an alert is fired, you can
+	// use the following command:
+	// command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
 	Command string `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
 }
 

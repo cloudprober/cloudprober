@@ -1,6 +1,5 @@
 package proto
 
-// Notify is not implemented yet. We just log a warning when there is an alert.
 #Notify: {
 	// Command to run when alert is fired. In the command line following fields
 	// are substituted:
@@ -11,6 +10,10 @@ package proto
 	//  @value@: Value that triggered the alert.
 	//  @threshold@: Threshold that was crossed.
 	//  @since@: Time since the alert condition started.
+	//
+	// For example, if you want to send an email when an alert is fired, you can
+	// use the following command:
+	// command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
 	command?: string @protobuf(1,string)
 }
 
