@@ -26,7 +26,15 @@ type Notify struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Command to run when alert is fired.
+	// Command to run when alert is fired. In the command line following fields
+	// are substituted:
+	//  @alert@: Alert name
+	//  @probe@: Probe name
+	//  @target@: Target name, or target and port if port is specified.
+	//  @target.label.<label>@: Label <label> value, e.g. target.label.role.
+	//  @value@: Value that triggered the alert.
+	//  @threshold@: Threshold that was crossed.
+	//  @since@: Time since the alert condition started.
 	Command string `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
 }
 

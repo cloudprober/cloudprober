@@ -38,12 +38,12 @@ type AlertInfo struct {
 
 func alertFields(alertInfo *AlertInfo) map[string]string {
 	fields := map[string]string{
-		"alert":              alertInfo.Name,
-		"probe":              alertInfo.ProbeName,
-		"target":             alertInfo.Target.Dst(),
-		"alerting_value":     fmt.Sprintf("%.2f", alertInfo.FailureRatio),
-		"alerting_threshold": fmt.Sprintf("%.2f", alertInfo.FailureThreshold),
-		"failing_since":      alertInfo.FailingSince.Format(time.RFC3339),
+		"alert":     alertInfo.Name,
+		"probe":     alertInfo.ProbeName,
+		"target":    alertInfo.Target.Dst(),
+		"value":     fmt.Sprintf("%.2f", alertInfo.FailureRatio),
+		"threshold": fmt.Sprintf("%.2f", alertInfo.FailureThreshold),
+		"since":     alertInfo.FailingSince.Format(time.RFC3339),
 	}
 
 	for k, v := range alertInfo.Target.Labels {
@@ -93,7 +93,7 @@ func (ah *AlertHandler) notifyCommand(ctx context.Context, command string, field
 		parts = append(parts, part)
 	}
 
-	ah.l.Infof("Starting external command: %s", strings.Join(cmdParts, " "))
+	ah.l.Infof("Starting external command: %s", strings.Join(parts, " "))
 	cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
 	if err = cmd.Start(); err != nil {
 		ah.l.Errorf("error while starting the cmd: %s %s. Err: %v", cmd.Path, cmd.Args, err)

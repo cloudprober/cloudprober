@@ -2,7 +2,15 @@ package proto
 
 // Notify is not implemented yet. We just log a warning when there is an alert.
 #Notify: {
-	// Command to run when alert is fired.
+	// Command to run when alert is fired. In the command line following fields
+	// are substituted:
+	//  @alert@: Alert name
+	//  @probe@: Probe name
+	//  @target@: Target name, or target and port if port is specified.
+	//  @target.label.<label>@: Label <label> value, e.g. target.label.role.
+	//  @value@: Value that triggered the alert.
+	//  @threshold@: Threshold that was crossed.
+	//  @since@: Time since the alert condition started.
 	command?: string @protobuf(1,string)
 }
 
