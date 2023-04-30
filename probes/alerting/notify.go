@@ -16,6 +16,7 @@ package alerting
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -36,7 +37,7 @@ type AlertInfo struct {
 	FailingSince     time.Time
 }
 
-func alertFields(alertInfo *AlertInfo) map[string]string {
+func alertFields(alertInfo *AlertInfo) (map[string]string, error) {
 	fields := map[string]string{
 		"alert":     alertInfo.Name,
 		"probe":     alertInfo.ProbeName,
@@ -50,7 +51,14 @@ func alertFields(alertInfo *AlertInfo) map[string]string {
 		fields["target.label."+k] = v
 	}
 
-	return fields
+	alertJSON, err := json.Marshal(fields)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling alert fields into json: %v", err)
+	}
+
+	fields["json"] = string(alertJSON)
+
+	return fields, nil
 }
 
 func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, failureRatio float32) {
@@ -70,32 +78,39 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, failureRat
 		ah.notifyCh <- alertInfo
 	}
 
-	fields := alertFields(alertInfo)
+	fields, err := alertFields(alertInfo)
+	if err != nil {
+		ah.l.Errorf("Error getting alert fields: %v", err)
+	}
 
 	if ah.notifyConfig != nil && ah.notifyConfig.Command != "" {
-		ah.notifyCommand(context.Background(), ah.notifyConfig.Command, fields)
+		ah.notifyCommand(context.Background(), ah.notifyConfig.Command, fields, false)
 	}
 }
 
-func (ah *AlertHandler) notifyCommand(ctx context.Context, command string, fields map[string]string) {
+func (ah *AlertHandler) notifyCommand(ctx context.Context, command string, fields map[string]string, dryRun bool) []string {
+	res, foundAll := strtemplate.SubstituteLabels(command, fields)
+	if foundAll {
+		command = res
+	}
+
 	cmdParts, err := shlex.Split(command)
 	if err != nil {
 		ah.l.Errorf("Error parsing command line (%s): %v", command, err)
-		return
+		return nil
 	}
 
-	var parts []string
-	for _, part := range cmdParts {
-		res, foundAll := strtemplate.SubstituteLabels(part, fields)
-		if foundAll {
-			part = res
-		}
-		parts = append(parts, part)
+	ah.l.Infof("Starting external command: %s", strings.Join(cmdParts, " "))
+
+	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+
+	if dryRun {
+		return cmd.Args
 	}
 
-	ah.l.Infof("Starting external command: %s", strings.Join(parts, " "))
-	cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
 	if err = cmd.Start(); err != nil {
 		ah.l.Errorf("error while starting the cmd: %s %s. Err: %v", cmd.Path, cmd.Args, err)
 	}
+
+	return nil
 }
