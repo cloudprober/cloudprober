@@ -47,7 +47,7 @@ type AlertHandler struct {
 	probeName         string
 	failureThreshold  float32
 	durationThreshold time.Duration
-	notifyConfig      *configpb.Notify
+	notifyConfig      *configpb.NotifyConfig
 	notifyCh          chan *AlertInfo // Used only for testing for now.
 
 	mu      sync.Mutex

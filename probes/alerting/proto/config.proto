@@ -5,7 +5,7 @@ package cloudprober.probes.alerts;
 option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
 
-message Notify {
+message NotifyConfig {
     // Command to run when alert is fired. In the command line following fields
     // are substituted:
     //  @alert@: Alert name
@@ -15,6 +15,7 @@ message Notify {
     //  @value@: Value that triggered the alert.
     //  @threshold@: Threshold that was crossed.
     //  @since@: Time since the alert condition started.
+    //  @json@: JSON representation of the alert fields.
     //
     // For example, if you want to send an email when an alert is fired, you can
     // use the following command:
@@ -35,5 +36,5 @@ message AlertConf {
     optional int32 duration_threshold_sec = 3;
 
     // How to notify in case of alert.
-    Notify notify = 4;
+    NotifyConfig notify = 4;
 }
