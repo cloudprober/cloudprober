@@ -34,6 +34,7 @@ type NotifyConfig struct {
 	//  @value@: Value that triggered the alert.
 	//  @threshold@: Threshold that was crossed.
 	//  @since@: Time since the alert condition started.
+	//  @json@: JSON representation of the alert fields.
 	//
 	// For example, if you want to send an email when an alert is fired, you can
 	// use the following command:
