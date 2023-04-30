@@ -1,6 +1,6 @@
 package proto
 
-#Notify: {
+#NotifyConfig: {
 	// Command to run when alert is fired. In the command line following fields
 	// are substituted:
 	//  @alert@: Alert name
@@ -10,6 +10,7 @@ package proto
 	//  @value@: Value that triggered the alert.
 	//  @threshold@: Threshold that was crossed.
 	//  @since@: Time since the alert condition started.
+	//  @json@: JSON representation of the alert fields.
 	//
 	// For example, if you want to send an email when an alert is fired, you can
 	// use the following command:
@@ -30,5 +31,5 @@ package proto
 	durationThresholdSec?: int32 @protobuf(3,int32,name=duration_threshold_sec)
 
 	// How to notify in case of alert.
-	notify?: #Notify @protobuf(4,Notify)
+	notify?: #NotifyConfig @protobuf(4,NotifyConfig)
 }
