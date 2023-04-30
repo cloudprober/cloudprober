@@ -175,7 +175,7 @@ function handleProbeSelect(e) {
   updateProbeParams(Object.keys(probeMap));
 }
 
-function geenrateProbeSelectors() {
+function generateProbeSelectors() {
   let probeMap = selectedProbes();
 
   let allChecked = Object.keys(probeMap).length === 0 ? 'checked ' : ' ';
@@ -194,7 +194,7 @@ function geenrateProbeSelectors() {
 $(document).ready(function () {
   setupGraphEndpoint();
   setupGraphDuration();
-  geenrateProbeSelectors();
+  generateProbeSelectors();
 
   $('#show-hide-debug-info').click(function () {
     $('#debug-info').toggle();
