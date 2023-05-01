@@ -1,7 +1,21 @@
 package proto
 
-// Notify is not implemented yet. We just log a warning when there is an alert.
-#Notify: {
+#NotifyConfig: {
+	// Command to run when alert is fired. In the command line following fields
+	// are substituted:
+	//  @alert@: Alert name
+	//  @probe@: Probe name
+	//  @target@: Target name, or target and port if port is specified.
+	//  @target.label.<label>@: Label <label> value, e.g. target.label.role.
+	//  @value@: Value that triggered the alert.
+	//  @threshold@: Threshold that was crossed.
+	//  @since@: Time since the alert condition started.
+	//  @json@: JSON representation of the alert fields.
+	//
+	// For example, if you want to send an email when an alert is fired, you can
+	// use the following command:
+	// command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
+	command?: string @protobuf(1,string)
 }
 
 #AlertConf: {
@@ -17,5 +31,5 @@ package proto
 	durationThresholdSec?: int32 @protobuf(3,int32,name=duration_threshold_sec)
 
 	// How to notify in case of alert.
-	notify?: #Notify @protobuf(4,Notify)
+	notify?: #NotifyConfig @protobuf(4,NotifyConfig)
 }
