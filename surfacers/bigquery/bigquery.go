@@ -112,7 +112,7 @@ func getJSON(em *metrics.EventMetrics) (string, error) {
 }
 
 func copyMap(baseRow map[string]bigquery.Value) map[string]bigquery.Value {
-	baseRowCopy := make(map[string]bigquery.Value)
+	baseRowCopy := make(map[string]bigquery.Value, len(baseRow))
 	for k, v := range baseRow {
 		baseRowCopy[k] = v
 	}
@@ -155,20 +155,29 @@ func distToBqMetrics(d *metrics.DistributionData, metricName string, labels map[
 	return bqMetrics
 }
 
+func (s *Surfacer) bqLabels(em *metrics.EventMetrics) (map[string]bigquery.Value, error) {
+	baseRow := make(map[string]bigquery.Value)
+	for _, col := range s.c.GetBigqueryColumns() {
+		colName := col.GetColumnName()
+		val, err := convertToBqType(col.GetColumnType(), em.Label(col.GetLabel()))
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while parsing for field %v: %v", colName, err)
+		}
+		baseRow[colName] = val
+	}
+	return baseRow, nil
+}
+
 func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) ([]*bqrow, error) {
 	baseRow := make(map[string]bigquery.Value)
 	var out []*bqrow
 
 	if len(s.c.GetBigqueryColumns()) > 0 {
-		for _, col := range s.c.GetBigqueryColumns() {
-			colName := col.GetColumnName()
-			label := em.Label(col.GetLabel())
-			val, err := convertToBqType(col.GetColumnType(), label)
-			if err != nil {
-				return nil, fmt.Errorf("error occurred while parsing for field %v: %v", colName, err)
-			}
-			baseRow[colName] = val
+		bqLabels, err := s.bqLabels(em)
+		if err != nil {
+			return nil, err
 		}
+		baseRow = bqLabels
 	} else {
 		jsonVal, err := getJSON(em)
 		if err != nil {
