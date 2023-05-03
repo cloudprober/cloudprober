@@ -15,7 +15,6 @@
 package oauth
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,6 +33,21 @@ type httpTokenSource struct {
 	cache  *tokenCache
 	l      *logger.Logger
 	httpDo func(req *http.Request) (*http.Response, error)
+}
+
+// requestBody encapsulates the request body and implements the io.Reader()
+// interface.
+type requestBody struct {
+	b []byte
+}
+
+// Read implements the io.Reader interface. Instead of using buffered read,
+// it simply copies the bytes to the provided slice in one go (depending on
+// the input slice capacity) and returns io.EOF. Buffered reads require
+// resetting the buffer before re-use, restricting our ability to reuse the
+// request object and using it concurrently.
+func (rb *requestBody) Read(p []byte) (int, error) {
+	return copy(p, rb.b), io.EOF
 }
 
 func redact(s string) string {
@@ -102,7 +116,7 @@ func setContentType(req *http.Request, data []string) {
 func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
 	data := strings.Join(c.GetData(), "&")
 
-	body := bytes.NewReader([]byte(data))
+	body := &requestBody{b: []byte(data)}
 
 	req, err := http.NewRequest(c.GetMethod(), c.GetTokenUrl(), body)
 	if err != nil {
