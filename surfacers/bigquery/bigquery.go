@@ -221,13 +221,7 @@ func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) ([]*bqrow, error) {
 			continue
 		}
 
-		convertedVal, err := convertToBqType(s.c.GetMetricValueColType(), val.String())
-		if err != nil {
-			s.l.Errorf("error occurred while parsing for metric value %v: %v", val, err)
-			continue
-		}
-
-		bqMetric := updateMetricValues(bqRowMap, metricName, convertedVal, em.Timestamp, s.c)
+		bqMetric := updateMetricValues(bqRowMap, metricName, val.String(), em.Timestamp, s.c)
 		out = append(out, &bqrow{value: bqMetric})
 	}
 	return out, nil

@@ -37,7 +37,6 @@ message SurfacerConf {
   optional string metric_time_col_name = 9 [default = "metric_time"];
   optional string metric_name_col_name = 10 [default = "metric_name"];
   optional string metric_value_col_name = 11 [default = "metric_value"];
-  optional string metric_value_col_type = 12 [default = "string"];
 }
 
 message BQColumn {

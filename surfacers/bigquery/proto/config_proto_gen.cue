@@ -29,7 +29,6 @@ package proto
 	metricTimeColName?:  string @protobuf(9,string,name=metric_time_col_name,#"default="metric_time""#)
 	metricNameColName?:  string @protobuf(10,string,name=metric_name_col_name,#"default="metric_name""#)
 	metricValueColName?: string @protobuf(11,string,name=metric_value_col_name,#"default="metric_value""#)
-	metricValueColType?: string @protobuf(12,string,name=metric_value_col_type,#"default="string""#)
 }
 
 #BQColumn: {
