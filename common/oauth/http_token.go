@@ -44,8 +44,8 @@ type requestBody struct {
 // Read implements the io.Reader interface. Instead of using buffered read,
 // it simply copies the bytes to the provided slice in one go (depending on
 // the input slice capacity) and returns io.EOF. Buffered reads require
-// resetting the buffer before re-use, restricting our ability to use the
-// request object concurrently.
+// resetting the buffer before re-use, restricting our ability to reuse the
+// request object and using it concurrently.
 func (rb *requestBody) Read(p []byte) (int, error) {
 	return copy(p, rb.b), io.EOF
 }
