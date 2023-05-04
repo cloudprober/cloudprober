@@ -19,10 +19,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httputils"
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
@@ -33,21 +32,6 @@ type httpTokenSource struct {
 	cache  *tokenCache
 	l      *logger.Logger
 	httpDo func(req *http.Request) (*http.Response, error)
-}
-
-// requestBody encapsulates the request body and implements the io.Reader()
-// interface.
-type requestBody struct {
-	b []byte
-}
-
-// Read implements the io.Reader interface. Instead of using buffered read,
-// it simply copies the bytes to the provided slice in one go (depending on
-// the input slice capacity) and returns io.EOF. Buffered reads require
-// resetting the buffer before re-use, restricting our ability to reuse the
-// request object and using it concurrently.
-func (rb *requestBody) Read(p []byte) (int, error) {
-	return copy(p, rb.b), io.EOF
 }
 
 func redact(s string) string {
@@ -100,33 +84,10 @@ func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, erro
 	}, nil
 }
 
-func setContentType(req *http.Request, data []string) {
-	if len(data) == 1 {
-		if json.Valid([]byte(data[0])) {
-			req.Header.Set("Content-Type", "application/json")
-			return
-		}
-	}
-	if _, err := url.ParseQuery(strings.Join(data, "&")); err == nil {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		return
-	}
-}
-
 func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
-	data := strings.Join(c.GetData(), "&")
-
-	body := &requestBody{b: []byte(data)}
-
-	req, err := http.NewRequest(c.GetMethod(), c.GetTokenUrl(), body)
+	req, err := httputils.HTTPRequest(c.GetMethod(), c.GetTokenUrl(), c.GetData(), c.GetHeader())
 	if err != nil {
-		return nil, fmt.Errorf("invalid config: %v", err)
-	}
-
-	setContentType(req, c.GetData())
-
-	for k, v := range c.GetHeader() {
-		req.Header.Set(k, v)
+		return nil, fmt.Errorf("error creating HTTP request: %v", err)
 	}
 
 	ts := &httpTokenSource{
@@ -138,7 +99,6 @@ func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Durati
 		refreshExpiryBuffer: refreshExpiryBuffer,
 		l:                   l,
 	}
-
 	return ts, nil
 }
 
