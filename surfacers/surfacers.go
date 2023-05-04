@@ -32,6 +32,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/bigquery"
 	"github.com/cloudprober/cloudprober/surfacers/cloudwatch"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	"github.com/cloudprober/cloudprober/surfacers/common/transform"
@@ -158,6 +159,9 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerpb.Type {
 		return surfacerpb.Type_DATADOG
 	case *surfacerpb.SurfacerDef_ProbestatusSurfacer:
 		return surfacerpb.Type_PROBESTATUS
+	case *surfacerpb.SurfacerDef_BigquerySurfacer:
+		return surfacerpb.Type_BIGQUERY
+
 	}
 
 	return surfacerpb.Type_NONE
@@ -209,6 +213,9 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	case surfacerpb.Type_PROBESTATUS:
 		surfacer, err = probestatus.New(ctx, s.GetProbestatusSurfacer(), opts, l)
 		conf = s.GetProbestatusSurfacer()
+	case surfacerpb.Type_BIGQUERY:
+		surfacer, err = bigquery.New(ctx, s.GetBigquerySurfacer(), opts, l)
+		conf = s.GetBigquerySurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
@@ -285,6 +292,7 @@ func Init(ctx context.Context, sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo
 
 // Register allows you to register a user defined surfacer with cloudprober.
 // Example usage:
+//
 //	import (
 //		"github.com/cloudprober/cloudprober"
 //		"github.com/cloudprober/cloudprober/surfacers"
