@@ -35,7 +35,8 @@ func hostWithPort(host string, port int) string {
 
 // hostHeaderForTarget computes request's Host header for a target.
 //   - If host header is set in the probe, it overrides everything else.
-//   - If target's fqdn is provided in its labels, use that along with the port.
+//   - If target's fqdn is provided in its labels, use that along with the
+//     given port.
 //   - Finally, use target's name with port.
 func hostHeaderForTarget(target endpoint.Endpoint, probeHostHeader string, port int) string {
 	if probeHostHeader != "" {
