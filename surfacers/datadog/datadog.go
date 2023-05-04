@@ -38,9 +38,6 @@ import (
 	supports float64 type values as the metric value.
 */
 
-// Datadog API limit for metrics included in a SubmitMetrics call
-const datadogMaxSeries int = 20
-
 var datadogKind = map[metrics.Kind]string{
 	metrics.GAUGE:      "gauge",
 	metrics.CUMULATIVE: "count",
@@ -53,101 +50,9 @@ type DDSurfacer struct {
 	client    *ddClient
 	l         *logger.Logger
 	prefix    string
+
 	// A cache of []*ddSeries, used for batch writing to datadog
 	ddSeriesCache []ddSeries
-}
-
-func (dd *DDSurfacer) receiveMetricsFromEvent(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			dd.l.Infof("Context canceled, stopping the surfacer write loop")
-			return
-		case em := <-dd.writeChan:
-			dd.recordEventMetrics(ctx, em)
-		}
-	}
-}
-
-func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventMetrics) {
-	for _, metricKey := range em.MetricsKeys() {
-		switch value := em.Metric(metricKey).(type) {
-		case metrics.NumValue:
-			dd.publishMetrics(ctx, dd.newDDSeries(metricKey, value.Float64(), emLabelsToTags(em), em.Timestamp, em.Kind))
-		case *metrics.Map:
-			var series []ddSeries
-			for _, k := range value.Keys() {
-				tags := emLabelsToTags(em)
-				tags = append(tags, fmt.Sprintf("%s:%s", value.MapName, k))
-				series = append(series, dd.newDDSeries(metricKey, value.GetKey(k).Float64(), tags, em.Timestamp, em.Kind))
-			}
-			dd.publishMetrics(ctx, series...)
-		case *metrics.Distribution:
-			dd.publishMetrics(ctx, dd.distToDDSeries(value.Data(), metricKey, emLabelsToTags(em), em.Timestamp, em.Kind)...)
-		}
-	}
-}
-
-// publish the metrics to datadog, buffering as necessary
-func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...ddSeries) {
-	if len(dd.ddSeriesCache) >= datadogMaxSeries {
-		if err := dd.client.submitMetrics(ctx, dd.ddSeriesCache); err != nil {
-			dd.l.Errorf("Failed to publish %d series to datadog: %v", len(dd.ddSeriesCache), err)
-		}
-
-		dd.ddSeriesCache = dd.ddSeriesCache[:0]
-	}
-
-	dd.ddSeriesCache = append(dd.ddSeriesCache, series...)
-}
-
-// Create a new datadog series using the values passed in.
-func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time, kind metrics.Kind) ddSeries {
-	return ddSeries{
-		Metric: dd.prefix + metricName,
-		Points: [][]float64{[]float64{float64(timestamp.Unix()), value}},
-		Tags:   &tags,
-		Type:   proto.String(datadogKind[kind]),
-	}
-}
-
-// Take metric labels from an event metric and parse them into a Datadog Dimension struct.
-func emLabelsToTags(em *metrics.EventMetrics) []string {
-	tags := []string{}
-
-	for _, k := range em.LabelsKeys() {
-		tags = append(tags, fmt.Sprintf("%s:%s", k, em.Label(k)))
-	}
-
-	return tags
-}
-
-func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName string, tags []string, t time.Time, kind metrics.Kind) []ddSeries {
-	ret := []ddSeries{
-		ddSeries{
-			Metric: dd.prefix + metricName + ".sum",
-			Points: [][]float64{[]float64{float64(t.Unix()), d.Sum}},
-			Tags:   &tags,
-			Type:   proto.String(datadogKind[kind]),
-		}, {
-			Metric: dd.prefix + metricName + ".count",
-			Points: [][]float64{[]float64{float64(t.Unix()), float64(d.Count)}},
-			Tags:   &tags,
-			Type:   proto.String(datadogKind[kind]),
-		},
-	}
-
-	// Add one point at the value of the Lower Bound per count in the bucket. Each point represents the
-	// minimum poissible value that it could have been.
-	var points [][]float64
-	for i := range d.LowerBounds {
-		for n := 0; n < int(d.BucketCounts[i]); n++ {
-			points = append(points, []float64{float64(t.Unix()), d.LowerBounds[i]})
-		}
-	}
-
-	ret = append(ret, ddSeries{Metric: dd.prefix + metricName, Points: points, Tags: &tags, Type: proto.String(datadogKind[kind])})
-	return ret
 }
 
 // New creates a new instance of a datadog surfacer, based on the config passed in. It then hands off
@@ -166,15 +71,13 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	}
 
 	dd := &DDSurfacer{
-		c:         config,
-		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
-		client:    newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey()),
-		l:         l,
-		prefix:    p,
+		c:             config,
+		writeChan:     make(chan *metrics.EventMetrics, config.GetMetricsBatchSize()),
+		client:        newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey(), config.GetDisableCompression()),
+		l:             l,
+		prefix:        p,
+		ddSeriesCache: make([]ddSeries, 0, config.GetMetricsBatchSize()),
 	}
-
-	// Set the capacity of this slice to the max metric value, to avoid having to grow the slice.
-	dd.ddSeriesCache = make([]ddSeries, datadogMaxSeries)
 
 	go dd.receiveMetricsFromEvent(ctx)
 
@@ -190,4 +93,111 @@ func (dd *DDSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	default:
 		dd.l.Error("Surfacer's write channel is full, dropping new data.")
 	}
+}
+
+func (dd *DDSurfacer) receiveMetricsFromEvent(ctx context.Context) {
+	publishTimer := time.NewTicker(time.Duration(dd.c.GetBatchTimerSec()) * time.Second)
+	defer publishTimer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			dd.l.Infof("Context canceled, stopping the surfacer write loop")
+			return
+		case em := <-dd.writeChan:
+			dd.recordEventMetrics(ctx, publishTimer, em)
+		case <-publishTimer.C:
+			if len(dd.ddSeriesCache) != 0 {
+				dd.publishMetrics(ctx)
+			}
+		}
+	}
+}
+
+func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time.Ticker, em *metrics.EventMetrics) {
+	for _, metricKey := range em.MetricsKeys() {
+		switch value := em.Metric(metricKey).(type) {
+		case metrics.NumValue:
+			dd.addMetricsAndPublish(ctx, publishTimer, dd.newDDSeries(metricKey, value.Float64(), emLabelsToTags(em), em.Timestamp, em.Kind))
+		case *metrics.Map:
+			var series []ddSeries
+			for _, k := range value.Keys() {
+				tags := emLabelsToTags(em)
+				tags = append(tags, fmt.Sprintf("%s:%s", value.MapName, k))
+				series = append(series, dd.newDDSeries(metricKey, value.GetKey(k).Float64(), tags, em.Timestamp, em.Kind))
+			}
+			dd.addMetricsAndPublish(ctx, publishTimer, series...)
+		case *metrics.Distribution:
+			dd.addMetricsAndPublish(ctx, publishTimer, dd.distToDDSeries(value.Data(), metricKey, emLabelsToTags(em), em.Timestamp, em.Kind)...)
+		}
+	}
+}
+
+// publish the metrics to datadog, buffering as necessary
+func (dd *DDSurfacer) addMetricsAndPublish(ctx context.Context, publishTimer *time.Ticker, series ...ddSeries) {
+	for i := range series {
+		if len(dd.ddSeriesCache) >= int(dd.c.GetMetricsBatchSize()) {
+			dd.publishMetrics(ctx)
+			publishTimer.Reset(time.Duration(dd.c.GetBatchTimerSec()) * time.Second)
+		}
+
+		dd.ddSeriesCache = append(dd.ddSeriesCache, series[i])
+	}
+}
+
+func (dd *DDSurfacer) publishMetrics(ctx context.Context) {
+	if err := dd.client.submitMetrics(ctx, dd.ddSeriesCache); err != nil {
+		dd.l.Errorf("Failed to publish %d series to datadog: %v", len(dd.ddSeriesCache), err)
+	}
+
+	dd.ddSeriesCache = dd.ddSeriesCache[:0]
+}
+
+// Create a new datadog series using the values passed in.
+func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time, kind metrics.Kind) ddSeries {
+	return ddSeries{
+		Metric: dd.prefix + metricName,
+		Points: [][]float64{{float64(timestamp.Unix()), value}},
+		Tags:   &tags,
+		Type:   proto.String(datadogKind[kind]),
+	}
+}
+
+// Take metric labels from an event metric and parse them into a Datadog Dimension struct.
+func emLabelsToTags(em *metrics.EventMetrics) []string {
+	tags := []string{}
+
+	for _, k := range em.LabelsKeys() {
+		tags = append(tags, fmt.Sprintf("%s:%s", k, em.Label(k)))
+	}
+
+	return tags
+}
+
+func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName string, tags []string, t time.Time, kind metrics.Kind) []ddSeries {
+	ret := []ddSeries{
+		{
+			Metric: dd.prefix + metricName + ".sum",
+			Points: [][]float64{{float64(t.Unix()), d.Sum}},
+			Tags:   &tags,
+			Type:   proto.String(datadogKind[kind]),
+		}, {
+			Metric: dd.prefix + metricName + ".count",
+			Points: [][]float64{{float64(t.Unix()), float64(d.Count)}},
+			Tags:   &tags,
+			Type:   proto.String(datadogKind[kind]),
+		},
+	}
+
+	// Add one point at the value of the Lower Bound per count in the bucket. Each point represents the
+	// minimum poissible value that it could have been.
+	var points [][]float64
+	for i := range d.LowerBounds {
+		for n := 0; n < int(d.BucketCounts[i]); n++ {
+			points = append(points, []float64{float64(t.Unix()), d.LowerBounds[i]})
+		}
+	}
+
+	ret = append(ret, ddSeries{Metric: dd.prefix + metricName, Points: points, Tags: &tags, Type: proto.String(datadogKind[kind])})
+	return ret
 }

@@ -151,6 +151,10 @@ func getConfig() string {
 func main() {
 	flag.Parse()
 
+	if len(flag.Args()) > 0 {
+		glog.Exitf("Unexpected non-flag arguments: %v", flag.Args())
+	}
+
 	if dirty == "1" {
 		version = version + " (dirty)"
 	}

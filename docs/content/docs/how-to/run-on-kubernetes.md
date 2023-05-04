@@ -2,7 +2,7 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 21
+    weight: 11
 title: "Running On Kubernetes"
 date: 2022-11-01T17:24:32-07:00
 ---
@@ -110,7 +110,7 @@ us to update the deployment whenever cloudprober config changes. We can update
 this annotation based on the local cloudprober config content, and update the
 deployment using the following one-liner:
 
-```bash
+```shell
 # Update the config checksum annotation in deployment.yaml before running
 # kubectl apply.
 export CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) && \
@@ -139,7 +139,7 @@ status,`/config` for config, `/metrics` for prometheus-format metrics) from
 within the cluster. For quick verification you can also set up a port forwarder
 and access these URLs locally at `localhost:9313`:
 
-```
+```shell
 kubectl port-forward svc/cloudprober 9313:9313
 ```
 
@@ -148,10 +148,11 @@ setting up metrics collection through prometheus (or stackdriver) in usual ways.
 
 ## Kubernetes Targets
 
-If you're running on Kuberenetes, you'd probably want to monitor Kubernetes
-resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober
-supports dynamic [targets discovery](/concepts/targets/) of Kubernetes
-resources.
+If you're running on Kubernetes, you'd probably want to monitor Kubernetes
+resources (e.g. pods, endpoints, etc) as well. Cloudprober supports [dynamic
+discovery]({{< ref targets.md >}}#dynamically-discovered-targets) of Kubernetes
+resources through the targets type
+[`k8s_targets`](https://github.com/cloudprober/cloudprober/blob/ad73fe489ea3ac69e7b0f81a465671df9adc8321/targets/proto/targets.proto#L40).
 
 For example, the following config adds an HTTP probe for the endpoints named
 `cloudprober` (equivalent to running _kubectl get ep cloudprober_).

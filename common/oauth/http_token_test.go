@@ -26,7 +26,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func TestHTTPTokenSource_Token(t *testing.T) {
+func TestHTTPTokenSourceToken(t *testing.T) {
 	tests := []struct {
 		name       string
 		cachedTok  *oauth2.Token
@@ -82,63 +82,13 @@ func TestHTTPTokenSource_Token(t *testing.T) {
 }
 
 func TestNewHTTPTokenSource(t *testing.T) {
-	tests := []struct {
-		name        string
-		data        []string
-		contentType string
-		wantReqBody string
-		wantCT      string
-		wantErr     bool
-	}{
-		{
-			name:        "json_body",
-			data:        []string{`{"clientId":"testID", "clientSecret":"testSecret"}`},
-			wantReqBody: `{"clientId":"testID", "clientSecret":"testSecret"}`,
-			wantCT:      "application/json",
-		},
-		{
-			name:        "query_body",
-			data:        []string{"clientId=testID", "clientSecret=testSecret"},
-			wantReqBody: "clientId=testID&clientSecret=testSecret",
-			wantCT:      "application/x-www-form-urlencoded",
-		},
-		{
-			name:        "explicit_header_override",
-			data:        []string{"clientId=testID", "clientSecret=testSecret"},
-			contentType: "form-data",
-			wantReqBody: "clientId=testID&clientSecret=testSecret",
-			wantCT:      "form-data",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &configpb.HTTPRequest{}
-			c.Data = tt.data
+	testRefreshExpiryBuffer := 10 * time.Second
 
-			if tt.contentType != "" {
-				c.Header = map[string]string{
-					"Content-Type": tt.contentType,
-				}
-			}
+	ts, _ := newHTTPTokenSource(&configpb.HTTPRequest{}, testRefreshExpiryBuffer, nil)
+	tc := ts.(*httpTokenSource).cache
 
-			testRefreshExpiryBuffer := 10 * time.Second
-			ts_, err := newHTTPTokenSource(c, testRefreshExpiryBuffer, nil)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("newHTTPTokenSource() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			ts := ts_.(*httpTokenSource)
-			got, _ := io.ReadAll(ts.req.Body)
-			assert.Equal(t, tt.wantReqBody, string(got))
-
-			assert.Equal(t, tt.wantCT, ts.req.Header.Get("Content-Type"), "Content-Type Header")
-
-			// Verify token cache.
-			tc := ts.cache
-			assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
-			assert.Equal(t, tc.ignoreExpiryIfZero, false)
-		})
-	}
+	assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
+	assert.Equal(t, tc.ignoreExpiryIfZero, false)
 }
 
 func TestRedact(t *testing.T) {

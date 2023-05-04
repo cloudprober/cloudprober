@@ -15,15 +15,13 @@
 package oauth
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httputils"
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
@@ -86,33 +84,10 @@ func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, erro
 	}, nil
 }
 
-func setContentType(req *http.Request, data []string) {
-	if len(data) == 1 {
-		if json.Valid([]byte(data[0])) {
-			req.Header.Set("Content-Type", "application/json")
-			return
-		}
-	}
-	if _, err := url.ParseQuery(strings.Join(data, "&")); err == nil {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		return
-	}
-}
-
 func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
-	data := strings.Join(c.GetData(), "&")
-
-	body := bytes.NewReader([]byte(data))
-
-	req, err := http.NewRequest(c.GetMethod(), c.GetTokenUrl(), body)
+	req, err := httputils.HTTPRequest(c.GetMethod(), c.GetTokenUrl(), c.GetData(), c.GetHeader())
 	if err != nil {
-		return nil, fmt.Errorf("invalid config: %v", err)
-	}
-
-	setContentType(req, c.GetData())
-
-	for k, v := range c.GetHeader() {
-		req.Header.Set(k, v)
+		return nil, fmt.Errorf("error creating HTTP request: %v", err)
 	}
 
 	ts := &httpTokenSource{
@@ -124,7 +99,6 @@ func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Durati
 		refreshExpiryBuffer: refreshExpiryBuffer,
 		l:                   l,
 	}
-
 	return ts, nil
 }
 

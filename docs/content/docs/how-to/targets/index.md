@@ -2,167 +2,158 @@
 menu:
   docs:
     parent: how-to
-    name: "Targets Discovery"
-    weight: 101
-title: "Targets Discovery"
+    name: "Targets"
+    weight: 12
+title: "Targets"
 date: 2016-10-25T17:24:32-07:00
 ---
 
-Automatic and continuous discovery of the targets is one of the core features of
-Cloudprober. This feature is specially critical for the dynamic environments that today's cloud based deployments make possible. For exmaple, in a kubernetes cluster number of pods and their IPs can change on the fly, either in response to replica count changes or node failures. Automated targets discovery makes sure that we don't have to reconfigure Cloudprober in response to such events.
+Cloudprober probes usually run against some targets[^1] to check those targets'
+status, such as an HTTP probe to your APIs servers, or PING/TCP probes to a
+third-party provider to verify network connectivity to them. Each probe can have
+multiple targets. If a probe has multiple targets, Cloudprober runs concurrent
+probes against each target. This page further explains how targets work in
+Cloudprober.
 
-## Overview
+{{< figure src=targets.svg width=350 >}}
 
-The main idea behind Cloudprober's targets discovery is to use an independent source of truth to figure out the targets we are supposed to monitor. This source of truth is usually the resource provider's API, for example, GCE API and Kubernetes API. Cloudprober periodically polls these APIs to get the latest list of resources.
+## Dynamically Discovered Targets
 
-Example targets configuration:
+One of the core features of Cloudprober is the automatic and continuous
+discovery of targets. This feature is especially critical for the dynamic
+environments that today's cloud based deployments make possible. For exmaple in
+a kubernetes cluster the number of pods and their IPs can change on the fly,
+either in response to replica count changes or node failures. Automated targets
+discovery makes sure that we don't have to reconfigure Cloudprober in response
+to such events.
+
+{{< figure src=targets2.svg width=350 >}}
+
+[^1]:
+    There are some cases where there is no explicit target, for example, you may
+    run a probe to measure your CI system's performance, or run a complex probe
+    that touches many endpoints.
+
+## Targets Configuration
+
+Cloudprober provides multiple ways to configure targets for a probe.
+
+### Static targets
+
+Static targets are the easiest and most straight-forward to configure:
+
+```shell
+probe {
+  ...
+  targets {
+    host_names: "www.google.com,www.yahoo.com,cloudprober:9313"
+  }
+  ..
+}
+```
+
+In the above config, probe will run concurrently against 3 hosts:
+_www.google.com_, _www.yahoo.com_, and _cloudprober:9313_ (yes, you can specify
+ports here for port-aware probes).
+
+### File based targets
+
+You can define your targets in a file and refer to them in Cloudprober through
+that file. This file can be modified independently, and whenever that happens
+cloudprober will reload it automatically.
+
+Example configuration:
 
 ```bash
 targets {
-  rds_targets {
-    # Monitor all endpoints for the service service-a
-    resource_path: "k8s://endpoints/service-a"
+  file_targets {
+    file_path: "/var/run/cloudprober/vips.json"
   }
 }
 ```
 
-Some salient features of the cloudprober's targets discovery:
+In the targets file, resources should be specified in a specific format. Here is
+an example of targets in JSON format:
 
-- Continuous discovery. We don't just discover targets in the beginning, but keep refreshing them at a regular interval.
-- Protection against the upstream provider failures. If refreshing of the targets fails during one of the refresh cycles, we continue using the existing set of targets.
-- Targets data includes name, labels, IP and ports (labels and ports are optional). These details allow configuring probes, for example, automatically setting port in the HTTP probe, and using target lables for probe results labeling.
-- Well-defined protobuf based API (RDS -- more on it below) to add support for more target types.
-- Currently supports GCE and Kubernetes resources. Adding more resource types should be straightforward.
-
-Cloudprober currently (**as of v0.10.7**) supports following types of dynamic targets:
-
-| Resource Provider | Resource Types                       |
-| ----------------- | ------------------------------------ |
-| Kubernetes (k8s)  | pods, endpoints, services, ingresses |
-| GCP (gcp)         | gce_instances, pubsub_messages       |
-
-## Resource Discovery Service
-
-To provide a consistent interface between targets' configuration and the actual implementation, Cloudprober defines and uses a protocol called RDS (Resource Discovery Service). Cloudprober's targets module includes a targets type "rds_targets", that talks to an RDS backend that is either part of the same process or available over gRPC.
-
-<a href="rds_targets.png"><img style="float: center;" width=450px src="rds_targets.png"></a>
-
-Here are the RDS targets configuration ([RDSTargets](https://github.com/cloudprober/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/targets/proto/targets.proto#L12)) options:
-
-```proto
-message RDSTargets {
-  // RDS server options, for example:
-  // rds_server_options {
-  //   server_address: "rds-server.xyz:9314"
-  //   oauth_config: {
-  //     ...
-  //   }
-  // }
-  // Default is to use the local server if any.
-  optional rds.ClientConf.ServerOptions rds_server_options = 1;
-
-  // Resource path specifies the resources to return. Resources paths have the
-  // following format:
-  // <resource_provider>://<resource_type>/<additional_params>
-  //
-  // Examples:
-  // For GCE instances in projectA: "gcp://gce_instances/<projectA>"
-  // Kubernetes Pods : "k8s://pods"
-  optional string resource_path = 2;
-
-  // Filters to filter resources by. Example:
-  // filter {
-  //   key: "namespace"
-  //   value: "mynamesspace"
-  // }
-  // filter {
-  //   key: "labels.app"
-  //   value: "web-service"
-  // }
-  repeated rds.Filter filter = 3;
-
-  // IP config to specify the IP address to pick for a resource. IPConfig
-  // is defined here:
-  // https://github.com/cloudprober/cloudprober/blob/master/rds/proto/rds.proto
-  optional rds.IPConfig ip_config = 4;
-}
-```
-
-Most options are explained in the comments for quick references. Here is the further explanation of some of these options:
-
-### rds_server_options
-
-This [field](https://github.com/cloudprober/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/rds/client/proto/config.proto#L19) specifies how to connect to the RDS server: server address and security options (OAuth and TLS). If left unspecified, it connects to the local server if any (started through `rds_server` option). Next up it looks for the `rds_server_options` in [global_targets_options](https://github.com/cloudprober/cloudprober/blob/86a1d1fcd2f8505c45ff462d69458fd5b9964e5f/targets/proto/targets.proto#L125).
-
-### resource_path
-
-Resource path specifies the resources we are interested in. It consists of _resource provider_, _resource type_ and optional _relative path_: `<resource_provider>://<resource_type>/<optional_relative_path>`
-
-- `resource_provider`: Resource provider is a generic concept within the RDS protocol but usually maps to the cloud provider. Cloudprober RDS server currently implements the Kubernetes (k8s) and GCP (gcp) resource providers. We plan to add more resource providers in future.
-- `resource_type`: Available resource types depend on the providers, for example, for k8s provider supports the following resource types: _pods_, _endpoints_, and _services_.
-- `optional_relative_path`: For most resource types you can specify resource name in the resource path itself, e.g. `k8s://services/cloudprober`. Alternatively, you can use filters to filter by name, resource, etc.
-
-### filter
-
-Filters are key-value strings that can be used to filter resources by various fields. Filters depend on the resource types, but most resources support filtering by name and labels.
-
-```
-# Return resources that start with "web" and have label "service:service-a"
-...
- filter {
-   key: "name"
-   value: "^web.*"
- }
- filter {
-   key: "labels.service"
-   value: "service-a"
- }
-```
-
-- Filters supported by kubernetes resources: [k8s filters](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/kubernetes/kubernetes.go#L55).
-- Filters supported by GCP:
-  - [GCE Instances](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/gce_instances.go#L44)
-  - [Pub/Sub Messages](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/pubsub.go#L34)
-
-## Running RDS Server
-
-RDS server can either be run as an independent process or it can be part of the main prober process. Former mode is useful for large deployments where you may want to reduce the API upcall traffic (for example, to GCP). For example, if you run 1000+ prober processes, it will be much more economical, from the API quota usage point of view, to have a centralized RDS service with much fewer (2-3) instances instead of having each prober process make its own API calls.
-
-RDS server can be added to a cloudprober process using the `rds_server` stanza. If you're running RDS server in a remote process, you'll have to enable gRPC server in that process (using `grpc_port`) so that other instances can access it remotely.
-
-Here is an example RDS server configuration:
-
-```shell
-rds_server {
-  # GCP provider to discover GCP resources.
-  provider {
-    gcp_config {
-      # Projects to discover resources in.
-      project: "test-project-1"
-      project: "test-project-2"
-
-      # Discover GCE instances in us-central1.
-      gce_instances {
-        zone_filter: "name = us-central1-*"
-        re_eval_sec: 60  # How often to refresh, default is 300s.
+```json
+{
+  "resource": [
+    {
+      "name": "switch-xx-1",
+      "ip": "10.1.1.1",
+      "port": 8080,
+      "labels": {
+        "device_type": "switch",
+        "cluster": "xx"
       }
-
-      # GCE forwarding rules.
-      forwarding_rules {}
+    },
+    {
+      "name": "switch-xx-2",
+      "ip": "10.1.1.2",
+      "port": 8081,
+      "labels": {
+        "cluster": "xx"
+      }
     }
-  }
-
-  # Kubernetes targets are further discussed at:
-  # https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets
-  provider {
-    kubernetes_config {
-      endpoints {}
-    }
-  }
+  ]
 }
-
-# Enable gRPC server for RDS. Only required for remote access to RDS server.
-grpc_port: 9314
 ```
 
-For the remote RDS server setup, if accessing over external network, you can secure the underlying gRPC communication using [TLS certificates](https://github.com/cloudprober/cloudprober/blob/master/config/proto/config.proto#L91).
+<span class=small>(You can also define targets in the textproto format: <a
+href="https://github.com/cloudprober/cloudprober/blob/master/rds/file/testdata/targets1.textpb">example</a>.
+Full example with cloudprober.cfg:
+<a href="https://github.com/cloudprober/cloudprober/blob/master/examples/file_based_targets">file_based_targets</a>)</span>
+
+Even if you don't intend to use the auto-reload feature of the file targets,
+they can still be quite useful over static targets as they allow you to specify
+additional details for targets. For example, specifying target's IP address in
+the example above lets you tackle the case where you want to specify target's
+name, let's say for better identification or for HTTP requests to work, but
+don't want to rely on DNS for resolving its IP address.
+
+### K8s targets
+
+K8s targets are explained at [Kubernetes
+Targets]({{< ref run-on-kubernetes.md >}}#kubernetes-targets).
+
+### GCP targets
+
+Since Cloudprober started at GCP, it's no surprise that Cloudprober has great
+support for GCP targets. Cloudprober supports the following GCP resources:
+
+- GCE Instances
+- Forwarding Rules (regional and global)
+- Cloud pub/sub (list of hostnames over cloud pub/sub)
+
+TODO: Add more details on GCP targets.
+
+## Probe configuration through target fields
+
+| Field                | Probe Type                                   | Configuration                                                                                                                                                                |
+| -------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port`               | Port aware probes (HTTP, DNS, TCP, UDP, etc) | If a target has an associated port, for example, a Kubernetes endpoint, it will automatically be used for probing unless a port has been explicitly configured in the probe. |
+| `label:relative_url` | HTTP                                         | If an explicit relative URL is not set, HTTP probe will use `relative_url` label's value if set.                                                                             |
+| `label:fqdn`         | HTTP                                         | HTTP probe will use target's `fqdn` label as the URL-host (host part of the URL) and Host header if available and if Host header has not been configured explicitly.         |
+
+## Metrics
+
+- Target name: All metrics generated by Cloudprober have a `dst` label which is
+  set to the target name.
+- Target labels: See [additional labels]({{< ref "additional-labels.md" >}}) for
+  how resource labels can be used to set additional labels on the metrics.
+
+## Scaling targets discovery and other features
+
+If you run a lot of Cloudprober instances with targets discovery, you may end up
+overwhelming the API servers, or running out of your API quota in case of Cloud
+resources. To avoid that, Cloudprober allows centralizing the targets discovery
+through the Resource Discovery Service (RDS) mechanism. See [Resource Discovery
+Service]({{< ref rds >}}) for more details on that.
+
+Other salient features of the cloudprober's targets discovery:
+
+- Continuous discovery. We don't just discover targets in the beginning, but
+  keep refreshing them at a regular interval.
+- Protection against the upstream provider failures. If refreshing of the
+  targets fails during one of the refresh cycles, we continue using the existing
+  set of targets.
