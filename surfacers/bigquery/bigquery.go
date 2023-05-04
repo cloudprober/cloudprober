@@ -3,6 +3,7 @@ package bigquery
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
