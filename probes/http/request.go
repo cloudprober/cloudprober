@@ -1,4 +1,4 @@
-// Copyright 2019-2020 The Cloudprober Authors.
+// Copyright 2019-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,25 +20,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 const relURLLabel = "relative_url"
-
-// requestBody encapsulates the request body and implements the io.Reader()
-// interface.
-type requestBody struct {
-	b []byte
-}
-
-// Read implements the io.Reader interface. Instead of using buffered read,
-// it simply copies the bytes to the provided slice in one go (depending on
-// the input slice capacity) and returns io.EOF. Buffered reads require
-// resetting the buffer before re-use, restricting our ability to use the
-// request object concurrently.
-func (rb *requestBody) Read(p []byte) (int, error) {
-	return copy(p, rb.b), io.EOF
-}
 
 func hostWithPort(host string, port int) string {
 	if port == 0 {
@@ -48,9 +34,10 @@ func hostWithPort(host string, port int) string {
 }
 
 // hostHeaderForTarget computes request's Host header for a target.
-//  - If host header is set in the probe, it overrides everything else.
-//  - If target's fqdn is provided in its labels, use that along with the port.
-//  - Finally, use target's name with port.
+//   - If host header is set in the probe, it overrides everything else.
+//   - If target's fqdn is provided in its labels, use that along with the
+//     given port.
+//   - Finally, use target's name with port.
 func hostHeaderForTarget(target endpoint.Endpoint, probeHostHeader string, port int) string {
 	if probeHostHeader != "" {
 		return probeHostHeader
@@ -127,7 +114,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// Prepare request body
 	var body io.Reader
 	if len(p.requestBody) > 0 {
-		body = &requestBody{p.requestBody}
+		body = httputils.NewRequestBody(p.requestBody)
 	}
 	req, err := http.NewRequest(p.method, url, body)
 	if err != nil {
