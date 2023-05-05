@@ -46,16 +46,11 @@ type RequestBody struct {
 
 // NewRequestBody returns a new RequestBody object.
 func NewRequestBody(data ...string) *RequestBody {
-	if len(data) == 0 {
-		return nil
-	}
-
-	dataBytes := []byte(strings.Join(data, "&"))
 	rb := &RequestBody{
-		b: dataBytes,
+		b: []byte(strings.Join(data, "&")),
 	}
 
-	if len(dataBytes) <= largeBodyThreshold {
+	if len(rb.b) > 0 && len(rb.b) <= largeBodyThreshold {
 		rb.ct = contentType(data)
 	}
 
@@ -67,7 +62,7 @@ func (rb *RequestBody) Read(p []byte) (int, error) {
 }
 
 func (rb *RequestBody) Reader() io.ReadCloser {
-	if rb == nil {
+	if rb == nil || len(rb.b) == 0 {
 		return nil
 	}
 	if len(rb.b) > largeBodyThreshold {

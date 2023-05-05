@@ -108,19 +108,20 @@ func TestHTTPRequest(t *testing.T) {
 	}
 }
 
-func TestNewRequestBody(t *testing.T) {
+func TestRequestBody(t *testing.T) {
 	data := make([]string, 100)
 	for i := 0; i < len(data); i++ {
 		data[i] = fmt.Sprintf("var-%d=value-%d", i, i)
 	}
 	tests := []struct {
-		name         string
-		data         []string
-		wantData     string
-		wantLen      int64
-		wantCT       string
-		wantBuffered bool
-		wantNil      bool
+		name           string
+		data           []string
+		wantData       string
+		wantLen        int64
+		wantCT         string
+		wantBuffered   bool
+		wantNilReader  bool
+		nilRequestBody bool
 	}{
 		{
 			name:         "large_data",
@@ -155,21 +156,30 @@ func TestNewRequestBody(t *testing.T) {
 			wantBuffered: false,
 		},
 		{
-			name:    "no_data",
-			data:    []string{},
-			wantNil: true,
+			name:          "no_data",
+			data:          []string{},
+			wantNilReader: true,
+		},
+		{
+			name:           "nil_request_body", // Verify nil RequestBody works
+			nilRequestBody: true,
+			wantNilReader:  true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := NewRequestBody(tt.data...)
+			var body *RequestBody
+			if !tt.nilRequestBody {
+				body = NewRequestBody(tt.data...)
+			}
+
 			assert.Equal(t, tt.wantLen, body.Len(), "length mismatch")
 			assert.Equal(t, tt.wantCT, body.ContentType(), "content-type mismatch")
 			assert.Equal(t, tt.wantBuffered, body.Buffered(), "buffered mismatch")
 
 			// Verify reader is good
 			reader := body.Reader()
-			if tt.wantNil {
+			if tt.wantNilReader {
 				assert.Equal(t, nil, reader, "reader not nil")
 				return
 			}
