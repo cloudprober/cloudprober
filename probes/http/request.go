@@ -16,11 +16,9 @@ package http
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
-	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
@@ -111,18 +109,16 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 
 	url := fmt.Sprintf("%s://%s%s", p.protocol, hostWithPort(urlHost, port), relURLForTarget(target, p.url))
 
-	// Prepare request body
-	var body io.Reader
-	if len(p.requestBody) > 0 {
-		body = httputils.NewRequestBody(p.requestBody)
-	}
-	req, err := http.NewRequest(p.method, url, body)
+	req, err := http.NewRequest(p.method, url, p.requestBody.Reader())
 	if err != nil {
 		p.l.Error("target: ", target.Name, ", error creating HTTP request: ", err.Error())
 		return nil
 	}
 
-	req.ContentLength = int64(len(p.requestBody))
+	req.ContentLength = p.requestBody.Len()
+	if p.requestBody.ContentType() != "" {
+		req.Header.Set("Content-Type", p.requestBody.ContentType())
+	}
 
 	var probeHostHeader string
 	for _, header := range p.c.GetHeaders() {
@@ -139,6 +135,36 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 
 	if p.c.GetUserAgent() != "" {
 		req.Header.Set("User-Agent", p.c.GetUserAgent())
+	}
+
+	return req
+}
+
+func (p *Probe) prepareRequest(req *http.Request) *http.Request {
+	// We clone the request for the cases where we modify the request:
+	//   -- if request body is large (buffered), each request gets its own Body
+	//      as HTTP transport reads body in a streaming fashion, and we can't
+	//      share it across multiple requests.
+	//   -- if OAuth token is used, each request gets its own Authorization
+	//      header.
+	if p.oauthTS != nil {
+		newReq := req.Clone(req.Context())
+		tok, err := p.oauthToken()
+		// Note: We don't terminate the request if there is an error in getting
+		// token. That is to avoid complicating the flow, and to make sure that
+		// OAuth refresh failures show in probe failures.
+		if err != nil {
+			p.l.Error("Error getting OAuth token: ", err.Error())
+			tok = "<token-missing>"
+		}
+		newReq.Header.Set("Authorization", "Bearer "+tok)
+		return newReq
+	}
+
+	if p.requestBody.Buffered() {
+		newReq := req.Clone(req.Context())
+		newReq.Body = p.requestBody.Reader()
+		return newReq
 	}
 
 	return req

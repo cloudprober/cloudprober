@@ -178,13 +178,13 @@ type testData struct {
 func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, expectedPort int) {
 	t.Helper()
 
-	p := &Probe{
-		protocol: "http",
-		c: &configpb.ProbeConf{
-			ResolveFirst: proto.Bool(td.resolveFirst),
-		},
-		opts: &options.Options{Targets: targets.StaticTargets(td.targetName)},
+	p := &Probe{}
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		ResolveFirst: proto.Bool(td.resolveFirst),
 	}
+	opts.Targets = targets.StaticTargets(td.targetName)
+	p.Init("test", opts)
 
 	if probePort != 0 {
 		p.c.Port = proto.Int32(int32(probePort))

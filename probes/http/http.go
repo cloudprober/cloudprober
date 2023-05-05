@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
@@ -82,7 +83,7 @@ type Probe struct {
 	cancelFuncs map[string]context.CancelFunc
 	waitGroup   sync.WaitGroup
 
-	requestBody []byte
+	requestBody *httputils.RequestBody
 }
 
 type probeResult struct {
@@ -207,7 +208,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.url)
 	}
 
-	p.requestBody = []byte(p.c.GetBody())
+	p.requestBody = httputils.NewRequestBody(p.c.GetBody()...)
 
 	if p.c.GetOauthConfig() != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(p.c.GetOauthConfig(), p.l)
@@ -266,25 +267,7 @@ func isClientTimeout(err error) bool {
 
 // httpRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName string, result *probeResult, resultMu *sync.Mutex) {
-	// We clone the request for the cases where we modify the request.
-	if len(p.requestBody) >= largeBodyThreshold || p.oauthTS != nil {
-		req = req.Clone(req.Context())
-	}
-
-	if len(p.requestBody) >= largeBodyThreshold {
-		req.Body = ioutil.NopCloser(bytes.NewReader(p.requestBody))
-	}
-	if p.oauthTS != nil {
-		tok, err := p.oauthToken()
-		// Note: We don't terminate the request if there is an error in getting
-		// token. That is to avoid complicating the flow, and to make sure that
-		// OAuth refresh failures show in probe failures.
-		if err != nil {
-			p.l.Error("Error getting OAuth token: ", err.Error())
-			tok = "<token-missing>"
-		}
-		req.Header.Set("Authorization", "Bearer "+tok)
-	}
+	req = p.prepareRequest(req)
 
 	connEvent := 0
 	if p.c.GetKeepAlive() {
