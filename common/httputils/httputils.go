@@ -50,7 +50,7 @@ func NewRequestBody(data ...string) *RequestBody {
 		b: []byte(strings.Join(data, "&")),
 	}
 
-	if len(rb.b) > 0 && len(rb.b) <= largeBodyThreshold {
+	if len(rb.b) <= largeBodyThreshold {
 		rb.ct = contentType(data)
 	}
 
@@ -90,6 +90,9 @@ func (rb *RequestBody) ContentType() string {
 }
 
 func contentType(data []string) string {
+	if len(data) == 0 {
+		return ""
+	}
 	// If there is only one data element, return json content type if data is
 	// valid JSON.
 	if len(data) == 1 {
