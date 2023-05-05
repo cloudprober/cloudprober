@@ -7,7 +7,7 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/http/proto";
 
-// Next tag: 20
+// Next tag: 22
 message ProbeConf {
   enum ProtocolType {
     HTTP = 0;
@@ -55,10 +55,29 @@ message ProbeConf {
   optional Method method = 7 [default = GET];
 
   // HTTP request headers
+  // It is recommended to use "header" instead of "headers" for new configs.
+  // header {
+  //   key: "Authorization"
+  //   value: "Bearer {{env "AUTH_TOKEN"}}"
+  // }   
   repeated Header headers = 8;
+  map<string, string> header = 20;
 
-  // Request body.
-  optional string body = 9;
+  // Request body. This field works similar to the curl's data flag. If there
+  // are multiple "body" fields, we combine their values with a '&' in between.
+  //
+  // Also, we try to guess the content-type header based on the data:
+  // 1) If data appears to be a valid json, we automatically set the
+  //    content-type header to "application/json".
+  // 2) If the final data string appears to be a valid query string, we
+  //    set content-type to "application/x-www-form-urlencoded". Content type
+  //    header can still be overridden using the header field above.
+  // Example:
+  //  body: "grant_type=client_credentials"
+  //  body: "scope=transferMoney"
+  //  body: "clientId=aweseomeClient"
+  //  body: "clientSecret=noSecret"
+  repeated string body = 9;
 
   // Enable HTTP keep-alive. If set to true, underlying connection is reused
   // for further probes. Default is to close the connection after every request.

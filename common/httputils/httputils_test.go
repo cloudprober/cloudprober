@@ -15,8 +15,10 @@
 package httputils
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,6 +72,11 @@ func TestHTTPRequest(t *testing.T) {
 			wantReqBody: "clientId=testID&clientSecret=testSecret",
 			wantCT:      "form-data",
 		},
+		{
+			name:        "no_data",
+			data:        []string{},
+			wantReqBody: "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -85,12 +92,95 @@ func TestHTTPRequest(t *testing.T) {
 				return
 			}
 
-			got, _ := io.ReadAll(req.Body)
-			assert.Equal(t, tt.wantReqBody, string(got))
-			assert.Equal(t, tt.wantCT, req.Header.Get("Content-Type"), "Content-Type Header")
+			if len(tt.data) == 0 {
+				assert.Equal(t, nil, req.Body, "request body not nil")
+			}
 
-			got, _ = io.ReadAll(req.Body)
-			assert.Equal(t, tt.wantReqBody, string(got))
+			if req.Body != nil {
+				got, _ := io.ReadAll(req.Body)
+				assert.Equal(t, tt.wantReqBody, string(got))
+				assert.Equal(t, tt.wantCT, req.Header.Get("Content-Type"), "Content-Type Header")
+
+				got, _ = io.ReadAll(req.Body)
+				assert.Equal(t, tt.wantReqBody, string(got))
+			}
+		})
+	}
+}
+
+func TestNewRequestBody(t *testing.T) {
+	data := make([]string, 100)
+	for i := 0; i < len(data); i++ {
+		data[i] = fmt.Sprintf("var-%d=value-%d", i, i)
+	}
+	tests := []struct {
+		name         string
+		data         []string
+		wantData     string
+		wantLen      int64
+		wantCT       string
+		wantBuffered bool
+		wantNil      bool
+	}{
+		{
+			name:         "large_data",
+			data:         data,
+			wantLen:      1579,
+			wantData:     strings.Join(data, "&"),
+			wantCT:       "",
+			wantBuffered: true,
+		},
+		{
+			name:         "small_data",
+			data:         data[:10],
+			wantData:     strings.Join(data[:10], "&"),
+			wantLen:      139,
+			wantCT:       "application/x-www-form-urlencoded",
+			wantBuffered: false,
+		},
+		{
+			name:         "single_data_string",
+			data:         []string{"clientId=testID&clientSecret=testSecret"},
+			wantData:     "clientId=testID&clientSecret=testSecret",
+			wantLen:      39,
+			wantCT:       "application/x-www-form-urlencoded",
+			wantBuffered: false,
+		},
+		{
+			name:         "json_data",
+			data:         []string{`{"clientId":"testID", "clientSecret":"testSecret"}`},
+			wantData:     `{"clientId":"testID", "clientSecret":"testSecret"}`,
+			wantLen:      50,
+			wantCT:       "application/json",
+			wantBuffered: false,
+		},
+		{
+			name:    "no_data",
+			data:    []string{},
+			wantNil: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := NewRequestBody(tt.data...)
+			assert.Equal(t, tt.wantLen, body.Len(), "length mismatch")
+			assert.Equal(t, tt.wantCT, body.ContentType(), "content-type mismatch")
+			assert.Equal(t, tt.wantBuffered, body.Buffered(), "buffered mismatch")
+
+			// Verify reader is good
+			reader := body.Reader()
+			if tt.wantNil {
+				assert.Equal(t, nil, reader, "reader not nil")
+				return
+			}
+
+			gotData, _ := io.ReadAll(reader)
+			assert.Equal(t, tt.wantData, string(gotData), "body data mismatch 1st read")
+			if tt.wantBuffered {
+				reader = body.Reader()
+			}
+			gotData, _ = io.ReadAll(reader)
+			assert.Equal(t, tt.wantData, string(gotData), "body data mismatch 2nd read")
 		})
 	}
 }
