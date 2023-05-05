@@ -16,6 +16,7 @@
 package httputils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,53 +26,98 @@ import (
 	"strings"
 )
 
+const (
+	largeBodyThreshold = bytes.MinRead // 512.
+)
+
 func IsHandled(mux *http.ServeMux, url string) bool {
 	_, matchedPattern := mux.Handler(httptest.NewRequest("", url, nil))
 	return matchedPattern == url
 }
 
-// RequestBody encapsulates the request body and implements the io.Reader()
-// interface.
+// RequestBody returns a reusable HTTP request body if its size is smaller than
+// largeBodyThreshold. This is the most common use case in probing. If the body
+// is larger than largeBodyThreshold, it returns a buffered reader. We do that
+// because HTTP transport reads limited bytes at a time.
 type RequestBody struct {
-	b []byte
+	b  []byte
+	ct string
 }
 
 // NewRequestBody returns a new RequestBody object.
-func NewRequestBody(data []byte) *RequestBody {
-	return &RequestBody{b: data}
+func NewRequestBody(data ...string) *RequestBody {
+	rb := &RequestBody{
+		b: []byte(strings.Join(data, "&")),
+	}
+
+	if len(rb.b) <= largeBodyThreshold {
+		rb.ct = contentType(data)
+	}
+
+	return rb
 }
 
-// Read implements the io.Reader interface. Instead of using buffered read,
-// it simply copies the bytes to the provided slice in one go (depending on
-// the input slice capacity) and returns io.EOF. Buffered reads require
-// resetting the buffer before re-use, restricting our ability to reuse the
-// request object and using it concurrently.
 func (rb *RequestBody) Read(p []byte) (int, error) {
 	return copy(p, rb.b), io.EOF
 }
 
-func setContentType(req *http.Request, data []string) {
+func (rb *RequestBody) Reader() io.ReadCloser {
+	if rb == nil || len(rb.b) == 0 {
+		return nil
+	}
+	if len(rb.b) > largeBodyThreshold {
+		return io.NopCloser(bytes.NewReader(rb.b))
+	}
+	return io.NopCloser(rb)
+}
+
+func (rb *RequestBody) Buffered() bool {
+	return rb != nil && len(rb.b) > largeBodyThreshold
+}
+
+func (rb *RequestBody) Len() int64 {
+	if rb == nil {
+		return 0
+	}
+	return int64(len(rb.b))
+}
+
+func (rb *RequestBody) ContentType() string {
+	if rb == nil {
+		return ""
+	}
+	return rb.ct
+}
+
+func contentType(data []string) string {
+	if len(data) == 0 {
+		return ""
+	}
+	// If there is only one data element, return json content type if data is
+	// valid JSON.
 	if len(data) == 1 {
 		if json.Valid([]byte(data[0])) {
-			req.Header.Set("Content-Type", "application/json")
-			return
+			return "application/json"
 		}
 	}
+
 	if _, err := url.ParseQuery(strings.Join(data, "&")); err == nil {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		return
+		return "application/x-www-form-urlencoded"
 	}
+	return ""
 }
 
 func HTTPRequest(method, url string, data []string, headers map[string]string) (*http.Request, error) {
-	body := &RequestBody{b: []byte(strings.Join(data, "&"))}
+	body := NewRequestBody(data...)
 
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequest(method, url, body.Reader())
 	if err != nil {
-		return nil, fmt.Errorf("invalid config: %v", err)
+		return nil, fmt.Errorf("error creating HTTP request: %v", err)
 	}
 
-	setContentType(req, data)
+	if body.ContentType() != "" {
+		req.Header.Set("Content-Type", body.ContentType())
+	}
 
 	for k, v := range headers {
 		req.Header.Set(k, v)
