@@ -5,7 +5,7 @@ import (
 	proto_1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 )
 
-// Next tag: 22
+// Next tag: 21
 #ProbeConf: {
 	#ProtocolType: {"HTTP", #enumValue: 0} |
 		{"HTTPS", #enumValue: 1}

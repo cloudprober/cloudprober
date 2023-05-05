@@ -149,7 +149,7 @@ func (ProbeConf_Method) EnumDescriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_rawDescGZIP(), []int{0, 1}
 }
 
-// Next tag: 22
+// Next tag: 21
 type ProbeConf struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

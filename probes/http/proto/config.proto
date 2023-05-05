@@ -7,7 +7,7 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/http/proto";
 
-// Next tag: 22
+// Next tag: 21
 message ProbeConf {
   enum ProtocolType {
     HTTP = 0;
