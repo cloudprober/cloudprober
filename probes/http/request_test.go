@@ -1,4 +1,4 @@
-// Copyright 2019-2020 The Cloudprober Authors.
+// Copyright 2019-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,17 @@ package http
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"testing"
 
+	"github.com/cloudprober/cloudprober/common/httputils"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/oauth2"
 )
 
 func TestHostWithPort(t *testing.T) {
@@ -300,6 +304,81 @@ func TestRequestHostAndURL(t *testing.T) {
 	for _, td := range tests {
 		t.Run(td.desc, func(t *testing.T) {
 			testRequestHostAndURLWithDifferentPorts(t, td)
+		})
+	}
+}
+
+type fakeTokenSource struct {
+	token string
+}
+
+func (fts *fakeTokenSource) Token() (*oauth2.Token, error) {
+	return &oauth2.Token{AccessToken: fts.token}, nil
+}
+
+func TestPrepareRequest(t *testing.T) {
+	data := []string{}
+	for i := 0; i < 500; i++ {
+		data = append(data, fmt.Sprintf("data-%03d", i))
+	}
+	tests := []struct {
+		name         string
+		token        string
+		data         []string
+		wantIsCloned bool
+		wantNewBody  bool
+	}{
+		{
+			name: "No token source, no body",
+		},
+		{
+			name: "No token source, small body",
+			data: data[0:20],
+		},
+		{
+			name:         "No token source, large body",
+			data:         data,
+			wantIsCloned: true,
+			wantNewBody:  true,
+		},
+		{
+			name:         "token source, small body",
+			data:         data[0:20],
+			token:        "test-token",
+			wantIsCloned: true,
+			wantNewBody:  false,
+		},
+		{
+			name:         "token source, large body",
+			data:         data,
+			token:        "test-token",
+			wantIsCloned: true,
+			wantNewBody:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				requestBody: httputils.NewRequestBody(tt.data...),
+			}
+			if tt.token != "" {
+				p.oauthTS = &fakeTokenSource{token: tt.token}
+			}
+
+			inReq, _ := http.NewRequest("GET", "http://cloudprober.org", p.requestBody.Reader())
+			got := p.prepareRequest(inReq)
+
+			if tt.wantIsCloned != (inReq != got) {
+				t.Errorf("wantIsCloned=%v, (inReq != got) is %v", tt.wantIsCloned, inReq != got)
+			}
+
+			if tt.wantNewBody != (inReq.Body != got.Body) {
+				t.Errorf("wantNewBody=%v, (inReq.Body != got.Body) is %v", tt.wantNewBody, inReq.Body != got.Body)
+			}
+
+			if tt.token != "" {
+				assert.Equal(t, "Bearer "+tt.token, got.Header.Get("Authorization"), "Token mismatch")
+			}
 		})
 	}
 }

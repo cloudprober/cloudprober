@@ -17,9 +17,12 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"golang.org/x/oauth2"
 )
 
 const relURLLabel = "relative_url"
@@ -140,6 +143,25 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	return req
 }
 
+func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
+	tok, err := ts.Token()
+	if err != nil {
+		return "", err
+	}
+	l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
+
+	if tok.AccessToken != "" {
+		return tok.AccessToken, nil
+	}
+
+	idToken, ok := tok.Extra("id_token").(string)
+	if ok {
+		return idToken, nil
+	}
+
+	return "", fmt.Errorf("got unknown token: %v", tok)
+}
+
 func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 	// We clone the request for the cases where we modify the request:
 	//   -- if request body is large (buffered), each request gets its own Body
@@ -147,9 +169,14 @@ func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 	//      share it across multiple requests.
 	//   -- if OAuth token is used, each request gets its own Authorization
 	//      header.
+	if p.oauthTS == nil && !p.requestBody.Buffered() {
+		return req
+	}
+
+	req = req.Clone(req.Context())
+
 	if p.oauthTS != nil {
-		newReq := req.Clone(req.Context())
-		tok, err := p.oauthToken()
+		tok, err := getToken(p.oauthTS, p.l)
 		// Note: We don't terminate the request if there is an error in getting
 		// token. That is to avoid complicating the flow, and to make sure that
 		// OAuth refresh failures show in probe failures.
@@ -157,14 +184,11 @@ func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 			p.l.Error("Error getting OAuth token: ", err.Error())
 			tok = "<token-missing>"
 		}
-		newReq.Header.Set("Authorization", "Bearer "+tok)
-		return newReq
+		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 
 	if p.requestBody.Buffered() {
-		newReq := req.Clone(req.Context())
-		newReq.Body = p.requestBody.Reader()
-		return newReq
+		req.Body = p.requestBody.Reader()
 	}
 
 	return req
