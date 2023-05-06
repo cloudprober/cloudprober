@@ -96,24 +96,6 @@ type probeResult struct {
 	sslEarliestExpirationSeconds int64
 }
 
-func (p *Probe) oauthToken() (string, error) {
-	tok, err := p.oauthTS.Token()
-	if err != nil {
-		return "", err
-	}
-	p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
-
-	if tok.AccessToken != "" {
-		return tok.AccessToken, nil
-	}
-	idToken, ok := tok.Extra("id_token").(string)
-	if ok {
-		return idToken, nil
-	}
-
-	return "", fmt.Errorf("got unknown token: %v", tok)
-}
-
 func (p *Probe) getTransport() (*http.Transport, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	dialer := &net.Dialer{

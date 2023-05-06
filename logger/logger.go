@@ -290,7 +290,7 @@ func (l *Logger) Close() error {
 
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) Debug(payload ...string) {
-	if l.debugLog {
+	if l != nil && l.debugLog {
 		l.log(logging.Debug, payload...)
 	}
 }
