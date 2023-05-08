@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 // Validator implements a regex validator.
 type Validator struct {
 	jqQuery *gojq.Query
+	l       *logger.Logger
 }
 
 // Init initializes the JSON validator.
@@ -47,6 +48,8 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 		}
 		v.jqQuery = q
 	}
+
+	v.l = l
 
 	return nil
 }
@@ -83,6 +86,9 @@ func (v *Validator) Validate(responseBody []byte) (bool, error) {
 		b, ok := lastItem.(bool)
 		if !ok {
 			return false, fmt.Errorf("didn't get bool as the jq_filter output (%v)", lastItem)
+		}
+		if !b {
+			v.l.Warningf("JSON validator: response body %s didn't match the jq filter %s", string(responseBody), v.jqQuery.String())
 		}
 		return b, nil
 	}

@@ -120,7 +120,7 @@ type Validator_Header struct {
 
 	// Header name to look for
 	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	// Header value to match. If omited - check for header existense
+	// Header value to match. If omited - check for header existence
 	ValueRegex *string `protobuf:"bytes,2,opt,name=value_regex,json=valueRegex" json:"value_regex,omitempty"`
 }
 
