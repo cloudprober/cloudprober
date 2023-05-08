@@ -1,4 +1,4 @@
-// Copyright 2018 The Cloudprober Authors.
+// Copyright 2018-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,5 +55,9 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 // Validate the provided responseBody and return true if responseBody matches
 // the configured regex.
 func (v *Validator) Validate(responseBody []byte) (bool, error) {
-	return v.r.Match(responseBody), nil
+	matched := v.r.Match(responseBody)
+	if !matched {
+		v.l.Warningf("Regex validation failure: response %s didn't match the regex %s", string(responseBody), v.r.String())
+	}
+	return matched, nil
 }

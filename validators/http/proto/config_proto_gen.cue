@@ -16,7 +16,7 @@ package proto
 		// Header name to look for
 		name?: string @protobuf(1,string)
 
-		// Header value to match. If omited - check for header existense
+		// Header value to match. If omited - check for header existence
 		valueRegex?: string @protobuf(2,string,name=value_regex)
 	}
 

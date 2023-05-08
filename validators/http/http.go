@@ -1,4 +1,4 @@
-// Copyright 2018 The Cloudprober Authors.
+// Copyright 2018-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,8 +50,9 @@ func (nr *numRange) find(i int) bool {
 
 // parseNumRange parses number range from the given string:
 // for example:
-//          200-299: &numRange{200, 299}
-//          403:     &numRange{403, 403}
+//
+//	200-299: &numRange{200, 299}
+//	403:     &numRange{403, 403}
 func parseNumRange(s string) (*numRange, error) {
 	fields := strings.Split(s, "-")
 	if len(fields) < 1 || len(fields) > 2 {
@@ -199,24 +200,28 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 
 	if v.c.GetFailureStatusCodes() != "" {
 		if lookupStatusCode(res.StatusCode, v.failureStatusCodeRanges) {
+			v.l.Warningf("HTTP validation failure: status code %d in failure status codes: %s, status: %s", res.StatusCode, v.c.GetFailureStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if failureHeader := v.c.GetFailureHeader(); failureHeader != nil {
 		if lookupHTTPHeader(res.Header, failureHeader.GetName(), v.failureHeaderRegexp) {
+			v.l.Warningf("HTTP validation failure: got unexpected header %s", failureHeader.GetName())
 			return false, nil
 		}
 	}
 
 	if v.c.GetSuccessStatusCodes() != "" {
 		if !lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
+			v.l.Warningf("HTTP validation failure: status code %d not in success status codes: %s, status: %s, ", res.StatusCode, v.c.GetSuccessStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if successHeader := v.c.GetSuccessHeader(); successHeader != nil {
 		if !lookupHTTPHeader(res.Header, successHeader.GetName(), v.successHeaderRegexp) {
+			v.l.Warningf("HTTP validation failure: header %s not found", successHeader.GetName())
 			return false, nil
 		}
 	}
