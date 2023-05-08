@@ -57,7 +57,7 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 func (v *Validator) Validate(responseBody []byte) (bool, error) {
 	matched := v.r.Match(responseBody)
 	if !matched {
-		v.l.Warningf("Regex validator: response body %s didn't match the regex %s", string(responseBody), v.r.String())
+		v.l.Warningf("Regex validation failure: response body %s didn't match the regex %s", string(responseBody), v.r.String())
 	}
 	return matched, nil
 }

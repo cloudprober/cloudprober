@@ -200,28 +200,28 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 
 	if v.c.GetFailureStatusCodes() != "" {
 		if lookupStatusCode(res.StatusCode, v.failureStatusCodeRanges) {
-			v.l.Warningf("status code %d in failure status codes: %s, status: %s", res.StatusCode, v.c.GetFailureStatusCodes(), res.Status)
+			v.l.Warningf("HTTP validation failure: status code %d in failure status codes: %s, status: %s", res.StatusCode, v.c.GetFailureStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if failureHeader := v.c.GetFailureHeader(); failureHeader != nil {
 		if lookupHTTPHeader(res.Header, failureHeader.GetName(), v.failureHeaderRegexp) {
-			v.l.Warningf("got unexpected header %s", failureHeader.GetName())
+			v.l.Warningf("HTTP validation failure: got unexpected header %s", failureHeader.GetName())
 			return false, nil
 		}
 	}
 
 	if v.c.GetSuccessStatusCodes() != "" {
 		if !lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
-			v.l.Warningf("status code %d not in success status codes: %s, status: %s, ", res.StatusCode, v.c.GetSuccessStatusCodes(), res.Status)
+			v.l.Warningf("HTTP validation failure: status code %d not in success status codes: %s, status: %s, ", res.StatusCode, v.c.GetSuccessStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if successHeader := v.c.GetSuccessHeader(); successHeader != nil {
 		if !lookupHTTPHeader(res.Header, successHeader.GetName(), v.successHeaderRegexp) {
-			v.l.Warningf("header %s not found", successHeader.GetName())
+			v.l.Warningf("HTTP validation failure: header %s not found", successHeader.GetName())
 			return false, nil
 		}
 	}

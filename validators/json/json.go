@@ -88,7 +88,7 @@ func (v *Validator) Validate(responseBody []byte) (bool, error) {
 			return false, fmt.Errorf("didn't get bool as the jq_filter output (%v)", lastItem)
 		}
 		if !b {
-			v.l.Warningf("JSON validator: response body %s didn't match the jq filter %s", string(responseBody), v.jqQuery.String())
+			v.l.Warningf("JSON validation failure: response body %s didn't match the jq filter %s", string(responseBody), v.jqQuery.String())
 		}
 		return b, nil
 	}
