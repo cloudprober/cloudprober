@@ -19,7 +19,7 @@ message Validator {
   message Header {
     // Header name to look for
     optional string name = 1;
-    // Header value to match. If omited - check for header existense
+    // Header value to match. If omited - check for header existence
     optional string value_regex = 2;
   }
 
