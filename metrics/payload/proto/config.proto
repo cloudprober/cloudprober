@@ -6,6 +6,40 @@ import "github.com/cloudprober/cloudprober/metrics/proto/dist.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/metrics/payload/proto";
 
+message HeaderMetric {
+  required string header_name = 1;
+
+  // By default, metric is name is the snakecase (all lowercase) version of the
+  // of header_name.
+  optional string metric_name = 2;
+
+  enum ValueType {
+    UNDEFINED = 0;
+    INT = 1;
+    FLOAT = 2;
+    STRING = 3;
+    // Parsed with Go's http.ParseDate()
+    HTTP_DATE = 4;
+  }
+  optional ValueType type = 3;
+}
+
+message JSONMetric {
+  // Metric name that we should create from the JSON. To define a metric name
+  // from JSON, specify name_jq_filter.
+  oneof name {
+    string metric_name = 1;
+
+    // JQ filter to extract the metric name from JSON. JQ filter should extract
+    // a string.
+    string name_jq_filter = 2;
+  }
+
+  // JQ filter to extract metric value from JSON. JQ filter should extract a
+  // either a string, bool (converted to int), or a number.
+  required string value_jq_filter = 3;
+}
+
 message OutputMetricsOptions {
   // MetricsKind specifies whether to treat output metrics as GAUGE or
   // CUMULATIVE. If left unspecified, metrics from ONCE mode probes are treated
@@ -18,7 +52,7 @@ message OutputMetricsOptions {
   optional MetricsKind metrics_kind = 1;
 
   // Additional labels (comma-separated) to attach to the output metrics, e.g.
-  // "region=us-east1,zone=us-east1-d". ptype="external" and probe="<probeName>"
+  // "region=us-east1,zone=us-east1-d".
   // are attached automatically.
   optional string additional_labels = 2;
 
@@ -27,6 +61,7 @@ message OutputMetricsOptions {
   // probe process should return metrics only since the last probe run.
   // Note that this option is mutually exclusive with GAUGE metrics and
   // cloudprober will fail during initialization if both options are enabled.
+  // This option doesn't work on header_metric and json_metric.
   optional bool aggregate_in_cloudprober = 3 [default = false];
 
   // Metrics that should be treated as distributions. These metrics are exported
@@ -40,5 +75,26 @@ message OutputMetricsOptions {
   //     explicit_buckets: "1,2,4,8,16,32,64,128,256"
   //   }
   // }
+  // This option doesn't work on header_metric and json_metric.
   map<string, metrics.Dist> dist_metric = 4;
+
+  // Header to metric mapping. If this mapping is defined and probe's response
+  // is an HTTP response, we will extract the header value and create a metric
+  // from it.
+  //
+  // For example, to track server date:
+  // header_metric {
+  //   header_name: "date"
+  //   metric_name: "server_date"  
+  //   type: HTTP_DATE
+  // }
+  //
+  // Note when header_metric is configured, line parsing for metric is
+  // disabled.
+  repeated HeaderMetric header_metric = 5;
+
+  // JSON metrics to create from a JSON output.
+  // Note when json_metric is configured, line parsing for metric is
+  // disabled.
+  repeated JSONMetric json_metric = 6;
 }

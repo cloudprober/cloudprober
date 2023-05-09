@@ -1,4 +1,4 @@
-// Copyright 2017-2022 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,25 +16,24 @@ package payload
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
-	testPtype  = "external"
-	testProbe  = "testprobe"
 	testTarget = "test-target"
 )
 
 func parserForTest(t *testing.T, agg bool, additionalLabels string) *Parser {
 	testConf := `
+	  metrics_kind: CUMULATIVE
 	  aggregate_in_cloudprober: %v
 		dist_metric {
 			key: "op_latency"
@@ -51,7 +50,7 @@ func parserForTest(t *testing.T, agg bool, additionalLabels string) *Parser {
 	if additionalLabels != "" {
 		c.AdditionalLabels = proto.String(additionalLabels)
 	}
-	p, err := NewParser(&c, testPtype, testProbe, metrics.CUMULATIVE, nil)
+	p, err := NewParser(&c, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -82,10 +81,6 @@ func (td *testData) multiEM(ts time.Time) []*metrics.EventMetrics {
 	}...)
 
 	for i, em := range results {
-		em.AddLabel("ptype", testPtype).
-			AddLabel("probe", testProbe).
-			AddLabel("dst", testTarget)
-
 		if td.labels[i][0] != "" {
 			em.AddLabel(td.labels[i][0], td.labels[i][1])
 		}
@@ -94,7 +89,7 @@ func (td *testData) multiEM(ts time.Time) []*metrics.EventMetrics {
 	return results
 }
 
-func (td *testData) testPayload(quoteLabelValues bool) string {
+func (td *testData) testPayload(quoteLabelValues bool) []byte {
 	var labelStrs [3]string
 	for i, kv := range td.labels {
 		if kv[0] == "" {
@@ -116,13 +111,13 @@ func (td *testData) testPayload(quoteLabelValues bool) string {
 		fmt.Sprintf("time_to_running%s %f", labelStrs[1], td.varA),
 		fmt.Sprintf("time_to_ssh%s %f", labelStrs[2], td.varB),
 	}
-	return strings.Join(payloadLines, "\n")
+	return []byte(strings.Join(payloadLines, "\n"))
 }
 
 func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 	t.Helper()
 
-	ems := p.PayloadMetrics(etd.testPayload(false), testTarget)
+	ems := p.PayloadMetrics(&Input{Text: etd.testPayload(false)}, testTarget)
 	expectedMetrics := etd.multiEM(ems[0].Timestamp)
 	for i, em := range ems {
 		if em.String() != expectedMetrics[i].String() {
@@ -131,7 +126,7 @@ func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 	}
 
 	// Test with quoted label values
-	ems = p.PayloadMetrics(etd.testPayload(true), testTarget)
+	ems = p.PayloadMetrics(&Input{Text: etd.testPayload(true)}, testTarget)
 	for i, em := range ems {
 		if em.String() != expectedMetrics[i].String() {
 			t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
@@ -141,12 +136,12 @@ func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 
 func TestAdditionalLabels(t *testing.T) {
 	p := parserForTest(t, false, "alk=alv")
-	ems := p.PayloadMetrics("run_count{dc=xx} 1", testTarget)
+	ems := p.PayloadMetrics(&Input{Text: []byte("run_count{dc=xx} 1")}, testTarget)
 	if len(ems) != 1 {
 		t.Fatalf("Got %d EventMetrics, wanted only 1", len(ems))
 	}
 	em := ems[0]
-	wantMetric := fmt.Sprintf("%d labels=ptype=%s,probe=%s,alk=alv,dst=%s,dc=xx run_count=1.000", em.Timestamp.Unix(), testPtype, testProbe, testTarget)
+	wantMetric := fmt.Sprintf("%d labels=alk=alv,dc=xx run_count=1.000", em.Timestamp.Unix())
 	if em.String() != wantMetric {
 		t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), wantMetric)
 	}
@@ -200,11 +195,11 @@ func TestAggreagateInCloudprober(t *testing.T) {
 			},
 			wantMetrics: []string{
 				" run_count=1.000",
-				",dc=xx queries=100.000",
-				",dc=yy queries=100.000",
-				",op=get,dc=xx op_latency=dist:sum:12|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
-				",op=set,dc=xx op_latency=dist:sum:24|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
-				",dc=xx req_latency=dist:sum:42|count:1|lb:-Inf,1,10,25,100|bc:0,0,0,1,0",
+				"dc=xx queries=100.000",
+				"dc=yy queries=100.000",
+				"op=get,dc=xx op_latency=dist:sum:12|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
+				"op=set,dc=xx op_latency=dist:sum:24|count:1|lb:-Inf,1,10,100|bc:0,0,1,0",
+				"dc=xx req_latency=dist:sum:42|count:1|lb:-Inf,1,10,25,100|bc:0,0,0,1,0",
 			},
 		},
 		{
@@ -219,11 +214,11 @@ func TestAggreagateInCloudprober(t *testing.T) {
 			},
 			wantMetrics: []string{
 				" run_count=2.000",
-				",dc=xx queries=199.000",
-				",dc=yy queries=200.000",
-				",op=get,dc=xx op_latency=dist:sum:23|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
-				",op=set,dc=xx op_latency=dist:sum:47|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
-				",dc=xx req_latency=dist:sum:74|count:2|lb:-Inf,1,10,25,100|bc:0,0,0,2,0",
+				"dc=xx queries=199.000",
+				"dc=yy queries=200.000",
+				"op=get,dc=xx op_latency=dist:sum:23|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
+				"op=set,dc=xx op_latency=dist:sum:47|count:2|lb:-Inf,1,10,100|bc:0,0,2,0",
+				"dc=xx req_latency=dist:sum:74|count:2|lb:-Inf,1,10,25,100|bc:0,0,0,2,0",
 			},
 		},
 	}
@@ -232,9 +227,9 @@ func TestAggreagateInCloudprober(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			ems := p.PayloadMetrics(strings.Join(test.payload, "\n"), testTarget)
+			ems := p.PayloadMetrics(&Input{Text: []byte(strings.Join(test.payload, "\n"))}, testTarget)
 			for i, em := range ems {
-				wantMetric := fmt.Sprintf("%d labels=ptype=%s,probe=%s,dst=%s%s", em.Timestamp.Unix(), testPtype, testProbe, testTarget, test.wantMetrics[i])
+				wantMetric := fmt.Sprintf("%d labels=%s", em.Timestamp.Unix(), test.wantMetrics[i])
 				if em.String() != wantMetric {
 					t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), wantMetric)
 				}
@@ -244,7 +239,7 @@ func TestAggreagateInCloudprober(t *testing.T) {
 	}
 }
 
-func TestMetricValueLabels(t *testing.T) {
+func TestParseLine(t *testing.T) {
 	tests := []struct {
 		desc    string
 		line    string
@@ -255,20 +250,20 @@ func TestMetricValueLabels(t *testing.T) {
 	}{
 		{
 			desc:   "metric with no labels",
-			line:   "total 56",
-			metric: "total",
+			line:   "op_total 56",
+			metric: "op_total",
 			value:  "56",
 		},
 		{
 			desc:   "metric with no labels, but more spaces",
-			line:   "total   56",
-			metric: "total",
+			line:   "op_total   56",
+			metric: "op_total",
 			value:  "56",
 		},
 		{
 			desc:   "standard metric with labels",
-			line:   "total{service=serviceA,dc=xx} 56",
-			metric: "total",
+			line:   "op_total{service=serviceA,dc=xx} 56",
+			metric: "op_total",
 			labels: [][2]string{
 				{"service", "serviceA"},
 				{"dc", "xx"},
@@ -277,8 +272,8 @@ func TestMetricValueLabels(t *testing.T) {
 		},
 		{
 			desc:   "quoted labels, same result",
-			line:   "total{service=\"serviceA\",dc=\"xx\"} 56",
-			metric: "total",
+			line:   "op_total{service=\"serviceA\",dc=\"xx\"} 56",
+			metric: "op_total",
 			labels: [][2]string{
 				{"service", "serviceA"},
 				{"dc", "xx"},
@@ -287,8 +282,8 @@ func TestMetricValueLabels(t *testing.T) {
 		},
 		{
 			desc:   "a label value has space and more spaces",
-			line:   "total{service=\"service A\", dc= \"xx\"} 56",
-			metric: "total",
+			line:   "op_total{service=\"service A\", dc= \"xx\"} 56",
+			metric: "op_total",
 			labels: [][2]string{
 				{"service", "service A"},
 				{"dc", "xx"},
@@ -312,29 +307,21 @@ func TestMetricValueLabels(t *testing.T) {
 		},
 	}
 
-	p := &Parser{}
-
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			m, v, l, err := p.metricValueLabels(test.line)
+			m, v, l, err := parseLine(test.line)
 			if err != nil {
 				if !test.wantErr {
 					t.Errorf("Unexpected error: %v", err)
 				}
 				return
 			}
-			if err == nil && test.wantErr {
+			if test.wantErr {
 				t.Errorf("Expected error, but didn't get any.")
 			}
-			if m != test.metric {
-				t.Errorf("Metric name: got=%s, wanted=%s", m, test.metric)
-			}
-			if v != test.value {
-				t.Errorf("Metric value: got=%s, wanted=%s", v, test.value)
-			}
-			if !reflect.DeepEqual(l, test.labels) {
-				t.Errorf("Metric labels: got=%v, wanted=%v", l, test.labels)
-			}
+			assert.Equal(t, test.metric, m)
+			assert.Equal(t, test.labels, l)
+			assert.Equal(t, test.value, v)
 		})
 	}
 }
@@ -349,9 +336,8 @@ func BenchmarkMetricValueLabels(b *testing.B) {
 	}
 	// run the em.String() function b.N times
 	for n := 0; n < b.N; n++ {
-		p := &Parser{}
 		for _, s := range payload {
-			p.metricValueLabels(s)
+			parseLine(s)
 		}
 	}
 }
