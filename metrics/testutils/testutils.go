@@ -88,6 +88,7 @@ func MetricsMapByTarget(ems []*metrics.EventMetrics) MetricsMap {
 	return mmap
 }
 
+// Filter returns a map of target to values for a given metric name.
 func (mmap MetricsMap) Filter(metricName string) map[string][]metrics.Value {
 	res := make(map[string][]metrics.Value, len(mmap))
 	for tgt, valMap := range mmap {
@@ -101,6 +102,7 @@ func (mmap MetricsMap) Filter(metricName string) map[string][]metrics.Value {
 	return res
 }
 
+// LastValueInt64 returns the last value for a given metric name and target.
 func (mmap MetricsMap) LastValueInt64(target, metricName string) int64 {
 	for tgt, valMap := range mmap {
 		if tgt != target {
