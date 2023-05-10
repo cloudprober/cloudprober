@@ -440,17 +440,9 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 	cancelF()
 	wg.Wait() // Verifies that probe really stopped.
 
-	latestVal := func(ems []metrics.Value) int {
-		return int(ems[len(ems)-1].(metrics.NumValue).Int64())
-	}
-
 	dataMap := testutils.MetricsMapByTarget(ems)
 	for _, tgt := range testTargets {
-		successVals, totalVals := dataMap[tgt]["success"], dataMap[tgt]["total"]
-		var connEventVals []metrics.Value
-		if keepAlive {
-			connEventVals = dataMap[tgt]["connect_event"]
-		}
+		totalVals := dataMap[tgt]["total"]
 
 		metricsCount := len(totalVals)
 		t.Logf("Total metrics for %s: %d", tgt, len(totalVals))
@@ -461,7 +453,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 
 		// Expected values on a good system: metricsCount * reqPerProbe
 		// Let's go with more conservative values and divide by 3 to take
-		// slowness of CI/CD systems into account:
+		// slowness of CI systems into account:
 		wantCounter := (metricsCount * reqPerProbe) / 3
 		minTotal, minSuccess := wantCounter, wantCounter
 		if tgt == "fails-to-resolve.com" {
@@ -470,12 +462,12 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		if tgt == "fail-test.com" {
 			minSuccess = 0
 		}
-		assert.LessOrEqualf(t, minTotal, latestVal(totalVals), "total for target: %s", tgt)
-		assert.LessOrEqualf(t, minSuccess, latestVal(successVals), "success for target: %s", tgt)
+		assert.LessOrEqualf(t, int64(minTotal), dataMap.LastValueInt64(tgt, "total"), "total for target: %s", tgt)
+		assert.LessOrEqualf(t, int64(minSuccess), dataMap.LastValueInt64(tgt, "success"), "success for target: %s", tgt)
 
 		if keepAlive && tgt == "test.com" {
 			maxConnEvent := reqPerProbe * 2
-			assert.GreaterOrEqualf(t, maxConnEvent, latestVal(connEventVals), "connect_event for target: %s", tgt)
+			assert.GreaterOrEqualf(t, int64(maxConnEvent), dataMap.LastValueInt64("tgt", "connect_event"), "connect_event for target: %s", tgt)
 		}
 	}
 }
