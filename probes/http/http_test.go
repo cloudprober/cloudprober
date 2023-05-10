@@ -499,9 +499,9 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, targets [2]string, wantCloseRange bool) {
 	t.Helper()
 
-	m := testutils.MetricsMapByTarget(ems)
-	num1 := len(m[targets[0]]["success"])
-	num2 := len(m[targets[1]]["success"])
+	m := testutils.MetricsMapByTarget(ems).Filter("success")
+	num1 := len(m[targets[0]])
+	num2 := len(m[targets[1]])
 
 	diff := num1 - num2
 	threshold := num1 / 2
