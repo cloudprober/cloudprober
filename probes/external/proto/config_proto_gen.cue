@@ -25,6 +25,12 @@ import "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	// will get converted to: /tools/recreate_vm -vm ig-us-central1-a
 	command?: string @protobuf(2,string)
 
+	// Command environment variables. These are passed on to the external probe
+	// process as environment variables.
+	envVar?: {
+		[string]: string
+	} @protobuf(6,map[string]string,env_var)
+
 	// Options for the SERVER mode probe requests. These options are passed on to
 	// the external probe server as part of the ProbeRequest. Values are
 	// substituted similar to command arguments for the ONCE mode probes.

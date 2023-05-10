@@ -25,17 +25,21 @@ package external
 import (
 	"bytes"
 	"context"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
 )
 
-func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, []byte, error) {
+func (p *Probe) runCommand(ctx context.Context, cmd string, args, envVars []string) ([]byte, []byte, error) {
 	c := exec.Command(cmd, args...)
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var stdout, stderr bytes.Buffer
 	c.Stdout, c.Stderr = &stdout, &stderr
-
+	if len(envVars) > 0 {
+		c.Env = append(c.Env, os.Environ()...)
+		c.Env = append(c.Env, envVars...)
+	}
 	if err := c.Start(); err != nil {
 		return stdout.Bytes(), stderr.Bytes(), err
 	}
