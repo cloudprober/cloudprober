@@ -106,7 +106,8 @@ func globalGRPCServer(delay time.Duration) (string, error) {
 
 // TestGRPCSuccess tests probe output on success.
 // 2 connections, 1 probe/sec/conn, stats exported every 5 sec
-// 	=> 5-10 results/interval. Test looks for minimum of 7 results.
+//
+//	=> 5-10 results/interval. Test looks for minimum of 7 results.
 func TestGRPCSuccess(t *testing.T) {
 	interval, timeout := 100*time.Millisecond, 100*time.Millisecond
 	addr, err := globalGRPCServer(timeout / 2)
@@ -162,7 +163,8 @@ func TestGRPCSuccess(t *testing.T) {
 // TestConnectFailures attempts to connect to localhost:9 (discard port) and
 // checks that stats are exported once every connect timeout.
 // 2 connections, 0.5 connect attempt/sec/conn, stats exported every 6 sec
-//  => 3 - 6 connect errors/sec. Test looks for minimum of 4 attempts.
+//
+//	=> 3 - 6 connect errors/sec. Test looks for minimum of 4 attempts.
 func TestConnectFailures(t *testing.T) {
 	interval, timeout := 100*time.Millisecond, 100*time.Millisecond
 	addr := "localhost:9"
@@ -328,20 +330,20 @@ func TestTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error retrieving metrics: %v", err)
 	}
-	mm := testutils.MetricsMap(ems)
+	mmap := testutils.MetricsMapByTarget(ems)
 
-	sumIntMetrics := func(ems []*metrics.EventMetrics, metricName string) int64 {
+	sumIntMetrics := func(mv []metrics.Value) int64 {
 		sum := metrics.NewInt(0)
-		for _, em := range ems {
-			sum.Add(em.Metric(metricName))
+		for _, v := range mv {
+			sum.Add(v)
 		}
 		return sum.Int64()
 	}
 
 	connErrTargets := make(map[string]int64)
 	connErrIterCount := 0
-	for target, vals := range mm["connecterrors"] {
-		s := sumIntMetrics(vals, "connecterrors")
+	for target, vals := range mmap.Filter("connecterrors") {
+		s := sumIntMetrics(vals)
 		if s > 0 {
 			connErrTargets[target] = s
 		}
@@ -352,8 +354,8 @@ func TestTargets(t *testing.T) {
 
 	successTargets := make(map[string]int64)
 	successIterCount := 0
-	for target, vals := range mm["success"] {
-		s := sumIntMetrics(vals, "success")
+	for target, vals := range mmap.Filter("success") {
+		s := sumIntMetrics(vals)
 		if s > 0 {
 			successTargets[target] = s
 			if connErrTargets[target] > 0 {
