@@ -39,9 +39,9 @@ func (tpr *testProbeResult) Metrics(ts time.Time, opts *options.Options) *metric
 func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, metricName string, targets [2]string, wantCloseRange bool) {
 	t.Helper()
 
-	m := testutils.MetricsMap(ems)[metricName]
-	num1 := len(m[targets[0]])
-	num2 := len(m[targets[1]])
+	mmap := testutils.MetricsMapByTarget(ems).Filter(metricName)
+	num1 := len(mmap[targets[0]])
+	num2 := len(mmap[targets[1]])
 
 	diff := num1 - num2
 	threshold := num1 / 2
@@ -58,9 +58,9 @@ func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, metricNam
 	// than (if stats_export_interval > interval), or equal to the number of
 	// metrics received. Note: This test assumes that metric value is
 	// incremented in each run.
-	for _, ems := range m {
-		numMetrics := len(ems)
-		lastVal := int(ems[numMetrics-1].Metric(metricName).(metrics.NumValue).Int64())
+	for _, mvs := range mmap {
+		numMetrics := len(mvs)
+		lastVal := int(mvs[numMetrics-1].(metrics.NumValue).Int64())
 		if lastVal < numMetrics {
 			t.Errorf("Metric (%s) last value: %d, less than: %d", metricName, lastVal, numMetrics)
 		}
