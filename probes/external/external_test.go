@@ -38,8 +38,8 @@ import (
 	probeconfigpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 func isDone(doneChan chan struct{}) bool {
@@ -150,7 +150,7 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	}
 }
 
-func createTestProbe(cmd string) *Probe {
+func createTestProbe(cmd string, envVar map[string]string) *Probe {
 	probeConf := &configpb.ProbeConf{
 		Options: []*configpb.ProbeConf_Option{
 			{
@@ -163,6 +163,7 @@ func createTestProbe(cmd string) *Probe {
 			},
 		},
 		Command: &cmd,
+		EnvVar:  envVar,
 	}
 
 	p := &Probe{
@@ -200,7 +201,7 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string,
 	doneChan := make(chan struct{})
 	go startProbeServer(t, testPayload, r1, w2, doneChan)
 
-	p := createTestProbe("./testCommand")
+	p := createTestProbe("./testCommand", nil)
 	p.cmdRunning = true // don't try to start the probe server
 	p.cmdStdin = w1
 	p.cmdStdout = r2
@@ -317,19 +318,20 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 }
 
 func TestProbeOnceMode(t *testing.T) {
-	p := createTestProbe("/test/cmd --address=@target@ --arg2")
+	p := createTestProbe("/test/cmd --address=@target@ --arg2", map[string]string{"key": "secret", "client": "client1"})
 
 	p.mode = "once"
 	tgts := []string{"target1", "target2"}
 
 	// Set runCommand to a function that runs successfully and returns a pyload.
-	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, []byte, error) {
+	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs, envVars []string) ([]byte, []byte, error) {
 		var resp []string
 		resp = append(resp, fmt.Sprintf("cmd \"%s\"", cmd))
 		resp = append(resp, fmt.Sprintf("args \"%s\"", strings.Join(cmdArgs, ",")))
+		resp = append(resp, fmt.Sprintf("env \"%s\"", strings.Join(envVars, " ")))
 		return []byte(strings.Join(resp, "\n")), nil, nil
 	}
-	wantCmd := "\"/test/cmd\""
+	wantCmd, wantEnv := "\"/test/cmd\"", "\"key=secret client=client1\""
 
 	total, success := make(map[string]int64), make(map[string]int64)
 
@@ -341,7 +343,7 @@ func TestProbeOnceMode(t *testing.T) {
 	runAndVerifyProbe(t, p, tgts, total, success)
 
 	// Try with failing command now
-	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, []byte, error) {
+	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string, envVars []string) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("error executing %s", cmd)
 	}
 
@@ -353,7 +355,7 @@ func TestProbeOnceMode(t *testing.T) {
 	// Compute total numbder of event metrics:
 	runCnt := 2
 	totalEventMetrics := runCnt * len(tgts)
-	totalEventMetrics += 2 * len(tgts) // cmd, args from successful run
+	totalEventMetrics += 3 * len(tgts) // cmd, args, env from successful run
 	ems, err := testutils.MetricsFromChannel(p.dataChan, totalEventMetrics, time.Second)
 	if err != nil {
 		t.Error(err)
@@ -364,7 +366,7 @@ func TestProbeOnceMode(t *testing.T) {
 		// Verify number of values received for each metric
 		for cnt, names := range map[int][]string{
 			runCnt: {"total", "success", "latency"},
-			1:      {"cmd", "args"},
+			1:      {"cmd", "args", "env"},
 		} {
 			for _, name := range names {
 				assert.Lenf(t, mmap[tgt][name], cnt, "Wrong number of values for metric (%s) for target (%s)", name, tgt)
@@ -374,6 +376,7 @@ func TestProbeOnceMode(t *testing.T) {
 		// Verify values for each output metric
 		wantArgs := fmt.Sprintf("\"--address=%s,--arg2\"", tgt)
 		assert.Equal(t, wantArgs, mmap[tgt]["args"][0].String(), "Wrong value for args metric")
+		assert.Equal(t, wantEnv, mmap[tgt]["env"][0].String(), "Wrong value for env metric")
 		assert.Equal(t, wantCmd, mmap[tgt]["cmd"][0].String(), "Wrong value for cmd metric")
 	}
 }
@@ -653,7 +656,7 @@ func TestProcessProbeResult(t *testing.T) {
 }
 
 func TestCommandParsing(t *testing.T) {
-	p := createTestProbe("./test-command --flag1 one --flag23 \"two three\"")
+	p := createTestProbe("./test-command --flag1 one --flag23 \"two three\"", nil)
 
 	wantCmdName := "./test-command"
 	if p.cmdName != wantCmdName {
