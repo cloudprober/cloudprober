@@ -440,16 +440,16 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 	cancelF()
 	wg.Wait() // Verifies that probe really stopped.
 
-	latestVal := func(ems []*metrics.EventMetrics, name string) int {
-		return int(ems[len(ems)-1].Metric(name).(*metrics.Int).Int64())
+	latestVal := func(ems []metrics.Value) int {
+		return int(ems[len(ems)-1].(metrics.NumValue).Int64())
 	}
 
-	dataMap := testutils.MetricsMap(ems)
+	dataMap := testutils.MetricsMapByTarget(ems)
 	for _, tgt := range testTargets {
-		successVals, totalVals := dataMap["success"][tgt], dataMap["total"][tgt]
-		var connEventVals []*metrics.EventMetrics
+		successVals, totalVals := dataMap[tgt]["success"], dataMap[tgt]["total"]
+		var connEventVals []metrics.Value
 		if keepAlive {
-			connEventVals = dataMap["connect_event"][tgt]
+			connEventVals = dataMap[tgt]["connect_event"]
 		}
 
 		metricsCount := len(totalVals)
@@ -470,12 +470,12 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		if tgt == "fail-test.com" {
 			minSuccess = 0
 		}
-		assert.LessOrEqualf(t, minTotal, latestVal(totalVals, "total"), "total for target: %s", tgt)
-		assert.LessOrEqualf(t, minSuccess, latestVal(successVals, "success"), "success for target: %s", tgt)
+		assert.LessOrEqualf(t, minTotal, latestVal(totalVals), "total for target: %s", tgt)
+		assert.LessOrEqualf(t, minSuccess, latestVal(successVals), "success for target: %s", tgt)
 
 		if keepAlive && tgt == "test.com" {
 			maxConnEvent := reqPerProbe * 2
-			assert.GreaterOrEqualf(t, maxConnEvent, latestVal(connEventVals, "connect_event"), "connect_event for target: %s", tgt)
+			assert.GreaterOrEqualf(t, maxConnEvent, latestVal(connEventVals), "connect_event for target: %s", tgt)
 		}
 	}
 }
@@ -499,9 +499,9 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, targets [2]string, wantCloseRange bool) {
 	t.Helper()
 
-	m := testutils.MetricsMap(ems)["success"]
-	num1 := len(m[targets[0]])
-	num2 := len(m[targets[1]])
+	m := testutils.MetricsMapByTarget(ems)
+	num1 := len(m[targets[0]]["success"])
+	num2 := len(m[targets[1]]["success"])
 
 	diff := num1 - num2
 	threshold := num1 / 2

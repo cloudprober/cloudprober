@@ -47,26 +47,74 @@ func MetricsFromChannel(dataChan chan *metrics.EventMetrics, num int, timeout ti
 	return
 }
 
-// MetricsMap rearranges a list of metrics into a map of map.
-// {
-//   "m1": {
-//       "target1": [val1, val2..],
-//       "target2": [val1],
-//   },
-//   "m2": {
-//       ...
-//   }
-// }
-func MetricsMap(ems []*metrics.EventMetrics) map[string]map[string][]*metrics.EventMetrics {
-	results := make(map[string]map[string][]*metrics.EventMetrics)
+func LabelsMapByTarget(ems []*metrics.EventMetrics) map[string]map[string]string {
+	lmap := make(map[string]map[string]string)
 	for _, em := range ems {
 		target := em.Label("dst")
-		for _, m := range em.MetricsKeys() {
-			if results[m] == nil {
-				results[m] = make(map[string][]*metrics.EventMetrics)
-			}
-			results[m][target] = append(results[m][target], em)
+		if lmap[target] == nil {
+			lmap[target] = make(map[string]string)
+		}
+		for _, k := range em.LabelsKeys() {
+			lmap[target][k] = em.Label(k)
 		}
 	}
-	return results
+	return lmap
+}
+
+type MetricsMap map[string]map[string][]metrics.Value
+
+// MetricsMapByTarget rearranges a list of metrics into a map of map.
+//
+//	{
+//	  "target1": {
+//	      "m1": [val1, val2..],
+//	      "m2": [val1],
+//	  },
+//	  "target2": {
+//	      ...
+//	  }
+//	}
+func MetricsMapByTarget(ems []*metrics.EventMetrics) MetricsMap {
+	mmap := make(map[string]map[string][]metrics.Value)
+	for _, em := range ems {
+		target := em.Label("dst")
+		if mmap[target] == nil {
+			mmap[target] = make(map[string][]metrics.Value)
+		}
+		for _, k := range em.MetricsKeys() {
+			mmap[target][k] = append(mmap[target][k], em.Metric(k))
+		}
+	}
+	return mmap
+}
+
+func (mmap MetricsMap) Filter(metricName string) map[string][]metrics.Value {
+	res := make(map[string][]metrics.Value, len(mmap))
+	for tgt, valMap := range mmap {
+		for name, vals := range valMap {
+			if name != metricName {
+				continue
+			}
+			res[tgt] = vals
+		}
+	}
+	return res
+}
+
+func (mmap MetricsMap) LastValueInt64(target, metricName string) int64 {
+	for tgt, valMap := range mmap {
+		if tgt != target {
+			continue
+		}
+		for name, vals := range valMap {
+			if name != metricName {
+				continue
+			}
+			if len(vals) == 0 {
+				return -1
+			}
+			return vals[len(vals)-1].(metrics.NumValue).Int64()
+		}
+	}
+	return -1
 }

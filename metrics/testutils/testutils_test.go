@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetricsFromChannel(t *testing.T) {
@@ -64,8 +65,8 @@ func TestMetricsFromChannel(t *testing.T) {
 func TestMetricsMap(t *testing.T) {
 	var ems []*metrics.EventMetrics
 	expectedValues := map[string][]int64{
-		"success": []int64{99, 98},
-		"total":   []int64{100, 100},
+		"success": {99, 98},
+		"total":   {100, 100},
 	}
 	ems = append(ems, metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(99)).
@@ -76,23 +77,68 @@ func TestMetricsMap(t *testing.T) {
 		AddMetric("total", metrics.NewInt(100)).
 		AddLabel("dst", "target2"))
 
-	metricsMap := MetricsMap(ems)
-
-	for _, m := range []string{"success", "total"} {
-		if metricsMap[m] == nil {
-			t.Errorf("didn't get metric %s in metrics map", m)
-		}
-	}
+	metricsMap := MetricsMapByTarget(ems)
 
 	for i, tgt := range []string{"target1", "target2"} {
 		for _, m := range []string{"success", "total"} {
-			if len(metricsMap[m][tgt]) != 1 {
-				t.Errorf("Wrong number of values for metric (%s) for target (%s) from the command output. Got=%d, Expected=1", m, tgt, len(metricsMap[m][tgt]))
-			}
-			val := metricsMap[m][tgt][0].Metric(m).(metrics.NumValue).Int64()
-			if val != expectedValues[m][i] {
-				t.Errorf("Wrong metric value for target (%s) from the command output. Got=%d, Expected=%d", m, val, expectedValues[m][i])
-			}
+			assert.Len(t, metricsMap[tgt][m], 1, "number of values mismatch")
+			val := metricsMap[tgt][m][0].(metrics.NumValue).Int64()
+			assert.Equal(t, expectedValues[m][i], val, "metric value mismatch")
 		}
+	}
+}
+
+func TestMetricsMapFilterAndLastValueInt64(t *testing.T) {
+	mmap := MetricsMap{
+		"target1": map[string][]metrics.Value{
+			"success": {metrics.NewInt(98), metrics.NewInt(99)},
+			"total":   {metrics.NewInt(100), metrics.NewInt(101)},
+		},
+		"target2": map[string][]metrics.Value{
+			"success2": {metrics.NewInt(198), metrics.NewInt(199)},
+			"total":    {metrics.NewInt(200), metrics.NewInt(201)},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		target     string
+		metricName string
+		filtered   map[string][]metrics.Value
+		want       int64
+	}{
+		{
+			name:       "target2",
+			target:     "target1",
+			metricName: "success",
+			filtered: map[string][]metrics.Value{
+				"target1": {metrics.NewInt(98), metrics.NewInt(99)},
+			},
+			want: 99,
+		},
+		{
+			name:       "target2",
+			target:     "target2",
+			metricName: "success",
+			filtered: map[string][]metrics.Value{
+				"target1": {metrics.NewInt(98), metrics.NewInt(99)},
+			},
+			want: -1,
+		},
+		{
+			name:       "not found",
+			target:     "target1",
+			metricName: "latency",
+			filtered:   map[string][]metrics.Value{},
+			want:       -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.filtered, mmap.Filter(tt.metricName), "filtered map mismatch")
+			if got := mmap.LastValueInt64(tt.target, tt.metricName); got != tt.want {
+				t.Errorf("MetricsMap.LastValueInt64() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

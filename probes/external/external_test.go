@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 func isDone(doneChan chan struct{}) bool {
@@ -117,7 +118,7 @@ func setProbeOptions(p *Probe, name, value string) {
 
 // runAndVerifyServerProbe executes a server probe and verifies the replies
 // received.
-func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int64, numEventMetrics int) {
+func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int, numEventMetrics int) {
 	setProbeOptions(p, "action", action)
 
 	runAndVerifyProbe(t, p, tgts, total, success)
@@ -127,30 +128,15 @@ func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []strin
 	if err != nil {
 		t.Error(err)
 	}
-	metricsMap := testutils.MetricsMap(ems)
-
-	// Convenient wrapper to get the last value from a series.
-	lastValue := func(s []*metrics.EventMetrics, metricName string) int64 {
-		return s[len(s)-1].Metric(metricName).(metrics.NumValue).Int64()
-	}
+	mmap := testutils.MetricsMapByTarget(ems)
 
 	for _, tgt := range tgts {
-		vals := make(map[string]int64)
-		for _, m := range []string{"total", "success"} {
-			s := metricsMap[m][tgt]
-			if len(s) == 0 {
-				t.Errorf("No %s metric for target: %s", m, tgt)
-				continue
-			}
-			vals[m] = lastValue(s, m)
-		}
-		if vals["success"] != success[tgt] || vals["total"] != total[tgt] {
-			t.Errorf("Target(%s) total=%d, success=%d, wanted: total=%d, success=%d, all_metrics=%s", tgt, vals["total"], vals["success"], total[tgt], success[tgt], ems)
-		}
+		assert.Equal(t, int64(total[tgt]), mmap.LastValueInt64(tgt, "total"))
+		assert.Equal(t, int64(success[tgt]), mmap.LastValueInt64(tgt, "success"))
 	}
 }
 
-func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map[string]int64) {
+func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map[string]int) {
 	p.opts.Targets = targets.StaticTargets(strings.Join(tgts, ","))
 	p.updateTargets()
 
@@ -159,12 +145,8 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	for _, target := range p.targets {
 		tgt := target.Name
 
-		if p.results[tgt].total != total[tgt] {
-			t.Errorf("p.total[%s]=%d, Want: %d", tgt, p.results[tgt].total, total[tgt])
-		}
-		if p.results[tgt].success != success[tgt] {
-			t.Errorf("p.success[%s]=%d, Want: %d", tgt, p.results[tgt].success, success[tgt])
-		}
+		assert.Equal(t, total[tgt], int(p.results[tgt].total), "total")
+		assert.Equal(t, success[tgt], int(p.results[tgt].success), "success")
 	}
 }
 
@@ -240,7 +222,7 @@ func TestProbeServerMode(t *testing.T) {
 	p, _, doneChan := testProbeServerSetup(t, nil)
 	defer close(doneChan)
 
-	total, success := make(map[string]int64), make(map[string]int64)
+	total, success := make(map[string]int), make(map[string]int)
 
 	// No payload
 	tgts := []string{"target1", "target2"}
@@ -292,7 +274,7 @@ func TestProbeServerRemotePipeClose(t *testing.T) {
 	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
 	defer close(doneChan)
 
-	total, success := make(map[string]int64), make(map[string]int64)
+	total, success := make(map[string]int), make(map[string]int)
 	// Remote pipe close
 	tgts := []string{"target"}
 	for _, tgt := range tgts {
@@ -315,7 +297,7 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
 	defer close(doneChan)
 
-	total, success := make(map[string]int64), make(map[string]int64)
+	total, success := make(map[string]int), make(map[string]int)
 	// Local pipe close
 	tgts := []string{"target"}
 	for _, tgt := range tgts {
@@ -335,9 +317,8 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 }
 
 func TestProbeOnceMode(t *testing.T) {
-	testCmd := "/test/cmd --arg1 --arg2"
+	p := createTestProbe("/test/cmd --address=@target@ --arg2")
 
-	p := createTestProbe(testCmd)
 	p.mode = "once"
 	tgts := []string{"target1", "target2"}
 
@@ -345,11 +326,12 @@ func TestProbeOnceMode(t *testing.T) {
 	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, []byte, error) {
 		var resp []string
 		resp = append(resp, fmt.Sprintf("cmd \"%s\"", cmd))
-		resp = append(resp, fmt.Sprintf("num-args %d", len(cmdArgs)))
+		resp = append(resp, fmt.Sprintf("args \"%s\"", strings.Join(cmdArgs, ",")))
 		return []byte(strings.Join(resp, "\n")), nil, nil
 	}
+	wantCmd := "\"/test/cmd\""
 
-	total, success := make(map[string]int64), make(map[string]int64)
+	total, success := make(map[string]int), make(map[string]int)
 
 	for _, tgt := range tgts {
 		total[tgt]++
@@ -368,49 +350,31 @@ func TestProbeOnceMode(t *testing.T) {
 	}
 	runAndVerifyProbe(t, p, tgts, total, success)
 
-	// Total numbder of event metrics:
-	// num_of_runs x num_targets x (1 for default metrics + 1 for payload metrics)
-	ems, err := testutils.MetricsFromChannel(p.dataChan, 8, time.Second)
+	// Compute total numbder of event metrics:
+	runCnt := 2
+	totalEventMetrics := runCnt * len(tgts)
+	totalEventMetrics += 2 * len(tgts) // cmd, args from successful run
+	ems, err := testutils.MetricsFromChannel(p.dataChan, totalEventMetrics, time.Second)
 	if err != nil {
 		t.Error(err)
 	}
-	metricsMap := testutils.MetricsMap(ems)
-
-	if metricsMap["num-args"] == nil && metricsMap["cmd"] == nil {
-		t.Errorf("Didn't get all metrics from the external process output.")
-	}
-
-	if metricsMap["total"] == nil && metricsMap["success"] == nil {
-		t.Errorf("Didn't get default metrics from the probe run.")
-	}
+	mmap := testutils.MetricsMapByTarget(ems)
 
 	for _, tgt := range tgts {
-		// Verify that default metrics were received for both runs -- success and
-		// failure. We don't check for the values here as that's already done by
-		// runAndVerifyProbe to an extent.
-		for _, m := range []string{"total", "success", "latency"} {
-			if len(metricsMap[m][tgt]) != 2 {
-				t.Errorf("Wrong number of values for default metric (%s) for target (%s). Got=%d, Expected=2", m, tgt, len(metricsMap[m][tgt]))
+		// Verify number of values received for each metric
+		for cnt, names := range map[int][]string{
+			runCnt: {"total", "success", "latency"},
+			1:      {"cmd", "args"},
+		} {
+			for _, name := range names {
+				assert.Lenf(t, mmap[tgt][name], cnt, "Wrong number of values for metric (%s) for target (%s)", name, tgt)
 			}
 		}
 
-		for _, m := range []string{"num-args", "cmd"} {
-			if len(metricsMap[m][tgt]) != 1 {
-				t.Errorf("Wrong number of values for metric (%s) for target (%s) from the command output. Got=%d, Expected=1", m, tgt, len(metricsMap[m][tgt]))
-			}
-		}
-
-		tgtNumArgs := metricsMap["num-args"][tgt][0].Metric("num-args").(metrics.NumValue).Int64()
-		expectedNumArgs := int64(len(strings.Split(testCmd, " ")) - 1)
-		if tgtNumArgs != expectedNumArgs {
-			t.Errorf("Wrong metric value for target (%s) from the command output. Got=%d, Expected=%d", tgt, tgtNumArgs, expectedNumArgs)
-		}
-
-		tgtCmd := metricsMap["cmd"][tgt][0].Metric("cmd").String()
-		expectedCmd := fmt.Sprintf("\"%s\"", strings.Split(testCmd, " ")[0])
-		if tgtCmd != expectedCmd {
-			t.Errorf("Wrong metric value for target (%s) from the command output. got=%s, expected=%s", tgt, tgtCmd, expectedCmd)
-		}
+		// Verify values for each output metric
+		wantArgs := fmt.Sprintf("\"--address=%s,--arg2\"", tgt)
+		assert.Equal(t, wantArgs, mmap[tgt]["args"][0].String(), "Wrong value for args metric")
+		assert.Equal(t, wantCmd, mmap[tgt]["cmd"][0].String(), "Wrong value for cmd metric")
 	}
 }
 
@@ -554,31 +518,28 @@ func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, nam
 	}
 
 	// Get 2 EventMetrics = default metrics, and payload metrics.
-	m, err := testutils.MetricsFromChannel(p.dataChan, 2, time.Second)
+	ems, err := testutils.MetricsFromChannel(p.dataChan, 2, time.Second)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	metricsMap := testutils.MetricsMap(m)
+	mmap, lmap := testutils.MetricsMapByTarget(ems), testutils.LabelsMapByTarget(ems)
 
-	if metricsMap[name] == nil || len(metricsMap[name][testTarget]) < 1 {
-		t.Fatalf("Payload metric %s is missing in %+v", name, metricsMap)
+	if mmap[testTarget] == nil || lmap[testTarget] == nil {
+		t.Fatalf("Payload metrics for target %s missing", testTarget)
 	}
 
-	em := metricsMap[name][testTarget][0]
-	gotValue := em.Metric(name).(metrics.NumValue).Int64()
-	if gotValue != val {
-		t.Errorf("%s=%d, expected=%d", name, gotValue, val)
+	if len(mmap[testTarget][name]) < 1 {
+		t.Fatalf("Payload metric %s is missing in %+v", name, mmap[testTarget])
 	}
+
+	assert.Equal(t, val, mmap[testTarget][name][0].(metrics.NumValue).Int64(), "metric %s value mismatch", name)
 
 	expectedLabels := map[string]string{"ptype": "external", "probe": "testprobe", "dst": "test-target"}
 	for k, v := range extraLabels {
 		expectedLabels[k] = v
 	}
-
-	if len(em.LabelsKeys()) != len(expectedLabels) {
-		t.Errorf("Labels mismatch: got=%v, expected=%v", em.LabelsKeys(), expectedLabels)
-	}
+	assert.Equal(t, expectedLabels, lmap[testTarget], "labels mismatch")
 }
 
 func TestProcessProbeResult(t *testing.T) {
