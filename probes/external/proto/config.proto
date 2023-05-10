@@ -26,10 +26,6 @@ message ProbeConf {
   // will get converted to: /tools/recreate_vm -vm ig-us-central1-a
   required string command = 2;
 
-  // Command environment variables. These are passed on to the external probe
-  // process as environment variables.
-  map<string,string> env_var = 6;
-
   // Options for the SERVER mode probe requests. These options are passed on to
   // the external probe server as part of the ProbeRequest. Values are
   // substituted similar to command arguments for the ONCE mode probes.
