@@ -118,7 +118,7 @@ func setProbeOptions(p *Probe, name, value string) {
 
 // runAndVerifyServerProbe executes a server probe and verifies the replies
 // received.
-func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int, numEventMetrics int) {
+func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int64, numEventMetrics int) {
 	setProbeOptions(p, "action", action)
 
 	runAndVerifyProbe(t, p, tgts, total, success)
@@ -131,12 +131,12 @@ func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []strin
 	mmap := testutils.MetricsMapByTarget(ems)
 
 	for _, tgt := range tgts {
-		assert.Equal(t, int64(total[tgt]), mmap.LastValueInt64(tgt, "total"))
-		assert.Equal(t, int64(success[tgt]), mmap.LastValueInt64(tgt, "success"))
+		assert.Equal(t, total[tgt], mmap.LastValueInt64(tgt, "total"))
+		assert.Equal(t, success[tgt], mmap.LastValueInt64(tgt, "success"))
 	}
 }
 
-func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map[string]int) {
+func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map[string]int64) {
 	p.opts.Targets = targets.StaticTargets(strings.Join(tgts, ","))
 	p.updateTargets()
 
@@ -145,8 +145,8 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	for _, target := range p.targets {
 		tgt := target.Name
 
-		assert.Equal(t, total[tgt], int(p.results[tgt].total), "total")
-		assert.Equal(t, success[tgt], int(p.results[tgt].success), "success")
+		assert.Equal(t, total[tgt], p.results[tgt].total, "total")
+		assert.Equal(t, success[tgt], p.results[tgt].success, "success")
 	}
 }
 
@@ -222,7 +222,7 @@ func TestProbeServerMode(t *testing.T) {
 	p, _, doneChan := testProbeServerSetup(t, nil)
 	defer close(doneChan)
 
-	total, success := make(map[string]int), make(map[string]int)
+	total, success := make(map[string]int64), make(map[string]int64)
 
 	// No payload
 	tgts := []string{"target1", "target2"}
@@ -274,7 +274,7 @@ func TestProbeServerRemotePipeClose(t *testing.T) {
 	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
 	defer close(doneChan)
 
-	total, success := make(map[string]int), make(map[string]int)
+	total, success := make(map[string]int64), make(map[string]int64)
 	// Remote pipe close
 	tgts := []string{"target"}
 	for _, tgt := range tgts {
@@ -297,7 +297,7 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
 	defer close(doneChan)
 
-	total, success := make(map[string]int), make(map[string]int)
+	total, success := make(map[string]int64), make(map[string]int64)
 	// Local pipe close
 	tgts := []string{"target"}
 	for _, tgt := range tgts {
@@ -331,7 +331,7 @@ func TestProbeOnceMode(t *testing.T) {
 	}
 	wantCmd := "\"/test/cmd\""
 
-	total, success := make(map[string]int), make(map[string]int)
+	total, success := make(map[string]int64), make(map[string]int64)
 
 	for _, tgt := range tgts {
 		total[tgt]++
