@@ -19,6 +19,7 @@ package external
 import (
 	"bytes"
 	"context"
+	"os"
 	"os/exec"
 )
 
