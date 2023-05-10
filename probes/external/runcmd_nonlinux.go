@@ -19,13 +19,18 @@ package external
 import (
 	"bytes"
 	"context"
+	"os"
 	"os/exec"
 )
 
-func (p *Probe) runCommand(ctx context.Context, cmd string, args []string) ([]byte, []byte, error) {
+func (p *Probe) runCommand(ctx context.Context, cmd string, args, envVars []string) ([]byte, []byte, error) {
 	c := exec.CommandContext(ctx, cmd, args...)
 	var stdout, stderr bytes.Buffer
 	c.Stdout, c.Stderr = &stdout, &stderr
+	if len(envVars) > 0 {
+		c.Env = append(c.Env, os.Environ()...)
+		c.Env = append(c.Env, envVars...)
+	}
 	err := c.Run()
 	return stdout.Bytes(), stderr.Bytes(), err
 }

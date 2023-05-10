@@ -46,8 +46,8 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/validators"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/shlex"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -78,6 +78,7 @@ type Probe struct {
 	mode    string
 	cmdName string
 	cmdArgs []string
+	envVars []string
 	opts    *options.Options
 	c       *configpb.ProbeConf
 	l       *logger.Logger
@@ -95,7 +96,7 @@ type Probe struct {
 	dataChan   chan *metrics.EventMetrics
 
 	// This is used for overriding run command logic for testing.
-	runCommandFunc func(ctx context.Context, cmd string, args []string) ([]byte, []byte, error)
+	runCommandFunc func(ctx context.Context, cmd string, args, envVars []string) ([]byte, []byte, error)
 
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
@@ -143,6 +144,13 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.cmdName = cmdParts[0]
 	p.cmdArgs = cmdParts[1:]
+
+	for k, v := range p.c.GetEnvVar() {
+		if v == "" {
+			v = "1" // default to a truthy value
+		}
+		p.envVars = append(p.envVars, fmt.Sprintf("%s=%s", k, v))
+	}
 
 	// Figure out labels we are interested in
 	p.updateLabelKeys()
@@ -220,6 +228,9 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	}
 	if p.cmdStderr, err = cmd.StderrPipe(); err != nil {
 		return err
+	}
+	if len(p.envVars) > 0 {
+		cmd.Env = append(cmd.Env, p.envVars...)
 	}
 
 	go func() {
@@ -518,9 +529,9 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			var stdout, stderr []byte
 			var err error
 			if p.runCommandFunc != nil {
-				stdout, stderr, err = p.runCommandFunc(ctx, p.cmdName, args)
+				stdout, stderr, err = p.runCommandFunc(ctx, p.cmdName, args, p.envVars)
 			} else {
-				stdout, stderr, err = p.runCommand(ctx, p.cmdName, args)
+				stdout, stderr, err = p.runCommand(ctx, p.cmdName, args, p.envVars)
 			}
 
 			success := true
