@@ -44,11 +44,10 @@ func TestIsHandled(t *testing.T) {
 	}
 }
 
-func TestHTTPRequest(t *testing.T) {
+func TestNewRequest(t *testing.T) {
 	tests := []struct {
 		name        string
 		data        []string
-		contentType string
 		wantReqBody string
 		wantCT      string
 		wantErr     bool
@@ -66,13 +65,6 @@ func TestHTTPRequest(t *testing.T) {
 			wantCT:      "application/x-www-form-urlencoded",
 		},
 		{
-			name:        "explicit_header_override",
-			data:        []string{"clientId=testID", "clientSecret=testSecret"},
-			contentType: "form-data",
-			wantReqBody: "clientId=testID&clientSecret=testSecret",
-			wantCT:      "form-data",
-		},
-		{
 			name:        "no_data",
 			data:        []string{},
 			wantReqBody: "",
@@ -81,29 +73,27 @@ func TestHTTPRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			headers := map[string]string{}
-			if tt.contentType != "" {
-				headers["Content-Type"] = tt.contentType
-			}
-
-			req, err := HTTPRequest("method", "test-url", tt.data, headers)
+			req, err := NewRequest("method", "test-url", NewRequestBody(tt.data...))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newHTTPTokenSource() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if len(tt.data) == 0 {
-				assert.Equal(t, nil, req.Body, "request body not nil")
+				assert.Equal(t, nil, req.Body, "request Body not nil")
+				assert.Nil(t, req.GetBody, "request GetBody not nil")
+				return
 			}
 
-			if req.Body != nil {
-				got, _ := io.ReadAll(req.Body)
-				assert.Equal(t, tt.wantReqBody, string(got))
-				assert.Equal(t, tt.wantCT, req.Header.Get("Content-Type"), "Content-Type Header")
+			assert.NotEqual(t, nil, req.Body, "request Body nil")
+			assert.NotNil(t, req.GetBody, "request GetBody nil")
 
-				got, _ = io.ReadAll(req.Body)
-				assert.Equal(t, tt.wantReqBody, string(got))
-			}
+			got, _ := io.ReadAll(req.Body)
+			assert.Equal(t, tt.wantReqBody, string(got))
+			assert.Equal(t, tt.wantCT, req.Header.Get("Content-Type"), "Content-Type Header")
+
+			got, _ = io.ReadAll(req.Body)
+			assert.Equal(t, tt.wantReqBody, string(got))
 		})
 	}
 }

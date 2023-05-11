@@ -17,7 +17,6 @@ package http
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"testing"
 
 	"github.com/cloudprober/cloudprober/common/httputils"
@@ -365,7 +364,7 @@ func TestPrepareRequest(t *testing.T) {
 				p.oauthTS = &fakeTokenSource{token: tt.token}
 			}
 
-			inReq, _ := http.NewRequest("GET", "http://cloudprober.org", p.requestBody.Reader())
+			inReq, _ := httputils.NewRequest("GET", "http://cloudprober.org", p.requestBody)
 			got := p.prepareRequest(inReq)
 
 			if tt.wantIsCloned != (inReq != got) {
@@ -378,6 +377,11 @@ func TestPrepareRequest(t *testing.T) {
 
 			if tt.token != "" {
 				assert.Equal(t, "Bearer "+tt.token, got.Header.Get("Authorization"), "Token mismatch")
+			}
+
+			if len(tt.data) != 0 {
+				assert.NotNil(t, inReq.GetBody, "GetBody is nil")
+				assert.NotNil(t, got.GetBody, "GetBody is nil")
 			}
 		})
 	}

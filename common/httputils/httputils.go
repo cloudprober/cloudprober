@@ -107,20 +107,24 @@ func contentType(data []string) string {
 	return ""
 }
 
-func HTTPRequest(method, url string, data []string, headers map[string]string) (*http.Request, error) {
-	body := NewRequestBody(data...)
-
-	req, err := http.NewRequest(method, url, body.Reader())
+// NewRequest returns a new HTTP request object, with the given method, url,
+// data and headers.
+func NewRequest(method, url string, reqBody *RequestBody) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, reqBody.Reader())
 	if err != nil {
 		return nil, fmt.Errorf("error creating HTTP request: %v", err)
 	}
 
-	if body.ContentType() != "" {
-		req.Header.Set("Content-Type", body.ContentType())
-	}
-
-	for k, v := range headers {
-		req.Header.Set(k, v)
+	// For a regular request body, these fields are set automatically by
+	// http.NewRequest.
+	if req.Body != nil {
+		if reqBody.ContentType() != "" {
+			req.Header.Set("Content-Type", reqBody.ContentType())
+		}
+		req.ContentLength = reqBody.Len()
+		req.GetBody = func() (io.ReadCloser, error) {
+			return reqBody.Reader(), nil
+		}
 	}
 
 	return req, nil
