@@ -15,6 +15,7 @@
 package alerting
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -33,6 +34,7 @@ func TestAlertHandlerRecord(t *testing.T) {
 			Failures:     failures,
 			Total:        total,
 			FailingSince: time.Time{}.Add(time.Duration(dur) * time.Second),
+			ConditionID:  strconv.FormatInt(time.Time{}.Add(time.Duration(dur)*time.Second).Unix(), 10),
 		}
 	}
 	tests := []struct {

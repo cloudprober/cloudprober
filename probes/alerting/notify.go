@@ -32,6 +32,7 @@ import (
 type AlertInfo struct {
 	Name         string
 	ProbeName    string
+	ConditionID  string
 	Target       endpoint.Endpoint
 	Failures     int
 	Total        int
@@ -40,12 +41,13 @@ type AlertInfo struct {
 
 func alertFields(alertInfo *AlertInfo) (map[string]string, error) {
 	fields := map[string]string{
-		"alert":    alertInfo.Name,
-		"probe":    alertInfo.ProbeName,
-		"target":   alertInfo.Target.Dst(),
-		"failures": strconv.Itoa(alertInfo.Failures),
-		"total":    strconv.Itoa(alertInfo.Total),
-		"since":    alertInfo.FailingSince.Format(time.RFC3339),
+		"alert":        alertInfo.Name,
+		"probe":        alertInfo.ProbeName,
+		"target":       alertInfo.Target.Dst(),
+		"condition_id": alertInfo.ConditionID,
+		"failures":     strconv.Itoa(alertInfo.Failures),
+		"total":        strconv.Itoa(alertInfo.Total),
+		"since":        alertInfo.FailingSince.Format(time.RFC3339),
 	}
 
 	for k, v := range alertInfo.Target.Labels {
@@ -69,6 +71,7 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 	alertInfo := &AlertInfo{
 		Name:         ah.name,
 		ProbeName:    ah.probeName,
+		ConditionID:  ts.conditionID,
 		Target:       ep,
 		Failures:     totalFailures,
 		Total:        int(ah.condition.Total),

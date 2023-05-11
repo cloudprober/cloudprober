@@ -43,6 +43,7 @@ func TestAlertFields(t *testing.T) {
 			ai: &AlertInfo{
 				Name:         "test-alert",
 				ProbeName:    "test-probe",
+				ConditionID:  "122333444",
 				Target:       testTarget,
 				Failures:     8,
 				Total:        12,
@@ -51,13 +52,14 @@ func TestAlertFields(t *testing.T) {
 			want: map[string]string{
 				"alert":                 "test-alert",
 				"probe":                 "test-probe",
+				"condition_id":          "122333444",
 				"target":                "test-target",
 				"failures":              "8",
 				"total":                 "12",
 				"since":                 "0001-01-01T00:00:01Z",
 				"target.label.apptype":  "backend",
 				"target.label.language": "go",
-				"json":                  `{"alert":"test-alert","failures":"8","probe":"test-probe","since":"0001-01-01T00:00:01Z","target":"test-target","target.label.apptype":"backend","target.label.language":"go","total":"12"}`,
+				"json":                  `{"alert":"test-alert","condition_id":"122333444","failures":"8","probe":"test-probe","since":"0001-01-01T00:00:01Z","target":"test-target","target.label.apptype":"backend","target.label.language":"go","total":"12"}`,
 			},
 		},
 	}
