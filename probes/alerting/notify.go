@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,22 +30,22 @@ import (
 
 // AlertInfo contains information about an alert.
 type AlertInfo struct {
-	Name             string
-	ProbeName        string
-	Target           endpoint.Endpoint
-	FailureRatio     float32
-	FailureThreshold float32
-	FailingSince     time.Time
+	Name         string
+	ProbeName    string
+	Target       endpoint.Endpoint
+	Failures     int
+	Total        int
+	FailingSince time.Time
 }
 
 func alertFields(alertInfo *AlertInfo) (map[string]string, error) {
 	fields := map[string]string{
-		"alert":     alertInfo.Name,
-		"probe":     alertInfo.ProbeName,
-		"target":    alertInfo.Target.Dst(),
-		"value":     fmt.Sprintf("%.2f", alertInfo.FailureRatio),
-		"threshold": fmt.Sprintf("%.2f", alertInfo.FailureThreshold),
-		"since":     alertInfo.FailingSince.Format(time.RFC3339),
+		"alert":    alertInfo.Name,
+		"probe":    alertInfo.ProbeName,
+		"target":   alertInfo.Target.Dst(),
+		"failures": strconv.Itoa(alertInfo.Failures),
+		"total":    strconv.Itoa(alertInfo.Total),
+		"since":    alertInfo.FailingSince.Format(time.RFC3339),
 	}
 
 	for k, v := range alertInfo.Target.Labels {
@@ -61,17 +62,17 @@ func alertFields(alertInfo *AlertInfo) (map[string]string, error) {
 	return fields, nil
 }
 
-func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, failureRatio float32) {
-	ah.l.Warningf("ALERT (%s): target (%s), failures higher than (%.2f) since (%v)", ah.name, ep.Name, ah.failureThreshold, ts.firstFailure)
+func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailures int) {
+	ah.l.Warningf("ALERT (%s): target (%s), failures (%d) higher than (%d) since (%v)", ah.name, ep.Name, totalFailures, ah.condition.Failures, ts.failingSince)
 
 	ts.alerted = true
 	alertInfo := &AlertInfo{
-		Name:             ah.name,
-		ProbeName:        ah.probeName,
-		Target:           ep,
-		FailureRatio:     failureRatio,
-		FailureThreshold: ah.failureThreshold,
-		FailingSince:     ts.firstFailure,
+		Name:         ah.name,
+		ProbeName:    ah.probeName,
+		Target:       ep,
+		Failures:     totalFailures,
+		Total:        int(ah.condition.Total),
+		FailingSince: ts.failingSince,
 	}
 
 	if ah.notifyCh != nil {

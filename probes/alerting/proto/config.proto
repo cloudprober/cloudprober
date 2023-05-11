@@ -23,18 +23,24 @@ message NotifyConfig {
     string command = 1;
 }
 
+message Condition {
+    int32 failures = 1;
+    int32 total = 2;
+}
+
 message AlertConf {
     // Name of the alert. Default is to use the probe name.
     string name = 1;
 
-    // Thresholds for the alert.
-    float failure_threshold = 2;
-
-    // Duration threshold in seconds. If duration_threshold_sec is set, alert
-    // will be fired only if alert condition is true for
-    // duration_threshold_sec.
-    optional int32 duration_threshold_sec = 3;
+    // Condition for the alert. Default is to alert on any failure.
+    // Example:
+    // # Alert if 6 out of 10 probes fail.
+    // condition {
+    //   failures: 6
+    //   total: 10
+    // }
+    optional Condition condition = 2;
 
     // How to notify in case of alert.
-    NotifyConfig notify = 4;
+    NotifyConfig notify = 3;
 }
