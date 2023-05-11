@@ -266,15 +266,40 @@ func (pr *Prober) startProbe(ctx context.Context, name string) {
 	go pr.Probes[name].Start(probeCtx, pr.dataChan)
 }
 
-// startProbesWithJitter try to space out probes over time, as much as possible,
-// without making it too complicated. We arrange probes into interval buckets -
-// all probes with the same interval will be part of the same bucket, and we
-// then spread out probes within that interval by introducing a delay of
-// interval / len(probes) between probes. We also introduce a random jitter
-// between different interval buckets.
+func intervalStartWait(randgen *rand.Rand, iter int, interval time.Duration) time.Duration {
+	if iter == 0 {
+		return 0
+	}
+
+	waitMsec := interval.Milliseconds()
+	// We don't want to wait for more than 10 seconds.
+	if waitMsec > 10000 {
+		waitMsec = 10000
+	}
+
+	return time.Duration(randgen.Int63n(waitMsec)) * time.Millisecond
+}
+
+func interProbeWait(interval time.Duration, numProbes int) time.Duration {
+	if numProbes < 10 {
+		numProbes = 10
+	}
+	return interval / time.Duration(numProbes)
+}
+
+// startProbesWithJitter try to space out probes over time, as much as
+// possible, without making it too complicated.
+//
+// We arrange probes into interval buckets - all probes with the same interval
+// will be part of the same bucket. We spread out probes within an interval,
+// and also the overall interval-buckets themselves.
+//
+//	[probe1 <gap> probe2 <gap> probe3 <gap> ...]    interval1 (30s)
+//	<interval-bucket-gap> [probe4 <gap> probe5 ...] interval2 (10s)
+//	<interval-bucket-gap> [probe6 <gap> probe7 ...] interval3 (1m)
 func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 	// Seed random number generator.
-	rand.Seed(time.Now().UnixNano())
+	randgen := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	// Make interval -> [probe1, probe2, probe3..] map
 	intervalBuckets := make(map[time.Duration][]*probes.ProbeInfo)
@@ -282,20 +307,19 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 		intervalBuckets[p.Options.Interval] = append(intervalBuckets[p.Options.Interval], p)
 	}
 
+	iter := 0
 	for interval, probeInfos := range intervalBuckets {
-		go func(interval time.Duration, probeInfos []*probes.ProbeInfo) {
-			// Introduce a random jitter between interval buckets.
-			randomDelayMsec := rand.Int63n(int64(interval.Seconds() * 1000))
-			time.Sleep(time.Duration(randomDelayMsec) * time.Millisecond)
+		// Note that we introduce jitter within the goroutine instead of in the
+		// loop here. This is to make sure this function returns quickly.
+		go func(interval time.Duration, probeInfos []*probes.ProbeInfo, iter int) {
+			time.Sleep(intervalStartWait(randgen, iter, interval))
 
-			interProbeDelay := interval / time.Duration(len(probeInfos))
-
-			// Spread out probes evenly with an interval bucket.
 			for _, p := range probeInfos {
 				pr.l.Info("Starting probe: ", p.Name)
 				go pr.startProbe(ctx, p.Name)
-				time.Sleep(interProbeDelay)
+				time.Sleep(interProbeWait(interval, len(probeInfos)))
 			}
-		}(interval, probeInfos)
+		}(interval, probeInfos, iter)
+		iter++
 	}
 }
