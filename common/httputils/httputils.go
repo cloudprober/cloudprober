@@ -108,7 +108,7 @@ func contentType(data []string) string {
 }
 
 // NewRequest returns a new HTTP request object, with the given method, url,
-// data and headers.
+// request body.
 func NewRequest(method, url string, reqBody *RequestBody) (*http.Request, error) {
 	req, err := http.NewRequest(method, url, reqBody.Reader())
 	if err != nil {
