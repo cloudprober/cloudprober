@@ -24,7 +24,7 @@ package prober
 import (
 	"context"
 	"fmt"
-	mathrand "math/rand"
+	"math/rand"
 	"regexp"
 	"sync"
 	"time"
@@ -49,7 +49,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var rand = mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+var randGenerator = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
@@ -275,7 +275,7 @@ func randomDuration(duration, ceiling time.Duration) time.Duration {
 	if duration > ceiling {
 		duration = ceiling
 	}
-	return time.Duration(rand.Int63n(duration.Milliseconds())) * time.Millisecond
+	return time.Duration(randGenerator.Int63n(duration.Milliseconds())) * time.Millisecond
 }
 
 // interProbeWait returns the wait time between probes. It's not beneficial for
