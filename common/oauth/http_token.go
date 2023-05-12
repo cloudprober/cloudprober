@@ -85,9 +85,13 @@ func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, erro
 }
 
 func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
-	req, err := httputils.HTTPRequest(c.GetMethod(), c.GetTokenUrl(), c.GetData(), c.GetHeader())
+	req, err := httputils.NewRequest(c.GetMethod(), c.GetTokenUrl(), httputils.NewRequestBody(c.GetData()...))
 	if err != nil {
 		return nil, fmt.Errorf("error creating HTTP request: %v", err)
+	}
+
+	for k, v := range c.GetHeader() {
+		req.Header.Set(k, v)
 	}
 
 	ts := &httpTokenSource{
