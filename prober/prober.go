@@ -1,4 +1,4 @@
-// Copyright 2017-2019 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ package prober
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	mathrand "math/rand"
 	"regexp"
 	"sync"
 	"time"
@@ -48,6 +48,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+var rand = mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
@@ -266,25 +268,24 @@ func (pr *Prober) startProbe(ctx context.Context, name string) {
 	go pr.Probes[name].Start(probeCtx, pr.dataChan)
 }
 
-func intervalStartWait(randgen *rand.Rand, iter int, interval time.Duration) time.Duration {
-	if iter == 0 {
+func randomDuration(duration, ceiling time.Duration) time.Duration {
+	if duration == 0 {
 		return 0
 	}
-
-	waitMsec := interval.Milliseconds()
-	// We don't want to wait for more than 10 seconds.
-	if waitMsec > 10000 {
-		waitMsec = 10000
+	if duration > ceiling {
+		duration = ceiling
 	}
-
-	return time.Duration(randgen.Int63n(waitMsec)) * time.Millisecond
+	return time.Duration(rand.Int63n(duration.Milliseconds())) * time.Millisecond
 }
 
+// interProbeWait returns the wait time between probes. It's not beneficial for
+// this interval to be too large, so we cap it at 2 seconds.
 func interProbeWait(interval time.Duration, numProbes int) time.Duration {
-	if numProbes < 10 {
-		numProbes = 10
+	d := interval / time.Duration(numProbes)
+	if d > 2*time.Second {
+		return 2 * time.Second
 	}
-	return interval / time.Duration(numProbes)
+	return d
 }
 
 // startProbesWithJitter try to space out probes over time, as much as
@@ -298,9 +299,6 @@ func interProbeWait(interval time.Duration, numProbes int) time.Duration {
 //	<interval-bucket-gap> [probe4 <gap> probe5 ...] interval2 (10s)
 //	<interval-bucket-gap> [probe6 <gap> probe7 ...] interval3 (1m)
 func (pr *Prober) startProbesWithJitter(ctx context.Context) {
-	// Seed random number generator.
-	randgen := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	// Make interval -> [probe1, probe2, probe3..] map
 	intervalBuckets := make(map[time.Duration][]*probes.ProbeInfo)
 	for _, p := range pr.Probes {
@@ -312,7 +310,9 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 		// Note that we introduce jitter within the goroutine instead of in the
 		// loop here. This is to make sure this function returns quickly.
 		go func(interval time.Duration, probeInfos []*probes.ProbeInfo, iter int) {
-			time.Sleep(intervalStartWait(randgen, iter, interval))
+			if iter > 0 {
+				time.Sleep(randomDuration(interval, 10*time.Second))
+			}
 
 			for _, p := range probeInfos {
 				pr.l.Info("Starting probe: ", p.Name)
