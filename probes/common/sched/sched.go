@@ -182,8 +182,16 @@ func (s *Scheduler) refreshTargets(ctx context.Context) {
 
 		go func(target endpoint.Endpoint, waitTime time.Duration) {
 			defer s.waitGroup.Done()
-			// Wait for wait time + some jitter before starting this probe loop.
-			time.Sleep(waitTime + time.Duration(rand.Int63n(gapBetweenTargets.Microseconds()/10))*time.Microsecond)
+			if waitTime > 0 {
+				// For random padding using 1/10th of the gap.
+				jitterMaxUsec := gapBetweenTargets.Microseconds() / 10
+				// Make sure we don't pass 0 to rand.Int63n.
+				if jitterMaxUsec <= 0 {
+					jitterMaxUsec = 1
+				}
+				// Wait for wait time + some jitter before starting this probe loop.
+				time.Sleep(waitTime + time.Duration(rand.Int63n(jitterMaxUsec))*time.Microsecond)
+			}
 			s.startForTarget(probeCtx, target)
 		}(target, startWaitTime)
 
