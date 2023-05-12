@@ -551,6 +551,7 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *
 	gapBetweenTargets := p.gapBetweenTargets()
 	var startWaitTime time.Duration
 
+	iter := 0
 	// Start probe loop for new targets.
 	for key, target := range activeTargets {
 		// This target is already initialized.
@@ -562,12 +563,20 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *
 		probeCtx, cancelF := context.WithCancel(ctx)
 		p.waitGroup.Add(1)
 
-		go func(target endpoint.Endpoint, waitTime time.Duration) {
+		go func(target endpoint.Endpoint, waitTime time.Duration, iter int) {
 			defer p.waitGroup.Done()
-			// Wait for wait time + some jitter before starting this probe loop.
-			time.Sleep(waitTime + time.Duration(rand.Int63n(gapBetweenTargets.Microseconds()/10))*time.Microsecond)
+
+			// To evenly spread out target probes, wait for a random duration
+			// before starting the target go-routine.
+			if iter > 0 {
+				// For random padding using 1/10th of the gap.
+				jitterUsec := rand.Int63n(gapBetweenTargets.Microseconds() / 10)
+				time.Sleep(waitTime + time.Duration(jitterUsec)*time.Microsecond)
+			}
+
 			p.startForTarget(probeCtx, target, dataChan)
-		}(target, startWaitTime)
+		}(target, startWaitTime, iter)
+		iter++
 
 		startWaitTime += gapBetweenTargets
 
