@@ -570,7 +570,7 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *
 			// before starting the target go-routine.
 			if iter > 0 {
 				// For random padding using 1/10th of the gap.
-				jitterUsec := rand.Int63n(rand.Int63n(gapBetweenTargets.Microseconds() / 10))
+				jitterUsec := rand.Int63n(gapBetweenTargets.Microseconds() / 10)
 				time.Sleep(waitTime + time.Duration(jitterUsec)*time.Microsecond)
 			}
 
