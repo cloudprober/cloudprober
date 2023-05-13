@@ -90,8 +90,8 @@ func TestAlertHandlerNotifyCommand(t *testing.T) {
 		want    []string
 	}{
 		{
-			command: "/usr/bin/mail -s 'Alert @alert@ fired for the target @target@' @target.label.owner@",
-			want:    []string{"/usr/bin/mail", "-s", "Alert test-alert fired for the target test-target:1234", "manugarg@a.b"},
+			command: "/usr/bin/mail -s 'Alert @alert@ fired for the target @target@ - @unmatched@' @target.label.owner@",
+			want:    []string{"/usr/bin/mail", "-s", "Alert test-alert fired for the target test-target:1234 - @unmatched@", "manugarg@a.b"},
 		},
 	}
 	for _, tt := range tests {

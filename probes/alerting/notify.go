@@ -90,9 +90,10 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, failureRat
 
 func (ah *AlertHandler) notifyCommand(ctx context.Context, command string, fields map[string]string, dryRun bool) []string {
 	res, foundAll := strtemplate.SubstituteLabels(command, fields)
-	if foundAll {
-		command = res
+	if !foundAll {
+		ah.l.Warningf("couldn't substitute all labels in command: %s", command)
 	}
+	command = res
 
 	cmdParts, err := shlex.Split(command)
 	if err != nil {
