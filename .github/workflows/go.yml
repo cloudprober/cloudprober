@@ -223,6 +223,13 @@ jobs:
         with:
           name: cloudprober-release-binaries
       - run: ls -R *
+      - run: |
+          mv cloudprober*-linux-arm64.zip cloudprober-tip-linux-arm64.zip
+          mv cloudprober*-linux-armv7.zip cloudprober-tip-linux-armv7.zip
+          mv cloudprober*-linux-x86_64.zip cloudprober-tip-linux-x86_64.zip
+          mv cloudprober*-macos-arm64.zip cloudprober-tip-macos-arm64.zip
+          mv cloudprober*-macos-x86_64.zip cloudprober-tip-macos-x86_64.zip
+          mv cloudprober*-windows-x86_64.zip cloudprober-tip-windows-x86_64.zip
       - uses: pyTooling/Actions/releaser@r0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
