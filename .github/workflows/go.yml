@@ -210,3 +210,21 @@ jobs:
 
       - name: Build and push release Docker Image (contrib-ghcr)
         run: make docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
+
+  pre-release:
+    name: Upload pre-release binaries
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/gh-action-test' || startsWith(github.ref, 'refs/tags')
+    needs: [build-and-test, build-binaries]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download cloudprober release
+        uses: actions/download-artifact@v2
+        with:
+          name: cloudprober-release-binaries
+      - run: ls -R *
+      - uses: pyTooling/Actions/releaser@r0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            cloudprober-*.zip
