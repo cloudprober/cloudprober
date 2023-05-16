@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - master
-      - 'gh-action-test*'
     paths-ignore:
       - 'docs/**'
       - '.github/workflows/hugo.yml'
@@ -214,8 +213,8 @@ jobs:
 
   pre-release:
     name: Upload pre-release binaries
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/gh-action-test' || startsWith(github.ref, 'refs/tags')
-    needs: [build-and-test, build-binaries]
+    if: github.ref == 'refs/heads/master'
+    needs: [build-dist]
     runs-on: ubuntu-latest
 
     steps:
