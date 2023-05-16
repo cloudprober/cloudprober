@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -151,6 +152,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 		p.envVars = append(p.envVars, fmt.Sprintf("%s=%s", k, v))
 	}
+	sort.Strings(p.envVars)
 
 	// Figure out labels we are interested in
 	p.updateLabelKeys()
