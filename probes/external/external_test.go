@@ -331,7 +331,7 @@ func TestProbeOnceMode(t *testing.T) {
 		resp = append(resp, fmt.Sprintf("env \"%s\"", strings.Join(envVars, " ")))
 		return []byte(strings.Join(resp, "\n")), nil, nil
 	}
-	wantCmd, wantEnv := "\"/test/cmd\"", "\"key=secret client=client1\""
+	wantCmd, wantEnv := "\"/test/cmd\"", "\"client=client1 key=secret\""
 
 	total, success := make(map[string]int64), make(map[string]int64)
 
