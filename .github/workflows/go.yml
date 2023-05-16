@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - 'gh-action-test*'
     paths-ignore:
       - 'docs/**'
       - '.github/workflows/hugo.yml'
