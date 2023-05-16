@@ -17,6 +17,7 @@ package alerting
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -29,26 +30,20 @@ import (
 type targetState struct {
 	lastSuccess  int64
 	lastTotal    int64
-	failures     []float32
-	firstFailure time.Time
+	failures     []bool
 	alerted      bool
-}
-
-func (ts *targetState) reset() {
-	ts.failures = ts.failures[:0]
-	ts.firstFailure = time.Time{}
-	ts.alerted = false
+	conditionID  string
+	failingSince time.Time
 }
 
 // AlertHandler is responsible for handling alerts. It keeps track of the
 // health of targets and notifies the user if there is a failure.
 type AlertHandler struct {
-	name              string
-	probeName         string
-	failureThreshold  float32
-	durationThreshold time.Duration
-	notifyConfig      *configpb.NotifyConfig
-	notifyCh          chan *AlertInfo // Used only for testing for now.
+	name         string
+	probeName    string
+	condition    *configpb.Condition
+	notifyConfig *configpb.NotifyConfig
+	notifyCh     chan *AlertInfo // Used only for testing for now.
 
 	mu      sync.Mutex
 	targets map[string]*targetState
@@ -57,25 +52,31 @@ type AlertHandler struct {
 
 // NewAlertHandler creates a new AlertHandler from the given config.
 // If the config is invalid, an error is returned.
-func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logger) (*AlertHandler, error) {
-	if conf.GetFailureThreshold() == 0 {
-		return nil, fmt.Errorf("invalid failure_threshold (0)")
+func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logger) *AlertHandler {
+	ah := &AlertHandler{
+		name:         conf.GetName(),
+		probeName:    probeName,
+		notifyConfig: conf.GetNotify(),
+		targets:      make(map[string]*targetState),
+		l:            l,
 	}
 
-	name := conf.GetName()
-	if name == "" {
-		name = probeName
+	if ah.name == "" {
+		ah.name = probeName
 	}
 
-	return &AlertHandler{
-		name:              name,
-		probeName:         probeName,
-		failureThreshold:  conf.GetFailureThreshold(),
-		durationThreshold: time.Second * time.Duration(conf.GetDurationThresholdSec()),
-		notifyConfig:      conf.GetNotify(),
-		targets:           make(map[string]*targetState),
-		l:                 l,
-	}, nil
+	ah.condition = conf.GetCondition()
+	if ah.condition == nil {
+		ah.condition = &configpb.Condition{
+			Failures: 1,
+			Total:    1,
+		}
+	}
+	if ah.condition.Total == 0 {
+		ah.condition.Total = ah.condition.Failures
+	}
+
+	return ah
 }
 
 // extractValues is used to extract the total and success metric from an EventMetrics
@@ -108,35 +109,80 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) e
 	}
 
 	key := ep.Key()
-
 	ts := ah.targets[key]
 	if ts == nil {
-		ts = &targetState{}
+		// If this is the very first probe for this target, we don't have
+		// enough data to determine if it's failing or not. We just initialize
+		// the target state and return.
+		ts = &targetState{
+			failures:    make([]bool, ah.condition.Total),
+			lastTotal:   total,
+			lastSuccess: success,
+		}
 		ah.targets[key] = ts
-	}
-
-	// First time or a reset
-	if ts.lastTotal == 0 || total < ts.lastTotal {
-		ts.lastTotal, ts.lastSuccess = total, success
 		return nil
 	}
 
-	failureLastInterval := (total - ts.lastTotal) - (success - ts.lastSuccess)
-	failureRatio := float32(failureLastInterval) / float32((total - ts.lastTotal))
+	totalCnt := int(total - ts.lastTotal)
+	successCnt := int(success - ts.lastSuccess)
+	if successCnt > totalCnt { // This should never happen.
+		successCnt = totalCnt
+	}
 
-	if failureRatio > ah.failureThreshold {
-		if ts.firstFailure.IsZero() {
-			ts.firstFailure = em.Timestamp
-		}
-		ts.failures = append(ts.failures, failureRatio)
+	// If totalCnt is negative, it means that the probe for this target was
+	// reset for some reason. This should really never happen though.
+	if totalCnt < 0 {
+		ts.lastTotal = total
+		ts.lastSuccess = success
+		return nil
+	}
 
-		if em.Timestamp.Sub(ts.firstFailure) >= ah.durationThreshold {
-			if !ts.alerted {
-				ah.notify(ep, ts, failureRatio)
-			}
+	// If totalCnt is greater than the configured total, we only consider the
+	// last ah.condition.Total samples.
+	if totalCnt > int(ah.condition.Total) {
+		excess := totalCnt - int(ah.condition.Total)
+		totalCnt = int(ah.condition.Total)
+		// To be safe, trim only successful samples from the data.
+		successCnt = successCnt - excess
+	}
+
+	// Shift failures slice to the left by totalCnt. Note there will be no
+	// shifting if len(ts.failures) <= total samples (default config case).
+	leftIndex, rightIndex := 0, totalCnt
+	for rightIndex < len(ts.failures) {
+		ts.failures[leftIndex] = ts.failures[rightIndex]
+		leftIndex++
+		rightIndex++
+	}
+
+	// Populate recent fields in ts.failures based on the failures in the
+	// current EventMetrics.
+	failureCnt := totalCnt - successCnt
+	for i := len(ts.failures) - 1; i > len(ts.failures)-totalCnt-1; i-- {
+		ts.failures[i] = failureCnt > 0
+		failureCnt--
+	}
+
+	totalFailures := 0
+	for _, failed := range ts.failures {
+		if failed {
+			totalFailures++
 		}
+	}
+
+	if totalFailures >= int(ah.condition.Failures) {
+		if !ts.alerted { // New alert.
+			ts.alerted = true
+			ts.conditionID = strconv.FormatInt(em.Timestamp.Unix(), 10)
+			ts.failingSince = em.Timestamp
+		}
+		// Note we continue to notify if condition persists, but we don't
+		// change the conditionID. Ideally notification handler should handle
+		// deduping alerts based on the conditionID (or some other unique ID).
+		ah.notify(ep, ts, totalFailures)
 	} else {
-		ts.reset()
+		ts.alerted = false
+		ts.conditionID = ""
 	}
 
 	ts.lastTotal, ts.lastSuccess = total, success

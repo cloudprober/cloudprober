@@ -18,18 +18,24 @@ package proto
 	command?: string @protobuf(1,string)
 }
 
+#Condition: {
+	failures?: int32 @protobuf(1,int32)
+	total?:    int32 @protobuf(2,int32)
+}
+
 #AlertConf: {
 	// Name of the alert. Default is to use the probe name.
 	name?: string @protobuf(1,string)
 
-	// Thresholds for the alert.
-	failureThreshold?: float32 @protobuf(2,float,name=failure_threshold)
-
-	// Duration threshold in seconds. If duration_threshold_sec is set, alert
-	// will be fired only if alert condition is true for
-	// duration_threshold_sec.
-	durationThresholdSec?: int32 @protobuf(3,int32,name=duration_threshold_sec)
+	// Condition for the alert. Default is to alert on any failure.
+	// Example:
+	// # Alert if 6 out of 10 probes fail.
+	// condition {
+	//   failures: 6
+	//   total: 10
+	// }
+	condition?: #Condition @protobuf(2,Condition)
 
 	// How to notify in case of alert.
-	notify?: #NotifyConfig @protobuf(4,NotifyConfig)
+	notify?: #NotifyConfig @protobuf(3,NotifyConfig)
 }

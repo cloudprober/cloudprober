@@ -15,6 +15,7 @@
 package alerting
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -25,52 +26,101 @@ import (
 )
 
 func TestAlertHandlerRecord(t *testing.T) {
+	alertInfo := func(target string, failures, total, dur int) *AlertInfo {
+		return &AlertInfo{
+			Name:         "test-probe",
+			ProbeName:    "test-probe",
+			Target:       endpoint.Endpoint{Name: target},
+			Failures:     failures,
+			Total:        total,
+			FailingSince: time.Time{}.Add(time.Duration(dur) * time.Second),
+			ConditionID:  strconv.FormatInt(time.Time{}.Add(time.Duration(dur)*time.Second).Unix(), 10),
+		}
+	}
 	tests := []struct {
-		name              string
-		failureThreshold  float32
-		durationThreshold time.Duration
-		targets           []string
-		total, success    [][]int64
-		wantAlerted       []bool // wantAlerted[i] is true if target i should be alerted.
-		wantAlerts        []*AlertInfo
-		wantErr           bool
+		name           string
+		condition      *configpb.Condition
+		targets        []string
+		total, success [][]int64
+		wantAlerted    []bool // wantAlerted[i] is true if target i should be alerted.
+		wantAlerts     []*AlertInfo
+		wantErr        bool
 	}{
 		{
-			name:             "single-target-no-alert",
-			failureThreshold: 0.5,
-			targets:          []string{"target1"},
-			total:            [][]int64{{1, 2}},
-			success:          [][]int64{{1, 2}},
-			wantAlerted:      []bool{false},
+			name:        "single-target-no-alert",
+			targets:     []string{"target1"},
+			total:       [][]int64{{1, 2}},
+			success:     [][]int64{{1, 2}},
+			wantAlerted: []bool{false},
 		},
 		{
-			name:             "single-target-alert",
-			failureThreshold: 0.5,
-			targets:          []string{"target1"},
-			total:            [][]int64{{1, 2, 3}},
-			success:          [][]int64{{1, 2, 2}}, // Success didn't increase.
-			wantAlerted:      []bool{true},
-			wantAlerts:       []*AlertInfo{{Target: endpoint.Endpoint{Name: "target1"}, FailureRatio: 1.0, FailureThreshold: 0.5, FailingSince: time.Time{}.Add(2 * time.Second)}},
+			name:        "single-target-alert-default-condition",
+			targets:     []string{"target1"},
+			total:       [][]int64{{1, 2, 3}},
+			success:     [][]int64{{1, 2, 2}}, // Success didn't increase.
+			wantAlerted: []bool{true},
+			wantAlerts:  []*AlertInfo{alertInfo("target1", 1, 1, 2)},
 		},
 		{
-			name:              "duration-threshold-target2-alert",
-			failureThreshold:  0.5,
-			durationThreshold: time.Second,
-			targets:           []string{"target1", "target2"},
-			total:             [][]int64{{1, 2, 3, 4}, {1, 2, 3, 4}},
-			success:           [][]int64{{1, 2, 2, 3}, {1, 2, 2, 2}},
-			wantAlerted:       []bool{false, true},
-			wantAlerts:        []*AlertInfo{{Target: endpoint.Endpoint{Name: "target2"}, FailureRatio: 1.0, FailureThreshold: 0.5, FailingSince: time.Time{}.Add(2 * time.Second)}},
+			name:        "default-condition-one-point-no-alert",
+			targets:     []string{"target1"},
+			total:       [][]int64{{2}},
+			success:     [][]int64{{1}},
+			wantAlerted: []bool{false},
+		},
+		{
+			name:        "alerts-last-alert-cleared",
+			targets:     []string{"target1"},
+			total:       [][]int64{{2, 4, 6, 8}},
+			success:     [][]int64{{1, 3, 4, 6}},
+			wantAlerted: []bool{false},
+			wantAlerts:  []*AlertInfo{alertInfo("target1", 1, 1, 2)},
+		},
+		{
+			name:        "alert-over-a-period-of-time",
+			condition:   &configpb.Condition{Failures: int32(3), Total: int32(5)},
+			targets:     []string{"target1"},
+			total:       [][]int64{{2, 4, 6, 8}}, // total: 2, 2, 2
+			success:     [][]int64{{1, 2, 4, 4}}, // failures: 1, 0, 2
+			wantAlerted: []bool{true},
+			wantAlerts:  []*AlertInfo{alertInfo("target1", 3, 5, 3)},
+		},
+		{
+			name:        "over-a-period-of-time-alert-cleared",
+			condition:   &configpb.Condition{Failures: int32(3), Total: int32(5)},
+			targets:     []string{"target1"},
+			total:       [][]int64{{2, 4, 6, 8, 10}}, // total: 2, 2, 2, 2
+			success:     [][]int64{{1, 2, 4, 4, 6}},  // failures: 1, 0, 2, 0
+			wantAlerted: []bool{false},
+			wantAlerts:  []*AlertInfo{alertInfo("target1", 3, 5, 3)},
+		},
+		{
+			name:      "over-a-period-of-time-alert-cleared-alerted-again",
+			condition: &configpb.Condition{Failures: int32(3), Total: int32(5)},
+			targets:   []string{"target1"},
+			total:     [][]int64{{2, 4, 6, 8, 10, 12}}, // total:    2, 2, 2, 2, 2
+			success:   [][]int64{{1, 2, 4, 4, 6, 6}},   // failures: 1, 0, 2, 0, 2
+			// total:    2, 2, 2, 2, 2
+			// failures: 1, 0, 2, 0, 2
+			wantAlerted: []bool{true},
+			wantAlerts:  []*AlertInfo{alertInfo("target1", 3, 5, 3), alertInfo("target1", 3, 5, 5)},
+		},
+		{
+			name:      "only-target2-alert",
+			condition: &configpb.Condition{Failures: int32(2), Total: int32(0)},
+			targets:   []string{"target1", "target2"},
+			total:     [][]int64{{1, 2, 3, 4}, {1, 2, 3, 4}},
+			success:   [][]int64{{1, 2, 2, 3}, {1, 2, 2, 2}},
+			// total:    1, 1, 1 (target1); 1, 1, 1 (target2)
+			// failures: 0, 1, 0 (target1); 0, 1, 1 (target2)
+			wantAlerted: []bool{false, true},
+			wantAlerts:  []*AlertInfo{alertInfo("target2", 2, 2, 3)},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ah := &AlertHandler{
-				failureThreshold:  tt.failureThreshold,
-				durationThreshold: tt.durationThreshold,
-				targets:           make(map[string]*targetState),
-				notifyCh:          make(chan *AlertInfo, 10),
-			}
+			ah := NewAlertHandler(&configpb.AlertConf{Condition: tt.condition}, "test-probe", nil)
+			ah.notifyCh = make(chan *AlertInfo, 10)
 
 			for i, target := range tt.targets {
 				ep := endpoint.Endpoint{Name: target}
@@ -112,52 +162,37 @@ func TestNewAlertHandler(t *testing.T) {
 		conf      *configpb.AlertConf
 		probeName string
 		want      *AlertHandler
-		wantErr   bool
 	}{
 		{
-			name:      "simple",
+			name:      "default-condition",
 			probeName: "test-probe",
 			conf: &configpb.AlertConf{
-				Name:             "test-alert",
-				FailureThreshold: 0.5,
+				Name: "test-alert",
 			},
 			want: &AlertHandler{
-				name:              "test-alert",
-				probeName:         "test-probe",
-				failureThreshold:  0.5,
-				durationThreshold: time.Duration(0),
-				targets:           make(map[string]*targetState),
+				name:      "test-alert",
+				probeName: "test-probe",
+				condition: &configpb.Condition{Failures: 1, Total: 1},
+				targets:   make(map[string]*targetState),
 			},
 		},
 		{
 			name:      "no-alert-name",
 			probeName: "test-probe",
 			conf: &configpb.AlertConf{
-				FailureThreshold: 0.5,
+				Condition: &configpb.Condition{Failures: 4, Total: 5},
 			},
 			want: &AlertHandler{
-				name:              "test-probe",
-				probeName:         "test-probe",
-				failureThreshold:  0.5,
-				durationThreshold: time.Duration(0),
-				targets:           make(map[string]*targetState),
+				name:      "test-probe",
+				probeName: "test-probe",
+				condition: &configpb.Condition{Failures: 4, Total: 5},
+				targets:   make(map[string]*targetState),
 			},
-		},
-		{
-			name:      "error-no-threshold",
-			probeName: "test-probe",
-			conf:      &configpb.AlertConf{},
-			wantErr:   true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewAlertHandler(tt.conf, tt.probeName, nil)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewAlertHandler() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, NewAlertHandler(tt.conf, tt.probeName, nil))
 		})
 	}
 }
