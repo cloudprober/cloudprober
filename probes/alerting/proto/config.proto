@@ -6,6 +6,10 @@ option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
 
 message NotifyConfig {
+    // How often to repeat notification for the same alert. Default is 1hr.
+    // To disable any kind of notification throttling, set this to 0.
+    optional int32 repeat_interval_sec = 1;  // Default: 1hr
+
     // Command to run when alert is fired. In the command line following fields
     // are substituted:
     //  @alert@: Alert name
@@ -20,7 +24,7 @@ message NotifyConfig {
     // For example, if you want to send an email when an alert is fired, you can
     // use the following command:
     // command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
-    string command = 1;
+    string command = 10;
 }
 
 message Condition {
