@@ -1,6 +1,10 @@
 package proto
 
 #NotifyConfig: {
+	// How often to repeat notification for the same alert. Default is 1hr.
+	// To disable any kind of notification throttling, set this to 0.
+	repeatIntervalSec?: int32 @protobuf(1,int32,name=repeat_interval_sec) // Default: 1hr
+
 	// Command to run when alert is fired. In the command line following fields
 	// are substituted:
 	//  @alert@: Alert name
@@ -15,7 +19,7 @@ package proto
 	// For example, if you want to send an email when an alert is fired, you can
 	// use the following command:
 	// command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
-	command?: string @protobuf(1,string)
+	command?: string @protobuf(10,string)
 }
 
 #Condition: {
