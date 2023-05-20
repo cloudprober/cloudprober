@@ -25,13 +25,16 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"google.golang.org/protobuf/proto"
 )
 
 type targetState struct {
-	lastSuccess  int64
-	lastTotal    int64
-	failures     []bool
+	lastSuccess int64
+	lastTotal   int64
+	failures    []bool
+
 	alerted      bool
+	alertTS      time.Time
 	conditionID  string
 	failingSince time.Time
 }
@@ -76,6 +79,13 @@ func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logge
 		ah.condition.Total = ah.condition.Failures
 	}
 
+	// Initialize notifyConfig with default values.
+	if ah.notifyConfig == nil {
+		ah.notifyConfig = &configpb.NotifyConfig{}
+	}
+	if ah.notifyConfig.RepeatIntervalSec == nil {
+		ah.notifyConfig.RepeatIntervalSec = proto.Int32(3600)
+	}
 	return ah
 }
 
@@ -97,6 +107,25 @@ func extractValues(em *metrics.EventMetrics) (int64, int64, error) {
 	success := numV.Int64()
 
 	return total, success, nil
+}
+
+// handleAlertCondition handles the alert condition.
+func (ah *AlertHandler) handleAlertCondition(ts *targetState, ep endpoint.Endpoint, timestamp time.Time, totalFailures int) {
+	// Ongoing alert. Notify if the repeat interval has passed.
+	if ts.alerted {
+		if time.Since(ts.alertTS) > time.Duration(ah.notifyConfig.GetRepeatIntervalSec())*time.Second {
+			ts.alertTS = time.Now()
+			ah.notify(ep, ts, totalFailures)
+		}
+		return
+	}
+
+	// New alert.
+	ts.alerted = true
+	ts.conditionID = strconv.FormatInt(timestamp.Unix(), 10)
+	ts.failingSince = timestamp
+	ts.alertTS = time.Now()
+	ah.notify(ep, ts, totalFailures)
 }
 
 func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) error {
@@ -171,18 +200,11 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) e
 	}
 
 	if totalFailures >= int(ah.condition.Failures) {
-		if !ts.alerted { // New alert.
-			ts.alerted = true
-			ts.conditionID = strconv.FormatInt(em.Timestamp.Unix(), 10)
-			ts.failingSince = em.Timestamp
-		}
-		// Note we continue to notify if condition persists, but we don't
-		// change the conditionID. Ideally notification handler should handle
-		// deduping alerts based on the conditionID (or some other unique ID).
-		ah.notify(ep, ts, totalFailures)
+		ah.handleAlertCondition(ts, ep, em.Timestamp, totalFailures)
 	} else {
 		ts.alerted = false
 		ts.conditionID = ""
+		ts.alertTS = time.Time{}
 	}
 
 	ts.lastTotal, ts.lastSuccess = total, success
