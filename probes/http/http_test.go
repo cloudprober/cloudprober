@@ -466,8 +466,12 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		assert.LessOrEqualf(t, int64(minSuccess), dataMap.LastValueInt64(tgt, "success"), "success for target: %s", tgt)
 
 		if keepAlive && tgt == "test.com" {
-			maxConnEvent := reqPerProbe * 2
-			assert.GreaterOrEqualf(t, int64(maxConnEvent), dataMap.LastValueInt64("tgt", "connect_event"), "connect_event for target: %s", tgt)
+			connEvent := dataMap.LastValueInt64(tgt, "connect_event")
+			minConnEvent := int64(reqPerProbe * 1)
+			maxConnEvent := int64(reqPerProbe * 2)
+			if connEvent <= minConnEvent && connEvent >= maxConnEvent {
+				t.Errorf("connect_event for target: %s, got: %d, want: <= %d, >= %d", tgt, connEvent, maxConnEvent, minConnEvent)
+			}
 		}
 	}
 }
