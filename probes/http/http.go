@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/httputils"
@@ -251,11 +252,11 @@ func isClientTimeout(err error) bool {
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName string, result *probeResult, resultMu *sync.Mutex) {
 	req = p.prepareRequest(req)
 
-	connEvent := 0
+	var connEvent atomic.Int32
 	if p.c.GetKeepAlive() {
 		trace := &httptrace.ClientTrace{
 			ConnectDone: func(_, addr string, err error) {
-				connEvent++
+				connEvent.Add(1)
 				if err != nil {
 					p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
 					return
@@ -277,7 +278,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	}
 
 	result.total++
-	result.connEvent += result.connEvent
+	result.connEvent += int64(connEvent.Load())
 
 	if err != nil {
 		if isClientTimeout(err) {
