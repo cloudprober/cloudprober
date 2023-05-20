@@ -277,7 +277,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	}
 
 	result.total++
-	result.connEvent += result.connEvent
+	result.connEvent += int64(connEvent)
 
 	if err != nil {
 		if isClientTimeout(err) {
