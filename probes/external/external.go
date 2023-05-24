@@ -513,7 +513,8 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 		wg.Add(1)
 		go func(target endpoint.Endpoint, result *result) {
 			defer wg.Done()
-			args := make([]string, len(p.cmdArgs))
+
+			args := append([]string{}, p.cmdArgs...)
 			if len(p.labelKeys) != 0 {
 				for i, arg := range p.cmdArgs {
 					res, found := strtemplate.SubstituteLabels(arg, p.labels(target))
