@@ -313,7 +313,7 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 	}
 }
 
-func testProbeOnceMode(t *testing.T, cmd string, tgts []string, envVars map[string]string, wantCmd, wantArgs, wantEnv []string) {
+func testProbeOnceMode(t *testing.T, cmd string, tgts []string, envVars map[string]string, wantCmd, wantEnv string, wantArgs []string) {
 	t.Helper()
 
 	p := createTestProbe(cmd, envVars)
@@ -370,8 +370,8 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, envVars map[stri
 
 		// Verify values for each output metric
 		assert.Equal(t, "\""+wantArgs[i]+"\"", mmap[tgt]["args"][0].String(), "Wrong value for args metric")
-		assert.Equal(t, "\""+wantEnv[i]+"\"", mmap[tgt]["env"][0].String(), "Wrong value for env metric")
-		assert.Equal(t, "\""+wantCmd[i]+"\"", mmap[tgt]["cmd"][0].String(), "Wrong value for cmd metric")
+		assert.Equal(t, "\""+wantEnv+"\"", mmap[tgt]["env"][0].String(), "Wrong value for env metric")
+		assert.Equal(t, "\""+wantCmd+"\"", mmap[tgt]["cmd"][0].String(), "Wrong value for cmd metric")
 	}
 }
 
@@ -379,35 +379,29 @@ func TestProbeOnceMode(t *testing.T) {
 	var tests = []struct {
 		name     string
 		cmd      string
-		envVars  map[string]string
 		tgts     []string
-		wantCmd  []string
 		wantArgs []string
-		wantEnv  []string
 	}{
 		{
 			name:     "no-substitutions",
 			cmd:      "/test/cmd --address=a.com --arg2",
 			tgts:     []string{"target1", "target2"},
-			envVars:  map[string]string{"key": "secret", "client": "client1"},
-			wantCmd:  []string{"/test/cmd", "/test/cmd"},
 			wantArgs: []string{"--address=a.com,--arg2", "--address=a.com,--arg2"},
-			wantEnv:  []string{"client=client1 key=secret", "client=client1 key=secret"},
 		},
 		{
 			name:     "arg-substitutions",
 			cmd:      "/test/cmd --address=@target@ --arg2",
 			tgts:     []string{"target1", "target2"},
-			envVars:  map[string]string{"key": "secret", "client": "client1"},
-			wantCmd:  []string{"/test/cmd", "/test/cmd"},
 			wantArgs: []string{"--address=target1,--arg2", "--address=target2,--arg2"},
-			wantEnv:  []string{"client=client1 key=secret", "client=client1 key=secret"},
 		},
 	}
 
 	for _, tt := range tests {
+		envVars := map[string]string{"key": "secret", "client": "client2"}
+		wantCmd := "/test/cmd"
+		wantEnv := "client=client2 key=secret"
 		t.Run(tt.name, func(t *testing.T) {
-			testProbeOnceMode(t, tt.cmd, tt.tgts, tt.envVars, tt.wantCmd, tt.wantArgs, tt.wantEnv)
+			testProbeOnceMode(t, tt.cmd, tt.tgts, envVars, wantCmd, wantEnv, tt.wantArgs)
 		})
 	}
 }
