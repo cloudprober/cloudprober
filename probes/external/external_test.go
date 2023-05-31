@@ -801,8 +801,6 @@ func TestShellProcessSuccess(t *testing.T) {
 }
 
 func TestProbeStartCmdIfNotRunning(t *testing.T) {
-	cmdStr := strings.Join([]string{os.Args[0], "-test.run=TestShellProcessSuccess"}, " ")
-
 	tests := []struct {
 		pauseSec int
 		wantErr  bool
@@ -816,10 +814,16 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("pause=%d", test.pauseSec), func(t *testing.T) {
-			p := createTestProbe(cmdStr, map[string]string{
+			// testCommand is just a placeholder here. We replace cmdName and
+			// cmdArgs after creating the probe.
+			p := createTestProbe("/testCommand", map[string]string{
 				"GO_TEST_PROCESS": "1",
 				"PAUSE":           strconv.Itoa(test.pauseSec),
 			})
+
+			p.cmdName = os.Args[0]
+			p.cmdArgs = []string{"-test.run=TestShellProcessSuccess"}
+
 			if err := p.startCmdIfNotRunning(context.Background()); err != nil {
 				t.Fatal(err)
 			}
