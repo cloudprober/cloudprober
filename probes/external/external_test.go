@@ -801,6 +801,12 @@ func TestShellProcessSuccess(t *testing.T) {
 }
 
 func TestProbeStartCmdIfNotRunning(t *testing.T) {
+	isCmdRunning := func(p *Probe) bool {
+		p.cmdRunningMu.Lock()
+		defer p.cmdRunningMu.Unlock()
+		return p.cmdRunning
+	}
+
 	tests := []struct {
 		pauseSec int
 		wantErr  bool
@@ -827,10 +833,34 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			if err := p.startCmdIfNotRunning(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			time.Sleep(time.Millisecond * 100)
+
+			stdin, stdout, stderr := p.cmdStdin, p.cmdStdout, p.cmdStderr
+			// Wait for the command to finish if it's not supposed to wait
+			if test.pauseSec == 0 {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				for {
+					select {
+					case <-ctx.Done():
+						t.Fatal("Timed out waiting for command to finish")
+					default:
+					}
+					if !isCmdRunning(p) {
+						break
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+			}
+
 			if err := p.startCmdIfNotRunning(context.Background()); err != nil {
 				t.Fatal(err)
 			}
+
+			// stdin, stdout, and stdout should get reset if pausesec is 0.
+			resetOrNot := test.pauseSec == 0
+			assert.Equal(t, resetOrNot, stdin != p.cmdStdin)
+			assert.Equal(t, resetOrNot, stdout != p.cmdStdout)
+			assert.Equal(t, resetOrNot, stderr != p.cmdStderr)
 		})
 	}
 }
