@@ -210,12 +210,16 @@ func (p *Probe) monitorCommand(startCtx context.Context, cmd command) error {
 
 func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	// Start external probe command if it's not running already. Note that here we
-	// are trusting the cmdRunning to be set correctly. It can be false for 3 reasons:
-	// 1) This is the first call and the process has actually never been started.
-	// 2) cmd.Start() started the process but still returned an error.
-	// 3) cmd.Wait() returned incorrectly, while the process was still running.
+	// are trusting the cmdRunning to be set correctly. It can be false for 4
+	// reasons:
+	// Correct reasons:
+	// 1) This is the first call and process has actually never been started.
+	// 2) Process died for some reason and monitor set cmdRunning to false.
+	// Incorrect reasons:
+	// 3) cmd.Start() started the process but still returned an error.
+	// 4) cmd.Wait() returned incorrectly, while the process was still running.
 	//
-	// 2 or 3 should never happen as per design, but managing processes can be tricky.
+	// 3 or 4 should never really happen, but managing processes can be tricky.
 	// Documenting here to help with debugging if we run into an issue.
 	p.cmdRunningMu.Lock()
 	defer p.cmdRunningMu.Unlock()
