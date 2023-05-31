@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -779,6 +780,53 @@ func TestMonitorCommand(t *testing.T) {
 
 			exitFunc()
 			startCancelFunc()
+		})
+	}
+}
+
+// TestShellProcessSuccess is just a helper function that we use to test the
+// actual command execution (from startCmdIfNotRunning, e.g.).
+func TestShellProcessSuccess(t *testing.T) {
+	// Ignore this test if it's not being run as a subprocess for another test.
+	if os.Getenv("GO_TEST_PROCESS") != "1" {
+		return
+	}
+	pauseSec, err := strconv.Atoi(os.Getenv("PAUSE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pauseTime := time.Duration(pauseSec) * time.Second
+	time.Sleep(pauseTime)
+	os.Exit(0)
+}
+
+func TestProbeStartCmdIfNotRunning(t *testing.T) {
+	cmdStr := strings.Join([]string{os.Args[0], "-test.run=TestShellProcessSuccess"}, " ")
+
+	tests := []struct {
+		pauseSec int
+		wantErr  bool
+	}{
+		{
+			pauseSec: 0,
+		},
+		{
+			pauseSec: 60,
+		},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("pause=%d", test.pauseSec), func(t *testing.T) {
+			p := createTestProbe(cmdStr, map[string]string{
+				"GO_TEST_PROCESS": "1",
+				"PAUSE":           strconv.Itoa(test.pauseSec),
+			})
+			if err := p.startCmdIfNotRunning(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			time.Sleep(time.Millisecond * 100)
+			if err := p.startCmdIfNotRunning(context.Background()); err != nil {
+				t.Fatal(err)
+			}
 		})
 	}
 }
