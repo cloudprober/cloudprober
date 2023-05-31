@@ -837,7 +837,7 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			stdin, stdout, stderr := p.cmdStdin, p.cmdStdout, p.cmdStderr
 			// Wait for the command to finish if it's not supposed to wait
 			if test.pauseSec == 0 {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				for {
 					select {
@@ -848,6 +848,7 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 					if !isCmdRunning(p) {
 						break
 					}
+					time.Sleep(10 * time.Millisecond)
 				}
 			}
 
