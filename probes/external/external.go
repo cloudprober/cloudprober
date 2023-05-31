@@ -88,6 +88,7 @@ type Probe struct {
 	labelKeys  map[string]bool // Labels for substitution
 	requestID  int32
 	cmdRunning bool
+	cmdRunningMu sync.Mutex // synchronizes cmdRunning
 	cmdStdin   io.Writer
 	cmdStdout  io.ReadCloser
 	cmdStderr  io.ReadCloser
@@ -216,6 +217,8 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	//
 	// 2 or 3 should never happen as per design, but managing processes can be tricky.
 	// Documenting here to help with debugging if we run into an issue.
+	p.cmdRunningMu.Lock()
+	defer p.cmdRunningMu.Unlock()
 	if p.cmdRunning {
 		return nil
 	}
@@ -255,7 +258,9 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 			p.l.Error(err.Error())
 		}
 		close(doneChan)
+		p.cmdRunningMu.Lock()
 		p.cmdRunning = false
+		p.cmdRunningMu.Unlock()
 	}()
 	go p.readProbeReplies(doneChan)
 	p.cmdRunning = true
