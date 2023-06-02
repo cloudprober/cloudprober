@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package cloudprober.probes.alerts;
+package cloudprober.probes.alerting;
 
 option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 

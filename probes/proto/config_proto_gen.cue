@@ -172,7 +172,7 @@ import (
 	// This is currently implemented only by PING and TCP probes.
 	// Note: This field is currently experimental, and may change in future.
 	negativeTest?: bool @protobuf(18,bool,name=negative_test)
-	alert?: [...proto_A.#AlertConf] @protobuf(19,alerts.AlertConf)
+	alert?: [...proto_A.#AlertConf] @protobuf(19,alerting.AlertConf)
 	{} | {
 		pingProbe: proto_8.#ProbeConf @protobuf(20,ping.ProbeConf,name=ping_probe)
 	} | {
