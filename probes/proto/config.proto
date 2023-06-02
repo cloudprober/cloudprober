@@ -158,7 +158,7 @@ message ProbeDef {
   // Note: This field is currently experimental, and may change in future.
   optional bool negative_test = 18;
 
-  repeated alerts.AlertConf alert = 19;
+  repeated alerting.AlertConf alert = 19;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;
