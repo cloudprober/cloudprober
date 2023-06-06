@@ -140,7 +140,7 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 	if n.alertcfg.GetNotify().Email != nil {
 		en, err := newEmailNotifier(n.alertcfg.GetNotify(), l)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing notify command: %v", err)
+			return nil, fmt.Errorf("error configuring email notifier: %v", err)
 		}
 		n.emailNotifier = en
 	}
