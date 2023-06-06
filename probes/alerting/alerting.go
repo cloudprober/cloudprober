@@ -16,6 +16,7 @@
 package alerting
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -23,9 +24,24 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/alerting/notifier"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
+)
+
+const (
+	DefaultDashboardURLTemplate = "http://localhost:9313/status?probe=@probe@"
+	DefaultSummaryTemplate      = "Cloudprober alert @alert@ for @target@"
+	DefaultDetailsTemplate      = `Cloudprober alert "@alert@" for "@target@":
+
+Failures: @failures@ out of @total@ probes
+Failing since: @since@
+Probe: @probe@
+Dashboard: @dashboard_url@
+Playbook: @playbook_url@
+Condition ID: @condition_id@
+`
 )
 
 type targetState struct {
@@ -42,23 +58,63 @@ type targetState struct {
 // AlertHandler is responsible for handling alerts. It keeps track of the
 // health of targets and notifies the user if there is a failure.
 type AlertHandler struct {
+	c            *configpb.AlertConf
 	name         string
 	probeName    string
 	condition    *configpb.Condition
 	notifyConfig *configpb.NotifyConfig
-	notifyCh     chan *AlertInfo // Used only for testing for now.
+	notifyCh     chan *notifier.AlertInfo // Used only for testing for now.
+	notifier     *notifier.Notifier
 
 	mu      sync.Mutex
 	targets map[string]*targetState
 	l       *logger.Logger
 }
 
+// processConfig processes the alerting config and returns the updated config.
+func processConfig(conf *configpb.AlertConf) {
+	// Set default condition to 1 failure in 1 probe interval.
+	if conf.GetCondition() == nil {
+		conf.Condition = &configpb.Condition{
+			Failures: 1,
+			Total:    1,
+		}
+	}
+	if conf.GetCondition().Total == 0 {
+		conf.Condition.Total = conf.Condition.Failures
+	}
+
+	// Set default repeat interval to 1 hour.
+	if conf.RepeatIntervalSec == nil {
+		conf.RepeatIntervalSec = proto.Int32(3600)
+	}
+
+	if conf.DashboardUrlTemplate == "" {
+		conf.DashboardUrlTemplate = DefaultDashboardURLTemplate
+	}
+
+	// Set default summary template.
+	if conf.SummaryTemplate == "" {
+		conf.SummaryTemplate = DefaultSummaryTemplate
+	}
+
+	// Set default summary template.
+	if conf.DetailsTemplate == "" {
+		conf.DetailsTemplate = DefaultDetailsTemplate
+	}
+
+}
+
 // NewAlertHandler creates a new AlertHandler from the given config.
 // If the config is invalid, an error is returned.
-func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logger) *AlertHandler {
+func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logger) (*AlertHandler, error) {
+	processConfig(conf)
+
 	ah := &AlertHandler{
+		c:            conf,
 		name:         conf.GetName(),
 		probeName:    probeName,
+		condition:    conf.GetCondition(),
 		notifyConfig: conf.GetNotify(),
 		targets:      make(map[string]*targetState),
 		l:            l,
@@ -68,25 +124,14 @@ func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logge
 		ah.name = probeName
 	}
 
-	ah.condition = conf.GetCondition()
-	if ah.condition == nil {
-		ah.condition = &configpb.Condition{
-			Failures: 1,
-			Total:    1,
-		}
+	// Initialize notifier.
+	notifier, err := notifier.New(ah.c, l)
+	if err != nil {
+		return nil, fmt.Errorf("error creating notifier for alert %s: %v", ah.name, err)
 	}
-	if ah.condition.Total == 0 {
-		ah.condition.Total = ah.condition.Failures
-	}
+	ah.notifier = notifier
 
-	// Initialize notifyConfig with default values.
-	if ah.notifyConfig == nil {
-		ah.notifyConfig = &configpb.NotifyConfig{}
-	}
-	if ah.notifyConfig.RepeatIntervalSec == nil {
-		ah.notifyConfig.RepeatIntervalSec = proto.Int32(3600)
-	}
-	return ah
+	return ah, nil
 }
 
 // extractValues is used to extract the total and success metric from an EventMetrics
@@ -109,11 +154,32 @@ func extractValues(em *metrics.EventMetrics) (int64, int64, error) {
 	return total, success, nil
 }
 
+func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailures int) {
+	ah.l.Warningf("ALERT (%s): target (%s), failures (%d) higher than (%d) since (%v)", ah.name, ep.Name, totalFailures, ah.condition.Failures, ts.failingSince)
+
+	ts.alerted = true
+	alertInfo := &notifier.AlertInfo{
+		Name:         ah.name,
+		ProbeName:    ah.probeName,
+		ConditionID:  ts.conditionID,
+		Target:       ep,
+		Failures:     totalFailures,
+		Total:        int(ah.condition.Total),
+		FailingSince: ts.failingSince,
+	}
+
+	if ah.notifyCh != nil {
+		ah.notifyCh <- alertInfo
+	}
+
+	ah.notifier.Notify(context.Background(), alertInfo)
+}
+
 // handleAlertCondition handles the alert condition.
 func (ah *AlertHandler) handleAlertCondition(ts *targetState, ep endpoint.Endpoint, timestamp time.Time, totalFailures int) {
 	// Ongoing alert. Notify if the repeat interval has passed.
 	if ts.alerted {
-		if time.Since(ts.alertTS) > time.Duration(ah.notifyConfig.GetRepeatIntervalSec())*time.Second {
+		if time.Since(ts.alertTS) > time.Duration(ah.c.GetRepeatIntervalSec())*time.Second {
 			ts.alertTS = time.Now()
 			ah.notify(ep, ts, totalFailures)
 		}

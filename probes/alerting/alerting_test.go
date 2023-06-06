@@ -20,14 +20,15 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/alerting/notifier"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
-func testAlertInfo(target string, failures, total, dur int) *AlertInfo {
-	return &AlertInfo{
+func testAlertInfo(target string, failures, total, dur int) *notifier.AlertInfo {
+	return &notifier.AlertInfo{
 		Name:         "test-probe",
 		ProbeName:    "test-probe",
 		Target:       endpoint.Endpoint{Name: target},
@@ -47,18 +48,23 @@ type testAlertHandlerArgs struct {
 	condition   *configpb.Condition
 	targets     map[string]testData
 	wantAlerted map[string]bool
-	wantAlerts  []*AlertInfo
+	wantAlerts  []*notifier.AlertInfo
 	wantErr     bool
-	notifyCfg   *configpb.NotifyConfig
+	alertCfg    *configpb.AlertConf
 	waitTime    time.Duration
 }
 
 func testAlertHandlerBehavior(t *testing.T, tt testAlertHandlerArgs) {
-	ah := NewAlertHandler(&configpb.AlertConf{
-		Condition: tt.condition,
-		Notify:    tt.notifyCfg,
-	}, "test-probe", nil)
-	ah.notifyCh = make(chan *AlertInfo, 10)
+	t.Helper()
+
+	if tt.alertCfg == nil {
+		tt.alertCfg = &configpb.AlertConf{}
+	}
+	tt.alertCfg.Condition = tt.condition
+	ah, err := NewAlertHandler(tt.alertCfg, "test-probe", nil)
+	assert.NoError(t, err)
+
+	ah.notifyCh = make(chan *notifier.AlertInfo, 10)
 
 	for target, td := range tt.targets {
 		ep := endpoint.Endpoint{Name: target}
@@ -99,7 +105,7 @@ func TestAlertHandlerRecord(t *testing.T) {
 		condition      *configpb.Condition
 		total, success []int64
 		wantAlerted    bool
-		wantAlerts     []*AlertInfo
+		wantAlerts     []*notifier.AlertInfo
 	}{
 		{
 			name:        "single-target-no-alert",
@@ -112,7 +118,7 @@ func TestAlertHandlerRecord(t *testing.T) {
 			total:       []int64{1, 2, 3},
 			success:     []int64{1, 2, 2}, // Success didn't increase.
 			wantAlerted: true,
-			wantAlerts:  []*AlertInfo{testAlertInfo("target1", 1, 1, 2)},
+			wantAlerts:  []*notifier.AlertInfo{testAlertInfo("target1", 1, 1, 2)},
 		},
 		{
 			name:        "default-condition-one-point-no-alert",
@@ -125,7 +131,7 @@ func TestAlertHandlerRecord(t *testing.T) {
 			total:       []int64{2, 4, 6, 8},
 			success:     []int64{1, 3, 4, 6},
 			wantAlerted: false,
-			wantAlerts:  []*AlertInfo{testAlertInfo("target1", 1, 1, 2)},
+			wantAlerts:  []*notifier.AlertInfo{testAlertInfo("target1", 1, 1, 2)},
 		},
 		{
 			name:        "alert-over-a-period-of-time",
@@ -133,7 +139,7 @@ func TestAlertHandlerRecord(t *testing.T) {
 			total:       []int64{2, 4, 6, 8}, // total: 2, 2, 2
 			success:     []int64{1, 2, 4, 4}, // failures: 1, 0, 2
 			wantAlerted: true,
-			wantAlerts:  []*AlertInfo{testAlertInfo("target1", 3, 5, 3)},
+			wantAlerts:  []*notifier.AlertInfo{testAlertInfo("target1", 3, 5, 3)},
 		},
 		{
 			name:        "over-a-period-of-time-alert-cleared",
@@ -141,7 +147,7 @@ func TestAlertHandlerRecord(t *testing.T) {
 			total:       []int64{2, 4, 6, 8, 10}, // total: 2, 2, 2, 2
 			success:     []int64{1, 2, 4, 4, 6},  // failures: 1, 0, 2, 0
 			wantAlerted: false,
-			wantAlerts:  []*AlertInfo{testAlertInfo("target1", 3, 5, 3)},
+			wantAlerts:  []*notifier.AlertInfo{testAlertInfo("target1", 3, 5, 3)},
 		},
 		{
 			name:      "alert-cleared-and-alerted-again",
@@ -151,13 +157,14 @@ func TestAlertHandlerRecord(t *testing.T) {
 			// total:    2, 2, 2, 2, 2
 			// failures: 1, 0, 2, 0, 2
 			wantAlerted: true,
-			wantAlerts:  []*AlertInfo{testAlertInfo("target1", 3, 5, 3), testAlertInfo("target1", 3, 5, 5)},
+			wantAlerts:  []*notifier.AlertInfo{testAlertInfo("target1", 3, 5, 3), testAlertInfo("target1", 3, 5, 5)},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testAlertHandlerBehavior(t, testAlertHandlerArgs{
+				alertCfg:    &configpb.AlertConf{},
 				condition:   tt.condition,
 				targets:     map[string]testData{"target1": {total: tt.total, success: tt.success}},
 				wantAlerted: map[string]bool{"target1": tt.wantAlerted},
@@ -171,41 +178,42 @@ func TestNotificationRepeat(t *testing.T) {
 	tests := []struct {
 		name           string
 		condition      *configpb.Condition
-		notifyCfg      *configpb.NotifyConfig
+		alertCfg       *configpb.AlertConf
 		total, success []int64
 		waitTime       time.Duration
-		wantAlerts     []*AlertInfo
+		wantAlerts     []*notifier.AlertInfo
 	}{
 		{
 			name:       "continuous-condition-single-notification",
+			alertCfg:   &configpb.AlertConf{},
 			total:      []int64{1, 2, 3},
 			success:    []int64{1, 1, 1},
 			waitTime:   10 * time.Millisecond,
-			wantAlerts: []*AlertInfo{testAlertInfo("target1", 1, 1, 1)},
+			wantAlerts: []*notifier.AlertInfo{testAlertInfo("target1", 1, 1, 1)},
 		},
 		{
 			name:       "continuous-condition-repeat-notification",
-			notifyCfg:  &configpb.NotifyConfig{RepeatIntervalSec: proto.Int32(0)},
+			alertCfg:   &configpb.AlertConf{RepeatIntervalSec: proto.Int32(0)},
 			total:      []int64{1, 2, 3},
 			success:    []int64{1, 1, 1},
 			waitTime:   10 * time.Millisecond,
-			wantAlerts: []*AlertInfo{testAlertInfo("target1", 1, 1, 1), testAlertInfo("target1", 1, 1, 1)},
+			wantAlerts: []*notifier.AlertInfo{testAlertInfo("target1", 1, 1, 1), testAlertInfo("target1", 1, 1, 1)},
 		},
 		{
 			name:       "continuous-condition-no-repeat-yet",
-			notifyCfg:  &configpb.NotifyConfig{RepeatIntervalSec: proto.Int32(1)},
+			alertCfg:   &configpb.AlertConf{RepeatIntervalSec: proto.Int32(1)},
 			total:      []int64{1, 2, 3, 4},
 			success:    []int64{1, 1, 1, 1},
 			waitTime:   10 * time.Millisecond,
-			wantAlerts: []*AlertInfo{testAlertInfo("target1", 1, 1, 1)},
+			wantAlerts: []*notifier.AlertInfo{testAlertInfo("target1", 1, 1, 1)},
 		},
 		{
 			name:       "continuous-condition-for-1-sec",
-			notifyCfg:  &configpb.NotifyConfig{RepeatIntervalSec: proto.Int32(1)},
+			alertCfg:   &configpb.AlertConf{RepeatIntervalSec: proto.Int32(1)},
 			total:      []int64{1, 2, 3, 4, 5, 6, 7, 8},
 			success:    []int64{1, 1, 1, 1, 1, 1, 1, 1},
 			waitTime:   200 * time.Millisecond,
-			wantAlerts: []*AlertInfo{testAlertInfo("target1", 1, 1, 1), testAlertInfo("target1", 1, 1, 1)},
+			wantAlerts: []*notifier.AlertInfo{testAlertInfo("target1", 1, 1, 1), testAlertInfo("target1", 1, 1, 1)},
 		},
 	}
 
@@ -213,7 +221,7 @@ func TestNotificationRepeat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testAlertHandlerBehavior(t, testAlertHandlerArgs{
 				condition:   tt.condition,
-				notifyCfg:   tt.notifyCfg,
+				alertCfg:    tt.alertCfg,
 				targets:     map[string]testData{"target1": {total: tt.total, success: tt.success}},
 				wantAlerted: map[string]bool{"target1": true},
 				wantAlerts:  tt.wantAlerts,
@@ -239,7 +247,7 @@ func TestAlertHandlerRecordTwoTargets(t *testing.T) {
 				},
 			},
 			wantAlerted: map[string]bool{"target1": false, "target2": true},
-			wantAlerts:  []*AlertInfo{testAlertInfo("target2", 2, 2, 3)},
+			wantAlerts:  []*notifier.AlertInfo{testAlertInfo("target2", 2, 2, 3)},
 		},
 	}
 	for _, tt := range tests {
@@ -263,11 +271,18 @@ func TestNewAlertHandler(t *testing.T) {
 				Name: "test-alert",
 			},
 			want: &AlertHandler{
-				name:         "test-alert",
-				probeName:    "test-probe",
-				condition:    &configpb.Condition{Failures: 1, Total: 1},
-				targets:      make(map[string]*targetState),
-				notifyConfig: &configpb.NotifyConfig{RepeatIntervalSec: proto.Int32(3600)},
+				name:      "test-alert",
+				probeName: "test-probe",
+				condition: &configpb.Condition{Failures: 1, Total: 1},
+				targets:   make(map[string]*targetState),
+				c: &configpb.AlertConf{
+					Name:                 "test-alert",
+					Condition:            &configpb.Condition{Failures: 1, Total: 1},
+					RepeatIntervalSec:    proto.Int32(3600),
+					DashboardUrlTemplate: DefaultDashboardURLTemplate,
+					SummaryTemplate:      DefaultSummaryTemplate,
+					DetailsTemplate:      DefaultDetailsTemplate,
+				},
 			},
 		},
 		{
@@ -277,17 +292,29 @@ func TestNewAlertHandler(t *testing.T) {
 				Condition: &configpb.Condition{Failures: 4, Total: 5},
 			},
 			want: &AlertHandler{
-				name:         "test-probe",
-				probeName:    "test-probe",
-				condition:    &configpb.Condition{Failures: 4, Total: 5},
-				targets:      make(map[string]*targetState),
-				notifyConfig: &configpb.NotifyConfig{RepeatIntervalSec: proto.Int32(3600)},
+				name:      "test-probe",
+				probeName: "test-probe",
+				condition: &configpb.Condition{Failures: 4, Total: 5},
+				targets:   make(map[string]*targetState),
+				c: &configpb.AlertConf{
+					Condition:            &configpb.Condition{Failures: 4, Total: 5},
+					RepeatIntervalSec:    proto.Int32(3600),
+					DashboardUrlTemplate: DefaultDashboardURLTemplate,
+					SummaryTemplate:      DefaultSummaryTemplate,
+					DetailsTemplate:      DefaultDetailsTemplate,
+				},
+				notifier: &notifier.Notifier{},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, NewAlertHandler(tt.conf, tt.probeName, nil))
+			n, err := notifier.New(tt.conf, nil)
+			assert.NoError(t, err, "notifier.New(%v, nil) failed", tt.conf)
+			tt.want.notifier = n
+			ah, err := NewAlertHandler(tt.conf, tt.probeName, nil)
+			assert.NoError(t, err, "NewAlertHandler(%v, %v, nil) failed", tt.conf, tt.probeName)
+			assert.Equal(t, tt.want, ah)
 		})
 	}
 }
