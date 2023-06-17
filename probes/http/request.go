@@ -160,12 +160,12 @@ func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
 
 func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 	// We clone the request for the cases where we modify the request:
-	//   -- if request body is large (buffered), each request gets its own Body
+	//   -- if request has a body, each request gets its own Body
 	//      as HTTP transport reads body in a streaming fashion, and we can't
 	//      share it across multiple requests.
 	//   -- if OAuth token is used, each request gets its own Authorization
 	//      header.
-	if p.oauthTS == nil && !p.requestBody.Buffered() {
+	if p.oauthTS == nil && p.requestBody.Len() == 0 {
 		return req
 	}
 
@@ -183,9 +183,7 @@ func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 
-	if p.requestBody.Buffered() {
-		req.Body = p.requestBody.Reader()
-	}
+	req.Body = p.requestBody.Reader()
 
 	return req
 }
