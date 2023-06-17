@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -243,59 +244,9 @@ func TestProbeVariousMethods(t *testing.T) {
 	}
 }
 
-func TestProbeWithBody(t *testing.T) {
-	testBody := "TestHTTPBody"
-	testTarget := "test.com"
-	// Build the expected response code map
-	expectedMap := metrics.NewMap("resp", metrics.NewInt(0))
-	expectedMap.IncKey(testBody)
-	expected := expectedMap.String()
-
-	p := &Probe{}
-	err := p.Init("http_test", &options.Options{
-		Targets:  targets.StaticTargets(testTarget),
-		Interval: 2 * time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			Body:                    []string{testBody},
-			ExportResponseAsMetrics: proto.Bool(true),
-		},
-	})
-	if err != nil {
-		t.Errorf("Error while initializing probe: %v", err)
-	}
-	p.baseTransport = &testTransport{}
-	target := endpoint.Endpoint{Name: testTarget}
-
-	// Probe 1st run
-	result := p.newResult()
-	req := p.httpRequestForTarget(target)
-	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
-	got := result.respBodies.String()
-	if got != expected {
-		t.Errorf("response map: got=%s, expected=%s", got, expected)
-	}
-
-	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
-	expectedMap.IncKey(testBody)
-	expected = expectedMap.String()
-	got = result.respBodies.String()
-	if got != expected {
-		t.Errorf("response map: got=%s, expected=%s", got, expected)
-	}
-}
-
-func TestProbeWithLargeBody(t *testing.T) {
-	for _, size := range []int{largeBodyThreshold - 1, largeBodyThreshold, largeBodyThreshold + 1, largeBodyThreshold * 2} {
-		t.Run(fmt.Sprintf("size:%d", size), func(t *testing.T) {
-			testProbeWithLargeBody(t, size)
-		})
-	}
-}
-
 func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	testBody := strings.Repeat("a", bodySize)
-	testTarget := "test-large-body.com"
+	testTarget := "test.com"
 
 	p := &Probe{}
 	err := p.Init("http_test", &options.Options{
@@ -333,6 +284,14 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	}
 }
 
+func TestProbeWithBody(t *testing.T) {
+	for _, size := range []int{12, largeBodyThreshold - 1, largeBodyThreshold, largeBodyThreshold + 1, largeBodyThreshold * 2} {
+		t.Run(fmt.Sprintf("size:%d", size), func(t *testing.T) {
+			testProbeWithLargeBody(t, size)
+		})
+	}
+}
+
 type testServer struct {
 	addr *net.TCPAddr
 	srv  *http.Server
@@ -352,6 +311,13 @@ func newTestServer(ctx context.Context, ipVer int) (*testServer, error) {
 	serverMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.Host, "fail-test.com") {
 			time.Sleep(2 * time.Second)
+		}
+		if r.URL.Path == "/test-body-size" {
+			size, _ := strconv.Atoi(r.URL.Query().Get("size"))
+			b, err := io.ReadAll(r.Body)
+			if err != nil || len(b) != size {
+				time.Sleep(2 * time.Second)
+			}
 		}
 		w.Write([]byte("ok"))
 	})
@@ -373,20 +339,32 @@ func newTestServer(ctx context.Context, ipVer int) (*testServer, error) {
 	return ts, nil
 }
 
-func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer int, keepAlive bool) {
+type testProbeOpts struct {
+	reqPerProbe int
+	ipVer       int
+	keepAlive   bool
+	body        string
+	method      configpb.ProbeConf_Method
+	targets     []string
+}
+
+func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts) {
+	if probeOpts.reqPerProbe == 0 {
+		probeOpts.reqPerProbe = 1
+	}
+
 	ctx, cancelF := context.WithCancel(context.Background())
 	defer cancelF()
 
-	ts, err := newTestServer(ctx, ipVer)
+	ts, err := newTestServer(ctx, probeOpts.ipVer)
 	if err != nil {
 		t.Errorf("Error starting test HTTP server: %v", err)
 		return
 	}
 	t.Logf("Started test HTTP server at: %v", ts.addr)
 
-	testTargets := []string{"test.com", "fail-test.com", "fails-to-resolve.com"}
 	var eps []endpoint.Endpoint
-	for _, name := range testTargets {
+	for _, name := range probeOpts.targets {
 		ip := ts.addr.IP
 		if name == "fails-to-resolve.com" {
 			ip = nil
@@ -404,11 +382,13 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		StatsExportInterval: 10 * time.Millisecond,
 		ProbeConf: &configpb.ProbeConf{
 			Port:             proto.Int32(int32(ts.addr.Port)),
-			RequestsPerProbe: proto.Int32(int32(reqPerProbe)),
+			Method:           &probeOpts.method,
+			RequestsPerProbe: proto.Int32(int32(probeOpts.reqPerProbe)),
 			ResolveFirst:     proto.Bool(true),
-			KeepAlive:        proto.Bool(keepAlive),
+			KeepAlive:        proto.Bool(probeOpts.keepAlive),
+			Body:             []string{probeOpts.body},
 		},
-		IPVersion:  ipVer,
+		IPVersion:  probeOpts.ipVer,
 		LogMetrics: func(_ *metrics.EventMetrics) {},
 	}
 
@@ -441,7 +421,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 	wg.Wait() // Verifies that probe really stopped.
 
 	dataMap := testutils.MetricsMapByTarget(ems)
-	for _, tgt := range testTargets {
+	for _, tgt := range probeOpts.targets {
 		totalVals := dataMap[tgt]["total"]
 
 		metricsCount := len(totalVals)
@@ -454,7 +434,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		// Expected values on a good system: metricsCount * reqPerProbe
 		// Let's go with more conservative values and divide by 3 to take
 		// slowness of CI systems into account:
-		wantCounter := (metricsCount * reqPerProbe) / 3
+		wantCounter := (metricsCount * probeOpts.reqPerProbe) / 3
 		minTotal, minSuccess := wantCounter, wantCounter
 		if tgt == "fails-to-resolve.com" {
 			minTotal, minSuccess = 0, 0
@@ -465,10 +445,10 @@ func testMultipleTargetsMultipleRequests(t *testing.T, reqPerProbe int, ipVer in
 		assert.LessOrEqualf(t, int64(minTotal), dataMap.LastValueInt64(tgt, "total"), "total for target: %s", tgt)
 		assert.LessOrEqualf(t, int64(minSuccess), dataMap.LastValueInt64(tgt, "success"), "success for target: %s", tgt)
 
-		if keepAlive && tgt == "test.com" {
+		if probeOpts.keepAlive && tgt == "test.com" {
 			connEvent := dataMap.LastValueInt64(tgt, "connect_event")
-			minConnEvent := int64(reqPerProbe * 1)
-			maxConnEvent := int64(reqPerProbe * 2)
+			minConnEvent := int64(probeOpts.reqPerProbe * 1)
+			maxConnEvent := int64(probeOpts.reqPerProbe * 2)
 			if connEvent <= minConnEvent && connEvent >= maxConnEvent {
 				t.Errorf("connect_event for target: %s, got: %d, want: <= %d, >= %d", tgt, connEvent, maxConnEvent, minConnEvent)
 			}
@@ -485,9 +465,51 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 		for _, reqPerProbe := range []int{1, 3} {
 			for _, keepAlive := range []bool{false, true} {
 				t.Run(fmt.Sprintf("ip_ver=%d,req_per_probe=%d,keepAlive=%v", ipVer, reqPerProbe, keepAlive), func(t *testing.T) {
-					testMultipleTargetsMultipleRequests(t, reqPerProbe, ipVer, keepAlive)
+					testMultipleTargetsMultipleRequests(t, &testProbeOpts{
+						reqPerProbe: reqPerProbe,
+						ipVer:       ipVer,
+						keepAlive:   keepAlive,
+						targets:     []string{"test.com", "fail-test.com", "fails-to-resolve.com"},
+					})
 				})
 			}
+		}
+	}
+}
+
+func TestProbeWithReqBody(t *testing.T) {
+	tests := []struct {
+		method configpb.ProbeConf_Method
+		size   int
+	}{
+		{
+			size:   32,
+			method: configpb.ProbeConf_GET,
+		},
+		{
+			size:   32,
+			method: configpb.ProbeConf_POST,
+		},
+		{
+			size:   largeBodyThreshold + 1,
+			method: configpb.ProbeConf_GET,
+		},
+		{
+			size:   largeBodyThreshold + 1,
+			method: configpb.ProbeConf_POST,
+		},
+	}
+
+	for _, test := range tests {
+		for _, keepAlive := range []bool{false, true} {
+			t.Run(fmt.Sprintf("method:%s,bodysize:%d,keepAlive:%v", test.method, test.size, keepAlive), func(t *testing.T) {
+				testMultipleTargetsMultipleRequests(t, &testProbeOpts{
+					body:      strings.Repeat("a", test.size),
+					method:    test.method,
+					keepAlive: keepAlive,
+					targets:   []string{"test.com"},
+				})
+			})
 		}
 	}
 }
