@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -319,6 +320,11 @@ func newTestServer(t *testing.T, ctx context.Context, ipVer int) (*testServer, e
 			assert.Equal(t, nil, err)
 			assert.Equal(t, size, len(b))
 		}
+		if r.URL.Path == "/redirect" {
+			redirectURL := r.URL.Query().Get("url")
+			assert.NotEmpty(t, redirectURL)
+			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+		}
 		w.Write([]byte("ok"))
 	})
 
@@ -344,7 +350,7 @@ type testProbeOpts struct {
 	ipVer       int
 	keepAlive   bool
 	body        string
-	method      configpb.ProbeConf_Method
+	method      string
 	targets     []string
 	url         string
 }
@@ -376,6 +382,11 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 		})
 	}
 
+	method := map[string]configpb.ProbeConf_Method{
+		"GET":  configpb.ProbeConf_GET,
+		"POST": configpb.ProbeConf_POST,
+	}[probeOpts.method]
+
 	opts := &options.Options{
 		Targets:             targets.StaticEndpoints(eps),
 		Interval:            10 * time.Millisecond,
@@ -384,7 +395,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 		ProbeConf: &configpb.ProbeConf{
 			RelativeUrl:      &probeOpts.url,
 			Port:             proto.Int32(int32(ts.addr.Port)),
-			Method:           &probeOpts.method,
+			Method:           &method,
 			RequestsPerProbe: proto.Int32(int32(probeOpts.reqPerProbe)),
 			ResolveFirst:     proto.Bool(true),
 			KeepAlive:        proto.Bool(probeOpts.keepAlive),
@@ -480,39 +491,27 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 }
 
 func TestProbeWithReqBody(t *testing.T) {
-	tests := []struct {
-		method configpb.ProbeConf_Method
-		size   int
-	}{
-		{
-			size:   32,
-			method: configpb.ProbeConf_GET,
-		},
-		{
-			size:   32,
-			method: configpb.ProbeConf_POST,
-		},
-		{
-			size:   largeBodyThreshold + 1,
-			method: configpb.ProbeConf_GET,
-		},
-		{
-			size:   largeBodyThreshold + 1,
-			method: configpb.ProbeConf_POST,
-		},
-	}
+	for _, size := range []int{0, 32, largeBodyThreshold + 1} {
+		for _, method := range []string{"GET", "POST"} {
+			for _, withRedirect := range []bool{false, true} {
+				for _, keepAlive := range []bool{false, true} {
+					t.Run(fmt.Sprintf("method:%s,bodysize:%d,keepAlive:%v,withRedirect:%v", method, size, keepAlive, withRedirect), func(t *testing.T) {
+						probeOpts := &testProbeOpts{
+							body:      strings.Repeat("a", size),
+							method:    method,
+							keepAlive: keepAlive,
+							targets:   []string{"test.com"},
+							url:       fmt.Sprintf("/test-body-size?size=%d", size),
+						}
+						if withRedirect {
+							probeOpts.url = "/redirect?url=" + url.QueryEscape("/test-body-size?size="+strconv.Itoa(size))
+						}
 
-	for _, test := range tests {
-		for _, keepAlive := range []bool{false, true} {
-			t.Run(fmt.Sprintf("method:%s,bodysize:%d,keepAlive:%v", test.method, test.size, keepAlive), func(t *testing.T) {
-				testMultipleTargetsMultipleRequests(t, &testProbeOpts{
-					body:      strings.Repeat("a", test.size),
-					method:    test.method,
-					keepAlive: keepAlive,
-					targets:   []string{"test.com"},
-					url:       fmt.Sprintf("/test-body-size?size=%d", test.size),
-				})
-			})
+						// Without redirect
+						testMultipleTargetsMultipleRequests(t, probeOpts)
+					})
+				}
+			}
 		}
 	}
 }
