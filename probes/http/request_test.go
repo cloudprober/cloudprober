@@ -331,8 +331,10 @@ func TestPrepareRequest(t *testing.T) {
 			name: "No token source, no body",
 		},
 		{
-			name: "No token source, small body",
-			data: data[0:20],
+			name:         "No token source, small body",
+			data:         data[0:20],
+			wantIsCloned: true,
+			wantNewBody:  true,
 		},
 		{
 			name:         "No token source, large body",
@@ -341,11 +343,17 @@ func TestPrepareRequest(t *testing.T) {
 			wantNewBody:  true,
 		},
 		{
+			name:         "token source, no body",
+			token:        "test-token",
+			wantIsCloned: true,
+			wantNewBody:  false, // Only request is cloned.
+		},
+		{
 			name:         "token source, small body",
 			data:         data[0:20],
 			token:        "test-token",
 			wantIsCloned: true,
-			wantNewBody:  false,
+			wantNewBody:  true,
 		},
 		{
 			name:         "token source, large body",

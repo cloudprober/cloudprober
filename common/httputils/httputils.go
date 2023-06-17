@@ -35,10 +35,7 @@ func IsHandled(mux *http.ServeMux, url string) bool {
 	return matchedPattern == url
 }
 
-// RequestBody returns a reusable HTTP request body if its size is smaller than
-// largeBodyThreshold. This is the most common use case in probing. If the body
-// is larger than largeBodyThreshold, it returns a buffered reader. We do that
-// because HTTP transport reads limited bytes at a time.
+// RequestBody implements an HTTP request body.
 type RequestBody struct {
 	b  []byte
 	ct string
@@ -65,14 +62,7 @@ func (rb *RequestBody) Reader() io.ReadCloser {
 	if rb == nil || len(rb.b) == 0 {
 		return nil
 	}
-	if len(rb.b) > largeBodyThreshold {
-		return io.NopCloser(bytes.NewReader(rb.b))
-	}
-	return io.NopCloser(rb)
-}
-
-func (rb *RequestBody) Buffered() bool {
-	return rb != nil && len(rb.b) > largeBodyThreshold
+	return io.NopCloser(bytes.NewReader(rb.b))
 }
 
 func (rb *RequestBody) Len() int64 {
