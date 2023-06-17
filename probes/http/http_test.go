@@ -495,20 +495,19 @@ func TestProbeWithReqBody(t *testing.T) {
 		for _, method := range []string{"GET", "POST"} {
 			for _, withRedirect := range []bool{false, true} {
 				for _, keepAlive := range []bool{false, true} {
-					t.Run(fmt.Sprintf("method:%s,bodysize:%d,keepAlive:%v,withRedirect:%v", method, size, keepAlive, withRedirect), func(t *testing.T) {
-						probeOpts := &testProbeOpts{
+					testName := fmt.Sprintf("method:%s,bodysize:%d,keepAlive:%v,withRedirect:%v", method, size, keepAlive, withRedirect)
+					t.Run(testName, func(t *testing.T) {
+						u := "/test-body-size?size=" + strconv.Itoa(size)
+						if withRedirect {
+							u = "/redirect?url=" + url.QueryEscape(u)
+						}
+						testMultipleTargetsMultipleRequests(t, &testProbeOpts{
 							body:      strings.Repeat("a", size),
 							method:    method,
 							keepAlive: keepAlive,
 							targets:   []string{"test.com"},
-							url:       fmt.Sprintf("/test-body-size?size=%d", size),
-						}
-						if withRedirect {
-							probeOpts.url = "/redirect?url=" + url.QueryEscape("/test-body-size?size="+strconv.Itoa(size))
-						}
-
-						// Without redirect
-						testMultipleTargetsMultipleRequests(t, probeOpts)
+							url:       u,
+						})
 					})
 				}
 			}
