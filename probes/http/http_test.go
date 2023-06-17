@@ -297,7 +297,8 @@ type testServer struct {
 	srv  *http.Server
 }
 
-func newTestServer(ctx context.Context, ipVer int) (*testServer, error) {
+func newTestServer(t *testing.T, ctx context.Context, ipVer int) (*testServer, error) {
+	t.Helper()
 	ts := &testServer{}
 	network := map[int]string{4: "tcp4", 6: "tcp6", 0: "tcp"}[ipVer]
 	addr := map[int]string{4: "127.0.0.1:0", 6: "[::1]:0", 0: "localhost:0"}[ipVer]
@@ -315,9 +316,8 @@ func newTestServer(ctx context.Context, ipVer int) (*testServer, error) {
 		if r.URL.Path == "/test-body-size" {
 			size, _ := strconv.Atoi(r.URL.Query().Get("size"))
 			b, err := io.ReadAll(r.Body)
-			if err != nil || len(b) != size {
-				time.Sleep(2 * time.Second)
-			}
+			assert.Equal(t, nil, err)
+			assert.Equal(t, size, len(b))
 		}
 		w.Write([]byte("ok"))
 	})
@@ -346,6 +346,7 @@ type testProbeOpts struct {
 	body        string
 	method      configpb.ProbeConf_Method
 	targets     []string
+	url         string
 }
 
 func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts) {
@@ -356,7 +357,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 	ctx, cancelF := context.WithCancel(context.Background())
 	defer cancelF()
 
-	ts, err := newTestServer(ctx, probeOpts.ipVer)
+	ts, err := newTestServer(t, ctx, probeOpts.ipVer)
 	if err != nil {
 		t.Errorf("Error starting test HTTP server: %v", err)
 		return
@@ -381,6 +382,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 		Timeout:             9 * time.Millisecond,
 		StatsExportInterval: 10 * time.Millisecond,
 		ProbeConf: &configpb.ProbeConf{
+			RelativeUrl:      &probeOpts.url,
 			Port:             proto.Int32(int32(ts.addr.Port)),
 			Method:           &probeOpts.method,
 			RequestsPerProbe: proto.Int32(int32(probeOpts.reqPerProbe)),
@@ -508,6 +510,7 @@ func TestProbeWithReqBody(t *testing.T) {
 					method:    test.method,
 					keepAlive: keepAlive,
 					targets:   []string{"test.com"},
+					url:       fmt.Sprintf("/test-body-size?size=%d", test.size),
 				})
 			})
 		}
