@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/cloudprober/cloudprober/common/httputils"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
@@ -393,4 +394,45 @@ func TestPrepareRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRequestHasConfiguredHeaders(t *testing.T) {
+	p := &Probe{}
+
+	testHeaderName := "X-My-Test-Header"
+	testHeaderValue := "foo"
+
+	testHeadersName := "X-My-Other-Header"
+	testHeadersValue := "bar"
+
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("test.com"),
+		Interval: 10 * time.Millisecond,
+		ProbeConf: &configpb.ProbeConf{
+			MaxRedirects: nil,
+			Header:       map[string]string{testHeaderName: testHeaderValue},
+			Headers:      []*configpb.ProbeConf_Header{{Name: &testHeadersName, Value: &testHeadersValue}},
+		},
+	}
+
+	err := p.Init("http_test", opts)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	target := endpoint.Endpoint{
+		Name:   "header-test",
+		Labels: map[string]string{"fqdn": "test.com"},
+	}
+
+	req := p.httpRequestForTarget(target)
+
+	val, ok := req.Header[testHeaderName]
+	assert.True(t, ok, "Configured header (via 'header' setting) is not present in target request")
+	assert.Contains(t, val, testHeaderValue)
+
+	val, ok = req.Header[testHeadersName]
+	assert.True(t, ok, "Configured header (via 'headers' setting) is not present in target request")
+	assert.Contains(t, val, testHeadersValue)
+
 }
