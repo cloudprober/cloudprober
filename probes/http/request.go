@@ -128,6 +128,14 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 		req.Header.Set(header.GetName(), header.GetValue())
 	}
 
+	for k, v := range p.c.GetHeader() {
+		if k == "Host" {
+			probeHostHeader = v
+			continue
+		}
+		req.Header.Set(k, v)
+	}
+
 	// Host header is set by http.NewRequest based on the URL, update it based
 	// on various conditions.
 	req.Host = hostHeaderForTarget(target, probeHostHeader, port)
