@@ -4,20 +4,15 @@ package cloudprober.probes.alerting;
 
 option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
-
 message NotifyConfig {
-    // How often to repeat notification for the same alert. Default is 1hr.
-    // To disable any kind of notification throttling, set this to 0.
-    optional int32 repeat_interval_sec = 1;  // Default: 1hr
-
     // Command to run when alert is fired. In the command line following fields
     // are substituted:
     //  @alert@: Alert name
     //  @probe@: Probe name
     //  @target@: Target name, or target and port if port is specified.
     //  @target.label.<label>@: Label <label> value, e.g. target.label.role.
-    //  @value@: Value that triggered the alert.
-    //  @threshold@: Threshold that was crossed.
+    //  @failures@: Count of failures.
+    //  @total@: Out of.
     //  @since@: Time since the alert condition started.
     //  @json@: JSON representation of the alert fields.
     //
@@ -25,6 +20,14 @@ message NotifyConfig {
     // use the following command:
     // command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
     string command = 10;
+
+    // Email addresses to send alerts to. For email notifications to work,
+    // following environment variables must be set:
+    // - SMTP_SERVER: SMTP server and port to use for sending emails.
+    // - SMTP_USERNAME: SMTP user name.
+    // - SMTP_PASSWORD: SMTP password.
+    repeated string email = 11;
+    string email_from = 12;  // Default: SMTP_USERNAME
 }
 
 message Condition {
@@ -47,4 +50,27 @@ message AlertConf {
 
     // How to notify in case of alert.
     NotifyConfig notify = 3;
+
+    // Dashboard URL template.
+    // Default: http://localhost:9313/status?probe=@probe@
+    string dashboard_url_template = 4;  // Default: ""
+    
+    string playbook_url_template = 5;  // Default: ""
+
+    // Default: "Cloudprober alert @alert@ for @target@"
+    string summary_template = 6;
+
+    // Default:
+    // Cloudprober alert "@alert@" for "@target@":
+    // Failures: @failures@ out of @total@ probes
+    // Failing since: @since@
+    // Probe: @probe@
+    // Dashboard: @dashboard_url@
+    // Playbook: @playbook_url@
+    // Condition ID: @condition_id@
+    string details_template = 7;  // Default: ""
+
+    // How often to repeat notification for the same alert. Default is 1hr.
+    // To disable any kind of notification throttling, set this to 0.
+    optional int32 repeat_interval_sec = 8;  // Default: 1hr
 }

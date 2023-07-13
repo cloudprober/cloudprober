@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package alerting
+package notifier
 
 import (
 	"context"
@@ -60,24 +60,23 @@ func TestAlertFields(t *testing.T) {
 				"target.label.apptype":  "backend",
 				"target.label.language": "go",
 				"json":                  `{"alert":"test-alert","condition_id":"122333444","failures":"8","probe":"test-probe","since":"0001-01-01T00:00:01Z","target":"test-target","target.label.apptype":"backend","target.label.language":"go","total":"12"}`,
+				"summary":               "",
+				"details":               "",
+				"playbook_url":          "",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fields, err := alertFields(tt.ai)
+			n, _ := New(nil, nil)
+			fields, err := n.alertFields(tt.ai)
 			assert.NoError(t, err, "Error getting alert fields")
 			assert.Equal(t, tt.want, fields, "Fields don't match")
 		})
 	}
 }
 
-func TestAlertHandlerNotifyCommand(t *testing.T) {
-	ah := &AlertHandler{
-		name:      "test-alert",
-		probeName: "test-probe",
-	}
-
+func TestNotifyCommand(t *testing.T) {
 	fields := map[string]string{
 		"alert":              "test-alert",
 		"probe":              "test-probe",
@@ -86,21 +85,34 @@ func TestAlertHandlerNotifyCommand(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		command string
-		want    []string
+		name          string
+		command       string
+		errorContains string
 	}{
 		{
-			command: "/usr/bin/mail -s 'Alert @alert@ fired for the target @target@ - @unmatched@' @target.label.owner@",
-			want:    []string{"/usr/bin/mail", "-s", "Alert test-alert fired for the target test-target:1234 - @unmatched@", "manugarg@a.b"},
+			command:       "/random-cmd-@alert@-@target.label.owner@ -s 'Alert @alert@ fired for the target @target@ - @unmatched@' @target.label.owner@",
+			errorContains: "/random-cmd-test-alert-manugarg@a.b",
 		},
 	}
 	for _, tt := range tests {
+		alertInfo := &AlertInfo{
+			Name:        fields["alert"],
+			ProbeName:   fields["probe"],
+			ConditionID: "cond-id",
+			Target: endpoint.Endpoint{
+				Name:   fields["target"],
+				Labels: map[string]string{"owner": fields["target.label.owner"]},
+			},
+		}
 		t.Run(tt.name, func(t *testing.T) {
-			ah.notifyConfig = &configpb.NotifyConfig{
-				Command: tt.command,
+			conf := &configpb.AlertConf{
+				Notify: &configpb.NotifyConfig{
+					Command: tt.command,
+				},
 			}
-			assert.Equal(t, tt.want, ah.notifyCommand(context.Background(), tt.command, fields, true), "Commands don't match")
+			n, err := New(conf, nil)
+			assert.NoError(t, err, "Error creating notifier")
+			assert.ErrorContains(t, n.Notify(context.Background(), alertInfo), tt.errorContains, "notify command error")
 		})
 	}
 }
