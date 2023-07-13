@@ -434,5 +434,52 @@ func TestRequestHasConfiguredHeaders(t *testing.T) {
 	val, ok = req.Header[testHeadersName]
 	assert.True(t, ok, "Configured header (via 'headers' setting) is not present in target request")
 	assert.Contains(t, val, testHeadersValue)
+}
 
+func TestResolveFirst(t *testing.T) {
+	tests := []struct {
+		name   string
+		target endpoint.Endpoint
+		conf   *configpb.ProbeConf
+		want   bool
+	}{
+		{
+			name:   "resolve_first_false",
+			target: endpoint.Endpoint{Name: "cloudprober.org"},
+			conf:   &configpb.ProbeConf{},
+			want:   false,
+		},
+		{
+			name:   "resolve_first_true",
+			target: endpoint.Endpoint{Name: "cloudprober.org"},
+			conf:   &configpb.ProbeConf{ResolveFirst: proto.Bool(true)},
+			want:   true,
+		},
+		{
+			name: "resolve_first_true_with_ip",
+			target: endpoint.Endpoint{
+				Name: "cloudprober.org",
+				IP:   net.ParseIP("1.1.1.1"),
+			},
+			conf: &configpb.ProbeConf{},
+			want: true,
+		},
+		{
+			name: "resolve_first_explcitly_false",
+			target: endpoint.Endpoint{
+				Name: "cloudprober.org",
+				IP:   net.ParseIP("1.1.1.1"),
+			},
+			conf: &configpb.ProbeConf{ResolveFirst: proto.Bool(false)},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				c: tt.conf,
+			}
+			assert.Equal(t, tt.want, p.resolveFirst(tt.target), "resolveFirst is not as expected")
+		})
+	}
 }

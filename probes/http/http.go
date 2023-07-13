@@ -446,7 +446,7 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 		// RoundTripper implementation.
 		if ht, ok := p.baseTransport.(*http.Transport); ok {
 			t := ht.Clone()
-			if p.c.GetProtocol() == configpb.ProbeConf_HTTPS && p.c.GetResolveFirst() {
+			if p.c.GetProtocol() == configpb.ProbeConf_HTTPS && p.resolveFirst(target) {
 				if t.TLSClientConfig == nil {
 					t.TLSClientConfig = &tls.Config{}
 				}
