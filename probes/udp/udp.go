@@ -87,6 +87,7 @@ type Probe struct {
 type probeResult struct {
 	total, success, delayed int64
 	latency                 metrics.Value
+	target                  endpoint.Endpoint
 }
 
 // Metrics converts probeResult into metrics.EventMetrics object
@@ -105,7 +106,7 @@ func (prr probeResult) eventMetrics(probeName string, opts *options.Options, f f
 		AddLabel("dst", f.target)
 
 	for _, al := range opts.AdditionalLabels {
-		m.AddLabel(al.KeyValueForTarget(endpoint.Endpoint{Name: f.target}))
+		m.AddLabel(al.KeyValueForTarget(prr.target))
 	}
 
 	if c.GetExportMetricsByPort() {
@@ -116,7 +117,7 @@ func (prr probeResult) eventMetrics(probeName string, opts *options.Options, f f
 	return m
 }
 
-func (p *Probe) newProbeResult() *probeResult {
+func (p *Probe) newProbeResult(target endpoint.Endpoint) *probeResult {
 	var latVal metrics.Value
 	if p.opts.LatencyDist != nil {
 		latVal = p.opts.LatencyDist.Clone()
@@ -125,6 +126,7 @@ func (p *Probe) newProbeResult() *probeResult {
 	}
 	return &probeResult{
 		latency: latVal,
+		target:  target,
 	}
 }
 
@@ -209,7 +211,7 @@ func (p *Probe) initProbeRunResults() error {
 		if !p.c.GetExportMetricsByPort() {
 			f := flow{"", target.Name}
 			if p.res[f] == nil {
-				p.res[f] = p.newProbeResult()
+				p.res[f] = p.newProbeResult(target)
 			}
 			continue
 		}
@@ -217,7 +219,7 @@ func (p *Probe) initProbeRunResults() error {
 		for _, srcPort := range p.srcPortList {
 			f := flow{srcPort, target.Name}
 			if p.res[f] == nil {
-				p.res[f] = p.newProbeResult()
+				p.res[f] = p.newProbeResult(target)
 			}
 		}
 	}
@@ -425,7 +427,7 @@ func (p *Probe) runProbe() {
 		}
 
 		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(endpoint.Endpoint{Name: target.Name}, ip.String(), dstPort)
+			al.UpdateForTarget(target, ip.String(), dstPort)
 		}
 
 		for i := 0; i < packetsPerTarget; i++ {
