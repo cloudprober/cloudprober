@@ -212,7 +212,10 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	opts.AdditionalLabels = parseAdditionalLabels(p)
 
 	for _, alertConf := range p.GetAlert() {
-		ah := alerting.NewAlertHandler(alertConf, p.GetName(), opts.Logger)
+		ah, err := alerting.NewAlertHandler(alertConf, p.GetName(), opts.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("error creating alert handler for the probe (%s): %v", p.GetName(), err)
+		}
 		opts.AlertHandlers = append(opts.AlertHandlers, ah)
 	}
 
