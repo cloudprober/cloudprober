@@ -771,3 +771,86 @@ func TestProbeInitRedirectsNotSet(t *testing.T) {
 		t.Errorf("expected redirectFunc to be nil, found redirectFunc was initialized")
 	}
 }
+
+func TestClientsForTarget(t *testing.T) {
+	tests := []struct {
+		name                string
+		conf                *configpb.ProbeConf
+		baseTransport       *http.Transport
+		target              endpoint.Endpoint
+		wantNumClients      int
+		tlsConfigServerName string
+	}{
+		{
+			name:           "default",
+			conf:           &configpb.ProbeConf{},
+			baseTransport:  http.DefaultTransport.(*http.Transport),
+			target:         endpoint.Endpoint{Name: "cloudprober.org"},
+			wantNumClients: 1,
+		},
+		{
+			name:           "2_clients",
+			conf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(2)},
+			baseTransport:  http.DefaultTransport.(*http.Transport),
+			target:         endpoint.Endpoint{Name: "cloudprober.org"},
+			wantNumClients: 2,
+		},
+		{
+			name: "2_clients_https",
+			conf: &configpb.ProbeConf{
+				Protocol:         configpb.ProbeConf_HTTPS.Enum(),
+				RequestsPerProbe: proto.Int32(2),
+			},
+			baseTransport:  http.DefaultTransport.(*http.Transport),
+			target:         endpoint.Endpoint{Name: "cloudprober.org"},
+			wantNumClients: 2,
+		},
+		{
+			name: "2_clients_https_server_name",
+			conf: &configpb.ProbeConf{
+				Protocol:         configpb.ProbeConf_HTTPS.Enum(),
+				RequestsPerProbe: proto.Int32(2),
+			},
+			baseTransport: http.DefaultTransport.(*http.Transport),
+			target: endpoint.Endpoint{
+				Name: "cloudprober.org",
+				IP:   net.ParseIP("1.2.3.4"),
+			},
+			wantNumClients:      2,
+			tlsConfigServerName: "cloudprober.org",
+		},
+		{
+			name: "2_clients_https_server_name_from_fqdn",
+			conf: &configpb.ProbeConf{
+				Protocol:         configpb.ProbeConf_HTTPS.Enum(),
+				RequestsPerProbe: proto.Int32(2),
+			},
+			baseTransport: http.DefaultTransport.(*http.Transport),
+			target: endpoint.Endpoint{
+				Name: "cloudprober.org",
+				IP:   net.ParseIP("1.2.3.4"),
+				Labels: map[string]string{
+					"fqdn": "manugarg.com",
+				},
+			},
+			wantNumClients:      2,
+			tlsConfigServerName: "manugarg.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				baseTransport: tt.baseTransport,
+				c:             tt.conf,
+			}
+			gotClients := p.clientsForTarget(tt.target)
+			assert.Equal(t, tt.wantNumClients, len(gotClients), "number of clients is not as expected")
+
+			for _, c := range gotClients {
+				tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
+				assert.Equal(t, tt.tlsConfigServerName, tlsConfig.ServerName, "TLS config server name is not as expected")
+			}
+		})
+	}
+}

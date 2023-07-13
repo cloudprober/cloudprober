@@ -72,6 +72,13 @@ func relURLForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
+func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
+	if p.c.ResolveFirst != nil {
+		return p.c.GetResolveFirst()
+	}
+	return target.IP != nil
+}
+
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
@@ -83,13 +90,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	urlHost := urlHostForTarget(target)
 	ipForLabel := ""
 
-	resolveFirst := false
-	if p.c.ResolveFirst != nil {
-		resolveFirst = p.c.GetResolveFirst()
-	} else {
-		resolveFirst = target.IP != nil
-	}
-	if resolveFirst {
+	if p.resolveFirst(target) {
 		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
 			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
