@@ -95,7 +95,7 @@ func newRequest(method, url string, headers map[string]string, data []string) (*
 }
 
 func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
-	// Verify the request parameters are correct.
+	// Verify request parameters are correct.
 	_, err := newRequest(c.GetMethod(), c.GetTokenUrl(), c.GetHeader(), c.GetData())
 	if err != nil {
 		return nil, err
