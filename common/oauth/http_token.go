@@ -28,9 +28,9 @@ import (
 )
 
 type httpTokenSource struct {
-	cache  *tokenCache
-	l      *logger.Logger
-	httpDo func(req *http.Request) (*http.Response, error)
+	cache      *tokenCache
+	l          *logger.Logger
+	httpClient *http.Client
 }
 
 func redact(s string) string {
@@ -41,13 +41,11 @@ func redact(s string) string {
 }
 
 func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, error) {
-	var resp *http.Response
-	var err error
-	if ts.httpDo != nil {
-		resp, err = ts.httpDo(req)
-	} else {
-		resp, err = http.DefaultClient.Do(req)
+	if ts.httpClient == nil {
+		ts.httpClient = http.DefaultClient
 	}
+
+	resp, err := ts.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("token URL err: %v", err)
 	}
