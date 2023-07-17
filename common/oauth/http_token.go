@@ -28,10 +28,9 @@ import (
 )
 
 type httpTokenSource struct {
-	req    *http.Request
-	cache  *tokenCache
-	l      *logger.Logger
-	httpDo func(req *http.Request) (*http.Response, error)
+	cache      *tokenCache
+	l          *logger.Logger
+	httpClient *http.Client
 }
 
 func redact(s string) string {
@@ -42,13 +41,11 @@ func redact(s string) string {
 }
 
 func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, error) {
-	var resp *http.Response
-	var err error
-	if ts.httpDo != nil {
-		resp, err = ts.httpDo(req)
-	} else {
-		resp, err = http.DefaultClient.Do(req)
+	if ts.httpClient == nil {
+		ts.httpClient = http.DefaultClient
 	}
+
+	resp, err := ts.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("token URL err: %v", err)
 	}
@@ -84,22 +81,36 @@ func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, erro
 	}, nil
 }
 
-func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
-	req, err := httputils.NewRequest(c.GetMethod(), c.GetTokenUrl(), httputils.NewRequestBody(c.GetData()...))
+func newRequest(method, url string, headers map[string]string, data []string) (*http.Request, error) {
+	req, err := httputils.NewRequest(method, url, httputils.NewRequestBody(data...))
 	if err != nil {
 		return nil, fmt.Errorf("error creating HTTP request: %v", err)
 	}
 
-	for k, v := range c.GetHeader() {
+	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
 
-	ts := &httpTokenSource{
-		req: req,
-		l:   l,
+	return req, nil
+}
+
+func newHTTPTokenSource(c *configpb.HTTPRequest, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
+	// Verify request parameters are correct.
+	_, err := newRequest(c.GetMethod(), c.GetTokenUrl(), c.GetHeader(), c.GetData())
+	if err != nil {
+		return nil, err
 	}
+
+	ts := &httpTokenSource{l: l}
+
 	ts.cache = &tokenCache{
-		getToken:            func() (*oauth2.Token, error) { return ts.tokenFromHTTP(ts.req) },
+		getToken: func() (*oauth2.Token, error) {
+			req, err := newRequest(c.GetMethod(), c.GetTokenUrl(), c.GetHeader(), c.GetData())
+			if err != nil {
+				return nil, err
+			}
+			return ts.tokenFromHTTP(req)
+		},
 		refreshExpiryBuffer: refreshExpiryBuffer,
 		l:                   l,
 	}
