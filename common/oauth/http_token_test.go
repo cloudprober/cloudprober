@@ -26,12 +26,31 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type testTransport struct {
+	t       *testing.T
+	respMap map[string]string
+}
+
+func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	tt.t.Helper()
+	reqBody, err := io.ReadAll(req.Body)
+	if err != nil {
+		tt.t.Errorf("error reading request body: %v", err)
+	}
+	resp := tt.respMap[string(reqBody)]
+	return &http.Response{
+		Body:       io.NopCloser(bytes.NewReader([]byte(resp))),
+		StatusCode: http.StatusOK,
+	}, nil
+}
+
 func TestHTTPTokenSourceToken(t *testing.T) {
 	tests := []struct {
 		name       string
 		cachedTok  *oauth2.Token
 		httpResp   string
 		wantAT     string
+		wantAT2    string
 		wantExpiry int
 		wantErr    bool
 	}{
@@ -39,13 +58,15 @@ func TestHTTPTokenSourceToken(t *testing.T) {
 			name:       "simple",
 			httpResp:   `{"access_token": "at", "expires_in": 10}`,
 			wantAT:     "at",
+			wantAT2:    "at",
 			wantExpiry: 10,
 		},
 		{
 			name:       "get_from_cache",
-			cachedTok:  &oauth2.Token{AccessToken: "at2", Expiry: time.Now().Add(70 * time.Second)},
+			cachedTok:  &oauth2.Token{AccessToken: "cached-at", Expiry: time.Now().Add(70 * time.Second)},
 			httpResp:   `{"access_token": "at", "expires_in": 10}`,
-			wantAT:     "at2",
+			wantAT:     "cached-at",
+			wantAT2:    "at",
 			wantExpiry: 70,
 		},
 		{
@@ -56,15 +77,22 @@ func TestHTTPTokenSourceToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := &httpTokenSource{
-				httpDo: func(*http.Request) (*http.Response, error) {
-					return &http.Response{Body: io.NopCloser(bytes.NewReader([]byte(tt.httpResp))), StatusCode: http.StatusOK}, nil
+			param := `{"grant_type":"client_credentials"}`
+			ots, err := newHTTPTokenSource(&configpb.HTTPRequest{
+				Data: []string{param},
+			}, 0, nil)
+			if err != nil {
+				t.Errorf("error creating httpTokenSource: %v", err)
+			}
+			ts := ots.(*httpTokenSource)
+
+			ts.httpClient = &http.Client{
+				Transport: &testTransport{
+					t:       t,
+					respMap: map[string]string{param: tt.httpResp},
 				},
 			}
-			ts.cache = &tokenCache{
-				tok:      tt.cachedTok,
-				getToken: func() (*oauth2.Token, error) { return ts.tokenFromHTTP(ts.req) },
-			}
+			ts.cache.tok = tt.cachedTok
 
 			got, err := ts.Token()
 			if (err != nil) != tt.wantErr {
@@ -76,6 +104,22 @@ func TestHTTPTokenSourceToken(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantAT, got.AccessToken, "access token")
+			assert.LessOrEqual(t, got.Expiry, time.Now().Add(time.Duration(tt.wantExpiry)*time.Second), "expiry")
+
+			// Mark the token as expired and try again.
+			ts.cache.mu.Lock()
+			ts.cache.tok.Expiry = time.Now().Add(-1 * time.Second)
+			ts.cache.mu.Unlock()
+
+			got, err = ts.Token()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("httpTokenSource.Token() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tt.wantAT2, got.AccessToken, "access token")
 			assert.LessOrEqual(t, got.Expiry, time.Now().Add(time.Duration(tt.wantExpiry)*time.Second), "expiry")
 		})
 	}
