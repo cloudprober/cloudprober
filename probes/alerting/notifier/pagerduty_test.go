@@ -1,3 +1,16 @@
+// Copyright 2023 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package notifier
 
 import (
@@ -26,7 +39,7 @@ func newPagerDutyEventV2TestServer(testCallback func(r *http.Request) error) *ht
 	return httptest.NewServer(mux)
 }
 
-func TestSendEventV2(t *testing.T) {
+func TestPagerDutySendEventV2(t *testing.T) {
 	server := newPagerDutyEventV2TestServer(func(r *http.Request) error {
 		// Check request
 		if r.Method != http.MethodPost {
@@ -42,7 +55,7 @@ func TestSendEventV2(t *testing.T) {
 		}
 
 		// Check body
-		body := &PagerDutyEventV2Request{}
+		body := &EventV2Request{}
 		err := json.NewDecoder(r.Body).Decode(body)
 		if err != nil {
 			t.Errorf("Error decoding body: %v", err)
@@ -64,19 +77,19 @@ func TestSendEventV2(t *testing.T) {
 	})
 	defer server.Close()
 
-	p := NewPagerDutyClient(server.URL, "test-api-token")
+	p := newPagerDutyClient(server.URL, "test-api-token")
 
-	event := &PagerDutyEventV2Request{
+	event := &EventV2Request{
 		RoutingKey:  "test-routing-key",
 		EventAction: Trigger,
-		Payload: PagerDutyEventV2Payload{
+		Payload: EventV2Payload{
 			Summary:  "test-summary",
 			Source:   "test-source",
 			Severity: "critical",
 		},
 	}
 
-	resp, err := p.SendEventV2(event)
+	resp, err := p.sendEventV2(event)
 	if err != nil {
 		t.Errorf("Error sending event: %v", err)
 	}
@@ -94,7 +107,7 @@ func TestSendEventV2(t *testing.T) {
 	}
 }
 
-func TestSendEventV2Authentication(t *testing.T) {
+func TestPagerDutySendEventV2Authentication(t *testing.T) {
 	server := newPagerDutyEventV2TestServer(func(r *http.Request) error {
 		if r.Header.Get("Authorization") != "Token token=test-api-token" {
 			t.Errorf("Expected Authorization token, got %s", r.Header.Get("Authorization"))
@@ -104,32 +117,32 @@ func TestSendEventV2Authentication(t *testing.T) {
 	})
 	defer server.Close()
 
-	p := NewPagerDutyClient(server.URL, "test-api-token")
+	p := newPagerDutyClient(server.URL, "test-api-token")
 
-	event := &PagerDutyEventV2Request{
+	event := &EventV2Request{
 		RoutingKey:  "test-routing-key",
 		EventAction: Trigger,
-		Payload: PagerDutyEventV2Payload{
+		Payload: EventV2Payload{
 			Summary:  "test-summary",
 			Source:   "test-source",
 			Severity: "critical",
 		},
 	}
 
-	_, err := p.SendEventV2(event)
+	_, err := p.sendEventV2(event)
 	if err != nil {
 		t.Errorf("Error sending event: %v", err)
 	}
 }
 
-func TestSendEventV2Error(t *testing.T) {
+func TestPagerDutySendEventV2Error(t *testing.T) {
 	server := newPagerDutyEventV2TestServer(func(r *http.Request) error {
 		return fmt.Errorf("test-error")
 	})
 	defer server.Close()
 
-	p := NewPagerDutyClient(server.URL, "test-api-token")
-	_, err := p.SendEventV2(&PagerDutyEventV2Request{})
+	p := newPagerDutyClient(server.URL, "test-api-token")
+	_, err := p.sendEventV2(&EventV2Request{})
 	if err == nil {
 		t.Errorf("Expected error sending event")
 	}

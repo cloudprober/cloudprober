@@ -29,10 +29,11 @@ import (
 )
 
 type Notifier struct {
-	l             *logger.Logger
-	alertcfg      *configpb.AlertConf
-	cmdNotifier   *commandNotifier
-	emailNotifier *emailNotifier
+	l                 *logger.Logger
+	alertcfg          *configpb.AlertConf
+	cmdNotifier       *commandNotifier
+	emailNotifier     *emailNotifier
+	pagerdutyNotifier *pagerDutyClient
 }
 
 // AlertInfo contains information about an alert.
@@ -109,6 +110,14 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
 		if emailerr == nil {
 			n.l.Errorf("Error sending email: %v", emailerr)
 			err = errors.Join(err, emailerr)
+		}
+	}
+
+	if n.pagerdutyNotifier != nil {
+		pdErr := n.pagerdutyNotifier.Notify(ctx, fields)
+		if pdErr != nil {
+			n.l.Errorf("Error sending PagerDuty event: %v", pdErr)
+			err = errors.Join(err, pdErr)
 		}
 	}
 
