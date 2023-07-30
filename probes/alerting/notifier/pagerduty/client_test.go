@@ -121,3 +121,16 @@ func TestSendEventV2Authentication(t *testing.T) {
 		t.Errorf("Error sending event: %v", err)
 	}
 }
+
+func TestSendEventV2Error(t *testing.T) {
+	server := newPagerDutyEventV2TestServer(func(r *http.Request) error {
+		return fmt.Errorf("test-error")
+	})
+	defer server.Close()
+
+	p := NewPagerDutyClient(server.URL, "test-api-token")
+	_, err := p.SendEventV2(&PagerDutyEventV2Request{})
+	if err == nil {
+		t.Errorf("Expected error sending event")
+	}
+}
