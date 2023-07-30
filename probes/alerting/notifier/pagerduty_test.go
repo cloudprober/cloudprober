@@ -224,7 +224,7 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 			p := newPagerDutyClient("test-hostname", "test-api-token")
 			got := p.createEventV2Request(tc.alertFields)
 			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("createEventV2Request(%v) = \n%+v\n, want \n%+v\n", tc.alertFields, got, tc.want)
+				t.Errorf("createEventV2Request(%v) = \n%+v\n, want \n%+v\n", got, tc.want)
 			}
 		})
 	}
