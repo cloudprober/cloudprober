@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"testing"
 
@@ -42,6 +43,126 @@ func newPagerDutyEventV2TestServer(testCallback func(r *http.Request) error) *ht
 	})
 
 	return httptest.NewServer(mux)
+}
+
+func TestPagerDutyAPIToken(t *testing.T) {
+	tests := map[string]struct {
+		config  *configpb.NotifyConfig
+		envVars map[string]string
+		want    string
+		wantErr bool
+	}{
+		"no-config_no-env": {
+			config:  &configpb.NotifyConfig{},
+			envVars: map[string]string{},
+			want:    "",
+			wantErr: true,
+		},
+		"no-config_env": {
+			config: &configpb.NotifyConfig{},
+			envVars: map[string]string{
+				"PAGERDUTY_API_TOKEN": "test-api-token",
+			},
+			want:    "test-api-token",
+			wantErr: false,
+		},
+		"config_no-env": {
+			config: &configpb.NotifyConfig{
+				PagerdutyApiToken: "test-api-token",
+			},
+			envVars: map[string]string{},
+			want:    "test-api-token",
+			wantErr: false,
+		},
+		"config_env": {
+			config: &configpb.NotifyConfig{
+				PagerdutyApiToken: "test-api-token-from-config",
+			},
+			envVars: map[string]string{
+				"PAGERDUTY_API_TOKEN": "test-api-token-from-env",
+			},
+			want:    "test-api-token-from-env",
+			wantErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			for k, v := range tc.envVars {
+				os.Setenv(k, v)
+				defer os.Unsetenv(k)
+			}
+
+			got, err := apiToken(tc.config)
+			if err != nil && !tc.wantErr {
+				t.Errorf("Error getting API token: %v", err)
+			}
+
+			if got != tc.want {
+				t.Errorf("apiToken() = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPagerDutyRoutingKey(t *testing.T) {
+	tests := map[string]struct {
+		config  *configpb.NotifyConfig
+		envVars map[string]string
+		want    string
+		wantErr bool
+	}{
+		"no-config_no-env": {
+			config:  &configpb.NotifyConfig{},
+			envVars: map[string]string{},
+			want:    "",
+			wantErr: true,
+		},
+		"no-config_env": {
+			config: &configpb.NotifyConfig{},
+			envVars: map[string]string{
+				"PAGERDUTY_ROUTING_KEY": "test-routing-key",
+			},
+			want:    "test-routing-key",
+			wantErr: false,
+		},
+		"config_no-env": {
+			config: &configpb.NotifyConfig{
+				PagerdutyRoutingKey: "test-routing-key",
+			},
+			envVars: map[string]string{},
+			want:    "test-routing-key",
+			wantErr: false,
+		},
+		"config_env": {
+			config: &configpb.NotifyConfig{
+				PagerdutyRoutingKey: "test-routing-key-from-config",
+			},
+			envVars: map[string]string{
+				"PAGERDUTY_ROUTING_KEY": "test-routing-key-from-env",
+			},
+			want:    "test-routing-key-from-env",
+			wantErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			for k, v := range tc.envVars {
+				os.Setenv(k, v)
+				defer os.Unsetenv(k)
+			}
+
+			got, err := routingKey(tc.config)
+			if err != nil && !tc.wantErr {
+				t.Errorf("Error getting routing key: %v", err)
+			}
+
+			if got != tc.want {
+				t.Errorf("routingKey() = %s, want %s", got, tc.want)
+			}
+		})
+	}
 }
 
 func TestPagerDutySendEventV2(t *testing.T) {
