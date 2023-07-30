@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -145,5 +146,86 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 	_, err := p.sendEventV2(&EventV2Request{})
 	if err == nil {
 		t.Errorf("Expected error sending event")
+	}
+}
+
+func TestPagerDutyDedupeKey(t *testing.T) {
+	tests := map[string]struct {
+		alertFields map[string]string
+		want        string
+	}{
+		"simple": {
+			alertFields: map[string]string{
+				"alert":        "test-alert",
+				"probe":        "test-probe",
+				"target":       "test-target",
+				"condition_id": "test-condition-id",
+			},
+			want: "test-alert-test-probe-test-target-test-condition-id",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := dedupeKey(tc.alertFields)
+			if got != tc.want {
+				t.Errorf("dedupeKey(%v) = %s, want %s", tc.alertFields, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPagerDutyCreateEventV2Request(t *testing.T) {
+	tests := map[string]struct {
+		alertFields map[string]string
+		want        *EventV2Request
+	}{
+		"simple": {
+			alertFields: map[string]string{
+				"alert":        "test-alert",
+				"summary":      "test-summary",
+				"probe":        "test-probe",
+				"target":       "test-target",
+				"condition_id": "test-condition-id",
+				"failures":     "1",
+				"total":        "2",
+				"since":        "2020-01-01T00:00:00Z",
+			},
+			want: &EventV2Request{
+				RoutingKey:  "test-api-token",
+				DedupKey:    "test-alert-test-probe-test-target-test-condition-id",
+				EventAction: Trigger,
+				Client:      "Cloudprober",
+				ClientURL:   PAGERDUTY_CLIENT_URL,
+				Payload: EventV2Payload{
+					Summary:   "test-summary",
+					Source:    "test-target",
+					Severity:  "critical",
+					Timestamp: "2020-01-01T00:00:00Z",
+					Component: "test-probe",
+					Group:     "test-condition-id",
+					CustomDetails: map[string]string{
+						"alert":        "test-alert",
+						"summary":      "test-summary",
+						"probe":        "test-probe",
+						"target":       "test-target",
+						"condition_id": "test-condition-id",
+						"failures":     "1",
+						"total":        "2",
+						"since":        "2020-01-01T00:00:00Z",
+					},
+				},
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			p := newPagerDutyClient("test-hostname", "test-api-token")
+			got := p.createEventV2Request(tc.alertFields)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("createEventV2Request(%v) = \n%+v\n, want \n%+v\n", tc.alertFields, got, tc.want)
+			}
+		})
 	}
 }
