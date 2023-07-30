@@ -24,6 +24,25 @@ package proto
 	// - SMTP_PASSWORD: SMTP password.
 	email?: [...string] @protobuf(11,string)
 	emailFrom?: string @protobuf(12,string,name=email_from) // Default: SMTP_USERNAME
+
+	// Enable PagerDuty alerts. If set to true, alerts will be sent to
+	// PagerDuty.
+	pagerduty?: bool @protobuf(31,bool) // Default: false
+
+	// PagerDuty URL.
+	pagerdutyUrl?: string @protobuf(32,string,name=pagerduty_url) // Default: https://api.pagerduty.com
+
+	// PagerDuty API Token.
+	// PagerDuty API key can also be set using the environment variable:
+	// PAGERDUTY_API_TOKEN.
+	// The environment variable takes precedence over this field.
+	pagerdutyApiToken?: string @protobuf(33,string,name=pagerduty_api_token)
+
+	// PagerDuty routing key.
+	// PagerDuty routing key can also be set using the environment variable:
+	// PAGERDUTY_ROUTING_KEY.
+	// The environment variable takes precedence over this field.
+	pagerdutyRoutingKey?: string @protobuf(34,string,name=pagerduty_routing_key)
 }
 
 #Condition: {

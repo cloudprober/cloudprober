@@ -24,6 +24,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/alerting/notifier/pagerduty"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
@@ -33,7 +34,7 @@ type Notifier struct {
 	alertcfg          *configpb.AlertConf
 	cmdNotifier       *commandNotifier
 	emailNotifier     *emailNotifier
-	pagerdutyNotifier *pagerDutyClient
+	pagerdutyNotifier *pagerduty.Client
 }
 
 // AlertInfo contains information about an alert.
@@ -152,6 +153,14 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 			return nil, fmt.Errorf("error configuring email notifier: %v", err)
 		}
 		n.emailNotifier = en
+	}
+
+	if n.alertcfg.Notify.GetPagerduty() == true {
+		pd, err := pagerduty.New(n.alertcfg.GetNotify(), l)
+		if err != nil {
+			return nil, fmt.Errorf("error configuring PagerDuty notifier: %v", err)
+		}
+		n.pagerdutyNotifier = pd
 	}
 
 	return n, nil

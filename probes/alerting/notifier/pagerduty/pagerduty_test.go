@@ -11,15 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package notifier
+package pagerduty
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
 func newPagerDutyEventV2TestServer(testCallback func(r *http.Request) error) *httptest.Server {
@@ -78,7 +82,22 @@ func TestPagerDutySendEventV2(t *testing.T) {
 	})
 	defer server.Close()
 
-	p := newPagerDutyClient(server.URL, "test-api-token")
+	notifyConfig := &configpb.NotifyConfig{
+		Pagerduty:           true,
+		PagerdutyUrl:        server.URL,
+		PagerdutyApiToken:   "test-api-token",
+		PagerdutyRoutingKey: "test-routing-key",
+	}
+
+	l, err := logger.New(context.TODO(), "test")
+	if err != nil {
+		t.Errorf("Error creating logger: %v", err)
+	}
+
+	p, err := New(notifyConfig, l)
+	if err != nil {
+		t.Errorf("Error creating PagerDuty client: %v", err)
+	}
 
 	event := &EventV2Request{
 		RoutingKey:  "test-routing-key",
@@ -118,7 +137,22 @@ func TestPagerDutySendEventV2Authentication(t *testing.T) {
 	})
 	defer server.Close()
 
-	p := newPagerDutyClient(server.URL, "test-api-token")
+	notifyConfig := &configpb.NotifyConfig{
+		Pagerduty:           true,
+		PagerdutyUrl:        server.URL,
+		PagerdutyApiToken:   "test-api-token",
+		PagerdutyRoutingKey: "test-routing-key",
+	}
+
+	l, err := logger.New(context.TODO(), "test")
+	if err != nil {
+		t.Errorf("Error creating logger: %v", err)
+	}
+
+	p, err := New(notifyConfig, l)
+	if err != nil {
+		t.Errorf("Error creating PagerDuty client: %v", err)
+	}
 
 	event := &EventV2Request{
 		RoutingKey:  "test-routing-key",
@@ -130,7 +164,7 @@ func TestPagerDutySendEventV2Authentication(t *testing.T) {
 		},
 	}
 
-	_, err := p.sendEventV2(event)
+	_, err = p.sendEventV2(event)
 	if err != nil {
 		t.Errorf("Error sending event: %v", err)
 	}
@@ -142,8 +176,24 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 	})
 	defer server.Close()
 
-	p := newPagerDutyClient(server.URL, "test-api-token")
-	_, err := p.sendEventV2(&EventV2Request{})
+	notifyConfig := &configpb.NotifyConfig{
+		Pagerduty:           true,
+		PagerdutyUrl:        server.URL,
+		PagerdutyApiToken:   "test-api-token",
+		PagerdutyRoutingKey: "test-routing-key",
+	}
+
+	l, err := logger.New(context.TODO(), "test")
+	if err != nil {
+		t.Errorf("Error creating logger: %v", err)
+	}
+
+	p, err := New(notifyConfig, l)
+	if err != nil {
+		t.Errorf("Error creating PagerDuty client: %v", err)
+	}
+
+	_, err = p.sendEventV2(&EventV2Request{})
 	if err == nil {
 		t.Errorf("Expected error sending event")
 	}
@@ -192,7 +242,7 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 				"since":        "2020-01-01T00:00:00Z",
 			},
 			want: &EventV2Request{
-				RoutingKey:  "test-api-token",
+				RoutingKey:  "test-routing-key",
 				DedupKey:    "test-alert-test-probe-test-target-test-condition-id",
 				EventAction: Trigger,
 				Client:      "Cloudprober",
@@ -221,10 +271,26 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			p := newPagerDutyClient("test-hostname", "test-api-token")
+			notifyConfig := &configpb.NotifyConfig{
+				Pagerduty:           true,
+				PagerdutyUrl:        "test-hostname",
+				PagerdutyApiToken:   "test-api-token",
+				PagerdutyRoutingKey: "test-routing-key",
+			}
+
+			l, err := logger.New(context.TODO(), "test")
+			if err != nil {
+				t.Errorf("Error creating logger: %v", err)
+			}
+
+			p, err := New(notifyConfig, l)
+			if err != nil {
+				t.Errorf("Error creating PagerDuty client: %v", err)
+			}
+
 			got := p.createEventV2Request(tc.alertFields)
 			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("createEventV2Request(%v) = \n%+v\n, want \n%+v\n", got, tc.want)
+				t.Errorf("createEventV2Request = \n%+v\n, want \n%+v\n", got, tc.want)
 			}
 		})
 	}

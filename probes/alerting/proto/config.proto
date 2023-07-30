@@ -28,6 +28,25 @@ message NotifyConfig {
     // - SMTP_PASSWORD: SMTP password.
     repeated string email = 11;
     string email_from = 12;  // Default: SMTP_USERNAME
+
+    // Enable PagerDuty alerts. If set to true, alerts will be sent to
+    // PagerDuty.
+    bool pagerduty = 31; // Default: false
+
+    // PagerDuty URL.
+    string pagerduty_url = 32; // Default: https://api.pagerduty.com
+    
+    // PagerDuty API Token.
+    // PagerDuty API key can also be set using the environment variable:
+    // PAGERDUTY_API_TOKEN.
+    // The environment variable takes precedence over this field.
+    string pagerduty_api_token = 33;
+
+    // PagerDuty routing key.
+    // PagerDuty routing key can also be set using the environment variable:
+    // PAGERDUTY_ROUTING_KEY.
+    // The environment variable takes precedence over this field.
+    string pagerduty_routing_key = 34;
 }
 
 message Condition {
