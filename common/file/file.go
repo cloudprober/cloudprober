@@ -21,14 +21,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/oauth2/google"
 )
+
+type cacheEntry struct {
+	b          []byte
+	lastReload time.Time
+}
+
+var global = struct {
+	cache map[string]cacheEntry
+	mu    sync.RWMutex
+}{
+	cache: make(map[string]cacheEntry),
+}
 
 type readFunc func(path string) ([]byte, error)
 type modTimeFunc func(path string) (time.Time, error)
@@ -59,7 +72,7 @@ func readFileFromGCS(objectPath string) ([]byte, error) {
 	}
 
 	defer res.Body.Close()
-	return ioutil.ReadAll(res.Body)
+	return io.ReadAll(res.Body)
 }
 
 func modTimeGCS(objectPath string) (time.Time, error) {
@@ -76,7 +89,26 @@ func ReadFile(fname string) ([]byte, error) {
 			return f(fname[len(prefix):])
 		}
 	}
-	return ioutil.ReadFile(fname)
+	return os.ReadFile(fname)
+}
+
+func ReadWithCache(fname string, refreshInterval time.Duration) ([]byte, error) {
+	global.mu.RLock()
+	fc, ok := global.cache[fname]
+	global.mu.RUnlock()
+	if ok && (time.Since(fc.lastReload) < refreshInterval) {
+		return fc.b, nil
+	}
+
+	b, err := ReadFile(fname)
+	if err != nil {
+		return nil, err
+	}
+
+	global.mu.Lock()
+	global.cache[fname] = cacheEntry{b: b, lastReload: time.Now()}
+	global.mu.Unlock()
+	return b, nil
 }
 
 // ModTime returns file's modified timestamp.

@@ -15,4 +15,9 @@ package proto
 
 	// ServerName override
 	serverName?: string @protobuf(5,string,name=server_name)
+
+	// Live reload interval in seconds. If set, the TLS config will be reloaded
+	// every reload_interval_sec seconds. This is useful when certificates
+	// are generated and refreshed dynamically.
+	reloadIntervalSec?: int32 @protobuf(6,int32,name=reload_interval_sec)
 }
