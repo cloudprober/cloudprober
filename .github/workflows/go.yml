@@ -63,7 +63,14 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: sudo sudo sysctl -w net.ipv4.ping_group_range="0 500000"
 
-      - name: Test
+      - name: Test on ubuntu
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: |
+          go install gotest.tools/gotestsum@latest
+          gotestsum --jsonfile=report.json --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic -coverprofile=cover.out
+
+      - name: Test on non-ubuntu
+        if: ${{ matrix.os != 'ubuntu-latest' }}
         run: |
           go install gotest.tools/gotestsum@latest
           gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
@@ -73,6 +80,15 @@ jobs:
         run: |
           go test github.com/cloudprober/cloudprober/probes/ping -c
           sudo PING_HOSTS_V4=${{ env.PING_HOSTS_V4 }} PING_HOSTS_V6=${{ env.PING_HOSTS_V6 }} ./ping.test -test.v -test.run ^TestRunProbeRealICMP$
+
+      - name: Upload test and coverage reports
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-reports
+          path: |
+            report.json
+            cover.out
 
   build-binaries:
     name: Build binaries
