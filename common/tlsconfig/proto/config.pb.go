@@ -35,9 +35,9 @@ type TLSConfig struct {
 	DisableCertValidation *bool `protobuf:"varint,4,opt,name=disable_cert_validation,json=disableCertValidation" json:"disable_cert_validation,omitempty"`
 	// ServerName override
 	ServerName *string `protobuf:"bytes,5,opt,name=server_name,json=serverName" json:"server_name,omitempty"`
-	// Live reload interval in seconds. If set, the TLS config will be reloaded
-	// every reload_interval_sec seconds. This is useful when certificates
-	// are generated and refreshed dynamically.
+	// Certificate reload interval in seconds. If configured, the TLS cert will
+	// be reloaded every reload_interval_sec seconds. This is useful when
+	// certificates are generated and refreshed dynamically.
 	ReloadIntervalSec *int32 `protobuf:"varint,6,opt,name=reload_interval_sec,json=reloadIntervalSec" json:"reload_interval_sec,omitempty"`
 }
 
