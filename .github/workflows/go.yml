@@ -75,6 +75,13 @@ jobs:
           go install gotest.tools/gotestsum@latest
           gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
 
+      - name: SonarCloud Scan
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Privileged ping tests.
         if: ${{ matrix.os != 'windows-latest' }}
         run: |
