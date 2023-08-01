@@ -1,4 +1,4 @@
-// Copyright 2019-2023 The Cloudprober Authors.
+// Copyright 2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package tlsconfig implements utilities to parse TLSConfig.
 package tlsconfig
 
 // openssl ecparam -name prime256v1 -genkey -noout -out private-key.pem
