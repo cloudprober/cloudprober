@@ -36,14 +36,8 @@ func parseAndVerifyCert(t *testing.T, cert tls.Certificate, wantCommonName strin
 }
 
 func TestUpdateTLSConfig(t *testing.T) {
-	readFile := func(name string) []byte {
-		b, err := os.ReadFile(name)
-		assert.NoError(t, err, "failed to read file %s", name)
-		return b
-	}
-
-	cert1 := [2][]byte{readFile("testdata/cert1.crt"), readFile("testdata/cert1.key")}
-	cert2 := [2][]byte{readFile("testdata/cert2.crt"), readFile("testdata/cert2.key")}
+	cert1 := [2]string{cert1PEM, cert1Key}
+	cert2 := [2]string{cert2PEM, cert2Key}
 
 	tempCertF, err := os.CreateTemp("", "cert")
 	assert.NoError(t, err, "failed to create temp cert file")
@@ -53,15 +47,15 @@ func TestUpdateTLSConfig(t *testing.T) {
 	defer os.Remove(testCert)
 	defer os.Remove(testKey)
 
-	writeTestCert := func(cert [2][]byte) {
-		assert.NoError(t, os.WriteFile(testCert, cert[0], 0644), "failed to write file %s", testCert)
-		assert.NoError(t, os.WriteFile(testKey, cert[1], 0644), "failed to write file %s", testKey)
+	writeTestCert := func(cert [2]string) {
+		assert.NoError(t, os.WriteFile(testCert, []byte(cert[0]), 0644), "failed to write file %s", testCert)
+		assert.NoError(t, os.WriteFile(testKey, []byte(cert[1]), 0644), "failed to write file %s", testKey)
 	}
 
 	tests := []struct {
 		name       string
-		baseCert   [2][]byte
-		nextCert   [2][]byte
+		baseCert   [2]string
+		nextCert   [2]string
 		nextKey    []byte
 		dynamic    bool
 		wantCN     string
@@ -118,7 +112,7 @@ func TestUpdateTLSConfig(t *testing.T) {
 				assert.NoError(t, err, "Error getting TLS certificate")
 				parseAndVerifyCert(t, *cert, tt.wantCN)
 
-				if tt.nextCert[0] != nil {
+				if tt.nextCert[0] != "" {
 					writeTestCert(tt.nextCert)
 					time.Sleep(1 * time.Second)
 					cert, err := tlsConfig.GetCertificate(nil)
