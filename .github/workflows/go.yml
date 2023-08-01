@@ -69,6 +69,7 @@ jobs:
           gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
           
       - name: SonarCloud Scan
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
