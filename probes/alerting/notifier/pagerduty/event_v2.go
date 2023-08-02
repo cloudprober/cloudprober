@@ -131,5 +131,5 @@ func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Req
 
 // dedupeKey returns a unique key for the alert.
 func eventV2DedupeKey(alertFields map[string]string) string {
-	return fmt.Sprintf("%s-%s-%s-%s", alertFields["alert"], alertFields["probe"], alertFields["target"], alertFields["condition_id"])
+	return fmt.Sprintf("%s-%s-%s", alertFields["alert"], alertFields["probe"], alertFields["target"])
 }

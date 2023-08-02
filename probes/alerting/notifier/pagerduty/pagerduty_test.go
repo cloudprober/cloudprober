@@ -160,12 +160,11 @@ func TestPagerDutyEventV2DedupeKey(t *testing.T) {
 	}{
 		"simple": {
 			alertFields: map[string]string{
-				"alert":        "test-alert",
-				"probe":        "test-probe",
-				"target":       "test-target",
-				"condition_id": "test-condition-id",
+				"alert":  "test-alert",
+				"probe":  "test-probe",
+				"target": "test-target",
 			},
-			want: "test-alert-test-probe-test-target-test-condition-id",
+			want: "test-alert-test-probe-test-target",
 		},
 	}
 
@@ -197,7 +196,7 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 			},
 			want: &EventV2Request{
 				RoutingKey:  "test-routing-key",
-				DedupKey:    "test-alert-test-probe-test-target-test-condition-id",
+				DedupKey:    "test-alert-test-probe-test-target",
 				EventAction: Trigger,
 				Client:      "Cloudprober",
 				ClientURL:   "https://cloudprober.org/",
