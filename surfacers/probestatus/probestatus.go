@@ -186,7 +186,13 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
 
 	if !httputils.IsHandled(opts.HTTPServeMux, "/") {
-		opts.HTTPServeMux.Handle("/", http.RedirectHandler(config.GetUrl(), http.StatusFound))
+		opts.HTTPServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/" {
+				http.NotFound(w, r)
+				return
+			}
+			http.Redirect(w, r, "/probestatus", http.StatusFound)
+		})
 	}
 
 	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
