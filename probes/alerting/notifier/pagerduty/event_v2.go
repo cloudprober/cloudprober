@@ -74,10 +74,6 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 		return nil, err
 	}
 
-	// The PagerDuty API requires the Accept header to be set to
-	// application/vnd.pagerduty+json;version=2 to version the response.
-	// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTUy-versioning
-	req.Header.Set("Accept", "application/vnd.pagerduty+json;version=2")
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
