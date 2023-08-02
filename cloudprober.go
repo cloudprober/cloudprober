@@ -241,7 +241,8 @@ func Start(ctx context.Context) {
 	defer cloudProber.Unlock()
 
 	// Default servers
-	httpSrv := &http.Server{Handler: runconfig.DefaultHTTPServeMux()}
+	srvMux := runconfig.DefaultHTTPServeMux()
+	httpSrv := &http.Server{Handler: srvMux}
 	grpcSrv := runconfig.DefaultGRPCServer()
 
 	// Set up a goroutine to cleanup if context ends.
@@ -271,6 +272,9 @@ func Start(ctx context.Context) {
 	}
 
 	cloudProber.prober.Start(ctx)
+	srvMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "OK")
+	})
 }
 
 // GetConfig returns the prober config.
