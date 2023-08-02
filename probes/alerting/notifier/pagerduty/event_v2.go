@@ -1,3 +1,10 @@
+/*
+	Pagerduty EventV2. This package implements the EventsV2 interface to send alerts to PagerDuty.
+	Specifically, it implements the "Alert Event" component of the EventsV2 API.
+
+	https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event
+*/
+
 package pagerduty
 
 import (
@@ -8,8 +15,8 @@ import (
 	"net/http"
 )
 
-// EventV2Request is the data structure for a PagerDuty event, using the V2 API.
-// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event
+// EventV2Request is the data structure for a Pagerduty event.
+// The event can either be an alarm event, or a change event.
 type EventV2Request struct {
 	RoutingKey  string          `json:"routing_key"` // required
 	DedupKey    string          `json:"dedup_key,omitempty"`
@@ -21,7 +28,8 @@ type EventV2Request struct {
 	Links       []EventV2Links  `json:"links,omitempty"`
 }
 
-// EventV2Payload is the data structure for the payload of a PagerDuty event, using the V2 API.
+// EventV2Payload is the data structure for the payload of a PagerDuty event.
+// This struct encapsulates metadata about the alarm.
 type EventV2Payload struct {
 	Summary       string            `json:"summary"`  // required
 	Source        string            `json:"source"`   // required
@@ -33,20 +41,24 @@ type EventV2Payload struct {
 	CustomDetails map[string]string `json:"custom_details,omitempty"`
 }
 
-// EventV2Images is the data structure for an image in a PagerDuty event, using the V2 API.
+// EventV2Images is the data structure for an image in a PagerDuty event.
+// Images are optional.
 type EventV2Images struct {
 	Src  string `json:"src,omitempty"`
 	Alt  string `json:"alt,omitempty"`
 	Href string `json:"href,omitempty"`
 }
 
-// PagerDutyEventV2Links is the data structure for a link in a PagerDuty event, using the V2 API.
+// EventV2Links is the data structure for a link in a PagerDuty event.
+// Links are optional
 type EventV2Links struct {
 	Href string `json:"href,omitempty"`
 	Text string `json:"text,omitempty"`
 }
 
-// EventAction is the action to be performed on the event
+// EventV2Action is the action to be performed on the event, documented as:
+// The type of event. Can be trigger, acknowledge or resolve.
+// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event#event-action-behavior
 type EventV2Action string
 
 const (
@@ -55,14 +67,28 @@ const (
 	Resolve                   = "resolve"
 )
 
-// EventV2Response is the data structure for a PagerDuty event response, using the V2 API.
-// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event
+// EventV2Severity is the severity of the event, documented as:
+// The perceived severity of the status the event is describing with respect
+// to the affected system. This can be critical, error, warning or info.
+// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event#parameters
+type EventV2Severity string
+
+const (
+	Critical EventV2Severity = "critical"
+	Error                    = "error"
+	Warning                  = "warning"
+	Info                     = "info"
+)
+
+// EventV2Response is the data structure that is returned from PagerDuty when
+// sending a EventV2 request.
 type EventV2Response struct {
 	Status   string `json:"status,omitempty"`
 	Message  string `json:"message,omitempty"`
 	DedupKey string `json:"dedup_key,omitempty"`
 }
 
+// sendEventV2 sends an event to PagerDuty using the V2 API.
 func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 	jsonBody, err := json.Marshal(event)
 	if err != nil {
@@ -101,7 +127,8 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 	return body, nil
 }
 
-// createEventV2Request creates a new PagerDuty event, using the V2 API.
+// createEventV2Request creates a new PagerDuty event, from the alertFields that are passed
+// in from the alerting package.
 func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Request {
 	return &EventV2Request{
 		RoutingKey:  c.routingKey,
