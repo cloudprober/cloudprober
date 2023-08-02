@@ -3,6 +3,8 @@ package pagerduty
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -56,29 +58,78 @@ const (
 // EventV2Response is the data structure for a PagerDuty event response, using the V2 API.
 // https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event
 type EventV2Response struct {
-	Status      string `json:"status"`
-	Message     string `json:"message"`
-	IncidentKey string `json:"incident_key"`
+	Status   string `json:"status,omitempty"`
+	Message  string `json:"message,omitempty"`
+	DedupKey string `json:"dedup_key,omitempty"`
 }
 
-// NewRequest creates a new HTTP request for the PagerDuty event.
-func (e *EventV2Request) httpRequest(hostname string) (*http.Request, error) {
-	jsonBody, err := json.Marshal(e)
+func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
+	jsonBody, err := json.Marshal(event)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, hostname+"/v2/enqueue", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest(http.MethodPost, c.hostname+"/v2/enqueue", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Content-Type", "application/json")
 
 	// The PagerDuty API requires the Accept header to be set to
 	// application/vnd.pagerduty+json;version=2 to version the response.
 	// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTUy-versioning
 	req.Header.Set("Accept", "application/vnd.pagerduty+json;version=2")
+	req.Header.Set("Content-Type", "application/json")
 
-	return req, nil
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// check status code, return error if not 202
+	if resp.StatusCode != http.StatusAccepted {
+		return nil, fmt.Errorf("PagerDuty API returned status code %d", resp.StatusCode)
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(string(b))
+
+	body := &EventV2Response{}
+	err = json.Unmarshal(b, body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+// TODO: Refactor this as not all fields are correct.
+// createEventV2Request creates a new PagerDuty event, using the V2 API.
+func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Request {
+	return &EventV2Request{
+		RoutingKey:  c.routingKey,
+		DedupKey:    eventV2DedupeKey(alertFields),
+		EventAction: Trigger,
+		Client:      "Cloudprober",
+		ClientURL:   "https://cloudprober.org/",
+		Payload: EventV2Payload{
+			Summary:   alertFields["summary"],
+			Source:    alertFields["target"],
+			Severity:  "critical",
+			Timestamp: alertFields["since"],
+			Component: alertFields["probe"],
+			Group:     alertFields["condition_id"],
+			// pass all alert fields as custom details
+			CustomDetails: alertFields,
+		},
+	}
+}
+
+// dedupeKey returns a unique key for the alert.
+func eventV2DedupeKey(alertFields map[string]string) string {
+	return fmt.Sprintf("%s-%s-%s-%s", alertFields["alert"], alertFields["probe"], alertFields["target"], alertFields["condition_id"])
 }

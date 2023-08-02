@@ -29,24 +29,15 @@ message NotifyConfig {
     repeated string email = 11;
     string email_from = 12;  // Default: SMTP_USERNAME
 
-    // Enable PagerDuty alerts. If set to true, alerts will be sent to
-    // PagerDuty.
-    bool pagerduty = 31; // Default: false
+    // PagerDuty Routing Key.
+    // The routing key is used to determine which service the alerts are sent to
+    // and is generated with the service. The routing key is found under the service,
+    // when the events v2 integration is enabled.
+    // If the pagerduty routing key is set then pagerduty alerts will be enabled.
+    string pagerduty_routing_key = 30;
 
-    // PagerDuty URL.
-    string pagerduty_url = 32; // Default: https://api.pagerduty.com
-    
-    // PagerDuty API Token.
-    // PagerDuty API key can also be set using the environment variable:
-    // PAGERDUTY_API_TOKEN.
-    // The environment variable takes precedence over this field.
-    string pagerduty_api_token = 33;
-
-    // PagerDuty routing key.
-    // PagerDuty routing key can also be set using the environment variable:
-    // PAGERDUTY_ROUTING_KEY.
-    // The environment variable takes precedence over this field.
-    string pagerduty_routing_key = 34;
+    // PagerDuty API URL.
+    string pagerduty_api_url = 31; // Default: https://event.pagerduty.com
 }
 
 message Condition {

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"testing"
 
@@ -38,131 +37,12 @@ func newPagerDutyEventV2TestServer(testCallback func(r *http.Request) error) *ht
 		}
 
 		// Respond
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, `{"status":"success","message":"Event processed","incident_key":"test-incident-key"}`)
+		w.WriteHeader(http.StatusAccepted)
+
+		fmt.Fprintln(w, `{"status":"success","message":"Event processed","dedup_key":"test-dedupe-key"}`)
 	})
 
 	return httptest.NewServer(mux)
-}
-
-func TestPagerDutyAPIToken(t *testing.T) {
-	tests := map[string]struct {
-		config  *configpb.NotifyConfig
-		envVars map[string]string
-		want    string
-		wantErr bool
-	}{
-		"no-config_no-env": {
-			config:  &configpb.NotifyConfig{},
-			envVars: map[string]string{},
-			want:    "",
-			wantErr: true,
-		},
-		"no-config_env": {
-			config: &configpb.NotifyConfig{},
-			envVars: map[string]string{
-				"PAGERDUTY_API_TOKEN": "test-api-token",
-			},
-			want:    "test-api-token",
-			wantErr: false,
-		},
-		"config_no-env": {
-			config: &configpb.NotifyConfig{
-				PagerdutyApiToken: "test-api-token",
-			},
-			envVars: map[string]string{},
-			want:    "test-api-token",
-			wantErr: false,
-		},
-		"config_env": {
-			config: &configpb.NotifyConfig{
-				PagerdutyApiToken: "test-api-token-from-config",
-			},
-			envVars: map[string]string{
-				"PAGERDUTY_API_TOKEN": "test-api-token-from-env",
-			},
-			want:    "test-api-token-from-env",
-			wantErr: false,
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			for k, v := range tc.envVars {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
-			}
-
-			got, err := apiToken(tc.config)
-			if err != nil && !tc.wantErr {
-				t.Errorf("Error getting API token: %v", err)
-			}
-
-			if got != tc.want {
-				t.Errorf("apiToken() = %s, want %s", got, tc.want)
-			}
-		})
-	}
-}
-
-func TestPagerDutyRoutingKey(t *testing.T) {
-	tests := map[string]struct {
-		config  *configpb.NotifyConfig
-		envVars map[string]string
-		want    string
-		wantErr bool
-	}{
-		"no-config_no-env": {
-			config:  &configpb.NotifyConfig{},
-			envVars: map[string]string{},
-			want:    "",
-			wantErr: true,
-		},
-		"no-config_env": {
-			config: &configpb.NotifyConfig{},
-			envVars: map[string]string{
-				"PAGERDUTY_ROUTING_KEY": "test-routing-key",
-			},
-			want:    "test-routing-key",
-			wantErr: false,
-		},
-		"config_no-env": {
-			config: &configpb.NotifyConfig{
-				PagerdutyRoutingKey: "test-routing-key",
-			},
-			envVars: map[string]string{},
-			want:    "test-routing-key",
-			wantErr: false,
-		},
-		"config_env": {
-			config: &configpb.NotifyConfig{
-				PagerdutyRoutingKey: "test-routing-key-from-config",
-			},
-			envVars: map[string]string{
-				"PAGERDUTY_ROUTING_KEY": "test-routing-key-from-env",
-			},
-			want:    "test-routing-key-from-env",
-			wantErr: false,
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			for k, v := range tc.envVars {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
-			}
-
-			got, err := routingKey(tc.config)
-			if err != nil && !tc.wantErr {
-				t.Errorf("Error getting routing key: %v", err)
-			}
-
-			if got != tc.want {
-				t.Errorf("routingKey() = %s, want %s", got, tc.want)
-			}
-		})
-	}
 }
 
 func TestPagerDutySendEventV2(t *testing.T) {
@@ -204,9 +84,7 @@ func TestPagerDutySendEventV2(t *testing.T) {
 	defer server.Close()
 
 	notifyConfig := &configpb.NotifyConfig{
-		Pagerduty:           true,
-		PagerdutyUrl:        server.URL,
-		PagerdutyApiToken:   "test-api-token",
+		PagerdutyApiUrl:     server.URL,
 		PagerdutyRoutingKey: "test-routing-key",
 	}
 
@@ -243,51 +121,8 @@ func TestPagerDutySendEventV2(t *testing.T) {
 		t.Errorf("Expected message 'Event processed', got %s", resp.Message)
 	}
 
-	if resp.IncidentKey != "test-incident-key" {
-		t.Errorf("Expected incident key 'test-incident-key', got %s", resp.IncidentKey)
-	}
-}
-
-func TestPagerDutySendEventV2Authentication(t *testing.T) {
-	server := newPagerDutyEventV2TestServer(func(r *http.Request) error {
-		if r.Header.Get("Authorization") != "Token token=test-api-token" {
-			t.Errorf("Expected Authorization token, got %s", r.Header.Get("Authorization"))
-		}
-
-		return nil
-	})
-	defer server.Close()
-
-	notifyConfig := &configpb.NotifyConfig{
-		Pagerduty:           true,
-		PagerdutyUrl:        server.URL,
-		PagerdutyApiToken:   "test-api-token",
-		PagerdutyRoutingKey: "test-routing-key",
-	}
-
-	l, err := logger.New(context.TODO(), "test")
-	if err != nil {
-		t.Errorf("Error creating logger: %v", err)
-	}
-
-	p, err := New(notifyConfig, l)
-	if err != nil {
-		t.Errorf("Error creating PagerDuty client: %v", err)
-	}
-
-	event := &EventV2Request{
-		RoutingKey:  "test-routing-key",
-		EventAction: Trigger,
-		Payload: EventV2Payload{
-			Summary:  "test-summary",
-			Source:   "test-source",
-			Severity: "critical",
-		},
-	}
-
-	_, err = p.sendEventV2(event)
-	if err != nil {
-		t.Errorf("Error sending event: %v", err)
+	if resp.DedupKey != "test-dedupe-key" {
+		t.Errorf("Expected Dedupe key 'test-dedupe-key', got %s", resp.DedupKey)
 	}
 }
 
@@ -298,9 +133,7 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 	defer server.Close()
 
 	notifyConfig := &configpb.NotifyConfig{
-		Pagerduty:           true,
-		PagerdutyUrl:        server.URL,
-		PagerdutyApiToken:   "test-api-token",
+		PagerdutyApiUrl:     server.URL,
 		PagerdutyRoutingKey: "test-routing-key",
 	}
 
@@ -320,7 +153,7 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 	}
 }
 
-func TestPagerDutyDedupeKey(t *testing.T) {
+func TestPagerDutyEventV2DedupeKey(t *testing.T) {
 	tests := map[string]struct {
 		alertFields map[string]string
 		want        string
@@ -338,7 +171,7 @@ func TestPagerDutyDedupeKey(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := dedupeKey(tc.alertFields)
+			got := eventV2DedupeKey(tc.alertFields)
 			if got != tc.want {
 				t.Errorf("dedupeKey(%v) = %s, want %s", tc.alertFields, got, tc.want)
 			}
@@ -367,7 +200,7 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 				DedupKey:    "test-alert-test-probe-test-target-test-condition-id",
 				EventAction: Trigger,
 				Client:      "Cloudprober",
-				ClientURL:   PAGERDUTY_CLIENT_URL,
+				ClientURL:   "https://cloudprober.org/",
 				Payload: EventV2Payload{
 					Summary:   "test-summary",
 					Source:    "test-target",
@@ -393,9 +226,7 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			notifyConfig := &configpb.NotifyConfig{
-				Pagerduty:           true,
-				PagerdutyUrl:        "test-hostname",
-				PagerdutyApiToken:   "test-api-token",
+				PagerdutyApiUrl:     "test-hostname",
 				PagerdutyRoutingKey: "test-routing-key",
 			}
 
