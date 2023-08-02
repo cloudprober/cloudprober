@@ -107,7 +107,6 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 	return body, nil
 }
 
-// TODO: Refactor this as not all fields are correct.
 // createEventV2Request creates a new PagerDuty event, using the V2 API.
 func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Request {
 	return &EventV2Request{
