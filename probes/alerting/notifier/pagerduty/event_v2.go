@@ -96,8 +96,6 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 		return nil, err
 	}
 
-	fmt.Println(string(b))
-
 	body := &EventV2Response{}
 	err = json.Unmarshal(b, body)
 	if err != nil {
