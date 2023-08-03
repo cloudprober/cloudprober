@@ -32,7 +32,8 @@ local port to find the correct destination socket.
 More about these sockets: http://lwn.net/Articles/420800/
 Note: On some linux distributions these sockets are not enabled by default; you
 can enable them by doing something like the following:
-      sudo sysctl -w net.ipv4.ping_group_range="0 5000"
+
+	sudo sysctl -w net.ipv4.ping_group_range="0 5000"
 */
 package ping
 
@@ -472,11 +473,11 @@ func (p *Probe) newRunID() uint16 {
 
 // runProbe is called by Run for each probe interval. It does the following on
 // each run:
-//   * Resolve targets if target resolve interval has elapsed.
-//   * Increment run count (runCnt).
-//   * Get a new run ID.
-//   * Starts a goroutine to receive packets.
-//   * Send packets.
+//   - Resolve targets if target resolve interval has elapsed.
+//   - Increment run count (runCnt).
+//   - Get a new run ID.
+//   - Starts a goroutine to receive packets.
+//   - Send packets.
 func (p *Probe) runProbe() {
 	// Resolve targets if target resolve interval has elapsed.
 	if (p.runCnt % uint64(p.c.GetResolveTargetsInterval())) == 0 {
@@ -528,7 +529,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", metrics.NewInt(result.sent)).
 				AddMetric("success", metrics.NewInt(success)).
-				AddMetric(p.opts.LatencyMetricName, result.latency).
+				AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", target.Name)
