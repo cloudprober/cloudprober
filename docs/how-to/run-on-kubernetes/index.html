@@ -103,14 +103,14 @@ setting up metrics collection through prometheus (or stackdriver) in usual ways.
 resources (e.g. pods, endpoints, etc) as well. Cloudprober supports <a href=https://cloudprober.org/docs/how-to/targets/#dynamically-discovered-targets>dynamic
 discovery</a> of Kubernetes
 resources through the targets type
-<a href=https://github.com/cloudprober/cloudprober/blob/ad73fe489ea3ac69e7b0f81a465671df9adc8321/targets/proto/targets.proto#L40><code>k8s_targets</code></a>.</p><p>For example, the following config adds an HTTP probe for the endpoints named
+<a href=https://github.com/cloudprober/cloudprober/blob/ad73fe489ea3ac69e7b0f81a465671df9adc8321/targets/proto/targets.proto#L40><code>k8s</code></a>.</p><p>For example, the following config adds an HTTP probe for the endpoints named
 <code>cloudprober</code> (equivalent to running <em>kubectl get ep cloudprober</em>).</p><pre><code class=language-bash>probe {
   name: &quot;pod-to-endpoints&quot;
   type: HTTP
 
   targets {
     # Equivalent to kubectl get ep cloudprober
-    k8s_targets {
+    k8s {
       endpoints: &quot;cloudprober&quot;
     }
   }
@@ -122,16 +122,16 @@ resources through the targets type
   }
 }
 </code></pre><h3 id=supported-resource-and-filters>Supported Resource and Filters <a href=#supported-resource-and-filters class=anchor aria-hidden=true>#</a></h3><p>Cloudprober supports discovery for the following k8s resources:</p><ul><li>Services</li><li>Endpoints</li><li>Pods</li><li>Ingresses</li></ul><p>You can filter k8s resources using the following options:</p><ul><li><code>name</code>: (regex) Resource name filter. It can be a regex. Example:<pre><code class=language-shell># Endpoints with names ending in &quot;service&quot;
-k8s_targets {
+k8s {
   endpoints: &quot;.*-service&quot;
 }
 </code></pre></li><li><code>namespace</code>: Namespace filter. Example:<pre><code class=language-shell># Ingresses in &quot;prod&quot; namespace, ending in &quot;lb&quot;
-k8s_targets {
+k8s {
   namespace: &quot;prod&quot;
   ingresses: &quot;.*-lb&quot;
 }
 </code></pre></li><li><code>labelSelector</code>: Label based selector. It can be repeated, and works similar
-to the kubectl&rsquo;s &ndash;selector/-l flag. Example:<pre><code class=language-shell>k8s_targets {
+to the kubectl&rsquo;s &ndash;selector/-l flag. Example:<pre><code class=language-shell>k8s {
   pods: &quot;.*&quot;
   labelSelector: &quot;k8s-app&quot;         # k8a-app label exists
   labelSelector: &quot;role=frontend&quot;   # label &quot;role&quot; is set to &quot;frontend&quot;
@@ -139,7 +139,7 @@ to the kubectl&rsquo;s &ndash;selector/-l flag. Example:<pre><code class=languag
 }
 </code></pre></li><li><code>portFilter</code>: (regex) Filter resources by port name or number (if port name is
 not set). This is useful for resources like endpoints and services, where each
-resource may have multiple ports. Example:<pre><code class=language-shell>k8s_targets {
+resource may have multiple ports. Example:<pre><code class=language-shell>k8s {
   endpoints: &quot;.*-service&quot;
   portFilter: &quot;http-.*&quot;
 }
@@ -211,4 +211,4 @@ logs in
 <a href="https://pantheon.corp.google.com/logs/viewer?resource=gce_instance">Stackdriver Logging</a>.</p><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/how-to/external-probe/><div class="card my-1"><div class="card-body py-2">&larr; External Probe</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/how-to/additional-labels/><div class="card my-1"><div class="card-body py-2">Additional Labels &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.39314b5ae9a8925ead8e68e108d14601131cde5cca03e58a44986cdffce72053ff762b785efaae9b413ad5a017ee92af04734172ec8034ccc7a8d00f0c505f26.js integrity="sha512-OTFLWumokl6tjmjhCNFGARMc3lzKA+WKRJhs3/znIFP/dit4Xvqum0E61aAX7pKvBHNBcuyANMzHqNAPDFBfJg==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.c564757eb14ebdbc2bf7e5f8a2e7c649cd9333865398f5ad47bd847eddd9272f4866c53a6e1974eaf5e67dd80ed62f45266c89e2a81fc5125877860acb60c619.js integrity="sha512-xWR1frFOvbwr9+X4oufGSc2TM4ZTmPWtR72Eft3ZJy9IZsU6bhl06vXmfdgO1i9FJmyJ4qgfxRJYd4YKy2DGGQ==" crossorigin=anonymous defer></script></body></html>
