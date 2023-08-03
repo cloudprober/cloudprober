@@ -152,7 +152,7 @@ If you're running on Kubernetes, you'd probably want to monitor Kubernetes
 resources (e.g. pods, endpoints, etc) as well. Cloudprober supports [dynamic
 discovery]({{< ref targets.md >}}#dynamically-discovered-targets) of Kubernetes
 resources through the targets type
-[`k8s_targets`](https://github.com/cloudprober/cloudprober/blob/ad73fe489ea3ac69e7b0f81a465671df9adc8321/targets/proto/targets.proto#L40).
+[`k8s`](https://github.com/cloudprober/cloudprober/blob/ad73fe489ea3ac69e7b0f81a465671df9adc8321/targets/proto/targets.proto#L40).
 
 For example, the following config adds an HTTP probe for the endpoints named
 `cloudprober` (equivalent to running _kubectl get ep cloudprober_).
@@ -164,7 +164,7 @@ probe {
 
   targets {
     # Equivalent to kubectl get ep cloudprober
-    k8s_targets {
+    k8s {
       endpoints: "cloudprober"
     }
   }
@@ -191,14 +191,14 @@ You can filter k8s resources using the following options:
 - `name`: (regex) Resource name filter. It can be a regex. Example:
   ```shell
   # Endpoints with names ending in "service"
-  k8s_targets {
+  k8s {
     endpoints: ".*-service"
   }
   ```
 - `namespace`: Namespace filter. Example:
   ```shell
   # Ingresses in "prod" namespace, ending in "lb"
-  k8s_targets {
+  k8s {
     namespace: "prod"
     ingresses: ".*-lb"
   }
@@ -206,7 +206,7 @@ You can filter k8s resources using the following options:
 - `labelSelector`: Label based selector. It can be repeated, and works similar
   to the kubectl's --selector/-l flag. Example:
   ```shell
-  k8s_targets {
+  k8s {
     pods: ".*"
     labelSelector: "k8s-app"         # k8a-app label exists
     labelSelector: "role=frontend"   # label "role" is set to "frontend"
@@ -217,7 +217,7 @@ You can filter k8s resources using the following options:
   not set). This is useful for resources like endpoints and services, where each
   resource may have multiple ports. Example:
   ```shell
-  k8s_targets {
+  k8s {
     endpoints: ".*-service"
     portFilter: "http-.*"
   }
