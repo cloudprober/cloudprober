@@ -7,8 +7,6 @@ title: "Kubernetes Targets"
 date: 2022-11-01T17:24:32-07:00
 ---
 
-## Kubernetes Targets
-
 If you're running on Kubernetes, you'd probably want to monitor Kubernetes
 resources (e.g. pods, endpoints, ingresses, etc) as well. Cloudprober supports
 [dynamic discovery]({{< ref targets.md >}}#dynamically-discovered-targets) of
@@ -42,10 +40,12 @@ probe {
 
 Cloudprober supports discovery for the following k8s resources:
 
-- Services
-- Endpoints
-- Pods
-- Ingresses
+- **Services**
+- **Endpoints**
+- **Pods**
+- **Ingresses**
+
+#### Filters
 
 You can filter k8s resources using the following options:
 
