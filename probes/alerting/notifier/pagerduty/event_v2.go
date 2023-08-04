@@ -1,11 +1,22 @@
-/*
-	Pagerduty EventV2. This package implements the EventsV2 interface to send alerts to PagerDuty.
-	Specifically, it implements the "Alert Event" component of the EventsV2 API.
-
-	https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event
-*/
+// Copyright 2023 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package pagerduty
+
+// Pagerduty EventV2. This package implements the EventsV2 interface to send alerts to PagerDuty.
+// Specifically, it implements the "Alert Event" component of the EventsV2 API.
+// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event
 
 import (
 	"bytes"
@@ -18,14 +29,12 @@ import (
 // EventV2Request is the data structure for a Pagerduty event.
 // The event can either be an alarm event, or a change event.
 type EventV2Request struct {
-	RoutingKey  string          `json:"routing_key"` // required
-	DedupKey    string          `json:"dedup_key,omitempty"`
-	EventAction EventV2Action   `json:"event_action"` // required
-	Client      string          `json:"client,omitempty"`
-	ClientURL   string          `json:"client_url,omitempty"`
-	Payload     EventV2Payload  `json:"payload"` // required
-	Images      []EventV2Images `json:"images,omitempty"`
-	Links       []EventV2Links  `json:"links,omitempty"`
+	RoutingKey  string         `json:"routing_key"` // required
+	DedupKey    string         `json:"dedup_key,omitempty"`
+	EventAction EventV2Action  `json:"event_action"` // required
+	Client      string         `json:"client,omitempty"`
+	ClientURL   string         `json:"client_url,omitempty"`
+	Payload     EventV2Payload `json:"payload"` // required
 }
 
 // EventV2Payload is the data structure for the payload of a PagerDuty event.
@@ -36,24 +45,7 @@ type EventV2Payload struct {
 	Severity      string            `json:"severity"` // required
 	Timestamp     string            `json:"timestamp,omitempty"`
 	Component     string            `json:"component,omitempty"`
-	Group         string            `json:"group,omitempty"`
-	Class         string            `json:"class,omitempty"`
 	CustomDetails map[string]string `json:"custom_details,omitempty"`
-}
-
-// EventV2Images is the data structure for an image in a PagerDuty event.
-// Images are optional.
-type EventV2Images struct {
-	Src  string `json:"src,omitempty"`
-	Alt  string `json:"alt,omitempty"`
-	Href string `json:"href,omitempty"`
-}
-
-// EventV2Links is the data structure for a link in a PagerDuty event.
-// Links are optional
-type EventV2Links struct {
-	Href string `json:"href,omitempty"`
-	Text string `json:"text,omitempty"`
 }
 
 // EventV2Action is the action to be performed on the event, documented as:
@@ -142,14 +134,16 @@ func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Req
 			Severity:  "critical",
 			Timestamp: alertFields["since"],
 			Component: alertFields["probe"],
-			Group:     alertFields["condition_id"],
 			// pass all alert fields as custom details
 			CustomDetails: alertFields,
 		},
 	}
 }
 
-// dedupeKey returns a unique key for the alert.
+// dedupeKey returns a key that can be used to dedupe PagerDuty events.
+// note: submitting subsequent events with the same dedup_key will result in
+// those events being applied to an open alert matching that dedup_key.
+// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event#alert-de-duplication
 func eventV2DedupeKey(alertFields map[string]string) string {
-	return fmt.Sprintf("%s-%s-%s", alertFields["alert"], alertFields["probe"], alertFields["target"])
+	return alertFields["condition_id"]
 }

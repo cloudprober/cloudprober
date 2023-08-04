@@ -13,6 +13,9 @@
 // limitations under the License.
 package pagerduty
 
+// The pagerduty package implements pagerduty notifications for Cloudprober
+// alert events.
+
 import (
 	"context"
 	"net/http"

@@ -160,11 +160,9 @@ func TestPagerDutyEventV2DedupeKey(t *testing.T) {
 	}{
 		"simple": {
 			alertFields: map[string]string{
-				"alert":  "test-alert",
-				"probe":  "test-probe",
-				"target": "test-target",
+				"condition_id": "test-condition-id",
 			},
-			want: "test-alert-test-probe-test-target",
+			want: "test-condition-id",
 		},
 	}
 
@@ -196,7 +194,7 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 			},
 			want: &EventV2Request{
 				RoutingKey:  "test-routing-key",
-				DedupKey:    "test-alert-test-probe-test-target",
+				DedupKey:    "test-condition-id",
 				EventAction: Trigger,
 				Client:      "Cloudprober",
 				ClientURL:   "https://cloudprober.org/",
@@ -206,7 +204,6 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 					Severity:  "critical",
 					Timestamp: "2020-01-01T00:00:00Z",
 					Component: "test-probe",
-					Group:     "test-condition-id",
 					CustomDetails: map[string]string{
 						"alert":        "test-alert",
 						"summary":      "test-summary",
