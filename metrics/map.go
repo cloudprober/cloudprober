@@ -58,7 +58,7 @@ func (m *Map) Clone() Value {
 	defer m.mu.RUnlock()
 	newMap := &Map{
 		MapName: m.MapName,
-		m:       make(map[string]int64),
+		m:       make(map[string]int64, len(m.m)),
 		total:   m.total,
 	}
 	newMap.keys = make([]string, len(m.keys))
