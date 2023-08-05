@@ -78,10 +78,9 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig) error {
 			tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				return loadCert(c.GetTlsCertFile(), c.GetTlsKeyFile(), time.Duration(c.GetReloadIntervalSec())*time.Second)
 			}
-			return nil
+		} else {
+			tlsConfig.Certificates = append(tlsConfig.Certificates, *cert)
 		}
-
-		tlsConfig.Certificates = append(tlsConfig.Certificates, *cert)
 	}
 
 	if c.GetServerName() != "" {
