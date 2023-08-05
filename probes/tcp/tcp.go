@@ -69,7 +69,7 @@ func (result *probeResult) Metrics(ts time.Time, opts *options.Options) *metrics
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
-		AddMetric(opts.LatencyMetricName, result.latency).
+		AddMetric(opts.LatencyMetricName, result.latency.Clone()).
 		AddLabel("ptype", "tcp")
 
 	if result.validationFailure != nil {

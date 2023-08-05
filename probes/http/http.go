@@ -397,14 +397,14 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
-		AddMetric(p.opts.LatencyMetricName, result.latency).
+		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
-		AddMetric("resp-code", result.respCodes)
+		AddMetric("resp-code", result.respCodes.Clone())
 
 	em.LatencyUnit = p.opts.LatencyUnit
 
 	if result.respBodies != nil {
-		em.AddMetric("resp-body", result.respBodies)
+		em.AddMetric("resp-body", result.respBodies.Clone())
 	}
 
 	if p.c.GetKeepAlive() {

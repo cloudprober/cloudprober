@@ -85,17 +85,17 @@ type Probe struct {
 	l       *logger.Logger
 
 	// book-keeping params
-	labelKeys  map[string]bool // Labels for substitution
-	requestID  int32
-	cmdRunning bool
+	labelKeys    map[string]bool // Labels for substitution
+	requestID    int32
+	cmdRunning   bool
 	cmdRunningMu sync.Mutex // synchronizes cmdRunning
-	cmdStdin   io.Writer
-	cmdStdout  io.ReadCloser
-	cmdStderr  io.ReadCloser
-	replyChan  chan *serverpb.ProbeReply
-	targets    []endpoint.Endpoint
-	results    map[string]*result // probe results keyed by targets
-	dataChan   chan *metrics.EventMetrics
+	cmdStdin     io.Writer
+	cmdStdout    io.ReadCloser
+	cmdStderr    io.ReadCloser
+	replyChan    chan *serverpb.ProbeReply
+	targets      []endpoint.Endpoint
+	results      map[string]*result // probe results keyed by targets
+	dataChan     chan *metrics.EventMetrics
 
 	// This is used for overriding run command logic for testing.
 	runCommandFunc func(ctx context.Context, cmd string, args, envVars []string) ([]byte, []byte, error)
@@ -313,7 +313,7 @@ func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetr
 	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric("total", metrics.NewInt(result.total)).
-		AddMetric(p.opts.LatencyMetricName, result.latency).
+		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)

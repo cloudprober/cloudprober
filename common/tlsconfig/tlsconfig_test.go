@@ -53,6 +53,7 @@ func TestUpdateTLSConfig(t *testing.T) {
 
 	tests := []struct {
 		name       string
+		serverName string
 		baseCert   [2]string
 		nextCert   [2]string
 		nextKey    []byte
@@ -62,20 +63,28 @@ func TestUpdateTLSConfig(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name:     "base-cert1",
+			name:     "base-cert1-no-servername",
 			baseCert: cert1,
 			wantCN:   "cert1.cloudprober.org",
 		},
 		{
-			name:     "base-cert2",
-			baseCert: cert2,
-			wantCN:   "cert2.cloudprober.org",
+			name:       "base-cert1",
+			baseCert:   cert1,
+			serverName: "cloudprober.org",
+			wantCN:     "cert1.cloudprober.org",
+		},
+		{
+			name:       "base-cert2",
+			baseCert:   cert2,
+			serverName: "cloudprober.org",
+			wantCN:     "cert2.cloudprober.org",
 		},
 		{
 			name:       "base-cert1",
 			baseCert:   cert1,
 			nextCert:   cert2,
 			dynamic:    true,
+			serverName: "cloudprober.org",
 			wantCN:     "cert1.cloudprober.org",
 			wantNextCN: "cert2.cloudprober.org",
 		},
@@ -90,12 +99,17 @@ func TestUpdateTLSConfig(t *testing.T) {
 			if tt.dynamic {
 				testConf.ReloadIntervalSec = proto.Int32(1)
 			}
+			if tt.serverName != "" {
+				testConf.ServerName = &tt.serverName
+			}
 
 			writeTestCert(tt.baseCert)
 
 			if err := UpdateTLSConfig(tlsConfig, testConf); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateTLSConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
+			assert.Equal(t, tt.serverName, tlsConfig.ServerName, "ServerName mismatch")
 
 			if !tt.dynamic {
 				assert.Nil(t, tlsConfig.GetCertificate, "GetCertificate should be nil")
