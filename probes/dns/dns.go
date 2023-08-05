@@ -103,7 +103,7 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric(prr.latencyMetricName, prr.latency).
+		AddMetric(prr.latencyMetricName, prr.latency.Clone()).
 		AddMetric("timeouts", &prr.timeouts).
 		AddMetric("validation_failure", prr.validationFailure)
 }
