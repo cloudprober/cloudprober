@@ -183,14 +183,16 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 	}{
 		"simple": {
 			alertFields: map[string]string{
-				"alert":        "test-alert",
-				"summary":      "test-summary",
-				"probe":        "test-probe",
-				"target":       "test-target",
-				"condition_id": "test-condition-id",
-				"failures":     "1",
-				"total":        "2",
-				"since":        "2020-01-01T00:00:00Z",
+				"alert":         "test-alert",
+				"summary":       "test-summary",
+				"probe":         "test-probe",
+				"target":        "test-target",
+				"condition_id":  "test-condition-id",
+				"failures":      "1",
+				"total":         "2",
+				"since":         "2020-01-01T00:00:00Z",
+				"dashboard_url": "test_dashboard_url",
+				"playbook_url":  "test_playbook_url",
 			},
 			want: &EventV2Request{
 				RoutingKey:  "test-routing-key",
@@ -198,6 +200,16 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 				EventAction: Trigger,
 				Client:      "Cloudprober",
 				ClientURL:   "https://cloudprober.org/",
+				Links: []EventV2Links{
+					{
+						Href: "test_dashboard_url",
+						Text: "Dashboard",
+					},
+					{
+						Href: "test_playbook_url",
+						Text: "Playbook",
+					},
+				},
 				Payload: EventV2Payload{
 					Summary:   "test-summary",
 					Source:    "test-target",
@@ -205,14 +217,16 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 					Timestamp: "2020-01-01T00:00:00Z",
 					Component: "test-probe",
 					CustomDetails: map[string]string{
-						"alert":        "test-alert",
-						"summary":      "test-summary",
-						"probe":        "test-probe",
-						"target":       "test-target",
-						"condition_id": "test-condition-id",
-						"failures":     "1",
-						"total":        "2",
-						"since":        "2020-01-01T00:00:00Z",
+						"alert":         "test-alert",
+						"summary":       "test-summary",
+						"probe":         "test-probe",
+						"target":        "test-target",
+						"condition_id":  "test-condition-id",
+						"failures":      "1",
+						"total":         "2",
+						"since":         "2020-01-01T00:00:00Z",
+						"dashboard_url": "test_dashboard_url",
+						"playbook_url":  "test_playbook_url",
 					},
 				},
 			},
@@ -239,6 +253,65 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 			got := p.createEventV2Request(tc.alertFields)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("createEventV2Request = \n%+v\n, want \n%+v\n", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGenerateLinks(t *testing.T) {
+	tests := map[string]struct {
+		alertFields map[string]string
+		want        []EventV2Links
+	}{
+		"dashboard_and_playback": {
+			alertFields: map[string]string{
+				"dashboard_url": "test-dashboard-url",
+				"playbook_url":  "test-playbook-url",
+			},
+			want: []EventV2Links{
+				{
+					Href: "test-dashboard-url",
+					Text: "Dashboard",
+				},
+				{
+					Href: "test-playbook-url",
+					Text: "Playbook",
+				},
+			},
+		},
+		"dashboard_only": {
+			alertFields: map[string]string{
+				"dashboard_url": "test-dashboard-url",
+			},
+			want: []EventV2Links{
+				{
+					Href: "test-dashboard-url",
+					Text: "Dashboard",
+				},
+			},
+		},
+		"playbook_only": {
+			alertFields: map[string]string{
+				"playbook_url": "test-playbook-url",
+			},
+			want: []EventV2Links{
+				{
+					Href: "test-playbook-url",
+					Text: "Playbook",
+				},
+			},
+		},
+		"none": {
+			alertFields: map[string]string{},
+			want:        []EventV2Links{},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := generateLinks(tc.alertFields)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("generateLinks = \n%+v\n, want \n%+v\n", got, tc.want)
 			}
 		})
 	}
