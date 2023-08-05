@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func verify(t *testing.T, m *Map, expectedKeys []string, expectedMap map[string]int64) {
@@ -141,6 +143,40 @@ func TestMapString(t *testing.T) {
 	}
 }
 
+func BenchmarkMapSetGet(b *testing.B) {
+	// run the em.String() function b.N times
+	for n := 0; n < b.N; n++ {
+		m := NewMap("code")
+		for i := 1; i <= 20; i++ {
+			m.IncKeyBy(strconv.Itoa(100*i), int64(i))
+		}
+		// 3000 incKey operations per op
+		for i := 0; i < 1000; i++ {
+			for _, k := range m.Keys() {
+				m.IncKey(k)
+			}
+		}
+
+		for _, k := range m.Keys() {
+			m.GetKey(k)
+		}
+	}
+}
+
+func BenchmarkMapClone(b *testing.B) {
+	m := NewMap("code")
+	for i := 1; i <= 20; i++ {
+		m.IncKeyBy(strconv.Itoa(100*i), int64(i))
+	}
+
+	for n := 0; n < b.N; n++ {
+		// clone 1000 times
+		for i := 0; i < 1000; i++ {
+			m.Clone()
+		}
+	}
+}
+
 func TestMapAllocsPerRun(t *testing.T) {
 	newMap := func(numKeys int) *Map {
 		m := NewMap("code")
@@ -150,11 +186,7 @@ func TestMapAllocsPerRun(t *testing.T) {
 		return m
 	}
 
-	for _, n := range []int{5, 10, 20, 40} {
-		newAvg := testing.AllocsPerRun(100, func() {
-			newMap(n)
-		})
-
+	for _, n := range []int{5, 10, 20} {
 		m := newMap(n)
 		cloneAvg := testing.AllocsPerRun(100, func() {
 			_ = m.Clone()
@@ -163,6 +195,8 @@ func TestMapAllocsPerRun(t *testing.T) {
 			_ = m.String()
 		})
 
-		t.Logf("Average allocations per run (numKeys=%d): ForMapNew=%v, ForMapClone=%v, ForMapString=%v", n, newAvg, cloneAvg, stringAvg)
+		assert.LessOrEqual(t, int(cloneAvg), 8)
+
+		t.Logf("Average allocations per run (numKeys=%d): ForMapClone=%v, ForMapString=%v", n, cloneAvg, stringAvg)
 	}
 }
