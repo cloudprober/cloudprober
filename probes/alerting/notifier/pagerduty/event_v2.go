@@ -34,7 +34,14 @@ type EventV2Request struct {
 	EventAction EventV2Action  `json:"event_action"` // required
 	Client      string         `json:"client,omitempty"`
 	ClientURL   string         `json:"client_url,omitempty"`
+	Links       []EventV2Links `json:"links,omitempty"`
 	Payload     EventV2Payload `json:"payload"` // required
+}
+
+// EventV2Links is the data structure for the links field of a PagerDuty event.
+type EventV2Links struct {
+	Href string `json:"href"`
+	Text string `json:"text"`
 }
 
 // EventV2Payload is the data structure for the payload of a PagerDuty event.
@@ -122,7 +129,7 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 // createEventV2Request creates a new PagerDuty event, from the alertFields that are passed
 // in from the alerting package.
 func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Request {
-	return &EventV2Request{
+	event := EventV2Request{
 		RoutingKey:  c.routingKey,
 		DedupKey:    eventV2DedupeKey(alertFields),
 		EventAction: Trigger,
@@ -138,6 +145,35 @@ func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Req
 			CustomDetails: alertFields,
 		},
 	}
+
+	// add links for the dashboard and playbook to the event if they
+	// are present in the alertFields
+	if links := generateLinks(alertFields); len(links) > 0 {
+		event.Links = links
+	}
+
+	return &event
+}
+
+// generateLinks generates a slice of EventV2Links from the alertFields.
+func generateLinks(alertFields map[string]string) []EventV2Links {
+	links := make([]EventV2Links, 0)
+
+	if url, exists := alertFields["dashboard_url"]; exists && url != "" {
+		links = append(links, EventV2Links{
+			Href: alertFields["dashboard_url"],
+			Text: "Dashboard",
+		})
+	}
+
+	if url, exists := alertFields["playbook_url"]; exists && url != "" {
+		links = append(links, EventV2Links{
+			Href: alertFields["playbook_url"],
+			Text: "Playbook",
+		})
+	}
+
+	return links
 }
 
 // dedupeKey returns a key that can be used to dedupe PagerDuty events.
