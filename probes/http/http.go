@@ -300,7 +300,9 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 
 	// Calling Body.Close() allows the TCP connection to be reused.
 	resp.Body.Close()
-	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
+	if err := result.respCodes.IncKey(strconv.Itoa(resp.StatusCode)); err != nil {
+		p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
+	}
 
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
 		now := time.Now()
@@ -329,7 +331,9 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	if result.respBodies != nil && len(respBody) <= maxResponseSizeForMetrics {
-		result.respBodies.IncKey(string(respBody))
+		if err := result.respBodies.IncKey(string(respBody)); err != nil {
+			p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
+		}
 	}
 }
 

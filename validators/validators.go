@@ -128,7 +128,9 @@ func RunValidators(vs []*Validator, input *Input, validationFailure *metrics.Map
 			continue
 		}
 		if !success {
-			validationFailure.IncKey(v.Name)
+			if err := validationFailure.IncKey(v.Name); err != nil {
+				l.Error("Error while updating the validation failure map for validator ", v.Name, ": ", err.Error())
+			}
 			failures = append(failures, v.Name)
 		}
 	}

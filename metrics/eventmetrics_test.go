@@ -67,10 +67,6 @@ func verifyEventMetrics(t *testing.T, m *EventMetrics, sent, rcvd, rtt int64, re
 }
 
 func TestEventMetricsUpdate(t *testing.T) {
-	rttVal := NewInt(0)
-	rttVal.Str = func(i int64) string {
-		return fmt.Sprintf("%.3f", float64(i)/1000)
-	}
 	m := newEventMetrics(0, 0, 0, make(map[string]int64))
 	m.AddLabel("ptype", "http")
 
@@ -114,10 +110,6 @@ func TestEventMetricsUpdate(t *testing.T) {
 }
 
 func TestEventMetricsSubtractCounters(t *testing.T) {
-	rttVal := NewInt(0)
-	rttVal.Str = func(i int64) string {
-		return fmt.Sprintf("%.3f", float64(i)/1000)
-	}
 	m := newEventMetrics(10, 10, 1000, make(map[string]int64))
 	m.AddLabel("ptype", "http")
 
@@ -193,6 +185,8 @@ func TestAllocsPerRun(t *testing.T) {
 		"200": 22,
 		"404": 4500,
 		"403": 4500,
+		"500": 200,
+		"501": 20,
 	} {
 		respCodesVal.IncKeyBy(k, NewInt(v))
 	}
@@ -206,9 +200,17 @@ func TestAllocsPerRun(t *testing.T) {
 			AddMetric("resp-code", respCodesVal)
 	})
 
+	mapCloneAvg := testing.AllocsPerRun(100, func() {
+		_ = respCodesVal.Clone()
+	})
+
+	cloneAvg := testing.AllocsPerRun(100, func() {
+		_ = em.Clone()
+	})
+
 	stringAvg := testing.AllocsPerRun(100, func() {
 		_ = em.String()
 	})
 
-	t.Logf("Average allocations per run: ForNew=%v, ForString=%v", newAvg, stringAvg)
+	t.Logf("Average allocations per run: ForNew=%v, ForString=%v, ForMapClone=%v, ForClone=%v", newAvg, stringAvg, mapCloneAvg, cloneAvg)
 }

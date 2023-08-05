@@ -24,8 +24,6 @@ import (
 // safe, if you want a concurrency safe integer NumValue, use AtomicInt.
 type Int struct {
 	i int64
-	// If Str is defined, this is method used to convert Int into a string.
-	Str func(int64) string
 }
 
 // NewInt returns a new Int
@@ -36,8 +34,7 @@ func NewInt(i int64) *Int {
 // Clone returns a copy the receiver Int
 func (i *Int) Clone() Value {
 	return &Int{
-		i:   i.i,
-		Str: i.Str,
+		i: i.i,
 	}
 }
 
@@ -104,9 +101,6 @@ func (i *Int) AddFloat64(f float64) {
 // String returns the string representation of Int.
 // It's part of the Value interface.
 func (i *Int) String() string {
-	if i.Str != nil {
-		return i.Str(i.Int64())
-	}
 	return strconv.FormatInt(i.Int64(), 10)
 }
 
@@ -115,8 +109,6 @@ func (i *Int) String() string {
 // protected map, you could use Int.
 type AtomicInt struct {
 	i int64
-	// If Str is defined, this is method used to convert AtomicInt into a string.
-	Str func(int64) string
 }
 
 // NewAtomicInt returns a new AtomicInt
@@ -127,8 +119,7 @@ func NewAtomicInt(i int64) *AtomicInt {
 // Clone returns a copy the receiver AtomicInt
 func (i *AtomicInt) Clone() Value {
 	return &AtomicInt{
-		i:   i.Int64(),
-		Str: i.Str,
+		i: i.Int64(),
 	}
 }
 
@@ -200,8 +191,5 @@ func (i *AtomicInt) AddFloat64(f float64) {
 // String returns the string representation of AtomicInt.
 // It's part of the Value interface.
 func (i *AtomicInt) String() string {
-	if i.Str != nil {
-		return i.Str(i.Int64())
-	}
 	return strconv.FormatInt(i.Int64(), 10)
 }

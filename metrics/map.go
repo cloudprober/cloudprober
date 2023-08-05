@@ -23,6 +23,8 @@ import (
 	"sync"
 )
 
+const MaxKeys = 100
+
 // Map implements a key-value store where keys are of type string and values
 // are of type NumValue.
 // It satisfies the Value interface.
@@ -64,10 +66,10 @@ func (m *Map) Clone() Value {
 	newMap := &Map{
 		MapName:         m.MapName,
 		defaultKeyValue: m.defaultKeyValue.Clone().(NumValue),
-		m:               make(map[string]NumValue),
+		m:               make(map[string]NumValue, len(m.m)),
+		keys:            make([]string, len(m.keys)),
 		total:           m.total.Clone().(NumValue),
 	}
-	newMap.keys = make([]string, len(m.keys))
 	for i, k := range m.keys {
 		newMap.m[k] = m.m[k].Clone().(NumValue)
 		newMap.keys[i] = m.keys[i]
@@ -85,22 +87,29 @@ func (m *Map) Keys() []string {
 // newKey adds a new key to the map, with its value set to defaultKeyValue
 // This is an unsafe function, callers should take care of protecting the map
 // from race conditions.
-func (m *Map) newKey(key string) {
+func (m *Map) newKey(key string) error {
+	if len(m.m) >= MaxKeys {
+		return fmt.Errorf("max keys limit (%d) reached for map %s", MaxKeys, m.MapName)
+	}
 	m.keys = append(m.keys, key)
 	sort.Strings(m.keys)
 	m.m[key] = m.defaultKeyValue.Clone().(NumValue)
 	m.total.IncBy(m.defaultKeyValue)
+	return nil
 }
 
 // IncKey increments the given key's value by one.
-func (m *Map) IncKey(key string) {
+func (m *Map) IncKey(key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.m[key] == nil {
-		m.newKey(key)
+		if err := m.newKey(key); err != nil {
+			return err
+		}
 	}
 	m.m[key].Inc()
 	m.total.Inc()
+	return nil
 }
 
 // IncKeyBy increments the given key's value by NumValue.

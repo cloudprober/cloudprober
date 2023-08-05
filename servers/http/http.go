@@ -124,7 +124,9 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Write(res)
 	}
-	s.reqMetric.IncKey(r.URL.Path)
+	if err := s.reqMetric.IncKey(r.URL.Path); err != nil {
+		s.l.Warningf("Error incrementing request count for %s: %v", r.URL.Path, err)
+	}
 }
 
 // Server implements a basic single-threaded, fast response web server.

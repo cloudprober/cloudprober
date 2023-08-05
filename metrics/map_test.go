@@ -149,9 +149,13 @@ func TestMapAllocsPerRun(t *testing.T) {
 		v.IncKeyBy("403", NewInt(4500))
 	})
 
+	mapCloneAvg := testing.AllocsPerRun(100, func() {
+		_ = v.Clone()
+	})
+
 	mapStringAvg := testing.AllocsPerRun(100, func() {
 		_ = v.String()
 	})
 
-	t.Logf("Average allocations per run: ForMapNew=%v, ForMapString=%v", mapNewAvg, mapStringAvg)
+	t.Logf("Average allocations per run: ForMapNew=%v, ForMapClone=%v, ForMapString=%v", mapNewAvg, mapCloneAvg, mapStringAvg)
 }
