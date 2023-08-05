@@ -124,7 +124,7 @@ func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time
 			for _, k := range value.Keys() {
 				tags := emLabelsToTags(em)
 				tags = append(tags, fmt.Sprintf("%s:%s", value.MapName, k))
-				series = append(series, dd.newDDSeries(metricKey, value.GetKey(k).Float64(), tags, em.Timestamp, em.Kind))
+				series = append(series, dd.newDDSeries(metricKey, float64(value.GetKey(k)), tags, em.Timestamp, em.Kind))
 			}
 			dd.addMetricsAndPublish(ctx, publishTimer, series...)
 		case *metrics.Distribution:

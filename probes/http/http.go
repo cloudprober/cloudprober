@@ -363,7 +363,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, clients 
 
 func (p *Probe) newResult() *probeResult {
 	result := &probeResult{
-		respCodes:                    metrics.NewMap("code", metrics.NewInt(0)),
+		respCodes:                    metrics.NewMap("code"),
 		sslEarliestExpirationSeconds: -1,
 	}
 
@@ -378,7 +378,7 @@ func (p *Probe) newResult() *probeResult {
 	}
 
 	if p.c.GetExportResponseAsMetrics() {
-		result.respBodies = metrics.NewMap("resp", metrics.NewInt(0))
+		result.respBodies = metrics.NewMap("resp")
 	}
 
 	return result

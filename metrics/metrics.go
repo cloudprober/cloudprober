@@ -62,7 +62,7 @@ func ParseValueFromString(val string) (Value, error) {
 		if !strings.HasPrefix(val, "map") {
 			break
 		}
-		return ParseMapFromString(val)
+		return ParseMapFloatFromString(val)
 
 	// A string value
 	case c == '"':

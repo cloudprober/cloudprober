@@ -19,13 +19,13 @@ experimental phase right now.
 To use this surfacer, add a stanza similar to the following to your
 cloudprober config:
 
-surfacer {
-  type: POSTGRES
-	postgres_surfacer {
-	  connection_string: "postgresql://root:root@localhost/cloudprober?sslmode=disable"
-	  metrics_table_name: "metrics"
-  }
-}
+	surfacer {
+	  type: POSTGRES
+		postgres_surfacer {
+		  connection_string: "postgresql://root:root@localhost/cloudprober?sslmode=disable"
+		  metrics_table_name: "metrics"
+	  }
+	}
 */
 package postgres
 
@@ -126,7 +126,7 @@ func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 		if mapVal, ok := val.(*metrics.Map); ok {
 			for _, k := range mapVal.Keys() {
 				labels := updateLabelMap(baseLabels, [2]string{mapVal.MapName, k})
-				pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, mapVal.GetKey(k).String(), labels))
+				pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, strconv.FormatInt(mapVal.GetKey(k), 10), labels))
 			}
 			continue
 		}

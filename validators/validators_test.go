@@ -34,11 +34,11 @@ func TestRunValidators(t *testing.T) {
 	vfMap := ValidationFailureMap(testValidators)
 	failures := RunValidators(testValidators, &Input{}, vfMap, nil)
 
-	if vfMap.GetKey("test-v1").Int64() != 0 {
+	if vfMap.GetKey("test-v1") != 0 {
 		t.Error("Got unexpected test-v1 validation failure.")
 	}
 
-	if vfMap.GetKey("test-v2").Int64() != 1 {
+	if vfMap.GetKey("test-v2") != 1 {
 		t.Errorf("Didn't get expected test-v2 validation failure.")
 	}
 

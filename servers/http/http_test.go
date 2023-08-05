@@ -58,7 +58,7 @@ func testServer(ctx context.Context, t *testing.T, insName string, ldLister endp
 		statsInterval: 2 * time.Second,
 		instanceName:  insName,
 		ldLister:      ldLister,
-		reqMetric:     metrics.NewMap("url", metrics.NewInt(0)),
+		reqMetric:     metrics.NewMap("url"),
 		sysVars:       map[string]string{"instance": insName},
 		staticURLResTable: map[string][]byte{
 			"/":         []byte(OK),
@@ -133,7 +133,7 @@ func TestListenAndServeStats(t *testing.T) {
 	// See if we got stats for the all URLs
 	for url, expectedCount := range expectedURLStats {
 		url = strings.Split(url, "?")[0]
-		count := em.Metric("req").(*metrics.Map).GetKey(url).Int64()
+		count := em.Metric("req").(*metrics.Map).GetKey(url)
 		if count != expectedCount {
 			t.Errorf("Didn't get the expected stats for the URL: %s. Got: %d, Expected: %d", url, count, expectedCount)
 		}

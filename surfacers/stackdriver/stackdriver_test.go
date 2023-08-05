@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/kylelemons/godebug/pretty"
 	configpb "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
+	"github.com/golang/protobuf/proto"
+	"github.com/kylelemons/godebug/pretty"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 
@@ -49,7 +49,7 @@ func newTestSurfacer() SDSurfacer {
 }
 
 func TestProcessLabels(t *testing.T) {
-	s:= newTestSurfacer()
+	s := newTestSurfacer()
 	s.c = &configpb.SurfacerConf{
 		MetricsPrefix: configpb.SurfacerConf_PTYPE_PROBE.Enum(),
 		MonitoringUrl: proto.String("custom.googleapis.com/cloudprober/"),
@@ -59,14 +59,14 @@ func TestProcessLabels(t *testing.T) {
 	testPtype := "external"
 
 	tests := []struct {
-		description string
+		description        string
 		metricPrefixConfig *configpb.SurfacerConf_MetricPrefix
-		em          *metrics.EventMetrics
-		wantKeys    string
-		wantMetricPrefix string
+		em                 *metrics.EventMetrics
+		wantKeys           string
+		wantMetricPrefix   string
 	}{
 		{
-			description: "metrics prefix with ptype and probe",
+			description:        "metrics prefix with ptype and probe",
 			metricPrefixConfig: configpb.SurfacerConf_PTYPE_PROBE.Enum(),
 			em: metrics.NewEventMetrics(testTimestamp).
 				AddMetric("test_metric", metrics.NewString("metval")).
@@ -74,11 +74,11 @@ func TestProcessLabels(t *testing.T) {
 				AddLabel("keyB", "valueB").
 				AddLabel("probe", testProbe).
 				AddLabel("ptype", testPtype),
-			wantKeys: "keyA=valueA,keyB=valueB",
+			wantKeys:         "keyA=valueA,keyB=valueB",
 			wantMetricPrefix: "external/test_probe/",
 		},
 		{
-			description: "metrics prefix with only probe",
+			description:        "metrics prefix with only probe",
 			metricPrefixConfig: configpb.SurfacerConf_PROBE.Enum(),
 			em: metrics.NewEventMetrics(testTimestamp).
 				AddMetric("test_metric", metrics.NewString("metval")).
@@ -86,11 +86,11 @@ func TestProcessLabels(t *testing.T) {
 				AddLabel("keyB", "valueB").
 				AddLabel("probe", testProbe).
 				AddLabel("ptype", testPtype),
-			wantKeys: "keyA=valueA,keyB=valueB,ptype=external",
+			wantKeys:         "keyA=valueA,keyB=valueB,ptype=external",
 			wantMetricPrefix: "test_probe/",
 		},
 		{
-			description: "metrics prefix with none",
+			description:        "metrics prefix with none",
 			metricPrefixConfig: configpb.SurfacerConf_NONE.Enum(),
 			em: metrics.NewEventMetrics(testTimestamp).
 				AddMetric("test_metric", metrics.NewString("metval")).
@@ -98,7 +98,7 @@ func TestProcessLabels(t *testing.T) {
 				AddLabel("keyB", "valueB").
 				AddLabel("probe", testProbe).
 				AddLabel("ptype", testPtype),
-			wantKeys: "keyA=valueA,keyB=valueB,probe=test_probe,ptype=external",
+			wantKeys:         "keyA=valueA,keyB=valueB,probe=test_probe,ptype=external",
 			wantMetricPrefix: "",
 		},
 	}
@@ -127,9 +127,9 @@ func TestTimeSeries(t *testing.T) {
 	// Following variables are used for map value testing.
 	mapValue200 := float64(98)
 	mapValue500 := float64(2)
-	mapVal := metrics.NewMap("code", metrics.NewInt(0))
-	mapVal.IncKeyBy("200", metrics.NewInt(int64(mapValue200)))
-	mapVal.IncKeyBy("500", metrics.NewInt(int64(mapValue500)))
+	mapVal := metrics.NewMap("code")
+	mapVal.IncKeyBy("200", 98)
+	mapVal.IncKeyBy("500", 2)
 
 	tests := []struct {
 		description string

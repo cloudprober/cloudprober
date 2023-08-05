@@ -32,9 +32,9 @@ import (
 )
 
 func newEventMetrics(sent, rcvd int64, respCodes map[string]int64, ptype, probe string) *metrics.EventMetrics {
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
+	respCodesVal := metrics.NewMap("code")
 	for k, v := range respCodes {
-		respCodesVal.IncKeyBy(k, metrics.NewInt(v))
+		respCodesVal.IncKeyBy(k, v)
 	}
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("sent", metrics.NewInt(sent)).
@@ -149,8 +149,8 @@ func TestRecord(t *testing.T) {
 
 func TestInvalidNames(t *testing.T) {
 	ps := newPromSurfacer(t, true)
-	respCodesVal := metrics.NewMap("resp-code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+	respCodesVal := metrics.NewMap("resp-code")
+	respCodesVal.IncKeyBy("200", 19)
 	ps.record(metrics.NewEventMetrics(time.Now()).
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd/sent", metrics.NewInt(22)).
@@ -171,8 +171,8 @@ func TestInvalidNames(t *testing.T) {
 
 func TestScrapeOutput(t *testing.T) {
 	ps := newPromSurfacer(t, true)
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+	respCodesVal := metrics.NewMap("code")
+	respCodesVal.IncKeyBy("200", 19)
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
@@ -209,8 +209,8 @@ func TestScrapeOutput(t *testing.T) {
 
 func TestScrapeOutputNoTimestamp(t *testing.T) {
 	ps := newPromSurfacer(t, false)
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+	respCodesVal := metrics.NewMap("code")
+	respCodesVal.IncKeyBy("200", 19)
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
