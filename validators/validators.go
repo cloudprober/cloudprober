@@ -138,11 +138,11 @@ func RunValidators(vs []*Validator, input *Input, validationFailure *metrics.Map
 
 // ValidationFailureMap returns an initialized validation failures map.
 func ValidationFailureMap(vs []*Validator) *metrics.Map {
-	m := metrics.NewMap("validator", metrics.NewInt(0))
+	m := metrics.NewMap("validator")
 	// Initialize validation failure map with validator keys, so that we always
 	// export the metrics.
 	for _, v := range vs {
-		m.IncKeyBy(v.Name, metrics.NewInt(0))
+		m.IncKeyBy(v.Name, 0)
 	}
 	return m
 }

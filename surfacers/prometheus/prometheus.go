@@ -99,10 +99,11 @@ type httpWriter struct {
 
 // PromSurfacer implements a prometheus surfacer for Cloudprober. PromSurfacer
 // organizes metrics into a two-level data structure:
-//		1. Metric name -> PromMetric data structure dict.
-//    2. A PromMetric organizes data associated with a metric in a
-//			 Data key -> Data point map, where data point consists of a value
-//       and timestamp.
+//  1. Metric name -> PromMetric data structure dict.
+//  2. A PromMetric organizes data associated with a metric in a
+//     Data key -> Data point map, where data point consists of a value
+//     and timestamp.
+//
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
 	c           *configpb.SurfacerConf // Configuration
@@ -314,13 +315,15 @@ func dataKey(metricName string, labels []string) string {
 // metrics.Map value type:  We break Map values into multiple data keys, with
 // each map key corresponding to a label in the data key.
 // For example, "resp-code map:code 200:45 500:2" gets converted into:
-//   resp-code{code=200} 45
-//   resp-code{code=500}  2
+//
+//	resp-code{code=200} 45
+//	resp-code{code=500}  2
 //
 // metrics.String value type: We convert string value type into a data key with
 // val="value" label.
 // For example, "version cloudprober-20170608-RC00" gets converted into:
-//   version{val=cloudprober-20170608-RC00} 1
+//
+//	version{val=cloudprober-20170608-RC00} 1
 func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 	var labels []string
 	for _, k := range em.LabelsKeys() {
@@ -348,7 +351,7 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 			}
 			for _, k := range mapVal.Keys() {
 				labelsWithMap := append(labels, labelName+"=\""+k+"\"")
-				ps.recordMetric(pMetricName, dataKey(pMetricName, labelsWithMap), mapVal.GetKey(k).String(), em, "")
+				ps.recordMetric(pMetricName, dataKey(pMetricName, labelsWithMap), strconv.FormatInt(mapVal.GetKey(k), 10), em, "")
 			}
 			continue
 		}

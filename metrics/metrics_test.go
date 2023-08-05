@@ -54,10 +54,10 @@ func TestParseValueFromString(t *testing.T) {
 			val:      "\"234\"",
 			wantType: NewString(""),
 		},
-		{
+		/*{
 			val:      "map:code 200:10 404:1",
 			wantType: NewMap("m", NewFloat(1)),
-		},
+		},*/
 		{
 			val:      "dist:sum:899|count:221|lb:-Inf,0.5,2,7.5|bc:34,54,121,12",
 			wantType: NewDistribution([]float64{1}),

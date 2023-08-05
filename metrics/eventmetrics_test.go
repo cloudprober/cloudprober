@@ -21,9 +21,9 @@ import (
 )
 
 func newEventMetrics(sent, rcvd, rtt int64, respCodes map[string]int64) *EventMetrics {
-	respCodesVal := NewMap("code", NewInt(0))
+	respCodesVal := NewMap("code")
 	for k, v := range respCodes {
-		respCodesVal.IncKeyBy(k, NewInt(v))
+		respCodesVal.IncKeyBy(k, v)
 	}
 	em := NewEventMetrics(time.Now()).
 		AddMetric("sent", NewInt(sent)).
@@ -60,8 +60,8 @@ func verifyEventMetrics(t *testing.T, m *EventMetrics, sent, rcvd, rtt int64, re
 		}
 	}
 	for k, eVal := range respCodes {
-		if m.Metric("resp-code").(*Map).GetKey(k).Int64() != eVal {
-			t.Errorf("Unexpected metric value. Expected: %d, Got: %d", eVal, m.Metric("resp-code").(*Map).GetKey(k).Int64())
+		if m.Metric("resp-code").(*Map).GetKey(k) != eVal {
+			t.Errorf("Unexpected metric value. Expected: %d, Got: %d", eVal, m.Metric("resp-code").(*Map).GetKey(k))
 		}
 	}
 }
@@ -188,13 +188,13 @@ func BenchmarkEventMetricsStringer(b *testing.B) {
 }
 
 func TestAllocsPerRun(t *testing.T) {
-	respCodesVal := NewMap("code", NewInt(0))
+	respCodesVal := NewMap("code")
 	for k, v := range map[string]int64{
 		"200": 22,
 		"404": 4500,
 		"403": 4500,
 	} {
-		respCodesVal.IncKeyBy(k, NewInt(v))
+		respCodesVal.IncKeyBy(k, v)
 	}
 
 	var em *EventMetrics

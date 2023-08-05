@@ -127,7 +127,7 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time
 					Name:  aws.String(value.MapName),
 					Value: aws.String(mapKey),
 				})
-				metricDatum := cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp, em.LatencyUnit)
+				metricDatum := cw.newCWMetricDatum(metricKey, float64(value.GetKey(mapKey)), dimensions, em.Timestamp, em.LatencyUnit)
 				cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
 			}
 

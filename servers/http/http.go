@@ -174,7 +174,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		ln:            ln,
 		ldLister:      ldLister,
 		sysVars:       sysVars,
-		reqMetric:     metrics.NewMap("url", metrics.NewInt(0)),
+		reqMetric:     metrics.NewMap("url"),
 		statsInterval: statsExportInterval,
 		instanceName:  sysvars.Vars()["instance"],
 		staticURLResTable: map[string][]byte{

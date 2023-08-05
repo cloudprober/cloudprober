@@ -16,11 +16,10 @@ package metrics
 
 import (
 	"reflect"
-	"strconv"
 	"testing"
 )
 
-func verify(t *testing.T, m *Map, expectedKeys []string, expectedMap map[string]int64) {
+func verifyMapFloat(t *testing.T, m *MapFloat, expectedKeys []string, expectedMap map[string]float64) {
 	t.Helper()
 
 	if !reflect.DeepEqual(m.Keys(), expectedKeys) {
@@ -28,42 +27,42 @@ func verify(t *testing.T, m *Map, expectedKeys []string, expectedMap map[string]
 	}
 	for k, v := range expectedMap {
 		if m.GetKey(k) != v {
-			t.Errorf("Key values not as expected. Key: %s, Got: %d, Expected: %d", k, m.GetKey(k), v)
+			t.Errorf("Key values not as expected. Key: %s, Got: %v, Expected: %v", k, m.GetKey(k), v)
 		}
 	}
 }
 
-func TestMap(t *testing.T) {
-	m := NewMap("code")
+func TestMapFloat(t *testing.T) {
+	m := NewMapFloat("code")
 	m.IncKeyBy("200", 4000)
 
-	verify(t, m, []string{"200"}, map[string]int64{"200": 4000})
+	verifyMapFloat(t, m, []string{"200"}, map[string]float64{"200": 4000})
 
 	m.IncKey("500")
-	verify(t, m, []string{"200", "500"}, map[string]int64{
+	verifyMapFloat(t, m, []string{"200", "500"}, map[string]float64{
 		"200": 4000,
 		"500": 1,
 	})
 
 	// Verify that keys are ordered
 	m.IncKey("404")
-	verify(t, m, []string{"200", "404", "500"}, map[string]int64{
+	verifyMapFloat(t, m, []string{"200", "404", "500"}, map[string]float64{
 		"200": 4000,
 		"404": 1,
 		"500": 1,
 	})
 
 	// Clone m for verification later
-	m1 := m.Clone().(*Map)
+	m1 := m.Clone().(*MapFloat)
 
 	// Verify add works as expected
-	m2 := NewMap("code")
+	m2 := NewMapFloat("code")
 	m2.IncKeyBy("403", 2)
 	err := m.Add(m2)
 	if err != nil {
 		t.Errorf("Add two maps produced error. Err: %v", err)
 	}
-	verify(t, m, []string{"200", "403", "404", "500"}, map[string]int64{
+	verifyMapFloat(t, m, []string{"200", "403", "404", "500"}, map[string]float64{
 		"200": 4000,
 		"403": 2,
 		"404": 1,
@@ -71,19 +70,19 @@ func TestMap(t *testing.T) {
 	})
 
 	// Verify that clones value has not changed
-	verify(t, m1, []string{"200", "404", "500"}, map[string]int64{
+	verifyMapFloat(t, m1, []string{"200", "404", "500"}, map[string]float64{
 		"200": 4000,
 		"404": 1,
 		"500": 1,
 	})
 }
 
-func TestMapSubtractCounter(t *testing.T) {
-	m1 := NewMap("code")
+func TestMapFloatSubtractCounter(t *testing.T) {
+	m1 := NewMapFloat("code")
 	m1.IncKeyBy("200", 4000)
 	m1.IncKeyBy("403", 2)
 
-	m2 := m1.Clone().(*Map)
+	m2 := m1.Clone().(*MapFloat)
 	m2.IncKeyBy("200", 400)
 	m2.IncKey("500")
 	m2Clone := m2.Clone() // We'll use this for reset testing below.
@@ -96,7 +95,7 @@ func TestMapSubtractCounter(t *testing.T) {
 	if wasReset != expectReset {
 		t.Errorf("wasReset=%v, expected=%v", wasReset, expectReset)
 	}
-	verify(t, m2, []string{"200", "403", "500"}, map[string]int64{
+	verifyMapFloat(t, m2, []string{"200", "403", "500"}, map[string]float64{
 		"200": 400,
 		"403": 0,
 		"500": 1,
@@ -112,57 +111,31 @@ func TestMapSubtractCounter(t *testing.T) {
 	if wasReset != expectReset {
 		t.Errorf("wasReset=%v, expected=%v", wasReset, expectReset)
 	}
-	verify(t, m3.(*Map), []string{"200", "403"}, map[string]int64{
+	verifyMapFloat(t, m3.(*MapFloat), []string{"200", "403"}, map[string]float64{
 		"200": 4000,
 		"403": 2,
 	})
 
 }
 
-func TestMapString(t *testing.T) {
-	m := NewMap("code")
+func TestMapFloatString(t *testing.T) {
+	m := NewMapFloat("code")
 	m.IncKeyBy("403", 20)
 	m.IncKeyBy("200", 4000)
 
 	s := m.String()
-	expectedString := "map:code,200:4000,403:20"
+	expectedString := "map:code,200:4000.000,403:20.000"
 	if s != expectedString {
 		t.Errorf("m.String()=%s, expected=%s", s, expectedString)
 	}
 
-	m2, err := ParseMapFromString(s)
+	m2, err := ParseMapFloatFromString(s)
 	if err != nil {
-		t.Errorf("ParseMapFromString(%s) returned error: %v", s, err)
+		t.Errorf("ParseMapFloatFromString(%s) returned error: %v", s, err)
 	}
 
 	s1 := m2.String()
 	if s1 != s {
-		t.Errorf("ParseMapFromString(%s).String() = %s, expected = %s", s, s1, s)
-	}
-}
-
-func TestMapAllocsPerRun(t *testing.T) {
-	newMap := func(numKeys int) *Map {
-		m := NewMap("code")
-		for i := 1; i <= numKeys; i++ {
-			m.IncKeyBy(strconv.Itoa(100*i), int64(i))
-		}
-		return m
-	}
-
-	for _, n := range []int{5, 10, 20, 40} {
-		newAvg := testing.AllocsPerRun(100, func() {
-			newMap(n)
-		})
-
-		m := newMap(n)
-		cloneAvg := testing.AllocsPerRun(100, func() {
-			_ = m.Clone()
-		})
-		stringAvg := testing.AllocsPerRun(100, func() {
-			_ = m.String()
-		})
-
-		t.Logf("Average allocations per run (numKeys=%d): ForMapNew=%v, ForMapClone=%v, ForMapString=%v", n, newAvg, cloneAvg, stringAvg)
+		t.Errorf("ParseMapFloatFromString(%s).String() = %s, expected = %s", s, s1, s)
 	}
 }

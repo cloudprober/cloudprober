@@ -23,29 +23,29 @@ import (
 	"sync"
 )
 
-// Map implements a key-value store where keys are of type string and values
+// MapFloat implements a key-value store where keys are of type string and values
 // are of type NumValue.
 // It satisfies the Value interface.
-type Map struct {
+type MapFloat struct {
 	MapName string // Map key name
 	mu      sync.RWMutex
-	m       map[string]int64
+	m       map[string]float64
 	keys    []string
 
 	// total is only used to figure out if counter is moving up or down (reset).
-	total int64
+	total float64
 }
 
-// NewMap returns a new Map
-func NewMap(mapName string) *Map {
-	return &Map{
+// NewMapFloat returns a new MapFloat
+func NewMapFloat(mapName string) *MapFloat {
+	return &MapFloat{
 		MapName: mapName,
-		m:       make(map[string]int64),
+		m:       make(map[string]float64),
 	}
 }
 
 // GetKey returns the given key's value.
-func (m *Map) GetKey(key string) int64 {
+func (m *MapFloat) GetKey(key string) float64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.m[key]
@@ -53,12 +53,12 @@ func (m *Map) GetKey(key string) int64 {
 
 // Clone creates a clone of the Map. Clone makes sure that underlying data
 // storage is properly cloned.
-func (m *Map) Clone() Value {
+func (m *MapFloat) Clone() Value {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	newMap := &Map{
+	newMap := &MapFloat{
 		MapName: m.MapName,
-		m:       make(map[string]int64),
+		m:       make(map[string]float64),
 		total:   m.total,
 	}
 	newMap.keys = make([]string, len(m.keys))
@@ -70,7 +70,7 @@ func (m *Map) Clone() Value {
 }
 
 // Keys returns the list of keys
-func (m *Map) Keys() []string {
+func (m *MapFloat) Keys() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return append([]string{}, m.keys...)
@@ -79,14 +79,14 @@ func (m *Map) Keys() []string {
 // newKey adds a new key to the map, with its value set to defaultKeyValue
 // This is an unsafe function, callers should take care of protecting the map
 // from race conditions.
-func (m *Map) newKey(key string) {
+func (m *MapFloat) newKey(key string) {
 	m.keys = append(m.keys, key)
 	sort.Strings(m.keys)
-	m.m[key] = 0
+	m.m[key] = float64(0)
 }
 
 // IncKeyBy increments the given key's value by NumValue.
-func (m *Map) IncKeyBy(key string, delta int64) {
+func (m *MapFloat) IncKeyBy(key string, delta float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.m[key]; !ok {
@@ -97,13 +97,13 @@ func (m *Map) IncKeyBy(key string, delta int64) {
 }
 
 // IncKey increments the given key's value by one.
-func (m *Map) IncKey(key string) {
-	m.IncKeyBy(key, 1)
+func (m *MapFloat) IncKey(key string) {
+	m.IncKeyBy(key, float64(1))
 }
 
 // Add adds a value (type Value) to the receiver Map. A non-Map value returns
 // an error. This is part of the Value interface.
-func (m *Map) Add(val Value) error {
+func (m *MapFloat) Add(val Value) error {
 	_, err := m.addOrSubtract(val, false)
 	return err
 }
@@ -111,12 +111,12 @@ func (m *Map) Add(val Value) error {
 // SubtractCounter subtracts the provided "lastVal", assuming that value
 // represents a counter, i.e. if "value" is less than "lastVal", we assume that
 // counter has been reset and don't subtract.
-func (m *Map) SubtractCounter(lastVal Value) (bool, error) {
+func (m *MapFloat) SubtractCounter(lastVal Value) (bool, error) {
 	return m.addOrSubtract(lastVal, true)
 }
 
-func (m *Map) addOrSubtract(val Value, subtract bool) (bool, error) {
-	delta, ok := val.(*Map)
+func (m *MapFloat) addOrSubtract(val Value, subtract bool) (bool, error) {
+	delta, ok := val.(*MapFloat)
 	if !ok {
 		return false, errors.New("incompatible value to add or subtract")
 	}
@@ -157,20 +157,20 @@ func (m *Map) addOrSubtract(val Value, subtract bool) (bool, error) {
 
 // AddInt64 generates a panic for the Map type. This is added only to satisfy
 // the Value interface.
-func (m *Map) AddInt64(i int64) {
+func (m *MapFloat) AddInt64(i int64) {
 	panic("Map type doesn't implement AddInt64()")
 }
 
 // AddFloat64 generates a panic for the Map type. This is added only to
 // satisfy the Value interface.
-func (m *Map) AddFloat64(f float64) {
+func (m *MapFloat) AddFloat64(f float64) {
 	panic("Map type doesn't implement AddFloat64()")
 }
 
 // String returns the string representation of the receiver Map.
 // This is part of the Value interface.
 // map:key,k1:v1,k2:v2
-func (m *Map) String() string {
+func (m *MapFloat) String() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -184,7 +184,7 @@ func (m *Map) String() string {
 		b.WriteByte(',')
 		b.WriteString(k)
 		b.WriteByte(':')
-		b.WriteString(strconv.FormatInt(m.m[k], 10))
+		b.WriteString(FloatToString(m.m[k]))
 	}
 	return b.String()
 }
@@ -195,7 +195,7 @@ func (m *Map) String() string {
 // For example:
 // "map:code,200:10123,404:21" will be parsed as:
 // "map:code 200:10123.000 404:21.000".
-func ParseMapFromString(mapValue string) (*Map, error) {
+func ParseMapFloatFromString(mapValue string) (*MapFloat, error) {
 	tokens := strings.Split(mapValue, ",")
 	if len(tokens) < 1 {
 		return nil, errors.New("bad map value")
@@ -206,18 +206,18 @@ func ParseMapFromString(mapValue string) (*Map, error) {
 		return nil, errors.New("map value doesn't start with map:<key>")
 	}
 
-	m := NewMap(kv[1])
+	m := NewMapFloat(kv[1])
 
 	for _, tok := range tokens[1:] {
 		kv := strings.Split(tok, ":")
 		if len(kv) != 2 {
 			return nil, errors.New("bad map value token: " + tok)
 		}
-		i, err := strconv.ParseInt(kv[1], 10, 64)
+		f, err := strconv.ParseFloat(kv[1], 64)
 		if err != nil {
 			return nil, fmt.Errorf("could not convert map key value %s to a float: %v", kv[1], err)
 		}
-		m.IncKeyBy(kv[0], i)
+		m.IncKeyBy(kv[0], f)
 	}
 
 	return m, nil

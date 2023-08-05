@@ -268,6 +268,7 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 // it in the cache if batch processing is enabled, and returns it.
 //
 // More information on the object and specific fields can be found here:
+//
 //	https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
 func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, labels map[string]string, timestamp time.Time, tv *monitoring.TypedValue, unit, cacheKey string) *monitoring.TimeSeries {
 	startTime := s.startTime.Format(time.RFC3339Nano)
@@ -328,10 +329,10 @@ func (s *SDSurfacer) sdKind(kind metrics.Kind) string {
 }
 
 // processLabels processes EventMetrics labels to generate:
-//	- a map of label key values to use in StackDriver timeseries,
-//	- a labels key of the form label1_key=label1_val,label2_key=label2_val,
-//	  used for caching.
-//	- prefix for metric names, usually <ptype>/<probe>.
+//   - a map of label key values to use in StackDriver timeseries,
+//   - a labels key of the form label1_key=label1_val,label2_key=label2_val,
+//     used for caching.
+//   - prefix for metric names, usually <ptype>/<probe>.
 func (s *SDSurfacer) processLabels(em *metrics.EventMetrics) (labels map[string]string, labelsKey, metricPrefix string) {
 	labels = make(map[string]string)
 	var sortedLabels []string // we use this for cache key below
@@ -339,7 +340,7 @@ func (s *SDSurfacer) processLabels(em *metrics.EventMetrics) (labels map[string]
 	metricPrefixConfig := s.c.GetMetricsPrefix()
 	usePType := true && metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE
 	useProbe := true && metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE ||
-									metricPrefixConfig == configpb.SurfacerConf_PROBE
+		metricPrefixConfig == configpb.SurfacerConf_PROBE
 	for _, k := range em.LabelsKeys() {
 		if k == "ptype" && usePType {
 			ptype = em.Label(k)
@@ -453,7 +454,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 					mmLabels[lk] = lv
 				}
 				mmLabels[mapValue.MapName] = mapKey
-				f := float64(mapValue.GetKey(mapKey).Int64())
+				f := float64(mapValue.GetKey(mapKey))
 				ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mmLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
 			}
 			continue
@@ -479,6 +480,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 // prefix are longer than 100 characters, which is illegal in a Stackdriver
 // call. Stack Driver doesn't allow custom metrics with more than 100 character
 // names, so we have a check to see if we are going over the limit.
+//
 //	Ref: https://cloud.google.com/monitoring/api/v3/metrics#metric_names
 func validMetricLength(metricName string, monitoringURL string) bool {
 	return len(metricName)+len(monitoringURL) <= 100
