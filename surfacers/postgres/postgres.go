@@ -111,6 +111,15 @@ func distToPGMetrics(d *metrics.DistributionData, metricName string, labels map[
 	return pgMerics
 }
 
+func recordMap[T int64 | float64](m *metrics.Map[T], em *metrics.EventMetrics, metricName string, baseLabels map[string]string) []pgMetric {
+	pgMerics := []pgMetric{}
+	for _, k := range m.Keys() {
+		labels := updateLabelMap(baseLabels, [2]string{m.MapName, k})
+		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, metrics.MapValueToString[T](m.GetKey(k)), labels))
+	}
+	return pgMerics
+}
+
 // emToPGMetrics converts an EventMetrics struct into a list of pgMetrics.
 func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 	baseLabels := make(map[string]string)
@@ -123,11 +132,12 @@ func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 		val := em.Metric(metricName)
 
 		// Map metric
-		if mapVal, ok := val.(*metrics.Map); ok {
-			for _, k := range mapVal.Keys() {
-				labels := updateLabelMap(baseLabels, [2]string{mapVal.MapName, k})
-				pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, strconv.FormatInt(mapVal.GetKey(k), 10), labels))
-			}
+		if mapVal, ok := val.(*metrics.Map[int64]); ok {
+			pgMerics = append(pgMerics, recordMap(mapVal, em, metricName, baseLabels)...)
+			continue
+		}
+		if mapVal, ok := val.(*metrics.Map[float64]); ok {
+			pgMerics = append(pgMerics, recordMap(mapVal, em, metricName, baseLabels)...)
 			continue
 		}
 

@@ -306,6 +306,17 @@ func dataKey(metricName string, labels []string) string {
 	return metricName + "{" + strings.Join(labels, ",") + "}"
 }
 
+func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []string) {
+	labelName := ps.checkLabelName(m.MapName)
+	if labelName == "" {
+		return
+	}
+	for _, k := range m.Keys() {
+		labelsWithMap := append(labels, labelName+"=\""+k+"\"")
+		ps.recordMetric(pMetricName, dataKey(pMetricName, labelsWithMap), metrics.MapValueToString(m.GetKey(k)), em, "")
+	}
+}
+
 // record processes the incoming EventMetrics and updates the in-memory
 // database.
 //
@@ -343,22 +354,16 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 		}
 		val := em.Metric(metricName)
 
-		// Map values get expanded into metrics with extra label.
-		if mapVal, ok := val.(*metrics.Map); ok {
-			labelName := ps.checkLabelName(mapVal.MapName)
-			if labelName == "" {
-				continue
-			}
-			for _, k := range mapVal.Keys() {
-				labelsWithMap := append(labels, labelName+"=\""+k+"\"")
-				ps.recordMetric(pMetricName, dataKey(pMetricName, labelsWithMap), strconv.FormatInt(mapVal.GetKey(k), 10), em, "")
-			}
+		switch v := val.(type) {
+		case *metrics.Map[int64]:
+			recordMap[int64](ps, v, em, pMetricName, labels)
 			continue
-		}
-
+		case *metrics.Map[float64]:
+			recordMap[float64](ps, v, em, pMetricName, labels)
+			continue
 		// Distribution values get expanded into metrics with extra label "le".
-		if distVal, ok := val.(*metrics.Distribution); ok {
-			d := distVal.Data()
+		case *metrics.Distribution:
+			d := v.Data()
 			var val int64
 			ps.recordMetric(pMetricName, dataKey(pMetricName+"_sum", labels), strconv.FormatFloat(d.Sum, 'f', -1, 64), em, histogram)
 			ps.recordMetric(pMetricName, dataKey(pMetricName+"_count", labels), strconv.FormatInt(d.Count, 10), em, histogram)
@@ -373,18 +378,14 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 				labelsWithBucket := append(labels, "le=\""+lb+"\"")
 				ps.recordMetric(pMetricName, dataKey(pMetricName+"_bucket", labelsWithBucket), strconv.FormatInt(val, 10), em, histogram)
 			}
-			continue
-		}
-
-		// String values get converted into a label.
-		if _, ok := val.(metrics.String); ok {
+		case metrics.String:
 			newLabels := append(labels, "val="+val.String())
 			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), "1", em, "")
-			continue
-		}
 
 		// All other value types, mostly numerical types.
-		ps.recordMetric(pMetricName, dataKey(pMetricName, labels), val.String(), em, "")
+		default:
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), val.String(), em, "")
+		}
 	}
 }
 

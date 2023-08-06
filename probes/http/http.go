@@ -91,9 +91,9 @@ type probeResult struct {
 	total, success, timeouts     int64
 	connEvent                    int64
 	latency                      metrics.Value
-	respCodes                    *metrics.Map
-	respBodies                   *metrics.Map
-	validationFailure            *metrics.Map
+	respCodes                    *metrics.Map[int64]
+	respBodies                   *metrics.Map[int64]
+	validationFailure            *metrics.Map[int64]
 	sslEarliestExpirationSeconds int64
 }
 

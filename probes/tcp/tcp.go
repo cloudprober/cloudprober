@@ -46,7 +46,7 @@ type Probe struct {
 type probeResult struct {
 	total, success    int64
 	latency           metrics.Value
-	validationFailure *metrics.Map
+	validationFailure *metrics.Map[int64]
 }
 
 func (p *Probe) newResult() sched.ProbeResult {

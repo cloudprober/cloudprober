@@ -133,7 +133,7 @@ func TestListenAndServeStats(t *testing.T) {
 	// See if we got stats for the all URLs
 	for url, expectedCount := range expectedURLStats {
 		url = strings.Split(url, "?")[0]
-		count := em.Metric("req").(*metrics.Map).GetKey(url)
+		count := em.Metric("req").(*metrics.Map[int64]).GetKey(url)
 		if count != expectedCount {
 			t.Errorf("Didn't get the expected stats for the URL: %s. Got: %d, Expected: %d", url, count, expectedCount)
 		}

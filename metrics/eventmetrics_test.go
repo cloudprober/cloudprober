@@ -60,8 +60,8 @@ func verifyEventMetrics(t *testing.T, m *EventMetrics, sent, rcvd, rtt int64, re
 		}
 	}
 	for k, eVal := range respCodes {
-		if m.Metric("resp-code").(*Map).GetKey(k) != eVal {
-			t.Errorf("Unexpected metric value. Expected: %d, Got: %d", eVal, m.Metric("resp-code").(*Map).GetKey(k))
+		if m.Metric("resp-code").(*Map[int64]).GetKey(k) != eVal {
+			t.Errorf("Unexpected metric value. Expected: %d, Got: %d", eVal, m.Metric("resp-code").(*Map[int64]).GetKey(k))
 		}
 	}
 }

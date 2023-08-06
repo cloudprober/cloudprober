@@ -1,3 +1,17 @@
+// Copyright 2022-2023 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package bigquery implements surfacer for bigquery insertion.
 package bigquery
 
@@ -13,8 +27,8 @@ import (
 	"cloud.google.com/go/bigquery"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/bigquery/proto"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
 )
 
 type bqrow struct {
@@ -169,6 +183,17 @@ func (s *Surfacer) bqLabels(em *metrics.EventMetrics) (map[string]bigquery.Value
 	return baseRow, nil
 }
 
+func parseMapToBQCols[T int64 | float64](m *metrics.Map[T], baseRow map[string]bigquery.Value, metricName string, t time.Time, c *configpb.SurfacerConf) []*bqrow {
+	var out []*bqrow
+	for _, k := range m.Keys() {
+		bqRowMap := copyMap(baseRow)
+		bqRowMap[m.MapName] = k
+		bqRowMap = updateMetricValues(bqRowMap, metricName, m.GetKey(k), t, c)
+		out = append(out, &bqrow{value: bqRowMap})
+	}
+	return out
+}
+
 func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) ([]*bqrow, error) {
 	baseRow := make(map[string]bigquery.Value)
 	var out []*bqrow
@@ -195,13 +220,8 @@ func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) ([]*bqrow, error) {
 		val := em.Metric(metricName)
 
 		// Map metric
-		if mapVal, ok := val.(*metrics.Map); ok {
-			for _, k := range mapVal.Keys() {
-				bqRowMap := copyMap(baseRow)
-				bqRowMap[mapVal.MapName] = k
-				bqRowMap = updateMetricValues(bqRowMap, metricName, mapVal.GetKey(k), em.Timestamp, s.c)
-				out = append(out, &bqrow{value: bqRowMap})
-			}
+		if mapVal, ok := val.(*metrics.Map[int64]); ok {
+			out = append(out, parseMapToBQCols(mapVal, baseRow, metricName, em.Timestamp, s.c)...)
 			continue
 		}
 

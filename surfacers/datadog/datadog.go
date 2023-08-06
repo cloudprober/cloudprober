@@ -114,22 +114,28 @@ func (dd *DDSurfacer) receiveMetricsFromEvent(ctx context.Context) {
 	}
 }
 
+func recordMapValue[T int64 | float64](dd *DDSurfacer, m *metrics.Map[T], baseTags []string, key string, em *metrics.EventMetrics) []ddSeries {
+	var series []ddSeries
+	for _, k := range m.Keys() {
+		series = append(series, dd.newDDSeries(key, float64(m.GetKey(k)), append(baseTags, fmt.Sprintf("%s:%s", m.MapName, k)), em.Timestamp, em.Kind))
+	}
+	return series
+}
+
 func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time.Ticker, em *metrics.EventMetrics) {
 	for _, metricKey := range em.MetricsKeys() {
+		var series []ddSeries
 		switch value := em.Metric(metricKey).(type) {
 		case metrics.NumValue:
-			dd.addMetricsAndPublish(ctx, publishTimer, dd.newDDSeries(metricKey, value.Float64(), emLabelsToTags(em), em.Timestamp, em.Kind))
-		case *metrics.Map:
-			var series []ddSeries
-			for _, k := range value.Keys() {
-				tags := emLabelsToTags(em)
-				tags = append(tags, fmt.Sprintf("%s:%s", value.MapName, k))
-				series = append(series, dd.newDDSeries(metricKey, float64(value.GetKey(k)), tags, em.Timestamp, em.Kind))
-			}
-			dd.addMetricsAndPublish(ctx, publishTimer, series...)
+			series = []ddSeries{dd.newDDSeries(metricKey, value.Float64(), emLabelsToTags(em), em.Timestamp, em.Kind)}
+		case *metrics.Map[int64]:
+			series = recordMapValue(dd, value, emLabelsToTags(em), metricKey, em)
+		case *metrics.Map[float64]:
+			series = recordMapValue(dd, value, emLabelsToTags(em), metricKey, em)
 		case *metrics.Distribution:
-			dd.addMetricsAndPublish(ctx, publishTimer, dd.distToDDSeries(value.Data(), metricKey, emLabelsToTags(em), em.Timestamp, em.Kind)...)
+			series = dd.distToDDSeries(value.Data(), metricKey, emLabelsToTags(em), em.Timestamp, em.Kind)
 		}
+		dd.addMetricsAndPublish(ctx, publishTimer, series...)
 	}
 }
 

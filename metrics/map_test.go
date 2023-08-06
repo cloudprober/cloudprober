@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func verify(t *testing.T, m *Map, expectedKeys []string, expectedMap map[string]int64) {
+func verify[T Number](t *testing.T, m *Map[T], expectedKeys []string, expectedMap map[string]T) {
 	t.Helper()
 
 	if !reflect.DeepEqual(m.Keys(), expectedKeys) {
@@ -30,7 +30,7 @@ func verify(t *testing.T, m *Map, expectedKeys []string, expectedMap map[string]
 	}
 	for k, v := range expectedMap {
 		if m.GetKey(k) != v {
-			t.Errorf("Key values not as expected. Key: %s, Got: %d, Expected: %d", k, m.GetKey(k), v)
+			t.Errorf("Key values not as expected. Key: %s, Got: %v, Expected: %v", k, m.GetKey(k), v)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func TestMap(t *testing.T) {
 	})
 
 	// Clone m for verification later
-	m1 := m.Clone().(*Map)
+	m1 := m.Clone().(*Map[int64])
 
 	// Verify add works as expected
 	m2 := NewMap("code")
@@ -85,7 +85,7 @@ func TestMapSubtractCounter(t *testing.T) {
 	m1.IncKeyBy("200", 4000)
 	m1.IncKeyBy("403", 2)
 
-	m2 := m1.Clone().(*Map)
+	m2 := m1.Clone().(*Map[int64])
 	m2.IncKeyBy("200", 400)
 	m2.IncKey("500")
 	m2Clone := m2.Clone() // We'll use this for reset testing below.
@@ -114,7 +114,7 @@ func TestMapSubtractCounter(t *testing.T) {
 	if wasReset != expectReset {
 		t.Errorf("wasReset=%v, expected=%v", wasReset, expectReset)
 	}
-	verify(t, m3.(*Map), []string{"200", "403"}, map[string]int64{
+	verify(t, m3.(*Map[int64]), []string{"200", "403"}, map[string]int64{
 		"200": 4000,
 		"403": 2,
 	})
@@ -132,7 +132,7 @@ func TestMapString(t *testing.T) {
 		t.Errorf("m.String()=%s, expected=%s", s, expectedString)
 	}
 
-	m2, err := ParseMapFromString(s)
+	m2, err := ParseMapFromString[int64](s)
 	if err != nil {
 		t.Errorf("ParseMapFromString(%s) returned error: %v", s, err)
 	}
@@ -178,7 +178,7 @@ func BenchmarkMapClone(b *testing.B) {
 }
 
 func TestMapAllocsPerRun(t *testing.T) {
-	newMap := func(numKeys int) *Map {
+	newMap := func(numKeys int) *Map[int64] {
 		m := NewMap("code")
 		for i := 1; i <= numKeys; i++ {
 			m.IncKeyBy(strconv.Itoa(100*i), int64(i))

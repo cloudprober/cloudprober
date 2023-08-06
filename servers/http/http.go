@@ -134,7 +134,7 @@ type Server struct {
 	instanceName      string
 	sysVars           map[string]string
 	staticURLResTable map[string][]byte
-	reqMetric         *metrics.Map
+	reqMetric         *metrics.Map[int64]
 	dataChan          chan<- *metrics.EventMetrics
 	statsInterval     time.Duration
 	ldLister          endpoint.Lister // Lameduck lister

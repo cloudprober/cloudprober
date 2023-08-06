@@ -379,6 +379,22 @@ func (s *SDSurfacer) ignoreMetric(name string) bool {
 	return false
 }
 
+func recordMapValue[T int64 | float64](s *SDSurfacer, m *metrics.Map[T], mLabels map[string]string, t time.Time, name, metricKind, unit, cacheKey string) []*monitoring.TimeSeries {
+	var ts []*monitoring.TimeSeries
+	// Since StackDriver doesn't support Map value type, we convert Map values
+	// to multiple timeseries with map's KeyName and key as labels.
+	for _, mapKey := range m.Keys() {
+		mmLabels := make(map[string]string)
+		for lk, lv := range mLabels {
+			mmLabels[lk] = lv
+		}
+		mmLabels[m.MapName] = mapKey
+		f := float64(m.GetKey(mapKey))
+		ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mmLabels, t, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
+	}
+	return ts
+}
+
 // recordEventMetrics processes the incoming EventMetrics objects and builds
 // TimeSeries from it.
 //
@@ -445,18 +461,12 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 		}
 
 		// If metric value is of type Map.
-		if mapValue, ok := val.(*metrics.Map); ok {
-			// Since StackDriver doesn't support Map value type, we convert Map values
-			// to multiple timeseries with map's KeyName and key as labels.
-			for _, mapKey := range mapValue.Keys() {
-				mmLabels := make(map[string]string)
-				for lk, lv := range mLabels {
-					mmLabels[lk] = lv
-				}
-				mmLabels[mapValue.MapName] = mapKey
-				f := float64(mapValue.GetKey(mapKey))
-				ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mmLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
-			}
+		if mapValue, ok := val.(*metrics.Map[int64]); ok {
+			ts = append(ts, recordMapValue(s, mapValue, mLabels, em.Timestamp, name, metricKind, unit, cacheKey)...)
+			continue
+		}
+		if mapValue, ok := val.(*metrics.Map[float64]); ok {
+			ts = append(ts, recordMapValue(s, mapValue, mLabels, em.Timestamp, name, metricKind, unit, cacheKey)...)
 			continue
 		}
 
