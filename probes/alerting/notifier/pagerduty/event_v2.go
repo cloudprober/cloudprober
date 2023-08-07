@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pagerduty
-
-// Pagerduty EventV2. This package implements the EventsV2 interface to send alerts to PagerDuty.
-// Specifically, it implements the "Alert Event" component of the EventsV2 API.
+// Pagerduty EventV2. This file, part of the pagerduty package, implements
+// the EventsV2 interface to send alerts to PagerDuty. Specifically, it
+// implements the "Alert Event"component of the EventsV2 API.
 // https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event
+
+package pagerduty
 
 import (
 	"bytes"
@@ -126,8 +127,8 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 	return body, nil
 }
 
-// createEventV2Request creates a new PagerDuty event, from the alertFields that are passed
-// in from the alerting package.
+// createEventV2Request creates a new PagerDuty event, from the alertFields
+// that are passed in from the alerting package.
 func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Request {
 	event := EventV2Request{
 		RoutingKey:  c.routingKey,
