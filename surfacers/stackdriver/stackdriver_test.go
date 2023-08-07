@@ -117,10 +117,6 @@ func TestBaseMetric(t *testing.T) {
 func TestTimeSeries(t *testing.T) {
 	testTimestamp := time.Now()
 
-	// Following variables are used for map value testing.
-	respCode := metrics.NewMap("code")
-	respCode.IncKeyBy("200", 98)
-	respCode.IncKeyBy("500", 2)
 	// app latency
 	appLatency := metrics.NewMapFloat("pLatency")
 	appLatency.IncKeyBy("p95", 0.05)
@@ -161,18 +157,18 @@ func TestTimeSeries(t *testing.T) {
 		{
 			description:   "timeseries creation with a int64 map",
 			metricName:    "resp-code",
-			metricValue:   respCode,
+			metricValue:   metrics.NewMap("code").IncKeyBy("200", 98).IncKeyBy("500", 2),
 			labels:        [][2]string{{"keyC", "valueC"}},
 			tsValue:       []float64{98, 2},
-			tsExtraLabels: [][2]string{{respCode.MapName, "200"}, {respCode.MapName, "500"}},
+			tsExtraLabels: [][2]string{{"code", "200"}, {"code", "500"}},
 		},
 		{
 			description:   "timeseries creation with a float64 map",
 			metricName:    "app-latency",
-			metricValue:   appLatency,
+			metricValue:   metrics.NewMapFloat("percentile").IncKeyBy("p95", 0.05).IncKeyBy("p99", 0.9),
 			labels:        [][2]string{{"keyD", "valueD"}},
 			tsValue:       []float64{0.05, 0.9},
-			tsExtraLabels: [][2]string{{appLatency.MapName, "p95"}, {appLatency.MapName, "p99"}},
+			tsExtraLabels: [][2]string{{"percentile", "p95"}, {"percentile", "p99"}},
 		},
 	}
 	for _, tt := range tests {
