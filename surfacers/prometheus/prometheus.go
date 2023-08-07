@@ -237,7 +237,7 @@ func (ps *PromSurfacer) recordMetric(metricName, key, value string, em *metrics.
 		ps.metrics[metricName] = &promMetric{
 			typ: typ,
 			data: map[string]*dataPoint{
-				key: &dataPoint{
+				key: {
 					value:     value,
 					timestamp: promTime(em.Timestamp),
 				},
@@ -312,8 +312,8 @@ func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metri
 		return
 	}
 	for _, k := range m.Keys() {
-		labelsWithMap := append(labels, labelName+"=\""+k+"\"")
-		ps.recordMetric(pMetricName, dataKey(pMetricName, labelsWithMap), metrics.MapValueToString(m.GetKey(k)), em, "")
+		key := dataKey(pMetricName, append(labels, labelName+"=\""+k+"\""))
+		ps.recordMetric(pMetricName, key, metrics.MapValueToString(m.GetKey(k)), em, "")
 	}
 }
 
@@ -357,10 +357,8 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 		switch v := val.(type) {
 		case *metrics.Map[int64]:
 			recordMap[int64](ps, v, em, pMetricName, labels)
-			continue
 		case *metrics.Map[float64]:
 			recordMap[float64](ps, v, em, pMetricName, labels)
-			continue
 		// Distribution values get expanded into metrics with extra label "le".
 		case *metrics.Distribution:
 			d := v.Data()

@@ -1,4 +1,4 @@
-// Copyright 2017-2021 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,10 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
 )
 
-const batchSize = 200
+const (
+	batchSize = 200
+	DOUBLE    = "DOUBLE"
+)
 
 //-----------------------------------------------------------------------------
 // Stack Driver Surfacer Specific Code
@@ -264,30 +267,48 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 // StackDriver Object Creation and Helper Functions
 //-----------------------------------------------------------------------------
 
+// baseMetric encapsulates intermediate timeseries values to makes passing
+// around timeseries information easy.
+type baseMetric struct {
+	ts               time.Time
+	kind, name, unit string
+	labels           map[string]string
+	cacheKey         string
+}
+
+func (bm *baseMetric) Clone() *baseMetric {
+	nbm := *bm
+	nbm.labels = make(map[string]string, len(bm.labels))
+	for k, v := range bm.labels {
+		nbm.labels[k] = v
+	}
+	return &nbm
+}
+
 // recordTimeSeries forms a timeseries object from the given arguments, records
 // it in the cache if batch processing is enabled, and returns it.
 //
 // More information on the object and specific fields can be found here:
 //
 //	https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
-func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, labels map[string]string, timestamp time.Time, tv *monitoring.TypedValue, unit, cacheKey string) *monitoring.TimeSeries {
+func (s *SDSurfacer) recordTimeSeries(bm *baseMetric, tv *monitoring.TypedValue, valueType string) *monitoring.TimeSeries {
 	startTime := s.startTime.Format(time.RFC3339Nano)
-	if metricKind == "GAUGE" {
-		startTime = timestamp.Format(time.RFC3339Nano)
+	if bm.kind == "GAUGE" {
+		startTime = bm.ts.Format(time.RFC3339Nano)
 	}
 
 	ts := &monitoring.TimeSeries{
 		// The URL address for our custom metric, must match the
 		// name we used in the MetricDescriptor.
 		Metric: &monitoring.Metric{
-			Type:   s.c.GetMonitoringUrl() + metricName,
-			Labels: labels,
+			Type:   s.c.GetMonitoringUrl() + bm.name,
+			Labels: bm.labels,
 		},
 
 		// Must match the MetricKind and ValueType of the MetricDescriptor.
-		MetricKind: metricKind,
-		ValueType:  msgType,
-		Unit:       unit,
+		MetricKind: bm.kind,
+		ValueType:  valueType,
+		Unit:       bm.unit,
 
 		// Create a single data point, this could be utilized to create
 		// a batch of points instead of a single point if the write
@@ -296,7 +317,7 @@ func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, la
 			{
 				Interval: &monitoring.TimeInterval{
 					StartTime: startTime,
-					EndTime:   timestamp.Format(time.RFC3339Nano),
+					EndTime:   bm.ts.Format(time.RFC3339Nano),
 				},
 				Value: tv,
 			},
@@ -310,7 +331,7 @@ func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, la
 	// We create a key that is a composite of both the name and the
 	// labels so we can make sure that the cache holds all distinct
 	// values and not just the ones with different names.
-	s.cache[metricName+","+cacheKey] = ts
+	s.cache[bm.name+","+bm.cacheKey] = ts
 
 	return ts
 
@@ -328,19 +349,21 @@ func (s *SDSurfacer) sdKind(kind metrics.Kind) string {
 	}
 }
 
-// processLabels processes EventMetrics labels to generate:
+// baseMetric processes EventMetrics labels to generate:
 //   - a map of label key values to use in StackDriver timeseries,
 //   - a labels key of the form label1_key=label1_val,label2_key=label2_val,
 //     used for caching.
 //   - prefix for metric names, usually <ptype>/<probe>.
-func (s *SDSurfacer) processLabels(em *metrics.EventMetrics) (labels map[string]string, labelsKey, metricPrefix string) {
-	labels = make(map[string]string)
+func (s *SDSurfacer) baseMetric(em *metrics.EventMetrics) (*baseMetric, string) {
+	labels := make(map[string]string)
 	var sortedLabels []string // we use this for cache key below
 	var ptype, probe string
+
 	metricPrefixConfig := s.c.GetMetricsPrefix()
-	usePType := true && metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE
-	useProbe := true && metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE ||
+	usePType := metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE
+	useProbe := metricPrefixConfig == configpb.SurfacerConf_PTYPE_PROBE ||
 		metricPrefixConfig == configpb.SurfacerConf_PROBE
+
 	for _, k := range em.LabelsKeys() {
 		if k == "ptype" && usePType {
 			ptype = em.Label(k)
@@ -353,15 +376,22 @@ func (s *SDSurfacer) processLabels(em *metrics.EventMetrics) (labels map[string]
 		labels[k] = em.Label(k)
 		sortedLabels = append(sortedLabels, k+"="+labels[k])
 	}
-	labelsKey = strings.Join(sortedLabels, ",")
 
+	metricPrefix := ""
 	if ptype != "" && usePType {
 		metricPrefix += ptype + "/"
 	}
 	if probe != "" && useProbe {
 		metricPrefix += probe + "/"
 	}
-	return
+
+	return &baseMetric{
+		ts:       em.Timestamp,
+		kind:     s.sdKind(em.Kind),
+		unit:     "1",
+		labels:   labels,
+		cacheKey: strings.Join(sortedLabels, ","),
+	}, metricPrefix
 }
 
 func (s *SDSurfacer) ignoreMetric(name string) bool {
@@ -379,18 +409,15 @@ func (s *SDSurfacer) ignoreMetric(name string) bool {
 	return false
 }
 
-func recordMapValue[T int64 | float64](s *SDSurfacer, m *metrics.Map[T], mLabels map[string]string, t time.Time, name, metricKind, unit, cacheKey string) []*monitoring.TimeSeries {
+func recordMapValue[T int64 | float64](s *SDSurfacer, bm *baseMetric, m *metrics.Map[T]) []*monitoring.TimeSeries {
 	var ts []*monitoring.TimeSeries
 	// Since StackDriver doesn't support Map value type, we convert Map values
 	// to multiple timeseries with map's KeyName and key as labels.
 	for _, mapKey := range m.Keys() {
-		mmLabels := make(map[string]string)
-		for lk, lv := range mLabels {
-			mmLabels[lk] = lv
-		}
-		mmLabels[m.MapName] = mapKey
+		mbm := bm.Clone()
+		mbm.labels[m.MapName] = mapKey
 		f := float64(m.GetKey(mapKey))
-		ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mmLabels, t, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
+		ts = append(ts, s.recordTimeSeries(mbm, &monitoring.TypedValue{DoubleValue: &f}, DOUBLE))
 	}
 	return ts
 }
@@ -402,36 +429,28 @@ func recordMapValue[T int64 | float64](s *SDSurfacer, m *metrics.Map[T], mLabels
 // it converts them to a numerical types (stackdriver type Double) with
 // additional labels. See the inline comments for this conversion is done.
 func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitoring.TimeSeries) {
-	metricKind := s.sdKind(em.Kind)
-	if metricKind == "" {
+	baseM, metricPrefix := s.baseMetric(em)
+	if baseM.kind == "" {
 		s.l.Warningf("Unknown event metrics type (not CUMULATIVE or GAUGE): %v", em.Kind)
 		return
 	}
-
-	emLabels, cacheKey, metricPrefix := s.processLabels(em)
 
 	for _, k := range em.MetricsKeys() {
 		if !s.opts.AllowMetric(k) {
 			continue
 		}
 
-		// Create a copy of emLabels for use in timeseries object.
-		mLabels := make(map[string]string)
-		for k, v := range emLabels {
-			mLabels[k] = v
-		}
 		name := metricPrefix + k
-
 		if s.ignoreMetric(name) {
 			continue
 		}
 
-		// Create the correct TimeSeries object based on the incoming data
-		val := em.Metric(k)
+		// Create a copy of emLabels for use in timeseries object.
+		bm := baseM.Clone()
+		bm.name = name
 
-		unit := "1" // "1" is the default unit for numbers.
 		if k == "latency" {
-			unit = map[time.Duration]string{
+			bm.unit = map[time.Duration]string{
 				time.Second:      "s",
 				time.Millisecond: "ms",
 				time.Microsecond: "us",
@@ -439,45 +458,33 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 			}[em.LatencyUnit]
 		}
 
-		// If metric value is of type numerical value.
-		if v, ok := val.(metrics.NumValue); ok {
-			f := float64(v.Int64())
-			ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
-			continue
-		}
+		switch val := em.Metric(k).(type) {
+		case metrics.NumValue:
+			f := float64(val.Float64())
+			ts = append(ts, s.recordTimeSeries(bm, &monitoring.TypedValue{DoubleValue: &f}, DOUBLE))
 
-		// If metric value is of type String.
-		if v, ok := val.(metrics.String); ok {
+		case metrics.String:
 			// Since StackDriver doesn't support string value type for custom metrics,
 			// we convert string metrics into a numeric metric with an additional label
 			// val="string-val".
 			//
 			// metrics.String stringer wraps string values in a single "". Remove those
 			// for stackdriver.
-			mLabels["val"] = strings.Trim(v.String(), "\"")
+			bm.labels["val"] = strings.Trim(val.String(), "\"")
 			f := float64(1)
-			ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
-			continue
-		}
+			ts = append(ts, s.recordTimeSeries(bm, &monitoring.TypedValue{DoubleValue: &f}, DOUBLE))
 
-		// If metric value is of type Map.
-		if mapValue, ok := val.(*metrics.Map[int64]); ok {
-			ts = append(ts, recordMapValue(s, mapValue, mLabels, em.Timestamp, name, metricKind, unit, cacheKey)...)
-			continue
-		}
-		if mapValue, ok := val.(*metrics.Map[float64]); ok {
-			ts = append(ts, recordMapValue(s, mapValue, mLabels, em.Timestamp, name, metricKind, unit, cacheKey)...)
-			continue
-		}
+		case *metrics.Map[int64]:
+			ts = append(ts, recordMapValue(s, bm, val)...)
+		case *metrics.Map[float64]:
+			ts = append(ts, recordMapValue(s, bm, val)...)
 
-		// If metric value is of type Distribution.
-		if distValue, ok := val.(*metrics.Distribution); ok {
-			ts = append(ts, s.recordTimeSeries(metricKind, name, "DISTRIBUTION", mLabels, em.Timestamp, distValue.StackdriverTypedValue(), unit, cacheKey))
-			continue
-		}
+		case *metrics.Distribution:
+			ts = append(ts, s.recordTimeSeries(bm, val.StackdriverTypedValue(), "DISTRIBUTION"))
 
-		// We'll reach here only if encounter an unsupported value type.
-		s.l.Warningf("Unsupported value type: %v", val)
+		default:
+			s.l.Warningf("Unsupported value type: %v", val)
+		}
 	}
 	return ts
 }

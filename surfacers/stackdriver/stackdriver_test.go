@@ -1,4 +1,4 @@
-// Copyright 2017-2021 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
 	"github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/stretchr/testify/assert"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 
@@ -48,7 +49,7 @@ func newTestSurfacer() SDSurfacer {
 	}
 }
 
-func TestProcessLabels(t *testing.T) {
+func TestBaseMetric(t *testing.T) {
 	s := newTestSurfacer()
 	s.c = &configpb.SurfacerConf{
 		MetricsPrefix: configpb.SurfacerConf_PTYPE_PROBE.Enum(),
@@ -107,187 +108,133 @@ func TestProcessLabels(t *testing.T) {
 		s.c = &configpb.SurfacerConf{
 			MetricsPrefix: tt.metricPrefixConfig,
 		}
-		_, key, metricPrefix := s.processLabels(tt.em)
-		if key != tt.wantKeys {
-			t.Errorf("Failed test: %s, expected keys: %s, actual: %s",
-				tt.description, tt.wantKeys, key)
-		}
-		if metricPrefix != tt.wantMetricPrefix {
-			t.Errorf("Failed test: %s, expected metricPrefix: %s, actual: %s",
-				tt.description, tt.wantMetricPrefix, metricPrefix)
-		}
+		bm, metricPrefix := s.baseMetric(tt.em)
+		assert.Equal(t, tt.wantKeys, bm.cacheKey)
+		assert.Equal(t, tt.wantMetricPrefix, metricPrefix)
 	}
 }
 
 func TestTimeSeries(t *testing.T) {
 	testTimestamp := time.Now()
 
-	oneVal := float64(1)
-
 	// Following variables are used for map value testing.
-	mapValue200 := float64(98)
-	mapValue500 := float64(2)
-	mapVal := metrics.NewMap("code")
-	mapVal.IncKeyBy("200", 98)
-	mapVal.IncKeyBy("500", 2)
+	respCode := metrics.NewMap("code")
+	respCode.IncKeyBy("200", 98)
+	respCode.IncKeyBy("500", 2)
+	// app latency
+	appLatency := metrics.NewMapFloat("pLatency")
+	appLatency.IncKeyBy("p95", 0.05)
+	appLatency.IncKeyBy("p99", 0.9)
 
 	tests := []struct {
-		description string
-		surfacer    SDSurfacer
-		em          *metrics.EventMetrics
-		timeSeries  []*monitoring.TimeSeries
+		description   string
+		labels        [][2]string
+		metricName    string
+		metricValue   metrics.Value
+		latencyUnit   time.Duration
+		tsValue       []float64
+		tsUnit        []string
+		tsExtraLabels [][2]string
 	}{
 		{
 			description: "timeseries creation with a non-default float64 value",
-			surfacer:    newTestSurfacer(),
-			em:          metrics.NewEventMetrics(testTimestamp).AddMetric("test-message", metrics.NewInt(123456)),
-			timeSeries: []*monitoring.TimeSeries{
-				{
-					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/cloudprober/test-message",
-					},
-					Resource: &monitoring.MonitoredResource{
-						Type: "gce_instance",
-						Labels: map[string]string{
-							"instance_id": "test-instance",
-							"zone":        "us-central1-a",
-						},
-					},
-					MetricKind: "CUMULATIVE",
-					ValueType:  "DOUBLE",
-					Unit:       "1",
-					Points: []*monitoring.Point{
-						{
-							Interval: &monitoring.TimeInterval{
-								StartTime: "0001-01-01T00:00:00Z",
-								EndTime:   testTimestamp.Format(time.RFC3339Nano),
-							},
-							Value: &monitoring.TypedValue{
-								DoubleValue: &intVal,
-							},
-						},
-					},
-				},
-			},
+			metricName:  "success",
+			metricValue: metrics.NewInt(int64(intVal)),
+			tsValue:     []float64{intVal},
 		},
 		{
-			description: "timeseries creation with a non-default string value and labels",
-			surfacer:    newTestSurfacer(),
-			em: metrics.NewEventMetrics(testTimestamp).
-				AddMetric("version", metrics.NewString("versionXX")).
-				AddLabel("keyA", "valueA").
-				AddLabel("keyB", "valueB"),
-			timeSeries: []*monitoring.TimeSeries{
-				{
-					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/cloudprober/version",
-						Labels: map[string]string{
-							"keyA": "valueA",
-							"keyB": "valueB",
-							"val":  "versionXX",
-						},
-					},
-					Resource: &monitoring.MonitoredResource{
-						Type: "gce_instance",
-						Labels: map[string]string{
-							"instance_id": "test-instance",
-							"zone":        "us-central1-a",
-						},
-					},
-					MetricKind: "CUMULATIVE",
-					ValueType:  "DOUBLE",
-					Unit:       "1",
-					Points: []*monitoring.Point{
-						{
-							Interval: &monitoring.TimeInterval{
-								StartTime: "0001-01-01T00:00:00Z",
-								EndTime:   testTimestamp.Format(time.RFC3339Nano),
-							},
-							Value: &monitoring.TypedValue{
-								DoubleValue: &oneVal,
-							},
-						},
-					},
-				},
-			},
+			description: "timeseries creation with a non-default float64 value with unit",
+			metricName:  "latency",
+			metricValue: metrics.NewFloat(1.176),
+			latencyUnit: time.Millisecond,
+			tsValue:     []float64{1.176},
+			tsUnit:      []string{"ms"},
 		},
 		{
-			description: "timeseries creation with a non-default map value and labels",
-			surfacer:    newTestSurfacer(),
-			em: metrics.NewEventMetrics(testTimestamp).
-				AddMetric("version", mapVal).
-				AddLabel("keyA", "valueA").
-				AddLabel("keyB", "valueB"),
-			timeSeries: []*monitoring.TimeSeries{
-				{
-					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/cloudprober/version",
-						Labels: map[string]string{
-							"keyA": "valueA",
-							"keyB": "valueB",
-							"code": "200",
-						},
-					},
-					Resource: &monitoring.MonitoredResource{
-						Type: "gce_instance",
-						Labels: map[string]string{
-							"instance_id": "test-instance",
-							"zone":        "us-central1-a",
-						},
-					},
-					MetricKind: "CUMULATIVE",
-					ValueType:  "DOUBLE",
-					Unit:       "1",
-					Points: []*monitoring.Point{
-						{
-							Interval: &monitoring.TimeInterval{
-								StartTime: "0001-01-01T00:00:00Z",
-								EndTime:   testTimestamp.Format(time.RFC3339Nano),
-							},
-							Value: &monitoring.TypedValue{
-								DoubleValue: &mapValue200,
-							},
-						},
-					},
-				},
-				{
-					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/cloudprober/version",
-						Labels: map[string]string{
-							"keyA": "valueA",
-							"keyB": "valueB",
-							"code": "500",
-						},
-					},
-					Resource: &monitoring.MonitoredResource{
-						Type: "gce_instance",
-						Labels: map[string]string{
-							"instance_id": "test-instance",
-							"zone":        "us-central1-a",
-						},
-					},
-					MetricKind: "CUMULATIVE",
-					ValueType:  "DOUBLE",
-					Unit:       "1",
-					Points: []*monitoring.Point{
-						{
-							Interval: &monitoring.TimeInterval{
-								StartTime: "0001-01-01T00:00:00Z",
-								EndTime:   testTimestamp.Format(time.RFC3339Nano),
-							},
-							Value: &monitoring.TypedValue{
-								DoubleValue: &mapValue500,
-							},
-						},
-					},
-				},
-			},
+			description:   "timeseries creation with a non-default string value and labels",
+			metricName:    "version",
+			metricValue:   metrics.NewString("versionXX"),
+			labels:        [][2]string{{"keyA", "valueA"}, {"keyB", "valueB"}},
+			tsValue:       []float64{1},
+			tsExtraLabels: [][2]string{{"val", "versionXX"}},
+		},
+		{
+			description:   "timeseries creation with a int64 map",
+			metricName:    "resp-code",
+			metricValue:   respCode,
+			labels:        [][2]string{{"keyC", "valueC"}},
+			tsValue:       []float64{98, 2},
+			tsExtraLabels: [][2]string{{respCode.MapName, "200"}, {respCode.MapName, "500"}},
+		},
+		{
+			description:   "timeseries creation with a float64 map",
+			metricName:    "app-latency",
+			metricValue:   appLatency,
+			labels:        [][2]string{{"keyD", "valueD"}},
+			tsValue:       []float64{0.05, 0.9},
+			tsExtraLabels: [][2]string{{appLatency.MapName, "p95"}, {appLatency.MapName, "p99"}},
 		},
 	}
 	for _, tt := range tests {
+		em := metrics.NewEventMetrics(testTimestamp).
+			AddMetric(tt.metricName, tt.metricValue)
+		for _, l := range tt.labels {
+			em.AddLabel(l[0], l[1])
+		}
+		if tt.latencyUnit != 0 {
+			em.LatencyUnit = tt.latencyUnit
+		}
+
+		var timeSeries []*monitoring.TimeSeries
+
+		for i, v := range tt.tsValue {
+			f := float64(v)
+			labelsMap := make(map[string]string)
+			for _, label := range tt.labels {
+				labelsMap[label[0]] = label[1]
+			}
+			if tt.tsExtraLabels != nil {
+				labelsMap[tt.tsExtraLabels[i][0]] = tt.tsExtraLabels[i][1]
+			}
+
+			unit := "1"
+			if tt.tsUnit != nil {
+				unit = tt.tsUnit[i]
+			}
+
+			timeSeries = append(timeSeries, &monitoring.TimeSeries{
+				Metric: &monitoring.Metric{
+					Type:   "custom.googleapis.com/cloudprober/" + tt.metricName,
+					Labels: labelsMap,
+				},
+				Resource: &monitoring.MonitoredResource{
+					Type: "gce_instance",
+					Labels: map[string]string{
+						"instance_id": "test-instance",
+						"zone":        "us-central1-a",
+					},
+				},
+				MetricKind: "CUMULATIVE",
+				ValueType:  "DOUBLE",
+				Unit:       unit,
+				Points: []*monitoring.Point{
+					{
+						Interval: &monitoring.TimeInterval{
+							StartTime: "0001-01-01T00:00:00Z",
+							EndTime:   em.Timestamp.Format(time.RFC3339Nano),
+						},
+						Value: &monitoring.TypedValue{
+							DoubleValue: &f,
+						},
+					},
+				},
+			})
+		}
+
 		// Generate a time series and check that it is correct
-		gotTimeSeries := tt.surfacer.recordEventMetrics(tt.em)
-		if diff := pretty.Compare(tt.timeSeries, gotTimeSeries); diff != "" {
+		s := newTestSurfacer()
+		gotTimeSeries := s.recordEventMetrics(em)
+		if diff := pretty.Compare(timeSeries, gotTimeSeries); diff != "" {
 			t.Errorf("timeSeries() produced incorrect timeSeries (-want +got):\n%s\ntest description: %s", diff, tt.description)
 		}
 	}
