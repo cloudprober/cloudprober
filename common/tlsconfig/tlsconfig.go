@@ -19,26 +19,32 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/file"
 	configpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 )
 
-func loadCert(certFile, keyFile string, refreshInterval time.Duration) (*tls.Certificate, error) {
-	readFile := file.ReadFile
-	if refreshInterval > 0 {
-		readFile = func(filename string) ([]byte, error) {
-			return file.ReadWithCache(filename, refreshInterval)
-		}
-	}
+type cacheEntry struct {
+	cert       *tls.Certificate
+	lastReload time.Time
+}
 
-	certPEMBlock, err := readFile(certFile)
+var global = struct {
+	cache map[[2]string]cacheEntry
+	mu    sync.RWMutex
+}{
+	cache: make(map[[2]string]cacheEntry),
+}
+
+func loadCert(certFile, keyFile string) (*tls.Certificate, error) {
+	certPEMBlock, err := file.ReadFile(certFile)
 	if err != nil {
 		return nil, fmt.Errorf("common/tlsconfig: error reading TLS cert file (%s): %v", certFile, err)
 	}
 
-	keyPEMBlock, err := readFile(keyFile)
+	keyPEMBlock, err := file.ReadFile(keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("common/tlsconfig: error reading TLS key file (%s): %v", keyFile, err)
 	}
@@ -67,16 +73,40 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig) error {
 	}
 
 	if c.GetTlsCertFile() != "" {
+		certF, keyF := c.GetTlsCertFile(), c.GetTlsKeyFile()
+
 		// Even if we are live-reloading the cert, verify early that we can
 		// load the certificate.
-		cert, err := loadCert(c.GetTlsCertFile(), c.GetTlsKeyFile(), 0)
+		cert, err := loadCert(certF, keyF)
 		if err != nil {
 			return err
 		}
 
 		if c.GetReloadIntervalSec() > 0 {
+			key := [2]string{certF, keyF}
+
 			tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return loadCert(c.GetTlsCertFile(), c.GetTlsKeyFile(), time.Duration(c.GetReloadIntervalSec())*time.Second)
+				global.mu.RLock()
+				entry, ok := global.cache[key]
+				global.mu.RUnlock()
+
+				if ok && (time.Since(entry.lastReload) < time.Duration(c.GetReloadIntervalSec())*time.Second) {
+					return entry.cert, nil
+				}
+
+				cert, err := loadCert(certF, keyF)
+				if err != nil {
+					return nil, err
+				}
+
+				global.mu.Lock()
+				global.cache[key] = cacheEntry{
+					cert:       cert,
+					lastReload: time.Now(),
+				}
+				global.mu.Unlock()
+
+				return cert, nil
 			}
 		} else {
 			tlsConfig.Certificates = append(tlsConfig.Certificates, *cert)
