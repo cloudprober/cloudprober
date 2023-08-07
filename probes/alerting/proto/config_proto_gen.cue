@@ -24,6 +24,16 @@ package proto
 	// - SMTP_PASSWORD: SMTP password.
 	email?: [...string] @protobuf(11,string)
 	emailFrom?: string @protobuf(12,string,name=email_from) // Default: SMTP_USERNAME
+
+	// PagerDuty Routing Key.
+	// The routing key is used to determine which service the alerts are sent to
+	// and is generated with the service. The routing key is found under the service,
+	// when the events v2 integration is enabled.
+	// If the pagerduty routing key is set then pagerduty alerts will be enabled.
+	pagerdutyRoutingKey?: string @protobuf(30,string,name=pagerduty_routing_key)
+
+	// PagerDuty API URL.
+	pagerdutyApiUrl?: string @protobuf(31,string,name=pagerduty_api_url) // Default: https://event.pagerduty.com
 }
 
 #Condition: {
