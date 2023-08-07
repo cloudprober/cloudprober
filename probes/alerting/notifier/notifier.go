@@ -24,15 +24,17 @@ import (
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/alerting/notifier/pagerduty"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 type Notifier struct {
-	l             *logger.Logger
-	alertcfg      *configpb.AlertConf
-	cmdNotifier   *commandNotifier
-	emailNotifier *emailNotifier
+	l                 *logger.Logger
+	alertcfg          *configpb.AlertConf
+	cmdNotifier       *commandNotifier
+	emailNotifier     *emailNotifier
+	pagerdutyNotifier *pagerduty.Client
 }
 
 // AlertInfo contains information about an alert.
@@ -112,6 +114,14 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
 		}
 	}
 
+	if n.pagerdutyNotifier != nil {
+		pdErr := n.pagerdutyNotifier.Notify(ctx, fields)
+		if pdErr != nil {
+			n.l.Errorf("Error sending PagerDuty event: %v", pdErr)
+			err = errors.Join(err, pdErr)
+		}
+	}
+
 	return err
 }
 
@@ -143,6 +153,14 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 			return nil, fmt.Errorf("error configuring email notifier: %v", err)
 		}
 		n.emailNotifier = en
+	}
+
+	if n.alertcfg.GetNotify().PagerdutyRoutingKey != "" {
+		pd, err := pagerduty.New(n.alertcfg.GetNotify(), l)
+		if err != nil {
+			return nil, fmt.Errorf("error configuring PagerDuty notifier: %v", err)
+		}
+		n.pagerdutyNotifier = pd
 	}
 
 	return n, nil

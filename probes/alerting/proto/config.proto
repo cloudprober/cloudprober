@@ -28,6 +28,16 @@ message NotifyConfig {
     // - SMTP_PASSWORD: SMTP password.
     repeated string email = 11;
     string email_from = 12;  // Default: SMTP_USERNAME
+
+    // PagerDuty Routing Key.
+    // The routing key is used to determine which service the alerts are sent to
+    // and is generated with the service. The routing key is found under the service,
+    // when the events v2 integration is enabled.
+    // If the pagerduty routing key is set then pagerduty alerts will be enabled.
+    string pagerduty_routing_key = 30;
+
+    // PagerDuty API URL.
+    string pagerduty_api_url = 31; // Default: https://event.pagerduty.com
 }
 
 message Condition {
