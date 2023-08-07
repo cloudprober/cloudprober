@@ -88,12 +88,7 @@ func TestPagerDutySendEventV2(t *testing.T) {
 		PagerdutyRoutingKey: "test-routing-key",
 	}
 
-	l, err := logger.New(context.TODO(), "test")
-	if err != nil {
-		t.Errorf("Error creating logger: %v", err)
-	}
-
-	p, err := New(notifyConfig, l)
+	p, err := New(notifyConfig, nil)
 	if err != nil {
 		t.Errorf("Error creating PagerDuty client: %v", err)
 	}
