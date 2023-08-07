@@ -36,9 +36,7 @@ func verify[T Number](t *testing.T, m *Map[T], expectedKeys []string, expectedMa
 }
 
 func TestMap(t *testing.T) {
-	m := NewMap("code")
-	m.IncKeyBy("200", 4000)
-
+	m := NewMap("code").IncKeyBy("200", 4000)
 	verify(t, m, []string{"200"}, map[string]int64{"200": 4000})
 
 	m.IncKey("500")
@@ -122,25 +120,41 @@ func TestMapSubtractCounter(t *testing.T) {
 }
 
 func TestMapString(t *testing.T) {
-	m := NewMap("code")
-	m.IncKeyBy("403", 20)
-	m.IncKeyBy("200", 4000)
-
-	s := m.String()
-	expectedString := "map:code,200:4000,403:20"
-	if s != expectedString {
-		t.Errorf("m.String()=%s, expected=%s", s, expectedString)
+	tests := []struct {
+		typ        string
+		wantString string
+	}{
+		{
+			typ:        "int64",
+			wantString: "map:code,200:4000,403:2",
+		},
+		{
+			typ:        "float64",
+			wantString: "map:code,200:4000.000,403:2.000",
+		},
 	}
 
-	m2, err := ParseMapFromString[int64](s)
-	if err != nil {
-		t.Errorf("ParseMapFromString(%s) returned error: %v", s, err)
+	for _, tt := range tests {
+		t.Run(tt.typ, func(t *testing.T) {
+			if tt.typ == "int64" {
+				m := NewMap("code").IncKeyBy("200", 4000).IncKeyBy("403", 2)
+				s := m.String()
+				assert.Equal(t, tt.wantString, s)
+				m2, err := ParseMapFromString[int64](s)
+				assert.NoError(t, err)
+				assert.Equal(t, s, m2.String())
+			} else {
+				m := NewMapFloat("code").IncKeyBy("200", 4000).IncKeyBy("403", 2)
+
+				s := m.String()
+				assert.Equal(t, tt.wantString, s)
+				m2, err := ParseMapFromString[float64](s)
+				assert.NoError(t, err)
+				assert.Equal(t, s, m2.String())
+			}
+		})
 	}
 
-	s1 := m2.String()
-	if s1 != s {
-		t.Errorf("ParseMapFromString(%s).String() = %s, expected = %s", s, s1, s)
-	}
 }
 
 func BenchmarkMapSetGet(b *testing.B) {

@@ -98,7 +98,7 @@ func (m *Map[T]) newKey(key string) {
 }
 
 // IncKeyBy increments the given key's value by Number.
-func (m *Map[T]) IncKeyBy(key string, delta T) {
+func (m *Map[T]) IncKeyBy(key string, delta T) *Map[T] {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.m[key]; !ok {
@@ -106,11 +106,12 @@ func (m *Map[T]) IncKeyBy(key string, delta T) {
 	}
 	m.m[key] += delta
 	m.total += delta
+	return m
 }
 
 // IncKey increments the given key's value by one.
-func (m *Map[T]) IncKey(key string) {
-	m.IncKeyBy(key, 1)
+func (m *Map[T]) IncKey(key string) *Map[T] {
+	return m.IncKeyBy(key, 1)
 }
 
 // Add adds a value (type Value) to the receiver Map. A non-Map value returns
