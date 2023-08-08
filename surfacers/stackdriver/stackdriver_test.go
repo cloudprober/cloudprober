@@ -117,11 +117,6 @@ func TestBaseMetric(t *testing.T) {
 func TestTimeSeries(t *testing.T) {
 	testTimestamp := time.Now()
 
-	// app latency
-	appLatency := metrics.NewMapFloat("pLatency")
-	appLatency.IncKeyBy("p95", 0.05)
-	appLatency.IncKeyBy("p99", 0.9)
-
 	tests := []struct {
 		description   string
 		labels        [][2]string
