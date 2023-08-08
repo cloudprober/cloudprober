@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -80,11 +81,11 @@ type SDSurfacer struct {
 	client *monitoring.Service
 }
 
-// New initializes a SDSurfacer for Stack Driver with all its necessary internal
+// New initializes a SDSurfacer for Stackdriver with all its necessary internal
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
-func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*SDSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, httpClient *http.Client, l *logger.Logger) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
@@ -129,11 +130,15 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 	}
 
-	// Create monitoring client
-	httpClient, err := google.DefaultClient(ctx, monitoring.CloudPlatformScope)
-	if err != nil {
-		return nil, err
+	if httpClient == nil {
+		// Create monitoring client
+		hc, err := google.DefaultClient(ctx, monitoring.CloudPlatformScope)
+		if err != nil {
+			return nil, err
+		}
+		httpClient = hc
 	}
+
 	s.client, err = monitoring.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, err
@@ -259,7 +264,6 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 			}
 		}
 	}
-
 }
 
 //-----------------------------------------------------------------------------
@@ -345,7 +349,7 @@ func (s *SDSurfacer) sdKind(kind metrics.Kind) string {
 	case metrics.CUMULATIVE:
 		return "CUMULATIVE"
 	default:
-		return ""
+		return "CUMULATIVE"
 	}
 }
 
@@ -431,10 +435,6 @@ func recordMapValue[T int64 | float64](s *SDSurfacer, bm *baseMetric, m *metrics
 // additional labels. See the inline comments for this conversion is done.
 func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitoring.TimeSeries) {
 	baseM, metricPrefix := s.baseMetric(em)
-	if baseM.kind == "" {
-		s.l.Warningf("Unknown event metrics type (not CUMULATIVE or GAUGE): %v", em.Kind)
-		return
-	}
 
 	for _, k := range em.MetricsKeys() {
 		if !s.opts.AllowMetric(k) {

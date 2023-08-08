@@ -193,7 +193,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		surfacer, err = prometheus.New(ctx, s.GetPrometheusSurfacer(), opts, l)
 		conf = s.GetPrometheusSurfacer()
 	case surfacerpb.Type_STACKDRIVER:
-		surfacer, err = stackdriver.New(ctx, s.GetStackdriverSurfacer(), opts, l)
+		surfacer, err = stackdriver.New(ctx, s.GetStackdriverSurfacer(), opts, nil, l)
 		conf = s.GetStackdriverSurfacer()
 	case surfacerpb.Type_FILE:
 		surfacer, err = file.New(ctx, s.GetFileSurfacer(), opts, l)
