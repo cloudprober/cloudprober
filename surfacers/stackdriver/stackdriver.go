@@ -80,7 +80,7 @@ type SDSurfacer struct {
 	client *monitoring.Service
 }
 
-// New initializes a SDSurfacer for Stack Driver with all its necessary internal
+// New initializes a SDSurfacer for Stackdriver with all its necessary internal
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
@@ -259,7 +259,6 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 			}
 		}
 	}
-
 }
 
 //-----------------------------------------------------------------------------
@@ -345,7 +344,7 @@ func (s *SDSurfacer) sdKind(kind metrics.Kind) string {
 	case metrics.CUMULATIVE:
 		return "CUMULATIVE"
 	default:
-		return ""
+		return "CUMULATIVE"
 	}
 }
 
@@ -431,10 +430,6 @@ func recordMapValue[T int64 | float64](s *SDSurfacer, bm *baseMetric, m *metrics
 // additional labels. See the inline comments for this conversion is done.
 func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitoring.TimeSeries) {
 	baseM, metricPrefix := s.baseMetric(em)
-	if baseM.kind == "" {
-		s.l.Warningf("Unknown event metrics type (not CUMULATIVE or GAUGE): %v", em.Kind)
-		return
-	}
 
 	for _, k := range em.MetricsKeys() {
 		if !s.opts.AllowMetric(k) {

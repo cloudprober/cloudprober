@@ -128,8 +128,8 @@ func (opts *Options) AllowMetric(metricName string) bool {
 	return opts.allowMetricName.MatchString(metricName)
 }
 
-// BuildOptionsFromConfig builds surfacer options using config.
-func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef, l *logger.Logger) (*Options, error) {
+// buildOptions builds surfacer options using config.
+func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logger) (*Options, error) {
 	opts := &Options{
 		Config:            sdef,
 		Logger:            l,
@@ -138,7 +138,7 @@ func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef, l *logger.Logger) (*Op
 	}
 
 	serveMux := runconfig.DefaultHTTPServeMux()
-	if serveMux == nil {
+	if serveMux == nil && !ignoreInit {
 		return nil, errors.New("default ServeMux is not configured, called before cloudprober initialization")
 	}
 	opts.HTTPServeMux = serveMux
@@ -178,4 +178,21 @@ func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef, l *logger.Logger) (*Op
 	}
 
 	return opts, nil
+}
+
+// BuildOptionsFromConfig builds surfacer options using config.
+func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef, l *logger.Logger) (*Options, error) {
+	return buildOptions(sdef, false, l)
+}
+
+// BuildOptionsForTest builds surfacer options using config for tests.
+func BuildOptionsForTest(sdef *surfacerpb.SurfacerDef) *Options {
+	ignoreInit := true
+
+	opts, err := buildOptions(sdef, ignoreInit, nil)
+	if err != nil {
+		panic("Error building surfacer options for tests: " + err.Error())
+	}
+
+	return opts
 }
