@@ -26,6 +26,8 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/stretchr/testify/assert"
 )
 
 func newTestCWSurfacer() CWSurfacer {
@@ -310,4 +312,50 @@ func ErrorContains(out error, want string) bool {
 		return false
 	}
 	return strings.Contains(out.Error(), want)
+}
+
+func TestCWSurfacerRecordEventMetrics(t *testing.T) {
+	respCode := metrics.NewMap("code")
+	respCode.IncKeyBy("200", 98)
+	respCode.IncKeyBy("500", 2)
+
+	type fields struct {
+		c         *configpb.SurfacerConf
+		opts      *options.Options
+		writeChan chan *metrics.EventMetrics
+	}
+	tests := []struct {
+		name        string
+		metricName  string
+		metricValue metrics.Value
+		labels      [][2]string
+		fields      fields
+	}{
+		{
+			name:        "resp-code",
+			metricName:  "resp-code",
+			metricValue: respCode,
+			labels: [][2]string{
+				{"service", "pagenotes"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := time.Now()
+			em := metrics.NewEventMetrics(ts).AddMetric(tt.metricName, tt.metricValue)
+			for _, label := range tt.labels {
+				em.AddLabel(label[0], label[1])
+			}
+			publishTimer := time.NewTicker(1 * time.Hour)
+			defer publishTimer.Stop()
+			cw := &CWSurfacer{
+				c:         tt.fields.c,
+				opts:      tt.fields.opts,
+				writeChan: tt.fields.writeChan,
+			}
+			cw.recordEventMetrics(context.TODO(), publishTimer, em)
+			assert.Equal(t, 2, len(cw.metricDatumCache), "cache length should be 2")
+		})
+	}
 }
