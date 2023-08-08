@@ -44,7 +44,6 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/lameduck"
-	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -212,11 +211,6 @@ func (pr *Prober) Start(ctx context.Context) {
 		var em *metrics.EventMetrics
 		for {
 			em = <-pr.dataChan
-			var s = em.String()
-			if len(s) > logger.MaxLogEntrySize {
-				glog.Warningf("Metric entry for timestamp %v dropped due to large size: %d", em.Timestamp, len(s))
-				continue
-			}
 
 			// Replicate the surfacer message to every surfacer we have
 			// registered. Note that s.Write() is expected to be
