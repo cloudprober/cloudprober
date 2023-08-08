@@ -173,8 +173,6 @@ func (cw *CWSurfacer) publishMetrics(ctx context.Context) {
 	}
 
 	cw.metricDatumCache = cw.metricDatumCache[:0] // reset the buffer
-
-	return
 }
 
 // Create a new cloudwatch metriddatum using the values passed in.
