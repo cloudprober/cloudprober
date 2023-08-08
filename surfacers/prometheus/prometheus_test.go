@@ -28,13 +28,13 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/prometheus/proto"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func newEventMetrics(sent, rcvd int64, respCodes map[string]int64, ptype, probe string) *metrics.EventMetrics {
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
+	respCodesVal := metrics.NewMap("code")
 	for k, v := range respCodes {
-		respCodesVal.IncKeyBy(k, metrics.NewInt(v))
+		respCodesVal.IncKeyBy(k, v)
 	}
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("sent", metrics.NewInt(sent)).
@@ -106,17 +106,17 @@ func TestRecord(t *testing.T) {
 		"200": 22,
 	}, "http", "vm-to-google"))
 	expectedMetrics := map[string]testData{
-		"sent{ptype=\"http\",probe=\"vm-to-google\"}":                   testData{"sent", "32"},
-		"rcvd{ptype=\"http\",probe=\"vm-to-google\"}":                   testData{"rcvd", "22"},
-		"resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"200\"}": testData{"resp_code", "22"},
+		"sent{ptype=\"http\",probe=\"vm-to-google\"}":                   {"sent", "32"},
+		"rcvd{ptype=\"http\",probe=\"vm-to-google\"}":                   {"rcvd", "22"},
+		"resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"200\"}": {"resp_code", "22"},
 	}
 	verify(t, ps, expectedMetrics)
 
 	// Record second EventMetrics, no overlap.
 	ps.record(newEventMetrics(500, 492, map[string]int64{}, "ping", "vm-to-vm"))
 	mergeMap(expectedMetrics, map[string]testData{
-		"sent{ptype=\"ping\",probe=\"vm-to-vm\"}": testData{"sent", "500"},
-		"rcvd{ptype=\"ping\",probe=\"vm-to-vm\"}": testData{"rcvd", "492"},
+		"sent{ptype=\"ping\",probe=\"vm-to-vm\"}": {"sent", "500"},
+		"rcvd{ptype=\"ping\",probe=\"vm-to-vm\"}": {"rcvd", "492"},
 	})
 	verify(t, ps, expectedMetrics)
 
@@ -126,10 +126,19 @@ func TestRecord(t *testing.T) {
 		"204": 8,
 	}, "http", "vm-to-google"))
 	mergeMap(expectedMetrics, map[string]testData{
-		"sent{ptype=\"http\",probe=\"vm-to-google\"}":                   testData{"sent", "62"},
-		"rcvd{ptype=\"http\",probe=\"vm-to-google\"}":                   testData{"rcvd", "50"},
-		"resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"200\"}": testData{"resp_code", "42"},
-		"resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"204\"}": testData{"resp_code", "8"},
+		"sent{ptype=\"http\",probe=\"vm-to-google\"}":                   {"sent", "62"},
+		"rcvd{ptype=\"http\",probe=\"vm-to-google\"}":                   {"rcvd", "50"},
+		"resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"200\"}": {"resp_code", "42"},
+		"resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"204\"}": {"resp_code", "8"},
+	})
+	verify(t, ps, expectedMetrics)
+
+	// Check with float map
+	pLat := metrics.NewMapFloat("platency").IncKeyBy("p95", 0.083).IncKeyBy("p99", 0.134)
+	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("app_latency", pLat))
+	mergeMap(expectedMetrics, map[string]testData{
+		"app_latency{platency=\"p95\"}": {"app_latency", "0.083"},
+		"app_latency{platency=\"p99\"}": {"app_latency", "0.134"},
 	})
 	verify(t, ps, expectedMetrics)
 
@@ -141,20 +150,19 @@ func TestRecord(t *testing.T) {
 	em.Kind = metrics.GAUGE
 	ps.record(em)
 	mergeMap(expectedMetrics, map[string]testData{
-		"instance_id{module=\"sysvars\",val=\"23152113123131\"}":       testData{"instance_id", "1"},
-		"version{module=\"sysvars\",val=\"cloudradar-20170606-RC00\"}": testData{"version", "1"},
+		"instance_id{module=\"sysvars\",val=\"23152113123131\"}":       {"instance_id", "1"},
+		"version{module=\"sysvars\",val=\"cloudradar-20170606-RC00\"}": {"version", "1"},
 	})
 	verify(t, ps, expectedMetrics)
 }
 
 func TestInvalidNames(t *testing.T) {
 	ps := newPromSurfacer(t, true)
-	respCodesVal := metrics.NewMap("resp-code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+
 	ps.record(metrics.NewEventMetrics(time.Now()).
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd/sent", metrics.NewInt(22)).
-		AddMetric("resp", respCodesVal).
+		AddMetric("resp", metrics.NewMap("resp-code").IncKeyBy("200", 19)).
 		AddLabel("probe-type", "http").
 		AddLabel("probe/name", "vm-to-google"))
 
@@ -163,16 +171,14 @@ func TestInvalidNames(t *testing.T) {
 	// Label probe/name is dropped
 	// Map value key resp-code is converted to resp_code label name
 	expectedMetrics := map[string]testData{
-		"sent{probe_type=\"http\"}":                   testData{"sent", "32"},
-		"resp{probe_type=\"http\",resp_code=\"200\"}": testData{"resp", "19"},
+		"sent{probe_type=\"http\"}":                   {"sent", "32"},
+		"resp{probe_type=\"http\",resp_code=\"200\"}": {"resp", "19"},
 	}
 	verify(t, ps, expectedMetrics)
 }
 
 func TestScrapeOutput(t *testing.T) {
 	ps := newPromSurfacer(t, true)
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
@@ -182,7 +188,7 @@ func TestScrapeOutput(t *testing.T) {
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd", metrics.NewInt(22)).
 		AddMetric("latency", latencyVal).
-		AddMetric("resp_code", respCodesVal).
+		AddMetric("resp_code", metrics.NewMap("code").IncKeyBy("200", 19)).
 		AddLabel("ptype", "http"))
 	var b bytes.Buffer
 	ps.writeData(&b)
@@ -209,8 +215,6 @@ func TestScrapeOutput(t *testing.T) {
 
 func TestScrapeOutputNoTimestamp(t *testing.T) {
 	ps := newPromSurfacer(t, false)
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
@@ -218,7 +222,7 @@ func TestScrapeOutputNoTimestamp(t *testing.T) {
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd", metrics.NewInt(22)).
 		AddMetric("latency", latencyVal).
-		AddMetric("resp_code", respCodesVal).
+		AddMetric("resp_code", metrics.NewMap("code").IncKeyBy("200", 19)).
 		AddLabel("ptype", "http"))
 	var b bytes.Buffer
 	ps.writeData(&b)

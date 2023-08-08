@@ -10,9 +10,9 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
 )
 
-func Test_emToPGMetrics_No_Distribution(t *testing.T) {
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+func TestEMToPGMetricsNoDistribution(t *testing.T) {
+	respCodesVal := metrics.NewMap("code")
+	respCodesVal.IncKeyBy("200", 19)
 	ts := time.Now()
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("sent", metrics.NewInt(32)).
@@ -44,9 +44,9 @@ func Test_emToPGMetrics_No_Distribution(t *testing.T) {
 	}
 }
 
-func Test_emToPGMetrics_With_Distribution(t *testing.T) {
-	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
-	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+func TestEMToPGMetricsWithDistribution(t *testing.T) {
+	respCodesVal := metrics.NewMap("code")
+	respCodesVal.IncKeyBy("200", 19)
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
