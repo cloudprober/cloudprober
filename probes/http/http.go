@@ -90,7 +90,7 @@ type Probe struct {
 type probeResult struct {
 	total, success, timeouts     int64
 	connEvent                    int64
-	latency                      metrics.Value
+	latency                      metrics.LatencyValue
 	respCodes                    *metrics.Map[int64]
 	respBodies                   *metrics.Map[int64]
 	validationFailure            *metrics.Map[int64]
@@ -372,7 +372,7 @@ func (p *Probe) newResult() *probeResult {
 	}
 
 	if p.opts.LatencyDist != nil {
-		result.latency = p.opts.LatencyDist.Clone()
+		result.latency = p.opts.LatencyDist.CloneDist()
 	} else {
 		result.latency = metrics.NewFloat(0)
 	}

@@ -6,22 +6,22 @@ menu:
 title: "Extending Cloudprober"
 ---
 
-Cloudprober allows you to extend it across "probe" and "target" dimensions,
-that is, you can add new probe and target types to it without having to fork
-the entire codebase. Note that to extend cloudprober in this way, you will have
-to maintain your own cloudprober binary (which is mostly a wrapper around the
+Cloudprober allows you to extend it across "probe" and "target" dimensions, that
+is, you can add new probe and target types to it without having to fork the
+entire codebase. Note that to extend cloudprober in this way, you will have to
+maintain your own cloudprober binary (which is mostly a wrapper around the
 "cloudprober package"), but you'll be able to use rest of the cloudprober code
 from the common location.
 
 ## Sample probe type
 
 To demonstrate how it works, let's add a new probe-type to Cloudprober. We'll
-take the sample redis probe that we added in the
-[external probe how-to]({{< ref "external-probe/index.md#sample-probe" >}}),
-and convert it into a probe type that one can easily re-use. Let's say that
-this probe-type provides a way to test redis server functionality and it takes
-the following options - operation (GET vs SET vs DELETE), key, value. This
-probe's configuration looks like this:
+take the sample redis probe that we added in the [external probe
+how-to]({{< ref "external-probe/index.md#sample-probe" >}}), and convert it into
+a probe type that one can easily re-use. Let's say that this probe-type provides
+a way to test redis server functionality and it takes the following options -
+operation (GET vs SET vs DELETE), key, value. This probe's configuration looks
+like this:
 
 ```bash
 probe {
@@ -43,8 +43,8 @@ To make cloudprober understand this config, we'll have to do a few things:
 - Define the probe config in a protobuf (.proto) file and mark it as an
   extension of the overall config.
 
-- Implement the probe type, possibly as a Go package, even though it can
-  be embedded directly into the top-level binary.
+- Implement the probe type, possibly as a Go package, even though it can be
+  embedded directly into the top-level binary.
 
 - Create a new cloudprober binary that includes the new probe type package.
 
@@ -88,7 +88,8 @@ myprobe.pb.go  myprobe.proto
 ## Implement the probe type
 
 Now let's implement our probe type. Our probe type should implement the
-[probes.Probe](https://godoc.org/github.com/cloudprober/cloudprober/probes#Probe) interface.
+[probes.Probe](https://godoc.org/github.com/cloudprober/cloudprober/probes#Probe)
+interface.
 
 ```go
 package myprobe
@@ -143,15 +144,16 @@ func (p *Probe) runProbe(ctx context.Context) {
 
     go func(target string, em *metrics.EventMetrics) {
       defer wg.Done()
-      em.Metric("total").AddInt64(1)
+      em.Metric("total").(*metrics.Int).Inc()
       start := time.Now()
       err := p.runProbeForTarget(ctx, target) // run probe just for a single target
       if err != nil {
         p.l.Errorf(err.Error())
         return
       }
-      em.Metric("success").AddInt64(1)
-      em.Metric("latency").AddFloat64(time.Now().Sub(start).Seconds() / p.opts.LatencyUnit.Seconds())
+      em.Metric("success").(*metrics.Int).Inc()
+      em.Metric("latency").(metrics.LatencyValue).AddFloat64(
+        time.Since(start).   Seconds() / p.opts.LatencyUnit.Seconds())
     }(target, p.res[target])
 
   }

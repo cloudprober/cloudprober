@@ -67,10 +67,6 @@ func verifyEventMetrics(t *testing.T, m *EventMetrics, sent, rcvd, rtt int64, re
 }
 
 func TestEventMetricsUpdate(t *testing.T) {
-	rttVal := NewInt(0)
-	rttVal.Str = func(i int64) string {
-		return fmt.Sprintf("%.3f", float64(i)/1000)
-	}
 	m := newEventMetrics(0, 0, 0, make(map[string]int64))
 	m.AddLabel("ptype", "http")
 
@@ -114,10 +110,6 @@ func TestEventMetricsUpdate(t *testing.T) {
 }
 
 func TestEventMetricsSubtractCounters(t *testing.T) {
-	rttVal := NewInt(0)
-	rttVal.Str = func(i int64) string {
-		return fmt.Sprintf("%.3f", float64(i)/1000)
-	}
 	m := newEventMetrics(10, 10, 1000, make(map[string]int64))
 	m.AddLabel("ptype", "http")
 

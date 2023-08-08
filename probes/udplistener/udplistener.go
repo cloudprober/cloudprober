@@ -239,9 +239,9 @@ func (p *Probe) processMessage(buf []byte, rxTS time.Time, srcAddr *net.UDPAddr)
 	probeRes.total.Inc()
 	if msgRes.Success {
 		probeRes.success.Inc()
-		probeRes.ipdUS.IncBy(metrics.NewInt(msgRes.InterPktDelay.Nanoseconds() / 1000))
+		probeRes.ipdUS.IncBy(msgRes.InterPktDelay.Nanoseconds() / 1000)
 	} else if msgRes.LostCount > 0 {
-		probeRes.lost.IncBy(metrics.NewInt(int64(msgRes.LostCount)))
+		probeRes.lost.IncBy(int64(msgRes.LostCount))
 	} else if msgRes.Delayed {
 		probeRes.delayed.Inc()
 	}
@@ -254,7 +254,7 @@ func (p *Probe) outputResults(expectedCt int64, stats chan<- statskeeper.ProbeRe
 	for _, r := range p.res {
 		delta := expectedCt - r.total.Int64()
 		if delta > 0 {
-			r.total.AddInt64(delta)
+			r.total.IncBy(delta)
 		}
 		stats <- *r
 	}

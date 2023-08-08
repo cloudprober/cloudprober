@@ -110,11 +110,6 @@ func (d *Distribution) AddSample(sample float64) {
 	d.count++
 }
 
-// AddInt64 adds an int64 to the receiver distribution.
-func (d *Distribution) AddInt64(i int64) {
-	d.AddSample(float64(i))
-}
-
 // AddFloat64 adds an float64 to the receiver distribution.
 func (d *Distribution) AddFloat64(f float64) {
 	d.AddSample(f)
@@ -326,14 +321,17 @@ func (d *Distribution) StackdriverTypedValue() *monitoring.TypedValue {
 }
 
 // Clone returns a copy of the receiver distribution.
-func (d *Distribution) Clone() Value {
+func (d *Distribution) CloneDist() *Distribution {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	newD := NewDistribution(d.lowerBounds[1:])
 	newD.sum = d.sum
 	newD.count = d.count
-	for i := range d.bucketCounts {
-		newD.bucketCounts[i] = d.bucketCounts[i]
-	}
+	copy(newD.bucketCounts, d.bucketCounts)
 	return newD
+}
+
+// Clone returns a copy of the receiver distribution.
+func (d *Distribution) Clone() Value {
+	return d.CloneDist()
 }

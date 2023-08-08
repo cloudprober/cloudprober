@@ -120,14 +120,14 @@ func (p *Probe) runProbe(ctx context.Context) {
 			defer wg.Done()
 			start := time.Now()
 			em.Timestamp = start
-			em.Metric("total").AddInt64(1)
+			em.Metric("total").(*metrics.Int).Inc()
 			err := p.runProbeForTarget(ctx, target) // run probe just for a single target
 			if err != nil {
 				p.l.Errorf(err.Error())
 				return
 			}
-			em.Metric("success").AddInt64(1)
-			em.Metric("latency").AddFloat64(time.Now().Sub(start).Seconds() / p.opts.LatencyUnit.Seconds())
+			em.Metric("success").(*metrics.Int).Inc()
+			em.Metric("latency").(metrics.LatencyValue).AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
 		}(target, p.res[target.Name])
 	}
 

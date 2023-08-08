@@ -25,8 +25,6 @@ import (
 type Value interface {
 	Clone() Value
 	Add(delta Value) error
-	AddInt64(i int64)
-	AddFloat64(f float64)
 	String() string
 
 	// SubtractCounter subtracts the provided "lastVal", assuming that value
@@ -39,10 +37,13 @@ type Value interface {
 // It's a superset of Value interface.
 type NumValue interface {
 	Value
-	Inc()
 	Int64() int64
 	Float64() float64
-	IncBy(delta NumValue)
+}
+
+type LatencyValue interface {
+	Value
+	AddFloat64(float64)
 }
 
 // ParseValueFromString parses a value from its string representation

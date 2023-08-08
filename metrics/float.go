@@ -56,12 +56,6 @@ func (f *Float) Inc() {
 	f.f++
 }
 
-// IncBy increments the receiver Float by "delta" NumValue.
-// It's part of the NumValue interface.
-func (f *Float) IncBy(delta NumValue) {
-	f.f += delta.Float64()
-}
-
 // Add adds a Value to the receiver Float. If Value is not Float, an error is returned.
 // It's part of the Value interface.
 func (f *Float) Add(val Value) error {
@@ -89,11 +83,6 @@ func (f *Float) SubtractCounter(lastVal Value) (bool, error) {
 	return false, nil
 }
 
-// AddInt64 adds an int64 to the receiver Float.
-func (f *Float) AddInt64(i int64) {
-	f.f += float64(i)
-}
-
 // AddFloat64 adds a float64 to the receiver Float.
 func (f *Float) AddFloat64(ff float64) {
 	f.f += ff
@@ -107,7 +96,7 @@ func FloatToString(f float64) string {
 // It's part of the Value interface.
 func (f *Float) String() string {
 	if f.Str != nil {
-		return f.Str(f.Float64())
+		return f.Str(f.f)
 	}
 	return FloatToString(f.f)
 }

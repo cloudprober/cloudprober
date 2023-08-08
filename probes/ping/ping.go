@@ -71,7 +71,7 @@ const (
 
 type result struct {
 	sent, rcvd        int64
-	latency           metrics.Value
+	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
 }
 
@@ -251,9 +251,9 @@ func (p *Probe) updateResultForTarget(t string) {
 		return
 	}
 
-	var latencyValue metrics.Value
+	var latencyValue metrics.LatencyValue
 	if p.opts.LatencyDist != nil {
-		latencyValue = p.opts.LatencyDist.Clone()
+		latencyValue = p.opts.LatencyDist.CloneDist()
 	} else {
 		latencyValue = metrics.NewFloat(0)
 	}

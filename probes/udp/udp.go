@@ -86,7 +86,7 @@ type Probe struct {
 // That's the reason we use metrics.Int types instead of metrics.AtomicInt.
 type probeResult struct {
 	total, success, delayed int64
-	latency                 metrics.Value
+	latency                 metrics.LatencyValue
 	target                  endpoint.Endpoint
 }
 
@@ -118,9 +118,9 @@ func (prr probeResult) eventMetrics(probeName string, opts *options.Options, f f
 }
 
 func (p *Probe) newProbeResult(target endpoint.Endpoint) *probeResult {
-	var latVal metrics.Value
+	var latVal metrics.LatencyValue
 	if p.opts.LatencyDist != nil {
-		latVal = p.opts.LatencyDist.Clone()
+		latVal = p.opts.LatencyDist.CloneDist()
 	} else {
 		latVal = metrics.NewFloat(0)
 	}

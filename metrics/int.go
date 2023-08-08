@@ -24,8 +24,6 @@ import (
 // safe, if you want a concurrency safe integer NumValue, use AtomicInt.
 type Int struct {
 	i int64
-	// If Str is defined, this is method used to convert Int into a string.
-	Str func(int64) string
 }
 
 // NewInt returns a new Int
@@ -36,8 +34,7 @@ func NewInt(i int64) *Int {
 // Clone returns a copy the receiver Int
 func (i *Int) Clone() Value {
 	return &Int{
-		i:   i.i,
-		Str: i.Str,
+		i: i.i,
 	}
 }
 
@@ -59,8 +56,8 @@ func (i *Int) Inc() {
 
 // IncBy increments the receiver Int by "delta" NumValue.
 // It's part of the NumValue interface.
-func (i *Int) IncBy(delta NumValue) {
-	i.i += delta.Int64()
+func (i *Int) IncBy(delta int64) {
+	i.i += delta
 }
 
 // Add adds a Value to the receiver Int. If Value is not Int, an error is returned.
@@ -91,22 +88,9 @@ func (i *Int) SubtractCounter(lastVal Value) (bool, error) {
 	return false, nil
 }
 
-// AddInt64 adds an int64 to the receiver Int.
-func (i *Int) AddInt64(ii int64) {
-	i.i += ii
-}
-
-// AddFloat64 adds a float64 to the receiver Int.
-func (i *Int) AddFloat64(f float64) {
-	i.i += int64(f)
-}
-
 // String returns the string representation of Int.
 // It's part of the Value interface.
 func (i *Int) String() string {
-	if i.Str != nil {
-		return i.Str(i.Int64())
-	}
 	return strconv.FormatInt(i.Int64(), 10)
 }
 
@@ -185,16 +169,6 @@ func (i *AtomicInt) SubtractCounter(lastVal Value) (bool, error) {
 	}
 	atomic.StoreInt64(&i.i, valS-lvS)
 	return false, nil
-}
-
-// AddInt64 adds an int64 to the receiver Int.
-func (i *AtomicInt) AddInt64(ii int64) {
-	atomic.AddInt64(&i.i, ii)
-}
-
-// AddFloat64 adds a float64 to the receiver Int.
-func (i *AtomicInt) AddFloat64(f float64) {
-	atomic.AddInt64(&i.i, int64(f))
 }
 
 // String returns the string representation of AtomicInt.
