@@ -178,18 +178,6 @@ func (m *Map[T]) addOrSubtract(val Value, subtract bool) (bool, error) {
 	return false, nil
 }
 
-// AddInt64 generates a panic for the Map type. This is added only to satisfy
-// the Value interface.
-func (m *Map[T]) AddInt64(i int64) {
-	panic("Map type doesn't implement AddInt64()")
-}
-
-// AddFloat64 generates a panic for the Map type. This is added only to
-// satisfy the Value interface.
-func (m *Map[T]) AddFloat64(f float64) {
-	panic("Map type doesn't implement AddFloat64()")
-}
-
 func MapValueToString[T Number](v T) string {
 	if f, ok := any(v).(float64); ok {
 		return FloatToString(f)

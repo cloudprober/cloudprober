@@ -97,7 +97,7 @@ type probeRunResult struct {
 	target        string
 	total         metrics.Int
 	success       metrics.Int
-	latency       metrics.Value
+	latency       metrics.LatencyValue
 	connectErrors metrics.Int
 }
 
@@ -338,7 +338,7 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index 
 		reqCtx, cancelFunc := context.WithTimeout(ctx, timeout)
 		reqCtx = p.ctxWithHeaders(reqCtx)
 
-		var success int64
+		var success bool
 		var delta time.Duration
 		start := time.Now()
 		var err error
@@ -376,22 +376,24 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index 
 			}
 			p.l.Warningf("ProbeId(%s) request failed: %v. ConnState: %v. Peer: %v", msgPattern, err, conn.GetState(), peerAddr)
 		} else {
-			success = 1
+			success = true
 			delta = time.Since(start)
 		}
 		// TODO(ls692): add validators for probe result.
 		result.Lock()
 		result.total.Inc()
-		result.success.AddInt64(success)
+		if success {
+			result.success.Inc()
+		}
 		result.latency.AddFloat64(delta.Seconds() / p.opts.LatencyUnit.Seconds())
 		result.Unlock()
 	}
 }
 
 func (p *Probe) newResult(tgt string) *probeRunResult {
-	var latencyValue metrics.Value
+	var latencyValue metrics.LatencyValue
 	if p.opts.LatencyDist != nil {
-		latencyValue = p.opts.LatencyDist.Clone()
+		latencyValue = p.opts.LatencyDist.CloneDist()
 	} else {
 		latencyValue = metrics.NewFloat(0)
 	}
