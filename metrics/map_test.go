@@ -1,4 +1,4 @@
-// Copyright 2017 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -79,44 +80,78 @@ func TestMap(t *testing.T) {
 }
 
 func TestMapSubtractCounter(t *testing.T) {
-	m1 := NewMap("code")
-	m1.IncKeyBy("200", 4000)
-	m1.IncKeyBy("403", 2)
+	t.Helper()
 
-	m2 := m1.Clone().(*Map[int64])
-	m2.IncKeyBy("200", 400)
-	m2.IncKey("500")
-	m2Clone := m2.Clone() // We'll use this for reset testing below.
+	tests := []struct {
+		name      string
+		last      *Map[int64]
+		current   *Map[int64]
+		wantErr   bool
+		wantReset bool
+		wantMap   map[string]int64
+	}{
+		{
+			name:    "no-reset",
+			last:    NewMap("code").IncKeyBy("200", 4000).IncKeyBy("403", 2),
+			current: NewMap("code").IncKeyBy("200", 4010).IncKeyBy("403", 3),
+			wantMap: map[string]int64{
+				"200": 10,
+				"403": 1,
+			},
+		},
+		{
+			name:    "no-reset-new-keys",
+			last:    NewMap("code").IncKeyBy("200", 4000).IncKeyBy("403", 2),
+			current: NewMap("code").IncKeyBy("200", 4010).IncKeyBy("403", 2).IncKeyBy("502", 3),
+			wantMap: map[string]int64{
+				"200": 10,
+				"403": 0,
+				"502": 3,
+			},
+		},
+		{
+			name:    "reset-key-disappeared",
+			last:    NewMap("code").IncKeyBy("200", 4000).IncKeyBy("403", 2),
+			current: NewMap("code").IncKeyBy("200", 4010).IncKeyBy("500", 3),
+			wantMap: map[string]int64{
+				"200": 4010,
+				"500": 3,
+			},
+			wantReset: true,
+		},
+		{
+			name:    "reset-total-going-down",
+			last:    NewMap("code").IncKeyBy("200", 4000).IncKeyBy("403", 2),
+			current: NewMap("code").IncKeyBy("200", 3800).IncKeyBy("403", 3),
+			wantMap: map[string]int64{
+				"200": 3800,
+				"403": 3,
+			},
+			wantReset: true,
+		},
+	}
 
-	expectReset := false
-	wasReset, err := m2.SubtractCounter(m1)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if wasReset != expectReset {
-		t.Errorf("wasReset=%v, expected=%v", wasReset, expectReset)
-	}
-	verify(t, m2, []string{"200", "403", "500"}, map[string]int64{
-		"200": 400,
-		"403": 0,
-		"500": 1,
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotReset, err := tt.current.SubtractCounter(tt.last)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Map.SubtractCounter() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.wantReset, gotReset, "reset")
 
-	// Expect a reset this time, as m3 (m) will be smaller than m2Clone.
-	m3 := m1.Clone()
-	expectReset = true
-	wasReset, err = m3.SubtractCounter(m2Clone)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if wasReset != expectReset {
-		t.Errorf("wasReset=%v, expected=%v", wasReset, expectReset)
-	}
-	verify(t, m3.(*Map[int64]), []string{"200", "403"}, map[string]int64{
-		"200": 4000,
-		"403": 2,
-	})
+			expectedKeys := make([]string, 0, len(tt.wantMap))
+			wantTotal := int64(0)
+			for k, v := range tt.wantMap {
+				expectedKeys = append(expectedKeys, k)
+				wantTotal += v
+			}
+			sort.Strings(expectedKeys)
 
+			assert.Equal(t, wantTotal, tt.current.total, "total")
+			verify(t, tt.current, expectedKeys, tt.wantMap)
+		})
+	}
 }
 
 func TestMapString(t *testing.T) {
@@ -147,8 +182,16 @@ func TestMapString(t *testing.T) {
 			wantErr:     true,
 		},
 		{
+			name:       "float64",
 			typ:        "float64",
 			wantString: "map:code,200:4000.000,403:2.000",
+		},
+		{
+			name:        "float64 float parsing error",
+			typ:         "float64",
+			wantString:  "map:code,200:4000.000,403:2.000",
+			parseString: "map:code,200:40.00.000,403:2.000",
+			wantErr:     true,
 		},
 	}
 

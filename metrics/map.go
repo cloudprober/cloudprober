@@ -144,14 +144,24 @@ func (m *Map[T]) addOrSubtract(val Value, subtract bool) (bool, error) {
 	}
 
 	var sortRequired bool
+	// We use this map to restore the modified keys in case of a reset.
+	subtractedKeys := make(map[string]T)
+
 	for k, v := range delta.m {
 		if subtract {
 			// If a key is there in delta (lastVal) but not in the current val,
 			// assume metric has been reset.
 			if _, ok := m.m[k]; !ok {
+				// Fix the keys modified so far and return.
+				for k, v := range subtractedKeys {
+					m.m[k] += v
+					m.total += v
+				}
 				return true, nil
 			}
 			m.m[k] -= v
+			m.total -= v
+			subtractedKeys[k] = v
 		} else {
 			if _, ok := m.m[k]; !ok {
 				sortRequired = true
