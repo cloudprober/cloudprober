@@ -105,6 +105,17 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 	}
 }
 
+func recordMapValue[T int64 | float64](ctx context.Context, cw *CWSurfacer, key string, m *metrics.Map[T], d []types.Dimension, em *metrics.EventMetrics, publishTimer *time.Ticker) {
+	for _, mapKey := range m.Keys() {
+		newDimensions := append(d, types.Dimension{
+			Name:  aws.String(m.MapName),
+			Value: aws.String(mapKey),
+		})
+		metricDatum := cw.newCWMetricDatum(key, float64(m.GetKey(mapKey)), newDimensions, em.Timestamp, em.LatencyUnit)
+		cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
+	}
+}
+
 // recordEventMetrics takes an EventMetric, which can contain multiple metrics
 // of varying types, and loops through each metric in the EventMetric, parsing
 // each metric into a structure that is supported by Cloudwatch
@@ -120,16 +131,11 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time
 			metricDatum := cw.newCWMetricDatum(metricKey, value.Float64(), dimensions, em.Timestamp, em.LatencyUnit)
 			cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
 
-		case *metrics.Map:
-			for _, mapKey := range value.Keys() {
-				dimensions := emLabelsToDimensions(em)
-				dimensions = append(dimensions, types.Dimension{
-					Name:  aws.String(value.MapName),
-					Value: aws.String(mapKey),
-				})
-				metricDatum := cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp, em.LatencyUnit)
-				cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
-			}
+		case *metrics.Map[int64]:
+			recordMapValue(ctx, cw, metricKey, value, emLabelsToDimensions(em), em, publishTimer)
+
+		case *metrics.Map[float64]:
+			recordMapValue(ctx, cw, metricKey, value, emLabelsToDimensions(em), em, publishTimer)
 
 		case *metrics.Distribution:
 			for i, distributionBound := range value.Data().LowerBounds {

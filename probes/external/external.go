@@ -70,7 +70,7 @@ var (
 type result struct {
 	total, success    int64
 	latency           metrics.Value
-	validationFailure *metrics.Map
+	validationFailure *metrics.Map[int64]
 }
 
 // Probe holds aggregate information about all probe runs, per-target.

@@ -64,7 +64,9 @@ func replyPkt(pkt []byte, ipVersion int) []byte {
 
 // testICMPConn implements the icmpConn interface.
 // It implements the following packets pipeline:
-//      write(packet) --> sentPackets channel -> read() -> packet
+//
+//	write(packet) --> sentPackets channel -> read() -> packet
+//
 // It has a per-target channel that receives packets through the "write" call.
 // "read" call fetches packets from that channel and returns them to the
 // caller.
@@ -372,7 +374,7 @@ func TestDataIntegrityValidation(t *testing.T) {
 
 		// Verify that we increased the validation failure counter.
 		expectedFailures := p.results[target].sent - p.results[target].rcvd
-		gotFailures := p.results[target].validationFailure.GetKey(dataIntegrityKey).Int64()
+		gotFailures := p.results[target].validationFailure.GetKey(dataIntegrityKey)
 		if gotFailures != expectedFailures {
 			t.Errorf("p.results[%s].validationFailure.GetKey(%s)=%d, expected=%d", target, dataIntegrityKey, gotFailures, expectedFailures)
 		}

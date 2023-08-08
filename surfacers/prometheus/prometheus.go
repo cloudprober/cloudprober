@@ -99,10 +99,11 @@ type httpWriter struct {
 
 // PromSurfacer implements a prometheus surfacer for Cloudprober. PromSurfacer
 // organizes metrics into a two-level data structure:
-//		1. Metric name -> PromMetric data structure dict.
-//    2. A PromMetric organizes data associated with a metric in a
-//			 Data key -> Data point map, where data point consists of a value
-//       and timestamp.
+//  1. Metric name -> PromMetric data structure dict.
+//  2. A PromMetric organizes data associated with a metric in a
+//     Data key -> Data point map, where data point consists of a value
+//     and timestamp.
+//
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
 	c           *configpb.SurfacerConf // Configuration
@@ -236,7 +237,7 @@ func (ps *PromSurfacer) recordMetric(metricName, key, value string, em *metrics.
 		ps.metrics[metricName] = &promMetric{
 			typ: typ,
 			data: map[string]*dataPoint{
-				key: &dataPoint{
+				key: {
 					value:     value,
 					timestamp: promTime(em.Timestamp),
 				},
@@ -305,6 +306,17 @@ func dataKey(metricName string, labels []string) string {
 	return metricName + "{" + strings.Join(labels, ",") + "}"
 }
 
+func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []string) {
+	labelName := ps.checkLabelName(m.MapName)
+	if labelName == "" {
+		return
+	}
+	for _, k := range m.Keys() {
+		key := dataKey(pMetricName, append(labels, labelName+"=\""+k+"\""))
+		ps.recordMetric(pMetricName, key, metrics.MapValueToString(m.GetKey(k)), em, "")
+	}
+}
+
 // record processes the incoming EventMetrics and updates the in-memory
 // database.
 //
@@ -314,13 +326,15 @@ func dataKey(metricName string, labels []string) string {
 // metrics.Map value type:  We break Map values into multiple data keys, with
 // each map key corresponding to a label in the data key.
 // For example, "resp-code map:code 200:45 500:2" gets converted into:
-//   resp-code{code=200} 45
-//   resp-code{code=500}  2
+//
+//	resp-code{code=200} 45
+//	resp-code{code=500}  2
 //
 // metrics.String value type: We convert string value type into a data key with
 // val="value" label.
 // For example, "version cloudprober-20170608-RC00" gets converted into:
-//   version{val=cloudprober-20170608-RC00} 1
+//
+//	version{val=cloudprober-20170608-RC00} 1
 func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 	var labels []string
 	for _, k := range em.LabelsKeys() {
@@ -340,22 +354,14 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 		}
 		val := em.Metric(metricName)
 
-		// Map values get expanded into metrics with extra label.
-		if mapVal, ok := val.(*metrics.Map); ok {
-			labelName := ps.checkLabelName(mapVal.MapName)
-			if labelName == "" {
-				continue
-			}
-			for _, k := range mapVal.Keys() {
-				labelsWithMap := append(labels, labelName+"=\""+k+"\"")
-				ps.recordMetric(pMetricName, dataKey(pMetricName, labelsWithMap), mapVal.GetKey(k).String(), em, "")
-			}
-			continue
-		}
-
+		switch v := val.(type) {
+		case *metrics.Map[int64]:
+			recordMap(ps, v, em, pMetricName, labels)
+		case *metrics.Map[float64]:
+			recordMap(ps, v, em, pMetricName, labels)
 		// Distribution values get expanded into metrics with extra label "le".
-		if distVal, ok := val.(*metrics.Distribution); ok {
-			d := distVal.Data()
+		case *metrics.Distribution:
+			d := v.Data()
 			var val int64
 			ps.recordMetric(pMetricName, dataKey(pMetricName+"_sum", labels), strconv.FormatFloat(d.Sum, 'f', -1, 64), em, histogram)
 			ps.recordMetric(pMetricName, dataKey(pMetricName+"_count", labels), strconv.FormatInt(d.Count, 10), em, histogram)
@@ -370,18 +376,14 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 				labelsWithBucket := append(labels, "le=\""+lb+"\"")
 				ps.recordMetric(pMetricName, dataKey(pMetricName+"_bucket", labelsWithBucket), strconv.FormatInt(val, 10), em, histogram)
 			}
-			continue
-		}
-
-		// String values get converted into a label.
-		if _, ok := val.(metrics.String); ok {
+		case metrics.String:
 			newLabels := append(labels, "val="+val.String())
 			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), "1", em, "")
-			continue
-		}
 
 		// All other value types, mostly numerical types.
-		ps.recordMetric(pMetricName, dataKey(pMetricName, labels), val.String(), em, "")
+		default:
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), val.String(), em, "")
+		}
 	}
 }
 

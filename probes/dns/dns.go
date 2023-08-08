@@ -94,7 +94,7 @@ type probeRunResult struct {
 	success           metrics.Int
 	latency           metrics.Value
 	timeouts          metrics.Int
-	validationFailure *metrics.Map
+	validationFailure *metrics.Map[int64]
 	latencyMetricName string
 }
 

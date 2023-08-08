@@ -99,11 +99,15 @@ func (f *Float) AddFloat64(ff float64) {
 	f.f += ff
 }
 
+func FloatToString(f float64) string {
+	return strconv.FormatFloat(f, 'f', 3, 64)
+}
+
 // String returns the string representation of Float.
 // It's part of the Value interface.
 func (f *Float) String() string {
 	if f.Str != nil {
 		return f.Str(f.Float64())
 	}
-	return strconv.FormatFloat(f.f, 'f', 3, 64)
+	return FloatToString(f.f)
 }

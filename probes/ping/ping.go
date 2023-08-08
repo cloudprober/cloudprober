@@ -72,7 +72,7 @@ const (
 type result struct {
 	sent, rcvd        int64
 	latency           metrics.Value
-	validationFailure *metrics.Map
+	validationFailure *metrics.Map[int64]
 }
 
 // icmpConn is an interface wrapper for *icmp.PacketConn to allow testing.
