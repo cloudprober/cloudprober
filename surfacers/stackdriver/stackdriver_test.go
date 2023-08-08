@@ -16,25 +16,25 @@ package stackdriver
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 	configpb "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
-	"github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/stretchr/testify/assert"
 	monitoring "google.golang.org/api/monitoring/v3"
+	"google.golang.org/protobuf/proto"
 )
 
 func newTestSurfacer() SDSurfacer {
-	l, _ := logger.New(context.TODO(), "test-logger")
 	return SDSurfacer{
 		cache:       make(map[string]*monitoring.TimeSeries),
 		onGCE:       true,
 		projectName: "test-project",
-		l:           l,
 		resource: &monitoring.MonitoredResource{
 			Type: "gce_instance",
 			Labels: map[string]string{
@@ -123,6 +123,18 @@ func TestTimeSeries(t *testing.T) {
 		tsUnit        []string
 		tsExtraLabels [][2]string
 	}{
+		{
+			description: "timeseries creation with a non-default float64 value",
+			metricName:  "success",
+			metricValue: metrics.NewInt(123456),
+			tsValue:     []float64{123456},
+		},
+		{
+			description: "timeseries creation with a non-default float64 value",
+			metricName:  "sysvars_ec2_name",
+			metricValue: metrics.NewString("xyz"),
+			tsValue:     []float64{},
+		},
 		{
 			description: "timeseries creation with a non-default float64 value",
 			metricName:  "success",
@@ -220,9 +232,48 @@ func TestTimeSeries(t *testing.T) {
 
 		// Generate a time series and check that it is correct
 		s := newTestSurfacer()
+		s.opts = options.BuildOptionsForTest(&surfacerpb.SurfacerDef{
+			IgnoreMetricsWithName: proto.String(".*sysvars_ec2_name"),
+		})
+
 		gotTimeSeries := s.recordEventMetrics(em)
 		if diff := pretty.Compare(timeSeries, gotTimeSeries); diff != "" {
 			t.Errorf("timeSeries() produced incorrect timeSeries (-want +got):\n%s\ntest description: %s", diff, tt.description)
 		}
+	}
+}
+
+func TestNew(t *testing.T) {
+	tests := []struct {
+		name                    string
+		config                  *configpb.SurfacerConf
+		wantAllowedMetricsRegex string
+	}{
+		{
+			name: "surfacer with default config",
+		},
+		{
+			name: "surfacer with a custom config",
+			config: &configpb.SurfacerConf{
+				AllowedMetricsRegex: proto.String("total|success"),
+			},
+			wantAllowedMetricsRegex: "total|success",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			s, err := New(ctx, tt.config, &options.Options{}, http.DefaultClient, nil)
+			assert.NoError(t, err, "New() error = %v", err)
+			assert.LessOrEqual(t, time.Since(s.startTime), time.Minute, "surfacer start time is too far in the past")
+
+			if tt.wantAllowedMetricsRegex == "" {
+				assert.Nil(t, s.allowedMetricsRegex, "allowed metrics regex")
+			} else {
+				assert.Equal(t, tt.wantAllowedMetricsRegex, s.allowedMetricsRegex.String(), "allowed metrics regex")
+			}
+		})
 	}
 }
