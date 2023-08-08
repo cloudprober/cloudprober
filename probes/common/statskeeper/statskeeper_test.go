@@ -82,7 +82,7 @@ func TestStatsKeeper(t *testing.T) {
 		prr := newProbeRunResult(target.Name)
 		prr.sent.Inc()
 		prr.rcvd.Inc()
-		prr.rtt.IncBy(metrics.NewInt(20000))
+		prr.rtt.IncBy(20000)
 		resultsChan <- prr
 	}
 	time.Sleep(3 * time.Second)

@@ -56,8 +56,8 @@ func (i *Int) Inc() {
 
 // IncBy increments the receiver Int by "delta" NumValue.
 // It's part of the NumValue interface.
-func (i *Int) IncBy(delta NumValue) {
-	i.i += delta.Int64()
+func (i *Int) IncBy(delta int64) {
+	i.i += delta
 }
 
 // Add adds a Value to the receiver Int. If Value is not Int, an error is returned.

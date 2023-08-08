@@ -110,11 +110,6 @@ func (d *Distribution) AddSample(sample float64) {
 	d.count++
 }
 
-// AddInt64 adds an int64 to the receiver distribution.
-func (d *Distribution) AddInt64(i int64) {
-	d.AddSample(float64(i))
-}
-
 // AddFloat64 adds an float64 to the receiver distribution.
 func (d *Distribution) AddFloat64(f float64) {
 	d.AddSample(f)

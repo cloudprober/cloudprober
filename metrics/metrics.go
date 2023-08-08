@@ -39,7 +39,6 @@ type NumValue interface {
 	Value
 	Int64() int64
 	Float64() float64
-	IncBy(delta NumValue)
 }
 
 type LatencyValue interface {
