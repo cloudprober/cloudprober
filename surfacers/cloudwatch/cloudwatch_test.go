@@ -315,10 +315,6 @@ func ErrorContains(out error, want string) bool {
 }
 
 func TestCWSurfacerRecordEventMetrics(t *testing.T) {
-	respCode := metrics.NewMap("code")
-	respCode.IncKeyBy("200", 98)
-	respCode.IncKeyBy("500", 2)
-
 	type fields struct {
 		c         *configpb.SurfacerConf
 		opts      *options.Options
@@ -334,7 +330,7 @@ func TestCWSurfacerRecordEventMetrics(t *testing.T) {
 		{
 			name:        "resp-code",
 			metricName:  "resp-code",
-			metricValue: respCode,
+			metricValue: metrics.NewMap("code").IncKeyBy("200", 98).IncKeyBy("500", 2),
 			labels: [][2]string{
 				{"service", "pagenotes"},
 			},
