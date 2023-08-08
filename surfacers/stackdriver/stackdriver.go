@@ -40,7 +40,6 @@ import (
 
 const (
 	batchSize = 200
-	DOUBLE    = "DOUBLE"
 )
 
 //-----------------------------------------------------------------------------
@@ -273,6 +272,7 @@ type baseMetric struct {
 	ts               time.Time
 	kind, name, unit string
 	labels           map[string]string
+	valueType        string
 	cacheKey         string
 }
 
@@ -291,7 +291,7 @@ func (bm *baseMetric) Clone() *baseMetric {
 // More information on the object and specific fields can be found here:
 //
 //	https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
-func (s *SDSurfacer) recordTimeSeries(bm *baseMetric, tv *monitoring.TypedValue, valueType string) *monitoring.TimeSeries {
+func (s *SDSurfacer) recordTimeSeries(bm *baseMetric, tv *monitoring.TypedValue) *monitoring.TimeSeries {
 	startTime := s.startTime.Format(time.RFC3339Nano)
 	if bm.kind == "GAUGE" {
 		startTime = bm.ts.Format(time.RFC3339Nano)
@@ -307,7 +307,7 @@ func (s *SDSurfacer) recordTimeSeries(bm *baseMetric, tv *monitoring.TypedValue,
 
 		// Must match the MetricKind and ValueType of the MetricDescriptor.
 		MetricKind: bm.kind,
-		ValueType:  valueType,
+		ValueType:  bm.valueType,
 		Unit:       bm.unit,
 
 		// Create a single data point, this could be utilized to create
@@ -386,11 +386,12 @@ func (s *SDSurfacer) baseMetric(em *metrics.EventMetrics) (*baseMetric, string) 
 	}
 
 	return &baseMetric{
-		ts:       em.Timestamp,
-		kind:     s.sdKind(em.Kind),
-		unit:     "1",
-		labels:   labels,
-		cacheKey: strings.Join(sortedLabels, ","),
+		ts:        em.Timestamp,
+		kind:      s.sdKind(em.Kind),
+		unit:      "1",
+		valueType: "DOUBLE",
+		labels:    labels,
+		cacheKey:  strings.Join(sortedLabels, ","),
 	}, metricPrefix
 }
 
@@ -417,7 +418,7 @@ func recordMapValue[T int64 | float64](s *SDSurfacer, bm *baseMetric, m *metrics
 		mbm := bm.Clone()
 		mbm.labels[m.MapName] = mapKey
 		f := float64(m.GetKey(mapKey))
-		ts = append(ts, s.recordTimeSeries(mbm, &monitoring.TypedValue{DoubleValue: &f}, DOUBLE))
+		ts = append(ts, s.recordTimeSeries(mbm, &monitoring.TypedValue{DoubleValue: &f}))
 	}
 	return ts
 }
@@ -461,7 +462,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 		switch val := em.Metric(k).(type) {
 		case metrics.NumValue:
 			f := float64(val.Float64())
-			ts = append(ts, s.recordTimeSeries(bm, &monitoring.TypedValue{DoubleValue: &f}, DOUBLE))
+			ts = append(ts, s.recordTimeSeries(bm, &monitoring.TypedValue{DoubleValue: &f}))
 
 		case metrics.String:
 			// Since StackDriver doesn't support string value type for custom metrics,
@@ -472,7 +473,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 			// for stackdriver.
 			bm.labels["val"] = strings.Trim(val.String(), "\"")
 			f := float64(1)
-			ts = append(ts, s.recordTimeSeries(bm, &monitoring.TypedValue{DoubleValue: &f}, DOUBLE))
+			ts = append(ts, s.recordTimeSeries(bm, &monitoring.TypedValue{DoubleValue: &f}))
 
 		case *metrics.Map[int64]:
 			ts = append(ts, recordMapValue(s, bm, val)...)
@@ -480,7 +481,8 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 			ts = append(ts, recordMapValue(s, bm, val)...)
 
 		case *metrics.Distribution:
-			ts = append(ts, s.recordTimeSeries(bm, val.StackdriverTypedValue(), "DISTRIBUTION"))
+			bm.valueType = "DISTRIBUTION"
+			ts = append(ts, s.recordTimeSeries(bm, val.StackdriverTypedValue()))
 
 		default:
 			s.l.Warningf("Unsupported value type: %v", val)
