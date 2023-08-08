@@ -92,7 +92,7 @@ type probeRunResult struct {
 	target            string
 	total             metrics.Int
 	success           metrics.Int
-	latency           metrics.Value
+	latency           metrics.LatencyValue
 	timeouts          metrics.Int
 	validationFailure *metrics.Map[int64]
 	latencyMetricName string
@@ -212,7 +212,7 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 			}
 
 			if p.opts.LatencyDist != nil {
-				result.latency = p.opts.LatencyDist.Clone()
+				result.latency = p.opts.LatencyDist.CloneDist()
 			} else {
 				result.latency = metrics.NewFloat(0)
 			}

@@ -97,7 +97,7 @@ type probeRunResult struct {
 	target        string
 	total         metrics.Int
 	success       metrics.Int
-	latency       metrics.Value
+	latency       metrics.LatencyValue
 	connectErrors metrics.Int
 }
 
@@ -389,9 +389,9 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index 
 }
 
 func (p *Probe) newResult(tgt string) *probeRunResult {
-	var latencyValue metrics.Value
+	var latencyValue metrics.LatencyValue
 	if p.opts.LatencyDist != nil {
-		latencyValue = p.opts.LatencyDist.Clone()
+		latencyValue = p.opts.LatencyDist.CloneDist()
 	} else {
 		latencyValue = metrics.NewFloat(0)
 	}
