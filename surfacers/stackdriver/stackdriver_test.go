@@ -16,6 +16,7 @@ package stackdriver
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -264,7 +265,7 @@ func TestNew(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			s, err := New(ctx, tt.config, &options.Options{}, nil)
+			s, err := New(ctx, tt.config, &options.Options{}, http.DefaultClient, nil)
 			assert.NoError(t, err, "New() error = %v", err)
 			assert.LessOrEqual(t, time.Since(s.startTime), time.Minute, "surfacer start time is too far in the past")
 

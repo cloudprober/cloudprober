@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -84,7 +85,7 @@ type SDSurfacer struct {
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
-func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*SDSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, httpClient *http.Client, l *logger.Logger) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
@@ -129,11 +130,15 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 	}
 
-	// Create monitoring client
-	httpClient, err := google.DefaultClient(ctx, monitoring.CloudPlatformScope)
-	if err != nil {
-		return nil, err
+	if httpClient == nil {
+		// Create monitoring client
+		hc, err := google.DefaultClient(ctx, monitoring.CloudPlatformScope)
+		if err != nil {
+			return nil, err
+		}
+		httpClient = hc
 	}
+
 	s.client, err = monitoring.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, err
