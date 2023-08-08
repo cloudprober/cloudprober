@@ -28,10 +28,6 @@ import (
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 
-var (
-	intVal = float64(123456)
-)
-
 func newTestSurfacer() SDSurfacer {
 	l, _ := logger.New(context.TODO(), "test-logger")
 	return SDSurfacer{
@@ -130,8 +126,8 @@ func TestTimeSeries(t *testing.T) {
 		{
 			description: "timeseries creation with a non-default float64 value",
 			metricName:  "success",
-			metricValue: metrics.NewInt(int64(intVal)),
-			tsValue:     []float64{intVal},
+			metricValue: metrics.NewInt(123456),
+			tsValue:     []float64{123456},
 		},
 		{
 			description: "timeseries creation with a non-default float64 value with unit",
