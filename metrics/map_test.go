@@ -121,12 +121,30 @@ func TestMapSubtractCounter(t *testing.T) {
 
 func TestMapString(t *testing.T) {
 	tests := []struct {
-		typ        string
-		wantString string
+		name        string
+		typ         string
+		wantString  string
+		parseString string
+		wantErr     bool
 	}{
 		{
+			name:       "int64",
 			typ:        "int64",
 			wantString: "map:code,200:4000,403:2",
+		},
+		{
+			name:        "int64 float errror",
+			typ:         "int64",
+			wantString:  "map:code,200:4000,403:2",
+			parseString: "map:code,200:400.2,403:2",
+			wantErr:     true,
+		},
+		{
+			name:        "int64 format errror",
+			typ:         "int64",
+			wantString:  "map:code,200:4000,403:2",
+			parseString: "map:code,200:4000403:2",
+			wantErr:     true,
 		},
 		{
 			typ:        "float64",
@@ -135,13 +153,27 @@ func TestMapString(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.typ, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.parseString == "" {
+				tt.parseString = tt.wantString
+			}
+
 			if tt.typ == "int64" {
 				m := NewMap("code").IncKeyBy("200", 4000).IncKeyBy("403", 2)
 				s := m.String()
 				assert.Equal(t, tt.wantString, s)
-				m2, err := ParseMapFromString[int64](s)
-				assert.NoError(t, err)
+
+				// Parse test
+				m2, err := ParseMapFromString[int64](tt.parseString)
+				if err != nil {
+					if !tt.wantErr {
+						t.Errorf("Unexpected error: %v", err)
+					}
+					return
+				}
+				if tt.wantErr && err == nil {
+					t.Errorf("Expected error, but got none")
+				}
 				assert.Equal(t, s, m2.String())
 			} else {
 				m := NewMapFloat("code").IncKeyBy("200", 4000).IncKeyBy("403", 2)
