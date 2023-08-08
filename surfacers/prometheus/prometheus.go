@@ -356,9 +356,9 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 		switch v := val.(type) {
 		case *metrics.Map[int64]:
-			recordMap[int64](ps, v, em, pMetricName, labels)
+			recordMap(ps, v, em, pMetricName, labels)
 		case *metrics.Map[float64]:
-			recordMap[float64](ps, v, em, pMetricName, labels)
+			recordMap(ps, v, em, pMetricName, labels)
 		// Distribution values get expanded into metrics with extra label "le".
 		case *metrics.Distribution:
 			d := v.Data()

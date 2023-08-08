@@ -111,7 +111,7 @@ func distToPGMetrics(d *metrics.DistributionData, metricName string, labels map[
 	return pgMerics
 }
 
-func recordMap[T int64 | float64](m *metrics.Map[T], em *metrics.EventMetrics, metricName string, baseLabels map[string]string) []pgMetric {
+func mapToPGMetrics[T int64 | float64](m *metrics.Map[T], em *metrics.EventMetrics, metricName string, baseLabels map[string]string) []pgMetric {
 	pgMerics := []pgMetric{}
 	for _, k := range m.Keys() {
 		labels := updateLabelMap(baseLabels, [2]string{m.MapName, k})
@@ -133,11 +133,11 @@ func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 
 		// Map metric
 		if mapVal, ok := val.(*metrics.Map[int64]); ok {
-			pgMerics = append(pgMerics, recordMap(mapVal, em, metricName, baseLabels)...)
+			pgMerics = append(pgMerics, mapToPGMetrics(mapVal, em, metricName, baseLabels)...)
 			continue
 		}
 		if mapVal, ok := val.(*metrics.Map[float64]); ok {
-			pgMerics = append(pgMerics, recordMap(mapVal, em, metricName, baseLabels)...)
+			pgMerics = append(pgMerics, mapToPGMetrics(mapVal, em, metricName, baseLabels)...)
 			continue
 		}
 

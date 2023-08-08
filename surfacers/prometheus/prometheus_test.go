@@ -134,9 +134,7 @@ func TestRecord(t *testing.T) {
 	verify(t, ps, expectedMetrics)
 
 	// Check with float map
-	pLat := metrics.NewMapFloat("platency")
-	pLat.IncKeyBy("p95", 0.083)
-	pLat.IncKeyBy("p99", 0.134)
+	pLat := metrics.NewMapFloat("platency").IncKeyBy("p95", 0.083).IncKeyBy("p99", 0.134)
 	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("app_latency", pLat))
 	mergeMap(expectedMetrics, map[string]testData{
 		"app_latency{platency=\"p95\"}": {"app_latency", "0.083"},
@@ -160,12 +158,11 @@ func TestRecord(t *testing.T) {
 
 func TestInvalidNames(t *testing.T) {
 	ps := newPromSurfacer(t, true)
-	respCodesVal := metrics.NewMap("resp-code")
-	respCodesVal.IncKeyBy("200", 19)
+
 	ps.record(metrics.NewEventMetrics(time.Now()).
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd/sent", metrics.NewInt(22)).
-		AddMetric("resp", respCodesVal).
+		AddMetric("resp", metrics.NewMap("resp-code").IncKeyBy("200", 19)).
 		AddLabel("probe-type", "http").
 		AddLabel("probe/name", "vm-to-google"))
 
@@ -182,8 +179,6 @@ func TestInvalidNames(t *testing.T) {
 
 func TestScrapeOutput(t *testing.T) {
 	ps := newPromSurfacer(t, true)
-	respCodesVal := metrics.NewMap("code")
-	respCodesVal.IncKeyBy("200", 19)
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
@@ -193,7 +188,7 @@ func TestScrapeOutput(t *testing.T) {
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd", metrics.NewInt(22)).
 		AddMetric("latency", latencyVal).
-		AddMetric("resp_code", respCodesVal).
+		AddMetric("resp_code", metrics.NewMap("code").IncKeyBy("200", 19)).
 		AddLabel("ptype", "http"))
 	var b bytes.Buffer
 	ps.writeData(&b)
@@ -220,8 +215,6 @@ func TestScrapeOutput(t *testing.T) {
 
 func TestScrapeOutputNoTimestamp(t *testing.T) {
 	ps := newPromSurfacer(t, false)
-	respCodesVal := metrics.NewMap("code")
-	respCodesVal.IncKeyBy("200", 19)
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
@@ -229,7 +222,7 @@ func TestScrapeOutputNoTimestamp(t *testing.T) {
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd", metrics.NewInt(22)).
 		AddMetric("latency", latencyVal).
-		AddMetric("resp_code", respCodesVal).
+		AddMetric("resp_code", metrics.NewMap("code").IncKeyBy("200", 19)).
 		AddLabel("ptype", "http"))
 	var b bytes.Buffer
 	ps.writeData(&b)
