@@ -22,7 +22,7 @@ cloudprober config:
 	surfacer {
 	  type: POSTGRES
 		postgres_surfacer {
-		  connection_string: "postgresql://root:root@localhost/cloudprober?sslmode=disable"
+		  connection_string: "postgresql://root:${PASSWORD}@localhost/cloudprober?sslmode=disable"
 		  metrics_table_name: "metrics"
 	  }
 	}
