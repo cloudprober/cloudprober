@@ -13,6 +13,15 @@
   font-size: calc(1.625rem + 1.3vw);
 }
 
+.emphasize {
+  color: #674f05;
+  font-style: italic;
+  font-family: Jost, "system-ui", "Segoe UI", roboto, "Helvetica Neue", arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 100%;
+}
+
 .alert {
   font-family: $font-family-base;
   font-size: $font-size-base;
