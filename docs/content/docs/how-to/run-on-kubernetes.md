@@ -2,7 +2,7 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 11
+    weight: 13
 title: "Running On Kubernetes"
 date: 2022-11-01T17:24:32-07:00
 ---
@@ -177,108 +177,10 @@ probe {
 }
 ```
 
-### Supported Resource and Filters
+See [Kubernetes Targets]({{< ref k8s_targets.md >}}#kubernetes-targets) for more
+details on Kubernetes targets.
 
-Cloudprober supports discovery for the following k8s resources:
-
-- Services
-- Endpoints
-- Pods
-- Ingresses
-
-You can filter k8s resources using the following options:
-
-- `name`: (regex) Resource name filter. It can be a regex. Example:
-  ```shell
-  # Endpoints with names ending in "service"
-  k8s {
-    endpoints: ".*-service"
-  }
-  ```
-- `namespace`: Namespace filter. Example:
-  ```shell
-  # Ingresses in "prod" namespace, ending in "lb"
-  k8s {
-    namespace: "prod"
-    ingresses: ".*-lb"
-  }
-  ```
-- `labelSelector`: Label based selector. It can be repeated, and works similar
-  to the kubectl's --selector/-l flag. Example:
-  ```shell
-  k8s {
-    pods: ".*"
-    labelSelector: "k8s-app"         # k8a-app label exists
-    labelSelector: "role=frontend"   # label "role" is set to "frontend"
-    labelSelector: "!no-monitoring"  # label "no-monitoring is not set"
-  }
-  ```
-- `portFilter`: (regex) Filter resources by port name or number (if port name is
-  not set). This is useful for resources like endpoints and services, where each
-  resource may have multiple ports. Example:
-  ```shell
-  k8s {
-    endpoints: ".*-service"
-    portFilter: "http-.*"
-  }
-  ```
-
-### Cluster Resources Access
-
-Cloudprober discovers k8s resources using kubernetes APIs. It assumes that we
-are interested in the cluster we are running it in, and uses in-cluster config
-to talk to the kubernetes API server. For this set up to work, we need to give
-our container read-only access to kubernetes resources:
-
-```yaml
-# Define a ClusterRole (resource-reader) for read-only access to the cluster
-# resources and bind this ClusterRole to the default service account.
-
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cloudprober
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: resource-reader
-  namespace: default
-rules:
-- apiGroups: [""]
-  resources: ["*"]
-  verbs: ["get", "list"]
-- apiGroups:
-  - extensions
-  - "networking.k8s.io" # k8s 1.14+
-  resources:
-  - ingresses
-  - ingresses/status
-  verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
- name: default-resource-reader
- namespace: default
-subjects:
-- kind: ServiceAccount
-  name: cloudprober
-  namespace: default
-roleRef:
- kind: ClusterRole
- name: resource-reader
- apiGroup: rbac.authorization.k8s.io
-EOF
-```
-
-This will create a new service account `cloudprober` and will give it read-only
-access to the cluster resources.
-
-### Push Config Update
+## Push Config Update
 
 To push new cloudprober config to the cluster:
 
