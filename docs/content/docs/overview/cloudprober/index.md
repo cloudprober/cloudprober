@@ -11,17 +11,26 @@ title: Overview
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 
-Cloudprober is a monitoring software that makes it super-easy to monitor
-availability and performance of various components of your system. Cloudprober
-uses the "active" monitoring model. It runs probes against (or on) your
-components to verify that they are working as expected. For example, it can run
-a probe to verify that your frontends can reach your backends. Similarly it can
-run a probe to verify that your in-Cloud VMs can actually reach your on-premise
-systems. This kind of monitoring makes it possible to monitor your systems'
-interfaces regardless of the implementation and helps you quickly pin down
-what's broken in your system.
+Cloudprober provides a reliable and easy-to-use solution to monitor the
+availability and performance of your systems. Employing an "active" monitoring
+approach, Cloudprober executes probes on or against these systems to verify
+their proper functioning.
+
+For example, you could use Cloudprober to run a probe to verify that your users
+can access your website and your APIs, your microservices can talk to each
+other, your kubernetes clusters can schedule pods, your CI/CD pipelines are
+functioning as epxected, or VPN connectivity with your partners is working as
+expected, and much more.
+
+This kind of monitoring makes it possible to monitor your systems' interfaces
+regardless of the implementation, and helps you quickly pin down what's broken
+in your systems.
+
+<br/>
 
 ![Cloudprober Use Case](http://cloudprober.org/diagrams/cloudprober_use_case.svg)
+
+<br/>
 
 ## Features
 
