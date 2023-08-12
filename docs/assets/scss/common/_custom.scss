@@ -13,6 +13,29 @@
   font-size: calc(1.625rem + 1.3vw);
 }
 
+.form-control.is-search {
+  padding-right: 4rem;
+  border: 1px solid #ccc;
+  background: $gray-100;
+
+  @include media-breakpoint-up(md) {
+    width: calc(100% + 2rem);
+  }
+
+  @include media-breakpoint-up(lg) {
+    width: 100%;
+  }
+}
+
+.emphasize {
+  color: #674f05;
+  font-style: italic;
+  font-family: Jost, "system-ui", "Segoe UI", roboto, "Helvetica Neue", arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 115%;
+}
+
 .alert {
   font-family: $font-family-base;
   font-size: $font-size-base;
@@ -21,4 +44,39 @@
 .footnotes {
   font-style: italic;
   font-size: smaller;
+}
+
+.feather-moon {
+  margin-bottom: 6px;
+}
+
+.social-slack {
+  margin-bottom: 3px;
+}
+
+.lead {
+  font-weight: 400;
+  font-family: $h3-font-family;
+}
+
+h1 {
+  font-family: Jost, "system-ui", "Segoe UI", roboto, "Helvetica Neue", arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+a.docs-link {
+  font-size: $font-size-md;
+}
+
+.section-sm {
+  padding-top: 0.3rem;
+}
+
+.nav-item {
+  font-weight: 500;
+}
+
+.doks-navbar {
+  background-color: #f0f0f0;
 }
