@@ -2,15 +2,14 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 11
+    weight: 12
 title: "Kubernetes Targets"
 date: 2022-11-01T17:24:32-07:00
 ---
 
-If you're running on Kubernetes, you'd probably want to monitor Kubernetes
-resources (e.g. pods, endpoints, ingresses, etc) as well. Cloudprober supports
-[dynamic discovery]({{< ref targets.md >}}#dynamically-discovered-targets) of
-Kubernetes resources through the targets type
+Cloudprober supports [dynamic
+discovery]({{< ref targets.md >}}#dynamically-discovered-targets) of Kubernetes
+resources (e.g. pods, endpoints, ingresses, etc) through the targets type
 [`k8s`](https://github.com/cloudprober/cloudprober/blob/ad73fe489ea3ac69e7b0f81a465671df9adc8321/targets/proto/targets.proto#L40).
 
 For example, the following config adds an HTTP probe for the endpoints named

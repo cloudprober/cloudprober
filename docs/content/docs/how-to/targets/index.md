@@ -3,7 +3,7 @@ menu:
   docs:
     parent: how-to
     name: "Targets"
-    weight: 12
+    weight: 11
 title: "Targets"
 date: 2016-10-25T17:24:32-07:00
 ---
@@ -114,7 +114,7 @@ don't want to rely on DNS for resolving its IP address.
 ### K8s targets
 
 K8s targets are explained at [Kubernetes
-Targets]({{< ref run-on-kubernetes.md >}}#kubernetes-targets).
+Targets]({{< ref k8s_targets.md >}}#kubernetes-targets).
 
 ### GCP targets
 
