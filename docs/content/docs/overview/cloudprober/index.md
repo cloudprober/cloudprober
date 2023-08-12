@@ -13,7 +13,7 @@ title: Overview
 
 Cloudprober is a monitoring software that makes it super-easy to monitor
 availability and performance of various components of your system. Cloudprober
-employs the "active" monitoring model. It runs probes against (or on) your
+uses the "active" monitoring model. It runs probes against (or on) your
 components to verify that they are working as expected. For example, it can run
 a probe to verify that your frontends can reach your backends. Similarly it can
 run a probe to verify that your in-Cloud VMs can actually reach your on-premise

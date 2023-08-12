@@ -1,4 +1,5 @@
 $font-size-sm: $font-size-base * 0.8;
+$font-size-md: $font-size-base * 0.95;
 
 $purple-100: rgb(83, 111, 227);
 $pink-500: red;
@@ -9,12 +10,14 @@ $color-btn-bg: $primary;
 $color-btn-border: darken($primary, 5%);
 $color-btn-text: $white;
 
-$h1-font-size: calc(1.3rem + 0.9vw);
+$h1-font-size: calc(1.3rem + 0.7vw);
 $h2-font-size: calc(1.2rem + 0.6vw);
 $h3-font-size: calc(1.1rem + 0.3vw);
 $headings-font-weight: 500;
 
-$font-family-sans-serif: "Jost", -apple-system, blinkmacsystemfont, "Segoe UI",
-  roboto, "Helvetica Neue", arial, "Noto Sans", sans-serif, "Apple Color Emoji",
-  "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+$h3-font-family: Jost, "system-ui", "Segoe UI", roboto, "Helvetica Neue", arial,
+  sans-serif;
+
+$font-family-sans-serif: "Open Sans", "Helvetica Neue", roboto, "Segoe UI",
+  arial, sans-serif;
 $font-family-base: $font-family-sans-serif;
