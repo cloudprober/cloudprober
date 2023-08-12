@@ -4,7 +4,7 @@
     <div class="col-lg-12 text-center">
       <h1 class="mt-0">{{ .Title }}</h1>
     </div>
-    <div class="col-lg-9 col-xl-8 text-center">
+    <div class="col-lg-11 col-xl-10 text-center">
       <p class="lead">{{ .Params.lead | safeHTML }}</p>
       <a
         class="btn btn-primary btn-lg px-4 mb-2"
@@ -12,9 +12,8 @@
         role="button"
         >Get Started</a
       >
-      <p class="meta">
-        Open-source.
-        <a href="https://github.com/cloudprober/cloudprober">GitHub</a>
+      <p class="meta" style="font-weight:500">
+        <a href="https://github.com/cloudprober/cloudprober">Open-source</a>
       </p>
     </div>
   </div>
@@ -22,48 +21,48 @@
 {{ end }} {{ define "sidebar-prefooter" }}
 <section class="section section-sm">
   <div class="container">
-    <div class="row justify-content-center gx-4">
+    <div class="row justify-content-center text-center">
       <div class="col-lg-5">
-        <h2 class="h4">Fast native checks ⚡️</h2>
-        <p>
+        <h2 class="h3" style="font-weight:700">Fast native checks ⚡️</h2>
+        <p style="font-weight:400">
           Cloudprober comes with efficient, highly scalable, built-in probes for
-          common protocols: HTTP (REST APIs), PING, DNS, gRPC, TCP, UDP.
+          common types of checks: HTTP (REST APIs), PING, DNS, gRPC, TCP, UDP.
         </p>
       </div>
       <div class="col-lg-5">
-        <h2 class="h4">Trusted by multiple large organizations</h2>
-        <p>
+        <h2 class="h3" style="font-weight:700">Trusted by multiple large organizations</h2>
+        <p style="font-weight:400">
           <span class=emphasize>
             Google, Apple, DoorDash, Uber, Cloudflare, Yahoo Japan, Goldman Sachs, Robinhood,
             Hostinger</span>, and more.
         </p>
       </div>
       <div class="col-lg-5">
-        <h2 class="h4">Easy integration</h2>
-        <p>
+        <h2 class="h3" style="font-weight:700">Easy integration</h2>
+        <p style="font-weight:400">
           Out of the box, config based, integration with many popular monitoring
           systems: Prometheus, Grafana, DataDog, PostgreSQL, AWS Cloudwatch,
           Stackdriver, and more.
         </p>
       </div>
     </div>
-    <div class="row justify-content-center gx-4">
+    <div class="row justify-content-center text-center">
       <div class="col-lg-5">
-        <h2 class="h4">Flexible custom checks</h2>
+        <h2 class="h3" style="font-weight:700">Flexible custom checks</h2>
         <p>
           Run any binary or script as a probe (see: <a href="docs//how-to/external-probe">external probe</a>), and have probe results appear in
           standard metrics.
         </p>
       </div>
       <div class="col-lg-5">
-        <h2 class="h4">Automated targets discovery</h2>
+        <h2 class="h3" style="font-weight:700">Automated targets discovery</h2>
         <p>
           Reliable, automated <a href="docs//how-to/targets">targets discovery</a> for Kubernetes and GCP
           resources.
         </p>
       </div>
       <div class="col-lg-5">
-        <h2 class="h4">Deployment friendly</h2>
+        <h2 class="h3" style="font-weight:700">Deployment friendly</h2>
         <p>
           Written entirely in Go. Available as standalone static binary or
           through a docker image. Multiple ways to configure, including
