@@ -118,7 +118,7 @@ message ProberConfig {
   // You may want to set it to 0 if cloudprober is running as a backend for
   // the probes and you don't want time lost in stop and start.
   // Default: 5s
-  int32 stop_time_sec = 99;
+  optional int32 stop_time_sec = 99;
 
   // Global targets options. Per-probe options are specified within the probe
   // stanza.

@@ -238,14 +238,14 @@ func parseTemplate(config string, sysVars map[string]string, testMode bool) (str
 }
 
 func processConfig(cfg *configpb.ProberConfig) error {
-	if cfg.GetSysvarsIntervalMsec() == 0 {
+	if cfg.SysvarsIntervalMsec == 0 {
 		cfg.SysvarsIntervalMsec = 10000
 	}
-	if cfg.GetSysvarsEnvVar() == "" {
+	if cfg.SysvarsEnvVar == "" {
 		cfg.SysvarsEnvVar = "SYSVARS"
 	}
-	if cfg.GetStopTimeSec() == 0 {
-		cfg.StopTimeSec = 5
+	if cfg.StopTimeSec == nil {
+		cfg.StopTimeSec = proto.Int32(5)
 	}
 
 	for _, sharedTargets := range cfg.GetSharedTargets() {
