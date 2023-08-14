@@ -1,4 +1,4 @@
-syntax = "proto2";
+syntax = "proto3";
 
 package cloudprober.validators;
 
@@ -9,7 +9,7 @@ import "github.com/cloudprober/cloudprober/validators/json/proto/config.proto";
 option go_package = "github.com/cloudprober/cloudprober/validators/proto";
 
 message Validator {
-  required string name = 1;
+  string name = 1;
   oneof type {
     http.Validator http_validator = 2;
 
