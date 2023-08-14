@@ -44,7 +44,11 @@ func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*Validator,
 	names := make(map[string]bool)
 
 	for _, vc := range validatorConfs {
-		if names[vc.GetName()] {
+		if vc.Name == "" {
+			return nil, fmt.Errorf("validator name is required")
+		}
+
+		if names[vc.Name] {
 			return nil, fmt.Errorf("validator %s is defined twice", vc.GetName())
 		}
 
@@ -54,14 +58,14 @@ func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*Validator,
 		}
 
 		validators = append(validators, v)
-		names[vc.GetName()] = true
+		names[vc.Name] = true
 	}
 
 	return validators, nil
 }
 
 func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validator *Validator, err error) {
-	validator = &Validator{Name: validatorConf.GetName()}
+	validator = &Validator{Name: validatorConf.Name}
 
 	switch validatorConf.Type.(type) {
 	case *configpb.Validator_HttpValidator:
