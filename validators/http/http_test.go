@@ -156,14 +156,6 @@ func TestValidateStatusCode(t *testing.T) {
 }
 
 func TestValidateHeaders(t *testing.T) {
-	testConfig := &configpb.Validator{}
-
-	v := &Validator{}
-	err := v.Init(testConfig, &logger.Logger{})
-	if err != nil {
-		t.Errorf("Init(%v, l): err: %v", testConfig, err)
-	}
-
 	respStatus := http.StatusOK
 	respHeader := http.Header{
 		"X-Success": []string{"some", "truly", "last"},

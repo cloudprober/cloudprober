@@ -167,6 +167,10 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 		return fmt.Errorf("%v is not a valid HTTP validator config", config)
 	}
 
+	if c.String() == "" {
+		return errors.New("empty HTTP validator config")
+	}
+
 	v.c = c
 	v.l = l
 

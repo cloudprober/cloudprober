@@ -17,6 +17,10 @@ package validators
 import (
 	"reflect"
 	"testing"
+
+	configpb "github.com/cloudprober/cloudprober/validators/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var testValidators = []*Validator{
@@ -53,5 +57,91 @@ func TestValidatorFailureMap(t *testing.T) {
 	expectedKeys := []string{"test-v1", "test-v3"}
 	if reflect.DeepEqual(vfMap.Keys(), expectedKeys) {
 		t.Errorf("Didn't get expected keys in the mao. Got: %s, Expected: %v", vfMap.Keys(), expectedKeys)
+	}
+}
+
+func TestInit(t *testing.T) {
+	tests := []struct {
+		name           string
+		validatorConfs []string
+		wantNames      []string
+		wantErr        string
+	}{
+		{
+			name: "success",
+			validatorConfs: []string{
+				`
+					name: "http_status_200s"
+				    http_validator {
+						success_status_codes: "200-299"
+					}
+				`,
+				`
+					name: "found_string"
+					regex: ".*found.*"
+				`,
+				`
+					name: "valid_json"
+					json_validator {
+					}
+				`,
+				`
+					name: "integrity"
+					integrity_validator {
+						pattern_num_bytes: 8
+					}
+				`,
+			},
+			wantNames: []string{"http_status_200s", "found_string", "valid_json", "integrity"},
+		},
+		{
+			name: "missing name",
+			validatorConfs: []string{
+				`http_validator {
+					success_status_codes: "200-299"
+				}`,
+			},
+			wantErr: "validator name",
+		},
+		{
+			name: "invalid validator config",
+			validatorConfs: []string{
+				`
+				name: "http_status_200s"
+				http_validator {
+				}`,
+			},
+			wantErr: "HTTP",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var validators []*configpb.Validator
+			for _, validatorConf := range tt.validatorConfs {
+				v := &configpb.Validator{}
+				prototext.Unmarshal([]byte(validatorConf), v)
+				validators = append(validators, v)
+			}
+
+			got, err := Init(validators, nil)
+			if err != nil {
+				if tt.wantErr == "" {
+					t.Errorf("Init() unexpected error: %v", err)
+				}
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			if err == nil && tt.wantErr != "" {
+				t.Errorf("Init() expected error: %s, got nil", tt.wantErr)
+			}
+
+			var gotNames []string
+			for _, v := range got {
+				gotNames = append(gotNames, v.Name)
+			}
+			assert.Equal(t, tt.wantNames, gotNames)
+		})
 	}
 }
