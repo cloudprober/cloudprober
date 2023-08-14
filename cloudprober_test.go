@@ -78,7 +78,7 @@ func TestGetDefaultServerPort(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			os.Setenv(ServerPortEnvVar, test.envVar)
 			port, err := getDefaultServerPort(&configpb.ProberConfig{
-				Port: test.configPort,
+				Port: proto.Int32(test.configPort),
 			}, nil)
 
 			if err != nil {
@@ -149,8 +149,8 @@ func TestRestart(t *testing.T) {
 				time.Sleep(time.Second)
 			}()
 			cfg := &configpb.ProberConfig{
-				Port:     ports[0],
-				GrpcPort: ports[1],
+				Port:     proto.Int32(ports[0]),
+				GrpcPort: proto.Int32(ports[1]),
 				Server: []*serverspb.ServerDef{
 					{
 						Type: serverspb.ServerDef_UDP.Enum(),

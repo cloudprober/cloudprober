@@ -95,27 +95,24 @@ import (
 	// Probes are staggered across time to avoid executing all of them at the
 	// same time. This behavior can be disabled by setting the following option
 	// to true.
-	disableJitter?: bool @protobuf(102,bool,name=disable_jitter)
+	disableJitter?: bool @protobuf(102,bool,name=disable_jitter,"default=false")
 
 	// How often to export system variables. To learn more about system variables:
 	// http://godoc.org/github.com/cloudprober/cloudprober/sysvars.
-	// Default is 10s.
-	sysvarsIntervalMsec?: int32 @protobuf(97,int32,name=sysvars_interval_msec)
+	sysvarsIntervalMsec?: int32 @protobuf(97,int32,name=sysvars_interval_msec,"default=10000")
 
 	// Variables specified in this environment variable are exported as it is.
 	// This is specifically useful to export information about system environment,
 	// for example, docker image tag/digest-id, OS version etc. See
 	// tools/cloudprober_startup.sh in the cloudprober directory for an example on
 	// how to use these variables.
-	// Default: "SYSVARS"
-	sysvarsEnvVar?: string @protobuf(98,string,name=sysvars_env_var)
+	sysvarsEnvVar?: string @protobuf(98,string,name=sysvars_env_var,#"default="SYSVARS""#)
 
 	// Time between triggering cancelation of various goroutines and exiting the
 	// process. If --stop_time flag is also configured, that gets priority.
 	// You may want to set it to 0 if cloudprober is running as a backend for
 	// the probes and you don't want time lost in stop and start.
-	// Default: 5s
-	stopTimeSec?: int32 @protobuf(99,int32,name=stop_time_sec)
+	stopTimeSec?: int32 @protobuf(99,int32,name=stop_time_sec,"default=5")
 
 	// Global targets options. Per-probe options are specified within the probe
 	// stanza.
