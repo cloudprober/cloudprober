@@ -20,6 +20,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -131,7 +132,7 @@ func TestProcessConfig(t *testing.T) {
 			wantCfg: &configpb.ProberConfig{
 				SysvarsIntervalMsec: 10000,
 				SysvarsEnvVar:       "SYSVARS",
-				StopTimeSec:         5,
+				StopTimeSec:         proto.Int32(5),
 			},
 		},
 		{
@@ -139,12 +140,12 @@ func TestProcessConfig(t *testing.T) {
 			cfg: &configpb.ProberConfig{
 				SysvarsIntervalMsec: 30000,
 				SysvarsEnvVar:       "SYSVARS2",
-				StopTimeSec:         15,
+				StopTimeSec:         proto.Int32(0),
 			},
 			wantCfg: &configpb.ProberConfig{
 				SysvarsIntervalMsec: 30000,
 				SysvarsEnvVar:       "SYSVARS2",
-				StopTimeSec:         15,
+				StopTimeSec:         proto.Int32(0),
 			},
 		},
 		{
