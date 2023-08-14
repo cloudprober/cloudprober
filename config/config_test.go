@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
+	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParse(t *testing.T) {
@@ -113,5 +115,65 @@ probe {
 	expectedName := "google_dot_com_from-undefined"
 	if probeName != expectedName {
 		t.Errorf("Incorrect probe name. Got: %s, Expected: %s", probeName, expectedName)
+	}
+}
+
+func TestProcessConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *configpb.ProberConfig
+		wantCfg *configpb.ProberConfig
+		wantErr bool
+	}{
+		{
+			name: "Default fields",
+			cfg:  &configpb.ProberConfig{},
+			wantCfg: &configpb.ProberConfig{
+				SysvarsIntervalMsec: 10000,
+				SysvarsEnvVar:       "SYSVARS",
+				StopTimeSec:         5,
+			},
+		},
+		{
+			name: "Non-default fields",
+			cfg: &configpb.ProberConfig{
+				SysvarsIntervalMsec: 30000,
+				SysvarsEnvVar:       "SYSVARS2",
+				StopTimeSec:         15,
+			},
+			wantCfg: &configpb.ProberConfig{
+				SysvarsIntervalMsec: 30000,
+				SysvarsEnvVar:       "SYSVARS2",
+				StopTimeSec:         15,
+			},
+		},
+		{
+			name: "Empty shared targets",
+			cfg: &configpb.ProberConfig{
+				SharedTargets: []*configpb.SharedTargets{{}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Missing shared targets targets definition",
+			cfg: &configpb.ProberConfig{
+				SharedTargets: []*configpb.SharedTargets{
+					{
+						Name: "shared-targets-1",
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := processConfig(tt.cfg); (err != nil) != tt.wantErr {
+				t.Errorf("processConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr {
+				assert.Equal(t, tt.cfg, tt.wantCfg)
+			}
+		})
 	}
 }
