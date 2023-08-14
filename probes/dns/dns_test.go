@@ -213,7 +213,7 @@ func TestValidator(t *testing.T) {
 	} {
 		valPb := []*validatorpb.Validator{
 			{
-				Name: proto.String(tst.name),
+				Name: tst.name,
 				Type: &validatorpb.Validator_Regex{Regex: tst.pattern},
 			},
 		}

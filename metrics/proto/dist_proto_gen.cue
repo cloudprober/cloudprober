@@ -22,7 +22,7 @@ package proto
 //   bucket[num_buckets+1] covers [scale_factor*base^(num_buckets−1), +Inf)
 // NB: Base must be at least 1.01.
 #ExponentialBuckets: {
-	scaleFactor?: float32 @protobuf(1,float,name=scale_factor,"default=1.0")
-	base?:        float32 @protobuf(2,float,"default=2")
-	numBuckets?:  uint32  @protobuf(3,uint32,name=num_buckets,"default=20")
+	scaleFactor?: float32 @protobuf(1,float,name=scale_factor) // default = 1.0
+	base?:        float32 @protobuf(2,float)                   // default = 2
+	numBuckets?:  uint32  @protobuf(3,uint32,name=num_buckets) //default = 20
 }

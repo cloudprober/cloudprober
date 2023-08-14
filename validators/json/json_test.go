@@ -19,7 +19,6 @@ import (
 
 	configpb "github.com/cloudprober/cloudprober/validators/json/proto"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
 )
 
 var testInput = `
@@ -95,7 +94,7 @@ func TestValidate(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			v := Validator{}
 			err := v.Init(&configpb.Validator{
-				JqFilter: proto.String(test.jqf),
+				JqFilter: test.jqf,
 			}, nil)
 
 			if test.parseErr {

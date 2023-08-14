@@ -20,8 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	distpb "github.com/cloudprober/cloudprober/metrics/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []int64) {
@@ -33,28 +34,52 @@ func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []in
 	}
 }
 
-func protoToDist(t *testing.T, testDistProtoText string) *Distribution {
-	testDistProto := &distpb.Dist{}
-	if err := proto.UnmarshalText(testDistProtoText, testDistProto); err != nil {
-		t.Errorf("Failed parsing distribution proto text: %s. Err: %v", testDistProtoText, err)
-		return nil
-	}
-	d, err := NewDistributionFromProto(testDistProto)
-	if err != nil {
-		t.Errorf("Error while creating distribution from the protobuf: %s. Err: %v", testDistProtoText, err)
-		return nil
-	}
-	return d
-}
-
 func TestNewDistributionFromProto(t *testing.T) {
-	testDistProtoText := `
-	  explicit_buckets: "1,2,4,8,16,32"
-	`
-	expectedLowerBounds := []float64{math.Inf(-1), 1, 2, 4, 8, 16, 32}
-	d := protoToDist(t, testDistProtoText)
-	if !reflect.DeepEqual(d.lowerBounds, expectedLowerBounds) {
-		t.Errorf("Unexpected lower bounds from proto. d.lowerBounds=%v, want=%v.", d.lowerBounds, expectedLowerBounds)
+	tests := []struct {
+		inputProto      string
+		wantError       bool
+		wantLowerBounds []float64
+	}{
+		{
+			inputProto:      "explicit_buckets: \"1,2,4,8,16,32\"",
+			wantLowerBounds: []float64{math.Inf(-1), 1, 2, 4, 8, 16, 32},
+		},
+		{
+			inputProto:      "exponential_buckets {}",
+			wantLowerBounds: []float64{math.Inf(-1), 0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288},
+		},
+		{
+			inputProto: `exponential_buckets {
+				scale_factor: 0.5
+				num_buckets: 10
+			}`,
+			wantLowerBounds: []float64{math.Inf(-1), 0, 0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256},
+		},
+		{
+			inputProto: `exponential_buckets {
+				scale_factor: 0.5
+				base: 1,
+				num_buckets: 10
+			}`,
+			wantError: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.inputProto, func(t *testing.T) {
+			testDistProto := &distpb.Dist{}
+			prototext.Unmarshal([]byte(test.inputProto), testDistProto)
+			d, err := NewDistributionFromProto(testDistProto)
+
+			if (err != nil) != test.wantError {
+				t.Errorf("NewDistributionFromProto() error = %v, wantErr %v", err, test.wantError)
+			}
+
+			if test.wantError {
+				return
+			}
+			assert.Equal(t, test.wantLowerBounds, d.lowerBounds)
+		})
 	}
 }
 

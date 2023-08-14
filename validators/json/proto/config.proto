@@ -1,4 +1,4 @@
-syntax = "proto2";
+syntax = "proto3";
 
 package cloudprober.validators.json;
 
@@ -10,5 +10,5 @@ message Validator {
   // the probe output, e.g. HTTP API response, results in 'true' boolean.
   // See the following test file for some examples:
   // https://github.com/cloudprober/cloudprober/blob/master/validators/json/json_test.go
-  optional string jq_filter = 1;
+  string jq_filter = 1;
 }
