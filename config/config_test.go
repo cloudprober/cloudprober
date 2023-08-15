@@ -1,4 +1,4 @@
-// Copyright 2017 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,70 +19,125 @@ import (
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
+	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
-func TestParse(t *testing.T) {
-	testConfig := `
-{{ $shard := "ig-us-east1-a-02-afgx" | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1 }}
-probe {
-  type: PING
-  name: "vm-to-google-{{$shard}}-{{.region}}"
-  targets {
-    host_names: "www.google.com"
-  }
-  ping_probe {
-    use_datagram_socket: true
-  }
-}
-`
-	c, err := Parse(testConfig, map[string]string{
-		"region": "testRegion",
-	})
+func testParse(config string, sysVars map[string]string) (*configpb.ProberConfig, error) {
+	textConfig, err := ParseTemplate(config, sysVars, nil)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	if len(c.GetProbe()) != 1 {
-		t.Errorf("Didn't get correct number of probes. Got: %d, Expected: %d", len(c.GetProbe()), 1)
+
+	cfg := &configpb.ProberConfig{}
+	if err = prototext.Unmarshal([]byte(textConfig), cfg); err != nil {
+		return nil, err
 	}
-	probeName := c.GetProbe()[0].GetName()
-	expectedName := "vm-to-google-02-testRegion"
-	if probeName != expectedName {
-		t.Errorf("Incorrect probe name. Got: %s, Expected: %s", probeName, expectedName)
+	return cfg, nil
+}
+
+func TestParseTemplate(t *testing.T) {
+	tests := []struct {
+		desc        string
+		config      string
+		sysVars     map[string]string
+		wantProbes  []string
+		wantTargets []string
+		wantErrStr  string
+	}{
+		{
+			desc: "config-with-extract-substring",
+			config: `
+				{{ $shard := "ig-us-east1-a-02-afgx" | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1 }}
+				probe {
+				type: PING
+				name: "vm-to-google-{{$shard}}-{{.region}}"
+				targets {
+					host_names: "www.google.com"
+				}
+				}
+			`,
+			sysVars:     map[string]string{"region": "testRegion"},
+			wantProbes:  []string{"vm-to-google-02-testRegion"},
+			wantTargets: []string{"host_names:\"www.google.com\""},
+		},
+		{
+			desc: "config-with-map-and-template",
+			config: `
+				{{define "probeTmpl"}}
+				probe {
+					type: {{.typ}}
+					name: "{{.name}}"
+					targets {
+					host_names: "{{.target}}"
+					}
+				}
+				{{end}}
+
+				{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google" "target" "www.google.com"}}
+				{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_facebook" "target" "www.facebook.com"}}
+			`,
+			wantProbes:  []string{"ping_google", "ping_facebook"},
+			wantTargets: []string{"host_names:\"www.google.com\"", "host_names:\"www.facebook.com\""},
+		},
+		{
+			desc: "config-with-template-error",
+			config: `
+				probe {
+				type: PING
+				name: "vm-to-google-{{$shard}}"
+				targets {
+					host_names: "www.google.com"
+				}
+				}
+			`,
+			wantErrStr: "template",
+		},
+		{
+			desc: "config-with-missing-required-field",
+			config: `
+				probe {
+				type: PING
+				targets {
+					host_names: "www.google.com"
+				}
+				}
+			`,
+			wantErrStr: "proto",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if tt.sysVars == nil {
+				tt.sysVars = map[string]string{}
+			}
+
+			cfg, err := testParse(tt.config, tt.sysVars)
+			if err != nil {
+				if tt.wantErrStr == "" {
+					t.Errorf("Got unexpected error: %v", err)
+				}
+				assert.ErrorContains(t, err, tt.wantErrStr, "error string")
+				return
+			}
+			if tt.wantErrStr != "" {
+				t.Errorf("Expected an error, got none")
+			}
+
+			var probeNames, targets []string
+			for _, probe := range cfg.GetProbe() {
+				probeNames = append(probeNames, probe.GetName())
+				targets = append(targets, probe.GetTargets().String())
+			}
+			assert.Equal(t, tt.wantProbes, probeNames, "probe names")
+			assert.Equal(t, tt.wantTargets, targets, "targets")
+		})
 	}
 }
 
-func TestParseMap(t *testing.T) {
-	testConfig := `
-{{define "probeTmpl"}}
-probe {
-  type: {{.typ}}
-  name: "{{.name}}"
-  targets {
-    host_names: "www.google.com"
-  }
-  ping_probe {
-    use_datagram_socket: true
-  }
-}
-{{end}}
-
-{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google"}}
-`
-	c, err := Parse(testConfig, map[string]string{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(c.GetProbe()) != 1 {
-		t.Errorf("Didn't get correct number of probes. Got: %d, Expected: %d", len(c.GetProbe()), 1)
-	}
-	probeName := c.GetProbe()[0].GetName()
-	expectedName := "ping_google"
-	if probeName != expectedName {
-		t.Errorf("Incorrect probe name. Got: %s, Expected: %s", probeName, expectedName)
-	}
-}
-
-func TestParseForTest(t *testing.T) {
+func TestParseGCEMetadata(t *testing.T) {
 	testConfig := `
 probe {
   type: PING
@@ -92,7 +147,7 @@ probe {
   }
 }
 `
-	ReadFromGCEMetadata = func(key string) (string, error) {
+	textConfig, err := ParseTemplate(testConfig, map[string]string{}, func(key string) (string, error) {
 		if key == "google-probe-name" {
 			return "google_dot_com_from", nil
 		}
@@ -100,18 +155,15 @@ probe {
 			return "", metadata.NotDefinedError("not defined")
 		}
 		return "", fmt.Errorf("not-implemented")
-	}
-
-	c, err := Parse(testConfig, map[string]string{})
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(c.GetProbe()) != 1 {
-		t.Errorf("Didn't get correct number of probes. Got: %d, Expected: %d", len(c.GetProbe()), 1)
+	cfg := &configpb.ProberConfig{}
+	if err = prototext.Unmarshal([]byte(textConfig), cfg); err != nil {
+		t.Fatal(err)
 	}
-	probeName := c.GetProbe()[0].GetName()
-	expectedName := "google_dot_com_from-undefined"
-	if probeName != expectedName {
-		t.Errorf("Incorrect probe name. Got: %s, Expected: %s", probeName, expectedName)
-	}
+
+	assert.Len(t, cfg.GetProbe(), 1, "number of probes")
+	assert.Equal(t, "google_dot_com_from-undefined", cfg.GetProbe()[0].GetName(), "probe name")
 }
