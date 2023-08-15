@@ -139,7 +139,6 @@ func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
 // metadata about the log entries can be inserted into this map.
 // For example probe id can be inserted into this map.
 type Logger struct {
-	_name               string
 	slogger             *slog.Logger
 	gcpLogc             *logging.Client
 	gcpLogger           *logging.Logger
@@ -156,16 +155,23 @@ type Logger struct {
 // Option can be used for adding additional metadata information in logger.
 type Option func(*Logger)
 
-// New returns a new Logger object with cloud logging client initialized if running on GCE.
+// NewWithAttrs returns a new cloudprober Logger.
+// This logger logs to stderr by default. If running on GCE, it also logs to
+// Google Cloud Logging.
 func NewWithAttrs(attrs ...slog.Attr) *Logger {
-	l, _ := New(context.Background(), "", WithAttr(attrs...))
-	return l
+	return newLogger(WithAttr(attrs...))
 }
 
-// New returns a new Logger object with cloud logging client initialized if running on GCE.
+// New returns a new cloudprober Logger.
+// This logger logs to stderr by default. If running on GCE, it also logs to
+// Google Cloud Logging.
+// Deprecated: Use NewWithAttrs instead.
 func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
+	return newLogger(append(opts, WithAttr(slog.String("name", logName)))...), nil
+}
+
+func newLogger(opts ...Option) *Logger {
 	l := &Logger{
-		_name:               logName,
 		labels:              make(map[string]string),
 		disableCloudLogging: *disableCloudLogging,
 	}
@@ -182,9 +188,9 @@ func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	l.debugLog = l.enableDebugLog(*debugLog, *debugLogList)
 
 	if metadata.OnGCE() && !l.disableCloudLogging {
-		l.EnableStackdriverLogging(logName)
+		l.EnableStackdriverLogging()
 	}
-	return l, nil
+	return l
 }
 
 // WithAttr option can be used to add a set of labels to all logs, e.g.
@@ -222,27 +228,27 @@ func verifySDLogName(logName string) (string, error) {
 }
 
 func (l *Logger) sdLogName() (string, error) {
-	logName := l._name
-	if logName != "" {
-		return verifySDLogName(logName)
-	}
-
-	logName = cloudproberPrefix
+	prefix := cloudproberPrefix
 	envLogPrefix := os.Getenv(LogPrefixEnvVar)
 	if os.Getenv(LogPrefixEnvVar) != "" {
-		logName = envLogPrefix
+		prefix = envLogPrefix
 	}
 
 	for _, attr := range l.attrs {
-		if attr.Key == "component" || attr.Key == "probe" {
-			return verifySDLogName(logName + "." + attr.Value.String())
+		if attr.Key == "name" {
+			return verifySDLogName(attr.Value.String())
+		}
+
+		if attr.Key == "component" || attr.Key == "probe" || attr.Key == "surfacer" {
+			return verifySDLogName(prefix + "." + attr.Value.String())
 		}
 	}
-	return verifySDLogName(logName)
+
+	return verifySDLogName(prefix)
 }
 
 // EnableStackdriverLogging enables logging to stackdriver.
-func (l *Logger) EnableStackdriverLogging(logName string) {
+func (l *Logger) EnableStackdriverLogging() {
 	logName, err := l.sdLogName()
 	if err != nil {
 		l.Warningf("Error getting log name for google cloud logging: %v, will skip", err)

@@ -272,3 +272,61 @@ func TestLog(t *testing.T) {
 		})
 	}
 }
+
+func TestSDLogName(t *testing.T) {
+	tests := []struct {
+		name    string
+		attrs   []slog.Attr
+		want    string
+		wantErr string
+	}{
+		{
+			name: "no attrs",
+			want: "cloudprober",
+		},
+		{
+			name:  "probe",
+			attrs: []slog.Attr{slog.String("probe", "testprobe")},
+			want:  "cloudprober.testprobe",
+		},
+		{
+			name:  "component",
+			attrs: []slog.Attr{slog.String("component", "rds-server")},
+			want:  "cloudprober.rds-server",
+		},
+		{
+			name:  "cloudwatch",
+			attrs: []slog.Attr{slog.String("surfacer", "cloudwatch")},
+			want:  "cloudprober.cloudwatch",
+		},
+		{
+			name:    "invalid char",
+			attrs:   []slog.Attr{slog.String("surfacer", "cloudwatch*")},
+			wantErr: "invalid character",
+		},
+		{
+			name:  "url escape",
+			attrs: []slog.Attr{slog.String("surfacer", "cloudwatch/v1")},
+			want:  "cloudprober.cloudwatch%2Fv1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := NewWithAttrs(tt.attrs...)
+			got, err := l.sdLogName()
+			if err != nil {
+				if tt.wantErr == "" {
+					t.Errorf("Logger.sdLogName() unexpected error: %v", err)
+					return
+				}
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			if tt.wantErr != "" {
+				t.Errorf("Logger.sdLogName() expected error: %v", tt.wantErr)
+			}
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
