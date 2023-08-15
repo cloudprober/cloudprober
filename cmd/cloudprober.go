@@ -36,10 +36,12 @@ import (
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/common/file"
 	"github.com/cloudprober/cloudprober/config"
+	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
 	"github.com/golang/glog"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var (
@@ -183,7 +185,7 @@ func main() {
 
 	if *dumpConfig {
 		sysvars.Init(nil, configTestVars)
-		text, err := config.ParseTemplate(getConfig(), sysvars.Vars())
+		text, err := config.ParseTemplate(getConfig(), sysvars.Vars(), nil)
 		if err != nil {
 			glog.Exitf("Error parsing config file. Err: %v", err)
 		}
@@ -193,9 +195,15 @@ func main() {
 
 	if *configTest {
 		sysvars.Init(nil, configTestVars)
-		_, err := config.ParseForTest(configFileToString(*configFile), sysvars.Vars())
+		configStr, err := config.ParseTemplate(configFileToString(*configFile), sysvars.Vars(), func(v string) (string, error) {
+			return v + "-test-value", nil
+		})
 		if err != nil {
 			glog.Exitf("Error parsing config file. Err: %v", err)
+		}
+		cfg := &configpb.ProberConfig{}
+		if err := prototext.Unmarshal([]byte(configStr), cfg); err != nil {
+			glog.Exitf("Error unmarshalling config. Err: %v", err)
 		}
 		return
 	}
