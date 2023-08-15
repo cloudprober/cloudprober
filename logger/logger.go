@@ -25,6 +25,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -239,7 +240,7 @@ func (l *Logger) sdLogName() (string, error) {
 			return verifySDLogName(attr.Value.String())
 		}
 
-		if attr.Key == "component" || attr.Key == "probe" || attr.Key == "surfacer" {
+		if slices.Contains([]string{"component", "probe", "surfacer"}, attr.Key) {
 			return verifySDLogName(prefix + "." + attr.Value.String())
 		}
 	}
