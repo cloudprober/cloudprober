@@ -97,7 +97,7 @@ func slogHandler() slog.Handler {
 	return slog.NewTextHandler(defaultWritter, opts).WithAttrs(attrs)
 }
 
-func enableDebugLog(debugLog bool, debugLogRe string, logName string) bool {
+func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
 	if !debugLog && debugLogRe == "" {
 		return false
 	}
@@ -112,8 +112,10 @@ func enableDebugLog(debugLog bool, debugLogRe string, logName string) bool {
 		panic(fmt.Sprintf("error while parsing log name regex (%s): %v", debugLogRe, err))
 	}
 
-	if r.MatchString(logName) {
-		return true
+	for _, attr := range l.attrs {
+		if r.MatchString(attr.Key + "=" + attr.Value.String()) {
+			return true
+		}
 	}
 
 	return false
@@ -165,7 +167,6 @@ func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	l := &Logger{
 		_name:               logName,
 		labels:              make(map[string]string),
-		debugLog:            enableDebugLog(*debugLog, *debugLogList, logName),
 		disableCloudLogging: *disableCloudLogging,
 	}
 	for _, opt := range opts {
@@ -177,6 +178,8 @@ func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	for k, v := range l.labels {
 		l.slogger = l.slogger.With(k, v)
 	}
+
+	l.debugLog = l.enableDebugLog(*debugLog, *debugLogList)
 
 	if metadata.OnGCE() && !l.disableCloudLogging {
 		l.EnableStackdriverLogging(logName)

@@ -165,6 +165,7 @@ func TestLog(t *testing.T) {
 		funcName     string
 		logFmtFlag   string
 		debugLogFlag bool
+		debugReFlag  string
 		attrs        [][2]string
 		wantLabels   map[string]string
 	}{
@@ -208,8 +209,19 @@ func TestLog(t *testing.T) {
 			wantLabels: map[string]string{"level": "ERROR", "attr1": "v1", "attr2": "v2"},
 		},
 		{
-			msg:      "test message - text - debug",
+			msg:      "test message - text - debug - nolog",
 			funcName: "Debug",
+		},
+		{
+			msg:         "test message - text - debug - log",
+			debugReFlag: ".*testc.*",
+			funcName:    "Debug",
+			wantLabels:  map[string]string{"level": "DEBUG"},
+		},
+		{
+			msg:         "test message - text - debug - log",
+			debugReFlag: ".*probe1.*",
+			funcName:    "Debug",
 		},
 		{
 			msg:          "test message - text - debug",
@@ -239,6 +251,7 @@ func TestLog(t *testing.T) {
 			}
 			*logFmt = tt.logFmtFlag
 			*debugLog = tt.debugLogFlag
+			*debugLogList = tt.debugReFlag
 
 			testLog(t, tt.funcName, tt.msg, slog.String("component", "testc"), tt.attrs)
 
