@@ -315,19 +315,15 @@ func (l *Logger) logAttrs(severity logging.Severity, depth int, msg string, attr
 
 	l.genericLog(severity, depth, msg, attrs...)
 
-	if l == nil || l.gcpLogger == nil {
-		return
+	if l != nil && l.gcpLogger != nil {
+		l.gcpLogger.Log(logging.Entry{
+			Severity: severity,
+			Payload:  msg,
+		})
 	}
 
-	l.gcpLogger.Log(logging.Entry{
-		Severity: severity,
-		Payload:  msg,
-	})
-
 	if severity == logging.Critical {
-		if err := l.Close(); err != nil {
-			panic(fmt.Sprintf("could not close client: %v", err))
-		}
+		l.Close()
 		os.Exit(1)
 	}
 }
