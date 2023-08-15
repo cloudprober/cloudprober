@@ -19,6 +19,7 @@ package options
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 
@@ -159,10 +160,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		IPVersion:         ipv(p.IpVersion),
 		LatencyMetricName: p.GetLatencyMetricName(),
 		NegativeTest:      p.GetNegativeTest(),
-	}
-
-	if opts.Logger, err = logger.NewCloudproberLog(p.GetName()); err != nil {
-		return nil, fmt.Errorf("error in initializing logger for the probe (%s): %v", p.GetName(), err)
+		Logger:            logger.NewWithAttrs(slog.String("probe", p.GetName())),
 	}
 
 	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, globalTargetsOpts, l, opts.Logger); err != nil {

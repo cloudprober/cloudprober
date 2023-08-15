@@ -15,7 +15,6 @@
 package pagerduty
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -23,7 +22,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
@@ -133,12 +131,7 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 		PagerdutyRoutingKey: "test-routing-key",
 	}
 
-	l, err := logger.New(context.TODO(), "test")
-	if err != nil {
-		t.Errorf("Error creating logger: %v", err)
-	}
-
-	p, err := New(notifyConfig, l)
+	p, err := New(notifyConfig, nil)
 	if err != nil {
 		t.Errorf("Error creating PagerDuty client: %v", err)
 	}
@@ -236,12 +229,7 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 				PagerdutyRoutingKey: "test-routing-key",
 			}
 
-			l, err := logger.New(context.TODO(), "test")
-			if err != nil {
-				t.Errorf("Error creating logger: %v", err)
-			}
-
-			p, err := New(notifyConfig, l)
+			p, err := New(notifyConfig, nil)
 			if err != nil {
 				t.Errorf("Error creating PagerDuty client: %v", err)
 			}

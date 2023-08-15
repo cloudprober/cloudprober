@@ -25,6 +25,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -43,10 +44,10 @@ import (
 	"github.com/cloudprober/cloudprober/servers"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/sysvars"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 const (
@@ -149,12 +150,7 @@ func InitFromConfig(configFile string) error {
 	}
 
 	// Initialize sysvars module
-	l, err := logger.NewCloudproberLog(sysvarsModuleName)
-	if err != nil {
-		return err
-	}
-
-	if err := sysvars.Init(l, nil); err != nil {
+	if err := sysvars.Init(logger.NewWithAttrs(slog.String("component", sysvarsModuleName)), nil); err != nil {
 		return err
 	}
 
@@ -164,18 +160,15 @@ func InitFromConfig(configFile string) error {
 	}
 
 	cfg := &configpb.ProberConfig{}
-	if err := proto.UnmarshalText(configStr, cfg); err != nil {
+	if err := prototext.Unmarshal([]byte(configStr), cfg); err != nil {
 		return err
 	}
 
-	globalLogger, err := logger.NewCloudproberLog("global")
-	if err != nil {
-		return fmt.Errorf("error in initializing global logger: %v", err)
-	}
+	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
 
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.
-	ln, err := initDefaultServer(cfg, l)
+	ln, err := initDefaultServer(cfg, globalLogger)
 	if err != nil {
 		return err
 	}
