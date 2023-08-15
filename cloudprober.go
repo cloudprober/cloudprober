@@ -158,7 +158,7 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
-	configStr, err := config.ParseTemplate(configFile, sysvars.Vars())
+	configStr, err := config.ParseTemplate(configFile, sysvars.Vars(), nil)
 	if err != nil {
 		return err
 	}
