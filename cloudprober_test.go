@@ -198,7 +198,7 @@ func TestRestart(t *testing.T) {
 				t.Fatalf("prototext.Marshal(%v): %v", cfg, err)
 			}
 
-			err = InitFromConfig(string(b))
+			err = InitFromConfig(string(b), "")
 			if err != nil {
 				t.Fatalf("InitFromConfig(ctx, %v): %v", string(b), err)
 			}

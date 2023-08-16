@@ -26,6 +26,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/pprof"
 	"strconv"
 	"syscall"
@@ -123,17 +124,27 @@ func setupProfiling() {
 	}(f)
 }
 
-func configFileToString(fileName string) string {
+func readConfigFile(fileName string) (string, string) {
 	b, err := file.ReadFile(fileName)
 	if err != nil {
 		l.Criticalf("Failed to read the config file: %v", err)
 	}
-	return string(b)
+
+	switch filepath.Ext(fileName) {
+	case ".pb.txt", ".cfg", ".textpb":
+		return string(b), "textpb"
+	case ".json":
+		return string(b), "json"
+	case ".yaml", ".yml":
+		return string(b), "yaml"
+	}
+
+	return string(b), ""
 }
 
-func getConfig() string {
+func getConfig() (content string, format string) {
 	if *configFile != "" {
-		return configFileToString(*configFile)
+		return readConfigFile(*configFile)
 	}
 
 	// On GCE first check if there is a config in custom metadata
@@ -142,16 +153,17 @@ func getConfig() string {
 		if config, err := config.ReadFromGCEMetadata(configMetadataKeyName); err != nil {
 			l.Infof("Error reading config from metadata. Err: %v", err)
 		} else {
-			return config
+			return config, ""
 		}
 	}
 
 	// If config not found in metadata, check default config on disk
 	if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
-		return configFileToString(defaultConfigFile)
+		return readConfigFile(defaultConfigFile)
 	}
+
 	l.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
-	return config.DefaultConfig()
+	return config.DefaultConfig(), "textpb"
 }
 
 func main() {
@@ -192,7 +204,8 @@ func main() {
 
 	if *dumpConfig {
 		sysvars.Init(nil, configTestVars)
-		text, err := config.ParseTemplate(getConfig(), sysvars.Vars(), nil)
+		content, _ := getConfig()
+		text, err := config.ParseTemplate(content, sysvars.Vars(), nil)
 		if err != nil {
 			l.Criticalf("Error parsing config file. Err: %v", err)
 		}
@@ -202,7 +215,8 @@ func main() {
 
 	if *configTest {
 		sysvars.Init(nil, configTestVars)
-		configStr, err := config.ParseTemplate(configFileToString(*configFile), sysvars.Vars(), func(v string) (string, error) {
+		content, _ := getConfig()
+		configStr, err := config.ParseTemplate(content, sysvars.Vars(), func(v string) (string, error) {
 			return v + "-test-value", nil
 		})
 		if err != nil {
