@@ -87,6 +87,11 @@ const (
 var defaultWritter = io.Writer(os.Stderr)
 
 func slogHandler() slog.Handler {
+	if *logFmt != "json" && *logFmt != "text" {
+		slog.Default().Error("invalid log format: " + *logFmt)
+		os.Exit(1)
+	}
+
 	opts := &slog.HandlerOptions{
 		AddSource: true,
 	}
