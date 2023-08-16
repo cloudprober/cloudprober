@@ -11,7 +11,7 @@ FROM cloudprober/cloudprober:${CLOUDPROBER_VERSION} AS base
 # This stage is used to find the correct binary for the platform. We store the
 # correct binary at /stage-0-workdir/cloudprober, and in the next stage discard
 # the rest.
-FROM busybox as stage0
+FROM busybox AS stage0
 WORKDIR /stage-0-workdir
 COPY bigquery_probe-linux-* ./
 
@@ -38,4 +38,4 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.version=$VERSION \
       com.microscaling.license="Apache-2.0"
 
-ENTRYPOINT ["/cloudprober", "--logtostderr"]
+ENTRYPOINT ["/cloudprober"]

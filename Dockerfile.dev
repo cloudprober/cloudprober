@@ -10,4 +10,4 @@ RUN if [[ ! -f /cloudprober ]]; then go build -o /cloudprober /cmd/cloudprober.g
 FROM alpine
 COPY --from=build /cloudprober /cloudprober
 COPY cloudprober_test.cfg /etc/cloudprober.cfg
-ENTRYPOINT ["/cloudprober", "--logtostderr"]
+ENTRYPOINT ["/cloudprober"]
