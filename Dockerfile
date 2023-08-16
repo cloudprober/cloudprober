@@ -27,4 +27,4 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.version=$VERSION \
       com.microscaling.license="Apache-2.0"
 
-ENTRYPOINT ["/cloudprober", "--logtostderr"]
+ENTRYPOINT ["/cloudprober"]
