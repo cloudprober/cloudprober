@@ -27,6 +27,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -175,10 +176,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		logName = strings.ToLower(s.GetType().String())
 	}
 
-	l, err := logger.NewCloudproberLog(logName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create cloud logger: %v", err)
-	}
+	l := logger.NewWithAttrs(slog.String("surfacer", logName))
 
 	opts, err := options.BuildOptionsFromConfig(s, l)
 	if err != nil {

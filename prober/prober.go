@@ -23,7 +23,7 @@ package prober
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"math/rand"
 	"regexp"
 	"sync"
@@ -135,11 +135,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	// Note that we can still attach services to the default gRPC server as it's
 	// started later in Start().
 	if c := pr.c.GetRdsServer(); c != nil {
-		l, err := logger.NewCloudproberLog("rds-server")
-		if err != nil {
-			return err
-		}
-		rdsServer, err := rdsserver.New(ctx, c, nil, l)
+		rdsServer, err := rdsserver.New(ctx, c, nil, logger.NewWithAttrs(slog.String("component", "rds-server")))
 		if err != nil {
 			return err
 		}
@@ -154,15 +150,13 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
 
 	if globalTargetsOpts.GetLameDuckOptions() != nil {
-		ldLogger, err := logger.NewCloudproberLog("lame-duck")
-		if err != nil {
-			return fmt.Errorf("error in initializing lame-duck logger: %v", err)
-		}
+		ldLogger := logger.NewWithAttrs(slog.String("component", "lame-duck"))
 
 		if err := lameduck.InitDefaultLister(globalTargetsOpts, nil, ldLogger); err != nil {
 			return err
 		}
 
+		var err error
 		pr.ldLister, err = lameduck.GetDefaultLister()
 		if err != nil {
 			pr.l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)

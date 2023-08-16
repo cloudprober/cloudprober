@@ -23,7 +23,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
-	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
@@ -31,12 +30,11 @@ import (
 )
 
 func newTestCWSurfacer() CWSurfacer {
-	l, _ := logger.New(context.TODO(), "test-logger")
 	namespace := "sre/test/cloudprober"
 	resolution := int32(60)
 
 	return CWSurfacer{
-		l: l,
+		l: nil,
 		c: &configpb.SurfacerConf{
 			Namespace:  &namespace,
 			Resolution: &resolution,
