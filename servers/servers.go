@@ -20,6 +20,7 @@ package servers
 import (
 	"context"
 	"html/template"
+	"log/slog"
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -70,11 +71,7 @@ type ServerInfo struct {
 // Init initializes cloudprober servers, based on the provided config.
 func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []*ServerInfo, err error) {
 	for _, serverDef := range serverDefs {
-		var l *logger.Logger
-		l, err = logger.NewCloudproberLog(serverDef.GetType().String())
-		if err != nil {
-			return
-		}
+		l := logger.NewWithAttrs(slog.String("server_type", serverDef.GetType().String()))
 
 		var conf interface{}
 		var server Server

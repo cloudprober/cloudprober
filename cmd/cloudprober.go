@@ -23,6 +23,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -38,9 +39,9 @@ import (
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
-	"github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
@@ -64,6 +65,7 @@ var (
 var version string
 var buildTimestamp string
 var dirty string
+var l *logger.Logger
 
 func setupConfigTestVars() {
 	configTestVars = map[string]string{
@@ -91,10 +93,10 @@ func setupProfiling() {
 		var err error
 		f, err = os.Create(*cpuprofile)
 		if err != nil {
-			glog.Exit(err)
+			l.Critical(err.Error())
 		}
 		if err = pprof.StartCPUProfile(f); err != nil {
-			glog.Errorf("Could not start CPU profiling: %v", err)
+			l.Criticalf("Could not start CPU profiling: %v", err)
 		}
 	}
 	go func(file *os.File) {
@@ -102,19 +104,19 @@ func setupProfiling() {
 		pprof.StopCPUProfile()
 		if *cpuprofile != "" {
 			if err := file.Close(); err != nil {
-				glog.Exit(err)
+				l.Critical(err.Error())
 			}
 		}
 		if *memprofile != "" {
 			f, err := os.Create(*memprofile)
 			if err != nil {
-				glog.Exit(err)
+				l.Critical(err.Error())
 			}
 			if err = pprof.WriteHeapProfile(f); err != nil {
-				glog.Exit(err)
+				l.Critical(err.Error())
 			}
 			if err := f.Close(); err != nil {
-				glog.Exit(err)
+				l.Critical(err.Error())
 			}
 		}
 		os.Exit(1)
@@ -124,7 +126,7 @@ func setupProfiling() {
 func configFileToString(fileName string) string {
 	b, err := file.ReadFile(fileName)
 	if err != nil {
-		glog.Exitf("Failed to read the config file: %v", err)
+		l.Criticalf("Failed to read the config file: %v", err)
 	}
 	return string(b)
 }
@@ -133,28 +135,33 @@ func getConfig() string {
 	if *configFile != "" {
 		return configFileToString(*configFile)
 	}
+
 	// On GCE first check if there is a config in custom metadata
 	// attributes.
 	if metadata.OnGCE() {
 		if config, err := config.ReadFromGCEMetadata(configMetadataKeyName); err != nil {
-			glog.Infof("Error reading config from metadata. Err: %v", err)
+			l.Infof("Error reading config from metadata. Err: %v", err)
 		} else {
 			return config
 		}
 	}
+
 	// If config not found in metadata, check default config on disk
 	if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
 		return configFileToString(defaultConfigFile)
 	}
-	glog.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
+	l.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
 	return config.DefaultConfig()
 }
 
 func main() {
 	flag.Parse()
 
+	// Initialize logger after parsing flags.
+	l = logger.NewWithAttrs(slog.String("component", "global"))
+
 	if len(flag.Args()) > 0 {
-		glog.Exitf("Unexpected non-flag arguments: %v", flag.Args())
+		l.Criticalf("Unexpected non-flag arguments: %v", flag.Args())
 	}
 
 	if dirty == "1" {
@@ -165,7 +172,7 @@ func main() {
 	if buildTimestamp != "" {
 		ts, err := strconv.ParseInt(buildTimestamp, 10, 64)
 		if err != nil {
-			glog.Exitf("Error parsing build timestamp (%s). Err: %v", buildTimestamp, err)
+			l.Criticalf("Error parsing build timestamp (%s). Err: %v", buildTimestamp, err)
 		}
 		runconfig.SetBuildTimestamp(time.Unix(ts, 0))
 	}
@@ -187,7 +194,7 @@ func main() {
 		sysvars.Init(nil, configTestVars)
 		text, err := config.ParseTemplate(getConfig(), sysvars.Vars(), nil)
 		if err != nil {
-			glog.Exitf("Error parsing config file. Err: %v", err)
+			l.Criticalf("Error parsing config file. Err: %v", err)
 		}
 		fmt.Println(text)
 		return
@@ -199,11 +206,11 @@ func main() {
 			return v + "-test-value", nil
 		})
 		if err != nil {
-			glog.Exitf("Error parsing config file. Err: %v", err)
+			l.Criticalf("Error parsing config file. Err: %v", err)
 		}
 		cfg := &configpb.ProberConfig{}
 		if err := prototext.Unmarshal([]byte(configStr), cfg); err != nil {
-			glog.Exitf("Error unmarshalling config. Err: %v", err)
+			l.Criticalf("Error unmarshalling config. Err: %v", err)
 		}
 		return
 	}
@@ -211,12 +218,12 @@ func main() {
 	setupProfiling()
 
 	if err := cloudprober.InitFromConfig(getConfig()); err != nil {
-		glog.Exitf("Error initializing cloudprober. Err: %v", err)
+		l.Criticalf("Error initializing cloudprober. Err: %v", err)
 	}
 
 	// web.Init sets up web UI for cloudprober.
 	if err := web.Init(); err != nil {
-		glog.Exitf("Error initializing web interface. Err: %v", err)
+		l.Criticalf("Error initializing web interface. Err: %v", err)
 	}
 
 	startCtx := context.Background()
@@ -234,7 +241,7 @@ func main() {
 
 		go func() {
 			sig := <-sigs
-			glog.Warningf("Received signal \"%v\", canceling the start context and waiting for %v before closing", sig, *stopTime)
+			l.Warningf("Received signal \"%v\", canceling the start context and waiting for %v before closing", sig, *stopTime)
 			cancelF()
 			time.Sleep(*stopTime)
 			os.Exit(0)

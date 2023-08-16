@@ -30,7 +30,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/probes/ping/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -312,7 +311,7 @@ func testRunProbe(t *testing.T, ipVersion int, useDatagramSocket bool, payloadSi
 	for _, ep := range p.targets {
 		target := ep.Name
 
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
+		p.l.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
 		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
 		}
@@ -351,7 +350,7 @@ func TestDataIntegrityValidation(t *testing.T) {
 		sent[target] = p.results[target].sent
 		rcvd[target] = p.results[target].rcvd
 
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, sent[target], rcvd[target], p.results[target].latency)
+		p.l.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, sent[target], rcvd[target], p.results[target].latency)
 		if sent[target] == 0 || (sent[target] != rcvd[target]) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", sent[target], rcvd[target])
 		}
@@ -365,7 +364,7 @@ func TestDataIntegrityValidation(t *testing.T) {
 	for _, ep := range p.targets {
 		target := ep.Name
 
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
+		p.l.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
 
 		// Verify that we didn't increased the received counter.
 		if p.results[target].rcvd != rcvd[target] {

@@ -20,7 +20,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -282,17 +283,17 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 
 	if err != nil {
 		if isClientTimeout(err) {
-			p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: timeout error: ", err.Error())
+			p.l.WarningAttrs(err.Error(), slog.String("target", targetName), slog.String("url", req.URL.String()))
 			result.timeouts++
 			return
 		}
-		p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
+		p.l.WarningAttrs(err.Error(), slog.String("target", targetName), slog.String("url", req.URL.String()))
 		return
 	}
 
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
+		p.l.WarningAttrs(err.Error(), slog.String("target", targetName), slog.String("url", req.URL.String()))
 		return
 	}
 

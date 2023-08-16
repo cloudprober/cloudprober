@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/prometheus/proto"
@@ -90,8 +89,7 @@ func newPromSurfacer(t *testing.T, writeTimestamp bool) *PromSurfacer {
 		MetricsUrl:       proto.String(fmt.Sprintf("/metrics_%d", rand.Int())),
 		IncludeTimestamp: proto.Bool(writeTimestamp),
 	}
-	l, _ := logger.New(context.Background(), "promtheus_test")
-	ps, err := New(context.Background(), c, &options.Options{HTTPServeMux: http.NewServeMux()}, l)
+	ps, err := New(context.Background(), c, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
 	if err != nil {
 		t.Fatal("Error while initializing prometheus surfacer", err)
 	}

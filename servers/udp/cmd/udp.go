@@ -20,13 +20,15 @@ package main
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/servers/udp"
 	configpb "github.com/cloudprober/cloudprober/servers/udp/proto"
+	"github.com/golang/protobuf/proto"
 
 	"flag"
+
 	"github.com/golang/glog"
 )
 
@@ -38,16 +40,11 @@ var (
 func main() {
 	flag.Parse()
 
-	l, err := logger.New(context.Background(), "UDP_"+*responseType)
-	if err != nil {
-		glog.Fatal(err)
-	}
-
 	config := &configpb.ServerConf{
 		Port: proto.Int32(int32(*port)),
 		Type: configpb.ServerConf_DISCARD.Enum(),
 	}
-	server, err := udp.New(context.Background(), config, l)
+	server, err := udp.New(context.Background(), config, logger.NewWithAttrs(slog.String("component", "UDP_"+*responseType)))
 	if err != nil {
 		glog.Fatalf("Error creating a new UDP server: %v", err)
 	}
