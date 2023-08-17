@@ -4,7 +4,13 @@ lead: ""
 draft: false
 images: []
 weight: 300
+author: ["Manu Garg"]
 ---
+
+<p style="text-align:left;font-size:smaller" class="mb-6">
+    Author: <b>Manu Garg</b><br>
+    Last updated: Aug 20, 2023
+</p>
 
 ## Origin
 
@@ -40,13 +46,13 @@ commitment made sure we kept our interfaces clean.
 
 ## Built for Scale
 
-Cloudprober was built to probe 100s of 1000s of endponts (IPs and HTTP URLs),
+Cloudprober was built to probe 100s of 1000s of endpoints (IPs and HTTP URLs),
 while keeping resources, and more importantly, management overhead very very
-low. That's the reason Cloudprober tries to be frgual with resources, maximizes
-resources utilization relying heavily on Go concurrency, supports probing large
-number of targets in parallel at a high freuency (in milliseconds), minimizes
-the need of frequent rollouts by supporting dynamic targets discovery, has
-native implementations for common probe types, and so on.
+low. That's the reason Cloudprober tries to be frugal with the resources,
+maximizes resources utilization relying heavily on Go concurrency, supports
+probing large number of targets in parallel at a high frequency (in
+milliseconds), minimizes the need of frequent rollouts by supporting dynamic
+targets discovery, has native implementations for common probe types, and so on.
 
 ## Beyond Google and Open-Source
 
@@ -55,12 +61,13 @@ easy to manage. Things began to change as more and more Cloud products started
 using it, and users started asking for more features. However, the real shift to
 features happened after we open-sourced Cloudprober in 2017.
 
-We added multitude of other features over time. A few big additions were first
-class Kubernetes support, PostgreSQL and Cloudwatch surfacers, OAuth support,
-validators. We used the same code base for the internal and the open-source
-version, which created a good ecosystem in a way -- we had a large deployment
-internally which provided a continuous testing platform for the scalability and
-performance aspect of Cloudprober while it was going through some big changes.
+We added a multitude of features over time. A few big additions were:
+first-class Kubernetes support, PostgreSQL and Cloudwatch surfacers, OAuth
+support, validators, and probe status UI. We used the same code base for the
+internal and the open-source version, which created a good ecosystem in a way --
+we had a large deployment internally which provided a continuous testing
+platform for Cloudprober, especially for its scalability and performance
+aspects, while it was going through all the big changes.
 
 ## Move away from Google Github
 
@@ -69,13 +76,17 @@ Cloudprober's Github repository from
 <a href="https://github.com/google/cloudprober">github.com/google/cloudprober<a>
 to
 <a href="https://github.com/cloudprober/cloudprober">github.com/cloudprober/cloudprober</a>.
-It was a disruptive move (and we lost a lot of Github stars in the process
-:smiley:), but it had to be done one day for Cloudprober to become an indepedent
-entity and grow even faster. Google still uses Cloudprober, likely even more
-widely now, based on the interactions with the Googlers.
+This was a disruptive move (and we lost a lot of Github stars in the process
+:smiley:), but it had to be done one day anyway, in order for Cloudprober to
+become an independent entity and grow even faster. I can't say this
+authoritatively now, but I believe Google still uses Cloudprober, perhaps even
+more widely now, based on Googlers' interactions with the project.
 
 ## Growth and stability
 
-Cloudprober has continued to evolve and grow over time, but Cloudprober's growth
-has been structured. We've made a great effort to control the entropy and making
-sure that it doesn't become hard to maintain and grow over time.
+Cloudprober has been around for a bit, and all this while it has continued to
+change and evolve, to meet more and more users' need. That's an important
+quality for any software, otherwise software wither over time. To make sure
+Cloudprober stays so, we've gone to the great lengths to ensure that
+Cloudprober's internal interfaces stay clean, even if that requires some
+refactoring from time to time.
