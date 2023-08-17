@@ -49,7 +49,7 @@ var (
 	memprofile       = flag.String("memprof", "", "Write heap profile to file")
 	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
 	dumpConfig       = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
-	dumpConfigFormat = flag.String("dumpconfig_format", "textpb", "Dump config format (textpb, json, yaml)")
+	dumpConfigFormat = flag.String("dumpconfig_fmt", "textpb", "Dump config format (textpb, json, yaml)")
 	testInstanceName = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
 
 	// configTestVars provides a sane set of sysvars for config testing.

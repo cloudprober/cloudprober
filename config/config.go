@@ -84,7 +84,7 @@ func GetConfig(confFile string, l *logger.Logger) (content string, format string
 	return DefaultConfig(), "textpb", nil
 }
 
-func ConfigToProto(configStr, configFormat string) (*configpb.ProberConfig, error) {
+func configToProto(configStr, configFormat string) (*configpb.ProberConfig, error) {
 	cfg := &configpb.ProberConfig{}
 	switch configFormat {
 	case "yaml":
@@ -108,15 +108,6 @@ func ConfigToProto(configStr, configFormat string) (*configpb.ProberConfig, erro
 	return cfg, nil
 }
 
-func ParseConfig(content, format string, vars map[string]string) (*configpb.ProberConfig, error) {
-	configStr, err := ParseTemplate(content, vars, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
-	}
-
-	return ConfigToProto(configStr, format)
-}
-
 func ConfigTest(fileName string, baseVars map[string]string) error {
 	if fileName == "" {
 		fileName = *configFile
@@ -134,7 +125,7 @@ func ConfigTest(fileName string, baseVars map[string]string) error {
 		return err
 	}
 
-	_, err = ConfigToProto(configStr, configFormat)
+	_, err = configToProto(configStr, configFormat)
 	return err
 }
 
@@ -167,4 +158,13 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 	default:
 		return nil, fmt.Errorf("unknown format: %s", outFormat)
 	}
+}
+
+func ParseConfig(content, format string, vars map[string]string) (*configpb.ProberConfig, error) {
+	configStr, err := ParseTemplate(content, vars, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+	}
+
+	return configToProto(configStr, format)
 }

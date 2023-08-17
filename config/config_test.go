@@ -35,7 +35,7 @@ func testConfigToProto(t *testing.T, fileName string) (*configpb.ProberConfig, e
 	if err != nil {
 		t.Error(err)
 	}
-	return ConfigToProto(configStr, configFormat)
+	return configToProto(configStr, configFormat)
 }
 
 func TestConfigToProto(t *testing.T) {
