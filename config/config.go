@@ -24,7 +24,6 @@ import (
 	"github.com/cloudprober/cloudprober/common/file"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/sysvars"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"sigs.k8s.io/yaml"
@@ -85,25 +84,6 @@ func GetConfig(confFile string, l *logger.Logger) (content string, format string
 	return DefaultConfig(), "textpb", nil
 }
 
-func debugConfigYAML(cfg *configpb.ProberConfig, format string) {
-	if format == "json" || format == "yaml" {
-		fmt.Println("Textproto format:\n\n", prototext.Format(cfg))
-		return
-	}
-
-	// Dealing with proto textpb format.
-	jsonCfg, err := protojson.Marshal(cfg)
-	if err != nil {
-		panic("error converting config to json: " + err.Error())
-	}
-	fmt.Println("Config to JSON:\n\n", protojson.Format(cfg))
-	y, err := yaml.JSONToYAML(jsonCfg)
-	if err != nil {
-		panic("error converting config to yaml: " + err.Error())
-	}
-	fmt.Println("Config to YAML:\n\n", string(y))
-}
-
 func ConfigToProto(configStr, configFormat string) (*configpb.ProberConfig, error) {
 	cfg := &configpb.ProberConfig{}
 	switch configFormat {
@@ -128,38 +108,52 @@ func ConfigToProto(configStr, configFormat string) (*configpb.ProberConfig, erro
 	return cfg, nil
 }
 
-func parseConfig(f string, vars map[string]string) (*configpb.ProberConfig, error) {
-	content, configFormat, err := readConfigFile(f)
-	if err != nil {
-		return nil, err
-	}
-
-	configStr, err := ParseTemplate(content, vars, func(v string) (string, error) {
-		return v + "-test-value", nil
-	})
+func ParseConfig(content, format string, vars map[string]string) (*configpb.ProberConfig, error) {
+	configStr, err := ParseTemplate(content, vars, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
 	}
 
-	return ConfigToProto(configStr, configFormat)
+	return ConfigToProto(configStr, format)
 }
 
-func ConfigTest(baseVars map[string]string) error {
-	_, err := parseConfig(*configFile, baseVars)
+func ConfigTest(fileName string, baseVars map[string]string) error {
+	if fileName == "" {
+		fileName = *configFile
+	}
+	content, configFormat, err := readConfigFile(fileName)
+	if err != nil {
+		return err
+	}
+
+	configStr, err := ParseTemplate(content, baseVars, func(v string) (string, error) {
+		return v + "-test-value", nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	_, err = ConfigToProto(configStr, configFormat)
 	return err
 }
 
-func DumpConfig(file, format string) ([]byte, error) {
-	if file == "" {
-		file = *configFile
+func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte, error) {
+	if fileName == "" {
+		fileName = *configFile
 	}
 
-	cfg, err := parseConfig(file, sysvars.Vars())
+	content, configFormat, err := readConfigFile(fileName)
 	if err != nil {
 		return nil, err
 	}
 
-	switch format {
+	cfg, err := ParseConfig(content, configFormat, baseVars)
+	if err != nil {
+		return nil, err
+	}
+
+	switch outFormat {
 	case "yaml":
 		jsonCfg, err := protojson.Marshal(cfg)
 		if err != nil {
@@ -171,6 +165,6 @@ func DumpConfig(file, format string) ([]byte, error) {
 	case "textpb":
 		return prototext.MarshalOptions{Multiline: true, Indent: "  "}.Marshal(cfg)
 	default:
-		return nil, fmt.Errorf("unknown format: %s", format)
+		return nil, fmt.Errorf("unknown format: %s", outFormat)
 	}
 }

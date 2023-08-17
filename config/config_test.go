@@ -16,21 +16,22 @@ package config
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/logger"
 	probespb "github.com/cloudprober/cloudprober/probes/proto"
 	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
 func testConfigToProto(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
 	t.Helper()
 
-	configStr, configFormat, err := GetConfig(fileName, &logger.Logger{})
+	configStr, configFormat, err := readConfigFile(fileName)
 	if err != nil {
 		t.Error(err)
 	}
@@ -125,9 +126,7 @@ func TestConfigTest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			*configFile = tt.configFile
-
-			if err := ConfigTest(tt.baseVars); (err != nil) != tt.wantErr {
+			if err := ConfigTest(tt.configFile, tt.baseVars); (err != nil) != tt.wantErr {
 				t.Errorf("ConfigTest() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -144,7 +143,8 @@ func TestDumpConfig(t *testing.T) {
 		{
 			configFile: "testdata/cloudprober_base.cfg",
 			format:     "yaml",
-			want: `probe:
+			want: `
+probe:
 - name: dns_k8s
   targets:
     hostNames: 10.0.0.1
@@ -157,28 +157,61 @@ surfacer:
 
 			configFile: "testdata/cloudprober_base.cfg",
 			format:     "json",
-			want: `{
-				"probe": [{"name": "dns_k8s", "type": "DNS", "targets": {"hostNames": "10.0.0.1"}}],
-                "surfacer": [{"type": "STACKDRIVER"}]
-			}`,
+			want: `
+{
+	"probe": [{
+			"name": "dns_k8s",
+			"type": "DNS",
+			"targets": {"hostNames": "10.0.0.1"}
+	}],
+    "surfacer": [{
+		"type": "STACKDRIVER"
+	}]
+}`,
+		},
+		{
+
+			configFile: "testdata/cloudprober_base.cfg",
+			format:     "textpb",
+			want: `
+probe: {
+  name: "dns_k8s"
+  type: DNS
+  targets: {
+    host_names: "10.0.0.1"
+  }
+}
+surfacer: {
+  type: STACKDRIVER
+}
+`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.format, func(t *testing.T) {
-			got, err := DumpConfig(tt.configFile, tt.format)
+			got, err := DumpConfig(tt.configFile, tt.format, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DumpConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.format == "json" {
+
+			switch tt.format {
+			case "json":
 				var g interface{}
 				var w interface{}
 				assert.NoError(t, json.Unmarshal(got, &g))
 				assert.NoError(t, json.Unmarshal([]byte(tt.want), &w))
 				assert.Equal(t, w, g)
-				return
+			case "textpb":
+				var g configpb.ProberConfig
+				var w configpb.ProberConfig
+				assert.NoError(t, prototext.Unmarshal(got, &g))
+				assert.NoError(t, prototext.Unmarshal([]byte(tt.want), &w))
+				assert.Equal(t, w.String(), g.String())
+			default:
+				tt.want = strings.TrimLeft(tt.want, "\n")
+				assert.Equal(t, tt.want, string(got))
 			}
-			assert.Equal(t, tt.want, string(got))
 		})
 	}
 }

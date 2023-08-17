@@ -160,12 +160,7 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
-	configStr, err = config.ParseTemplate(configStr, sysvars.Vars(), nil)
-	if err != nil {
-		return err
-	}
-
-	cfg, err := config.ConfigToProto(configStr, configFormat)
+	cfg, err := config.ParseConfig(configStr, configFormat, sysvars.Vars())
 	if err != nil {
 		return err
 	}

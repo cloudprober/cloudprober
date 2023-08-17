@@ -152,7 +152,7 @@ func main() {
 
 	if *dumpConfig {
 		sysvars.Init(nil, configTestVars)
-		out, err := config.DumpConfig("", *dumpConfigFormat)
+		out, err := config.DumpConfig("", *dumpConfigFormat, sysvars.Vars())
 		if err != nil {
 			l.Criticalf("Error dumping config. Err: %v", err)
 		}
@@ -162,7 +162,7 @@ func main() {
 
 	if *configTest {
 		sysvars.Init(nil, configTestVars)
-		if err := config.ConfigTest(sysvars.Vars()); err != nil {
+		if err := config.ConfigTest("", sysvars.Vars()); err != nil {
 			l.Criticalf("Config test failed. Err: %v", err)
 		}
 		return
