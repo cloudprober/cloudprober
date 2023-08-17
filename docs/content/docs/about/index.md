@@ -4,7 +4,6 @@ lead: ""
 draft: false
 images: []
 weight: 300
-author: ["Manu Garg"]
 ---
 
 <p style="text-align:left;font-size:smaller" class="mb-6">
@@ -87,6 +86,6 @@ more widely now, based on Googlers' interactions with the project.
 Cloudprober has been around for a bit, and all this while it has continued to
 change and evolve, to meet more and more users' need. That's an important
 quality for any software, otherwise software wither over time. To make sure
-Cloudprober stays so, we've gone to the great lengths to ensure that
-Cloudprober's internal interfaces stay clean, even if that requires some
-refactoring from time to time.
+Cloudprober stays so, we've gone to great lengths to ensure that Cloudprober's
+internal interfaces stay clean, even if that requires some refactoring from time
+to time.
