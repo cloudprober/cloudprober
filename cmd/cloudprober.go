@@ -26,7 +26,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime/pprof"
 	"strconv"
 	"syscall"
@@ -34,20 +33,15 @@ import (
 
 	"flag"
 
-	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober"
-	"github.com/cloudprober/cloudprober/common/file"
 	"github.com/cloudprober/cloudprober/config"
-	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
-	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var (
-	configFile       = flag.String("config_file", "", "Config file")
 	versionFlag      = flag.Bool("version", false, "Print version and exit")
 	buildInfoFlag    = flag.Bool("buildinfo", false, "Print build info and exit")
 	stopTime         = flag.Duration("stop_time", 0, "How long to wait for cleanup before process exits on SIGINT and SIGTERM")
@@ -55,6 +49,7 @@ var (
 	memprofile       = flag.String("memprof", "", "Write heap profile to file")
 	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
 	dumpConfig       = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
+	dumpConfigFormat = flag.String("dumpconfig_format", "textpb", "Dump config format (textpb, json, yaml)")
 	testInstanceName = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
 
 	// configTestVars provides a sane set of sysvars for config testing.
@@ -80,11 +75,6 @@ func setupConfigTestVars() {
 		"machine_type":      "e2-small",
 	}
 }
-
-const (
-	configMetadataKeyName = "cloudprober_config"
-	defaultConfigFile     = "/etc/cloudprober.cfg"
-)
 
 func setupProfiling() {
 	sigChan := make(chan os.Signal, 1)
@@ -122,48 +112,6 @@ func setupProfiling() {
 		}
 		os.Exit(1)
 	}(f)
-}
-
-func readConfigFile(fileName string) (string, string) {
-	b, err := file.ReadFile(fileName)
-	if err != nil {
-		l.Criticalf("Failed to read the config file: %v", err)
-	}
-
-	switch filepath.Ext(fileName) {
-	case ".pb.txt", ".cfg", ".textpb":
-		return string(b), "textpb"
-	case ".json":
-		return string(b), "json"
-	case ".yaml", ".yml":
-		return string(b), "yaml"
-	}
-
-	return string(b), ""
-}
-
-func getConfig() (content string, format string) {
-	if *configFile != "" {
-		return readConfigFile(*configFile)
-	}
-
-	// On GCE first check if there is a config in custom metadata
-	// attributes.
-	if metadata.OnGCE() {
-		if config, err := config.ReadFromGCEMetadata(configMetadataKeyName); err != nil {
-			l.Infof("Error reading config from metadata. Err: %v", err)
-		} else {
-			return config, ""
-		}
-	}
-
-	// If config not found in metadata, check default config on disk
-	if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
-		return readConfigFile(defaultConfigFile)
-	}
-
-	l.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
-	return config.DefaultConfig(), "textpb"
 }
 
 func main() {
@@ -204,34 +152,25 @@ func main() {
 
 	if *dumpConfig {
 		sysvars.Init(nil, configTestVars)
-		content, _ := getConfig()
-		text, err := config.ParseTemplate(content, sysvars.Vars(), nil)
+		out, err := config.DumpConfig("", *dumpConfigFormat)
 		if err != nil {
-			l.Criticalf("Error parsing config file. Err: %v", err)
+			l.Criticalf("Error dumping config. Err: %v", err)
 		}
-		fmt.Println(text)
+		fmt.Println(string(out))
 		return
 	}
 
 	if *configTest {
 		sysvars.Init(nil, configTestVars)
-		content, _ := getConfig()
-		configStr, err := config.ParseTemplate(content, sysvars.Vars(), func(v string) (string, error) {
-			return v + "-test-value", nil
-		})
-		if err != nil {
-			l.Criticalf("Error parsing config file. Err: %v", err)
-		}
-		cfg := &configpb.ProberConfig{}
-		if err := prototext.Unmarshal([]byte(configStr), cfg); err != nil {
-			l.Criticalf("Error unmarshalling config. Err: %v", err)
+		if err := config.ConfigTest(sysvars.Vars()); err != nil {
+			l.Criticalf("Config test failed. Err: %v", err)
 		}
 		return
 	}
 
 	setupProfiling()
 
-	if err := cloudprober.InitFromConfig(getConfig()); err != nil {
+	if err := cloudprober.InitFromConfig(""); err != nil {
 		l.Criticalf("Error initializing cloudprober. Err: %v", err)
 	}
 

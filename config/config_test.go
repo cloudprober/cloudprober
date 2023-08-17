@@ -15,155 +15,170 @@
 package config
 
 import (
-	"fmt"
+	"encoding/json"
 	"testing"
 
-	"cloud.google.com/go/compute/metadata"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	probespb "github.com/cloudprober/cloudprober/probes/proto"
+	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
-func testParse(config string, sysVars map[string]string) (*configpb.ProberConfig, error) {
-	textConfig, err := ParseTemplate(config, sysVars, nil)
-	if err != nil {
-		return nil, err
-	}
+func testConfigToProto(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
+	t.Helper()
 
-	cfg := &configpb.ProberConfig{}
-	if err = prototext.Unmarshal([]byte(textConfig), cfg); err != nil {
-		return nil, err
+	configStr, configFormat, err := GetConfig(fileName, &logger.Logger{})
+	if err != nil {
+		t.Error(err)
 	}
-	return cfg, nil
+	return ConfigToProto(configStr, configFormat)
 }
 
-func TestParseTemplate(t *testing.T) {
+func TestConfigToProto(t *testing.T) {
+	wantCfg := &configpb.ProberConfig{
+		Probe: []*probespb.ProbeDef{
+			{
+				Name: proto.String("dns_k8s"),
+				Type: probespb.ProbeDef_DNS.Enum(),
+				Targets: &targetspb.TargetsDef{
+					Type: &targetspb.TargetsDef_HostNames{
+						HostNames: "10.0.0.1",
+					},
+				},
+			},
+		},
+		Surfacer: []*surfacerspb.SurfacerDef{
+			{
+				Type: surfacerspb.Type_STACKDRIVER.Enum(),
+			},
+		},
+	}
 	tests := []struct {
-		desc        string
-		config      string
-		sysVars     map[string]string
-		wantProbes  []string
-		wantTargets []string
-		wantErrStr  string
+		name           string
+		configFile     string
+		baseConfigFile string
+		want           *configpb.ProberConfig
+		wantErr        bool
 	}{
 		{
-			desc: "config-with-extract-substring",
-			config: `
-				{{ $shard := "ig-us-east1-a-02-afgx" | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1 }}
-				probe {
-				type: PING
-				name: "vm-to-google-{{$shard}}-{{.region}}"
-				targets {
-					host_names: "www.google.com"
-				}
-				}
-			`,
-			sysVars:     map[string]string{"region": "testRegion"},
-			wantProbes:  []string{"vm-to-google-02-testRegion"},
-			wantTargets: []string{"host_names:\"www.google.com\""},
+			name:       "textpb",
+			configFile: "testdata/cloudprober_base.cfg",
+			want:       wantCfg,
 		},
 		{
-			desc: "config-with-map-and-template",
-			config: `
-				{{define "probeTmpl"}}
-				probe {
-					type: {{.typ}}
-					name: "{{.name}}"
-					targets {
-					host_names: "{{.target}}"
-					}
-				}
-				{{end}}
-
-				{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google" "target" "www.google.com"}}
-				{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_facebook" "target" "www.facebook.com"}}
-			`,
-			wantProbes:  []string{"ping_google", "ping_facebook"},
-			wantTargets: []string{"host_names:\"www.google.com\"", "host_names:\"www.facebook.com\""},
+			name:           "yaml",
+			configFile:     "testdata/cloudprober.yaml",
+			baseConfigFile: "testdata/cloudprober.cfg",
 		},
 		{
-			desc: "config-with-template-error",
-			config: `
-				probe {
-				type: PING
-				name: "vm-to-google-{{$shard}}"
-				targets {
-					host_names: "www.google.com"
-				}
-				}
-			`,
-			wantErrStr: "template",
-		},
-		{
-			desc: "config-with-missing-required-field",
-			config: `
-				probe {
-				type: PING
-				targets {
-					host_names: "www.google.com"
-				}
-				}
-			`,
-			wantErrStr: "proto",
+			name:           "json",
+			configFile:     "testdata/cloudprober.json",
+			baseConfigFile: "testdata/cloudprober.cfg",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if tt.sysVars == nil {
-				tt.sysVars = map[string]string{}
-			}
-
-			cfg, err := testParse(tt.config, tt.sysVars)
-			if err != nil {
-				if tt.wantErrStr == "" {
-					t.Errorf("Got unexpected error: %v", err)
-				}
-				assert.ErrorContains(t, err, tt.wantErrStr, "error string")
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := testConfigToProto(t, tt.configFile)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ConfigToProto() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErrStr != "" {
-				t.Errorf("Expected an error, got none")
-			}
 
-			var probeNames, targets []string
-			for _, probe := range cfg.GetProbe() {
-				probeNames = append(probeNames, probe.GetName())
-				targets = append(targets, probe.GetTargets().String())
+			if tt.want == nil {
+				cfg, err := testConfigToProto(t, tt.baseConfigFile)
+				if err != nil {
+					t.Errorf("Error reading the base config itself: %v", err)
+				}
+				tt.want = cfg
 			}
-			assert.Equal(t, tt.wantProbes, probeNames, "probe names")
-			assert.Equal(t, tt.wantTargets, targets, "targets")
+			assert.Equal(t, tt.want.String(), got.String())
 		})
 	}
 }
 
-func TestParseGCEMetadata(t *testing.T) {
-	testConfig := `
-probe {
-  type: PING
-  name: "{{gceCustomMetadata "google-probe-name"}}-{{gceCustomMetadata "cluster"}}"
-  targets {
-    host_names: "www.google.com"
-  }
-}
-`
-	textConfig, err := ParseTemplate(testConfig, map[string]string{}, func(key string) (string, error) {
-		if key == "google-probe-name" {
-			return "google_dot_com_from", nil
-		}
-		if key == "cluster" {
-			return "", metadata.NotDefinedError("not defined")
-		}
-		return "", fmt.Errorf("not-implemented")
-	})
-	if err != nil {
-		t.Fatal(err)
+func TestConfigTest(t *testing.T) {
+	tests := []struct {
+		name       string
+		configFile string
+		baseVars   map[string]string
+		wantErr    bool
+	}{
+		{
+			name: "invalid_without_vars",
+			baseVars: map[string]string{
+				"az": "us-east-1a",
+			},
+			configFile: "testdata/cloudprober_invalid.cfg",
+			wantErr:    true,
+		},
+		{
+			name: "valid_with_vars",
+			baseVars: map[string]string{
+				"probetype": "HTTP",
+			},
+			configFile: "testdata/cloudprober_invalid.cfg",
+		},
 	}
-	cfg := &configpb.ProberConfig{}
-	if err = prototext.Unmarshal([]byte(textConfig), cfg); err != nil {
-		t.Fatal(err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			*configFile = tt.configFile
 
-	assert.Len(t, cfg.GetProbe(), 1, "number of probes")
-	assert.Equal(t, "google_dot_com_from-undefined", cfg.GetProbe()[0].GetName(), "probe name")
+			if err := ConfigTest(tt.baseVars); (err != nil) != tt.wantErr {
+				t.Errorf("ConfigTest() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDumpConfig(t *testing.T) {
+	tests := []struct {
+		configFile string
+		format     string
+		want       string
+		wantErr    bool
+	}{
+		{
+			configFile: "testdata/cloudprober_base.cfg",
+			format:     "yaml",
+			want: `probe:
+- name: dns_k8s
+  targets:
+    hostNames: 10.0.0.1
+  type: DNS
+surfacer:
+- type: STACKDRIVER
+`,
+		},
+		{
+
+			configFile: "testdata/cloudprober_base.cfg",
+			format:     "json",
+			want: `{
+				"probe": [{"name": "dns_k8s", "type": "DNS", "targets": {"hostNames": "10.0.0.1"}}],
+                "surfacer": [{"type": "STACKDRIVER"}]
+			}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.format, func(t *testing.T) {
+			got, err := DumpConfig(tt.configFile, tt.format)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DumpConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.format == "json" {
+				var g interface{}
+				var w interface{}
+				assert.NoError(t, json.Unmarshal(got, &g))
+				assert.NoError(t, json.Unmarshal([]byte(tt.want), &w))
+				assert.Equal(t, w, g)
+				return
+			}
+			assert.Equal(t, tt.want, string(got))
+		})
+	}
 }

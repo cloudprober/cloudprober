@@ -47,9 +47,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/encoding/prototext"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -141,50 +138,8 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 	srvMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }
 
-func parseConfig(configStr, configFormat string, l *logger.Logger) (*configpb.ProberConfig, error) {
-	cfg := &configpb.ProberConfig{}
-	switch configFormat {
-	case "yaml":
-		jsonCfg, err := yaml.YAMLToJSON([]byte(configStr))
-		if err != nil {
-			return nil, fmt.Errorf("error converting YAML config to JSON: %v", err)
-		}
-		if err := protojson.Unmarshal(jsonCfg, cfg); err != nil {
-			return nil, fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
-		}
-	case "json":
-		if err := protojson.Unmarshal([]byte(configStr), cfg); err != nil {
-			return nil, err
-		}
-	default:
-		if err := prototext.Unmarshal([]byte(configStr), cfg); err != nil {
-			return nil, err
-		}
-	}
-
-	// This is temporary code to help with adding support for yaml configs.
-	if os.Getenv("CLOUDPROBER_DEBUG_CONFIG") == "" {
-		if configFormat == "json" || configFormat == "yaml" {
-			fmt.Println("Converted JSON/YAML config to proto. Text format:\n\n", prototext.Format(cfg))
-		} else {
-			jsonCfg, err := protojson.Marshal(cfg)
-			if err != nil {
-				l.Errorf("error converting config to json: %v", err)
-			}
-			fmt.Println("Config to JSON:\n\n", protojson.Format(cfg))
-			y, err := yaml.JSONToYAML(jsonCfg)
-			if err != nil {
-				l.Errorf("error converting config to yaml: %v", err)
-			}
-			fmt.Println("Config to YAML:\n\n", string(y))
-		}
-	}
-
-	return cfg, nil
-}
-
 // InitFromConfig initializes Cloudprober using the provided config.
-func InitFromConfig(configStr, configFormat string) error {
+func InitFromConfig(configFile string) error {
 	// Return immediately if prober is already initialized.
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
@@ -198,13 +153,19 @@ func InitFromConfig(configStr, configFormat string) error {
 		return err
 	}
 
-	configStr, err := config.ParseTemplate(configStr, sysvars.Vars(), nil)
+	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
+
+	configStr, configFormat, err := config.GetConfig(configFile, globalLogger)
 	if err != nil {
 		return err
 	}
 
-	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
-	cfg, err := parseConfig(configStr, configFormat, globalLogger)
+	configStr, err = config.ParseTemplate(configStr, sysvars.Vars(), nil)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.ConfigToProto(configStr, configFormat)
 	if err != nil {
 		return err
 	}
