@@ -57,8 +57,6 @@ import (
 
 	// Import grpclb module so it can be used by name for DirectPath connections.
 	_ "google.golang.org/grpc/balancer/grpclb"
-	// Register google-c2p resolver for Traffic Director
-	_ "google.golang.org/grpc/xds/googledirectpath"
 )
 
 const loadBalancingPolicy = `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
