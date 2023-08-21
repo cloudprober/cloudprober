@@ -177,7 +177,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	resolver.SetDefaultScheme("dns")
 
 	if p.c.GetMethod() == configpb.ProbeConf_GENERIC {
-		if err := p.descriptorSource(); err != nil {
+		if err := p.initDescriptorSource(); err != nil {
 			return err
 		}
 	}

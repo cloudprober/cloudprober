@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func (p *Probe) descriptorSource() error {
+func (p *Probe) initDescriptorSource() error {
 	if p.c.GetRequest() == nil {
 		return errors.New("request is required for GENERIC gRPC probe")
 	}
@@ -50,9 +50,11 @@ func (p *Probe) descriptorSource() error {
 
 func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn) {
 	req := p.c.GetRequest()
+
+	// If we didn't load protoset from a file, we'll get it everytime
+	// from the server.
 	if req.GetProtosetFile() == "" {
-		client := grpcreflect.NewClientAuto(ctx, conn)
-		p.descSrc = grpcurl.DescriptorSourceFromServer(ctx, client)
+		p.descSrc = grpcurl.DescriptorSourceFromServer(ctx, grpcreflect.NewClientAuto(ctx, conn))
 	}
 
 	if req.GetListServices() {
