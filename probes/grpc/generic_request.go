@@ -25,7 +25,6 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
-	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 )
 
 func (p *Probe) descriptorSource() error {
@@ -52,7 +51,7 @@ func (p *Probe) descriptorSource() error {
 func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn) {
 	req := p.c.GetRequest()
 	if req.GetProtosetFile() == "" {
-		client := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(conn))
+		client := grpcreflect.NewClientAuto(ctx, conn)
 		p.descSrc = grpcurl.DescriptorSourceFromServer(ctx, client)
 	}
 
