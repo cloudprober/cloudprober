@@ -1,0 +1,58 @@
+{
+  "probe": [
+    {
+      "name": "kube_dns_kubernetes_default",
+      "type": "DNS",
+      "interval": "30s",
+      "timeout": "10s",
+      "targets": {
+        "k8s": {
+          "namespace": "kube-system",
+          "services": "kube-dns"
+        }
+      },
+      "dnsProbe": {
+        "resolvedDomain": "kubernetes.default.svc.cluster.local",
+        "queryType": "A"
+      }
+    },
+    {
+      "name": "vendor_tcp",
+      "type": "TCP",
+      "interval": "30s",
+      "timeout": "10s",
+      "targets": {
+        "hostNames": "1.2.3.4:8345"
+      },
+      "tcpProbe": {}
+    },
+    {
+      "name": "cloudprober_org_http",
+      "type": "HTTP",
+      "interval": "30s",
+      "timeout": "10s",
+      "targets": {
+        "hostNames": "cloudprober.org"
+      },
+      "validator": [
+        {
+          "name": "status_code_200",
+          "httpValidator": {
+            "successStatusCodes": "200"
+          }
+        }
+      ],
+      "httpProbe": {
+        "protocol": "HTTPS"
+      }
+    }
+  ],
+  "surfacer": [
+    {
+      "type": "PROMETHEUS",
+      "prometheusSurfacer": {
+        "metricsPrefix": "cloudprober_"
+      }
+    }
+  ]
+}

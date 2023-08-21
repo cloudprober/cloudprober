@@ -193,14 +193,16 @@ func TestRestart(t *testing.T) {
 			s := &FakeSurfacer{c: make(chan *metrics.EventMetrics, 10)}
 			surfacers.Register(surfacerName, s)
 
-			b, err := prototext.Marshal(cfg)
+			tmpfile, err := os.CreateTemp("", "cloudprober_test")
 			if err != nil {
-				t.Fatalf("prototext.Marshal(%v): %v", cfg, err)
+				t.Fatalf("os.CreateTemp(): %v", err)
 			}
+			defer os.Remove(tmpfile.Name())
+			os.WriteFile(tmpfile.Name(), []byte(prototext.Format(cfg)), 0644)
 
-			err = InitFromConfig(string(b))
+			err = InitFromConfig(tmpfile.Name())
 			if err != nil {
-				t.Fatalf("InitFromConfig(ctx, %v): %v", string(b), err)
+				t.Fatalf("Err: %v, Config: %s", err, prototext.Format(cfg))
 			}
 			Start(ctx)
 

@@ -60,7 +60,7 @@ func main() {
 	probes.RegisterProbeType(int(myprobe.E_RedisProbe.Field),
 		func() probes.Probe { return &myprobe.Probe{} })
 
-	if err := cloudprober.InitFromConfig(getConfig()); err != nil {
+	if err := cloudprober.InitFromConfig(""); err != nil {
 		glog.Exitf("Error initializing cloudprober. Err: %v", err)
 	}
 

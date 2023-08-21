@@ -47,7 +47,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/protobuf/encoding/prototext"
 )
 
 const (
@@ -154,17 +153,17 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
-	configStr, err := config.ParseTemplate(configFile, sysvars.Vars(), nil)
+	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
+
+	configStr, configFormat, err := config.GetConfig(configFile, globalLogger)
 	if err != nil {
 		return err
 	}
 
-	cfg := &configpb.ProberConfig{}
-	if err := prototext.Unmarshal([]byte(configStr), cfg); err != nil {
+	cfg, err := config.ParseConfig(configStr, configFormat, sysvars.Vars())
+	if err != nil {
 		return err
 	}
-
-	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
 
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.
