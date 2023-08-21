@@ -1,0 +1,35 @@
+probe:
+  - name: kube_dns_kubernetes_default
+    type: DNS
+    interval: 30s
+    timeout: 10s
+    targets:
+      k8s:
+        namespace: kube-system
+        services: kube-dns
+    dnsProbe:
+      queryType: A
+      resolvedDomain: kubernetes.default.svc.cluster.local
+  - name: vendor_tcp
+    type: TCP
+    interval: 30s
+    timeout: 10s
+    targets:
+      hostNames: 1.2.3.4:8345
+    tcpProbe: {}
+  - name: cloudprober_org_http
+    interval: 30s
+    timeout: 10s
+    type: HTTP
+    targets:
+      hostNames: cloudprober.org
+    httpProbe:
+      protocol: HTTPS
+    validator:
+      - httpValidator:
+          successStatusCodes: '200'
+        name: status_code_200
+surfacer:
+  - type: PROMETHEUS
+    prometheusSurfacer:
+      metricsPrefix: cloudprober_
