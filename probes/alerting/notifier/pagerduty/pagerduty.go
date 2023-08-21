@@ -18,7 +18,9 @@ package pagerduty
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
@@ -34,21 +36,58 @@ type Client struct {
 const (
 	// PAGERDUTY_API_URL is the base URL for the PagerDuty API.
 	PAGERDUTY_API_URL = "https://events.pagerduty.com"
+
+	// DEFAULT_PAGERDUTY_ROUTING_KEY_ENV_VAR is the default environment variable
+	// to use for the PagerDuty routing key.
+	DEFAULT_PAGERDUTY_ROUTING_KEY_ENV_VAR = "PAGERDUTY_ROUTING_KEY"
 )
 
-func New(notifycfg *configpb.NotifyConfig, l *logger.Logger) (*Client, error) {
+func New(pagerdutycfg *configpb.PagerDuty, l *logger.Logger) (*Client, error) {
 	hostname := PAGERDUTY_API_URL
-	if notifycfg.GetPagerdutyApiUrl() != "" {
-		hostname = notifycfg.GetPagerdutyApiUrl()
+	if pagerdutycfg.GetApiUrl() != "" {
+		hostname = pagerdutycfg.GetApiUrl()
 		l.Debugf("Using PagerDuty API URL: %s", hostname)
+	}
+
+	routingKey, err := lookupRoutingKey(pagerdutycfg)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Client{
 		httpClient: &http.Client{},
 		logger:     l,
 		hostname:   hostname,
-		routingKey: notifycfg.PagerdutyRoutingKey,
+		routingKey: routingKey,
 	}, nil
+}
+
+// lookupRoutingKey looks up the routing key to use for the PagerDuty client,
+// in order of precendence:
+// 1. Routing key environment variable
+// 2. Routing key in the config
+func lookupRoutingKey(pagerdutycfg *configpb.PagerDuty) (string, error) {
+	// check if the environment variable is set for the routing key
+	if routingKey, exists := os.LookupEnv(routingKeyEnvVar(pagerdutycfg)); exists {
+		return routingKey, nil
+	}
+
+	// check if the user supplied a routing key
+	if pagerdutycfg.GetRoutingKey() != "" {
+		return pagerdutycfg.GetRoutingKey(), nil
+	}
+
+	return "", fmt.Errorf("No routing key found")
+}
+
+// routingKeyEnvVar returns the environment variable to use for the routing key,
+// or the default if none is set.
+func routingKeyEnvVar(pagerdutycfg *configpb.PagerDuty) string {
+	if pagerdutycfg.GetRoutingKeyEnvVar() != "" {
+		return pagerdutycfg.GetRoutingKeyEnvVar()
+	}
+
+	return DEFAULT_PAGERDUTY_ROUTING_KEY_ENV_VAR
 }
 
 func (c *Client) Notify(ctx context.Context, alertFields map[string]string) error {
