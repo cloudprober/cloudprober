@@ -83,7 +83,6 @@ func TestPagerDutySendEventV2(t *testing.T) {
 	defer server.Close()
 
 	pagerdutyConfig := &configpb.PagerDuty{
-		Enabled:    true,
 		ApiUrl:     server.URL,
 		RoutingKey: "test-routing-key",
 	}
@@ -128,7 +127,6 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 	defer server.Close()
 
 	pagerdutyConfig := &configpb.PagerDuty{
-		Enabled:    true,
 		ApiUrl:     server.URL,
 		RoutingKey: "test-routing-key",
 	}
@@ -227,7 +225,6 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			pagerdutyConfig := &configpb.PagerDuty{
-				Enabled:    true,
 				RoutingKey: "test-routing-key",
 			}
 

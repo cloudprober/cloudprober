@@ -155,7 +155,7 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 		n.emailNotifier = en
 	}
 
-	if n.alertcfg.GetNotify().GetPagerDuty() != nil && n.alertcfg.GetNotify().GetPagerDuty().GetEnabled() {
+	if n.alertcfg.GetNotify().GetPagerDuty() != nil {
 		pd, err := pagerduty.New(n.alertcfg.Notify.GetPagerDuty(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring PagerDuty notifier: %v", err)
