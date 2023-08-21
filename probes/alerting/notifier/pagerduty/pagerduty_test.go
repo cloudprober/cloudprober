@@ -82,12 +82,13 @@ func TestPagerDutySendEventV2(t *testing.T) {
 	})
 	defer server.Close()
 
-	notifyConfig := &configpb.NotifyConfig{
-		PagerdutyApiUrl:     server.URL,
-		PagerdutyRoutingKey: "test-routing-key",
+	pagerdutyConfig := &configpb.PagerDuty{
+		Enabled:    true,
+		ApiUrl:     server.URL,
+		RoutingKey: "test-routing-key",
 	}
 
-	p, err := New(notifyConfig, nil)
+	p, err := New(pagerdutyConfig, nil)
 	if err != nil {
 		t.Errorf("Error creating PagerDuty client: %v", err)
 	}
@@ -126,12 +127,13 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 	})
 	defer server.Close()
 
-	notifyConfig := &configpb.NotifyConfig{
-		PagerdutyApiUrl:     server.URL,
-		PagerdutyRoutingKey: "test-routing-key",
+	pagerdutyConfig := &configpb.PagerDuty{
+		Enabled:    true,
+		ApiUrl:     server.URL,
+		RoutingKey: "test-routing-key",
 	}
 
-	p, err := New(notifyConfig, nil)
+	p, err := New(pagerdutyConfig, nil)
 	if err != nil {
 		t.Errorf("Error creating PagerDuty client: %v", err)
 	}
@@ -224,12 +226,12 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			notifyConfig := &configpb.NotifyConfig{
-				PagerdutyApiUrl:     "test-hostname",
-				PagerdutyRoutingKey: "test-routing-key",
+			pagerdutyConfig := &configpb.PagerDuty{
+				Enabled:    true,
+				RoutingKey: "test-routing-key",
 			}
 
-			p, err := New(notifyConfig, nil)
+			p, err := New(pagerdutyConfig, nil)
 			if err != nil {
 				t.Errorf("Error creating PagerDuty client: %v", err)
 			}
@@ -296,6 +298,95 @@ func TestGenerateLinks(t *testing.T) {
 			got := generateLinks(tc.alertFields)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("generateLinks = \n%+v\n, want \n%+v\n", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestLookupRoutingKey(t *testing.T) {
+	tests := map[string]struct {
+		pagerdutyConfig *configpb.PagerDuty
+		env             map[string]string
+		want            string
+		wantErr         bool
+	}{
+		"env_var": {
+			pagerdutyConfig: &configpb.PagerDuty{
+				RoutingKeyEnvVar: "TEST_ROUTING_KEY",
+			},
+			env: map[string]string{
+				"TEST_ROUTING_KEY": "test-routing-key",
+			},
+			want:    "test-routing-key",
+			wantErr: false,
+		},
+		"config": {
+			pagerdutyConfig: &configpb.PagerDuty{
+				RoutingKey: "test-routing-key",
+			},
+			env:     map[string]string{},
+			want:    "test-routing-key",
+			wantErr: false,
+		},
+		"no_routing_key": {
+			pagerdutyConfig: &configpb.PagerDuty{},
+			env:             map[string]string{},
+			want:            "",
+			wantErr:         true,
+		},
+		"env_var_overrides_config": {
+			pagerdutyConfig: &configpb.PagerDuty{
+				RoutingKey:       "test-routing-key",
+				RoutingKeyEnvVar: "TEST_ROUTING_KEY",
+			},
+			env: map[string]string{
+				"TEST_ROUTING_KEY": "test-routing-key-env-var",
+			},
+			want:    "test-routing-key-env-var",
+			wantErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+
+			got, err := lookupRoutingKey(tc.pagerdutyConfig)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("lookupRoutingKey() error = %v, wantErr %v", err, tc.wantErr)
+			}
+
+			if got != tc.want {
+				t.Errorf("lookupRoutingKey() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRoutingKeyEnvVar(t *testing.T) {
+	tests := map[string]struct {
+		pagerdutyConfig *configpb.PagerDuty
+		want            string
+	}{
+		"env_var": {
+			pagerdutyConfig: &configpb.PagerDuty{
+				RoutingKeyEnvVar: "TEST_ROUTING_KEY",
+			},
+			want: "TEST_ROUTING_KEY",
+		},
+		"default": {
+			pagerdutyConfig: &configpb.PagerDuty{},
+			want:            DEFAULT_PAGERDUTY_ROUTING_KEY_ENV_VAR,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := routingKeyEnvVar(tc.pagerdutyConfig)
+			if got != tc.want {
+				t.Errorf("routingKeyEnvVar() = %v, want %v", got, tc.want)
 			}
 		})
 	}
