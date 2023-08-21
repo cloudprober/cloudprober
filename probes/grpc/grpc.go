@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloudprober Authors.
+// Copyright 2020-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ import (
 
 	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	"github.com/fullstorydev/grpcurl"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/alts"
@@ -74,6 +76,7 @@ type Probe struct {
 	c        *configpb.ProbeConf
 	l        *logger.Logger
 	dialOpts []grpc.DialOption
+	descSrc  grpcurl.DescriptorSource
 
 	// Targets and cancellation function for each target.
 	targets     []endpoint.Endpoint
@@ -172,6 +175,13 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return err
 	}
 	resolver.SetDefaultScheme("dns")
+
+	if p.c.GetMethod() == configpb.ProbeConf_GENERIC {
+		if err := p.descriptorSource(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -363,6 +373,8 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index 
 			_, err = client.BlobWrite(reqCtx, req, opts...)
 		case configpb.ProbeConf_HEALTH_CHECK:
 			err = p.healthCheckProbe(reqCtx, conn, msgPattern)
+		case configpb.ProbeConf_GENERIC:
+			p.genericRequest(reqCtx, conn)
 		default:
 			p.l.Criticalf("Method %v not implemented", method)
 		}

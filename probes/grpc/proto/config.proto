@@ -7,6 +7,35 @@ import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/grpc/proto";
 
+message GenericRequest {
+  // Protoset contains descriptor source protos generated from the *.proto
+  // files. You can use protoc to generate protoset files:
+  //   protoc --proto_path=. --descriptor_set_out=myservice.protoset \
+  //     --include_imports my/custom/server/service.proto
+  //
+  // If protoset_file is not provided, we try to use the gRPC reflection if
+  // server supports it.
+  optional string protoset_file = 1;
+
+  // Note first 3 methods are valid only if descriptor source is not set.
+  oneof request_type {
+    // List services using reflection
+    bool list_services = 2;
+
+    // List service methods using reflection.
+    string list_service_methods = 3;
+
+    // Describe service method using reflection.
+    string describe_service_method = 4;
+
+    // Call service method.
+    string call_service_method = 5;
+  }
+
+  // Request data (in JSON format) for the call_service_method request.
+  optional string body = 6;
+}
+
 // Next tag: 14
 message ProbeConf {
   // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
@@ -45,6 +74,7 @@ message ProbeConf {
     READ = 2;
     WRITE = 3;
     HEALTH_CHECK = 4;   // gRPC healthcheck service.
+    GENERIC = 5;
   }
   optional MethodType method = 3 [default = ECHO];
 
@@ -58,6 +88,8 @@ message ProbeConf {
   // only if response-status is SERVING. Setting the following option makes
   // HEALTH_CHECK pass regardless of the response-status.
   optional bool health_check_ignore_status = 11;
+
+  optional GenericRequest request = 14;
 
   optional int32 num_conns = 5 [default = 2];
   optional bool keep_alive = 6 [default = true];
@@ -76,5 +108,4 @@ message ProbeConf {
   }
   
   repeated Header headers = 13;
-
 }
