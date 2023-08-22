@@ -23,10 +23,10 @@ through a web URL (default: /metrics), which Prometheus scrapes at a regular
 interval.
 
 Example /metrics page:
-#TYPE sent counter
+# TYPE sent counter
 sent{ptype="dns",probe="vm-to-public-dns",dst="8.8.8.8"} 181299 1497330037000
 sent{ptype="ping",probe="vm-to-public-dns",dst="8.8.4.4"} 362600 1497330037000
-#TYPE rcvd counter
+# TYPE rcvd counter
 rcvd{ptype="dns",probe="vm-to-public-dns",dst="8.8.8.8"} 181234 1497330037000
 rcvd{ptype="ping",probe="vm-to-public-dns",dst="8.8.4.4"} 362600 1497330037000
 */
@@ -391,7 +391,7 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 func (ps *PromSurfacer) writeData(w io.Writer) {
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
-		fmt.Fprintf(w, "#TYPE %s %s\n", name, pm.typ)
+		fmt.Fprintf(w, "# TYPE %s %s\n", name, pm.typ)
 		for _, k := range pm.dataKeys {
 			ps.dataWriter(w, pm, k)
 		}
