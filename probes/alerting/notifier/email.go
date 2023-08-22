@@ -50,6 +50,20 @@ func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]stri
 	return nil
 }
 
+func smtpPassword(user string, emailCfg *configpb.Email) (string, error) {
+	if user == "" {
+		return "", nil
+	}
+	password := emailCfg.GetSmtpPassword()
+	if password == "" {
+		password = os.Getenv("SMTP_PASSWORD")
+		if password == "" {
+			return "", fmt.Errorf("smtp_password not configured or set through environment variable")
+		}
+	}
+	return password, nil
+}
+
 func newEmailNotifier(emailCfg *configpb.Email, l *logger.Logger) (*emailNotifier, error) {
 	server := emailCfg.GetSmtpServer()
 	if server == "" {
@@ -60,23 +74,17 @@ func newEmailNotifier(emailCfg *configpb.Email, l *logger.Logger) (*emailNotifie
 		}
 	}
 
-	user := emailCfg.GetSmtpUser()
+	user := emailCfg.GetSmtpUsername()
 	if user == "" {
-		user = os.Getenv("SMTP_USER")
+		user = os.Getenv("SMTP_USERNAME")
 		if user == "" && server != "localhost" {
 			l.Warningf("smtp_user not configured or set through environment variable, will skip SMTP authentication")
 		}
 	}
 
-	var password string
-	if user != "" {
-		password = emailCfg.GetSmtpPassword()
-		if password == "" {
-			password = os.Getenv("SMTP_PASSWORD")
-			if password == "" {
-				return nil, fmt.Errorf("smtp_password not configured or set through environment variable")
-			}
-		}
+	password, err := smtpPassword(user, emailCfg)
+	if err != nil {
+		return nil, err
 	}
 
 	from, to := emailCfg.From, emailCfg.To

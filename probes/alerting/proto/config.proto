@@ -80,8 +80,8 @@ message Email {
     // Default: Environment variable SMTP_SERVER 
     string smtp_server = 3;  
 
-    // Default: Environment variable SMTP_USER
-    string smtp_user = 4;  
+    // Default: Environment variable SMTP_USERNAME
+    string smtp_username = 4;  
 
     // Default: Environment variable SMTP_PASSWORD
     string smtp_password = 5;  

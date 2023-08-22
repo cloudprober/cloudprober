@@ -55,9 +55,9 @@ func TestNewEmailNotifier(t *testing.T) {
 		{
 			name: "error_no_password",
 			emailCfg: &configpb.Email{
-				To:         []string{"b@cloudprober.org"},
-				SmtpServer: "smtp1.gmail.com:587",
-				SmtpUser:   "user1@gmail.com",
+				To:           []string{"b@cloudprober.org"},
+				SmtpServer:   "smtp1.gmail.com:587",
+				SmtpUsername: "user1@gmail.com",
 			},
 			wantErr: true,
 		},
@@ -66,7 +66,7 @@ func TestNewEmailNotifier(t *testing.T) {
 			emailCfg: &configpb.Email{
 				To:           []string{"a@cloudprober.org"},
 				SmtpServer:   smtpServer,
-				SmtpUser:     "user2@gmail.com",
+				SmtpUsername: "user2@gmail.com",
 				SmtpPassword: "password",
 			},
 			want: &emailNotifier{
@@ -83,7 +83,8 @@ func TestNewEmailNotifier(t *testing.T) {
 				SmtpServer: smtpServer,
 			},
 			env: map[string]string{
-				"SMTP_USER":     "user1@gmail.com",
+				"SMTP_SERVER":   "smtp1.yahoo.com:587",
+				"SMTP_USERNAME": "user1@gmail.com",
 				"SMTP_PASSWORD": "password",
 			},
 			want: &emailNotifier{

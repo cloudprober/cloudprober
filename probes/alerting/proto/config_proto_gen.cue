@@ -75,8 +75,8 @@ package proto
 	// Default: Environment variable SMTP_SERVER
 	smtpServer?: string @protobuf(3,string,name=smtp_server)
 
-	// Default: Environment variable SMTP_USER
-	smtpUser?: string @protobuf(4,string,name=smtp_user)
+	// Default: Environment variable SMTP_USERNAME
+	smtpUsername?: string @protobuf(4,string,name=smtp_username)
 
 	// Default: Environment variable SMTP_PASSWORD
 	smtpPassword?: string @protobuf(5,string,name=smtp_password)
