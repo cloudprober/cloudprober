@@ -300,7 +300,7 @@ func TestGenerateLinks(t *testing.T) {
 	}
 }
 
-func TestLookupRoutingKey(t *testing.T) {
+func TestPagerDutyLookupRoutingKey(t *testing.T) {
 	tests := map[string]struct {
 		pagerdutyConfig *configpb.PagerDuty
 		env             map[string]string
@@ -331,7 +331,7 @@ func TestLookupRoutingKey(t *testing.T) {
 			want:            "",
 			wantErr:         true,
 		},
-		"env_var_overrides_config": {
+		"config_overrides_env_var": {
 			pagerdutyConfig: &configpb.PagerDuty{
 				RoutingKey:       "test-routing-key",
 				RoutingKeyEnvVar: "TEST_ROUTING_KEY",
@@ -339,7 +339,7 @@ func TestLookupRoutingKey(t *testing.T) {
 			env: map[string]string{
 				"TEST_ROUTING_KEY": "test-routing-key-env-var",
 			},
-			want:    "test-routing-key-env-var",
+			want:    "test-routing-key",
 			wantErr: false,
 		},
 	}
@@ -362,7 +362,7 @@ func TestLookupRoutingKey(t *testing.T) {
 	}
 }
 
-func TestRoutingKeyEnvVar(t *testing.T) {
+func TestPagerDutyRoutingKeyEnvVar(t *testing.T) {
 	tests := map[string]struct {
 		pagerdutyConfig *configpb.PagerDuty
 		want            string
