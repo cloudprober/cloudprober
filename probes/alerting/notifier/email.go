@@ -26,11 +26,12 @@ import (
 )
 
 type emailNotifier struct {
-	to     []string
-	from   string
-	server string
-	auth   smtp.Auth
-	l      *logger.Logger
+	to           []string
+	from         string
+	server       string
+	auth         smtp.Auth
+	sendMailFunc func(string, smtp.Auth, string, []string, []byte) error
+	l            *logger.Logger
 }
 
 func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]string) error {
@@ -40,42 +41,55 @@ func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]stri
 	msg += fmt.Sprintf("\r\n%s\r\n", alertFields["details"])
 	en.l.Infof("Sending email notification to: %v \nserver: %s\nmsg:\n%s", en.to, en.server, msg)
 
-	if err := smtp.SendMail(en.server, en.auth, en.from, en.to, []byte(msg)); err != nil {
+	if en.sendMailFunc == nil {
+		en.sendMailFunc = smtp.SendMail
+	}
+	if err := en.sendMailFunc(en.server, en.auth, en.from, en.to, []byte(msg)); err != nil {
 		return fmt.Errorf("error while sending email notification: %v", err)
 	}
 	return nil
 }
 
-func newEmailNotifier(notifyCfg *configpb.NotifyConfig, l *logger.Logger) (*emailNotifier, error) {
-	server := os.Getenv("SMTP_SERVER")
+func newEmailNotifier(emailCfg *configpb.Email, l *logger.Logger) (*emailNotifier, error) {
+	server := emailCfg.GetSmtpServer()
 	if server == "" {
-		l.Warningf("SMTP_SERVER environment variable not set, using localhost for email notification")
-		server = "localhost"
+		server = os.Getenv("SMTP_SERVER")
+		if server == "" {
+			l.Warningf("Neither smtp_server is configured, nor SMTP_SERVER environment variable is set, using localhost for email notification")
+			server = "localhost"
+		}
 	}
 
-	username := os.Getenv("SMTP_USERNAME")
-	if username == "" {
-		// Complain only if we are not using localhost.
-		if server != "localhost" {
-			l.Warningf("SMTP_USERNAME environment variable not set, will skip SMTP authentication")
+	user := emailCfg.GetSmtpUser()
+	if user == "" {
+		user = os.Getenv("SMTP_USER")
+		if user == "" && server != "localhost" {
+			l.Warningf("smtp_user not configured or set through environment variable, will skip SMTP authentication")
 		}
 	}
 
 	var password string
-	if username != "" {
-		password = os.Getenv("SMTP_PASSWORD")
+	if user != "" {
+		password = emailCfg.GetSmtpPassword()
 		if password == "" {
-			return nil, fmt.Errorf("SMTP_PASSWORD environment variable not set")
+			password = os.Getenv("SMTP_PASSWORD")
+			if password == "" {
+				return nil, fmt.Errorf("smtp_password not configured or set through environment variable")
+			}
 		}
 	}
 
-	from, to := notifyCfg.EmailFrom, notifyCfg.Email
+	from, to := emailCfg.From, emailCfg.To
 	if from == "" {
-		if username != "" {
-			from = username
+		if user != "" {
+			from = user
 		} else {
-			from = "no-reply@cloudprober." + os.Getenv("HOSTNAME")
+			from = "alert-notification@cloudprober.org" + os.Getenv("HOSTNAME")
 		}
+	}
+
+	if len(to) == 0 {
+		return nil, fmt.Errorf("no email recipients configured")
 	}
 
 	en := &emailNotifier{
@@ -84,8 +98,8 @@ func newEmailNotifier(notifyCfg *configpb.NotifyConfig, l *logger.Logger) (*emai
 		server: server,
 		l:      l,
 	}
-	if username != "" {
-		en.auth = smtp.PlainAuth("", username, password, strings.Split(server, ":")[0])
+	if user != "" {
+		en.auth = smtp.PlainAuth("", user, password, strings.Split(server, ":")[0])
 	}
 
 	return en, nil

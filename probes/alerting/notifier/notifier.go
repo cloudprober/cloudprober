@@ -148,14 +148,14 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 	}
 
 	if n.alertcfg.GetNotify().Email != nil {
-		en, err := newEmailNotifier(n.alertcfg.GetNotify(), l)
+		en, err := newEmailNotifier(n.alertcfg.GetNotify().GetEmail(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring email notifier: %v", err)
 		}
 		n.emailNotifier = en
 	}
 
-	if n.alertcfg.GetNotify().GetPagerDuty() != nil {
+	if n.alertcfg.GetNotify().PagerDuty != nil {
 		pd, err := pagerduty.New(n.alertcfg.Notify.GetPagerDuty(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring PagerDuty notifier: %v", err)

@@ -21,16 +21,11 @@ message NotifyConfig {
     // command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
     string command = 10;
 
-    // Email addresses to send alerts to. For email notifications to work,
-    // following environment variables must be set:
-    // - SMTP_SERVER: SMTP server and port to use for sending emails.
-    // - SMTP_USERNAME: SMTP user name.
-    // - SMTP_PASSWORD: SMTP password.
-    repeated string email = 11;
-    string email_from = 12;  // Default: SMTP_USERNAME
+    // Email to send alerts to.
+    optional Email email = 20;
 
     // PagerDuty configuration.
-    PagerDuty pager_duty = 30;
+    optional PagerDuty pager_duty = 30;
 }
 
 message Condition {
@@ -78,6 +73,20 @@ message AlertConf {
     optional int32 repeat_interval_sec = 8;  // Default: 1hr
 }
 
+message Email {
+    repeated string to = 1;
+    string from = 2;  // Default: smtp_user
+
+    // Default: Environment variable SMTP_SERVER 
+    string smtp_server = 3;  
+
+    // Default: Environment variable SMTP_USER
+    string smtp_user = 4;  
+
+    // Default: Environment variable SMTP_PASSWORD
+    string smtp_password = 5;  
+}
+
 message PagerDuty {
     // PagerDuty Routing Key.
     // The routing key is used to determine which service the alerts are sent to
@@ -94,5 +103,4 @@ message PagerDuty {
     // PagerDuty API URL.
     // Used to overwrite the default PagerDuty API URL.
     string api_url = 3; // Default: https://event.pagerduty.com
-
 }

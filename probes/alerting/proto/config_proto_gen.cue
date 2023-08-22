@@ -17,13 +17,8 @@ package proto
 	// command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
 	command?: string @protobuf(10,string)
 
-	// Email addresses to send alerts to. For email notifications to work,
-	// following environment variables must be set:
-	// - SMTP_SERVER: SMTP server and port to use for sending emails.
-	// - SMTP_USERNAME: SMTP user name.
-	// - SMTP_PASSWORD: SMTP password.
-	email?: [...string] @protobuf(11,string)
-	emailFrom?: string @protobuf(12,string,name=email_from) // Default: SMTP_USERNAME
+	// Email to send alerts to.
+	email?: #Email @protobuf(20,Email)
 
 	// PagerDuty configuration.
 	pagerDuty?: #PagerDuty @protobuf(30,PagerDuty,name=pager_duty)
@@ -71,6 +66,20 @@ package proto
 	// How often to repeat notification for the same alert. Default is 1hr.
 	// To disable any kind of notification throttling, set this to 0.
 	repeatIntervalSec?: int32 @protobuf(8,int32,name=repeat_interval_sec) // Default: 1hr
+}
+
+#Email: {
+	to?: [...string] @protobuf(1,string)
+	from?: string @protobuf(2,string) // Default: smtp_user
+
+	// Default: Environment variable SMTP_SERVER
+	smtpServer?: string @protobuf(3,string,name=smtp_server)
+
+	// Default: Environment variable SMTP_USER
+	smtpUser?: string @protobuf(4,string,name=smtp_user)
+
+	// Default: Environment variable SMTP_PASSWORD
+	smtpPassword?: string @protobuf(5,string,name=smtp_password)
 }
 
 #PagerDuty: {
