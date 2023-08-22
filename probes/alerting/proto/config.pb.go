@@ -302,11 +302,11 @@ type PagerDuty struct {
 	// The routing key is used to determine which service the alerts are sent to
 	// and is generated with the service. The routing key is found under the
 	// service, when the events v2 integration is enabled, under integrations,
-	// in the pagerduty console.
-	// Note: set either routing_key or routing_key_env_var.
+	// in the pagerduty console. This field takes precedence over
+	// routing_key_env_var.
 	RoutingKey string `protobuf:"bytes,1,opt,name=routing_key,json=routingKey,proto3" json:"routing_key,omitempty"`
 	// The environment variable that is used to contain the pagerduty routing
-	// key. If this is set, the routing_key field is ignored.
+	// key.
 	RoutingKeyEnvVar string `protobuf:"bytes,2,opt,name=routing_key_env_var,json=routingKeyEnvVar,proto3" json:"routing_key_env_var,omitempty"` // Default: PAGERDUTY_ROUTING_KEY;
 	// PagerDuty API URL.
 	// Used to overwrite the default PagerDuty API URL.

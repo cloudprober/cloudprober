@@ -64,17 +64,17 @@ func New(pagerdutycfg *configpb.PagerDuty, l *logger.Logger) (*Client, error) {
 
 // lookupRoutingKey looks up the routing key to use for the PagerDuty client,
 // in order of precendence:
-// 1. Routing key environment variable
-// 2. Routing key in the config
+// 1. Routing key supplied by the user in the config
+// 2. Routing key environment variable
 func lookupRoutingKey(pagerdutycfg *configpb.PagerDuty) (string, error) {
-	// check if the environment variable is set for the routing key
-	if routingKey, exists := os.LookupEnv(routingKeyEnvVar(pagerdutycfg)); exists {
-		return routingKey, nil
-	}
-
 	// check if the user supplied a routing key
 	if pagerdutycfg.GetRoutingKey() != "" {
 		return pagerdutycfg.GetRoutingKey(), nil
+	}
+
+	// check if the environment variable is set for the routing key
+	if routingKey, exists := os.LookupEnv(routingKeyEnvVar(pagerdutycfg)); exists {
+		return routingKey, nil
 	}
 
 	return "", fmt.Errorf("No routing key found")
