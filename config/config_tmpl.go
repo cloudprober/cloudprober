@@ -26,94 +26,112 @@ variable map (usually GCP metadata variables) and some predefined macros.
 
 Cloudprober configs support some macros to make configs construction easier:
 
-	env
-		Get the value of an environment variable.
+		env
+			Get the value of an environment variable.
 
-		Example:
+			Example:
+
+			probe {
+			  name: "dns_google_jp"
+			  type: DNS
+			  targets {
+			    host_names: "1.1.1.1"
+			  }
+			  dns_probe {
+			    resolved_domain: "{{env "TEST_DOM"}}"
+			  }
+			}
+
+			# Then run cloudprober as:
+			TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
+
+		gceCustomMetadata
+		 	Get value of a GCE custom metadata key. It first looks for the given key in
+			the instance's custom metadata and if it is not found there, it looks for it
+			in the project's custom metaata.
+
+			# Get load balancer IP from metadata.
+			probe {
+			  name: "http_lb"
+			  type: HTTP
+			  targets {
+			    host_names: "{{gceCustomMetadata "lb_ip"}}"
+			  }
+			}
+
+		extractSubstring
+			Extract substring from a string using regex. Example use in config:
+
+			# Sharded VM-to-VM connectivity checks over internal IP
+			# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
+			{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
+			probe {
+			  name: "vm-to-vm-{{$shard}}"
+			  type: PING
+			  targets {
+			    gce_targets {
+			      instances {}
+			    }
+			    regex: "{{$targets}}"
+			  }
+			  run_on: "{{$run_on}}"
+			}
+
+		mkMap
+			Returns a map built from the arguments. It's useful as Go templates take only
+			one argument. With this function, we can create a map of multiple values and
+			pass it to a template. Example use in config:
+
+			{{define "probeTmpl"}}
+			probe {
+			  type: {{.typ}}
+			  name: "{{.name}}"
+			  targets {
+			    host_names: "www.google.com"
+			  }
+			}
+			{{end}}
+
+			{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google"}}
+			{{template "probeTmpl" mkMap "typ" "HTTP" "name" "http_google"}}
+
+
+		mkSlice
+			Returns a slice consisting of the arguments. It can be used with the built-in
+			'range' function to replicate text.
+
+
+			{{with $regions := mkSlice "us=central1" "us-east1"}}
+			{{range $_, $region := $regions}}
+
+			probe {
+			  name: "service-a-{{$region}}"
+			  type: HTTP
+			  targets {
+			    host_names: "service-a.{{$region}}.corp.xx.com"
+			  }
+			}
+
+			{{end}}
+			{{end}}
+
+	  stringSplit
+
+		 This macro takes in 2 arguments. Returns a slice of strings,
+	   splitting the first argument using the specified separator from the second argument.
+	   It can be used with the built-in 'range' function to replicate text.
+
+		{{ $strSlice := stringSplit "us-1, eu-1, eu-2" ", "}}
+		{{ range $_, $region:= $strSlice }}
 
 		probe {
-		  name: "dns_google_jp"
-		  type: DNS
-		  targets {
-		    host_names: "1.1.1.1"
-		  }
-		  dns_probe {
-		    resolved_domain: "{{env "TEST_DOM"}}"
-		  }
+		 name: "ICMP_{{$region}}"
+		 type: PING
+		 targets {
+		   host_names: "8.8.8.8"
+		 }
 		}
-
-		# Then run cloudprober as:
-		TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
-
-	gceCustomMetadata
-	 	Get value of a GCE custom metadata key. It first looks for the given key in
-		the instance's custom metadata and if it is not found there, it looks for it
-		in the project's custom metaata.
-
-		# Get load balancer IP from metadata.
-		probe {
-		  name: "http_lb"
-		  type: HTTP
-		  targets {
-		    host_names: "{{gceCustomMetadata "lb_ip"}}"
-		  }
-		}
-
-	extractSubstring
-		Extract substring from a string using regex. Example use in config:
-
-		# Sharded VM-to-VM connectivity checks over internal IP
-		# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
-		{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
-		probe {
-		  name: "vm-to-vm-{{$shard}}"
-		  type: PING
-		  targets {
-		    gce_targets {
-		      instances {}
-		    }
-		    regex: "{{$targets}}"
-		  }
-		  run_on: "{{$run_on}}"
-		}
-
-	mkMap
-		Returns a map built from the arguments. It's useful as Go templates take only
-		one argument. With this function, we can create a map of multiple values and
-		pass it to a template. Example use in config:
-
-		{{define "probeTmpl"}}
-		probe {
-		  type: {{.typ}}
-		  name: "{{.name}}"
-		  targets {
-		    host_names: "www.google.com"
-		  }
-		}
-		{{end}}
-
-		{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google"}}
-		{{template "probeTmpl" mkMap "typ" "HTTP" "name" "http_google"}}
-
-
-	mkSlice
-		Returns a slice consisting of the arguments. It can be used with the built-in
-		'range' function to replicate text.
-
-
-		{{with $regions := mkSlice "us=central1" "us-east1"}}
-		{{range $_, $region := $regions}}
-
-		probe {
-		  name: "service-a-{{$region}}"
-		  type: HTTP
-		  targets {
-		    host_names: "service-a.{{$region}}.corp.xx.com"
-		  }
-		}
-
-		{{end}}
-		{{end}}
+		{{ end }}
 */
 package config
 
@@ -123,6 +141,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"text/template"
 
 	"cloud.google.com/go/compute/metadata"
@@ -219,6 +238,21 @@ func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 		// mkSlice makes a slice from its arguments.
 		"mkSlice": func(args ...interface{}) []interface{} {
 			return args
+		},
+
+		// stringSplit takes a string argument and a separator, then splits the string using the specified separator.
+		// It returns a slice of strings as a result of the split operation, or an error if the input is not valid.
+		"stringSplit": func(arg interface{}, sep interface{}) ([]string, error) {
+			if val, ok := arg.(string); ok {
+				if sepVal, sepOk := sep.(string); sepOk {
+					slice := strings.Split(val, sepVal)
+					return slice, nil
+				} else {
+					return nil, errors.New("separator must be a string")
+				}
+			} else {
+				return nil, errors.New("input argument must be a string")
+			}
 		},
 	}
 	configTmpl, err := template.New("cloudprober_cfg").Funcs(funcMap).Parse(config)
