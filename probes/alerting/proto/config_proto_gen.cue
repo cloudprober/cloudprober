@@ -1,5 +1,52 @@
 package proto
 
+#Email: {
+	to?: [...string] @protobuf(1,string)
+	from?: string @protobuf(2,string) // Default: smtp_user
+
+	// Default: Environment variable SMTP_SERVER
+	smtpServer?: string @protobuf(3,string,name=smtp_server)
+
+	// Default: Environment variable SMTP_USERNAME
+	smtpUsername?: string @protobuf(4,string,name=smtp_username)
+
+	// Default: Environment variable SMTP_PASSWORD
+	smtpPassword?: string @protobuf(5,string,name=smtp_password)
+}
+
+#PagerDuty: {
+	// PagerDuty Routing Key.
+	// The routing key is used to determine which service the alerts are sent to
+	// and is generated with the service. The routing key is found under the
+	// service, when the events v2 integration is enabled, under integrations,
+	// in the pagerduty console.
+	// Note: set either routing_key or routing_key_env_var. routing_key
+	// takes precedence over routing_key_env_var.
+	routingKey?: string @protobuf(1,string,name=routing_key)
+
+	// The environment variable that is used to contain the pagerduty routing
+	// key.
+	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var) // Default: PAGERDUTY_ROUTING_KEY;
+
+	// PagerDuty API URL.
+	// Used to overwrite the default PagerDuty API URL.
+	apiUrl?: string @protobuf(3,string,name=api_url) // Default: https://event.pagerduty.com
+}
+
+#Slack: {
+	// Webhook URL
+	// The Slack notifications use a webhook URL to send the notifications to
+	// a Slack channel. The webhook URL can be found in the Slack console under
+	// the "Incoming Webhooks" section.
+	// https://api.slack.com/messaging/webhooks
+	// Note: set either webhook_url or webhook_url_env_var. webhook_url
+	// takes precedence over webhook_url_env_var.
+	webhookUrl?: string @protobuf(1,string,name=webhook_url)
+
+	// The environment variable that is used to contain the slack webhook URL.
+	webhookUrlEnvVar?: string @protobuf(2,string,name=webhook_url_env_var) // Default: SLACK_WEBHOOK_URL;
+}
+
 #NotifyConfig: {
 	// Command to run when alert is fired. In the command line following fields
 	// are substituted:
@@ -17,19 +64,14 @@ package proto
 	// command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
 	command?: string @protobuf(10,string)
 
-	// Email addresses to send alerts to. For email notifications to work,
-	// following environment variables must be set:
-	// - SMTP_SERVER: SMTP server and port to use for sending emails.
-	// - SMTP_USERNAME: SMTP user name.
-	// - SMTP_PASSWORD: SMTP password.
-	email?: [...string] @protobuf(11,string)
-	emailFrom?: string @protobuf(12,string,name=email_from) // Default: SMTP_USERNAME
+	// Email notification configuration.
+	email?: #Email @protobuf(11,Email)
 
 	// PagerDuty configuration.
-	pagerDuty?: #PagerDuty @protobuf(30,PagerDuty,name=pager_duty)
+	pagerDuty?: #PagerDuty @protobuf(12,PagerDuty,name=pager_duty)
 
 	// Slack configuration.
-	slack?: #Slack @protobuf(31,Slack)
+	slack?: #Slack @protobuf(13,Slack)
 }
 
 #Condition: {
@@ -74,37 +116,4 @@ package proto
 	// How often to repeat notification for the same alert. Default is 1hr.
 	// To disable any kind of notification throttling, set this to 0.
 	repeatIntervalSec?: int32 @protobuf(8,int32,name=repeat_interval_sec) // Default: 1hr
-}
-
-#PagerDuty: {
-	// PagerDuty Routing Key.
-	// The routing key is used to determine which service the alerts are sent to
-	// and is generated with the service. The routing key is found under the
-	// service, when the events v2 integration is enabled, under integrations,
-	// in the pagerduty console.
-	// Note: set either routing_key or routing_key_env_var. routing_key
-	// takes precedence over routing_key_env_var.
-	routingKey?: string @protobuf(1,string,name=routing_key)
-
-	// The environment variable that is used to contain the pagerduty routing
-	// key.
-	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var) // Default: PAGERDUTY_ROUTING_KEY;
-
-	// PagerDuty API URL.
-	// Used to overwrite the default PagerDuty API URL.
-	apiUrl?: string @protobuf(3,string,name=api_url) // Default: https://event.pagerduty.com
-}
-
-#Slack: {
-	// Webhook URL
-	// The Slack notifications use a webhook URL to send the notifications to
-	// a Slack channel. The webhook URL can be found in the Slack console under
-	// the "Incoming Webhooks" section.
-	// https://api.slack.com/messaging/webhooks
-	// Note: set either webhook_url or webhook_url_env_var. webhook_url
-	// takes precedence over webhook_url_env_var.
-	webhookUrl?: string @protobuf(1,string,name=webhook_url)
-
-	// The environment variable that is used to contain the slack webhook URL.
-	webhookUrlEnvVar?: string @protobuf(2,string,name=webhook_url_env_var) // Default: SLACK_WEBHOOK_URL;
 }

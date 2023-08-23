@@ -4,6 +4,54 @@ package cloudprober.probes.alerting;
 
 option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
+message Email {
+    repeated string to = 1;
+    string from = 2;  // Default: smtp_user
+
+    // Default: Environment variable SMTP_SERVER 
+    string smtp_server = 3;  
+
+    // Default: Environment variable SMTP_USERNAME
+    string smtp_username = 4;  
+
+    // Default: Environment variable SMTP_PASSWORD
+    string smtp_password = 5;  
+}
+
+message PagerDuty {
+    // PagerDuty Routing Key.
+    // The routing key is used to determine which service the alerts are sent to
+    // and is generated with the service. The routing key is found under the 
+    // service, when the events v2 integration is enabled, under integrations,
+    // in the pagerduty console.
+    // Note: set either routing_key or routing_key_env_var. routing_key
+    // takes precedence over routing_key_env_var.
+    string routing_key = 1;
+
+    // The environment variable that is used to contain the pagerduty routing 
+    // key.
+    string routing_key_env_var = 2; // Default: PAGERDUTY_ROUTING_KEY;
+
+    // PagerDuty API URL.
+    // Used to overwrite the default PagerDuty API URL.
+    string api_url = 3; // Default: https://event.pagerduty.com
+
+}
+
+message Slack {
+    // Webhook URL
+    // The Slack notifications use a webhook URL to send the notifications to
+    // a Slack channel. The webhook URL can be found in the Slack console under
+    // the "Incoming Webhooks" section.
+    // https://api.slack.com/messaging/webhooks
+    // Note: set either webhook_url or webhook_url_env_var. webhook_url
+    // takes precedence over webhook_url_env_var.
+    string webhook_url = 1;
+
+    // The environment variable that is used to contain the slack webhook URL.
+    string webhook_url_env_var = 2; // Default: SLACK_WEBHOOK_URL;
+}
+
 message NotifyConfig {
     // Command to run when alert is fired. In the command line following fields
     // are substituted:
@@ -21,19 +69,14 @@ message NotifyConfig {
     // command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
     string command = 10;
 
-    // Email addresses to send alerts to. For email notifications to work,
-    // following environment variables must be set:
-    // - SMTP_SERVER: SMTP server and port to use for sending emails.
-    // - SMTP_USERNAME: SMTP user name.
-    // - SMTP_PASSWORD: SMTP password.
-    repeated string email = 11;
-    string email_from = 12;  // Default: SMTP_USERNAME
+    // Email notification configuration.
+    Email email = 11;
 
     // PagerDuty configuration.
-    PagerDuty pager_duty = 30;
+    PagerDuty pager_duty = 12;
 
     // Slack configuration.
-    optional Slack slack = 31;
+    Slack slack = 13;
 }
 
 message Condition {
@@ -79,38 +122,4 @@ message AlertConf {
     // How often to repeat notification for the same alert. Default is 1hr.
     // To disable any kind of notification throttling, set this to 0.
     optional int32 repeat_interval_sec = 8;  // Default: 1hr
-}
-
-message PagerDuty {
-    // PagerDuty Routing Key.
-    // The routing key is used to determine which service the alerts are sent to
-    // and is generated with the service. The routing key is found under the 
-    // service, when the events v2 integration is enabled, under integrations,
-    // in the pagerduty console.
-    // Note: set either routing_key or routing_key_env_var. routing_key
-    // takes precedence over routing_key_env_var.
-    string routing_key = 1;
-
-    // The environment variable that is used to contain the pagerduty routing 
-    // key.
-    string routing_key_env_var = 2; // Default: PAGERDUTY_ROUTING_KEY;
-
-    // PagerDuty API URL.
-    // Used to overwrite the default PagerDuty API URL.
-    string api_url = 3; // Default: https://event.pagerduty.com
-
-}
-
-message Slack {
-    // Webhook URL
-    // The Slack notifications use a webhook URL to send the notifications to
-    // a Slack channel. The webhook URL can be found in the Slack console under
-    // the "Incoming Webhooks" section.
-    // https://api.slack.com/messaging/webhooks
-    // Note: set either webhook_url or webhook_url_env_var. webhook_url
-    // takes precedence over webhook_url_env_var.
-    string webhook_url = 1;
-
-    // The environment variable that is used to contain the slack webhook URL.
-    string webhook_url_env_var = 2; // Default: SLACK_WEBHOOK_URL;
 }

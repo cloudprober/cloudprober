@@ -192,10 +192,10 @@ func TestScrapeOutput(t *testing.T) {
 	ps.writeData(&b)
 	data := b.String()
 	for _, d := range []string{
-		"#TYPE sent counter",
-		"#TYPE rcvd counter",
-		"#TYPE resp_code counter",
-		"#TYPE latency histogram",
+		"# TYPE sent counter",
+		"# TYPE rcvd counter",
+		"# TYPE resp_code counter",
+		"# TYPE latency histogram",
 		"sent{ptype=\"http\"} 32 " + promTS,
 		"rcvd{ptype=\"http\"} 22 " + promTS,
 		"resp_code{ptype=\"http\",code=\"200\"} 19 " + promTS,
@@ -226,10 +226,10 @@ func TestScrapeOutputNoTimestamp(t *testing.T) {
 	ps.writeData(&b)
 	data := b.String()
 	for _, d := range []string{
-		"#TYPE sent counter",
-		"#TYPE rcvd counter",
-		"#TYPE resp_code counter",
-		"#TYPE latency histogram",
+		"# TYPE sent counter",
+		"# TYPE rcvd counter",
+		"# TYPE resp_code counter",
+		"# TYPE latency histogram",
 		"sent{ptype=\"http\"} 32",
 		"rcvd{ptype=\"http\"} 22",
 		"resp_code{ptype=\"http\",code=\"200\"} 19",
