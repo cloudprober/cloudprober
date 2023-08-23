@@ -31,6 +31,9 @@ message NotifyConfig {
 
     // PagerDuty configuration.
     PagerDuty pager_duty = 30;
+
+    // Slack configuration.
+    optional Slack slack = 31;
 }
 
 message Condition {
@@ -84,15 +87,30 @@ message PagerDuty {
     // and is generated with the service. The routing key is found under the 
     // service, when the events v2 integration is enabled, under integrations,
     // in the pagerduty console.
-    // Note: set either routing_key or routing_key_env_var.
+    // Note: set either routing_key or routing_key_env_var. routing_key
+    // takes precedence over routing_key_env_var.
     string routing_key = 1;
 
     // The environment variable that is used to contain the pagerduty routing 
-    // key. If this is set, the routing_key field is ignored.
+    // key.
     string routing_key_env_var = 2; // Default: PAGERDUTY_ROUTING_KEY;
 
     // PagerDuty API URL.
     // Used to overwrite the default PagerDuty API URL.
     string api_url = 3; // Default: https://event.pagerduty.com
 
+}
+
+message Slack {
+    // Webhook URL
+    // The Slack notifications use a webhook URL to send the notifications to
+    // a Slack channel. The webhook URL can be found in the Slack console under
+    // the "Incoming Webhooks" section.
+    // https://api.slack.com/messaging/webhooks
+    // Note: set either webhook_url or webhook_url_env_var. webhook_url
+    // takes precedence over webhook_url_env_var.
+    string webhook_url = 1;
+
+    // The environment variable that is used to contain the slack webhook URL.
+    string webhook_url_env_var = 2; // Default: SLACK_WEBHOOK_URL;
 }
