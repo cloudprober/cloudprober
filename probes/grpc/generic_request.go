@@ -17,14 +17,16 @@ package grpc
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
+	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func (p *Probe) initDescriptorSource() error {
@@ -48,7 +50,33 @@ func (p *Probe) initDescriptorSource() error {
 	return nil
 }
 
-func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn) {
+type response struct {
+	st   *status.Status
+	body string
+}
+
+func (p *Probe) callServiceMethod(ctx context.Context, req *configpb.GenericRequest, conn *grpc.ClientConn) (*response, error) {
+	in := strings.NewReader(req.GetBody())
+	rf, formatter, err := grpcurl.RequestParserAndFormatter(grpcurl.FormatJSON, p.descSrc, in, grpcurl.FormatOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct parser and formatter: %v", err)
+	}
+
+	var out bytes.Buffer
+	h := &grpcurl.DefaultEventHandler{Out: &out, Formatter: formatter}
+
+	if err := grpcurl.InvokeRPC(ctx, p.descSrc, conn, req.GetCallServiceMethod(), nil, h, rf.Next); err != nil {
+		return nil, fmt.Errorf("error invoking gRPC: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, out.Bytes()); err != nil {
+		return nil, fmt.Errorf("error compacting response JSON (%s): %v", out.String(), err)
+	}
+	return &response{st: h.Status, body: buf.String()}, nil
+}
+
+func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn) (*response, error) {
 	req := p.c.GetRequest()
 
 	// If we didn't load protoset from a file, we'll get it everytime
@@ -60,49 +88,31 @@ func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn) {
 	if req.GetListServices() {
 		services, err := grpcurl.ListServices(p.descSrc)
 		if err != nil {
-			p.l.Errorf("error listing services: %v", err)
+			return nil, fmt.Errorf("error listing services: %v", err)
 		}
-		p.l.Infof("Services: %v", services)
-		return
+		return &response{body: strings.Join(services, ",")}, nil
 	}
 
 	if req.GetListServiceMethods() != "" {
 		methods, err := grpcurl.ListMethods(p.descSrc, req.GetListServiceMethods())
 		if err != nil {
-			p.l.Errorf("error listing service (%s) methods: %v", req.GetListServiceMethods(), err)
+			p.l.Errorf("Error listing service (%s) methods: %v", req.GetListServiceMethods(), err)
+			return nil, err
 		}
-		p.l.Infof("Methods: %v", methods)
-		return
+		return &response{body: strings.Join(methods, ",")}, nil
 	}
 
 	if req.GetDescribeServiceMethod() != "" {
-		desc, err := p.descSrc.FindSymbol(req.GetDescribeServiceMethod())
+		d, err := p.descSrc.FindSymbol(req.GetDescribeServiceMethod())
 		if err != nil {
-			p.l.Errorf("error describing method(%s): %v", req.GetDescribeServiceMethod(), err)
+			return nil, fmt.Errorf("error describing method(%s): %v", req.GetDescribeServiceMethod(), err)
 		}
-		p.l.Infof("Descriptor: %v", desc)
-		return
+		return &response{body: strings.ReplaceAll(d.AsProto().String(), "  ", " ")}, nil
 	}
 
 	if req.GetCallServiceMethod() != "" {
-		in := strings.NewReader(req.GetBody())
-		rf, formatter, err := grpcurl.RequestParserAndFormatter(grpcurl.FormatJSON, p.descSrc, in, grpcurl.FormatOptions{})
-		if err != nil {
-			p.l.Errorf("failed to construct parser and formatter: %v", err)
-			return
-		}
-
-		var out bytes.Buffer
-		h := &grpcurl.DefaultEventHandler{
-			Out:       &out,
-			Formatter: formatter,
-		}
-		err = grpcurl.InvokeRPC(ctx, p.descSrc, conn, req.GetCallServiceMethod(), nil, h, rf.Next)
-		if err != nil {
-			p.l.Errorf("error invoking gRPC: %v", err)
-		}
-		time.Sleep(2 * time.Second)
-		p.l.Debugf("Status: %v", h.Status.Code())
-		p.l.Debugf("Response: %v", out.String())
+		return p.callServiceMethod(ctx, req, conn)
 	}
+
+	return nil, nil
 }

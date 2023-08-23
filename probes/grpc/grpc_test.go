@@ -39,11 +39,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/proto"
 )
 
 var once sync.Once
 var srvAddr string
+
+var global = struct {
+	srvAddr string
+	mu      sync.RWMutex
+}{}
 
 type Server struct {
 	delay time.Duration
@@ -86,22 +92,32 @@ func (s *Server) BlobWrite(ctx context.Context, req *pb.BlobWriteRequest) (*pb.B
 
 // globalGRPCServer sets up runconfig and returns a gRPC server.
 func globalGRPCServer(delay time.Duration) (string, error) {
-	var err error
-	once.Do(func() {
-		var ln net.Listener
-		ln, err = net.Listen("tcp", "localhost:0")
-		if err != nil {
-			return
-		}
-		grpcSrv := grpc.NewServer()
-		srv := &Server{delay: delay, msg: make([]byte, 1024)}
-		spb.RegisterProberServer(grpcSrv, srv)
-		go grpcSrv.Serve(ln)
-		tcpAddr := ln.Addr().(*net.TCPAddr)
-		srvAddr = net.JoinHostPort(tcpAddr.IP.String(), strconv.Itoa(tcpAddr.Port))
-		time.Sleep(time.Second * 2)
-	})
-	return srvAddr, err
+	global.mu.Lock()
+	defer global.mu.Unlock()
+
+	if global.srvAddr != "" {
+		return global.srvAddr, nil
+	}
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return "", err
+	}
+
+	grpcSrv := grpc.NewServer()
+	reflection.Register(grpcSrv) // Enable reflection
+
+	srv := &Server{delay: delay, msg: make([]byte, 1024)}
+	spb.RegisterProberServer(grpcSrv, srv)
+	go grpcSrv.Serve(ln)
+
+	tcpAddr := ln.Addr().(*net.TCPAddr)
+	srvAddr = net.JoinHostPort(tcpAddr.IP.String(), strconv.Itoa(tcpAddr.Port))
+
+	// Make sure that the server is up before running
+	time.Sleep(time.Second * 2)
+	global.srvAddr = srvAddr
+	return srvAddr, nil
 }
 
 // TestGRPCSuccess tests probe output on success.
