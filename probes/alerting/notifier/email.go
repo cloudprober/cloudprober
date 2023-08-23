@@ -21,71 +21,104 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
 type emailNotifier struct {
-	to     []string
-	from   string
-	server string
-	auth   smtp.Auth
-	l      *logger.Logger
+	to           []string
+	from         string
+	server       string
+	auth         smtp.Auth
+	sendMailFunc func(string, smtp.Auth, string, []string, []byte) error
+	l            *logger.Logger
 }
 
 func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]string) error {
+	var to []string
+	for _, t := range en.to {
+		newTo, _ := strtemplate.SubstituteLabels(t, alertFields)
+		to = append(to, newTo)
+	}
+
 	msg := fmt.Sprintf("From: %s\r\n", en.from)
-	msg += fmt.Sprintf("To: %s\r\n", strings.Join(en.to, ","))
+	msg += fmt.Sprintf("To: %s\r\n", strings.Join(to, ","))
 	msg += fmt.Sprintf("Subject: %s\r\n", alertFields["summary"])
 	msg += fmt.Sprintf("\r\n%s\r\n", alertFields["details"])
 	en.l.Infof("Sending email notification to: %v \nserver: %s\nmsg:\n%s", en.to, en.server, msg)
 
-	if err := smtp.SendMail(en.server, en.auth, en.from, en.to, []byte(msg)); err != nil {
+	if en.sendMailFunc == nil {
+		en.sendMailFunc = smtp.SendMail
+	}
+	if err := en.sendMailFunc(en.server, en.auth, en.from, to, []byte(msg)); err != nil {
 		return fmt.Errorf("error while sending email notification: %v", err)
 	}
 	return nil
 }
 
-func newEmailNotifier(notifyCfg *configpb.NotifyConfig, l *logger.Logger) (*emailNotifier, error) {
-	server := os.Getenv("SMTP_SERVER")
-	if server == "" {
-		l.Warningf("SMTP_SERVER environment variable not set, using localhost for email notification")
-		server = "localhost"
-	}
-
-	username := os.Getenv("SMTP_USERNAME")
-	if username == "" {
-		// Complain only if we are not using localhost.
-		if server != "localhost" {
-			l.Warningf("SMTP_USERNAME environment variable not set, will skip SMTP authentication")
-		}
-	}
-
-	var password string
-	if username != "" {
+func smtpPassword(user string, emailCfg *configpb.Email) (string, error) {
+	password := emailCfg.GetSmtpPassword()
+	if password == "" {
 		password = os.Getenv("SMTP_PASSWORD")
 		if password == "" {
-			return nil, fmt.Errorf("SMTP_PASSWORD environment variable not set")
+			return "", fmt.Errorf("smtp_password not configured or set through environment variable")
+		}
+	}
+	return password, nil
+}
+
+func emaiFrom(user string, emailCfg *configpb.Email) string {
+	if from := emailCfg.GetFrom(); from != "" {
+		return from
+	}
+
+	if user != "" {
+		return user
+	}
+
+	hostname := os.Getenv("HOSTNAME")
+	if hostname == "" {
+		hostname = "localhost"
+	}
+	return "cloudprober-alert@" + hostname
+}
+
+func newEmailNotifier(emailCfg *configpb.Email, l *logger.Logger) (*emailNotifier, error) {
+	server := emailCfg.GetSmtpServer()
+	if server == "" {
+		server = os.Getenv("SMTP_SERVER")
+		if server == "" {
+			l.Warningf("Neither smtp_server is configured, nor SMTP_SERVER environment variable is set, using localhost for email notification")
+			server = "localhost"
 		}
 	}
 
-	from, to := notifyCfg.EmailFrom, notifyCfg.Email
-	if from == "" {
-		if username != "" {
-			from = username
-		} else {
-			from = "no-reply@cloudprober." + os.Getenv("HOSTNAME")
+	user := emailCfg.GetSmtpUsername()
+	if user == "" {
+		user = os.Getenv("SMTP_USERNAME")
+		if user == "" && server != "localhost" {
+			l.Warningf("smtp_user not configured or set through environment variable, will skip SMTP authentication")
 		}
+	}
+
+	if len(emailCfg.To) == 0 {
+		return nil, fmt.Errorf("no email recipients configured")
 	}
 
 	en := &emailNotifier{
-		to:     to,
-		from:   from,
+		to:     emailCfg.To,
+		from:   emaiFrom(user, emailCfg),
 		server: server,
 		l:      l,
 	}
-	if username != "" {
-		en.auth = smtp.PlainAuth("", username, password, strings.Split(server, ":")[0])
+
+	if user != "" {
+		password, err := smtpPassword(user, emailCfg)
+		if err != nil {
+			return nil, err
+		}
+		en.auth = smtp.PlainAuth("", user, password, strings.Split(server, ":")[0])
 	}
 
 	return en, nil
