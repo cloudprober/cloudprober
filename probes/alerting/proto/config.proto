@@ -53,11 +53,11 @@ message NotifyConfig {
     // command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
     string command = 10;
 
-    // Email to send alerts to.
-    Email email = 20;
+    // Email notification configuration.
+    Email email = 11;
 
     // PagerDuty configuration.
-    PagerDuty pager_duty = 30;
+    PagerDuty pager_duty = 12;
 }
 
 message Condition {

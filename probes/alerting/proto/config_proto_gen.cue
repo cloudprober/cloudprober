@@ -49,11 +49,11 @@ package proto
 	// command: "/usr/bin/mail -s 'Alert @alert@ fired for @target@' manu@a.b"
 	command?: string @protobuf(10,string)
 
-	// Email to send alerts to.
-	email?: #Email @protobuf(20,Email)
+	// Email notification configuration.
+	email?: #Email @protobuf(11,Email)
 
 	// PagerDuty configuration.
-	pagerDuty?: #PagerDuty @protobuf(30,PagerDuty,name=pager_duty)
+	pagerDuty?: #PagerDuty @protobuf(12,PagerDuty,name=pager_duty)
 }
 
 #Condition: {
