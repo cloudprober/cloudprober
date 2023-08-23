@@ -84,23 +84,39 @@ const (
 	MaxLogEntrySize = 102400
 )
 
+// basePath is the root location of the cloudprober source code at the build
+// time, e.g. /Users/manugarg/code/cloudprober. We trim this path from the
+// logged source file names. We set this in the init() function.
+var basePath string
+
+// We trim this path from the logged source function name.
+const basePackage = "github.com/cloudprober/cloudprober/"
+
 var defaultWritter = io.Writer(os.Stderr)
 
-func slogHandler() slog.Handler {
-	if *logFmt != "json" && *logFmt != "text" {
-		slog.Default().Error("invalid log format: " + *logFmt)
-		os.Exit(1)
+func replaceAttrs(_ []string, a slog.Attr) slog.Attr {
+	if a.Key == slog.SourceKey {
+		source := a.Value.Any().(*slog.Source)
+		source.File = strings.TrimPrefix(source.File, basePath)
+		source.Function = strings.TrimPrefix(source.Function, basePackage)
 	}
+	return a
+}
 
+func slogHandler() slog.Handler {
 	opts := &slog.HandlerOptions{
-		AddSource: true,
+		AddSource:   true,
+		ReplaceAttr: replaceAttrs,
 	}
 
 	attrs := []slog.Attr{slog.String("system", "cloudprober")}
-	if *logFmt == "json" {
+	switch *logFmt {
+	case "json":
 		return slog.NewJSONHandler(defaultWritter, opts).WithAttrs(attrs)
+	case "text":
+		return slog.NewTextHandler(defaultWritter, opts).WithAttrs(attrs)
 	}
-	return slog.NewTextHandler(defaultWritter, opts).WithAttrs(attrs)
+	panic("invalid log format: " + *logFmt)
 }
 
 func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
@@ -482,4 +498,10 @@ func init() {
 	if envVarSet(EnvVars.DebugLog) {
 		*debugLog = true
 	}
+
+	// Determine the base path for the cloudprober source code.
+	var pcs [1]uintptr
+	runtime.Callers(1, pcs[:])
+	frame, _ := runtime.CallersFrames(pcs[:]).Next()
+	basePath = strings.TrimSuffix(frame.File, "logger/logger.go")
 }
