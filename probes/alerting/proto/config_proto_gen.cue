@@ -1,5 +1,37 @@
 package proto
 
+#Email: {
+	to?: [...string] @protobuf(1,string)
+	from?: string @protobuf(2,string) // Default: smtp_user
+
+	// Default: Environment variable SMTP_SERVER
+	smtpServer?: string @protobuf(3,string,name=smtp_server)
+
+	// Default: Environment variable SMTP_USERNAME
+	smtpUsername?: string @protobuf(4,string,name=smtp_username)
+
+	// Default: Environment variable SMTP_PASSWORD
+	smtpPassword?: string @protobuf(5,string,name=smtp_password)
+}
+
+#PagerDuty: {
+	// PagerDuty Routing Key.
+	// The routing key is used to determine which service the alerts are sent to
+	// and is generated with the service. The routing key is found under the
+	// service, when the events v2 integration is enabled, under integrations,
+	// in the pagerduty console.
+	// Note: set either routing_key or routing_key_env_var.
+	routingKey?: string @protobuf(1,string,name=routing_key)
+
+	// The environment variable that is used to contain the pagerduty routing
+	// key. If this is set, the routing_key field is ignored.
+	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var) // Default: PAGERDUTY_ROUTING_KEY;
+
+	// PagerDuty API URL.
+	// Used to overwrite the default PagerDuty API URL.
+	apiUrl?: string @protobuf(3,string,name=api_url) // Default: https://event.pagerduty.com
+}
+
 #NotifyConfig: {
 	// Command to run when alert is fired. In the command line following fields
 	// are substituted:
@@ -66,36 +98,4 @@ package proto
 	// How often to repeat notification for the same alert. Default is 1hr.
 	// To disable any kind of notification throttling, set this to 0.
 	repeatIntervalSec?: int32 @protobuf(8,int32,name=repeat_interval_sec) // Default: 1hr
-}
-
-#Email: {
-	to?: [...string] @protobuf(1,string)
-	from?: string @protobuf(2,string) // Default: smtp_user
-
-	// Default: Environment variable SMTP_SERVER
-	smtpServer?: string @protobuf(3,string,name=smtp_server)
-
-	// Default: Environment variable SMTP_USERNAME
-	smtpUsername?: string @protobuf(4,string,name=smtp_username)
-
-	// Default: Environment variable SMTP_PASSWORD
-	smtpPassword?: string @protobuf(5,string,name=smtp_password)
-}
-
-#PagerDuty: {
-	// PagerDuty Routing Key.
-	// The routing key is used to determine which service the alerts are sent to
-	// and is generated with the service. The routing key is found under the
-	// service, when the events v2 integration is enabled, under integrations,
-	// in the pagerduty console. This field takes precedence over
-	// routing_key_env_var.
-	routingKey?: string @protobuf(1,string,name=routing_key)
-
-	// The environment variable that is used to contain the pagerduty routing
-	// key.
-	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var) // Default: PAGERDUTY_ROUTING_KEY;
-
-	// PagerDuty API URL.
-	// Used to overwrite the default PagerDuty API URL.
-	apiUrl?: string @protobuf(3,string,name=api_url) // Default: https://event.pagerduty.com
 }

@@ -21,6 +21,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
@@ -35,8 +36,14 @@ type emailNotifier struct {
 }
 
 func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]string) error {
+	var to []string
+	for _, t := range en.to {
+		newTo, _ := strtemplate.SubstituteLabels(t, alertFields)
+		to = append(to, newTo)
+	}
+
 	msg := fmt.Sprintf("From: %s\r\n", en.from)
-	msg += fmt.Sprintf("To: %s\r\n", strings.Join(en.to, ","))
+	msg += fmt.Sprintf("To: %s\r\n", strings.Join(to, ","))
 	msg += fmt.Sprintf("Subject: %s\r\n", alertFields["summary"])
 	msg += fmt.Sprintf("\r\n%s\r\n", alertFields["details"])
 	en.l.Infof("Sending email notification to: %v \nserver: %s\nmsg:\n%s", en.to, en.server, msg)
@@ -44,7 +51,7 @@ func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]stri
 	if en.sendMailFunc == nil {
 		en.sendMailFunc = smtp.SendMail
 	}
-	if err := en.sendMailFunc(en.server, en.auth, en.from, en.to, []byte(msg)); err != nil {
+	if err := en.sendMailFunc(en.server, en.auth, en.from, to, []byte(msg)); err != nil {
 		return fmt.Errorf("error while sending email notification: %v", err)
 	}
 	return nil

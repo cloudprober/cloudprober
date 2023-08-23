@@ -4,6 +4,38 @@ package cloudprober.probes.alerting;
 
 option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
+message Email {
+    repeated string to = 1;
+    string from = 2;  // Default: smtp_user
+
+    // Default: Environment variable SMTP_SERVER 
+    string smtp_server = 3;  
+
+    // Default: Environment variable SMTP_USERNAME
+    string smtp_username = 4;  
+
+    // Default: Environment variable SMTP_PASSWORD
+    string smtp_password = 5;  
+}
+
+message PagerDuty {
+    // PagerDuty Routing Key.
+    // The routing key is used to determine which service the alerts are sent to
+    // and is generated with the service. The routing key is found under the 
+    // service, when the events v2 integration is enabled, under integrations,
+    // in the pagerduty console.
+    // Note: set either routing_key or routing_key_env_var.
+    string routing_key = 1;
+
+    // The environment variable that is used to contain the pagerduty routing 
+    // key. If this is set, the routing_key field is ignored.
+    string routing_key_env_var = 2; // Default: PAGERDUTY_ROUTING_KEY;
+
+    // PagerDuty API URL.
+    // Used to overwrite the default PagerDuty API URL.
+    string api_url = 3; // Default: https://event.pagerduty.com
+}
+
 message NotifyConfig {
     // Command to run when alert is fired. In the command line following fields
     // are substituted:
@@ -22,10 +54,10 @@ message NotifyConfig {
     string command = 10;
 
     // Email to send alerts to.
-    optional Email email = 20;
+    Email email = 20;
 
     // PagerDuty configuration.
-    optional PagerDuty pager_duty = 30;
+    PagerDuty pager_duty = 30;
 }
 
 message Condition {
@@ -71,36 +103,4 @@ message AlertConf {
     // How often to repeat notification for the same alert. Default is 1hr.
     // To disable any kind of notification throttling, set this to 0.
     optional int32 repeat_interval_sec = 8;  // Default: 1hr
-}
-
-message Email {
-    repeated string to = 1;
-    string from = 2;  // Default: smtp_user
-
-    // Default: Environment variable SMTP_SERVER 
-    string smtp_server = 3;  
-
-    // Default: Environment variable SMTP_USERNAME
-    string smtp_username = 4;  
-
-    // Default: Environment variable SMTP_PASSWORD
-    string smtp_password = 5;  
-}
-
-message PagerDuty {
-    // PagerDuty Routing Key.
-    // The routing key is used to determine which service the alerts are sent to
-    // and is generated with the service. The routing key is found under the 
-    // service, when the events v2 integration is enabled, under integrations,
-    // in the pagerduty console. This field takes precedence over 
-    // routing_key_env_var.
-    string routing_key = 1;
-
-    // The environment variable that is used to contain the pagerduty routing 
-    // key.
-    string routing_key_env_var = 2; // Default: PAGERDUTY_ROUTING_KEY;
-
-    // PagerDuty API URL.
-    // Used to overwrite the default PagerDuty API URL.
-    string api_url = 3; // Default: https://event.pagerduty.com
 }

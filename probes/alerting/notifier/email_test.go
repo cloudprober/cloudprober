@@ -100,6 +100,7 @@ func TestNewEmailNotifier(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.env {
 				os.Setenv(k, v)
+				defer os.Unsetenv(k)
 			}
 			got, err := newEmailNotifier(tt.emailCfg, nil)
 			if (err != nil) != tt.wantErr {
@@ -112,41 +113,61 @@ func TestNewEmailNotifier(t *testing.T) {
 }
 
 func TestEmailNotifierNotify(t *testing.T) {
-	var (
-		smtpServer  = "smtp.gmail.com:587"
-		to          = []string{"user@gmail.com"}
-		from        = "f@gmail.com"
-		alertFields = map[string]string{
-			"summary": "summary1",
-			"details": "details1",
+	tests := []struct {
+		name    string
+		to      []string
+		wantTo  []string
+		wantMsg string
+	}{
+		{
+			name:    "default",
+			to:      []string{"user1@gmail.com"},
+			wantTo:  []string{"user1@gmail.com"},
+			wantMsg: "From: f@gmail.com\r\nTo: user1@gmail.com\r\nSubject: summary1\r\n\r\ndetails1\r\n",
+		},
+		{
+			name:    "email_substitution",
+			to:      []string{"@target.label.owner@"},
+			wantTo:  []string{"manugarg@cloudprober.org"},
+			wantMsg: "From: f@gmail.com\r\nTo: manugarg@cloudprober.org\r\nSubject: summary1\r\n\r\ndetails1\r\n",
+		},
+	}
+
+	for _, tt := range tests {
+		var (
+			smtpServer  = "smtp.gmail.com:587"
+			from        = "f@gmail.com"
+			wantFrom    = from
+			wantServer  = smtpServer
+			alertFields = map[string]string{
+				"summary":            "summary1",
+				"details":            "details1",
+				"target.label.owner": "manugarg@cloudprober.org",
+			}
+		)
+
+		en := &emailNotifier{
+			to:     tt.to,
+			from:   from,
+			server: smtpServer,
 		}
-		wantFrom   = from
-		wantTo     = to
-		wantServer = smtpServer
-		wantMsg    = "From: f@gmail.com\r\nTo: user@gmail.com\r\nSubject: summary1\r\n\r\ndetails1\r\n"
-	)
 
-	en := &emailNotifier{
-		to:     to,
-		from:   from,
-		server: smtpServer,
+		var gotMsg, gotFrom, gotServer string
+		var gotTo []string
+
+		en.sendMailFunc = func(server string, auth smtp.Auth, from string, to []string, msg []byte) error {
+			gotMsg = string(msg)
+			gotFrom = from
+			gotTo = to
+			gotServer = server
+			return nil
+		}
+
+		en.Notify(context.Background(), alertFields)
+
+		assert.Equal(t, tt.wantMsg, gotMsg)
+		assert.Equal(t, tt.wantTo, gotTo)
+		assert.Equal(t, wantServer, gotServer)
+		assert.Equal(t, wantFrom, gotFrom)
 	}
-
-	var gotMsg, gotFrom, gotServer string
-	var gotTo []string
-
-	en.sendMailFunc = func(server string, auth smtp.Auth, from string, to []string, msg []byte) error {
-		gotMsg = string(msg)
-		gotFrom = from
-		gotTo = to
-		gotServer = server
-		return nil
-	}
-
-	en.Notify(context.Background(), alertFields)
-
-	assert.Equal(t, wantMsg, gotMsg)
-	assert.Equal(t, wantTo, gotTo)
-	assert.Equal(t, wantServer, gotServer)
-	assert.Equal(t, wantFrom, gotFrom)
 }

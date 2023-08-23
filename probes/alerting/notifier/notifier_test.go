@@ -16,6 +16,7 @@ package notifier
 
 import (
 	"context"
+	"net/smtp"
 	"testing"
 	"time"
 
@@ -60,8 +61,8 @@ func TestAlertFields(t *testing.T) {
 				"target.label.apptype":  "backend",
 				"target.label.language": "go",
 				"json":                  `{"alert":"test-alert","condition_id":"122333444","failures":"8","probe":"test-probe","since":"0001-01-01T00:00:01Z","target":"test-target","target.label.apptype":"backend","target.label.language":"go","total":"12"}`,
-				"summary":               "",
-				"details":               "",
+				"summary":               "Cloudprober alert test-alert for test-target",
+				"details":               "Cloudprober alert \"test-alert\" for \"test-target\":\n\nFailures: 8 out of 12 probes\nFailing since: 0001-01-01T00:00:01Z\nProbe: test-probe\nDashboard: @dashboard_url@\nPlaybook: \nCondition ID: 122333444\n",
 				"playbook_url":          "",
 			},
 		},
@@ -76,43 +77,78 @@ func TestAlertFields(t *testing.T) {
 	}
 }
 
-func TestNotifyCommand(t *testing.T) {
-	fields := map[string]string{
-		"alert":              "test-alert",
-		"probe":              "test-probe",
-		"target":             "test-target:1234",
-		"target.label.owner": "manugarg@a.b",
+func TestNotify(t *testing.T) {
+	alertInfo := &AlertInfo{
+		Name:        "test-alert",
+		ProbeName:   "test-probe",
+		ConditionID: "cond-id",
+		Target: endpoint.Endpoint{
+			Name:   "test-target:1234",
+			Labels: map[string]string{"owner": "manugarg@a.b"},
+		},
+		Failures: 1,
+		Total:    2,
 	}
 
 	tests := []struct {
 		name          string
+		conf          *configpb.NotifyConfig
 		command       string
 		errorContains string
+		wantEmailFrom string
+		wantEmailMsg  string
 	}{
 		{
-			command:       "/random-cmd-@alert@-@target.label.owner@ -s 'Alert @alert@ fired for the target @target@ - @unmatched@' @target.label.owner@",
+			name: "command",
+			conf: &configpb.NotifyConfig{
+				Command: "/random-cmd-@alert@-@target.label.owner@ -s 'Alert @alert@ fired for the target @target@ - @unmatched@' @target.label.owner@",
+			},
 			errorContains: "/random-cmd-test-alert-manugarg@a.b",
 		},
-	}
-	for _, tt := range tests {
-		alertInfo := &AlertInfo{
-			Name:        fields["alert"],
-			ProbeName:   fields["probe"],
-			ConditionID: "cond-id",
-			Target: endpoint.Endpoint{
-				Name:   fields["target"],
-				Labels: map[string]string{"owner": fields["target.label.owner"]},
+		{
+			name: "commandAndEmail",
+			conf: &configpb.NotifyConfig{
+				Command: "/random-cmd-@alert@-@target.label.owner@ -s 'Alert @alert@ fired for the target @target@ - @unmatched@' @target.label.owner@",
+				Email: &configpb.Email{
+					To: []string{"manugarg@a.b"},
+				},
 			},
-		}
+			errorContains: "/random-cmd-test-alert-manugarg@a.b",
+			wantEmailFrom: "alert-notification@cloudprober.org",
+			wantEmailMsg:  "From: alert-notification@cloudprober.org\r\nTo: manugarg@a.b\r\nSubject: Cloudprober alert test-alert for test-target:1234\r\n\r\nCloudprober alert \"test-alert\" for \"test-target:1234\":\n\nFailures: 1 out of 2 probes\nFailing since: 0001-01-01T00:00:00Z\nProbe: test-probe\nDashboard: @dashboard_url@\nPlaybook: \nCondition ID: cond-id\n\r\n",
+		},
+	}
+
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.AlertConf{
-				Notify: &configpb.NotifyConfig{
-					Command: tt.command,
-				},
+				Notify: tt.conf,
 			}
 			n, err := New(conf, nil)
+
+			var gotTo []string
+			var gotFrom, gotMsg string
+
+			assert.NotNil(t, n.cmdNotifier, "cmdNotifier is nil")
+			if tt.conf.Email != nil {
+				assert.NotNil(t, n.emailNotifier, "emailNotifier is nil")
+				n.emailNotifier.sendMailFunc = func(server string, auth smtp.Auth, from string, to []string, msg []byte) error {
+					gotTo, gotFrom, gotMsg = to, from, string(msg)
+					return nil
+				}
+			}
+
 			assert.NoError(t, err, "Error creating notifier")
-			assert.ErrorContains(t, n.Notify(context.Background(), alertInfo), tt.errorContains, "notify command error")
+
+			err = n.Notify(context.Background(), alertInfo)
+
+			// Command should result in an error, but email should go through.
+			assert.ErrorContains(t, err, tt.errorContains, "notify command error")
+			if tt.conf.Email != nil {
+				assert.Equal(t, tt.conf.Email.To, gotTo, "email to doesn't match")
+				assert.Equal(t, tt.wantEmailFrom, gotFrom, "email from doesn't match")
+				assert.Equal(t, tt.wantEmailMsg, gotMsg, "email msg doesn't match")
+			}
 		})
 	}
 }
