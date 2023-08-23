@@ -88,21 +88,6 @@ func processConfig(conf *configpb.AlertConf) {
 	if conf.RepeatIntervalSec == nil {
 		conf.RepeatIntervalSec = proto.Int32(3600)
 	}
-
-	if conf.DashboardUrlTemplate == "" {
-		conf.DashboardUrlTemplate = DefaultDashboardURLTemplate
-	}
-
-	// Set default summary template.
-	if conf.SummaryTemplate == "" {
-		conf.SummaryTemplate = DefaultSummaryTemplate
-	}
-
-	// Set default summary template.
-	if conf.DetailsTemplate == "" {
-		conf.DetailsTemplate = DefaultDetailsTemplate
-	}
-
 }
 
 // NewAlertHandler creates a new AlertHandler from the given config.
