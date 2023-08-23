@@ -84,6 +84,14 @@ const (
 	MaxLogEntrySize = 102400
 )
 
+// basePath is the root location of the cloudprober source code at the build
+// time, e.g. /Users/manugarg/code/cloudprober. We trim this path from the
+// logged source file names. We set this in the init() function.
+var basePath string
+
+// We trim this path from the logged source function name.
+const basePackage = "github.com/cloudprober/cloudprober/"
+
 var defaultWritter = io.Writer(os.Stderr)
 
 func slogHandler() slog.Handler {
@@ -91,9 +99,19 @@ func slogHandler() slog.Handler {
 		slog.Default().Error("invalid log format: " + *logFmt)
 		os.Exit(1)
 	}
+	replace := func(_ []string, a slog.Attr) slog.Attr {
+		// Trim basePath from the source file name.
+		if a.Key == slog.SourceKey {
+			source := a.Value.Any().(*slog.Source)
+			source.File = strings.TrimPrefix(source.File, basePath)
+			source.Function = strings.TrimPrefix(source.Function, basePackage)
+		}
+		return a
+	}
 
 	opts := &slog.HandlerOptions{
-		AddSource: true,
+		AddSource:   true,
+		ReplaceAttr: replace,
 	}
 
 	attrs := []slog.Attr{slog.String("system", "cloudprober")}
@@ -482,4 +500,10 @@ func init() {
 	if envVarSet(EnvVars.DebugLog) {
 		*debugLog = true
 	}
+
+	// Determine the base path for the cloudprober source code.
+	var pcs [1]uintptr
+	runtime.Callers(1, pcs[:])
+	frame, _ := runtime.CallersFrames(pcs[:]).Next()
+	basePath = strings.TrimSuffix(frame.File, "logger/logger.go")
 }
