@@ -94,31 +94,29 @@ const basePackage = "github.com/cloudprober/cloudprober/"
 
 var defaultWritter = io.Writer(os.Stderr)
 
-func slogHandler() slog.Handler {
-	if *logFmt != "json" && *logFmt != "text" {
-		slog.Default().Error("invalid log format: " + *logFmt)
-		os.Exit(1)
+func replaceAttrs(_ []string, a slog.Attr) slog.Attr {
+	if a.Key == slog.SourceKey {
+		source := a.Value.Any().(*slog.Source)
+		source.File = strings.TrimPrefix(source.File, basePath)
+		source.Function = strings.TrimPrefix(source.Function, basePackage)
 	}
-	replace := func(_ []string, a slog.Attr) slog.Attr {
-		// Trim basePath from the source file name.
-		if a.Key == slog.SourceKey {
-			source := a.Value.Any().(*slog.Source)
-			source.File = strings.TrimPrefix(source.File, basePath)
-			source.Function = strings.TrimPrefix(source.Function, basePackage)
-		}
-		return a
-	}
+	return a
+}
 
+func slogHandler() slog.Handler {
 	opts := &slog.HandlerOptions{
 		AddSource:   true,
-		ReplaceAttr: replace,
+		ReplaceAttr: replaceAttrs,
 	}
 
 	attrs := []slog.Attr{slog.String("system", "cloudprober")}
-	if *logFmt == "json" {
+	switch *logFmt {
+	case "json":
 		return slog.NewJSONHandler(defaultWritter, opts).WithAttrs(attrs)
+	case "text":
+		return slog.NewTextHandler(defaultWritter, opts).WithAttrs(attrs)
 	}
-	return slog.NewTextHandler(defaultWritter, opts).WithAttrs(attrs)
+	panic("invalid log format: " + *logFmt)
 }
 
 func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {

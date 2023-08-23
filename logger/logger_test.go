@@ -22,7 +22,6 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -113,8 +112,8 @@ func testVerifyJSONLog(t *testing.T, b []byte, wantLabels map[string]string) {
 
 	// Verify json source
 	gotSource := gotMap["source"].(map[string]interface{})
-	assert.Equal(t, "github.com/cloudprober/cloudprober/logger.testLog", gotSource["function"].(string), "json source - function")
-	assert.Equal(t, true, strings.HasSuffix(gotSource["file"].(string), "cloudprober/logger/logger_test.go"), "json source - file")
+	assert.Equal(t, "logger.testLog", gotSource["function"].(string), "json source - function")
+	assert.Equal(t, "logger/logger_test.go", gotSource["file"], "json source - file")
 	assert.GreaterOrEqual(t, gotSource["line"].(float64), float64(100), "json source - line")
 
 }
@@ -125,7 +124,7 @@ func testVerifyTextLog(t *testing.T, line string, wantLabels map[string]string) 
 	for k, v := range wantLabels {
 		assert.Contains(t, line, k+"="+v, "label in %s", line)
 	}
-	sourceRegex := regexp.MustCompile("source=(.*)/cloudprober/logger/logger_test.go:[0-9]+")
+	sourceRegex := regexp.MustCompile("source=logger/logger_test.go:[0-9]+")
 	assert.Regexp(t, sourceRegex, line, "source in log")
 }
 
