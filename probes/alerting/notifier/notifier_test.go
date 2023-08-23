@@ -114,8 +114,8 @@ func TestNotify(t *testing.T) {
 				},
 			},
 			errorContains: "/random-cmd-test-alert-manugarg@a.b",
-			wantEmailFrom: "alert-notification@cloudprober.org",
-			wantEmailMsg:  "From: alert-notification@cloudprober.org\r\nTo: manugarg@a.b\r\nSubject: Cloudprober alert test-alert for test-target:1234\r\n\r\nCloudprober alert \"test-alert\" for \"test-target:1234\":\n\nFailures: 1 out of 2 probes\nFailing since: 0001-01-01T00:00:00Z\nProbe: test-probe\nDashboard: @dashboard_url@\nPlaybook: \nCondition ID: cond-id\n\r\n",
+			wantEmailFrom: "cloudprober-alert@localhost",
+			wantEmailMsg:  "From: cloudprober-alert@localhost\r\nTo: manugarg@a.b\r\nSubject: Cloudprober alert test-alert for test-target:1234\r\n\r\nCloudprober alert \"test-alert\" for \"test-target:1234\":\n\nFailures: 1 out of 2 probes\nFailing since: 0001-01-01T00:00:00Z\nProbe: test-probe\nDashboard: @dashboard_url@\nPlaybook: \nCondition ID: cond-id\n\r\n",
 		},
 	}
 

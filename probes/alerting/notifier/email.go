@@ -58,9 +58,6 @@ func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]stri
 }
 
 func smtpPassword(user string, emailCfg *configpb.Email) (string, error) {
-	if user == "" {
-		return "", nil
-	}
 	password := emailCfg.GetSmtpPassword()
 	if password == "" {
 		password = os.Getenv("SMTP_PASSWORD")
@@ -69,6 +66,22 @@ func smtpPassword(user string, emailCfg *configpb.Email) (string, error) {
 		}
 	}
 	return password, nil
+}
+
+func emaiFrom(user string, emailCfg *configpb.Email) string {
+	if from := emailCfg.GetFrom(); from != "" {
+		return from
+	}
+
+	if user != "" {
+		return user
+	}
+
+	hostname := os.Getenv("HOSTNAME")
+	if hostname == "" {
+		hostname = "localhost"
+	}
+	return "cloudprober-alert@" + hostname
 }
 
 func newEmailNotifier(emailCfg *configpb.Email, l *logger.Logger) (*emailNotifier, error) {
@@ -89,31 +102,22 @@ func newEmailNotifier(emailCfg *configpb.Email, l *logger.Logger) (*emailNotifie
 		}
 	}
 
-	password, err := smtpPassword(user, emailCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	from, to := emailCfg.From, emailCfg.To
-	if from == "" {
-		if user != "" {
-			from = user
-		} else {
-			from = "alert-notification@cloudprober.org" + os.Getenv("HOSTNAME")
-		}
-	}
-
-	if len(to) == 0 {
+	if len(emailCfg.To) == 0 {
 		return nil, fmt.Errorf("no email recipients configured")
 	}
 
 	en := &emailNotifier{
-		to:     to,
-		from:   from,
+		to:     emailCfg.To,
+		from:   emaiFrom(user, emailCfg),
 		server: server,
 		l:      l,
 	}
+
 	if user != "" {
+		password, err := smtpPassword(user, emailCfg)
+		if err != nil {
+			return nil, err
+		}
 		en.auth = smtp.PlainAuth("", user, password, strings.Split(server, ":")[0])
 	}
 

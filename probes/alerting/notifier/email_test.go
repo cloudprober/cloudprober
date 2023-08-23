@@ -27,6 +27,7 @@ import (
 func TestNewEmailNotifier(t *testing.T) {
 	const smtpServer = "smtp.gmail.com:587"
 	const smtpHost = "smtp.gmail.com"
+	var to = []string{"a@cloudprober.org", "b@cloudprober.org"}
 
 	tests := []struct {
 		name     string
@@ -38,12 +39,12 @@ func TestNewEmailNotifier(t *testing.T) {
 		{
 			name: "default_localhost",
 			emailCfg: &configpb.Email{
-				To:   []string{"a@cloudprober.org"},
+				To:   to,
 				From: "",
 			},
 			want: &emailNotifier{
-				to:     []string{"a@cloudprober.org"},
-				from:   "alert-notification@cloudprober.org",
+				to:     to,
+				from:   "cloudprober-alert@localhost",
 				server: "localhost",
 			},
 		},
@@ -64,13 +65,13 @@ func TestNewEmailNotifier(t *testing.T) {
 		{
 			name: "config",
 			emailCfg: &configpb.Email{
-				To:           []string{"a@cloudprober.org"},
+				To:           to,
 				SmtpServer:   smtpServer,
 				SmtpUsername: "user2@gmail.com",
 				SmtpPassword: "password",
 			},
 			want: &emailNotifier{
-				to:     []string{"a@cloudprober.org"},
+				to:     to,
 				from:   "user2@gmail.com",
 				server: smtpServer,
 				auth:   smtp.PlainAuth("", "user2@gmail.com", "password", smtpHost),
@@ -79,7 +80,7 @@ func TestNewEmailNotifier(t *testing.T) {
 		{
 			name: "config_from_env",
 			emailCfg: &configpb.Email{
-				To:         []string{"a@cloudprober.org"},
+				To:         to[:1],
 				SmtpServer: smtpServer,
 			},
 			env: map[string]string{
@@ -88,7 +89,7 @@ func TestNewEmailNotifier(t *testing.T) {
 				"SMTP_PASSWORD": "password",
 			},
 			want: &emailNotifier{
-				to:     []string{"a@cloudprober.org"},
+				to:     to[:1],
 				from:   "user1@gmail.com",
 				server: smtpServer,
 				auth:   smtp.PlainAuth("", "user1@gmail.com", "password", smtpHost),
@@ -169,5 +170,49 @@ func TestEmailNotifierNotify(t *testing.T) {
 		assert.Equal(t, tt.wantTo, gotTo)
 		assert.Equal(t, wantServer, gotServer)
 		assert.Equal(t, wantFrom, gotFrom)
+	}
+}
+
+func TestEmaiFrom(t *testing.T) {
+	tests := []struct {
+		name        string
+		user        string
+		envHostname string
+		emailCfg    *configpb.Email
+		want        string
+	}{
+		{
+			name:     "configured",
+			user:     "user1@gmail.com",
+			emailCfg: &configpb.Email{From: "fromuser@gmail.com"},
+			want:     "fromuser@gmail.com",
+		},
+		{
+			name:     "from_user",
+			user:     "user1@gmail.com",
+			emailCfg: &configpb.Email{},
+			want:     "user1@gmail.com",
+		},
+		{
+			name:        "default_from_env",
+			emailCfg:    &configpb.Email{},
+			envHostname: "cloudprober.org",
+			want:        "cloudprober-alert@cloudprober.org",
+		},
+		{
+			name:     "default",
+			emailCfg: &configpb.Email{},
+			want:     "cloudprober-alert@localhost",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envHostname != "" {
+				os.Setenv("HOSTNAME", tt.envHostname)
+				defer os.Unsetenv("HOSTNAME")
+			}
+			assert.Equal(t, tt.want, emaiFrom(tt.user, tt.emailCfg))
+		})
 	}
 }
