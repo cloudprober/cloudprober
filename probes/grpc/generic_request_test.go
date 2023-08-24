@@ -122,6 +122,7 @@ func TestInitDescriptorSource(t *testing.T) {
 		{
 			name: "list_services",
 			request: &configpb.GenericRequest{
+				ProtosetFile: proto.String("testdata/grpc_server.protoset"),
 				RequestType: &configpb.GenericRequest_ListServices{
 					ListServices: true,
 				},
@@ -131,6 +132,7 @@ func TestInitDescriptorSource(t *testing.T) {
 		{
 			name: "list_service_methods",
 			request: &configpb.GenericRequest{
+				ProtosetFile: proto.String("testdata/grpc_server.protoset"),
 				RequestType: &configpb.GenericRequest_ListServiceMethods{
 					ListServiceMethods: "cloudprober.servers.grpc.Prober",
 				},
@@ -140,26 +142,37 @@ func TestInitDescriptorSource(t *testing.T) {
 		{
 			name: "describe_service_method",
 			request: &configpb.GenericRequest{
+				ProtosetFile: proto.String("testdata/grpc_server.protoset"),
 				RequestType: &configpb.GenericRequest_DescribeServiceMethod{
 					DescribeServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
 				},
 			},
 			wantErr: true,
 		},
+		{
+			name: "call_service_method",
+			request: &configpb.GenericRequest{
+				ProtosetFile: proto.String("testdata/grpc_server.protoset"),
+				RequestType: &configpb.GenericRequest_CallServiceMethod{
+					CallServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &Probe{}
 			p.c = &configpb.ProbeConf{
-				Request: &configpb.GenericRequest{
-					ProtosetFile: proto.String("testdata/test.protoset"),
-					RequestType: &configpb.GenericRequest_ListServices{
-						ListServices: true,
-					},
-				},
+				Request: tt.request,
 			}
 			if err := p.initDescriptorSource(); (err != nil) != tt.wantErr {
 				t.Errorf("Probe.initDescriptorSource() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.request.GetCallServiceMethod() != "" {
+				assert.NotNil(t, p.descSrc)
+				desc, err := p.descSrc.FindSymbol(tt.request.GetCallServiceMethod())
+				assert.NoError(t, err)
+				assert.Equal(t, "cloudprober.servers.grpc", desc.GetFile().GetPackage())
 			}
 		})
 	}

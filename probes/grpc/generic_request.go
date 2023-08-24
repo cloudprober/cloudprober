@@ -36,12 +36,17 @@ func (p *Probe) initDescriptorSource() error {
 	}
 
 	if req.GetProtosetFile() != "" {
-		if req.GetListServices() || req.GetListServiceMethods() != "" || req.GetDescribeServiceMethod() != "" {
-			return fmt.Errorf("request types list_services, list_service_method, and describe_service_method are not supported for protoset descriptor source")
+		if req.GetCallServiceMethod() == "" {
+			return fmt.Errorf("only call_service_method request type is supported for protoset descriptor source")
 		}
+
 		descSrc, err := grpcurl.DescriptorSourceFromProtoSets(req.GetProtosetFile())
 		if err != nil {
 			return fmt.Errorf("error parsing protoset file: %v", err)
+		}
+
+		if _, err = descSrc.FindSymbol(req.GetCallServiceMethod()); err != nil {
+			return fmt.Errorf("error finding symbol (%s) in protoset file: %v", req.GetCallServiceMethod(), err)
 		}
 		p.descSrc = descSrc
 	}
