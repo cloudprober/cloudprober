@@ -127,6 +127,7 @@ import (
 	"text/template"
 
 	"cloud.google.com/go/compute/metadata"
+	"github.com/Masterminds/sprig/v3"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -226,6 +227,9 @@ func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 		"splitList": func(sep, input string) []string {
 			return strings.Split(input, sep)
 		},
+	}
+	for name, f := range sprig.TxtFuncMap() {
+		funcMap[name] = f
 	}
 	configTmpl, err := template.New("cloudprober_cfg").Funcs(funcMap).Parse(config)
 	if err != nil {
