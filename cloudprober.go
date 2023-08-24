@@ -47,6 +47,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 )
 
 const (
@@ -198,6 +199,7 @@ func InitFromConfig(configFile string) error {
 		}
 
 		s := grpc.NewServer(serverOpts...)
+		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
 		runconfig.SetDefaultGRPCServer(s)
