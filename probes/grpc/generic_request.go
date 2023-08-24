@@ -49,72 +49,63 @@ func (p *Probe) initDescriptorSource() error {
 	return nil
 }
 
-type response struct {
-	body string
+type response string
+
+func (r response) String() string {
+	return string(r)
 }
 
-func (r *response) String() string {
-	if r == nil {
-		return ""
-	}
-	return r.body
-}
-
-func (p *Probe) callServiceMethod(ctx context.Context, req *configpb.GenericRequest, conn *grpc.ClientConn) (*response, error) {
+func (p *Probe) callServiceMethod(ctx context.Context, req *configpb.GenericRequest, descSrc grpcurl.DescriptorSource, conn *grpc.ClientConn) (response, error) {
 	in := strings.NewReader(req.GetBody())
-	rf, formatter, err := grpcurl.RequestParserAndFormatter(grpcurl.FormatJSON, p.descSrc, in, grpcurl.FormatOptions{})
+	rf, formatter, err := grpcurl.RequestParserAndFormatter(grpcurl.FormatJSON, descSrc, in, grpcurl.FormatOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct parser and formatter: %v", err)
+		return "", fmt.Errorf("failed to construct parser and formatter: %v", err)
 	}
 
 	var out bytes.Buffer
 	h := &grpcurl.DefaultEventHandler{Out: &out, Formatter: formatter}
 
-	if err := grpcurl.InvokeRPC(ctx, p.descSrc, conn, req.GetCallServiceMethod(), nil, h, rf.Next); err != nil {
-		return nil, fmt.Errorf("error invoking gRPC: %v", err)
+	if err := grpcurl.InvokeRPC(ctx, descSrc, conn, req.GetCallServiceMethod(), nil, h, rf.Next); err != nil {
+		return "", fmt.Errorf("error invoking gRPC: %v", err)
 	}
 
 	var buf bytes.Buffer
 	if err := json.Compact(&buf, out.Bytes()); err != nil {
-		return nil, fmt.Errorf("error compacting response JSON (%s): %v", out.String(), err)
+		return "", fmt.Errorf("error compacting response JSON (%s): %v", out.String(), err)
 	}
-	return &response{body: buf.String()}, nil
+	return response(buf.String()), nil
 }
 
-func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn, req *configpb.GenericRequest) (*response, error) {
+func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn, req *configpb.GenericRequest) (response, error) {
 	// If we didn't load protoset from a file, we'll get it everytime
 	// from the server.
-	if req.GetProtosetFile() == "" {
-		p.descSrc = grpcurl.DescriptorSourceFromServer(ctx, grpcreflect.NewClientAuto(ctx, conn))
+	descSrc := p.descSrc
+	if descSrc == nil {
+		descSrc = grpcurl.DescriptorSourceFromServer(ctx, grpcreflect.NewClientAuto(ctx, conn))
 	}
 
-	if req.GetListServices() {
-		services, err := grpcurl.ListServices(p.descSrc)
+	switch req.RequestType.(type) {
+	case *configpb.GenericRequest_ListServices:
+		services, err := grpcurl.ListServices(descSrc)
 		if err != nil {
-			return nil, fmt.Errorf("error listing services: %v", err)
+			return "", fmt.Errorf("error listing services: %v", err)
 		}
-		return &response{body: strings.Join(services, ",")}, nil
-	}
-
-	if req.GetListServiceMethods() != "" {
-		methods, err := grpcurl.ListMethods(p.descSrc, req.GetListServiceMethods())
+		return response(strings.Join(services, ",")), nil
+	case *configpb.GenericRequest_ListServiceMethods:
+		methods, err := grpcurl.ListMethods(descSrc, req.GetListServiceMethods())
 		if err != nil {
-			return nil, fmt.Errorf("error listing service (%s) methods: %v", req.GetListServiceMethods(), err)
+			return "", fmt.Errorf("error listing service (%s) methods: %v", req.GetListServiceMethods(), err)
 		}
-		return &response{body: strings.Join(methods, ",")}, nil
-	}
-
-	if req.GetDescribeServiceMethod() != "" {
-		d, err := p.descSrc.FindSymbol(req.GetDescribeServiceMethod())
+		return response(strings.Join(methods, ",")), nil
+	case *configpb.GenericRequest_DescribeServiceMethod:
+		d, err := descSrc.FindSymbol(req.GetDescribeServiceMethod())
 		if err != nil {
-			return nil, fmt.Errorf("error describing method(%s): %v", req.GetDescribeServiceMethod(), err)
+			return "", fmt.Errorf("error describing method(%s): %v", req.GetDescribeServiceMethod(), err)
 		}
-		return &response{body: strings.ReplaceAll(d.AsProto().String(), "  ", " ")}, nil
+		return response(strings.ReplaceAll(d.AsProto().String(), "  ", " ")), nil
+	case *configpb.GenericRequest_CallServiceMethod:
+		return p.callServiceMethod(ctx, req, descSrc, conn)
 	}
 
-	if req.GetCallServiceMethod() != "" {
-		return p.callServiceMethod(ctx, req, conn)
-	}
-
-	return nil, fmt.Errorf("invalid request type: %v", req)
+	return "", fmt.Errorf("invalid request type: %v", req)
 }

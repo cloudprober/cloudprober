@@ -38,7 +38,7 @@ func TestGenericRequest(t *testing.T) {
 	tests := []struct {
 		name     string
 		req      *configpb.GenericRequest
-		wantResp *response
+		wantResp string
 		wantErr  bool
 	}{
 		{
@@ -48,12 +48,10 @@ func TestGenericRequest(t *testing.T) {
 					ListServices: true,
 				},
 			},
-			wantResp: &response{
-				body: strings.Join([]string{
-					"cloudprober.servers.grpc.Prober",
-					"grpc.reflection.v1alpha.ServerReflection",
-				}, ","),
-			},
+			wantResp: strings.Join([]string{
+				"cloudprober.servers.grpc.Prober",
+				"grpc.reflection.v1alpha.ServerReflection",
+			}, ","),
 		},
 		{
 			name: "list_service_methods",
@@ -62,14 +60,12 @@ func TestGenericRequest(t *testing.T) {
 					ListServiceMethods: "cloudprober.servers.grpc.Prober",
 				},
 			},
-			wantResp: &response{
-				body: strings.Join([]string{
-					"cloudprober.servers.grpc.Prober.BlobRead",
-					"cloudprober.servers.grpc.Prober.BlobWrite",
-					"cloudprober.servers.grpc.Prober.Echo",
-					"cloudprober.servers.grpc.Prober.ServerStatus",
-				}, ","),
-			},
+			wantResp: strings.Join([]string{
+				"cloudprober.servers.grpc.Prober.BlobRead",
+				"cloudprober.servers.grpc.Prober.BlobWrite",
+				"cloudprober.servers.grpc.Prober.Echo",
+				"cloudprober.servers.grpc.Prober.ServerStatus",
+			}, ","),
 		},
 		{
 			name: "desc_service_method",
@@ -78,9 +74,7 @@ func TestGenericRequest(t *testing.T) {
 					DescribeServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
 				},
 			},
-			wantResp: &response{
-				body: "name:\"Echo\" input_type:\".cloudprober.servers.grpc.EchoMessage\" output_type:\".cloudprober.servers.grpc.EchoMessage\" options:{}",
-			},
+			wantResp: "name:\"Echo\" input_type:\".cloudprober.servers.grpc.EchoMessage\" output_type:\".cloudprober.servers.grpc.EchoMessage\" options:{}",
 		},
 		{
 			name: "call_service_method",
@@ -90,9 +84,7 @@ func TestGenericRequest(t *testing.T) {
 				},
 				Body: proto.String("{\"blob\": \"test\"}"),
 			},
-			wantResp: &response{
-				body: "{\"blob\":\"test\"}",
-			},
+			wantResp: "{\"blob\":\"test\"}",
 		},
 		{
 			name: "call_service_method_error",
@@ -116,7 +108,59 @@ func TestGenericRequest(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tt.wantResp, resp)
+			assert.Equal(t, response(tt.wantResp), resp)
+		})
+	}
+}
+
+func TestInitDescriptorSource(t *testing.T) {
+	tests := []struct {
+		name    string
+		request *configpb.GenericRequest
+		wantErr bool
+	}{
+		{
+			name: "list_services",
+			request: &configpb.GenericRequest{
+				RequestType: &configpb.GenericRequest_ListServices{
+					ListServices: true,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "list_service_methods",
+			request: &configpb.GenericRequest{
+				RequestType: &configpb.GenericRequest_ListServiceMethods{
+					ListServiceMethods: "cloudprober.servers.grpc.Prober",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "describe_service_method",
+			request: &configpb.GenericRequest{
+				RequestType: &configpb.GenericRequest_DescribeServiceMethod{
+					DescribeServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{}
+			p.c = &configpb.ProbeConf{
+				Request: &configpb.GenericRequest{
+					ProtosetFile: proto.String("testdata/test.protoset"),
+					RequestType: &configpb.GenericRequest_ListServices{
+						ListServices: true,
+					},
+				},
+			}
+			if err := p.initDescriptorSource(); (err != nil) != tt.wantErr {
+				t.Errorf("Probe.initDescriptorSource() error = %v, wantErr %v", err, tt.wantErr)
+			}
 		})
 	}
 }
