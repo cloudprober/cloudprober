@@ -12,9 +12,6 @@ message GenericRequest {
   // files. You can use protoc to generate protoset files:
   //   protoc --proto_path=. --descriptor_set_out=myservice.protoset \
   //     --include_imports my/custom/server/service.proto
-  //
-  // If protoset_file is not provided, we try to use the gRPC reflection if
-  // server supports it.
   optional string protoset_file = 1;
 
   // Note first 3 methods are valid only if descriptor source is not set.
@@ -28,7 +25,9 @@ message GenericRequest {
     // Describe service method using reflection.
     string describe_service_method = 4;
 
-    // Call service method.
+    // Call service method. For this to succeed, you should either provide the
+    // protoset file or the server should support gRPC reflection.
+    // https://github.com/grpc/grpc/blob/master/doc/server-reflection.md
     string call_service_method = 5;
   }
 
@@ -74,7 +73,7 @@ message ProbeConf {
     READ = 2;
     WRITE = 3;
     HEALTH_CHECK = 4;   // gRPC healthcheck service.
-    GENERIC = 5;
+    GENERIC = 5;        // Generic gRPC request.
   }
   optional MethodType method = 3 [default = ECHO];
 
@@ -89,6 +88,7 @@ message ProbeConf {
   // HEALTH_CHECK pass regardless of the response-status.
   optional bool health_check_ignore_status = 11;
 
+  // Request definition for the GENERIC method.
   optional GenericRequest request = 14;
 
   optional int32 num_conns = 5 [default = 2];

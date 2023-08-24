@@ -29,7 +29,7 @@ const (
 	ProbeConf_READ         ProbeConf_MethodType = 2
 	ProbeConf_WRITE        ProbeConf_MethodType = 3
 	ProbeConf_HEALTH_CHECK ProbeConf_MethodType = 4 // gRPC healthcheck service.
-	ProbeConf_GENERIC      ProbeConf_MethodType = 5
+	ProbeConf_GENERIC      ProbeConf_MethodType = 5 // Generic gRPC request.
 )
 
 // Enum value maps for ProbeConf_MethodType.
@@ -97,9 +97,6 @@ type GenericRequest struct {
 	//
 	//	protoc --proto_path=. --descriptor_set_out=myservice.protoset \
 	//	  --include_imports my/custom/server/service.proto
-	//
-	// If protoset_file is not provided, we try to use the gRPC reflection if
-	// server supports it.
 	ProtosetFile *string `protobuf:"bytes,1,opt,name=protoset_file,json=protosetFile" json:"protoset_file,omitempty"`
 	// Note first 3 methods are valid only if descriptor source is not set.
 	//
@@ -215,7 +212,9 @@ type GenericRequest_DescribeServiceMethod struct {
 }
 
 type GenericRequest_CallServiceMethod struct {
-	// Call service method.
+	// Call service method. For this to succeed, you should either provide the
+	// protoset file or the server should support gRPC reflection.
+	// https://github.com/grpc/grpc/blob/master/doc/server-reflection.md
 	CallServiceMethod string `protobuf:"bytes,5,opt,name=call_service_method,json=callServiceMethod,oneof"`
 }
 
@@ -253,10 +252,11 @@ type ProbeConf struct {
 	// For HEALTH_CHECK, ignore status. By default, HEALTH_CHECK test passes
 	// only if response-status is SERVING. Setting the following option makes
 	// HEALTH_CHECK pass regardless of the response-status.
-	HealthCheckIgnoreStatus *bool           `protobuf:"varint,11,opt,name=health_check_ignore_status,json=healthCheckIgnoreStatus" json:"health_check_ignore_status,omitempty"`
-	Request                 *GenericRequest `protobuf:"bytes,14,opt,name=request" json:"request,omitempty"`
-	NumConns                *int32          `protobuf:"varint,5,opt,name=num_conns,json=numConns,def=2" json:"num_conns,omitempty"`
-	KeepAlive               *bool           `protobuf:"varint,6,opt,name=keep_alive,json=keepAlive,def=1" json:"keep_alive,omitempty"`
+	HealthCheckIgnoreStatus *bool `protobuf:"varint,11,opt,name=health_check_ignore_status,json=healthCheckIgnoreStatus" json:"health_check_ignore_status,omitempty"`
+	// Request definition for the GENERIC method.
+	Request   *GenericRequest `protobuf:"bytes,14,opt,name=request" json:"request,omitempty"`
+	NumConns  *int32          `protobuf:"varint,5,opt,name=num_conns,json=numConns,def=2" json:"num_conns,omitempty"`
+	KeepAlive *bool           `protobuf:"varint,6,opt,name=keep_alive,json=keepAlive,def=1" json:"keep_alive,omitempty"`
 	// If connect_timeout is not specified, reuse probe timeout.
 	ConnectTimeoutMsec *int32 `protobuf:"varint,7,opt,name=connect_timeout_msec,json=connectTimeoutMsec" json:"connect_timeout_msec,omitempty"`
 	// URI scheme allows gRPC to use different resolvers

@@ -26,21 +26,20 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
 func (p *Probe) initDescriptorSource() error {
-	if p.c.GetRequest() == nil {
+	req := p.c.GetRequest()
+
+	if req == nil {
 		return errors.New("request is required for GENERIC gRPC probe")
 	}
-
-	req := p.c.GetRequest()
 
 	if req.GetProtosetFile() != "" {
 		if req.GetListServices() || req.GetListServiceMethods() != "" || req.GetDescribeServiceMethod() != "" {
 			return fmt.Errorf("request types list_services, list_service_method, and describe_service_method are not supported for protoset descriptor source")
 		}
-		descSrc, err := grpcurl.DescriptorSourceFromProtoSets(p.c.GetRequest().GetProtosetFile())
+		descSrc, err := grpcurl.DescriptorSourceFromProtoSets(req.GetProtosetFile())
 		if err != nil {
 			return fmt.Errorf("error parsing protoset file: %v", err)
 		}
@@ -51,8 +50,11 @@ func (p *Probe) initDescriptorSource() error {
 }
 
 type response struct {
-	st   *status.Status
 	body string
+}
+
+func (r *response) String() string {
+	return r.body
 }
 
 func (p *Probe) callServiceMethod(ctx context.Context, req *configpb.GenericRequest, conn *grpc.ClientConn) (*response, error) {
@@ -73,12 +75,10 @@ func (p *Probe) callServiceMethod(ctx context.Context, req *configpb.GenericRequ
 	if err := json.Compact(&buf, out.Bytes()); err != nil {
 		return nil, fmt.Errorf("error compacting response JSON (%s): %v", out.String(), err)
 	}
-	return &response{st: h.Status, body: buf.String()}, nil
+	return &response{body: buf.String()}, nil
 }
 
-func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn) (*response, error) {
-	req := p.c.GetRequest()
-
+func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn, req *configpb.GenericRequest) (*response, error) {
 	// If we didn't load protoset from a file, we'll get it everytime
 	// from the server.
 	if req.GetProtosetFile() == "" {
@@ -96,8 +96,7 @@ func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn) (*res
 	if req.GetListServiceMethods() != "" {
 		methods, err := grpcurl.ListMethods(p.descSrc, req.GetListServiceMethods())
 		if err != nil {
-			p.l.Errorf("Error listing service (%s) methods: %v", req.GetListServiceMethods(), err)
-			return nil, err
+			return nil, fmt.Errorf("error listing service (%s) methods: %v", req.GetListServiceMethods(), err)
 		}
 		return &response{body: strings.Join(methods, ",")}, nil
 	}

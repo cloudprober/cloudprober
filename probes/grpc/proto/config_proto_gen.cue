@@ -10,9 +10,6 @@ import (
 	// files. You can use protoc to generate protoset files:
 	//   protoc --proto_path=. --descriptor_set_out=myservice.protoset \
 	//     --include_imports my/custom/server/service.proto
-	//
-	// If protoset_file is not provided, we try to use the gRPC reflection if
-	// server supports it.
 	protosetFile?: string @protobuf(1,string,name=protoset_file)
 	// Note first 3 methods are valid only if descriptor source is not set.
 	{} | {
@@ -25,7 +22,9 @@ import (
 		// Describe service method using reflection.
 		describeServiceMethod: string @protobuf(4,string,name=describe_service_method)
 	} | {
-		// Call service method.
+		// Call service method. For this to succeed, you should either provide the
+		// protoset file or the server should support gRPC reflection.
+		// https://github.com/grpc/grpc/blob/master/doc/server-reflection.md
 		callServiceMethod: string @protobuf(5,string,name=call_service_method)
 	}
 
@@ -71,8 +70,11 @@ import (
 		{"READ", #enumValue: 2} |
 		{"WRITE", #enumValue: 3} | {
 			"HEALTH_CHECK"// gRPC healthcheck service.
-						#enumValue: 4
-		} | {"GENERIC", #enumValue: 5}
+			#enumValue: 4
+		} | {
+			"GENERIC"// Generic gRPC request.
+			#enumValue: 5
+		}
 
 	#MethodType_value: {
 		ECHO:         1
@@ -92,10 +94,12 @@ import (
 	// For HEALTH_CHECK, ignore status. By default, HEALTH_CHECK test passes
 	// only if response-status is SERVING. Setting the following option makes
 	// HEALTH_CHECK pass regardless of the response-status.
-	healthCheckIgnoreStatus?: bool            @protobuf(11,bool,name=health_check_ignore_status)
-	request?:                 #GenericRequest @protobuf(14,GenericRequest)
-	numConns?:                int32           @protobuf(5,int32,name=num_conns,"default=2")
-	keepAlive?:               bool            @protobuf(6,bool,name=keep_alive,default)
+	healthCheckIgnoreStatus?: bool @protobuf(11,bool,name=health_check_ignore_status)
+
+	// Request definition for the GENERIC method.
+	request?:   #GenericRequest @protobuf(14,GenericRequest)
+	numConns?:  int32           @protobuf(5,int32,name=num_conns,"default=2")
+	keepAlive?: bool            @protobuf(6,bool,name=keep_alive,default)
 
 	// If connect_timeout is not specified, reuse probe timeout.
 	connectTimeoutMsec?: int32 @protobuf(7,int32,name=connect_timeout_msec)

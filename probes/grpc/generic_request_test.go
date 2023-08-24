@@ -108,11 +108,9 @@ func TestGenericRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Probe{
-				c: &configpb.ProbeConf{Request: tt.req},
-			}
+			p := &Probe{}
 
-			resp, err := p.genericRequest(context.Background(), conn)
+			resp, err := p.genericRequest(context.Background(), conn, tt.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Probe.genericRequest() error = %v, wantErr %v", err, tt.wantErr)
 				return

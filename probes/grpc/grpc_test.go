@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloudprober Authors.
+// Copyright 2020-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -448,7 +448,7 @@ func TestHealthCheckProbe(t *testing.T) {
 				}, nil
 			}
 
-			err := p.healthCheckProbe(context.Background(), nil, "")
+			_, err := p.healthCheckProbe(context.Background(), nil)
 			if err != nil && !test.wantErr {
 				t.Errorf("Unexpected error: %v", err)
 				return
