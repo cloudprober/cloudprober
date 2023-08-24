@@ -11,10 +11,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.9
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.11
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.18.3
+	github.com/fullstorydev/grpcurl v1.8.7
 	github.com/golang/glog v1.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hoisie/redis v0.0.0-20160730154456-b5c6e81454e0
+	github.com/jhump/protoreflect v1.15.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lib/pq v1.8.0
 	github.com/miekg/dns v1.1.33
@@ -23,7 +25,7 @@ require (
 	golang.org/x/sys v0.5.0
 	google.golang.org/api v0.46.0
 	google.golang.org/genproto v0.0.0-20210517163617-5e0236093d7a
-	google.golang.org/grpc v1.37.1
+	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.30.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -37,6 +39,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.12 // indirect
 	github.com/aws/smithy-go v1.12.1 // indirect
+	github.com/bufbuild/protocompile v0.4.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/itchyny/timefmt-go v0.1.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -46,17 +51,16 @@ require (
 
 require (
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
-	github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403 // indirect
-	github.com/envoyproxy/go-control-plane v0.9.9-0.20210217033140-668b12f5399d // indirect
+	github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4 // indirect
+	github.com/envoyproxy/go-control-plane v0.10.2-0.20220325020618-49ff273808a1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
-	github.com/google/uuid v1.1.2 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/itchyny/gojq v0.12.9
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
