@@ -54,6 +54,9 @@ type response struct {
 }
 
 func (r *response) String() string {
+	if r == nil {
+		return ""
+	}
 	return r.body
 }
 
@@ -113,5 +116,5 @@ func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn, req *
 		return p.callServiceMethod(ctx, req, conn)
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("invalid request type: %v", req)
 }

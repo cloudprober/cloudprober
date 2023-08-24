@@ -245,7 +245,7 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context) {
 // connection error. On success, it returns a client immediately.
 // Interval between connects is controlled by connect_timeout_msec, defaulting
 // to probe timeout.
-func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, msgPattern string, result *probeRunResult, logAttrs ...slog.Attr) *grpc.ClientConn {
+func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, logAttrs ...slog.Attr) *grpc.ClientConn {
 	addr := target.Name
 	if target.IP != nil {
 		if p.opts.IPVersion == 0 || iputils.IPVersion(target.IP) == p.opts.IPVersion {
@@ -330,7 +330,7 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index 
 		al.UpdateForTarget(tgt, "", 0)
 	}
 
-	conn := p.connectWithRetry(ctx, tgt, msgPattern, result, logAttrs...)
+	conn := p.connectWithRetry(ctx, tgt, result, logAttrs...)
 	if conn == nil {
 		return
 	}
