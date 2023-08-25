@@ -191,12 +191,16 @@ function generateProbeSelectors() {
   $('.probe-checkbox').change(handleProbeSelect);
 }
 
+function showDebugInfo() {
+  let params = new URLSearchParams(window.location.search);
+  if (params.get('debug')) {
+    $('#debug-info').show();
+  }
+}
+
 $(document).ready(function () {
   setupGraphEndpoint();
   setupGraphDuration();
+  showDebugInfo();
   generateProbeSelectors();
-
-  $('#show-hide-debug-info').click(function () {
-    $('#debug-info').toggle();
-  });
 });
