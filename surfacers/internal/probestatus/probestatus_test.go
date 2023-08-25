@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,6 +158,58 @@ func TestDisabledAndHandlers(t *testing.T) {
 			for url, pattern := range test.patternMatch {
 				_, matchedPattern := opts.HTTPServeMux.Handler(httptest.NewRequest("", url, nil))
 				assert.Equal(t, pattern, matchedPattern)
+			}
+		})
+	}
+}
+
+func TestSurfacerWriteData(t *testing.T) {
+	tests := []struct {
+		name            string
+		query           string
+		wantContains    []string
+		wantNotContains []string
+		probeNames      []string
+	}{
+		{
+			name: "default",
+			wantContains: []string{
+				"startTime", "allProbes", "chart",
+			},
+			probeNames: []string{"Probe: p1", "Probe: p2"},
+		},
+		{
+			name:  "probe_filter",
+			query: "probe=p1",
+			wantContains: []string{
+				"startTime", "allProbes", "chart",
+			},
+			wantNotContains: []string{"Probe: p2"},
+			probeNames:      []string{"Probe: p1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ps := &Surfacer{
+				pageCache:  newPageCache(1),
+				probeNames: tt.probeNames,
+			}
+			hw := &httpWriter{
+				w: httptest.NewRecorder(),
+				r: httptest.NewRequest("", "/", nil),
+			}
+			if tt.query != "" {
+				hw.r.URL.RawQuery = tt.query
+				t.Logf("Setting query: %v", hw.r.URL.Query())
+			}
+			ps.writeData(hw)
+			got := hw.w.(*httptest.ResponseRecorder).Body.String()
+			for _, keyword := range append(tt.wantContains, tt.probeNames...) {
+				assert.Contains(t, got, keyword)
+			}
+
+			for _, keyword := range tt.wantNotContains {
+				assert.NotContains(t, got, keyword)
 			}
 		})
 	}
