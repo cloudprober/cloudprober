@@ -25,6 +25,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/alerting/notifier/pagerduty"
+	"github.com/cloudprober/cloudprober/probes/alerting/notifier/slack"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
@@ -54,6 +55,7 @@ type Notifier struct {
 	cmdNotifier       *commandNotifier
 	emailNotifier     *emailNotifier
 	pagerdutyNotifier *pagerduty.Client
+	slackNotifier     *slack.Client
 }
 
 // AlertInfo contains information about an alert.
@@ -141,6 +143,14 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
 		}
 	}
 
+	if n.slackNotifier != nil {
+		slackErr := n.slackNotifier.Notify(ctx, fields)
+		if slackErr != nil {
+			n.l.Errorf("Error sending Slack message: %v", slackErr)
+			err = errors.Join(err, slackErr)
+		}
+	}
+
 	return err
 }
 
@@ -193,6 +203,14 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 			return nil, fmt.Errorf("error configuring PagerDuty notifier: %v", err)
 		}
 		n.pagerdutyNotifier = pd
+	}
+
+	if n.alertcfg.GetNotify().GetSlack() != nil {
+		slack, err := slack.New(n.alertcfg.Notify.GetSlack(), l)
+		if err != nil {
+			return nil, fmt.Errorf("error configuring Slack notifier: %v", err)
+		}
+		n.slackNotifier = slack
 	}
 
 	return n, nil

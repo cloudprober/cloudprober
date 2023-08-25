@@ -20,16 +20,31 @@ package proto
 	// and is generated with the service. The routing key is found under the
 	// service, when the events v2 integration is enabled, under integrations,
 	// in the pagerduty console.
-	// Note: set either routing_key or routing_key_env_var.
+	// Note: set either routing_key or routing_key_env_var. routing_key
+	// takes precedence over routing_key_env_var.
 	routingKey?: string @protobuf(1,string,name=routing_key)
 
 	// The environment variable that is used to contain the pagerduty routing
-	// key. If this is set, the routing_key field is ignored.
+	// key.
 	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var) // Default: PAGERDUTY_ROUTING_KEY;
 
 	// PagerDuty API URL.
 	// Used to overwrite the default PagerDuty API URL.
 	apiUrl?: string @protobuf(3,string,name=api_url) // Default: https://event.pagerduty.com
+}
+
+#Slack: {
+	// Webhook URL
+	// The Slack notifications use a webhook URL to send the notifications to
+	// a Slack channel. The webhook URL can be found in the Slack console under
+	// the "Incoming Webhooks" section.
+	// https://api.slack.com/messaging/webhooks
+	// Note: set either webhook_url or webhook_url_env_var. webhook_url
+	// takes precedence over webhook_url_env_var.
+	webhookUrl?: string @protobuf(1,string,name=webhook_url)
+
+	// The environment variable that is used to contain the slack webhook URL.
+	webhookUrlEnvVar?: string @protobuf(2,string,name=webhook_url_env_var) // Default: SLACK_WEBHOOK_URL;
 }
 
 #NotifyConfig: {
@@ -54,6 +69,9 @@ package proto
 
 	// PagerDuty configuration.
 	pagerDuty?: #PagerDuty @protobuf(12,PagerDuty,name=pager_duty)
+
+	// Slack configuration.
+	slack?: #Slack @protobuf(13,Slack)
 }
 
 #Condition: {
