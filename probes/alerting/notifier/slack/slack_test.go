@@ -125,3 +125,23 @@ func TestSlackNotify(t *testing.T) {
 		})
 	}
 }
+
+func TestSlackNotifyError(t *testing.T) {
+	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer httpServer.Close()
+
+	c := &Client{
+		httpClient: httpServer.Client(),
+		webhookURL: httpServer.URL,
+	}
+
+	err := c.Notify(context.Background(), map[string]string{
+		"details": "test-details",
+	})
+
+	if err == nil {
+		t.Errorf("Notify() error = %v, wantErr %v", err, true)
+	}
+}
