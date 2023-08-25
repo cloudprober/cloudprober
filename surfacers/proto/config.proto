@@ -2,15 +2,15 @@ syntax = "proto2";
 
 package cloudprober.surfacer;
 
-import "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/datadog/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/file/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/postgres/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/probestatus/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/prometheus/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/pubsub/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/bigquery/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/cloudwatch/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/datadog/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/file/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/postgres/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/pubsub/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/stackdriver/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/bigquery/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/surfacers/proto";
 
