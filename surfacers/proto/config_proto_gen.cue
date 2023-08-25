@@ -1,15 +1,15 @@
 package proto
 
 import (
-	"github.com/cloudprober/cloudprober/surfacers/prometheus/proto"
-	proto_1 "github.com/cloudprober/cloudprober/surfacers/stackdriver/proto"
-	proto_5 "github.com/cloudprober/cloudprober/surfacers/file/proto"
-	proto_A "github.com/cloudprober/cloudprober/surfacers/postgres/proto"
-	proto_8 "github.com/cloudprober/cloudprober/surfacers/pubsub/proto"
-	proto_E "github.com/cloudprober/cloudprober/surfacers/cloudwatch/proto"
-	proto_B "github.com/cloudprober/cloudprober/surfacers/datadog/proto"
-	proto_36 "github.com/cloudprober/cloudprober/surfacers/probestatus/proto"
-	proto_9 "github.com/cloudprober/cloudprober/surfacers/bigquery/proto"
+	"github.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto"
+	proto_1 "github.com/cloudprober/cloudprober/surfacers/internal/stackdriver/proto"
+	proto_5 "github.com/cloudprober/cloudprober/surfacers/internal/file/proto"
+	proto_A "github.com/cloudprober/cloudprober/surfacers/internal/postgres/proto"
+	proto_8 "github.com/cloudprober/cloudprober/surfacers/internal/pubsub/proto"
+	proto_E "github.com/cloudprober/cloudprober/surfacers/internal/cloudwatch/proto"
+	proto_B "github.com/cloudprober/cloudprober/surfacers/internal/datadog/proto"
+	proto_36 "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto"
+	proto_9 "github.com/cloudprober/cloudprober/surfacers/internal/bigquery/proto"
 )
 
 // Enumeration for each type of surfacer we can parse and create
