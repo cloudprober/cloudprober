@@ -94,9 +94,9 @@ populateD();
 <div id="chart_{{$probeName}}"></div>
 {{end}}
 
-<hr>
-<button id="show-hide-debug-info">Debugging Info</button>
-<div class="debugging" id="debug-info" style="display:none">
+<div id="debug-info" style="display:none">
+  <hr>
+  <b>Debugging Info:</b>
   <br>
   {{range $probeName := .ProbeNames}}
     <p>
