@@ -123,6 +123,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"text/template"
 
 	"cloud.google.com/go/compute/metadata"
@@ -219,6 +220,11 @@ func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 		// mkSlice makes a slice from its arguments.
 		"mkSlice": func(args ...interface{}) []interface{} {
 			return args
+		},
+
+		// splitList splits the given string into a list.
+		"splitList": func(sep, input string) []string {
+			return strings.Split(input, sep)
 		},
 	}
 	configTmpl, err := template.New("cloudprober_cfg").Funcs(funcMap).Parse(config)
