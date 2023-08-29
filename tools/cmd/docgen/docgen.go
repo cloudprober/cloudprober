@@ -2,163 +2,159 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"html/template"
-	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/jhump/protoreflect/desc"
-	"github.com/jhump/protoreflect/desc/protoparse"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 var (
-	homeURL = flag.String("home_url", "/", "Home URL for the documentation.")
+	homeURL = flag.String("home_url", "", "Home URL for the documentation.")
+	outFmt  = flag.String("format", "yaml", "textpb or yaml")
 	outDir  = flag.String("out_dir", "docs", "Output directory for the documentation.")
 )
 
-var files = &protoregistry.Files{}
+type Token struct {
+	Prefix  string
+	Suffix  template.HTML
+	Comment string
+	Kind    string
+	Text    string
+	URL     string
+	Default string
 
-type token struct {
-	comment string
-	kind    string
-	name    string
-}
-
-func finalFieldStr(f protoreflect.FieldDescriptor, prefix string, nocomment bool) string {
-	var comment string
-	if !nocomment {
-		ff, err := files.FindDescriptorByName(f.FullName())
-		if err != nil {
-			panic(err)
-		}
-		wf, err := desc.WrapDescriptor(ff)
-		if err != nil {
-			panic(err)
-		}
-		comment = wf.GetSourceInfo().GetLeadingComments()
-		if comment != "" && strings.TrimSpace(comment) != "" {
-			var temp []string
-			for _, line := range strings.Split(comment, "\n") {
-				temp = append(temp, prefix+"#"+line)
-			}
-			comment = "<div class=comment>" + strings.Join(temp, "\n") + "</div>"
-		}
-	}
-	if f.Kind() == protoreflect.MessageKind {
-		return fmt.Sprintf("%s%s%s: <%s>", comment, prefix, f.Name(), f.Message().FullName())
-	}
-	return fmt.Sprintf("%s%s%s: <%s>", comment, prefix, f.Name(), f.Kind())
-}
-
-func oneOfToString(ood protoreflect.OneofDescriptor, prefix string) string {
-	oof := ood.Fields()
-	oneofFields := []string{}
-	for i := 0; i < oof.Len(); i++ {
-		oneofFields = append(oneofFields, finalFieldStr(oof.Get(i), "", true))
-	}
-	return fmt.Sprintf("%s[%s]", prefix, strings.Join(oneofFields, "|"))
-}
-
-func enumToString(ed protoreflect.EnumDescriptor, name, prefix string) string {
-	enumVals := []string{}
-	for i := 0; i < ed.Values().Len(); i++ {
-		enumVals = append(enumVals, string(ed.Values().Get(i).Name()))
-	}
-	return fmt.Sprintf("%s%s: (%s)", prefix, name, strings.Join(enumVals, "|"))
-}
-
-func dedupPrint(s string, printedFields *map[string]bool) string {
-	if !(*printedFields)[s] {
-		(*printedFields)[s] = true
-		return s
-	}
-	return ""
-}
-
-func printNonMessageField(f protoreflect.FieldDescriptor, prefix string, printedFields *map[string]bool) string {
-	ed := f.Enum()
-	if ed != nil {
-		return dedupPrint(enumToString(ed, string(f.Name()), prefix), printedFields)
-	}
-
-	oo := f.ContainingOneof()
-	if oo != nil {
-		return dedupPrint(oneOfToString(oo, prefix), printedFields)
-	}
-
-	return finalFieldStr(f, prefix, false)
-}
-
-func buildFileDescRegistry(l *logger.Logger) {
-	p := protoparse.Parser{
-		ImportPaths:      []string{"."},
-		InferImportPaths: true,
-		Accessor: func(name string) (io.ReadCloser, error) {
-			name = strings.TrimPrefix(name, "github.com/cloudprober/cloudprober/")
-			return os.Open(name)
-		},
-		IncludeSourceCodeInfo: true,
-	}
-
-	var protos []string
-	filepath.WalkDir(".", func(s string, d fs.DirEntry, e error) error {
-		if e != nil {
-			return e
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if filepath.Ext(s) == ".proto" {
-			protos = append(protos, s)
-
-			// Use jhump's parser to parse protos into file descriptors
-			// and register them with protoregistry.
-			fds, err := p.ParseFiles(s)
-			if err != nil {
-				l.Errorf("Error parsing proto %s: %v", s, err)
-				return err
-			}
-			fd := fds[0]
-			files.RegisterFile(fd.UnwrapFile())
-		}
-		return nil
-	})
+	PrefixHTML template.HTML
+	TextHTML   template.HTML
 }
 
 type formatter struct {
+	yaml   bool
 	depth  int
 	prefix string
 }
 
-func dumpProtoDescriptor(md protoreflect.MessageDescriptor, f formatter) (string, []protoreflect.FullName) {
+func (f formatter) WithDepth(depth int) formatter {
+	f2 := f
+	f2.depth = depth
+	return f2
+}
+
+func (f formatter) WithPrefix(prefix string) formatter {
+	f2 := f
+	f2.prefix = prefix
+	return f2
+}
+
+func finalToToken(fld protoreflect.FieldDescriptor, f formatter, nocomment bool) *Token {
+	var comment string
+	if !nocomment {
+		comment = formatComment(fld, f)
+	}
+
+	kind := fld.Kind().String()
+	if fld.Kind() == protoreflect.MessageKind {
+		kind = string(fld.Message().FullName())
+	}
+
+	tok := &Token{
+		Prefix:  f.prefix,
+		Comment: comment,
+		Kind:    kind,
+		Text:    string(fld.Name()),
+	}
+
+	if fld.HasDefault() {
+		tok.Default = fld.Default().String()
+	}
+
+	if f.yaml {
+		tok.Text = fld.JSONName()
+	}
+
+	return tok
+}
+
+func fieldToTokens(fld protoreflect.FieldDescriptor, f formatter, done *map[string]bool) *Token {
+	ed := fld.Enum()
+	if ed != nil {
+		name := string(fld.Name())
+		if f.yaml {
+			name = fld.JSONName()
+		}
+		if (*done)[string(ed.Name())] {
+			return nil
+		}
+		(*done)[string(ed.Name())] = true
+		return formatEnum(ed, name, f)
+	}
+
+	oo := fld.ContainingOneof()
+	if oo != nil {
+		if (*done)[string(oo.Name())] {
+			return nil
+		}
+		(*done)[string(oo.Name())] = true
+		return formatOneOf(oo, f)
+	}
+
+	return finalToToken(fld, f, false)
+}
+
+func dumpExtendedMsg(fld protoreflect.FieldDescriptor, f formatter) ([]*Token, []protoreflect.FullName) {
+	var nextMessageName []protoreflect.FullName
+	var lines []*Token
+
+	nextMessageName = append(nextMessageName, fld.Message().FullName())
+	tok := finalToToken(fld, f, false)
+	tok.Suffix = " {"
+	if f.yaml {
+		tok.Suffix = ":"
+	}
+	lines = append(lines, tok)
+
+	newPrefix := f.prefix + "  "
+	if fld.Cardinality() == protoreflect.Repeated && f.yaml {
+		newPrefix = f.prefix + "    "
+	}
+	toks, next := dumpMessage(fld.Message(), f.WithDepth(f.depth-1).WithPrefix(newPrefix))
+	if f.yaml && fld.Cardinality() == protoreflect.Repeated {
+		toks[0].Prefix = f.prefix + "  - "
+	}
+	lines = append(lines, toks...)
+
+	// If it's not a yaml, add a "}" at the end and limit the line break before
+	// that to just one (default is 2).
+	if !f.yaml {
+		lines[len(lines)-1].Suffix = "<br>"
+		lines = append(lines, &Token{Prefix: f.prefix, Text: "}"})
+	}
+	nextMessageName = append(nextMessageName, next...)
+
+	return lines, nextMessageName
+}
+
+func dumpMessage(md protoreflect.MessageDescriptor, f formatter) ([]*Token, []protoreflect.FullName) {
 	var nextMessageName []protoreflect.FullName
 
-	var lines []string
+	var lines []*Token
 
 	// We use this to catch duplication for oneof and enum fields.
-	printedFields := map[string]bool{}
+	done := map[string]bool{}
 
 	for i := 0; i < md.Fields().Len(); i++ {
 		fld := md.Fields().Get(i)
 
 		if fld.Kind() == protoreflect.MessageKind && f.depth > 1 {
-			header := finalFieldStr(fld, f.prefix, false)
-			line, next := dumpProtoDescriptor(fld.Message(), formatter{
-				prefix: f.prefix + "  ",
-				depth:  1,
-			})
-			lines = append(lines, header+"\n"+line)
+			toks, next := dumpExtendedMsg(fld, f)
+			lines = append(lines, toks...)
 			nextMessageName = append(nextMessageName, next...)
 		} else {
-			if line := printNonMessageField(md.Fields().Get(i), f.prefix+"", &printedFields); line != "" {
-				lines = append(lines, line)
+			if tok := fieldToTokens(md.Fields().Get(i), f, &done); tok != nil {
+				lines = append(lines, tok)
 			}
 			if fld.Kind() == protoreflect.MessageKind {
 				nextMessageName = append(nextMessageName, fld.Message().FullName())
@@ -166,30 +162,35 @@ func dumpProtoDescriptor(md protoreflect.MessageDescriptor, f formatter) (string
 		}
 	}
 
-	return strings.Join(lines, "\n\n"), nextMessageName
+	return lines, nextMessageName
 }
 
-func arrangeIntoPackages(paths []string, l *logger.Logger) map[string][]string {
-	packages := make(map[string][]string)
-	for _, path := range paths {
-		parts := strings.SplitN(path, ".", 3)
-		if len(parts) < 3 {
-			l.Warningf("Skipping %s, not enough parts in package", path)
-			continue
+func processTokensForHTML(toks []*Token) []*Token {
+	for _, tok := range toks {
+		tok.PrefixHTML = template.HTML(strings.ReplaceAll(tok.Prefix, " ", "&nbsp;"))
+
+		tok.URL = kindToURL(tok.Kind)
+
+		if tok.Suffix == "" {
+			tok.Suffix = template.HTML("<br><br>")
+			if tok.Default != "" {
+				tok.Suffix = template.HTML(" | default: " + tok.Default + "<br><br>")
+			}
+		} else {
+			if !strings.HasSuffix(string(tok.Suffix), "<br>") {
+				tok.Suffix = template.HTML(tok.Suffix + "<br>")
+			}
 		}
-		if parts[0] != "cloudprober" {
-			l.Warningf("Skipping %s, not a cloudprober package", path)
-			continue
+
+		if tok.TextHTML == "" {
+			tok.TextHTML = template.HTML(template.HTMLEscapeString(tok.Text))
 		}
-		packages[parts[1]] = append(packages[parts[1]], path)
 	}
-	return packages
+	return toks
 }
 
 func main() {
 	flag.Parse()
-
-	indexTmpl := template.Must(template.New("index").Parse(indexTmpl))
 
 	l := &logger.Logger{}
 	buildFileDescRegistry(l)
@@ -200,18 +201,18 @@ func main() {
 		panic(err)
 	}
 
-	s, nextMessageNames := dumpProtoDescriptor(m.(protoreflect.MessageDescriptor), formatter{depth: 2})
+	f := formatter{
+		yaml: *outFmt == "yaml",
+	}
 
+	toks, nextMessageNames := dumpMessage(m.(protoreflect.MessageDescriptor), f.WithDepth(2))
 	outF, err := os.OpenFile(filepath.Join(*outDir, "index.html"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		l.Criticalf("Error opening output file: %v", err)
 	}
-	indexTmpl.Execute(outF, map[string]interface{}{"Content": template.HTML(s)})
-	// s = "```\n" + s + "\n```\n"
-	os.WriteFile(filepath.Join(*outDir, "index.md"), []byte(s), 0644)
+	template.Must(template.New("index").Parse(indexTmpl)).Execute(outF, processTokensForHTML(toks))
 
-	// fmt.Println(nextMessageNames)
-	msgToDoc := map[string]string{}
+	msgToDoc := map[string][]*Token{}
 	for len(nextMessageNames) > 0 {
 		var nextLoop []protoreflect.FullName
 		for _, msgName := range nextMessageNames {
@@ -219,8 +220,8 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			s, next := dumpProtoDescriptor(m.(protoreflect.MessageDescriptor), formatter{prefix: "  ", depth: 1})
-			msgToDoc[string(msgName)] = "```\n" + s + "\n```"
+			toks, next := dumpMessage(m.(protoreflect.MessageDescriptor), f.WithDepth(1).WithPrefix("  "))
+			msgToDoc[string(msgName)] = toks
 			nextLoop = append(nextLoop, next...)
 		}
 		nextMessageNames = nextLoop
@@ -230,14 +231,24 @@ func main() {
 	for key := range msgToDoc {
 		msgs = append(msgs, key)
 	}
+
 	packages := arrangeIntoPackages(msgs, l)
+	type msgTokens struct {
+		Name   string
+		Tokens []*Token
+	}
 
 	for pkg, msgs := range packages {
 		sort.Strings(msgs)
-		var lines []string
+		toks := []*msgTokens{}
 		for _, msg := range msgs {
-			lines = append(lines, "## "+msg+":\n"+msgToDoc[msg])
+			toks = append(toks, &msgTokens{Name: msg, Tokens: processTokensForHTML(msgToDoc[msg])})
 		}
-		os.WriteFile(filepath.Join(*outDir, pkg+".md"), []byte(strings.Join(lines, "\n\n")), 0644)
+		outF, err := os.OpenFile(filepath.Join(*outDir, pkg+".html"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			l.Criticalf("Error opening output file: %v", err)
+		}
+		template.Must(template.New("package").Parse(packageTmpl)).Execute(outF, toks)
 	}
+
 }
