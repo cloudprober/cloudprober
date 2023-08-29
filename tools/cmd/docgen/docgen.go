@@ -1,3 +1,17 @@
+// Copyright 2023 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -13,9 +27,10 @@ import (
 )
 
 var (
-	homeURL = flag.String("home_url", "", "Home URL for the documentation.")
-	outFmt  = flag.String("format", "yaml", "textpb or yaml")
-	outDir  = flag.String("out_dir", "docs", "Output directory for the documentation.")
+	homeURL      = flag.String("home_url", "", "Home URL for the documentation.")
+	outFmt       = flag.String("format", "yaml", "textpb or yaml")
+	outDir       = flag.String("out_dir", "docs", "Output directory for the documentation.")
+	protoRootDir = flag.String("proto_root_dir", ".", "Root directory for the proto files.")
 )
 
 type Token struct {
@@ -193,7 +208,8 @@ func main() {
 	flag.Parse()
 
 	l := &logger.Logger{}
-	buildFileDescRegistry(l)
+
+	buildFileDescRegistry(*protoRootDir, l)
 
 	// Top level message
 	m, err := files.FindDescriptorByName("cloudprober.ProberConfig")
