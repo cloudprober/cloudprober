@@ -232,7 +232,7 @@ jobs:
         run: make -C contrib docker_multiarch
 
       - name: Build and push release Docker Image (contrib-ghcr)
-        run: make docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
+        run: make -C contrib docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober-contrib
 
   pre-release:
     name: Upload pre-release binaries
