@@ -28,3 +28,20 @@
   url = "https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE"
   weight = 20
 
+[[docs]]
+  name = "Overview"
+  identifier = "get-started"
+  url = "/docs/overview/cloudprober"
+  weight = 10
+
+[[docs]]
+  name = "How-To"
+  identifier = "how-to"
+  url = "/docs/how-to/external-probe"
+  weight = 20
+
+[[docs]]
+  name = "Surfacers"
+  identifier = "surfacers"
+  url = "/docs/surfacers/overview"
+  weight = 30
