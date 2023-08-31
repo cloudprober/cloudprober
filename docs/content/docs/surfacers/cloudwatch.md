@@ -3,10 +3,12 @@ menu:
   docs:
     parent: "surfacers"
     weight: 30
-title: "Cloudwatch (AWS Cloud Monitoring)"
+title: "Cloudwatch (AWS)"
 ---
 
-Cloudprober can natively export metrics to AWS Cloudwatch using the cloudwatch [surfacer](/surfacers/overview). Adding the cloudwatch surfacer to cloudprover is as simple as adding the following stanza to the config:
+Cloudprober can natively export metrics to AWS Cloudwatch using the cloudwatch
+[surfacer](/surfacers/overview). Adding the cloudwatch surfacer to cloudprover
+is as simple as adding the following stanza to the config:
 
 ```
 surfacer {
@@ -16,27 +18,39 @@ surfacer {
 
 ## Authentication
 
-The cloudwatch surfacer uses the AWS Go SDK, and supports the [default credential chain](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configuring-sdk.html):
+The cloudwatch surfacer uses the AWS Go SDK, and supports the
+[default credential chain](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configuring-sdk.html):
 
 1. Environment variables.
 2. Shared credentials file.
-3. If your application uses an ECS task definition or RunTask API operation, IAM role for tasks.
-4. If your application is running on an Amazon EC2 instance, IAM role for Amazon EC2.
+3. If your application uses an ECS task definition or RunTask API operation, IAM
+   role for tasks.
+4. If your application is running on an Amazon EC2 instance, IAM role for Amazon
+   EC2.
 
 ### Cloudwatch Region
 
-The list below is the order of precedence that will be used to determine the [AWS region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) that Cloudprober will publish metrics to.
+The list below is the order of precedence that will be used to determine the
+[AWS region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
+that Cloudprober will publish metrics to.
 
 1. [Region configuration](#configuration-options)
 2. EC2 metadata.
 3. `AWS_REGION` environment variable.
-4. `AWS_DEFAULT_REGION` environment variable, if `AWS_SDK_LOAD_CONFIG` is set (See [AWS package documentation](https://docs.aws.amazon.com/sdk-for-go/api/aws/session/) for more details).
+4. `AWS_DEFAULT_REGION` environment variable, if `AWS_SDK_LOAD_CONFIG` is set
+   (See
+   [AWS package documentation](https://docs.aws.amazon.com/sdk-for-go/api/aws/session/)
+   for more details).
 
 ## Authorization
 
-In order to permit Cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the "cloudwatch:namespace" is the [metric namespace](#metric-namespace) used by Cloudprober.
+In order to permit Cloudprober to publish metric data to cloudwatch, ensure the
+profile being used for authentication has the following permissions, where the
+"cloudwatch:namespace" is the [metric namespace](#metric-namespace) used by
+Cloudprober.
 
-If the default metric namespace is changed, also change the condition in the IAM policy below to match the same value.
+If the default metric namespace is changed, also change the condition in the IAM
+policy below to match the same value.
 
 ```
 {
@@ -63,7 +77,8 @@ If the default metric namespace is changed, also change the condition in the IAM
 
 ## [Metric Namespace](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Namespace)
 
-The metric namespace used to publish metrics to by default is set to `cloudprober`. This can be changed by expanding the surfacer configuration:
+The metric namespace used to publish metrics to by default is set to
+`cloudprober`. This can be changed by expanding the surfacer configuration:
 
 ```
 surfacer {
@@ -75,7 +90,8 @@ surfacer {
 }
 ```
 
-Note: If the namespace is modified, also modify the [IAM policy condition](#authorization) for the namespace PutMetricData call.
+Note: If the namespace is modified, also modify the
+[IAM policy condition](#authorization) for the namespace PutMetricData call.
 
 ## Configuration Options
 
@@ -112,13 +128,18 @@ The full list of configuration options for the cloudwatch surfacer is:
   optional int32 batch_timer_sec = 5 [default = 30];
 ```
 
-(Source: https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
+(Source:
+https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
 
 ## Calculating the metric delta with Cloudwatch Metric Maths
 
-The metrics produced by Cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.
+The metrics produced by Cloudprober are cumulative. Most services producing
+metrics into cloudwatch produce snapshot data whereby the metrics are recorded
+for a specific point in time.
 
-In order to achieve a similar effect here, the [Cloudwatch Metric Maths](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html) RATE and PERIOD functions can be used to determine the delta values.
+In order to achieve a similar effect here, the
+[Cloudwatch Metric Maths](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html)
+RATE and PERIOD functions can be used to determine the delta values.
 
 ```
 RATE(m1) * PERIOD(m1)

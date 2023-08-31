@@ -1,9 +1,10 @@
 ---
+title: Overview
 menu:
   docs:
-    parent: get-started
-    weight: 1
-title: Overview
+    parent: "get-started"
+    params:
+      hide: true
 ---
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)](https://hub.docker.com/v2/repositories/cloudprober/cloudprober/)
@@ -19,7 +20,7 @@ their proper functioning.
 For example, you could use Cloudprober to run a probe to verify that your users
 can access your website and your APIs, your microservices can talk to each
 other, your kubernetes clusters can schedule pods, your CI/CD pipelines are
-functioning as epxected, or VPN connectivity with your partners is working as
+functioning as expected, or VPN connectivity with your partners is working as
 expected, and much more.
 
 This kind of monitoring makes it possible to monitor your systems' interfaces
