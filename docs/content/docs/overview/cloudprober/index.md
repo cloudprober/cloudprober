@@ -1,8 +1,4 @@
 ---
-menu:
-  docs:
-    parent: get-started
-    weight: 1
 title: Overview
 ---
 
