@@ -36,6 +36,13 @@ $(foreach bin,$(BINARIES),$(eval $(call make-binary-target,$(bin))))
 $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
+config_docs:
+	go install github.com/manugarg/protodoc/cmd/protodoc@latest
+	protodoc --proto_root_dir=. --package_prefix=github.com/cloudprober/cloudprober \
+		--format=yaml --out_dir=docs/_config_docs/yaml
+	protodoc --proto_root_dir=. --package_prefix=github.com/cloudprober/cloudprober \
+		--format=textpb --out_dir=docs/_config_docs/textpb
+
 docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) Dockerfile
 	docker buildx build --push \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \

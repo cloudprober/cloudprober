@@ -1,0 +1,9 @@
+<div id="content-lang-yaml" class="select-content-lang" style="display:none">
+    {{ $file := .Get "config" | printf "_config_docs/yaml/%s/index.html" | readFile }}
+    {{ (print $file) | safeHTML }}
+</div>
+<div id="content-lang-textpb" class="select-content-lang" style="display:none">
+    {{ $file := .Get "config" | printf "_config_docs/textpb/%s/index.html" | readFile }}
+    {{ (print $file) | safeHTML }}
+</div>
+    
