@@ -62,6 +62,9 @@
         setLang();
         addButtonHandler();
         markConfigDocLinkActive();
+        for (const el of document.getElementsByClassName('protodoc')) {
+            el.style.borderLeft = '3px solid #e76f51';
+        }
     });
 </script>
 
