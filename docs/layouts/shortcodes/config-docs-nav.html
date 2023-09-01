@@ -1,0 +1,77 @@
+<style>
+    .set-lang {
+        border-radius: 3px;
+        font-size: smaller;
+    }
+    .config-link-active {
+        font-weight: bolder;
+    }
+    .protodoc {
+        margin: 1rem 0;
+    }
+</style>
+<script>    
+    const setLang = async function (lang) {
+        if (!lang) {
+            lang = localStorage['preferred-language'];
+        }
+        if (!lang) {
+            lang = 'yaml';
+        }
+        
+        const els = document.getElementsByClassName('select-content-lang');
+        for (const e of els) {
+        if (e.id == 'content-lang-'+lang) {
+            e.style.display = 'block';
+        } else {
+            e.style.display = 'none';
+        }
+        }
+        localStorage['preferred-language'] = lang;
+
+        const setLangButtons = document.getElementsByClassName('set-lang');
+        for (const b of setLangButtons) {
+            if (b.id == 'set-lang-'+lang) {
+                b.classList.add('btn-primary');
+            } else {
+                b.classList.remove('btn-primary');
+            }
+        }
+    };
+
+    const addButtonHandler = async function() {
+        const setLangButtons = document.getElementsByClassName('set-lang');
+        for (const b of setLangButtons) {
+            b.addEventListener('click', async function () {
+                const lang = b.id.replace('set-lang-', '');
+                await setLang(lang);
+            });
+        }
+    };
+
+    const markConfigDocLinkActive = async function() {
+        const configDocLinks = document.getElementById('config-doc-links');
+        for (const a of configDocLinks.getElementsByTagName('a')) {
+            if (a.href.replace(/\/$/, '') == window.location.href.replace(/\/$/, '')){
+                a.classList.add('config-link-active');
+            }
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', async function () {
+        setLang();
+        addButtonHandler();
+        markConfigDocLinkActive();
+        for (const el of document.getElementsByClassName('protodoc')) {
+            el.style.borderLeft = '3px solid #e76f51';
+        }
+    });
+</script>
+
+<div id="config-doc-links">
+    Config: <a href=../overview>main</a> | <a href=../probes>probes</a> | <a href=../surfacer>surfacers</a> |
+    <a href=../targets>targets</a> | <a href=../validators>validators</a> | <a href=../oauth>oauth</a> |
+    <a href=../rds>rds</a> | <a href=../tlsconfig>tlsconfig</a> | <a href=../metrics>metrics</a>
+</div>
+<br>
+<button id="set-lang-yaml" class="set-lang">YAML</button>|<button id="set-lang-textpb" class="set-lang">TextPB</button>

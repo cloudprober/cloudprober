@@ -17,3 +17,5 @@ vendor/
 **DS_Store
 .vscode
 .scannerwork
+
+docs/_config_docs
