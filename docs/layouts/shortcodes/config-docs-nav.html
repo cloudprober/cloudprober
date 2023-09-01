@@ -12,6 +12,13 @@
 </style>
 <script>    
     const setLang = async function (lang) {
+        if (!lang) {
+            lang = localStorage['preferred-language'];
+        }
+        if (!lang) {
+            lang = 'yaml';
+        }
+        
         const els = document.getElementsByClassName('select-content-lang');
         for (const e of els) {
         if (e.id == 'content-lang-'+lang) {
@@ -21,23 +28,18 @@
         }
         }
         localStorage['preferred-language'] = lang;
-    };
 
-    const loadLanguageContent = async function () {
-        const preferredLanguage = localStorage['preferred-language'];
-        if (preferredLanguage) {
-            const els = document.getElementsByClassName('select-content-lang');
-            for (const e of els) {
-            if (e.id == 'content-lang-'+preferredLanguage) {
-                e.style.display = 'block';
+        const setLangButtons = document.getElementsByClassName('set-lang');
+        for (const b of setLangButtons) {
+            if (b.id == 'set-lang-'+lang) {
+                b.classList.add('btn-primary');
             } else {
-                e.style.display = 'none';
-            }
+                b.classList.remove('btn-primary');
             }
         }
     };
 
-    const fixLangButtons = async function() {
+    const addButtonHandler = async function() {
         const setLangButtons = document.getElementsByClassName('set-lang');
         for (const b of setLangButtons) {
             b.addEventListener('click', async function () {
@@ -57,8 +59,8 @@
     };
 
     document.addEventListener('DOMContentLoaded', async function () {
-        loadLanguageContent();
-        fixLangButtons();
+        setLang();
+        addButtonHandler();
         markConfigDocLinkActive();
     });
 </script>
@@ -69,4 +71,4 @@
     <a href=../rds>rds</a> | <a href=../tlsconfig>tlsconfig</a> | <a href=../metrics>metrics</a>
 </div>
 <br>
-<button id="set-lang-yaml" class="set-lang">YAML</button> | <button id="set-lang-textpb" class="set-lang">TextPB</button>
+<button id="set-lang-yaml" class="set-lang">YAML</button>|<button id="set-lang-textpb" class="set-lang">TextPB</button>
