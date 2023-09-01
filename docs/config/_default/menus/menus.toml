@@ -5,6 +5,12 @@
   weight = 30
 
 [[main]]
+  name = "Configuration"
+  weight = 40
+  identifier = "config"
+  url = "/docs/config/overview"
+
+[[main]]
   name = "How-Tos"
   weight = 60
   identifier = "how-to"
@@ -35,13 +41,21 @@
   weight = 10
 
 [[docs]]
+  name = "Configuration"
+  identifier = "config"
+  url = "/docs/config/overview"
+  weight = 20
+  [docs.params]
+    collapsible = true
+
+[[docs]]
   name = "How-To"
   identifier = "how-to"
   url = "/docs/how-to/external-probe"
-  weight = 20
+  weight = 30
 
 [[docs]]
   name = "Surfacers"
   identifier = "surfacers"
   url = "/docs/surfacers/overview"
-  weight = 30
+  weight = 40

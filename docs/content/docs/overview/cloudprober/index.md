@@ -56,13 +56,14 @@ in your systems.
   - Run custom checks through the _"[external]({{< ref external-probe >}})"_
     probe type.
 
-- Automated [targets]({{< ref targets.md >}}) discovery to make Cloud
-  deployments as painless as possible:
+- Automated [targets]({{< ref "/docs/how-to/targets.md" >}}) discovery to make
+  Cloud deployments as painless as possible:
 
   - _[Kubernetes]({{< ref run-on-kubernetes.md >}}#kubernetes-targets)_
     resources.
   - _GCP_ instances, forwarding rules, and pub/sub messages.
-  - _[File]({{< ref targets.md >}}#file-based-targets)_ based targets.
+  - _[File]({{< ref "/docs/how-to/targets.md" >}}#file-based-targets)_ based
+    targets.
 
 * Deployment friendly:
 
