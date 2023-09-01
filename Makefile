@@ -36,7 +36,7 @@ $(foreach bin,$(BINARIES),$(eval $(call make-binary-target,$(bin))))
 $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
-config_docs: docs/_config_docs/yaml docs/_config_docs/textpb
+config_docs:
 	go install github.com/manugarg/protodoc/cmd/protodoc@latest
 	protodoc --proto_root_dir=. --package_prefix=github.com/cloudprober/cloudprober \
 		--format=yaml --out_dir=docs/_config_docs/yaml
