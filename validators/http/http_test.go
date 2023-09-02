@@ -385,3 +385,30 @@ func TestValidateLastModifiedHeaderFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateLastModifiedHeaderMissing(t *testing.T) {
+	testConfig := &configpb.Validator{
+		SuccessStatusCodes:      proto.String("200"),
+		LastModifiedDiffSeconds: 3600,
+	}
+
+	v := Validator{}
+	err := v.Init(testConfig, nil)
+	if err != nil {
+		t.Errorf("Error initializing validator: %v", err)
+	}
+
+	resp := &http.Response{
+		Header:     http.Header{},
+		StatusCode: http.StatusOK,
+	}
+
+	ok, err := v.Validate(resp, nil)
+	if err != nil {
+		t.Errorf("Error running validate: %s", err)
+	}
+
+	if ok != false {
+		t.Errorf("Error running validate, got: %v, want: %v", ok, false)
+	}
+}
