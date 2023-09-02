@@ -340,30 +340,48 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 }
 
 func TestValidateLastModifiedHeaderFailure(t *testing.T) {
-	testConfig := &configpb.Validator{
-		SuccessStatusCodes:      proto.String("200"),
-		LastModifiedDiffSeconds: 3600,
-	}
-
-	v := Validator{}
-	err := v.Init(testConfig, nil)
-	if err != nil {
-		t.Errorf("Error initializing validator: %v", err)
-	}
-
-	resp := &http.Response{
-		Header: http.Header{
-			"Last-Modified": []string{"bad-date"},
+	tests := map[string]struct {
+		lastModifiedDiffSeconds int64
+		lastModifiedHeader      string
+	}{
+		"bad-date": {
+			lastModifiedDiffSeconds: 3600,
+			lastModifiedHeader:      "bad-date",
 		},
-		StatusCode: http.StatusOK,
+		"empty": {
+			lastModifiedDiffSeconds: 3600,
+			lastModifiedHeader:      "",
+		},
 	}
 
-	ok, err := v.Validate(resp, nil)
-	if err != nil {
-		t.Errorf("Error running validate: %s", err)
-	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			testConfig := &configpb.Validator{
+				SuccessStatusCodes:      proto.String("200"),
+				LastModifiedDiffSeconds: test.lastModifiedDiffSeconds,
+			}
 
-	if ok != false {
-		t.Errorf("Error running validate, got: %v, want: %v", ok, false)
+			v := Validator{}
+			err := v.Init(testConfig, nil)
+			if err != nil {
+				t.Errorf("Error initializing validator: %v", err)
+			}
+
+			resp := &http.Response{
+				Header: http.Header{
+					"Last-Modified": []string{test.lastModifiedHeader},
+				},
+				StatusCode: http.StatusOK,
+			}
+
+			ok, err := v.Validate(resp, nil)
+			if err != nil {
+				t.Errorf("Error running validate: %s", err)
+			}
+
+			if ok != false {
+				t.Errorf("Error running validate, got: %v, want: %v", ok, false)
+			}
+		})
 	}
 }
