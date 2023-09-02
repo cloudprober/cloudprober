@@ -36,4 +36,11 @@ package proto
 	// Failure Header:
 	//   If HTTP response headers match failure_header, validation fails.
 	failureHeader?: #Header @protobuf(4,Header,name=failure_header)
+
+	// Last Modified Difference:
+	//   If specified, HTTP response's Last-Modified header is checked to be
+	//   within the specified time difference from the current time. Example:
+	//     last_modified_diff_seconds: 3600
+	//   This will check that the Last-Modified header is within the last hour.
+	lastModifiedDiffSeconds?: int64 @protobuf(5,int64,name=last_modified_diff_seconds)
 }

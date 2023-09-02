@@ -39,4 +39,11 @@ message Validator {
   // Failure Header:
   //   If HTTP response headers match failure_header, validation fails.
   optional Header failure_header = 4;
+
+  // Last Modified Difference:
+  //   If specified, HTTP response's Last-Modified header is checked to be
+  //   within the specified time difference from the current time. Example:
+  //     last_modified_diff_seconds: 3600
+  //   This will check that the Last-Modified header is within the last hour.
+  int64 last_modified_diff_seconds = 5;
 }

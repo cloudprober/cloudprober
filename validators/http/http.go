@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/validators/http/proto"
@@ -37,6 +38,7 @@ type Validator struct {
 	failureStatusCodeRanges []*numRange
 	successHeaderRegexp     *regexp.Regexp
 	failureHeaderRegexp     *regexp.Regexp
+	lastModifiedDiff        *time.Duration
 }
 
 type numRange struct {
@@ -189,6 +191,10 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 		}
 	}
 
+	if c.GetLastModifiedDiffSeconds() != 0 {
+		v.lastModifiedDiff = time.Duration(c.GetLastModifiedDiffSeconds()) * time.Second
+	}
+
 	return v.initHeaderValidators(c)
 }
 
@@ -226,6 +232,18 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 	if successHeader := v.c.GetSuccessHeader(); successHeader != nil {
 		if !lookupHTTPHeader(res.Header, successHeader.GetName(), v.successHeaderRegexp) {
 			v.l.Warningf("HTTP validation failure: header %s not found", successHeader.GetName())
+			return false, nil
+		}
+	}
+
+	if v.lastModifiedDiff != nil {
+		lastModified, err := time.Parse(time.RFC1123, res.Header.Get("Last-Modified"))
+		if err != nil {
+			return false, fmt.Errorf("error parsing Last-Modified header: %v", err)
+		}
+
+		if time.Since(lastModified) > *v.lastModifiedDiff {
+			v.l.Warningf("HTTP validation failure: Last-Modified header is too old: %v", lastModified)
 			return false, nil
 		}
 	}

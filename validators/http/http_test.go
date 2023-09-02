@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/validators/http/proto"
@@ -29,7 +30,6 @@ import (
 func TestParseStatusCodeConfig(t *testing.T) {
 	testStr := "302,200-299,403"
 	numRanges, err := parseStatusCodeConfig(testStr)
-
 	if err != nil {
 		t.Errorf("parseStatusCodeConfig(%s): got error: %v", testStr, err)
 	}
@@ -117,7 +117,6 @@ func TestLookupHTTPHeader(t *testing.T) {
 	if lookupHTTPHeader(headers, header, r) != true {
 		t.Errorf("lookupHTTPHeader(&%T%+v, %v, %v): false expected: true", headers, headers, header, r)
 	}
-
 }
 
 func TestValidateStatusCode(t *testing.T) {
@@ -245,13 +244,96 @@ func TestValidateHeaders(t *testing.T) {
 				StatusCode: respStatus,
 			}
 			ok, err := v.Validate(resp, nil)
-
 			if err != nil {
 				t.Errorf("Error running validate (resp: %v): %v", resp, err)
 			}
 
 			if ok != test.wantValid {
 				t.Errorf("validation passed: %v, wanted to pass: %v", ok, test.wantValid)
+			}
+		})
+	}
+}
+
+func TestValidateLastModifiedHeader(t *testing.T) {
+	timeFromNow := func(d time.Duration) string {
+		return time.Now().UTC().Truncate(time.Second).Add(d).Format(http.TimeFormat)
+	}
+
+	tests := map[string]struct {
+		lastModifiedDiffSeconds int64
+		lastModifiedHeader      string
+		want                    bool
+	}{
+		"now_lastModifiedDiffSeconds=0": {
+			lastModifiedDiffSeconds: 0,
+			lastModifiedHeader:      timeFromNow(0),
+			want:                    true,
+		},
+		"now_lastModifiedDiffSeconds=1": {
+			lastModifiedDiffSeconds: 1,
+			lastModifiedHeader:      timeFromNow(0),
+			want:                    true,
+		},
+		"now_lastModifiedDiffSeconds=-1": {
+			lastModifiedDiffSeconds: -1,
+			lastModifiedHeader:      timeFromNow(0),
+			want:                    false,
+		},
+		"-1hour_lastModifiedDiffSeconds=60": {
+			lastModifiedDiffSeconds: 60,
+			lastModifiedHeader:      timeFromNow(-1 * time.Hour),
+			want:                    false,
+		},
+		"-1hour_lastModifiedDiffSeconds=3601": {
+			lastModifiedDiffSeconds: 3601,
+			lastModifiedHeader:      timeFromNow(-1 * time.Hour),
+			want:                    true,
+		},
+		"-1hour_lastModifiedDiffSeconds=3600": {
+			lastModifiedDiffSeconds: 3600,
+			lastModifiedHeader:      timeFromNow(-1 * time.Hour),
+			want:                    false,
+		},
+		"-1day_lastModifiedDiffSeconds=86401": {
+			lastModifiedDiffSeconds: 86401,
+			lastModifiedHeader:      timeFromNow(-24 * time.Hour),
+			want:                    true,
+		},
+		"-1day_lastModifiedDiffSeconds=86400": {
+			lastModifiedDiffSeconds: 86400,
+			lastModifiedHeader:      timeFromNow(-24 * time.Hour),
+			want:                    false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			testConfig := &configpb.Validator{
+				SuccessStatusCodes:      proto.String("200"),
+				LastModifiedDiffSeconds: test.lastModifiedDiffSeconds,
+			}
+
+			v := Validator{}
+			err := v.Init(testConfig, nil)
+			if err != nil {
+				t.Errorf("Error initializing validator: %v", err)
+			}
+
+			resp := &http.Response{
+				Header: http.Header{
+					"Last-Modified": []string{test.lastModifiedHeader},
+				},
+				StatusCode: http.StatusOK,
+			}
+
+			ok, err := v.Validate(resp, nil)
+			if err != nil {
+				t.Errorf("Error running validate (resp: %v): %v", resp, err)
+			}
+
+			if ok != test.want {
+				t.Errorf("Error running validate (resp: %v): %v, want: %v", resp, ok, test.want)
 			}
 		})
 	}
