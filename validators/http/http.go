@@ -38,7 +38,7 @@ type Validator struct {
 	failureStatusCodeRanges []*numRange
 	successHeaderRegexp     *regexp.Regexp
 	failureHeaderRegexp     *regexp.Regexp
-	lastModifiedDiff        *time.Duration
+	lastModifiedDiff        time.Duration
 }
 
 type numRange struct {
@@ -236,13 +236,14 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 		}
 	}
 
-	if v.lastModifiedDiff != nil {
+	if v.lastModifiedDiff != time.Duration(0) {
 		lastModified, err := time.Parse(time.RFC1123, res.Header.Get("Last-Modified"))
 		if err != nil {
-			return false, fmt.Errorf("error parsing Last-Modified header: %v", err)
+			v.l.Warningf("HTTP validation failure: Error parsing Last-Modified header: %v", err)
+			return false, nil
 		}
 
-		if time.Since(lastModified) > *v.lastModifiedDiff {
+		if time.Since(lastModified) > v.lastModifiedDiff {
 			v.l.Warningf("HTTP validation failure: Last-Modified header is too old: %v", lastModified)
 			return false, nil
 		}
