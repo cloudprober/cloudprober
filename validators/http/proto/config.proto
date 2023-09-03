@@ -45,5 +45,5 @@ message Validator {
   //   within the specified time difference from the current time. Example:
   //     last_modified_diff_seconds: 3600
   //   This will check that the Last-Modified header is within the last hour.
-  int64 last_modified_diff_seconds = 5;
+  uint64 last_modified_diff_seconds = 5;
 }

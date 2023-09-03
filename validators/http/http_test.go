@@ -261,7 +261,7 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		lastModifiedDiffSeconds int64
+		lastModifiedDiffSeconds uint64
 		lastModifiedHeader      string
 		want                    bool
 	}{
@@ -274,11 +274,6 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 			lastModifiedDiffSeconds: 1,
 			lastModifiedHeader:      timeFromNow(0),
 			want:                    true,
-		},
-		"now_lastModifiedDiffSeconds=-1": {
-			lastModifiedDiffSeconds: -1,
-			lastModifiedHeader:      timeFromNow(0),
-			want:                    false,
 		},
 		"-1hour_lastModifiedDiffSeconds=60": {
 			lastModifiedDiffSeconds: 60,
@@ -341,7 +336,7 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 
 func TestValidateLastModifiedHeaderFailure(t *testing.T) {
 	tests := map[string]struct {
-		lastModifiedDiffSeconds int64
+		lastModifiedDiffSeconds uint64
 		lastModifiedHeader      string
 	}{
 		"bad-date": {

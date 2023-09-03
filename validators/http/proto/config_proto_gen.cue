@@ -42,5 +42,5 @@ package proto
 	//   within the specified time difference from the current time. Example:
 	//     last_modified_diff_seconds: 3600
 	//   This will check that the Last-Modified header is within the last hour.
-	lastModifiedDiffSeconds?: int64 @protobuf(5,int64,name=last_modified_diff_seconds)
+	lastModifiedDiffSeconds?: uint64 @protobuf(5,uint64,name=last_modified_diff_seconds)
 }
