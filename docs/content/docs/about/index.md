@@ -1,15 +1,15 @@
 ---
-title: "About"
+title: "About Cloudprober"
 lead: ""
 draft: false
 images: []
 weight: 300
+date: 2023-08-20
+lastmod: 2023-08-20
+contributors: ["Manu Garg"]
 ---
 
-<p style="text-align:left;font-size:smaller" class="mb-6">
-    Author: <b>Manu Garg</b><br>
-    Last updated: Aug 20, 2023
-</p>
+{{% blog-meta author="Manu Garg" publishDate="Aug 20, 2023" readingTime=3 %}}
 
 ## Origin
 
