@@ -1,4 +1,13 @@
-const setLang = async function (lang) {
+const markConfigDocLinkActive = async function () {
+  const configDocLinks = document.getElementById("config-doc-links");
+  for (const a of configDocLinks.getElementsByTagName("a")) {
+    if (a.href.replace(/\/$/, "") == window.location.href.replace(/\/$/, "")) {
+      a.classList.add("config-link-active");
+    }
+  }
+};
+
+const setConfigLang = function (lang) {
   if (!lang) {
     lang = localStorage["preferred-language"];
   }
@@ -18,6 +27,10 @@ const setLang = async function (lang) {
 
   const setLangButtons = document.getElementsByClassName("set-lang");
   for (const b of setLangButtons) {
+    b.addEventListener("click", async function () {
+      setConfigLang(b.id.replace("set-lang-", ""));
+    });
+
     if (b.id == "set-lang-" + lang) {
       b.classList.add("btn-primary");
     } else {
@@ -26,25 +39,7 @@ const setLang = async function (lang) {
   }
 };
 
-const addButtonHandler = async function () {
-  const setLangButtons = document.getElementsByClassName("set-lang");
-  for (const b of setLangButtons) {
-    b.addEventListener("click", async function () {
-      const lang = b.id.replace("set-lang-", "");
-      await setLang(lang);
-    });
-  }
-};
-
-const markConfigDocLinkActive = async function () {
-  const configDocLinks = document.getElementById("config-doc-links");
-  for (const a of configDocLinks.getElementsByTagName("a")) {
-    if (a.href.replace(/\/$/, "") == window.location.href.replace(/\/$/, "")) {
-      a.classList.add("config-link-active");
-    }
-  }
-};
-
+// subPackages arranges messages into subpackages
 const subPackages = function (msgs) {
   const subPackages = {};
   for (const msg of msgs) {
@@ -58,15 +53,28 @@ const subPackages = function (msgs) {
     }
     subPackages[sp].push(msg);
   }
-  const ret = {
-    pkgs: subPackages,
-    names: [],
-  };
-  for (const sp in subPackages) {
-    ret.names.push(sp);
+  return subPackages;
+};
+
+const addFlatTOC = function (msgs, ul, name, addAHandler) {
+  for (const msg of msgs) {
+    const li = document.createElement("li");
+    ul.appendChild(li);
+    li.style.whiteSpace = "nowrap";
+    const a = document.createElement("a");
+    li.appendChild(a);
+
+    a.href = "#" + msg;
+    a.innerText = msg.replace(name, "");
+    a.style.fontSize = "0.90rem";
+    a.style.fontWeight = 400;
+    if (addAHandler) {
+      a.addEventListener("click", function (e) {
+        e.stopPropagation();
+        ul.style.display = "block";
+      });
+    }
   }
-  ret.names.sort();
-  return ret;
 };
 
 const addTOC = function () {
@@ -79,7 +87,9 @@ const addTOC = function () {
   tocTmpl.innerHTML =
     '<div class="page-links d-none d-xl-block"><nav id="TableOfContents"><ul></ul></nav></div>';
   tocDivs[0].appendChild(tocTmpl.content.firstChild);
-  const toc = document.getElementById("TableOfContents");
+  const tocUL = document
+    .getElementById("TableOfContents")
+    .getElementsByTagName("ul")[0];
 
   const els = document.getElementsByClassName("select-content-lang");
   for (const el of els) {
@@ -96,20 +106,15 @@ const addTOC = function () {
     }
 
     const subpkgs = subPackages(names);
+    const subPackageNames = [];
+    for (const sp in subpkgs) {
+      subPackageNames.push(sp);
+    }
+    subPackageNames.sort();
 
-    for (const name of subpkgs.names) {
+    for (const name of subPackageNames) {
       if (name.split(".").length == 2) {
-        for (const msg of subpkgs.pkgs[name]) {
-          const li = document.createElement("li");
-          const a = document.createElement("a");
-          a.href = "#" + msg;
-          a.innerText = msg;
-          a.style.fontSize = "0.90rem";
-          a.style.fontWeight = 400;
-          li.appendChild(a);
-          li.style.whiteSpace = "nowrap";
-          toc.getElementsByTagName("ul")[0].appendChild(li);
-        }
+        addFlatTOC(subpkgs[name], tocUL, "", false);
         continue;
       }
       const li = document.createElement("li");
@@ -120,7 +125,7 @@ const addTOC = function () {
         "</button>";
       li.appendChild(buttonTmpl.content.firstChild);
       li.style.whiteSpace = "nowrap";
-      toc.getElementsByTagName("ul")[0].appendChild(li);
+      tocUL.appendChild(li);
 
       const ul = document.createElement("ul");
       li.classList.add("btn-toggle-nav");
@@ -138,27 +143,13 @@ const addTOC = function () {
         ul.style.display = "none";
       }
       li.appendChild(ul);
-      for (const msg of subpkgs.pkgs[name]) {
-        const li = document.createElement("li");
-        msgText = msg.replace(name, "");
-        const a = document.createElement("a");
-        a.href = "#" + msg;
-        a.innerText = msgText;
-        a.style.fontSize = "0.90rem";
-        li.appendChild(a);
-        a.addEventListener("click", function (e) {
-          e.stopPropagation();
-          ul.style.display = "block";
-        });
-        ul.appendChild(li);
-      }
+      addFlatTOC(subpkgs[name], ul, name, true);
     }
   }
 };
 
 document.addEventListener("DOMContentLoaded", async function () {
-  setLang();
-  addButtonHandler();
+  setConfigLang();
   markConfigDocLinkActive();
   for (const el of document.getElementsByClassName("protodoc")) {
     el.style.borderLeft = "3px solid #e76f51";
