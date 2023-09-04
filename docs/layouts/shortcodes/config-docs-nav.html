@@ -9,64 +9,16 @@
     .protodoc {
         margin: 1rem 0;
     }
+    .btn-toggle {
+        text-transform: none;
+        font-weight: 400;
+    }
+    .btn-toggle::before {
+        margin-top: 0.125rem;
+        margin-bottom: 0;
+    }
 </style>
-<script>    
-    const setLang = async function (lang) {
-        if (!lang) {
-            lang = localStorage['preferred-language'];
-        }
-        if (!lang) {
-            lang = 'yaml';
-        }
-        
-        const els = document.getElementsByClassName('select-content-lang');
-        for (const e of els) {
-        if (e.id == 'content-lang-'+lang) {
-            e.style.display = 'block';
-        } else {
-            e.style.display = 'none';
-        }
-        }
-        localStorage['preferred-language'] = lang;
-
-        const setLangButtons = document.getElementsByClassName('set-lang');
-        for (const b of setLangButtons) {
-            if (b.id == 'set-lang-'+lang) {
-                b.classList.add('btn-primary');
-            } else {
-                b.classList.remove('btn-primary');
-            }
-        }
-    };
-
-    const addButtonHandler = async function() {
-        const setLangButtons = document.getElementsByClassName('set-lang');
-        for (const b of setLangButtons) {
-            b.addEventListener('click', async function () {
-                const lang = b.id.replace('set-lang-', '');
-                await setLang(lang);
-            });
-        }
-    };
-
-    const markConfigDocLinkActive = async function() {
-        const configDocLinks = document.getElementById('config-doc-links');
-        for (const a of configDocLinks.getElementsByTagName('a')) {
-            if (a.href.replace(/\/$/, '') == window.location.href.replace(/\/$/, '')){
-                a.classList.add('config-link-active');
-            }
-        }
-    };
-
-    document.addEventListener('DOMContentLoaded', async function () {
-        setLang();
-        addButtonHandler();
-        markConfigDocLinkActive();
-        for (const el of document.getElementsByClassName('protodoc')) {
-            el.style.borderLeft = '3px solid #e76f51';
-        }
-    });
-</script>
+<script src="/configdoc.js"></script>
 
 <div id="config-doc-links">
     Config: <a href=../overview>main</a> | <a href=../probes>probes</a> | <a href=../surfacer>surfacers</a> |
