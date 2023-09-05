@@ -55,18 +55,19 @@ targets discovery, has native implementations for common probe types, and so on.
 
 ## Beyond Google and Open-Source
 
-During early days, Cloudprober's primary focus was being scalable, reliable, and
-easy to manage. Things began to change as more and more Cloud products started
-using it, and users started asking for more features. However, the real shift to
-features happened after we open-sourced Cloudprober in 2017.
+During its early days, our priorities for Cloudprober were scalability,
+reliability, and ease of management. Things began to change as more and more
+Cloud products started using it, and users started asking for more features.
+However, the real shift to features happened after we open-sourced Cloudprober
+in 2017.
 
-We added a multitude of features over time. A few big additions were:
-first-class Kubernetes support, PostgreSQL and Cloudwatch surfacers, OAuth
-support, validators, and probe status UI. We used the same code base for the
-internal and the open-source version, which created a good ecosystem in a way --
-we had a large deployment internally which provided a continuous testing
-platform for Cloudprober, especially for its scalability and performance
-aspects, while it was going through all the big changes.
+We added a wealth of features over time, such as first-class Kubernetes support,
+a built-in probe status UI, PostgreSQL and Cloudwatch surfacers, OAuth support,
+Validators, and most recently, built-in alerting capability. We used the same
+codebase for the internal and open-source versions, which created a huge
+advantage -- we had an extensive deployment internally which provided a
+continuous testing platform for Cloudprober, particularly for its scalability
+and performance aspects, while it was going through all the big changes.
 
 ## Move away from Google Github
 
@@ -77,15 +78,14 @@ to
 <a href="https://github.com/cloudprober/cloudprober">github.com/cloudprober/cloudprober</a>.
 This was a disruptive move (and we lost a lot of Github stars in the process
 :smiley:), but it had to be done one day anyway, in order for Cloudprober to
-become an independent entity and grow even faster. I can't say this
-authoritatively now, but I believe Google still uses Cloudprober, perhaps even
-more widely now, based on Googlers' interactions with the project.
+become an independent entity and grow even faster. While I can't say this
+authoritatively now, I believe Google still uses Cloudprober, possibly even more
+widely now, based on Googlers' interactions with the project.
 
 ## Growth and stability
 
-Cloudprober has been around for a bit, and all this while it has continued to
-change and evolve, to meet more and more users' need. That's an important
-quality for any software, otherwise software wither over time. To make sure
-Cloudprober stays so, we've gone to great lengths to ensure that Cloudprober's
-internal interfaces stay clean, even if that requires some refactoring from time
-to time.
+Throughout its journey, Cloudprober has continuously adapted and expanded to
+meet the evolving needs of its users -- an essential trait for any software.
+Without this attribute, software inevitably withers over time. To ensure
+Cloudprober thrives and evolves robustly, we've been very diligent that it grows
+in a structured way, a commitment we'll uphold in future as well.
