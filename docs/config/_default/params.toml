@@ -4,7 +4,7 @@
 title = "Cloudprober"
 titleSeparator = "-"
 titleAddition = "Monitoring software to detect failures before your customers do."
-description = "An active/syntehtic monitoring software to reliably detect outages before your customers do."
+description = "An active/synthetic monitoring software to reliably detect outages before your customers do."
 googleAnalytics = 'G-MEASUREMENT_ID'
 
 ## Open Graph
