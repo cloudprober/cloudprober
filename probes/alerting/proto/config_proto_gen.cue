@@ -6,7 +6,7 @@ package proto
 
 	// From address in the alert email.
 	// If not set, defaults to the value of smtp_user if smtp_user is set,
-	// otherwise defaults to the value of cloudprober-alert@<hostname>.
+	// otherwise defaults to cloudprober-alert@<hostname>.
 	from?: string @protobuf(2,string)
 
 	// Default: Environment variable SMTP_SERVER

@@ -274,7 +274,7 @@ type ProbeDef struct {
 	//	  value: "@target.label.app@"
 	//	}
 	//
-	// (See a more detailed example at: examples/additional_label/cloudprober.cfg)
+	// (More detailed example at: examples/additional_label/cloudprober.cfg)
 	AdditionalLabel []*AdditionalLabel `protobuf:"bytes,14,rep,name=additional_label,json=additionalLabel" json:"additional_label,omitempty"`
 	// (Experimental) If set, test is inversed, i.e. we count it as success if
 	// target doesn't respond. This is useful, for example, that your firewall is
@@ -283,8 +283,8 @@ type ProbeDef struct {
 	// This is currently implemented only by PING and TCP probes.
 	// Note: This field is currently experimental, and may change in future.
 	NegativeTest *bool `protobuf:"varint,18,opt,name=negative_test,json=negativeTest" json:"negative_test,omitempty"`
-	// Alerts configuration. If specified, cloudprober will send alerts on probe
-	// failures. You can specify multiple alerts.
+	// Alerts configuration. If specified, cloudprober will generate alerts on
+	// probe failures. You can specify multiple alerts.
 	// Example:
 	//
 	//	alert {
@@ -628,8 +628,8 @@ type ProbeDef_TcpProbe struct {
 }
 
 type ProbeDef_UserDefinedProbe struct {
-	// This field's contents are passed on to the user defined probe, registered
-	// for this probe's name through probes.RegisterUserDefined().
+	// This field's contents are passed on to the user defined probe,
+	// registered for this probe's name through probes.RegisterUserDefined().
 	UserDefinedProbe string `protobuf:"bytes,99,opt,name=user_defined_probe,json=userDefinedProbe,oneof"`
 }
 

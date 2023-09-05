@@ -155,7 +155,7 @@ import (
 	//     key: "app"
 	//     value: "@target.label.app@"
 	//   }
-	// (See a more detailed example at: examples/additional_label/cloudprober.cfg)
+	// (More detailed example at: examples/additional_label/cloudprober.cfg)
 	additionalLabel?: [...#AdditionalLabel] @protobuf(14,AdditionalLabel,name=additional_label)
 
 	// (Experimental) If set, test is inversed, i.e. we count it as success if
@@ -166,8 +166,8 @@ import (
 	// Note: This field is currently experimental, and may change in future.
 	negativeTest?: bool @protobuf(18,bool,name=negative_test)
 
-	// Alerts configuration. If specified, cloudprober will send alerts on probe
-	// failures. You can specify multiple alerts.
+	// Alerts configuration. If specified, cloudprober will generate alerts on
+	// probe failures. You can specify multiple alerts.
 	// Example:
 	//  alert {
 	//    name: "alert1"
@@ -198,8 +198,8 @@ import (
 	} | {
 		tcpProbe: proto_F.#ProbeConf @protobuf(27,tcp.ProbeConf,name=tcp_probe)
 	} | {
-		// This field's contents are passed on to the user defined probe, registered
-		// for this probe's name through probes.RegisterUserDefined().
+		// This field's contents are passed on to the user defined probe,
+		// registered for this probe's name through probes.RegisterUserDefined().
 		userDefinedProbe: string @protobuf(99,string,name=user_defined_probe)
 	}
 

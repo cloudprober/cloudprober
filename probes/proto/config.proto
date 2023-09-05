@@ -140,7 +140,7 @@ message ProbeDef {
   //     key: "app"
   //     value: "@target.label.app@"
   //   }
-  // (See a more detailed example at: examples/additional_label/cloudprober.cfg)
+  // (More detailed example at: examples/additional_label/cloudprober.cfg)
   repeated AdditionalLabel additional_label = 14;
 
   // (Experimental) If set, test is inversed, i.e. we count it as success if
@@ -151,8 +151,8 @@ message ProbeDef {
   // Note: This field is currently experimental, and may change in future.
   optional bool negative_test = 18;
 
-  // Alerts configuration. If specified, cloudprober will send alerts on probe
-  // failures. You can specify multiple alerts.
+  // Alerts configuration. If specified, cloudprober will generate alerts on
+  // probe failures. You can specify multiple alerts.
   // Example:
   //  alert {
   //    name: "alert1"
@@ -176,8 +176,8 @@ message ProbeDef {
     udplistener.ProbeConf udp_listener_probe = 25;
     grpc.ProbeConf grpc_probe = 26;
     tcp.ProbeConf tcp_probe = 27;
-    // This field's contents are passed on to the user defined probe, registered
-    // for this probe's name through probes.RegisterUserDefined().
+    // This field's contents are passed on to the user defined probe,
+    // registered for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;
   }
 

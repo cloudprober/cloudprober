@@ -10,7 +10,7 @@ message Email {
 
     // From address in the alert email.
     // If not set, defaults to the value of smtp_user if smtp_user is set,
-    // otherwise defaults to the value of cloudprober-alert@<hostname>.
+    // otherwise defaults to cloudprober-alert@<hostname>.
     string from = 2;
 
     // Default: Environment variable SMTP_SERVER 

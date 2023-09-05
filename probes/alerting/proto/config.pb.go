@@ -29,7 +29,7 @@ type Email struct {
 	To []string `protobuf:"bytes,1,rep,name=to,proto3" json:"to,omitempty"`
 	// From address in the alert email.
 	// If not set, defaults to the value of smtp_user if smtp_user is set,
-	// otherwise defaults to the value of cloudprober-alert@<hostname>.
+	// otherwise defaults to cloudprober-alert@<hostname>.
 	From string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
 	// Default: Environment variable SMTP_SERVER
 	SmtpServer string `protobuf:"bytes,3,opt,name=smtp_server,json=smtpServer,proto3" json:"smtp_server,omitempty"`
