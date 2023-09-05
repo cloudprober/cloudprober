@@ -9,7 +9,7 @@ lastmod: 2023-08-20
 contributors: ["Manu Garg"]
 ---
 
-{{% blog-meta author="Manu Garg" publishDate="Aug 20, 2023" readingTime=3 %}}
+{{% blog-meta author="Manu Garg" publishDate="Sep 05, 2023" readingTime="3 min" %}}
 
 ## Origin
 
