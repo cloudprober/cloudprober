@@ -11,16 +11,22 @@
   url = "/docs/config/overview"
 
 [[main]]
-  name = "How-Tos"
+  name = "How-To"
   weight = 60
   identifier = "how-to"
   url = "/docs/how-to/external-probe"
 
 [[main]]
-  name = "Exporting Metrics (Surfacers)"
+  name = "Surfacers"
   weight = 70
   identifier = "surfacers"
   url = "/docs/surfacers/overview"
+
+[[main]]
+  name = "About"
+  weight = 80
+  identifier = "about"
+  url = "/docs/about/"
 
 [[social]]
   name = "GitHub"
