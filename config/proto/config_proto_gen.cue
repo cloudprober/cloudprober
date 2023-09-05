@@ -29,14 +29,12 @@ import (
 	server?: [...proto_5.#ServerDef] @protobuf(3,servers.ServerDef)
 
 	// Shared targets allow you to re-use the same targets copy across multiple
-	// probes. Example usage:
-	//
+	// probes.
+	// Example:
 	// shared_targets {
 	//   name: "internal-vms"
 	//   targets {
-	//     rds_targets {
-	//       ..
-	//     }
+	//     rds_targets {...}
 	//   }
 	// }
 	//
@@ -76,12 +74,12 @@ import (
 
 	// TLS config, it can be used to:
 	// - Specify client's CA cert for client cert verification:
-	//     tls_config {
+	//     grpc_tls_config {
 	//       ca_cert_file: "...."
 	//     }
 	//
 	// - Specify TLS cert and key:
-	//     tls_config {
+	//     grpc_tls_config {
 	//       tls_cert_file: "..."
 	//       tls_key_file: "..."
 	//     }

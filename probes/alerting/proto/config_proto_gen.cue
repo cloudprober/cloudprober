@@ -1,8 +1,13 @@
 package proto
 
 #Email: {
+	// Email addresses to send the alert to.
 	to?: [...string] @protobuf(1,string)
-	from?: string @protobuf(2,string) // Default: smtp_user
+
+	// From address in the alert email.
+	// If not set, defaults to the value of smtp_user if smtp_user is set,
+	// otherwise defaults to cloudprober-alert@<hostname>.
+	from?: string @protobuf(2,string)
 
 	// Default: Environment variable SMTP_SERVER
 	smtpServer?: string @protobuf(3,string,name=smtp_server)
@@ -80,7 +85,8 @@ package proto
 }
 
 #AlertConf: {
-	// Name of the alert. Default is to use the probe name.
+	// Name of the alert. Default is to use the probe name. If you have multiple
+	// alerts for the same probe, you must specify a name for each alert.
 	name?: string @protobuf(1,string)
 
 	// Condition for the alert. Default is to alert on any failure.

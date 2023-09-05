@@ -25,8 +25,12 @@ type Email struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	To   []string `protobuf:"bytes,1,rep,name=to,proto3" json:"to,omitempty"`
-	From string   `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"` // Default: smtp_user
+	// Email addresses to send the alert to.
+	To []string `protobuf:"bytes,1,rep,name=to,proto3" json:"to,omitempty"`
+	// From address in the alert email.
+	// If not set, defaults to the value of smtp_user if smtp_user is set,
+	// otherwise defaults to cloudprober-alert@<hostname>.
+	From string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
 	// Default: Environment variable SMTP_SERVER
 	SmtpServer string `protobuf:"bytes,3,opt,name=smtp_server,json=smtpServer,proto3" json:"smtp_server,omitempty"`
 	// Default: Environment variable SMTP_USERNAME
@@ -388,7 +392,8 @@ type AlertConf struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name of the alert. Default is to use the probe name.
+	// Name of the alert. Default is to use the probe name. If you have multiple
+	// alerts for the same probe, you must specify a name for each alert.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Condition for the alert. Default is to alert on any failure.
 	// Example:
