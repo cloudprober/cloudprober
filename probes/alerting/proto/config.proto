@@ -5,8 +5,13 @@ package cloudprober.probes.alerting;
 option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
 
 message Email {
+    // Email addresses to send the alert to.
     repeated string to = 1;
-    string from = 2;  // Default: smtp_user
+
+    // From address in the alert email.
+    // If not set, defaults to the value of smtp_user if smtp_user is set,
+    // otherwise defaults to cloudprober-alert@<hostname>.
+    string from = 2;
 
     // Default: Environment variable SMTP_SERVER 
     string smtp_server = 3;  
@@ -85,7 +90,8 @@ message Condition {
 }
 
 message AlertConf {
-    // Name of the alert. Default is to use the probe name.
+    // Name of the alert. Default is to use the probe name. If you have multiple
+    // alerts for the same probe, you must specify a name for each alert.
     string name = 1;
 
     // Condition for the alert. Default is to alert on any failure.
