@@ -261,52 +261,52 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		lastModifiedDiffSeconds uint64
-		lastModifiedHeader      string
-		want                    bool
+		MaxLastModifiedDiffSec uint64
+		lastModifiedHeader     string
+		want                   bool
 	}{
 		"now_lastModifiedDiffSeconds=0": {
-			lastModifiedDiffSeconds: 0,
-			lastModifiedHeader:      timeFromNow(0),
-			want:                    true,
+			MaxLastModifiedDiffSec: 0,
+			lastModifiedHeader:     timeFromNow(0),
+			want:                   true,
 		},
 		"now_lastModifiedDiffSeconds=1": {
-			lastModifiedDiffSeconds: 1,
-			lastModifiedHeader:      timeFromNow(0),
-			want:                    true,
+			MaxLastModifiedDiffSec: 1,
+			lastModifiedHeader:     timeFromNow(0),
+			want:                   true,
 		},
 		"-1hour_lastModifiedDiffSeconds=60": {
-			lastModifiedDiffSeconds: 60,
-			lastModifiedHeader:      timeFromNow(-1 * time.Hour),
-			want:                    false,
+			MaxLastModifiedDiffSec: 60,
+			lastModifiedHeader:     timeFromNow(-1 * time.Hour),
+			want:                   false,
 		},
 		"-1hour_lastModifiedDiffSeconds=3601": {
-			lastModifiedDiffSeconds: 3601,
-			lastModifiedHeader:      timeFromNow(-1 * time.Hour),
-			want:                    true,
+			MaxLastModifiedDiffSec: 3601,
+			lastModifiedHeader:     timeFromNow(-1 * time.Hour),
+			want:                   true,
 		},
 		"-1hour_lastModifiedDiffSeconds=3600": {
-			lastModifiedDiffSeconds: 3600,
-			lastModifiedHeader:      timeFromNow(-1 * time.Hour),
-			want:                    false,
+			MaxLastModifiedDiffSec: 3600,
+			lastModifiedHeader:     timeFromNow(-1 * time.Hour),
+			want:                   false,
 		},
 		"-1day_lastModifiedDiffSeconds=86401": {
-			lastModifiedDiffSeconds: 86401,
-			lastModifiedHeader:      timeFromNow(-24 * time.Hour),
-			want:                    true,
+			MaxLastModifiedDiffSec: 86401,
+			lastModifiedHeader:     timeFromNow(-24 * time.Hour),
+			want:                   true,
 		},
 		"-1day_lastModifiedDiffSeconds=86400": {
-			lastModifiedDiffSeconds: 86400,
-			lastModifiedHeader:      timeFromNow(-24 * time.Hour),
-			want:                    false,
+			MaxLastModifiedDiffSec: 86400,
+			lastModifiedHeader:     timeFromNow(-24 * time.Hour),
+			want:                   false,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			testConfig := &configpb.Validator{
-				SuccessStatusCodes:      proto.String("200"),
-				LastModifiedDiffSeconds: test.lastModifiedDiffSeconds,
+				SuccessStatusCodes:     proto.String("200"),
+				MaxLastModifiedDiffSec: test.MaxLastModifiedDiffSec,
 			}
 
 			v := Validator{}
@@ -336,24 +336,24 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 
 func TestValidateLastModifiedHeaderFailure(t *testing.T) {
 	tests := map[string]struct {
-		lastModifiedDiffSeconds uint64
-		lastModifiedHeader      string
+		MaxLastModifiedDiffSec uint64
+		lastModifiedHeader     string
 	}{
 		"bad-date": {
-			lastModifiedDiffSeconds: 3600,
-			lastModifiedHeader:      "bad-date",
+			MaxLastModifiedDiffSec: 3600,
+			lastModifiedHeader:     "bad-date",
 		},
 		"empty": {
-			lastModifiedDiffSeconds: 3600,
-			lastModifiedHeader:      "",
+			MaxLastModifiedDiffSec: 3600,
+			lastModifiedHeader:     "",
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			testConfig := &configpb.Validator{
-				SuccessStatusCodes:      proto.String("200"),
-				LastModifiedDiffSeconds: test.lastModifiedDiffSeconds,
+				SuccessStatusCodes:     proto.String("200"),
+				MaxLastModifiedDiffSec: test.MaxLastModifiedDiffSec,
 			}
 
 			v := Validator{}
@@ -383,8 +383,8 @@ func TestValidateLastModifiedHeaderFailure(t *testing.T) {
 
 func TestValidateLastModifiedHeaderMissing(t *testing.T) {
 	testConfig := &configpb.Validator{
-		SuccessStatusCodes:      proto.String("200"),
-		LastModifiedDiffSeconds: 3600,
+		SuccessStatusCodes:     proto.String("200"),
+		MaxLastModifiedDiffSec: 3600,
 	}
 
 	v := Validator{}
