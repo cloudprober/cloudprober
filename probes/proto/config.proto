@@ -19,6 +19,7 @@ option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
 // Next tag: 101
 message ProbeDef {
+  // Probe name. It should be unique across all probes.
   required string name = 1;
 
   enum Type {
@@ -42,10 +43,6 @@ message ProbeDef {
     USER_DEFINED = 99;
   }
   required Type type = 2;
-
-  // Which machines this probe should run on. If defined, cloudprober will run
-  // this probe only if machine's hostname matches this value.
-  optional string run_on = 3;
 
   // Interval between two probe runs in milliseconds.
   // Only one of "interval" and "inteval_msec" should be defined.
@@ -93,8 +90,8 @@ message ProbeDef {
   //   }
   optional string latency_metric_name = 15 [default = "latency"];
 
-  // Validators are in experimental phase right now and can change at any time.
-  // NOTE: Only PING, HTTP and DNS probes support validators.
+  // Validators for this probe. Validators are run on the data returned by the
+  // probe. See https://cloudprober.org/docs/how-to/validators/ for more info.
   repeated validators.Validator validator = 9;
 
   // Set the source IP to send packets from, either by providing an IP address
@@ -104,9 +101,9 @@ message ProbeDef {
     string source_interface = 11;
   }
 
-  // IP version to use for networking probes. If specified, this is used at the
-  // time of resolving a target, picking the correct IP for the source IP if
-  // source_interface option is provided, and to craft the packet correctly
+  // IP version to use for networking probes. If specified, this is used while
+  // 1) resolving a target, 2) picking the correct IP for the source IP if
+  // source_interface option is provided, and 3) to craft the packet correctly
   // for PING probes.
   //
   // If ip_version is not configured but source_ip is provided, we get
@@ -140,10 +137,6 @@ message ProbeDef {
   //
   // Example:
   //   additional_label {
-  //     key: "src_zone"
-  //     value: "{{.zone}}"
-  //   }
-  //   additional_label {
   //     key: "app"
   //     value: "@target.label.app@"
   //   }
@@ -158,6 +151,20 @@ message ProbeDef {
   // Note: This field is currently experimental, and may change in future.
   optional bool negative_test = 18;
 
+  // Alerts configuration. If specified, cloudprober will send alerts on probe
+  // failures. You can specify multiple alerts.
+  // Example:
+  //  alert {
+  //    name: "alert1"
+  //    condition {...}
+  //    notify {
+  //      pagerduty { ...}
+  //    }
+  //  }
+  //  alert {
+  //    name: "alert2"
+  //    notify { ... }
+  //  }
   repeated alerting.AlertConf alert = 19;
 
   oneof probe {
@@ -174,6 +181,13 @@ message ProbeDef {
     string user_defined_probe = 99;
   }
 
+  // Which machines this probe should run on. If defined, cloudprober will run
+  // this probe only if machine's hostname matches this value. This is useful
+  // for large deployments, where you may want to use the same prober config
+  // everywhere but run this probe only on a subset of machines.
+  optional string run_on = 3;
+
+  // Debug options. Currently only used to enable logging metrics.
   optional DebugOptions debug_options = 100;
 
   // Extensions allow users to to add new probe types (for example, a probe type

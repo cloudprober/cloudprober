@@ -48,14 +48,13 @@ type ProberConfig struct {
 	// other probes.
 	Server []*proto2.ServerDef `protobuf:"bytes,3,rep,name=server" json:"server,omitempty"`
 	// Shared targets allow you to re-use the same targets copy across multiple
-	// probes. Example usage:
+	// probes.
+	// Example:
 	//
 	//	shared_targets {
 	//	  name: "internal-vms"
 	//	  targets {
-	//	    rds_targets {
-	//	      ..
-	//	    }
+	//	    rds_targets {...}
 	//	  }
 	//	}
 	//
@@ -89,12 +88,12 @@ type ProberConfig struct {
 	GrpcPort *int32 `protobuf:"varint,104,opt,name=grpc_port,json=grpcPort" json:"grpc_port,omitempty"`
 	// TLS config, it can be used to:
 	//   - Specify client's CA cert for client cert verification:
-	//     tls_config {
+	//     grpc_tls_config {
 	//     ca_cert_file: "...."
 	//     }
 	//
 	//   - Specify TLS cert and key:
-	//     tls_config {
+	//     grpc_tls_config {
 	//     tls_cert_file: "..."
 	//     tls_key_file: "..."
 	//     }

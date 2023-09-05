@@ -17,6 +17,7 @@ import (
 
 // Next tag: 101
 #ProbeDef: {
+	// Probe name. It should be unique across all probes.
 	name?: string @protobuf(1,string)
 
 	#Type: {"PING", #enumValue: 0} |
@@ -53,10 +54,6 @@ import (
 		USER_DEFINED: 99
 	}
 	type?: #Type @protobuf(2,Type)
-
-	// Which machines this probe should run on. If defined, cloudprober will run
-	// this probe only if machine's hostname matches this value.
-	runOn?: string @protobuf(3,string,name=run_on)
 
 	// Interval between two probe runs in milliseconds.
 	// Only one of "interval" and "inteval_msec" should be defined.
@@ -104,8 +101,8 @@ import (
 	//   }
 	latencyMetricName?: string @protobuf(15,string,name=latency_metric_name,#"default="latency""#)
 
-	// Validators are in experimental phase right now and can change at any time.
-	// NOTE: Only PING, HTTP and DNS probes support validators.
+	// Validators for this probe. Validators are run on the data returned by the
+	// probe. See https://cloudprober.org/docs/how-to/validators/ for more info.
 	validator?: [...proto_5.#Validator] @protobuf(9,validators.Validator)
 	// Set the source IP to send packets from, either by providing an IP address
 	// directly, or a network interface.
@@ -115,9 +112,9 @@ import (
 		sourceInterface: string @protobuf(11,string,name=source_interface)
 	}
 
-	// IP version to use for networking probes. If specified, this is used at the
-	// time of resolving a target, picking the correct IP for the source IP if
-	// source_interface option is provided, and to craft the packet correctly
+	// IP version to use for networking probes. If specified, this is used while
+	// 1) resolving a target, 2) picking the correct IP for the source IP if
+	// source_interface option is provided, and 3) to craft the packet correctly
 	// for PING probes.
 	//
 	// If ip_version is not configured but source_ip is provided, we get
@@ -155,10 +152,6 @@ import (
 	//
 	// Example:
 	//   additional_label {
-	//     key: "src_zone"
-	//     value: "{{.zone}}"
-	//   }
-	//   additional_label {
 	//     key: "app"
 	//     value: "@target.label.app@"
 	//   }
@@ -172,6 +165,21 @@ import (
 	// This is currently implemented only by PING and TCP probes.
 	// Note: This field is currently experimental, and may change in future.
 	negativeTest?: bool @protobuf(18,bool,name=negative_test)
+
+	// Alerts configuration. If specified, cloudprober will send alerts on probe
+	// failures. You can specify multiple alerts.
+	// Example:
+	//  alert {
+	//    name: "alert1"
+	//    condition {...}
+	//    notify {
+	//      pagerduty { ...}
+	//    }
+	//  }
+	//  alert {
+	//    name: "alert2"
+	//    notify { ... }
+	//  }
 	alert?: [...proto_A.#AlertConf] @protobuf(19,alerting.AlertConf)
 	{} | {
 		pingProbe: proto_8.#ProbeConf @protobuf(20,ping.ProbeConf,name=ping_probe)
@@ -194,6 +202,14 @@ import (
 		// for this probe's name through probes.RegisterUserDefined().
 		userDefinedProbe: string @protobuf(99,string,name=user_defined_probe)
 	}
+
+	// Which machines this probe should run on. If defined, cloudprober will run
+	// this probe only if machine's hostname matches this value. This is useful
+	// for large deployments, where you may want to use the same prober config
+	// everywhere but run this probe only on a subset of machines.
+	runOn?: string @protobuf(3,string,name=run_on)
+
+	// Debug options. Currently only used to enable logging metrics.
 	debugOptions?: #DebugOptions @protobuf(100,DebugOptions,name=debug_options)
 }
 
