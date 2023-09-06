@@ -8,11 +8,14 @@ title: "Alerting"
 date: 2016-10-25T17:24:32-07:00
 ---
 
-You can configure Cloudprober to send alerts on probe failures. Alerts
-configuration consists of mainly two parts:
+You can configure Cloudprober to send alerts on probe failures. Alerts are
+configured per probe and each probe can have multiple alerts with independent
+configuration. Alert
+[configuration](/docs/config/probes/#cloudprober.probes.alerting.AlertConf)
+consists of mainly two parts:
 
-- Alert condition
-- Notifier
+- [Alert condition](/docs/config/probes/#cloudprober.probes.alerting.Condition)
+- [Notification config](/docs/config/probes/#cloudprober.probes.alerting.NotifyConfig)
 
 ## Alert Condition
 
@@ -51,7 +54,14 @@ More examples and explanation:
 
 Cloudprober currently supports the following notification targets:
 
-- Email
-- PagerDuty
-- Slack
-- Arbitrary Command
+- [Email](/docs/config/probes/#cloudprober.probes.alerting.Email)
+- [PagerDuty](/docs/config/probes/#cloudprober.probes.alerting.PagerDuty)
+- [Slack](/docs/config/probes/#cloudprober.probes.alerting.Slack)
+- [Command](/docs/config/probes/#cloudprober.probes.alerting.NotifyConfig)
+
+## Notification Configuration
+
+In addition to the alert condition and notification targets, you can also
+configure the information included in your alert notification. Please look at
+the alert config documentation for more details about the individual fields:
+[AlertConf](/docs/config/probes/#cloudprober.probes.alerting.AlertConf).
