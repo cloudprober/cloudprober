@@ -20,10 +20,13 @@
 </style>
 <script src="/configdoc.js"></script>
 
+{{ $s := "" }}
+{{ range os.ReadDir "_config_docs/yaml" -}}
+    {{ if .IsDir }} {{ $s = printf "%s | <a href=\"../%s/\">%s</a>" $s .Name .Name }} {{ end }}
+{{ end }}
+{{ $s = trim $s "| " }}
 <div id="config-doc-links">
-    Config: <a href=../overview>main</a> | <a href=../probes>probes</a> | <a href=../surfacer>surfacers</a> |
-    <a href=../targets>targets</a> | <a href=../validators>validators</a> | <a href=../oauth>oauth</a> |
-    <a href=../rds>rds</a> | <a href=../tlsconfig>tlsconfig</a> | <a href=../metrics>metrics</a>
+    {{ $s | safeHTML}}
 </div>
 <br>
 <button id="set-lang-yaml" class="set-lang">YAML</button>|<button id="set-lang-textpb" class="set-lang">TextPB</button>

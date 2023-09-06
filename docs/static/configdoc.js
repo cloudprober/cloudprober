@@ -1,13 +1,17 @@
-const markConfigDocLinkActive = async function () {
+function markConfigDocLinkActive() {
   const configDocLinks = document.getElementById("config-doc-links");
   for (const a of configDocLinks.getElementsByTagName("a")) {
     if (a.href.replace(/\/$/, "") == window.location.href.replace(/\/$/, "")) {
       a.classList.add("config-link-active");
     }
   }
-};
+}
 
-const setConfigLang = function (lang) {
+/**
+ * @param {string} lang
+ * @returns {void}
+ * */
+function setConfigLang(lang) {
   if (!lang) {
     lang = localStorage["preferred-language"];
   }
@@ -37,11 +41,15 @@ const setConfigLang = function (lang) {
       b.classList.remove("btn-primary");
     }
   }
-};
+}
 
-// subPackages arranges messages into subpackages
-const subPackages = function (msgs) {
-  const subPackages = {};
+// subPackages arranges messages into subpackages/**
+/**
+ * @param {string[]} msgs
+ * @returns {Object<string, string[]>}
+ */
+function parseSubPkgs(msgs) {
+  const subPackages = new Object();
   for (const msg of msgs) {
     const parts = msg.split(".", 4);
     let sp = parts.slice(0, 2).join(".");
@@ -54,18 +62,23 @@ const subPackages = function (msgs) {
     subPackages[sp].push(msg);
   }
   return subPackages;
-};
+}
 
-const addFlatTOC = function (msgs, ul, name, addAHandler) {
+/**
+ * @param {string[]} msgs
+ * @param {HTMLElement} ul
+ * @param {string} prefix
+ * @param {boolean} addAHandler
+ * @returns {void}
+ * */
+function addFlatTOC(msgs, ul, prefix, addAHandler) {
   for (const msg of msgs) {
     const li = document.createElement("li");
-    ul.appendChild(li);
     li.style.whiteSpace = "nowrap";
     const a = document.createElement("a");
     li.appendChild(a);
-
     a.href = "#" + msg;
-    a.innerText = msg.replace(name, "");
+    a.innerText = msg.replace(prefix, "");
     a.style.fontSize = "0.90rem";
     a.style.fontWeight = 400;
     if (addAHandler) {
@@ -74,10 +87,53 @@ const addFlatTOC = function (msgs, ul, name, addAHandler) {
         ul.style.display = "block";
       });
     }
+    ul.appendChild(li);
   }
-};
+}
 
-const addTOC = function () {
+/**
+ * @param {string[]} names
+ * @param {HTMLElement} tocUL
+ * @returns {void}
+ */
+function buildTOCFromNames(names, tocUL) {
+  const subPackages = parseSubPkgs(names);
+  for (const name in subPackages) {
+    if (name.split(".").length == 2) {
+      addFlatTOC(subPackages[name], tocUL, "", false);
+      continue;
+    }
+    const li = document.createElement("li");
+    const buttonTmpl = document.createElement("template");
+    buttonTmpl.innerHTML =
+      '<button class="btn btn-toggle align-items-center rounded collapsed" style="font-size:0.90rem" data-bs-toggle="collapse">' +
+      name +
+      "</button>";
+    li.appendChild(buttonTmpl.content.firstChild);
+    li.style.whiteSpace = "nowrap";
+    tocUL.appendChild(li);
+
+    const ul = document.createElement("ul");
+    li.classList.add("btn-toggle-nav");
+    li.addEventListener("click", function () {
+      if (ul.style.display == "none") {
+        ul.style.display = "block";
+      } else {
+        ul.style.display = "none";
+      }
+    });
+    const h = window.location.hash.replace("#", "");
+    if (h?.startsWith(name)) {
+      ul.style.display = "block";
+    } else {
+      ul.style.display = "none";
+    }
+    li.appendChild(ul);
+    addFlatTOC(subPackages[name], ul, name, true);
+  }
+}
+
+function addTOC() {
   const tocDivs = document.getElementsByClassName("docs-toc");
   if (!tocDivs || tocDivs.length == 0) {
     console.log("TOC div not found");
@@ -91,64 +147,22 @@ const addTOC = function () {
     .getElementById("TableOfContents")
     .getElementsByTagName("ul")[0];
 
-  const els = document.getElementsByClassName("select-content-lang");
-  for (const el of els) {
+  for (const el of document.getElementsByClassName("select-content-lang")) {
     if (el.style.display == "none") continue;
 
     const h3s = el.getElementsByTagName("h3");
-    if (h3s.length == 0) {
-      continue;
-    }
+    if (h3s.length == 0) continue;
 
     let names = [];
     for (const h3 of h3s) {
       names.push(h3.innerText);
     }
 
-    const subpkgs = subPackages(names);
-    const subPackageNames = [];
-    for (const sp in subpkgs) {
-      subPackageNames.push(sp);
-    }
-    subPackageNames.sort();
-
-    for (const name of subPackageNames) {
-      if (name.split(".").length == 2) {
-        addFlatTOC(subpkgs[name], tocUL, "", false);
-        continue;
-      }
-      const li = document.createElement("li");
-      const buttonTmpl = document.createElement("template");
-      buttonTmpl.innerHTML =
-        '<button class="btn btn-toggle align-items-center rounded collapsed" style="font-size:0.90rem" data-bs-toggle="collapse">' +
-        name +
-        "</button>";
-      li.appendChild(buttonTmpl.content.firstChild);
-      li.style.whiteSpace = "nowrap";
-      tocUL.appendChild(li);
-
-      const ul = document.createElement("ul");
-      li.classList.add("btn-toggle-nav");
-      li.addEventListener("click", function () {
-        if (ul.style.display == "none") {
-          ul.style.display = "block";
-        } else {
-          ul.style.display = "none";
-        }
-      });
-      const h = window.location.hash.replace("#", "");
-      if (h && h.startsWith(name)) {
-        ul.style.display = "block";
-      } else {
-        ul.style.display = "none";
-      }
-      li.appendChild(ul);
-      addFlatTOC(subpkgs[name], ul, name, true);
-    }
+    buildTOCFromNames(names, tocUL);
   }
-};
+}
 
-document.addEventListener("DOMContentLoaded", async function () {
+document.addEventListener("DOMContentLoaded", function () {
   setConfigLang();
   markConfigDocLinkActive();
   for (const el of document.getElementsByClassName("protodoc")) {
