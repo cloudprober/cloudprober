@@ -50,7 +50,7 @@ More examples and explanation:
   starting. A pattern like **`F S F S S F`** or **`F F S S S F`** will also
   trigger an alert.
 
-## Notifier Configuration
+## Notification Targets
 
 Cloudprober currently supports the following notification targets:
 
@@ -58,6 +58,9 @@ Cloudprober currently supports the following notification targets:
 - [PagerDuty](/docs/config/probes/#cloudprober.probes.alerting.PagerDuty)
 - [Slack](/docs/config/probes/#cloudprober.probes.alerting.Slack)
 - [Command](/docs/config/probes/#cloudprober.probes.alerting.NotifyConfig)
+
+Configuration documentation has more details on each of them. You can configure
+multiple notification targets for an alert.
 
 ## Notification Configuration
 
