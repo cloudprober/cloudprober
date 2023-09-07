@@ -38,7 +38,7 @@ type Validator struct {
 	failureStatusCodeRanges []*numRange
 	successHeaderRegexp     *regexp.Regexp
 	failureHeaderRegexp     *regexp.Regexp
-	maxLastModifiedDiffSec  time.Duration
+	maxLastModifiedDiff  time.Duration
 }
 
 type numRange struct {
