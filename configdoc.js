@@ -77,7 +77,7 @@ function addFlatTOC(msgs, ul, prefix, addAHandler) {
     li.style.whiteSpace = "nowrap";
     const a = document.createElement("a");
     li.appendChild(a);
-    a.href = "#" + msg;
+    a.href = "#" + msg.replaceAll(".", "_");
     a.innerText = msg.replace(prefix, "");
     a.style.fontSize = "0.90rem";
     a.style.fontWeight = 400;
@@ -165,8 +165,5 @@ function addTOC() {
 document.addEventListener("DOMContentLoaded", function () {
   setConfigLang();
   markConfigDocLinkActive();
-  for (const el of document.getElementsByClassName("protodoc")) {
-    el.style.borderLeft = "3px solid #e76f51";
-  }
   addTOC();
 });

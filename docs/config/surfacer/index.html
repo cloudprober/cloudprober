@@ -1,13 +1,13 @@
-<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="ie=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-italic.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-italic.woff2 type=font/woff2 crossorigin><script>(()=>{var t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,e=localStorage.getItem("theme");t&&e===null&&(localStorage.setItem("theme","dark"),document.documentElement.setAttribute("data-dark-mode","")),t&&e==="dark"&&document.documentElement.setAttribute("data-dark-mode",""),e==="dark"&&document.documentElement.setAttribute("data-dark-mode","")})()</script><link rel=stylesheet href=https://cloudprober.org/main.be0d7272a7cd906143aeb05254067e182bb4347c90073c15559a8eb097736bd7c5afbf8bc908658b310738fe52f16f8875bb3ca9a90d6d0178db031ab64cd93f.css integrity="sha512-vg1ycqfNkGFDrrBSVAZ+GCu0NHyQBzwVVZqOsJdza9fFr7+LyQhlizEHOP5S8W+Idbs8qakNbQF42wMatkzZPw==" crossorigin=anonymous><noscript><style>img.lazyload{display:none}</style></noscript><meta name=robots content="index, follow"><meta name=googlebot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><meta name=bingbot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><title>Surfacers Config - Cloudprober</title><meta name=description content="metrics | oauth | overview | probes | rds | servers | surfacer | targets | tlsconfig | validators YAML|TextPB cloudprober.surfacer.LabelFilter key: &amp;lt;string> value: &amp;lt;string> cloudprober.surfacer.SurfacerDef # This name is used for logging. If not defined, it&amp;#39;s derived from the type. # Note that this field is required for the USER_DEFINED surfacer type and # should match with the name that you used while registering the user defined # surfacer."><link rel=canonical href=https://cloudprober.org/docs/config/surfacer/><meta property="og:locale" content="en_US"><meta property="og:type" content="article"><meta property="og:title" content="Surfacers Config"><meta property="og:description" content="metrics | oauth | overview | probes | rds | servers | surfacer | targets | tlsconfig | validators YAML|TextPB cloudprober.surfacer.LabelFilter key: <string> value: <string> cloudprober.surfacer.SurfacerDef # This name is used for logging. If not defined, it's derived from the type. # Note that this field is required for the USER_DEFINED surfacer type and # should match with the name that you used while registering the user defined # surfacer."><meta property="og:url" content="https://cloudprober.org/docs/config/surfacer/"><meta property="og:site_name" content="Cloudprober"><meta name=twitter:card content="summary_large_image"><meta name=twitter:site content="@cloudprober"><meta name=twitter:creator content="@manugarg"><meta name=twitter:title content="Surfacers Config"><meta name=twitter:description content><meta name=twitter:card content="summary"><meta name=twitter:image:alt content="Surfacers Config"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://cloudprober.org/#/schema/organization/1","name":"Cloudprober","url":"https://cloudprober.org/","sameAs":["https://twitter.com/cloudprober","https://github.com/cloudprober/cloudprober"],"logo":{"@type":"ImageObject","@id":"https://cloudprober.org/#/schema/image/1","url":"https://cloudprober.org/\u003cnil\u003e","width":512,"height":512,"caption":"Cloudprober"},"image":{"@id":"https://cloudprober.org/#/schema/image/1"}},{"@type":"WebSite","@id":"https://cloudprober.org/#/schema/website/1","url":"https://cloudprober.org/","name":"Cloudprober","description":"An active\/synthetic monitoring software to reliably detect outages before your customers do.","publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"}},{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/surfacer/","url":"https://cloudprober.org/docs/config/surfacer/","name":"Surfacers Config","description":"","isPartOf":{"@id":"https://cloudprober.org/#/schema/website/1"},"about":{"@id":"https://cloudprober.org/#/schema/organization/1"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","breadcrumb":{"@id":"https://cloudprober.org/docs/config/surfacer/#/schema/breadcrumb/1"},"primaryImageOfPage":{"@id":"https://cloudprober.org/docs/config/surfacer/#/schema/image/2"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://cloudprober.org/docs/config/surfacer/"]}]},{"@type":"BreadcrumbList","@id":"https://cloudprober.org/docs/config/surfacer/#/schema/breadcrumb/1","name":"Breadcrumbs","itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"WebPage","@id":"https://cloudprober.org","url":"https://cloudprober.org","name":"Home"}},{"@type":"ListItem","position":3,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/","url":"https://cloudprober.org/docs/","name":"Docs"}},{"@type":"ListItem","position":4,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/","url":"https://cloudprober.org/docs/config/","name":"Config"}},{"@type":"ListItem","position":5,"item":{"@id":"https://cloudprober.org/docs/config/surfacer/"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://cloudprober.org/#/schema/article/1","headline":"Surfacers Config","description":"","isPartOf":{"@id":"https://cloudprober.org/docs/config/surfacer/"},"mainEntityOfPage":{"@id":"https://cloudprober.org/docs/config/surfacer/"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","author":{"@id":"https://cloudprober.org/#/schema/person/2"},"publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"},"image":{"@id":"https://cloudprober.org/docs/config/surfacer/#/schema/image/2"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://cloudprober.org/#/schema/person/2","name":"Manu Garg","sameAs":["https://twitter.com/manugarg","https://www.linkedin.com/in/manugarg/","https://github.com/manugarg"]}]},{"@context":"https://schema.org","@graph":[{"@type":"ImageObject","@id":"https://cloudprober.org/docs/config/surfacer/#/schema/image/2","url":null,"contentUrl":null,"caption":"Surfacers Config"}]}]}</script><meta name=theme-color content="#fff"><link rel=icon href=https://cloudprober.org/favicon.ico sizes=any><link rel=apple-touch-icon sizes=180x180 href=https://cloudprober.org/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=https://cloudprober.org/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=https://cloudprober.org/favicon-16x16.png><link rel=manifest crossorigin=use-credentials href=https://cloudprober.org/site.webmanifest><script async src="https://www.googletagmanager.com/gtag/js?id=G-FHHPC1TNQV"></script>
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="ie=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-italic.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-italic.woff2 type=font/woff2 crossorigin><script>(()=>{var t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,e=localStorage.getItem("theme");t&&e===null&&(localStorage.setItem("theme","dark"),document.documentElement.setAttribute("data-dark-mode","")),t&&e==="dark"&&document.documentElement.setAttribute("data-dark-mode",""),e==="dark"&&document.documentElement.setAttribute("data-dark-mode","")})()</script><link rel=stylesheet href=https://cloudprober.org/main.be0d7272a7cd906143aeb05254067e182bb4347c90073c15559a8eb097736bd7c5afbf8bc908658b310738fe52f16f8875bb3ca9a90d6d0178db031ab64cd93f.css integrity="sha512-vg1ycqfNkGFDrrBSVAZ+GCu0NHyQBzwVVZqOsJdza9fFr7+LyQhlizEHOP5S8W+Idbs8qakNbQF42wMatkzZPw==" crossorigin=anonymous><noscript><style>img.lazyload{display:none}</style></noscript><meta name=robots content="index, follow"><meta name=googlebot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><meta name=bingbot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><title>Surfacers Config - Cloudprober</title><meta name=description content="metrics | oauth | overview | probes | rds | servers | surfacer | targets | tlsconfig | validators YAML|TextPB cloudprober.surfacer.LabelFilter # key: &amp;lt;string> value: &amp;lt;string> cloudprober.surfacer.SurfacerDef # # This name is used for logging. If not defined, it&amp;#39;s derived from the type. # Note that this field is required for the USER_DEFINED surfacer type and # should match with the name that you used while registering the user defined # surfacer."><link rel=canonical href=https://cloudprober.org/docs/config/surfacer/><meta property="og:locale" content="en_US"><meta property="og:type" content="article"><meta property="og:title" content="Surfacers Config"><meta property="og:description" content="metrics | oauth | overview | probes | rds | servers | surfacer | targets | tlsconfig | validators YAML|TextPB cloudprober.surfacer.LabelFilter # key: <string> value: <string> cloudprober.surfacer.SurfacerDef # # This name is used for logging. If not defined, it's derived from the type. # Note that this field is required for the USER_DEFINED surfacer type and # should match with the name that you used while registering the user defined # surfacer."><meta property="og:url" content="https://cloudprober.org/docs/config/surfacer/"><meta property="og:site_name" content="Cloudprober"><meta name=twitter:card content="summary_large_image"><meta name=twitter:site content="@cloudprober"><meta name=twitter:creator content="@manugarg"><meta name=twitter:title content="Surfacers Config"><meta name=twitter:description content><meta name=twitter:card content="summary"><meta name=twitter:image:alt content="Surfacers Config"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://cloudprober.org/#/schema/organization/1","name":"Cloudprober","url":"https://cloudprober.org/","sameAs":["https://twitter.com/cloudprober","https://github.com/cloudprober/cloudprober"],"logo":{"@type":"ImageObject","@id":"https://cloudprober.org/#/schema/image/1","url":"https://cloudprober.org/\u003cnil\u003e","width":512,"height":512,"caption":"Cloudprober"},"image":{"@id":"https://cloudprober.org/#/schema/image/1"}},{"@type":"WebSite","@id":"https://cloudprober.org/#/schema/website/1","url":"https://cloudprober.org/","name":"Cloudprober","description":"An active\/synthetic monitoring software to reliably detect outages before your customers do.","publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"}},{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/surfacer/","url":"https://cloudprober.org/docs/config/surfacer/","name":"Surfacers Config","description":"","isPartOf":{"@id":"https://cloudprober.org/#/schema/website/1"},"about":{"@id":"https://cloudprober.org/#/schema/organization/1"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","breadcrumb":{"@id":"https://cloudprober.org/docs/config/surfacer/#/schema/breadcrumb/1"},"primaryImageOfPage":{"@id":"https://cloudprober.org/docs/config/surfacer/#/schema/image/2"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://cloudprober.org/docs/config/surfacer/"]}]},{"@type":"BreadcrumbList","@id":"https://cloudprober.org/docs/config/surfacer/#/schema/breadcrumb/1","name":"Breadcrumbs","itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"WebPage","@id":"https://cloudprober.org","url":"https://cloudprober.org","name":"Home"}},{"@type":"ListItem","position":3,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/","url":"https://cloudprober.org/docs/","name":"Docs"}},{"@type":"ListItem","position":4,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/","url":"https://cloudprober.org/docs/config/","name":"Config"}},{"@type":"ListItem","position":5,"item":{"@id":"https://cloudprober.org/docs/config/surfacer/"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://cloudprober.org/#/schema/article/1","headline":"Surfacers Config","description":"","isPartOf":{"@id":"https://cloudprober.org/docs/config/surfacer/"},"mainEntityOfPage":{"@id":"https://cloudprober.org/docs/config/surfacer/"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","author":{"@id":"https://cloudprober.org/#/schema/person/2"},"publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"},"image":{"@id":"https://cloudprober.org/docs/config/surfacer/#/schema/image/2"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://cloudprober.org/#/schema/person/2","name":"Manu Garg","sameAs":["https://twitter.com/manugarg","https://www.linkedin.com/in/manugarg/","https://github.com/manugarg"]}]},{"@context":"https://schema.org","@graph":[{"@type":"ImageObject","@id":"https://cloudprober.org/docs/config/surfacer/#/schema/image/2","url":null,"contentUrl":null,"caption":"Surfacers Config"}]}]}</script><meta name=theme-color content="#fff"><link rel=icon href=https://cloudprober.org/favicon.ico sizes=any><link rel=apple-touch-icon sizes=180x180 href=https://cloudprober.org/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=https://cloudprober.org/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=https://cloudprober.org/favicon-16x16.png><link rel=manifest crossorigin=use-credentials href=https://cloudprober.org/site.webmanifest><script async src="https://www.googletagmanager.com/gtag/js?id=G-FHHPC1TNQV"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FHHPC1TNQV")</script><script>(function(e,t,n,s,o,i,a){e.GoogleAnalyticsObject=o,e[o]=e[o]||function(){(e[o].q=e[o].q||[]).push(arguments)},e[o].l=1*new Date,i=t.createElement(n),a=t.getElementsByTagName(n)[0],i.async=1,i.src=s,a.parentNode.insertBefore(i,a)})(window,document,"script","https://www.google-analytics.com/analytics.js","ga"),ga("create","UA-79661-8","auto"),ga("set","anonymizeIp",!0),ga("send","pageview");var buttons=document.querySelectorAll("a"),query;Array.prototype.map.call(buttons,function(e){e.host!=document.location.host&&e.addEventListener("click",function(){var t=e.getAttribute("data-action")||"follow";ga("send","event","outbound",t,e.href)})}),query=document.querySelector(".query"),query&&query.addEventListener("blur",function(){if(this.value){var e=document.location.pathname;ga("send","pageview",e+"?q="+this.value)}})</script></head><body class="docs single"><div class=sticky-top><div class=header-bar></div><header class="navbar navbar-expand-lg navbar-light doks-navbar"><nav class="container-xxl flex-wrap flex-lg-nowrap" aria-label="Main navigation"><a class="navbar-brand order-0" href=https://cloudprober.org/ aria-label=Cloudprober>Cloudprober</a>
 <button class="btn btn-menu order-2 d-block d-lg-none" type=button data-bs-toggle=offcanvas data-bs-target=#offcanvasDoks aria-controls=offcanvasDoks aria-label="Open main menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="offcanvas offcanvas-end border-0 py-lg-1" tabindex=-1 id=offcanvasDoks data-bs-backdrop=true aria-labelledby=offcanvasDoksLabel><div class="header-bar d-lg-none"></div><div class="offcanvas-header d-lg-none"><h2 class="h5 offcanvas-title ps-2" id=offcanvasDoksLabel><a class=text-dark href=https://cloudprober.org/>Cloudprober</a></h2><button type=button class="btn-close text-reset me-2" data-bs-dismiss=offcanvas aria-label="Close main menu"></button></div><div class="offcanvas-body p-4 p-lg-0"><ul class="nav flex-column flex-lg-row align-items-lg-center mt-2 mt-lg-0 ms-lg-2 me-lg-auto"><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/overview/cloudprober>Get Started</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/config/overview>Configuration</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/how-to/external-probe>How-To</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/about/>About</a></li></ul><hr class="text-black-50 my-4 d-lg-none"><form class="doks-search position-relative flex-grow-1 ms-lg-auto me-lg-2"><input id=search class="form-control is-search" type=search placeholder aria-label autocomplete=off><div id=suggestions class="shadow bg-white rounded d-none"></div></form><hr class="text-black-50 my-4 d-lg-none"><ul class="nav flex-column flex-lg-row"><li class=nav-item><a class="nav-link social-link" href=https://github.com/cloudprober/cloudprober><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-github"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37.0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44.0 0020 4.77 5.07 5.07.0 0019.91 1S18.73.65 16 2.48a13.38 13.38.0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07.0 005 4.77 5.44 5.44.0 003.5 8.55c0 5.42 3.3 6.61 6.44 7A3.37 3.37.0 009 18.13V22"/></svg><small class="ms-2 d-lg-none">GitHub</small></a></li><li class=nav-item><a class="nav-link social-link" href=https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE><svg xmlns="http://www.w3.org/2000/svg" class="feather social-slack" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.08 9C19.81 1.41 16.54-.35 9 1.92S-.35 7.46 1.92 15 7.46 24.35 15 22.08 24.35 16.54 22.08 9z"/><line x1="12.57" y1="5.99" x2="16.15" y2="16.39"/><line x1="7.85" y1="7.61" x2="11.43" y2="18.01"/><line x1="16.39" y1="7.85" x2="5.99" y2="11.43"/><line x1="18.01" y1="12.57" x2="7.61" y2="16.15"/></svg><small class="ms-2 d-lg-none">Slack</small></a></li></ul><hr class="text-black-50 my-4 d-lg-none"><button id=mode class="btn btn-link" type=button aria-label="Toggle user interface mode">
-<span class=toggle-dark><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-moon"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span><span class=toggle-light><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-sun"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span></button></div></div></nav></header></div><div class=container-xxl><aside class=doks-sidebar><nav id=doks-docs-nav class="collapse d-lg-none" aria-label="Tertiary navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/overview>Configuration</a></h3><ul class=list-unstyled></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></aside></div><div class="wrap container-xxl" role=document><div class=content><div class="row flex-xl-nowrap"><div class="col-lg-5 col-xl-4 docs-sidebar d-none d-lg-block"><nav id=sidebar-default class=docs-links aria-label="Main navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/overview>Configuration</a></h3><ul class=list-unstyled></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></div><nav class="docs-toc d-none d-xl-block col-xl-3" aria-label="Secondary navigation"></nav><main class="docs-content col-lg-11 col-xl-9 mx-xl-auto"><h1>Surfacers Config</h1><p class=lead></p><nav class=d-xl-none aria-label="Quaternary navigation"></nav><style>.set-lang{border-radius:3px;font-size:smaller}.config-link-active{font-weight:bolder}.protodoc{margin:1rem 0}.btn-toggle{text-transform:none;font-weight:400}.btn-toggle::before{margin-top:.125rem;margin-bottom:0}</style><script src=https://cloudprober.org/configdoc.js></script><div id=config-doc-links><a href=../metrics/>metrics</a> | <a href=../oauth/>oauth</a> | <a href=../overview/>overview</a> | <a href=../probes/>probes</a> | <a href=../rds/>rds</a> | <a href=../servers/>servers</a> | <a href=../surfacer/>surfacer</a> | <a href=../targets/>targets</a> | <a href=../tlsconfig/>tlsconfig</a> | <a href=../validators/>validators</a></div><br><button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-lang-textpb class=set-lang>TextPB</button><div id=content-lang-yaml class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:4px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober.surfacer.LabelFilter>cloudprober.surfacer.LabelFilter</h3><pre class=protodoc>
+<span class=toggle-dark><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-moon"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span><span class=toggle-light><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-sun"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span></button></div></div></nav></header></div><div class=container-xxl><aside class=doks-sidebar><nav id=doks-docs-nav class="collapse d-lg-none" aria-label="Tertiary navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/overview>Configuration</a></h3><ul class=list-unstyled></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></aside></div><div class="wrap container-xxl" role=document><div class=content><div class="row flex-xl-nowrap"><div class="col-lg-5 col-xl-4 docs-sidebar d-none d-lg-block"><nav id=sidebar-default class=docs-links aria-label="Main navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/overview>Configuration</a></h3><ul class=list-unstyled></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></div><nav class="docs-toc d-none d-xl-block col-xl-3" aria-label="Secondary navigation"></nav><main class="docs-content col-lg-11 col-xl-9 mx-xl-auto"><h1>Surfacers Config</h1><p class=lead></p><nav class=d-xl-none aria-label="Quaternary navigation"></nav><style>.set-lang{border-radius:3px;font-size:smaller}.config-link-active{font-weight:bolder}.protodoc{margin:1rem 0}.btn-toggle{text-transform:none;font-weight:400}.btn-toggle::before{margin-top:.125rem;margin-bottom:0}h3[id]::before{content:'';display:block;height:5rem;margin:-5rem 0 0}</style><script src=https://cloudprober.org/configdoc.js></script><div id=config-doc-links><a href=../metrics/>metrics</a> | <a href=../oauth/>oauth</a> | <a href=../overview/>overview</a> | <a href=../probes/>probes</a> | <a href=../rds/>rds</a> | <a href=../servers/>servers</a> | <a href=../surfacer/>surfacer</a> | <a href=../targets/>targets</a> | <a href=../tlsconfig/>tlsconfig</a> | <a href=../validators/>validators</a></div><br><button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-lang-textpb class=set-lang>TextPB</button><div id=content-lang-yaml class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter <a class=anchor href=#cloudprober_surfacer_LabelFilter>#</a></h3><pre class=protodoc>
 
 key: &lt;string>
 
 value: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.SurfacerDef>cloudprober.surfacer.SurfacerDef</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_SurfacerDef>cloudprober.surfacer.SurfacerDef <a class=anchor href=#cloudprober_surfacer_SurfacerDef>#</a></h3><pre class=protodoc>
 
 <div class=comment># This name is used for logging. If not defined, it&#39;s derived from the type.
 # Note that this field is required for the USER_DEFINED surfacer type and
@@ -28,7 +28,7 @@ type: (NONE|PROMETHEUS|STACKDRIVER|FILE|POSTGRES|PUBSUB|CLOUDWATCH|DATADOG|PROBE
 # allow_metrics_with_label {
 #   key: &#34;probe&#34;,
 #   value: &#34;check_homepage&#34;,
-# }</div>allowMetricsWithLabel: &lt;<a href=../surfacer#cloudprober.surfacer.LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+# }</div>allowMetricsWithLabel: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
 
 <div class=comment># Ignore metrics that match any of these label filters. Ignore has precedence
 # over allow filters.
@@ -36,7 +36,7 @@ type: (NONE|PROMETHEUS|STACKDRIVER|FILE|POSTGRES|PUBSUB|CLOUDWATCH|DATADOG|PROBE
 # ignore_metrics_with_label {
 #   key: &#34;probe&#34;,
 #   value: &#34;sysvars&#34;,
-# }</div>ignoreMetricsWithLabel: &lt;<a href=../surfacer#cloudprober.surfacer.LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+# }</div>ignoreMetricsWithLabel: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
 
 <div class=comment># Allow and ignore metrics based on their names. You can specify regexes
 # here. Ignore has precendence over allow.
@@ -62,13 +62,13 @@ ignoreMetricsWithName: &lt;string>
 # However, it should not be noticeable unless you&#39;re producing large number
 # of metrics (say &gt; 10000 metrics per second).</div>exportAsGauge: &lt;bool>
 
-[prometheusSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.prometheus.SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</a>&gt; | stackdriverSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.stackdriver.SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</a>&gt; | 
-&nbsp;fileSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.file.SurfacerConf>cloudprober.surfacer.file.SurfacerConf</a>&gt; | postgresSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.postgres.SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</a>&gt; | 
-&nbsp;pubsubSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.pubsub.SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</a>&gt; | cloudwatchSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.cloudwatch.SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</a>&gt; | 
-&nbsp;datadogSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.datadog.SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</a>&gt; | probestatusSurfacer &lt;<a href=../surfacer#cloudprober.surfacer.probestatus.SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</a>&gt; | 
-&nbsp;bigquerySurfacer &lt;<a href=../surfacer#cloudprober.surfacer.bigquery.SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</a>&gt;]: &lt;oneof>
+[prometheusSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</a>&gt; | stackdriverSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</a>&gt; | 
+&nbsp;fileSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf</a>&gt; | postgresSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</a>&gt; | 
+&nbsp;pubsubSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</a>&gt; | cloudwatchSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</a>&gt; | 
+&nbsp;datadogSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</a>&gt; | probestatusSurfacer &lt;<a href=../surfacer#cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</a>&gt; | 
+&nbsp;bigquerySurfacer &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</a>&gt;]: &lt;oneof>
 
-</pre><h3 id=cloudprober.surfacer.bigquery.BQColumn>cloudprober.surfacer.bigquery.BQColumn</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn <a class=anchor href=#cloudprober_surfacer_bigquery_BQColumn>#</a></h3><pre class=protodoc>
 
 label: &lt;string>
 
@@ -76,7 +76,7 @@ columnName: &lt;string>
 
 columnType: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.bigquery.SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf <a class=anchor href=#cloudprober_surfacer_bigquery_SurfacerConf>#</a></h3><pre class=protodoc>
 
 projectName: &lt;string>
 
@@ -89,7 +89,7 @@ bigqueryTable: &lt;string>
 #    label: &#34;id&#34;,
 #    column_name: &#34;id&#34;,
 #    column_type: &#34;string&#34;,
-#  }</div>bigqueryColumns: &lt;<a href=../surfacer#cloudprober.surfacer.bigquery.BQColumn>cloudprober.surfacer.bigquery.BQColumn</a>>
+#  }</div>bigqueryColumns: &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn</a>>
 
 <div class=comment># It represents bigquery client timeout in seconds. So, if bigquery insertion
 # is not completed within this time period then the request will fail and the
@@ -109,7 +109,7 @@ metricNameColName: &lt;string> | default: metric_name
 
 metricValueColName: &lt;string> | default: metric_value
 
-</pre><h3 id=cloudprober.surfacer.cloudwatch.SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf <a class=anchor href=#cloudprober_surfacer_cloudwatch_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># The cloudwatch metric namespace</div>namespace: &lt;string> | default: cloudprober
 
@@ -136,7 +136,7 @@ metricValueColName: &lt;string> | default: metric_value
 # Metrics will be published when the timer expires, or the buffer is
 # full, whichever happens first. </div>batchTimerSec: &lt;int32> | default: 30
 
-</pre><h3 id=cloudprober.surfacer.datadog.SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf <a class=anchor href=#cloudprober_surfacer_datadog_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Prefix to add to all metrics.</div>prefix: &lt;string> | default: cloudprober
 
@@ -161,7 +161,7 @@ metricValueColName: &lt;string> | default: metric_value
 <div class=comment># Disable gzip compression of metric payload, when sending metrics to Datadog.
 # Compression is enabled by default.</div>disableCompression: &lt;bool>
 
-</pre><h3 id=cloudprober.surfacer.file.SurfacerConf>cloudprober.surfacer.file.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf <a class=anchor href=#cloudprober_surfacer_file_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Where to write the results. If left unset, file surfacer writes to the
 # standard output.</div>filePath: &lt;string>
@@ -170,23 +170,23 @@ prefix: &lt;string> | default: cloudprober
 
 <div class=comment># Compress data before writing to the file.</div>compressionEnabled: &lt;bool> | default: false
 
-</pre><h3 id=cloudprober.surfacer.postgres.LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn <a class=anchor href=#cloudprober_surfacer_postgres_LabelToColumn>#</a></h3><pre class=protodoc>
 
 label: &lt;string>
 
 column: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.postgres.SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf <a class=anchor href=#cloudprober_surfacer_postgres_SurfacerConf>#</a></h3><pre class=protodoc>
 
 connectionString: &lt;string>
 
 metricsTableName: &lt;string>
 
-labelToColumn: &lt;<a href=../surfacer#cloudprober.surfacer.postgres.LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</a>>
+labelToColumn: &lt;<a href=../surfacer#cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</a>>
 
 metricsBufferSize: &lt;int64> | default: 10000
 
-</pre><h3 id=cloudprober.surfacer.probestatus.SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_probestatus_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># default 60s</div>resolutionSec: &lt;int32> | default: 60
 
@@ -205,7 +205,7 @@ metricsBufferSize: &lt;int64> | default: 10000
 <div class=comment># Probestatus surfacer is enabled by default. To disable it, set this
 # option.</div>disable: &lt;bool>
 
-</pre><h3 id=cloudprober.surfacer.prometheus.SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_prometheus_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># How many metrics entries (EventMetrics) to buffer. Incoming metrics
 # processing is paused while serving data to prometheus. This buffer is to
@@ -225,7 +225,7 @@ metricsBufferSize: &lt;int64> | default: 10000
 # &#34;cloudprober_&#34; will result in metrics with names:
 # cloudprober_total, cloudprober_success, cloudprober_latency, ..</div>metricsPrefix: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.pubsub.SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf <a class=anchor href=#cloudprober_surfacer_pubsub_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># GCP project name for pubsub. If not specified and running on GCP,
 # project is used.</div>project: &lt;string>
@@ -235,7 +235,7 @@ metricsBufferSize: &lt;int64> | default: 10000
 
 <div class=comment># Compress data before writing to pubsub.</div>compressionEnabled: &lt;bool> | default: false
 
-</pre><h3 id=cloudprober.surfacer.stackdriver.SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf <a class=anchor href=#cloudprober_surfacer_stackdriver_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># GCP project name for stackdriver. If not specified and running on GCP,
 # project is used.</div>project: &lt;string>
@@ -260,13 +260,13 @@ metricsBufferSize: &lt;int64> | default: 10000
 
 metricsPrefix: (NONE|PROBE|PTYPE_PROBE): &lt;enum>
 
-</pre></div><div id=content-lang-textpb class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:4px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober.surfacer.LabelFilter>cloudprober.surfacer.LabelFilter</h3><pre class=protodoc>
+</pre></div><div id=content-lang-textpb class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter <a class=anchor href=#cloudprober_surfacer_LabelFilter>#</a></h3><pre class=protodoc>
 
 key: &lt;string>
 
 value: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.SurfacerDef>cloudprober.surfacer.SurfacerDef</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_SurfacerDef>cloudprober.surfacer.SurfacerDef <a class=anchor href=#cloudprober_surfacer_SurfacerDef>#</a></h3><pre class=protodoc>
 
 <div class=comment># This name is used for logging. If not defined, it&#39;s derived from the type.
 # Note that this field is required for the USER_DEFINED surfacer type and
@@ -287,7 +287,7 @@ type: (NONE|PROMETHEUS|STACKDRIVER|FILE|POSTGRES|PUBSUB|CLOUDWATCH|DATADOG|PROBE
 # allow_metrics_with_label {
 #   key: &#34;probe&#34;,
 #   value: &#34;check_homepage&#34;,
-# }</div>allow_metrics_with_label: &lt;<a href=../surfacer#cloudprober.surfacer.LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+# }</div>allow_metrics_with_label: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
 
 <div class=comment># Ignore metrics that match any of these label filters. Ignore has precedence
 # over allow filters.
@@ -295,7 +295,7 @@ type: (NONE|PROMETHEUS|STACKDRIVER|FILE|POSTGRES|PUBSUB|CLOUDWATCH|DATADOG|PROBE
 # ignore_metrics_with_label {
 #   key: &#34;probe&#34;,
 #   value: &#34;sysvars&#34;,
-# }</div>ignore_metrics_with_label: &lt;<a href=../surfacer#cloudprober.surfacer.LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+# }</div>ignore_metrics_with_label: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
 
 <div class=comment># Allow and ignore metrics based on their names. You can specify regexes
 # here. Ignore has precendence over allow.
@@ -321,13 +321,13 @@ ignore_metrics_with_name: &lt;string>
 # However, it should not be noticeable unless you&#39;re producing large number
 # of metrics (say &gt; 10000 metrics per second).</div>export_as_gauge: &lt;bool>
 
-[prometheus_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.prometheus.SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</a>&gt; | stackdriver_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.stackdriver.SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</a>&gt; | 
-&nbsp;file_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.file.SurfacerConf>cloudprober.surfacer.file.SurfacerConf</a>&gt; | postgres_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.postgres.SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</a>&gt; | 
-&nbsp;pubsub_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.pubsub.SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</a>&gt; | cloudwatch_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.cloudwatch.SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</a>&gt; | 
-&nbsp;datadog_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.datadog.SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</a>&gt; | probestatus_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.probestatus.SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</a>&gt; | 
-&nbsp;bigquery_surfacer &lt;<a href=../surfacer#cloudprober.surfacer.bigquery.SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</a>&gt;]: &lt;oneof>
+[prometheus_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</a>&gt; | stackdriver_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</a>&gt; | 
+&nbsp;file_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf</a>&gt; | postgres_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</a>&gt; | 
+&nbsp;pubsub_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</a>&gt; | cloudwatch_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</a>&gt; | 
+&nbsp;datadog_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</a>&gt; | probestatus_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</a>&gt; | 
+&nbsp;bigquery_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</a>&gt;]: &lt;oneof>
 
-</pre><h3 id=cloudprober.surfacer.bigquery.BQColumn>cloudprober.surfacer.bigquery.BQColumn</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn <a class=anchor href=#cloudprober_surfacer_bigquery_BQColumn>#</a></h3><pre class=protodoc>
 
 label: &lt;string>
 
@@ -335,7 +335,7 @@ column_name: &lt;string>
 
 column_type: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.bigquery.SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf <a class=anchor href=#cloudprober_surfacer_bigquery_SurfacerConf>#</a></h3><pre class=protodoc>
 
 project_name: &lt;string>
 
@@ -348,7 +348,7 @@ bigquery_table: &lt;string>
 #    label: &#34;id&#34;,
 #    column_name: &#34;id&#34;,
 #    column_type: &#34;string&#34;,
-#  }</div>bigquery_columns: &lt;<a href=../surfacer#cloudprober.surfacer.bigquery.BQColumn>cloudprober.surfacer.bigquery.BQColumn</a>>
+#  }</div>bigquery_columns: &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn</a>>
 
 <div class=comment># It represents bigquery client timeout in seconds. So, if bigquery insertion
 # is not completed within this time period then the request will fail and the
@@ -368,7 +368,7 @@ metric_name_col_name: &lt;string> | default: metric_name
 
 metric_value_col_name: &lt;string> | default: metric_value
 
-</pre><h3 id=cloudprober.surfacer.cloudwatch.SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf <a class=anchor href=#cloudprober_surfacer_cloudwatch_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># The cloudwatch metric namespace</div>namespace: &lt;string> | default: cloudprober
 
@@ -395,7 +395,7 @@ metric_value_col_name: &lt;string> | default: metric_value
 # Metrics will be published when the timer expires, or the buffer is
 # full, whichever happens first. </div>batch_timer_sec: &lt;int32> | default: 30
 
-</pre><h3 id=cloudprober.surfacer.datadog.SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf <a class=anchor href=#cloudprober_surfacer_datadog_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Prefix to add to all metrics.</div>prefix: &lt;string> | default: cloudprober
 
@@ -420,7 +420,7 @@ metric_value_col_name: &lt;string> | default: metric_value
 <div class=comment># Disable gzip compression of metric payload, when sending metrics to Datadog.
 # Compression is enabled by default.</div>disable_compression: &lt;bool>
 
-</pre><h3 id=cloudprober.surfacer.file.SurfacerConf>cloudprober.surfacer.file.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf <a class=anchor href=#cloudprober_surfacer_file_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Where to write the results. If left unset, file surfacer writes to the
 # standard output.</div>file_path: &lt;string>
@@ -429,23 +429,23 @@ prefix: &lt;string> | default: cloudprober
 
 <div class=comment># Compress data before writing to the file.</div>compression_enabled: &lt;bool> | default: false
 
-</pre><h3 id=cloudprober.surfacer.postgres.LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn <a class=anchor href=#cloudprober_surfacer_postgres_LabelToColumn>#</a></h3><pre class=protodoc>
 
 label: &lt;string>
 
 column: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.postgres.SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf <a class=anchor href=#cloudprober_surfacer_postgres_SurfacerConf>#</a></h3><pre class=protodoc>
 
 connection_string: &lt;string>
 
 metrics_table_name: &lt;string>
 
-label_to_column: &lt;<a href=../surfacer#cloudprober.surfacer.postgres.LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</a>>
+label_to_column: &lt;<a href=../surfacer#cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</a>>
 
 metrics_buffer_size: &lt;int64> | default: 10000
 
-</pre><h3 id=cloudprober.surfacer.probestatus.SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_probestatus_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># default 60s</div>resolution_sec: &lt;int32> | default: 60
 
@@ -464,7 +464,7 @@ metrics_buffer_size: &lt;int64> | default: 10000
 <div class=comment># Probestatus surfacer is enabled by default. To disable it, set this
 # option.</div>disable: &lt;bool>
 
-</pre><h3 id=cloudprober.surfacer.prometheus.SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_prometheus_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># How many metrics entries (EventMetrics) to buffer. Incoming metrics
 # processing is paused while serving data to prometheus. This buffer is to
@@ -484,7 +484,7 @@ metrics_buffer_size: &lt;int64> | default: 10000
 # &#34;cloudprober_&#34; will result in metrics with names:
 # cloudprober_total, cloudprober_success, cloudprober_latency, ..</div>metrics_prefix: &lt;string>
 
-</pre><h3 id=cloudprober.surfacer.pubsub.SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf <a class=anchor href=#cloudprober_surfacer_pubsub_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># GCP project name for pubsub. If not specified and running on GCP,
 # project is used.</div>project: &lt;string>
@@ -494,7 +494,7 @@ metrics_buffer_size: &lt;int64> | default: 10000
 
 <div class=comment># Compress data before writing to pubsub.</div>compression_enabled: &lt;bool> | default: false
 
-</pre><h3 id=cloudprober.surfacer.stackdriver.SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</h3><pre class=protodoc>
+</pre><h3 id=cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf <a class=anchor href=#cloudprober_surfacer_stackdriver_SurfacerConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># GCP project name for stackdriver. If not specified and running on GCP,
 # project is used.</div>project: &lt;string>
@@ -522,4 +522,4 @@ metrics_prefix: (NONE|PROBE|PTYPE_PROBE): &lt;enum>
 </pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/surfacers/overview/><div class="card my-1"><div class="card-body py-2">&larr; Surfacers</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/targets/><div class="card my-1"><div class="card-body py-2">Targets Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.3891c1ef72d572feb76be0b2bce785fdd43bb90765b6c37bb7784c909d2d464291ab5e80d080078e572a974bf8977b5b5a77e0992c63ccbf331439f96b061757.js integrity="sha512-OJHB73LVcv63a+CyvOeF/dQ7uQdltsN7t3hMkJ0tRkKRq16A0IAHjlcql0v4l3tbWnfgmSxjzL8zFDn5awYXVw==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.587871d000c7ce55ccf887f6319ff208eb6d63581fbb2d7eae3b0ffba22dea9bc69e49ec80fc64d279f86198dd6ee07155f71f52028678bdc9c8f1bcedc00c82.js integrity="sha512-WHhx0ADHzlXM+If2MZ/yCOttY1gfuy1+rjsP+6It6pvGnknsgPxk0nn4YZjdbuBxVfcfUgKGeL3JyPG87cAMgg==" crossorigin=anonymous defer></script></body></html>
