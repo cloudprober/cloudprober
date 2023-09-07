@@ -1,4 +1,8 @@
 <style>
+    #config-doc-links{
+        margin-bottom: 0.5rem;
+        font-size: 0.94rem;
+    }
     .set-lang {
         border-radius: 3px;
         font-size: smaller;
@@ -28,13 +32,13 @@
 </style>
 <script src="/configdoc.js"></script>
 
-{{ $s := "" }}
+{{ $s := "<a href=\"../overview/\">main</a>" }}
 {{ range os.ReadDir "_config_docs/yaml" -}}
-    {{ if .IsDir }} {{ $s = printf "%s | <a href=\"../%s/\">%s</a>" $s .Name .Name }} {{ end }}
+    {{ if and (ne .Name "overview") .IsDir }} {{ $s = printf "%s | <a href=\"../%s/\">%s</a>" $s .Name .Name }} {{ end }}
 {{ end }}
 {{ $s = trim $s "| " }}
 <div id="config-doc-links">
-    {{ $s | safeHTML}}
+    Configs:&nbsp;&nbsp;{{ $s | safeHTML}}
 </div>
 <br>
 <button id="set-lang-yaml" class="set-lang">YAML</button>|<button id="set-lang-textpb" class="set-lang">TextPB</button>
