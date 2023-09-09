@@ -5,7 +5,7 @@ package cloudprober.targets;
 
 import "github.com/cloudprober/cloudprober/rds/client/proto/config.proto";
 import "github.com/cloudprober/cloudprober/rds/proto/rds.proto";
-import "github.com/cloudprober/cloudprober/targets/file/proto/config.proto";
+import "github.com/cloudprober/cloudprober/rds/file/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/gce/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/lameduck/proto/config.proto";
 
@@ -76,6 +76,41 @@ message K8sTargets {
   optional rds.ClientConf.ServerOptions rds_server_options = 20;
 }
 
+message FileTargets {
+  // File that contains resources in either textproto or json format.
+  // Example in textproto format:
+  //
+  // resource {
+  //   name: "switch-xx-01"
+  //   ip: "10.11.112.3"
+  //   port: 8080
+  //   labels {
+  //     key: "device_type"
+  //     value: "switch"
+  //   }
+  // }
+  // resource {
+  //   name: "switch-yy-01"
+  //   ip: "10.16.110.12"
+  //   port: 8080
+  // }
+  //
+  // Note that file_path can encode the location of the file in the URL format.
+  // For example:
+  //  Local file: /var/run/cloudprober/switches.textpb
+  //  S3 file:    s3://cloudprober/switches.textpb
+  //  GCS file:   gs://cloudprober/switches.textpb
+  //  HTTP file:  http://my-public-host/switches.json
+  optional string file_path = 1;
+
+  repeated .cloudprober.rds.Filter filter = 2;
+
+  optional .cloudprober.rds.file.ProviderConfig.Format format = 3;
+
+  // If specified, file will be re-read at the given interval.
+  optional int32 re_eval_sec = 4;
+}
+
 message TargetsDef {
   oneof type {
     // Static host names, for example:
@@ -122,7 +157,7 @@ message TargetsDef {
     // file_targets {
     //   file_path: "/var/run/cloudprober/vips.textpb"
     // }
-    file.TargetsConf file_targets = 4;
+    FileTargets file_targets = 4;
 
     // K8s targets.
     // Note: k8s targets are still in the experimental phase. Their config API

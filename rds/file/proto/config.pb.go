@@ -110,7 +110,14 @@ type ProviderConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// File that contains resources in either textproto or json format.
+	// File that contains resources in either textproto or json format. File can
+	// be local, on GCS, on S3, or any HTTP(S) URL.
+	// e.g.:
+	//   - /tmp/resources.textpb
+	//   - gs://my-bucket/resources.json
+	//   - s3://my-bucket/resources.json
+	//   - https://my-public-bucket.s3.amazonaws.com/resources.json
+	//
 	// Example in textproto format:
 	//
 	//	resource {

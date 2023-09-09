@@ -15,7 +15,7 @@
 /*
 Package file implements a file-based targets for cloudprober.
 */
-package file
+package targets
 
 import (
 	"context"
@@ -26,13 +26,13 @@ import (
 	"github.com/cloudprober/cloudprober/rds/file"
 	file_configpb "github.com/cloudprober/cloudprober/rds/file/proto"
 	rdspb "github.com/cloudprober/cloudprober/rds/proto"
-	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 	"google.golang.org/protobuf/proto"
 )
 
-// New returns new file targets.
-func New(opts *configpb.TargetsConf, res *dnsRes.Resolver, l *logger.Logger) (*client.Client, error) {
+// NewFileTargets returns new file targets.
+func fileTargets(opts *targetspb.FileTargets, res *dnsRes.Resolver, l *logger.Logger) (*client.Client, error) {
 	lister, err := file.New(&file_configpb.ProviderConfig{
 		FilePath:  []string{opts.GetFilePath()},
 		ReEvalSec: proto.Int32(opts.GetReEvalSec()),

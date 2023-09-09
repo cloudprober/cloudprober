@@ -3,8 +3,8 @@ package proto
 import (
 	"github.com/cloudprober/cloudprober/rds/client/proto"
 	proto_1 "github.com/cloudprober/cloudprober/rds/proto"
-	proto_5 "github.com/cloudprober/cloudprober/targets/gce/proto"
-	proto_A "github.com/cloudprober/cloudprober/targets/file/proto"
+	proto_5 "github.com/cloudprober/cloudprober/rds/file/proto"
+	proto_A "github.com/cloudprober/cloudprober/targets/gce/proto"
 	proto_8 "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 )
 
@@ -74,6 +74,39 @@ import (
 	rdsServerOptions?: proto.#ClientConf.#ServerOptions @protobuf(20,rds.ClientConf.ServerOptions,name=rds_server_options)
 }
 
+#FileTargets: {
+	// File that contains resources in either textproto or json format.
+	// Example in textproto format:
+	//
+	// resource {
+	//   name: "switch-xx-01"
+	//   ip: "10.11.112.3"
+	//   port: 8080
+	//   labels {
+	//     key: "device_type"
+	//     value: "switch"
+	//   }
+	// }
+	// resource {
+	//   name: "switch-yy-01"
+	//   ip: "10.16.110.12"
+	//   port: 8080
+	// }
+	//
+	// Note that file_path can encode the location of the file in the URL format.
+	// For example:
+	//  Local file: /var/run/cloudprober/switches.textpb
+	//  S3 file:    s3://cloudprober/switches.textpb
+	//  GCS file:   gs://cloudprober/switches.textpb
+	//  HTTP file:  http://my-public-host/switches.json
+	filePath?: string @protobuf(1,string,name=file_path)
+	filter?: [...proto_1.#Filter] @protobuf(2,.cloudprober.rds.Filter)
+	format?: proto_5.#ProviderConfig.#Format @protobuf(3,.cloudprober.rds.file.ProviderConfig.Format)
+
+	// If specified, file will be re-read at the given interval.
+	reEvalSec?: int32 @protobuf(4,int32,name=re_eval_sec)
+}
+
 #TargetsDef: {
 	{} | {
 		// Static host names, for example:
@@ -102,7 +135,7 @@ import (
 		// gce_targets {
 		//   instances {}
 		// }
-		gceTargets: proto_5.#TargetsConf @protobuf(2,gce.TargetsConf,name=gce_targets)
+		gceTargets: proto_A.#TargetsConf @protobuf(2,gce.TargetsConf,name=gce_targets)
 	} | {
 		// ResourceDiscovery service based targets.
 		// Example:
@@ -120,7 +153,7 @@ import (
 		// file_targets {
 		//   file_path: "/var/run/cloudprober/vips.textpb"
 		// }
-		fileTargets: proto_A.#TargetsConf @protobuf(4,file.TargetsConf,name=file_targets)
+		fileTargets: #FileTargets @protobuf(4,FileTargets,name=file_targets)
 	} | {
 		// K8s targets.
 		// Note: k8s targets are still in the experimental phase. Their config API
@@ -174,7 +207,7 @@ import (
 	rdsServerOptions?: proto.#ClientConf.#ServerOptions @protobuf(4,rds.ClientConf.ServerOptions,name=rds_server_options)
 
 	// GCE targets options.
-	globalGceTargetsOptions?: proto_5.#GlobalOptions @protobuf(1,gce.GlobalOptions,name=global_gce_targets_options)
+	globalGceTargetsOptions?: proto_A.#GlobalOptions @protobuf(1,gce.GlobalOptions,name=global_gce_targets_options)
 
 	// Lame duck options. If provided, targets module checks for the lame duck
 	// targets and removes them from the targets list.

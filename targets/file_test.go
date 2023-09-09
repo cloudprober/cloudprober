@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package file
+package targets
 
 import (
 	"reflect"
@@ -20,7 +20,7 @@ import (
 
 	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -57,7 +57,7 @@ var testExpectedIP = map[string]string{
 	"switch-zz-1": "::aaa:1",
 }
 
-func TestListEndpointsWithFilter(t *testing.T) {
+func TestFileTargetsListEndpointsWithFilter(t *testing.T) {
 	for _, test := range []struct {
 		desc          string
 		f             []*rdspb.Filter
@@ -77,8 +77,8 @@ func TestListEndpointsWithFilter(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			ft, err := New(&configpb.TargetsConf{
-				FilePath: proto.String("../../rds/file/testdata/targets.json"),
+			ft, err := fileTargets(&targetspb.FileTargets{
+				FilePath: proto.String("../rds/file/testdata/targets.json"),
 				Filter:   test.f,
 			}, nil, nil)
 

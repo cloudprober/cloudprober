@@ -16,6 +16,7 @@
 package tlsconfig
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -39,12 +40,12 @@ var global = struct {
 }
 
 func loadCert(certFile, keyFile string) (*tls.Certificate, error) {
-	certPEMBlock, err := file.ReadFile(certFile)
+	certPEMBlock, err := file.ReadFile(context.Background(), certFile)
 	if err != nil {
 		return nil, fmt.Errorf("common/tlsconfig: error reading TLS cert file (%s): %v", certFile, err)
 	}
 
-	keyPEMBlock, err := file.ReadFile(keyFile)
+	keyPEMBlock, err := file.ReadFile(context.Background(), keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("common/tlsconfig: error reading TLS key file (%s): %v", keyFile, err)
 	}
@@ -60,7 +61,7 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig) error {
 	}
 
 	if c.GetCaCertFile() != "" {
-		caCert, err := file.ReadFile(c.GetCaCertFile())
+		caCert, err := file.ReadFile(context.Background(), c.GetCaCertFile())
 		if err != nil {
 			return fmt.Errorf("common/tlsconfig: error reading CA cert file (%s): %v", c.GetCaCertFile(), err)
 		}

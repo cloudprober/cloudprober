@@ -37,7 +37,6 @@ import (
 	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
 	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/cloudprober/cloudprober/targets/file"
 	"github.com/cloudprober/cloudprober/targets/gce"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
@@ -54,10 +53,11 @@ var (
 // Targets must have refreshed this much time after the lameduck for them to
 // become valid again. This is to take care of the following race between
 // targets refresh and lameduck creation:
-//   Targets are refreshed few seconds after lameduck, and are deleted few more
-//   seconds after that. If there is no min lameduck duration, we'll end up
-//   ignoring lameduck in this case. With min lameduck duration, targets will
-//   need to be refreshed few minutes after being lameducked.
+//
+//	Targets are refreshed few seconds after lameduck, and are deleted few more
+//	seconds after that. If there is no min lameduck duration, we'll end up
+//	ignoring lameduck in this case. With min lameduck duration, targets will
+//	need to be refreshed few minutes after being lameducked.
 const minLameduckDuration = 5 * time.Minute
 
 // extensionMap is a map of targets-types extensions. While creating new
@@ -354,7 +354,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_FileTargets:
-		ft, err := file.New(targetsDef.GetFileTargets(), globalResolver, l)
+		ft, err := fileTargets(targetsDef.GetFileTargets(), globalResolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}

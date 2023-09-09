@@ -15,6 +15,7 @@
 package config
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -39,7 +40,7 @@ const (
 )
 
 func readConfigFile(fileName string) (string, string, error) {
-	b, err := file.ReadFile(fileName)
+	b, err := file.ReadFile(context.Background(), fileName)
 	if err != nil {
 		return "", "", err
 	}
