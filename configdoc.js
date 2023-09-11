@@ -16,7 +16,7 @@ function setConfigLang(lang) {
     lang = localStorage["preferred-language"];
   }
   if (!lang) {
-    lang = "yaml";
+    lang = "textpb";
   }
 
   const els = document.getElementsByClassName("select-content-lang");
