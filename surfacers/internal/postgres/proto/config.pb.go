@@ -25,8 +25,25 @@ type SurfacerConf struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ConnectionString  *string          `protobuf:"bytes,1,req,name=connection_string,json=connectionString" json:"connection_string,omitempty"`
-	MetricsTableName  *string          `protobuf:"bytes,2,req,name=metrics_table_name,json=metricsTableName" json:"metrics_table_name,omitempty"`
+	// Postgres connection string.
+	// Example:
+	//
+	//	"postgresql://root:${PASSWORD}@localhost/cloudprober?sslmode=disable"
+	ConnectionString *string `protobuf:"bytes,1,req,name=connection_string,json=connectionString" json:"connection_string,omitempty"`
+	// Metrics table name.
+	// To create table (when storing all labels in single column in JSON format):
+	// CREATE TABLE metrics (
+	//
+	//	time timestamp, metric_name varchar(80), value float8, labels jsonb
+	//
+	// )
+	MetricsTableName *string `protobuf:"bytes,2,req,name=metrics_table_name,json=metricsTableName" json:"metrics_table_name,omitempty"`
+	// Adding label_to_column fields changes how labels are stored in a Postgres
+	// table. If this field is not specified at all, all the labels are stored as
+	// jsonb values as the 'labels' column (this mode impacts performance
+	// negatively). If label_to_colum entries are specified for some labels,
+	// those labels are stored in their dedicated columns; all the labels that
+	// don't have a mapping will be dropped.
 	LabelToColumn     []*LabelToColumn `protobuf:"bytes,4,rep,name=label_to_column,json=labelToColumn" json:"label_to_column,omitempty"`
 	MetricsBufferSize *int64           `protobuf:"varint,3,opt,name=metrics_buffer_size,json=metricsBufferSize,def=10000" json:"metrics_buffer_size,omitempty"`
 }
@@ -96,18 +113,14 @@ func (x *SurfacerConf) GetMetricsBufferSize() int64 {
 	return Default_SurfacerConf_MetricsBufferSize
 }
 
-// Adding label_to_column fields changes how labels are stored in a Postgres
-// table. If this field is not specified at all, all the labels are stored as a jsonb
-// values as the 'labels' column (this mode impacts performance negatively). If
-// label_to_colum entries are specified for some labels, those labels
-// are stored in their dedicated columns, all the labels that don't have a
-// mapping will be dropped.
 type LabelToColumn struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Label  *string `protobuf:"bytes,1,req,name=label" json:"label,omitempty"`
+	// Label name
+	Label *string `protobuf:"bytes,1,req,name=label" json:"label,omitempty"`
+	// Column to map this label to:
 	Column *string `protobuf:"bytes,2,req,name=column" json:"column,omitempty"`
 }
 
