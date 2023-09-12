@@ -9,6 +9,25 @@ import (
 	proto_E "github.com/cloudprober/cloudprober/targets/proto"
 )
 
+// Cloudprober config proto. Cloudprober config can be specified in either
+// YAML or textproto format.
+//
+// You can use Go text template syntax to add programmatic constructs to your
+// config. For example, to add a probe for each port in a range:
+//
+//  {{range seq 80 90}}
+//  probe {
+//    name: "tcp-{{.}}"
+//    type: TCP
+//    targets {
+//      host_names: "localhost:{{.}}"
+//    }
+//  }
+//  {{end}}
+//
+// Cloudprober configs support sprig functions for more powerful templating.
+// http://masterminds.github.io/sprig/
+// These are the same set of functions that are used by Helm charts templates.
 #ProberConfig: {
 	// Probes to run.
 	probe?: [...proto.#ProbeDef] @protobuf(1,probes.ProbeDef)
