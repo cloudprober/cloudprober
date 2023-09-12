@@ -161,7 +161,7 @@ function addTOC() {
 
     let names = [];
     for (const h3 of h3s) {
-      names.push(h3.innerText);
+      names.push(h3.innerText.trim());
     }
 
     buildTOCFromNames(names, tocUL);
