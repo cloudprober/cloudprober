@@ -9,6 +9,14 @@ import (
 	proto_E "github.com/cloudprober/cloudprober/targets/proto"
 )
 
+// Cloudprober config proto defines the config schema. Cloudprober config can
+// either be in YAML or textproto format.
+//
+// Cloudprober uses Go text templates along with Sprig functions[1] to add
+// programming capabilities to the configs.
+// [1]- http://masterminds.github.io/sprig/
+// Config template examples:
+// https://github.com/cloudprober/cloudprober/tree/master/examples/templates
 #ProberConfig: {
 	// Probes to run.
 	probe?: [...proto.#ProbeDef] @protobuf(1,probes.ProbeDef)

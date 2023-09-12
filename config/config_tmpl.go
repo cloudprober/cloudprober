@@ -119,14 +119,12 @@ package config
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"os"
 	"regexp"
-	"strings"
 	"text/template"
 
 	"cloud.google.com/go/compute/metadata"
+	"github.com/Masterminds/sprig/v3"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -175,16 +173,6 @@ func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 	}
 
 	funcMap := map[string]interface{}{
-		// env allows a user to lookup the value of a environment variable in
-		// the configuration
-		"env": func(key string) string {
-			value, ok := os.LookupEnv(key)
-			if !ok {
-				return ""
-			}
-			return value
-		},
-
 		"gceCustomMetadata": gceCustomMetadataFunc,
 
 		// extractSubstring allows us to extract substring from a string using
@@ -200,33 +188,14 @@ func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 			}
 			return matches[n], nil
 		},
-
-		// mkMap makes a map from its argume
-		"mkMap": func(values ...interface{}) (map[string]interface{}, error) {
-			if len(values)%2 != 0 {
-				return nil, errors.New("invalid mkMap call, need even number of args")
-			}
-			m := make(map[string]interface{}, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				key, ok := values[i].(string)
-				if !ok {
-					return nil, errors.New("map keys must be strings")
-				}
-				m[key] = values[i+1]
-			}
-			return m, nil
-		},
-
-		// mkSlice makes a slice from its arguments.
-		"mkSlice": func(args ...interface{}) []interface{} {
-			return args
-		},
-
-		// splitList splits the given string into a list.
-		"splitList": func(sep, input string) []string {
-			return strings.Split(input, sep)
-		},
 	}
+
+	for name, f := range sprig.TxtFuncMap() {
+		funcMap[name] = f
+	}
+	funcMap["mkSlice"] = funcMap["list"]
+	funcMap["mkMap"] = funcMap["dict"]
+
 	configTmpl, err := template.New("cloudprober_cfg").Funcs(funcMap).Parse(config)
 	if err != nil {
 		return "", err

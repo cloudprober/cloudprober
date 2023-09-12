@@ -1,0 +1,17 @@
+# This config uses 'list' function provided by Sprig library to create a list
+# of environments and then iterates over it to create a probe for each env.
+probe:
+{{ range (list "dev" "qa" "prod") }}
+ - name: api-{{ . }}
+   type: HTTP
+   targets:
+     host_names: "api-{{ . }}.example.com"
+   http_probe:
+     protocol: HTTPS
+     relativeUrl: "/health"
+   {{- if eq . "prod" }}
+   alert:
+    - notify:
+        command: "/usr/bin/mail -s \"Cloudprober alert: alert @alert@ for @target@\" test@gmail.com"
+   {{- end }}
+{{ end }}
