@@ -9,7 +9,7 @@ function markConfigDocLinkActive() {
 
 /**
  * @param {string} lang
- * @returns {void}
+ * @returns {string}
  * */
 function setConfigLang(lang) {
   if (!lang) {
@@ -23,8 +23,14 @@ function setConfigLang(lang) {
   for (const e of els) {
     if (e.id == "content-lang-" + lang) {
       e.style.display = "block";
+      for (const h3 of e.getElementsByTagName("h3")) {
+        h3.id = h3.id.replace(":disabled", "");
+      }
     } else {
       e.style.display = "none";
+      for (const h3 of e.getElementsByTagName("h3")) {
+        h3.id = h3.id + ":disabled";
+      }
     }
   }
   localStorage["preferred-language"] = lang;
@@ -41,6 +47,8 @@ function setConfigLang(lang) {
       b.classList.remove("btn-primary");
     }
   }
+
+  return lang;
 }
 
 // subPackages arranges messages into subpackages/**
@@ -163,7 +171,8 @@ function addTOC() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  setConfigLang();
+  const lang = setConfigLang();
+  const mainDiv = document.getElementById("content-lang-" + lang);
   markConfigDocLinkActive();
   addTOC();
 });
