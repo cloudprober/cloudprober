@@ -26,6 +26,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Cloudprober config proto defines the config schema. Cloudprober config can
+// either be in YAML or textproto format.
+//
+// Cloudprober uses Go text templates along with Sprig functions[1] to add
+// programming capabilities to the configs.
+// [1]- http://masterminds.github.io/sprig/
+// Config template examples:
+// https://github.com/cloudprober/cloudprober/tree/master/examples/templates
 type ProberConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

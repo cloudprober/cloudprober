@@ -11,6 +11,14 @@ import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/config/proto";
 
+// Cloudprober config proto defines the config schema. Cloudprober config can
+// either be in YAML or textproto format.
+//
+// Cloudprober uses Go text templates along with Sprig functions[1] to add
+// programming capabilities to the configs.
+// [1]- http://masterminds.github.io/sprig/
+// Config template examples:
+// https://github.com/cloudprober/cloudprober/tree/master/examples/templates
 message ProberConfig {
   // Probes to run.
   repeated probes.ProbeDef probe = 1;
