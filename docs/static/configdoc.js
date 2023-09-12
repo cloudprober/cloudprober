@@ -9,7 +9,7 @@ function markConfigDocLinkActive() {
 
 /**
  * @param {string} lang
- * @returns {string}
+ * @returns {void}
  * */
 function setConfigLang(lang) {
   if (!lang) {
@@ -47,8 +47,6 @@ function setConfigLang(lang) {
       b.classList.remove("btn-primary");
     }
   }
-
-  return lang;
 }
 
 // subPackages arranges messages into subpackages/**
@@ -171,8 +169,7 @@ function addTOC() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  const lang = setConfigLang();
-  const mainDiv = document.getElementById("content-lang-" + lang);
+  setConfigLang();
   markConfigDocLinkActive();
   addTOC();
 });
