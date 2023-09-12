@@ -23,8 +23,14 @@ function setConfigLang(lang) {
   for (const e of els) {
     if (e.id == "content-lang-" + lang) {
       e.style.display = "block";
+      for (const h3 of e.getElementsByTagName("h3")) {
+        h3.id = h3.id.replace(":disabled", "");
+      }
     } else {
       e.style.display = "none";
+      for (const h3 of e.getElementsByTagName("h3")) {
+        h3.id = h3.id + ":disabled";
+      }
     }
   }
   localStorage["preferred-language"] = lang;
