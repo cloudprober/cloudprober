@@ -170,6 +170,10 @@ function addTOC() {
 
 document.addEventListener("DOMContentLoaded", function () {
   setConfigLang();
+  const e = document.querySelector(window.location.hash);
+  if (e) {
+    e.scrollIntoView();
+  }
   markConfigDocLinkActive();
   addTOC();
 });
