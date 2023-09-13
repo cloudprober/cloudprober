@@ -12,29 +12,29 @@ multiple monitoring systems, even simultaneously, just based on simple
 configuration. Cloudprober does that using a built-in mechanism, called
 surfacers. Each surfacer type implements interface for a specific monitoring
 system, for example,
-[_cloudwatch_](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.cloudwatch.SurfacerConf)
+[_cloudwatch_](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_cloudwatch_SurfacerConf)
 surfacer publishes data to AWS Cloudwatch. You can configure multiple surfacers
 at the same time. If you don't specify any surfacer,
-[_prometheus_](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.prometheus.SurfacerConf)
+[_prometheus_](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_prometheus_SurfacerConf)
 and
-[_file_](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.file.SurfacerConf)
+[_file_](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_file_SurfacerConf)
 surfacers are enabled automatically.
 
 Cloudprober currently supports following surfacer types:
 
 - Prometheus
-  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.prometheus.SurfacerConf))
+  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_prometheus_SurfacerConf))
 - [Stackdriver (Google Cloud Monitoring)](../stackdriver)
 - Google Pub/Sub
-  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.pubsub.SurfacerConf))
+  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_pubsub_SurfacerConf))
 - Postgres
-  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.postgres.SurfacerConf))
+  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_postgres_SurfacerConf))
 - File
-  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.file.SurfacerConf))
+  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_file_SurfacerConf))
 - [Cloudwatch (AWS Cloud Monitoring)](../cloudwatch)
 
 Overall
-[surfacers config](https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.SurfacerDef).
+[surfacers config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_SurfacerDef).
 
 It's easy to add more surfacers without having to understand the internals of
 cloudprober. You only need to implement the
@@ -60,7 +60,7 @@ surfacer {
   }
 }
 
-# Stackdriver (Google Cloud Monitoring) surfacer. No other configuration
+# Stackdriver (Google Cloud Monitoring) surfacer_ No other configuration
 # is necessary if running on GCP.
 surfacer {
   type: STACKDRIVER
