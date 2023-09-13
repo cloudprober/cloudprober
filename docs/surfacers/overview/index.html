@@ -10,18 +10,18 @@ multiple monitoring systems, even simultaneously, just based on simple
 configuration. Cloudprober does that using a built-in mechanism, called
 surfacers. Each surfacer type implements interface for a specific monitoring
 system, for example,
-<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.cloudwatch.SurfacerConf><em>cloudwatch</em></a>
+<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_cloudwatch_SurfacerConf><em>cloudwatch</em></a>
 surfacer publishes data to AWS Cloudwatch. You can configure multiple surfacers
 at the same time. If you don&rsquo;t specify any surfacer,
-<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.prometheus.SurfacerConf><em>prometheus</em></a>
+<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_prometheus_SurfacerConf><em>prometheus</em></a>
 and
-<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.file.SurfacerConf><em>file</em></a>
+<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_file_SurfacerConf><em>file</em></a>
 surfacers are enabled automatically.</p><p>Cloudprober currently supports following surfacer types:</p><ul><li>Prometheus
-(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.prometheus.SurfacerConf>config</a>)</li><li><a href=../stackdriver>Stackdriver (Google Cloud Monitoring)</a></li><li>Google Pub/Sub
-(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.pubsub.SurfacerConf>config</a>)</li><li>Postgres
-(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.postgres.SurfacerConf>config</a>)</li><li>File
-(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.file.SurfacerConf>config</a>)</li><li><a href=../cloudwatch>Cloudwatch (AWS Cloud Monitoring)</a></li></ul><p>Overall
-<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober.surfacer.SurfacerDef>surfacers config</a>.</p><p>It&rsquo;s easy to add more surfacers without having to understand the internals of
+(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_prometheus_SurfacerConf>config</a>)</li><li><a href=../stackdriver>Stackdriver (Google Cloud Monitoring)</a></li><li>Google Pub/Sub
+(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_pubsub_SurfacerConf>config</a>)</li><li>Postgres
+(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_postgres_SurfacerConf>config</a>)</li><li>File
+(<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_file_SurfacerConf>config</a>)</li><li><a href=../cloudwatch>Cloudwatch (AWS Cloud Monitoring)</a></li></ul><p>Overall
+<a href=https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_SurfacerDef>surfacers config</a>.</p><p>It&rsquo;s easy to add more surfacers without having to understand the internals of
 cloudprober. You only need to implement the
 <a href=https://github.com/cloudprober/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/surfacers.go#L87>Surfacer interface</a>.</p><h2 id=configuration>Configuration <a href=#configuration class=anchor aria-hidden=true>#</a></h2><p>Adding surfacers to cloudprober is as easy as adding &ldquo;surfacer&rdquo; config stanzas
 to your config, like the following:</p><pre><code class=language-shell># Enable prometheus and stackdriver surfacers.
@@ -38,7 +38,7 @@ surfacer {
   }
 }
 
-# Stackdriver (Google Cloud Monitoring) surfacer. No other configuration
+# Stackdriver (Google Cloud Monitoring) surfacer_ No other configuration
 # is necessary if running on GCP.
 surfacer {
   type: STACKDRIVER
@@ -73,4 +73,4 @@ that support this functionality are:</p><ul><li>Cloudwatch</li><li>Prometheus</l
 </code></pre><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/surfacers/stackdriver/><div class="card my-1"><div class="card-body py-2">&larr; Stackdriver (Google Cloud)</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/surfacer/><div class="card my-1"><div class="card-body py-2">Surfacers Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.38af972204475093a5b842ea0c0a0be08b7fe9d0ce4a3b6b3bb8767151365f7da30b85cb66edb8da6c959bdab20554d07460fc933b9f9920dcb148b02398671e.js integrity="sha512-OK+XIgRHUJOluELqDAoL4It/6dDOSjtrO7h2cVE2X32jC4XLZu242myVm9qyBVTQdGD8kzufmSDcsUiwI5hnHg==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.08eddd5d9fc2864f30099ef3aedf46be91be0b4a115b87cfd52b256e3b15fdfce16d776d22299c204bdf8d0dfb45ad2b55f4350c649b08e9c5f187997b88f94e.js integrity="sha512-CO3dXZ/Chk8wCZ7zrt9GvpG+C0oRW4fP1SslbjsV/fzhbXdtIimcIEvfjQ37Ra0rVfQ1DGSbCOnF8YeZe4j5Tg==" crossorigin=anonymous defer></script></body></html>
