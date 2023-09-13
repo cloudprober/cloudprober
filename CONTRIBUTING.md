@@ -1,32 +1,19 @@
 # How to Contribute
 
-We'd love to accept your patches and contributions to this project. There are
-just a few small guidelines you need to follow.
+We'd love to accept your contributions to this project. There are just a few
+small guidelines you need to follow.
 
-## Contributor License Agreement
+* All submissions, including submissions by project members, require review. We
+  use GitHub pull requests for this purpose. Consult [GitHub
+  Help](https://help.github.com/articles/about-pull-requests/) for more
+  information on using pull requests.
 
-Contributions to this project must be accompanied by a Contributor License
-Agreement. You (or your employer) retain the copyright to your contribution,
-this simply gives us permission to use and redistribute your contributions as
-part of the project. Head over to <https://cla.developers.google.com/> to see
-your current agreements on file or to sign a new one.
+* Before you start working on a non-trivial change, please let us know through
+  [Issues](https://github.com/cloudprober/cloudprober/issues) or
+  [Discussions](https://github.com/cloudprober/cloudprober/discussions).
 
-You generally only need to submit a CLA once, so if you've already submitted one
-(even if it was for a different project), you probably don't need to do it
-again.
+* Please avoid adding new dependencies unless absolutely required by the functionality.
 
-## Code reviews
-
-All submissions, including submissions by project members, require review. We
-use GitHub pull requests for this purpose. Consult [GitHub
-Help](https://help.github.com/articles/about-pull-requests/) for more
-information on using pull requests.
-
-## Source of Truth (SoT) and Commit Process
-
-Cloudprober's source of truth is Google's internal copy of the code for various
-reasons. To keep it that way, we first import the proposed pull request into
-the internal copy of the code, get it reviewed internally, and then export it
-back to Github. As a result of this, original PR is eventually discarded and a
-new PR is merged into the master branch. All through this process, author
-attribution is not lost. Final change will still appear to be done by you.
+* We try to limit comment lines to 80 chars. Having comment lines that are arbitrarily
+  long makes them uncomfortable to the eyes.
+  
