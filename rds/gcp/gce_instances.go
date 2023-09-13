@@ -400,11 +400,16 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 		return nil, fmt.Errorf("error creating default HTTP OAuth client: %v", err)
 	}
 
+	var baseAPIPath = "https://www.googleapis.com/compute/"
+	if c.GetApiEndpoint() != "" {
+		baseAPIPath = c.GetApiEndpoint()
+	}
+
 	il := &gceInstancesLister{
 		project:       project,
 		c:             c,
 		thisInstance:  thisInstance,
-		baseAPIPath:   "https://www.googleapis.com/compute/" + apiVersion + "/projects/" + project,
+		baseAPIPath:   baseAPIPath + apiVersion + "/projects/" + project,
 		httpClient:    client,
 		getURLFunc:    getURLWithClient,
 		cachePerScope: make(map[string]map[string]*instanceData),

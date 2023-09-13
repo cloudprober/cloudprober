@@ -33,6 +33,9 @@ message GCEInstances {
   // only to the zones in the "us-east1" region.
   optional string zone_filter = 1;
 
+  // Only for testing.
+  optional string api_endpoint = 2;
+
   // How often resources should be refreshed.
   optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
 }
