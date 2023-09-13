@@ -34,31 +34,8 @@ custom.googleapis.com/cloudprober/http/google_com/failure
 custom.googleapis.com/cloudprober/http/google_com/latency
 ```
 
-Here are all the config options for stackdriver surfacer:
-
-```protobuf
-  // GCP project name for stackdriver. If not specified and running on GCP,
-  // local project is used.
-  optional string project = 1;
-
-  // If allowed_metrics_regex is specified, only metrics matching the given
-  // regular expression will be exported to stackdriver. Since probe type and
-  // probe name are part of the metric name, you can use this field to restrict
-  // stackdriver metrics to a particular probe.
-  // Example:
-  // allowed_metrics_regex: ".*(http|ping).*(success|validation_failure).*"
-  optional string allowed_metrics_regex = 3;
-
-  // Monitoring URL base. Full metric URL looks like the following:
-  // <monitoring_url>/<ptype>/<probe>/<metric>
-  // Example:
-  // custom.googleapis.com/cloudprober/http/google-homepage/latency
-  optional string monitoring_url = 4
-      [default = "custom.googleapis.com/cloudprober/"];
-```
-
-(Source:
-https://github.com/cloudprober/cloudprober/blob/master/surfacers/stackdriver/proto/config.proto)
+All the config options for the stackdriver surfacer:
+[config](/docs/config/surfacer/#cloudprober_surfacer_stackdriver_SurfacerConf)
 
 For example, you can configure stackdriver surfacer to export only metrics that
 match a specific regex:

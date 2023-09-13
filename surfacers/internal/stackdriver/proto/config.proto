@@ -18,6 +18,9 @@ message SurfacerConf {
   // stackdriver metrics to a particular probe.
   // Example:
   // allowed_metrics_regex: ".*(http|ping).*(success|validation_failure).*"
+  //
+  // Deprecated: Please use the common surfacer options to filter metrics:
+  // https://cloudprober.org/docs/surfacers/overview/#filtering-metrics
   optional string allowed_metrics_regex = 3;
 
   // Monitoring URL base. Full metric URL looks like the following:
