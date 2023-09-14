@@ -399,6 +399,7 @@ func newGCEInstancesLister(project, apiVersion string, baseAPIPath string, c *co
 	if err != nil {
 		return nil, fmt.Errorf("error creating default HTTP OAuth client: %v", err)
 	}
+
 	il := &gceInstancesLister{
 		project:       project,
 		c:             c,
