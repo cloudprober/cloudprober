@@ -33,9 +33,6 @@ message GCEInstances {
   // only to the zones in the "us-east1" region.
   optional string zone_filter = 1;
 
-  // Only for testing.
-  optional string api_endpoint = 2;
-
   // How often resources should be refreshed.
   optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
 }
@@ -104,4 +101,9 @@ message ProviderConfig {
 
   // Compute API version.
   optional string api_version = 99 [default = "v1"];
+
+  // Compute API endpoint. Currently supported only for GCE instances and
+  // forwarding rules.
+  optional string api_endpoint = 100
+      [default = "https://www.googleapis.com/compute/"];
 }

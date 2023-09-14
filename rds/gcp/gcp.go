@@ -111,7 +111,7 @@ func initGCPProject(project string, c *configpb.ProviderConfig, l *logger.Logger
 
 	// Enable GCE instances lister if configured.
 	if c.GetGceInstances() != nil {
-		lr, err := newGCEInstancesLister(project, c.GetApiVersion(), c.GetGceInstances(), l)
+		lr, err := newGCEInstancesLister(project, c.GetApiVersion(), c.GetApiEndpoint(), c.GetGceInstances(), l)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +120,7 @@ func initGCPProject(project string, c *configpb.ProviderConfig, l *logger.Logger
 
 	// Enable forwarding rules lister if configured.
 	if c.GetForwardingRules() != nil {
-		lr, err := newForwardingRulesLister(project, c.GetApiVersion(), c.GetForwardingRules(), l)
+		lr, err := newForwardingRulesLister(project, c.GetApiVersion(), c.GetApiEndpoint(), c.GetForwardingRules(), l)
 		if err != nil {
 			return nil, err
 		}

@@ -384,7 +384,7 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 	il.l.Infof("gce_instances.expand: got %d instances", numItems)
 }
 
-func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
+func newGCEInstancesLister(project, apiVersion string, baseAPIPath string, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
 	var thisInstance string
 	if metadata.OnGCE() && !md.IsKubernetes() {
 		var err error
@@ -399,12 +399,6 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 	if err != nil {
 		return nil, fmt.Errorf("error creating default HTTP OAuth client: %v", err)
 	}
-
-	var baseAPIPath = "https://www.googleapis.com/compute/"
-	if c.GetApiEndpoint() != "" {
-		baseAPIPath = c.GetApiEndpoint()
-	}
-
 	il := &gceInstancesLister{
 		project:       project,
 		c:             c,
