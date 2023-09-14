@@ -504,11 +504,3 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 func validMetricLength(metricName string, monitoringURL string) bool {
 	return len(metricName)+len(monitoringURL) <= 100
 }
-
-// Function to return the min of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

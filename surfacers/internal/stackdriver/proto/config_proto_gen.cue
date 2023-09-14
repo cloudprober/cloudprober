@@ -14,6 +14,9 @@ package proto
 	// stackdriver metrics to a particular probe.
 	// Example:
 	// allowed_metrics_regex: ".*(http|ping).*(success|validation_failure).*"
+	//
+	// Deprecated: Please use the common surfacer options to filter metrics:
+	// https://cloudprober.org/docs/surfacers/overview/#filtering-metrics
 	allowedMetricsRegex?: string @protobuf(3,string,name=allowed_metrics_regex)
 
 	// Monitoring URL base. Full metric URL looks like the following:

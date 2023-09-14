@@ -95,6 +95,9 @@ type SurfacerConf struct {
 	// stackdriver metrics to a particular probe.
 	// Example:
 	// allowed_metrics_regex: ".*(http|ping).*(success|validation_failure).*"
+	//
+	// Deprecated: Please use the common surfacer options to filter metrics:
+	// https://cloudprober.org/docs/surfacers/overview/#filtering-metrics
 	AllowedMetricsRegex *string `protobuf:"bytes,3,opt,name=allowed_metrics_regex,json=allowedMetricsRegex" json:"allowed_metrics_regex,omitempty"`
 	// Monitoring URL base. Full metric URL looks like the following:
 	// <monitoring_url>/<ptype>/<probe>/<metric>
