@@ -101,4 +101,9 @@ message ProviderConfig {
 
   // Compute API version.
   optional string api_version = 99 [default = "v1"];
+
+  // Compute API endpoint. Currently supported only for GCE instances and
+  // forwarding rules.
+  optional string api_endpoint = 100
+      [default = "https://www.googleapis.com/compute/"];
 }
