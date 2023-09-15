@@ -302,21 +302,21 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 }
 
-func (p *Probe) withAdditionalLabels(em *metrics.EventMetrics, target string) *metrics.EventMetrics {
+func (p *Probe) withAdditionalLabels(em *metrics.EventMetrics, ep endpoint.Endpoint) *metrics.EventMetrics {
 	for _, al := range p.opts.AdditionalLabels {
-		em.AddLabel(al.KeyValueForTarget(endpoint.Endpoint{Name: target}))
+		em.AddLabel(al.KeyValueForTarget(ep))
 	}
 	return em
 }
 
-func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetrics {
+func (p *Probe) defaultMetrics(ep endpoint.Endpoint, result *result) *metrics.EventMetrics {
 	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
-		AddLabel("dst", target)
+		AddLabel("dst", ep.Name)
 
 	em.LatencyUnit = p.opts.LatencyUnit
 
@@ -324,7 +324,7 @@ func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetr
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	return p.withAdditionalLabels(em, target)
+	return p.withAdditionalLabels(em, ep)
 }
 
 func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
@@ -382,14 +382,14 @@ func (p *Probe) sendRequest(requestID int32, ep endpoint.Endpoint) error {
 }
 
 type requestInfo struct {
-	target    string
+	target    endpoint.Endpoint
 	timestamp time.Time
 }
 
 // probeStatus captures the single probe status. It's only used by runProbe
 // functions to pass a probe's status to processProbeResult method.
 type probeStatus struct {
-	target  string
+	target  endpoint.Endpoint
 	success bool
 	latency time.Duration
 	payload string
@@ -401,7 +401,7 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 
 		// If any validation failed, log and set success to false.
 		if len(failedValidations) > 0 {
-			p.l.Debug("Target:", ps.target, " failed validations: ", strings.Join(failedValidations, ","), ".")
+			p.l.Debug("Target:", ps.target.Name, " failed validations: ", strings.Join(failedValidations, ","), ".")
 			ps.success = false
 		}
 	}
@@ -413,12 +413,19 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 
 	em := p.defaultMetrics(ps.target, result)
 	p.opts.LogMetrics(em)
+
+	for _, ah := range p.opts.AlertHandlers {
+		if err := ah.Record(ps.target, em); err != nil {
+			p.l.Errorf("Error recording EventMetrics for target (%s) with alert handler: %v", ps.target.Name, err)
+		}
+	}
+
 	p.dataChan <- em
 
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target) {
+		for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target.Name) {
 			p.opts.LogMetrics(em)
 			p.dataChan <- p.withAdditionalLabels(em, ps.target)
 		}
@@ -478,7 +485,7 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 					success: success,
 					latency: time.Since(reqInfo.timestamp),
 					payload: rep.GetPayload(),
-				}, p.results[reqInfo.target])
+				}, p.results[reqInfo.target.Key()])
 			}
 		}
 	}()
@@ -486,10 +493,10 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 	// Send probe requests
 	for _, target := range p.targets {
 		p.requestID++
-		p.results[target.Name].total++
+		p.results[target.Key()].total++
 		requestsMu.Lock()
 		requests[p.requestID] = requestInfo{
-			target:    target.Name,
+			target:    target,
 			timestamp: time.Now(),
 		}
 		requestsMu.Unlock()
@@ -511,7 +518,7 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 		p.processProbeResult(&probeStatus{
 			target:  req.target,
 			success: false,
-		}, p.results[req.target])
+		}, p.results[req.target.Key()])
 	}
 }
 
@@ -561,12 +568,12 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			}
 
 			p.processProbeResult(&probeStatus{
-				target:  target.Name,
+				target:  target,
 				success: success,
 				latency: time.Since(startTime),
 				payload: string(stdout),
 			}, result)
-		}(target, p.results[target.Name])
+		}(target, p.results[target.Key()])
 	}
 	wg.Wait()
 }
@@ -575,7 +582,7 @@ func (p *Probe) updateTargets() {
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	for _, target := range p.targets {
-		if _, ok := p.results[target.Name]; ok {
+		if _, ok := p.results[target.Key()]; ok {
 			continue
 		}
 
@@ -586,16 +593,13 @@ func (p *Probe) updateTargets() {
 			latencyValue = metrics.NewFloat(0)
 		}
 
-		p.results[target.Name] = &result{
+		p.results[target.Key()] = &result{
 			latency:           latencyValue,
 			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 		}
 
 		for _, al := range p.opts.AdditionalLabels {
-			// Note it's a bit convoluted right now because we want to use the
-			// same key while updating additional labels that we use while
-			// retrieving additional labels in withAdditionalLabels.
-			al.UpdateForTarget(endpoint.Endpoint{Name: target.Name}, "", 0)
+			al.UpdateForTarget(target, "", 0)
 		}
 	}
 }
