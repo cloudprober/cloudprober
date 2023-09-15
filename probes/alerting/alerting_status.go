@@ -74,11 +74,14 @@ var statusTmpl = template.Must(template.New("status").Parse(`
 {{- end }}
 `))
 
-// resolvedAlert is used to keep track of resolved alerts.
+// resolvedAlert is used to keep track of resolved alerts, to be able to show
+// alerts hitory on the alerts dashboard.
 type resolvedAlert struct {
 	AlertInfo  *notifier.AlertInfo
 	ResolvedAt time.Time
 }
+
+var maxAlertsHistory = 20
 
 var global = struct {
 	mu             sync.RWMutex
@@ -94,9 +97,9 @@ func updateGlobalState(key string, ai *notifier.AlertInfo) {
 
 	if ai == nil {
 		ra := resolvedAlert{global.currentAlerts[key], time.Now().Truncate(time.Second)}
-		global.previousAlerts = append(global.previousAlerts, ra)
-		if len(global.previousAlerts) > 20 {
-			global.previousAlerts = global.previousAlerts[1:]
+		global.previousAlerts = append([]resolvedAlert{ra}, global.previousAlerts...)
+		if len(global.previousAlerts) > maxAlertsHistory {
+			global.previousAlerts = global.previousAlerts[:maxAlertsHistory]
 		}
 		delete(global.currentAlerts, key)
 		return

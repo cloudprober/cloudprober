@@ -26,10 +26,14 @@ import (
 func TestUpdateGlobalState(t *testing.T) {
 	resetGlobalState()
 
+	oldMaxAlertsHistory := maxAlertsHistory
+	maxAlertsHistory = 2
+	defer func() { maxAlertsHistory = oldMaxAlertsHistory }()
+
 	ah := [2]*AlertHandler{
 		{
 			name:      "test-alert-1",
-			probeName: "test-probe-2",
+			probeName: "test-probe-1",
 		},
 		{
 			name:      "test-alert-2",
@@ -37,7 +41,7 @@ func TestUpdateGlobalState(t *testing.T) {
 		},
 	}
 
-	alertInfo := func(handlerIndex int, target string, delay int) *notifier.AlertInfo {
+	alert := func(handlerIndex int, target string, delay int) *notifier.AlertInfo {
 		return &notifier.AlertInfo{
 			Name:         ah[handlerIndex].name,
 			ProbeName:    ah[handlerIndex].probeName,
@@ -49,7 +53,7 @@ func TestUpdateGlobalState(t *testing.T) {
 	tests := []struct {
 		name           string
 		addAlerts      [2][]*notifier.AlertInfo
-		deleteAlerts   [2][]endpoint.Endpoint
+		deleteAlerts   [2][]string
 		wantCurrAlerts []*notifier.AlertInfo
 		wantPrevAlerts []*notifier.AlertInfo
 	}{
@@ -57,33 +61,42 @@ func TestUpdateGlobalState(t *testing.T) {
 			name: "add-alerts",
 			addAlerts: [2][]*notifier.AlertInfo{
 				{
-					alertInfo(0, "target1", 1),
-					alertInfo(0, "target2", 3),
+					alert(0, "target1", 1),
+					alert(0, "target2", 3),
 				},
 				{
-					alertInfo(1, "target1", 2),
+					alert(1, "target1", 2),
 				},
 			},
 			wantCurrAlerts: []*notifier.AlertInfo{
-				alertInfo(0, "target1", 1),
-				alertInfo(1, "target1", 2),
-				alertInfo(0, "target2", 3),
+				alert(0, "target1", 1),
+				alert(1, "target1", 2),
+				alert(0, "target2", 3),
 			},
 		},
 		{
-			name: "delete-alerts",
-			deleteAlerts: [2][]endpoint.Endpoint{
-				{},
-				{
-					endpoint.Endpoint{Name: "target1"},
-				},
+			name: "delete-alerts-1",
+			deleteAlerts: [2][]string{
+				{"target2"},
+				{"target1"},
 			},
 			wantCurrAlerts: []*notifier.AlertInfo{
-				alertInfo(0, "target1", 1),
-				alertInfo(0, "target2", 3),
+				alert(0, "target1", 1),
 			},
 			wantPrevAlerts: []*notifier.AlertInfo{
-				alertInfo(1, "target1", 2),
+				alert(1, "target1", 2),
+				alert(0, "target2", 3),
+			},
+		},
+		{
+			name: "delete-alerts-2",
+			deleteAlerts: [2][]string{
+				{"target1"},
+				{},
+			},
+			wantPrevAlerts: []*notifier.AlertInfo{
+				alert(0, "target1", 1),
+				alert(1, "target1", 2),
 			},
 		},
 	}
@@ -93,8 +106,8 @@ func TestUpdateGlobalState(t *testing.T) {
 				for _, ai := range tt.addAlerts[i] {
 					updateGlobalState(ah.globalKey(ai.Target), ai)
 				}
-				for _, ep := range tt.deleteAlerts[i] {
-					updateGlobalState(ah.globalKey(ep), nil)
+				for _, tgt := range tt.deleteAlerts[i] {
+					updateGlobalState(ah.globalKey(endpoint.Endpoint{Name: tgt}), nil)
 				}
 			}
 			curr, prev := currentState()
