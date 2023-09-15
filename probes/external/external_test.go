@@ -144,10 +144,10 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	p.runProbe(context.Background())
 
 	for _, target := range p.targets {
-		tgt := target.Name
+		tgtKey := target.Key()
 
-		assert.Equal(t, total[tgt], p.results[target.Key()].total, "total")
-		assert.Equal(t, success[tgt], p.results[target.Key()].success, "success")
+		assert.Equal(t, total[target.Name], p.results[tgtKey].total, "total")
+		assert.Equal(t, success[target.Name], p.results[tgtKey].success, "success")
 	}
 }
 
