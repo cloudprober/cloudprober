@@ -433,9 +433,9 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 }
 
 func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
-	requests := make(map[int32]requestInfo)
-	var requestsMu sync.RWMutex
-	doneChan := make(chan struct{})
+	outstandingReqs := make(map[int32]requestInfo)
+	var outstandingReqsMu sync.RWMutex
+	sendDoneCh := make(chan struct{})
 
 	if err := p.startCmdIfNotRunning(startCtx); err != nil {
 		p.l.Error(err.Error())
@@ -450,26 +450,17 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 		// Read probe replies until we have no outstanding requests or context has
 		// run out.
 		for {
-			_, ok := <-doneChan
-			if !ok {
-				// It is safe to access requests without lock here as it won't be accessed
-				// by the send loop after doneChan is closed.
-				p.l.Debugf("Number of outstanding requests: %d", len(requests))
-				if len(requests) == 0 {
-					return
-				}
-			}
 			select {
 			case <-ctx.Done():
 				p.l.Error(ctx.Err().Error())
 				return
 			case rep := <-p.replyChan:
-				requestsMu.Lock()
-				reqInfo, ok := requests[rep.GetRequestId()]
+				outstandingReqsMu.Lock()
+				reqInfo, ok := outstandingReqs[rep.GetRequestId()]
 				if ok {
-					delete(requests, rep.GetRequestId())
+					delete(outstandingReqs, rep.GetRequestId())
 				}
-				requestsMu.Unlock()
+				outstandingReqsMu.Unlock()
 				if !ok {
 					// Not our reply, could be from the last timed out probe.
 					p.l.Warningf("Got a reply that doesn't match any outstading request: Request id from reply: %v. Ignoring.", rep.GetRequestId())
@@ -480,12 +471,23 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 					p.l.Errorf("Probe for target %v failed with error message: %s", reqInfo.target, rep.GetErrorMessage())
 					success = false
 				}
-				p.processProbeResult(&probeStatus{
+				ps := &probeStatus{
 					target:  reqInfo.target,
 					success: success,
 					latency: time.Since(reqInfo.timestamp),
 					payload: rep.GetPayload(),
-				}, p.results[reqInfo.target.Key()])
+				}
+				p.processProbeResult(ps, p.results[reqInfo.target.Key()])
+			}
+
+			// If we are done sending requests, we can exit if we have no
+			// outstanding requests.
+			select {
+			case <-sendDoneCh:
+				if len(outstandingReqs) == 0 {
+					return
+				}
+			default:
 			}
 		}
 	}()
@@ -494,31 +496,28 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 	for _, target := range p.targets {
 		p.requestID++
 		p.results[target.Key()].total++
-		requestsMu.Lock()
-		requests[p.requestID] = requestInfo{
+		outstandingReqsMu.Lock()
+		outstandingReqs[p.requestID] = requestInfo{
 			target:    target,
 			timestamp: time.Now(),
 		}
-		requestsMu.Unlock()
+		outstandingReqsMu.Unlock()
 		p.sendRequest(p.requestID, target)
 		time.Sleep(TimeBetweenRequests)
 	}
 
-	// Send signal to receiver loop that we are done sending request.
-	close(doneChan)
+	// Send signal to receiver loop that we are done sending requests.
+	close(sendDoneCh)
 
 	// Wait for receiver goroutine to exit.
 	wg.Wait()
 
 	// Handle requests that we have not yet received replies for: "requests" will
 	// contain only outstanding requests by this point.
-	requestsMu.Lock()
-	defer requestsMu.Unlock()
-	for _, req := range requests {
-		p.processProbeResult(&probeStatus{
-			target:  req.target,
-			success: false,
-		}, p.results[req.target.Key()])
+	outstandingReqsMu.Lock()
+	defer outstandingReqsMu.Unlock()
+	for _, req := range outstandingReqs {
+		p.processProbeResult(&probeStatus{target: req.target, success: false}, p.results[req.target.Key()])
 	}
 }
 
