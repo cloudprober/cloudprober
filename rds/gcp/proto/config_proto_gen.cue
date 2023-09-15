@@ -74,4 +74,8 @@ package proto
 
 	// Compute API version.
 	apiVersion?: string @protobuf(99,string,name=api_version,#"default="v1""#)
+
+	// Compute API endpoint. Currently supported only for GCE instances and
+	// forwarding rules.
+	apiEndpoint?: string @protobuf(100,string,name=api_endpoint,#"default="https://www.googleapis.com/compute/""#)
 }

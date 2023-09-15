@@ -384,7 +384,7 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 	il.l.Infof("gce_instances.expand: got %d instances", numItems)
 }
 
-func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
+func newGCEInstancesLister(project, apiVersion string, baseAPIPath string, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
 	var thisInstance string
 	if metadata.OnGCE() && !md.IsKubernetes() {
 		var err error
@@ -404,7 +404,7 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 		project:       project,
 		c:             c,
 		thisInstance:  thisInstance,
-		baseAPIPath:   "https://www.googleapis.com/compute/" + apiVersion + "/projects/" + project,
+		baseAPIPath:   baseAPIPath + apiVersion + "/projects/" + project,
 		httpClient:    client,
 		getURLFunc:    getURLWithClient,
 		cachePerScope: make(map[string]map[string]*instanceData),

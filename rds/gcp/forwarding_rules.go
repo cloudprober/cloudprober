@@ -180,7 +180,7 @@ func (frl *forwardingRulesLister) expand(reEvalInterval time.Duration) {
 
 // defaultComputeService returns a compute.Service object, initialized using
 // default credentials.
-func defaultComputeService(apiVersion string) (*compute.Service, error) {
+func defaultComputeService(apiVersion string, baseAPIPath string) (*compute.Service, error) {
 	client, err := google.DefaultClient(context.Background(), compute.ComputeScope)
 	if err != nil {
 		return nil, err
@@ -190,12 +190,12 @@ func defaultComputeService(apiVersion string) (*compute.Service, error) {
 		return nil, err
 	}
 
-	cs.BasePath = "https://www.googleapis.com/compute/" + apiVersion + "/projects/"
+	cs.BasePath = baseAPIPath + apiVersion + "/projects/"
 	return cs, nil
 }
 
-func newForwardingRulesLister(project, apiVersion string, c *configpb.ForwardingRules, l *logger.Logger) (*forwardingRulesLister, error) {
-	cs, err := defaultComputeService(apiVersion)
+func newForwardingRulesLister(project, apiVersion string, baseAPIPath string, c *configpb.ForwardingRules, l *logger.Logger) (*forwardingRulesLister, error) {
+	cs, err := defaultComputeService(apiVersion, baseAPIPath)
 	if err != nil {
 		return nil, fmt.Errorf("forwarding_rules.expand: error creating compute service: %v", err)
 	}
