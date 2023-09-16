@@ -124,9 +124,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 			}
 
 			s.Opts.LogMetrics(em)
-
 			s.Opts.RecordForAlert(target, em)
-
 			s.DataChan <- em
 		}
 	}
