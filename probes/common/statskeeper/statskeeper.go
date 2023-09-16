@@ -93,6 +93,7 @@ func StatsKeeper(ctx context.Context, ptype, name string, opts *options.Options,
 					if opts.LogMetrics != nil {
 						opts.LogMetrics(em)
 					}
+					opts.RecordForAlert(t, em)
 					dataChan <- em.Clone()
 				}
 			}

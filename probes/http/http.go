@@ -417,11 +417,7 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 	}
 
 	addLabelsAndPublish(em)
-	for _, ah := range p.opts.AlertHandlers {
-		if err := ah.Record(target, em); err != nil {
-			p.l.Errorf("Error recording EventMetrics for target (%s) with alert handler: %v", target.Name, err)
-		}
-	}
+	p.opts.RecordForAlert(target, em)
 
 	// SSL earliest cert expiry is exported in an independent EM as it's a
 	// GAUGE metrics.

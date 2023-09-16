@@ -545,6 +545,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			}
 
 			p.opts.LogMetrics(em)
+			p.opts.RecordForAlert(target, em)
 			dataChan <- em
 		}
 	}

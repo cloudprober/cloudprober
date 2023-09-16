@@ -493,6 +493,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				em := result.eventMetrics(p.name, p.opts, f, p.c)
 				em.LatencyUnit = p.opts.LatencyUnit
 				p.opts.LogMetrics(em)
+				p.opts.RecordForAlert(result.target, em)
 				dataChan <- em
 			}
 			// Use this opportunity to refresh targets as well.
