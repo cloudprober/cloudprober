@@ -26,6 +26,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/probes/alerting"
 	"github.com/cloudprober/cloudprober/servers"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
@@ -34,17 +35,21 @@ import (
 //go:embed static/*
 var content embed.FS
 
-var runningConfigTmpl = `
+var htmlTmpl = string(`
 <html>
-
 <head>
   <link href="/static/cloudprober.css" rel="stylesheet">
 </head>
 
 <body>
-{{.Header}}
+%s
 <br><br><br><br>
+%s
+</body>
+</html>
+`)
 
+var runningConfigTmpl = template.Must(template.New("runningConfig").Parse(`
 <h3>Probes:</h3>
 {{.ProbesStatus}}
 
@@ -53,9 +58,7 @@ var runningConfigTmpl = `
 
 <h3>Servers:</h3>
 {{.ServersStatus}}
-</body>
-</html>
-`
+`))
 
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 	var statusBuf bytes.Buffer
@@ -72,17 +75,27 @@ func runningConfig() string {
 
 	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
 
-	tmpl, _ := template.New("runningConfig").Parse(runningConfigTmpl)
-	tmpl.Execute(&statusBuf, struct {
-		Header, ProbesStatus, ServersStatus, SurfacersStatus interface{}
+	err := runningConfigTmpl.Execute(&statusBuf, struct {
+		ProbesStatus, ServersStatus, SurfacersStatus interface{}
 	}{
-		Header:          resources.Header(),
 		ProbesStatus:    execTmpl(probes.StatusTmpl, probeInfo),
 		SurfacersStatus: execTmpl(surfacers.StatusTmpl, surfacerInfo),
 		ServersStatus:   execTmpl(servers.StatusTmpl, serverInfo),
 	})
 
-	return statusBuf.String()
+	if err != nil {
+		return fmt.Sprintf(htmlTmpl, err.Error())
+	}
+
+	return fmt.Sprintf(htmlTmpl, resources.Header(), statusBuf.String())
+}
+
+func alertsState() string {
+	status, err := alerting.StatusHTML()
+	if err != nil {
+		return fmt.Sprintf(htmlTmpl, err.Error())
+	}
+	return fmt.Sprintf(htmlTmpl, resources.Header(), status)
 }
 
 // Init initializes cloudprober web interface handler.
@@ -98,6 +111,9 @@ func Init() error {
 	})
 	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, runningConfig())
+	})
+	srvMux.HandleFunc("/alerts", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, alertsState())
 	})
 	srvMux.Handle("/static/", http.FileServer(http.FS(content)))
 	return nil

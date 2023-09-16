@@ -158,6 +158,14 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 	}
 
 	ah.notifier.Notify(context.Background(), alertInfo)
+	updateGlobalState(ah.globalKey(ep), alertInfo)
+}
+
+func (ah *AlertHandler) resolveAlertCondition(ts *targetState, ep endpoint.Endpoint) {
+	ts.alerted = false
+	ts.conditionID = ""
+	ts.alertTS = time.Time{}
+	updateGlobalState(ah.globalKey(ep), nil)
 }
 
 // handleAlertCondition handles the alert condition.
@@ -177,6 +185,10 @@ func (ah *AlertHandler) handleAlertCondition(ts *targetState, ep endpoint.Endpoi
 	ts.failingSince = timestamp
 	ts.alertTS = time.Now()
 	ah.notify(ep, ts, totalFailures)
+}
+
+func (ah *AlertHandler) globalKey(ep endpoint.Endpoint) string {
+	return fmt.Sprintf("%s-%s-%s", ah.name, ah.probeName, ep.Key())
 }
 
 func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) error {
@@ -252,10 +264,8 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) e
 
 	if totalFailures >= int(ah.condition.Failures) {
 		ah.handleAlertCondition(ts, ep, em.Timestamp, totalFailures)
-	} else {
-		ts.alerted = false
-		ts.conditionID = ""
-		ts.alertTS = time.Time{}
+	} else if ts.alerted {
+		ah.resolveAlertCondition(ts, ep)
 	}
 
 	ts.lastTotal, ts.lastSuccess = total, success
