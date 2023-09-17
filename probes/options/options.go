@@ -255,7 +255,7 @@ type recordOptions struct {
 
 type RecordOptions func(*recordOptions)
 
-func NoAlert() RecordOptions {
+func WithNoAlert() RecordOptions {
 	return func(ro *recordOptions) {
 		ro.NoAlert = true
 	}

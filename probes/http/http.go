@@ -415,7 +415,7 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
 		em.Kind = metrics.GAUGE
 		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
-		p.opts.RecordMetrics(target, em, dataChan, options.NoAlert())
+		p.opts.RecordMetrics(target, em, dataChan, options.WithNoAlert())
 	}
 }
 
