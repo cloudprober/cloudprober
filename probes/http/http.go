@@ -386,23 +386,12 @@ func (p *Probe) newResult() *probeResult {
 }
 
 func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
-	addLabelsAndPublish := func(em *metrics.EventMetrics) {
-		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
-		for _, al := range p.opts.AdditionalLabels {
-			em.AddLabel(al.KeyValueForTarget(target))
-		}
-		p.opts.LogMetrics(em)
-		dataChan <- em
-	}
-
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
 		AddMetric("resp-code", result.respCodes.Clone())
-
-	em.LatencyUnit = p.opts.LatencyUnit
 
 	if result.respBodies != nil {
 		em.AddMetric("resp-body", result.respBodies.Clone())
@@ -416,8 +405,8 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	addLabelsAndPublish(em)
-	p.opts.RecordForAlert(target, em)
+	em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
+	p.opts.RecordMetrics(target, em, dataChan, true)
 
 	// SSL earliest cert expiry is exported in an independent EM as it's a
 	// GAUGE metrics.
@@ -425,7 +414,8 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 		em := metrics.NewEventMetrics(ts).
 			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
 		em.Kind = metrics.GAUGE
-		addLabelsAndPublish(em)
+		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
+		p.opts.RecordMetrics(target, em, dataChan, false)
 	}
 }
 
