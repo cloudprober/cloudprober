@@ -249,11 +249,8 @@ func DefaultOptions() *Options {
 	return opts
 }
 
-func (opts *Options) RecordForAlert(ep endpoint.Endpoint, em *metrics.EventMetrics) error {
+func (opts *Options) RecordForAlert(ep endpoint.Endpoint, em *metrics.EventMetrics) {
 	for _, ah := range opts.AlertHandlers {
-		if err := ah.Record(ep, em); err != nil {
-			return fmt.Errorf("error recording EventMetrics for target (%s) with alert handler: %v", ep.Name, err)
-		}
+		ah.Record(ep, em)
 	}
-	return nil
 }

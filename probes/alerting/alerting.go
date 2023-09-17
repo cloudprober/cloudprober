@@ -18,6 +18,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"sync"
 	"time"
@@ -191,13 +192,13 @@ func (ah *AlertHandler) globalKey(ep endpoint.Endpoint) string {
 	return fmt.Sprintf("%s-%s-%s", ah.name, ah.probeName, ep.Key())
 }
 
-func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) error {
+func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) {
 	ah.mu.Lock()
 	defer ah.mu.Unlock()
 
 	total, success, err := extractValues(em)
 	if err != nil {
-		return err
+		ah.l.ErrorAttrs("error extracting total and success values from EventMetrics: "+err.Error(), slog.String("target", ep.Name), slog.String("probe", ah.probeName))
 	}
 
 	key := ep.Key()
@@ -212,7 +213,7 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) e
 			lastSuccess: success,
 		}
 		ah.targets[key] = ts
-		return nil
+		return
 	}
 
 	totalCnt := int(total - ts.lastTotal)
@@ -226,7 +227,7 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) e
 	if totalCnt < 0 {
 		ts.lastTotal = total
 		ts.lastSuccess = success
-		return nil
+		return
 	}
 
 	// If totalCnt is greater than the configured total, we only consider the
@@ -269,5 +270,5 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) e
 	}
 
 	ts.lastTotal, ts.lastSuccess = total, success
-	return nil
+	return
 }

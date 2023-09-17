@@ -49,7 +49,6 @@ type testAlertHandlerArgs struct {
 	targets     map[string]testData
 	wantAlerted map[string]bool
 	wantAlerts  []*notifier.AlertInfo
-	wantErr     bool
 	alertCfg    *configpb.AlertConf
 	waitTime    time.Duration
 }
@@ -75,9 +74,7 @@ func testAlertHandlerBehavior(t *testing.T, tt testAlertHandlerArgs) {
 			em.AddMetric("total", metrics.NewInt(td.total[i]))
 			em.AddMetric("success", metrics.NewInt(td.success[i]))
 
-			if err := ah.Record(ep, em); (err != nil) != tt.wantErr {
-				t.Errorf("AlertHandler.Record() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			ah.Record(ep, em)
 			t.Logf("target (%s) state: %+v", target, ah.targets[ep.Key()])
 
 			ts = ts.Add(time.Second)
