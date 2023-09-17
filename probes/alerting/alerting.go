@@ -122,22 +122,17 @@ func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logge
 
 // extractValues is used to extract the total and success metric from an EventMetrics
 // object.
-func extractValues(em *metrics.EventMetrics) (int64, int64, error) {
-	successM, totalM := em.Metric("success"), em.Metric("total")
-
-	numV, ok := totalM.(metrics.NumValue)
-	if !ok {
-		return 0, 0, fmt.Errorf("total metric doesn't have a numerical value: %s", numV.String())
+func extractValues(em *metrics.EventMetrics, name string) (int64, error) {
+	val := em.Metric(name)
+	if val == nil {
+		return 0, fmt.Errorf("%s metric not found in EventMetrics: %s", name, em.String())
 	}
-	total := numV.Int64()
 
-	numV, ok = successM.(metrics.NumValue)
+	numV, ok := val.(metrics.NumValue)
 	if !ok {
-		return 0, 0, fmt.Errorf("success metric doesn't have a numerical value: %s", numV.String())
+		return 0, fmt.Errorf("%s metric doesn't have a numerical value: %s", name, numV.String())
 	}
-	success := numV.Int64()
-
-	return total, success, nil
+	return numV.Int64(), nil
 }
 
 func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailures int) {
@@ -196,9 +191,15 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) {
 	ah.mu.Lock()
 	defer ah.mu.Unlock()
 
-	total, success, err := extractValues(em)
+	total, err := extractValues(em, "total")
 	if err != nil {
-		ah.l.ErrorAttrs("error extracting total and success values from EventMetrics: "+err.Error(), slog.String("target", ep.Name), slog.String("probe", ah.probeName))
+		ah.l.ErrorAttrs(err.Error(), slog.String("target", ep.Name))
+		return
+	}
+	success, err := extractValues(em, "success")
+	if err != nil {
+		ah.l.ErrorAttrs(err.Error(), slog.String("target", ep.Name))
+		return
 	}
 
 	key := ep.Key()
@@ -270,5 +271,4 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) {
 	}
 
 	ts.lastTotal, ts.lastSuccess = total, success
-	return
 }

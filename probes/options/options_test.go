@@ -15,6 +15,8 @@
 package options
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"net"
 	"testing"
@@ -22,9 +24,14 @@ import (
 
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/alerting"
+	alerting_configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
-	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 type intf struct {
@@ -354,6 +361,60 @@ func TestNegativeTestSupport(t *testing.T) {
 			_, err := BuildProbeOptions(probeConf(ptype), nil, nil, nil)
 			if err == nil {
 				t.Errorf("Didn't get error for unsupported probe type: %v", ptype)
+			}
+		})
+	}
+}
+
+func TestRecordMetrics(t *testing.T) {
+	em := metrics.NewEventMetrics(time.Now()).
+		AddMetric("total", metrics.NewInt(1)).
+		AddMetric("success", metrics.NewInt(0))
+	ep := endpoint.Endpoint{Name: "test_target"}
+	opts := DefaultOptions()
+	additionalLabel := &AdditionalLabel{
+		Key: "test_additional_label",
+		valueForTarget: map[string]string{
+			ep.Key(): "test_value",
+		},
+	}
+
+	var buf bytes.Buffer
+	l, _ := logger.New(context.Background(), "test-probe", logger.WithWriter(&buf))
+	opts.AdditionalLabels = []*AdditionalLabel{additionalLabel}
+	alertHandler, _ := alerting.NewAlertHandler(&alerting_configpb.AlertConf{}, "test-probe", l)
+	opts.AlertHandlers = []*alerting.AlertHandler{alertHandler}
+
+	tests := []struct {
+		name  string
+		rOpts []RecordOptions
+	}{
+		{
+			name: "default",
+		},
+		{
+			name:  "no alert",
+			rOpts: []RecordOptions{WithNoAlert()},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf.Reset()
+
+			dataChan := make(chan *metrics.EventMetrics, 3)
+			opts.RecordMetrics(ep, em, dataChan, tt.rOpts...)
+			em := <-dataChan
+
+			assert.Equal(t, int64(1), em.Metric("total").(*metrics.Int).Int64())
+			assert.Equal(t, int64(0), em.Metric("success").(*metrics.Int).Int64())
+			assert.Equal(t, "test_value", em.Label("test_additional_label"))
+
+			em = metrics.NewEventMetrics(time.Now()).
+				AddMetric("total", metrics.NewInt(2)).
+				AddMetric("success", metrics.NewInt(0))
+			opts.RecordMetrics(ep, em, dataChan, tt.rOpts...)
+			if tt.rOpts == nil {
+				assert.Contains(t, buf.String(), "ALERT (test-probe)")
 			}
 		})
 	}
