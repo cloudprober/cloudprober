@@ -487,7 +487,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-statsExportTicker.C:
 			for f, result := range p.res {
 				em := result.eventMetrics(p.name, p.opts, f, p.c)
-				p.opts.RecordMetrics(result.target, em, dataChan, true)
+				p.opts.RecordMetrics(result.target, em, dataChan)
 			}
 			// Use this opportunity to refresh targets as well.
 			p.updateTargets()

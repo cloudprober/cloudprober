@@ -117,7 +117,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 				AddLabel("probe", s.ProbeName).
 				AddLabel("dst", target.Dst())
 
-			s.Opts.RecordMetrics(target, em, s.DataChan, true)
+			s.Opts.RecordMetrics(target, em, s.DataChan)
 		}
 	}
 }

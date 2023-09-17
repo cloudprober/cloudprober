@@ -249,7 +249,19 @@ func DefaultOptions() *Options {
 	return opts
 }
 
-func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics, alert bool) {
+type recordOptions struct {
+	NoAlert bool
+}
+
+type RecordOptions func(*recordOptions)
+
+func NoAlert() RecordOptions {
+	return func(ro *recordOptions) {
+		ro.NoAlert = true
+	}
+}
+
+func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics, ropts ...RecordOptions) {
 	em.LatencyUnit = opts.LatencyUnit
 	for _, al := range opts.AdditionalLabels {
 		em.AddLabel(al.KeyValueForTarget(ep))
@@ -257,7 +269,12 @@ func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetric
 
 	opts.LogMetrics(em)
 	dataChan <- em.Clone()
-	if alert {
+
+	ro := &recordOptions{}
+	for _, ropt := range ropts {
+		ropt(ro)
+	}
+	if !ro.NoAlert {
 		for _, ah := range opts.AlertHandlers {
 			ah.Record(ep, em)
 		}

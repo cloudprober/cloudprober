@@ -492,7 +492,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				em.AddMetric("validation_failure", result.validationFailure)
 			}
 
-			p.opts.RecordMetrics(target, em, dataChan, true)
+			p.opts.RecordMetrics(target, em, dataChan)
 		}
 
 		// Finally, update targets and start new probe loops if necessary.

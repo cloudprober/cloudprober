@@ -84,7 +84,7 @@ func StatsKeeper(ctx context.Context, ptype, name string, opts *options.Options,
 					em.AddLabel("dst", t.Name)
 					em.Timestamp = ts
 
-					opts.RecordMetrics(t, em.Clone(), dataChan, false)
+					opts.RecordMetrics(t, em.Clone(), dataChan)
 				}
 			}
 		case <-ctx.Done():
