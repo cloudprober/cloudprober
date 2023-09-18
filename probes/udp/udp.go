@@ -105,10 +105,6 @@ func (prr probeResult) eventMetrics(probeName string, opts *options.Options, f f
 		AddLabel("probe", probeName).
 		AddLabel("dst", f.target)
 
-	for _, al := range opts.AdditionalLabels {
-		m.AddLabel(al.KeyValueForTarget(prr.target))
-	}
-
 	if c.GetExportMetricsByPort() {
 		m.AddLabel("src_port", f.srcPort).
 			AddLabel("dst_port", fmt.Sprintf("%d", c.GetPort()))
@@ -491,9 +487,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-statsExportTicker.C:
 			for f, result := range p.res {
 				em := result.eventMetrics(p.name, p.opts, f, p.c)
-				em.LatencyUnit = p.opts.LatencyUnit
-				p.opts.LogMetrics(em)
-				dataChan <- em
+				p.opts.RecordMetrics(result.target, em, dataChan)
 			}
 			// Use this opportunity to refresh targets as well.
 			p.updateTargets()

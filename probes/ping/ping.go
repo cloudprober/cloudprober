@@ -536,16 +536,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 			em.LatencyUnit = p.opts.LatencyUnit
 
-			for _, al := range p.opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(target))
-			}
-
 			if p.opts.Validators != nil {
 				em.AddMetric("validation_failure", result.validationFailure)
 			}
 
-			p.opts.LogMetrics(em)
-			dataChan <- em
+			p.opts.RecordMetrics(target, em, dataChan)
 		}
 	}
 }
