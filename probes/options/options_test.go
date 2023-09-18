@@ -386,15 +386,15 @@ func TestRecordMetrics(t *testing.T) {
 	opts.AlertHandlers = []*alerting.AlertHandler{alertHandler}
 
 	tests := []struct {
-		name  string
-		rOpts []RecordOptions
+		name    string
+		noAlert bool
 	}{
 		{
 			name: "default",
 		},
 		{
-			name:  "no alert",
-			rOpts: []RecordOptions{WithNoAlert()},
+			name:    "no alert",
+			noAlert: true,
 		},
 	}
 	for _, tt := range tests {
@@ -402,7 +402,11 @@ func TestRecordMetrics(t *testing.T) {
 			buf.Reset()
 
 			dataChan := make(chan *metrics.EventMetrics, 3)
-			opts.RecordMetrics(ep, em, dataChan, tt.rOpts...)
+			rOpts := []RecordOptions{}
+			if tt.noAlert {
+				rOpts = append(rOpts, WithNoAlert())
+			}
+			opts.RecordMetrics(ep, em, dataChan, rOpts...)
 			em := <-dataChan
 
 			assert.Equal(t, int64(1), em.Metric("total").(*metrics.Int).Int64())
@@ -412,9 +416,11 @@ func TestRecordMetrics(t *testing.T) {
 			em = metrics.NewEventMetrics(time.Now()).
 				AddMetric("total", metrics.NewInt(2)).
 				AddMetric("success", metrics.NewInt(0))
-			opts.RecordMetrics(ep, em, dataChan, tt.rOpts...)
-			if tt.rOpts == nil {
+			opts.RecordMetrics(ep, em, dataChan, rOpts...)
+			if !tt.noAlert {
 				assert.Contains(t, buf.String(), "ALERT (test-probe)")
+			} else {
+				assert.NotContains(t, buf.String(), "ALERT (test-probe)")
 			}
 		})
 	}

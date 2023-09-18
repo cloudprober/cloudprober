@@ -120,9 +120,9 @@ func NewAlertHandler(conf *configpb.AlertConf, probeName string, l *logger.Logge
 	return ah, nil
 }
 
-// extractValues is used to extract the total and success metric from an EventMetrics
+// extractValue is used to extract the total and success metric from an EventMetrics
 // object.
-func extractValues(em *metrics.EventMetrics, name string) (int64, error) {
+func extractValue(em *metrics.EventMetrics, name string) (int64, error) {
 	val := em.Metric(name)
 	if val == nil {
 		return 0, fmt.Errorf("%s metric not found in EventMetrics: %s", name, em.String())
@@ -191,12 +191,12 @@ func (ah *AlertHandler) Record(ep endpoint.Endpoint, em *metrics.EventMetrics) {
 	ah.mu.Lock()
 	defer ah.mu.Unlock()
 
-	total, err := extractValues(em, "total")
+	total, err := extractValue(em, "total")
 	if err != nil {
 		ah.l.ErrorAttrs(err.Error(), slog.String("target", ep.Name))
 		return
 	}
-	success, err := extractValues(em, "success")
+	success, err := extractValue(em, "success")
 	if err != nil {
 		ah.l.ErrorAttrs(err.Error(), slog.String("target", ep.Name))
 		return
