@@ -302,13 +302,6 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 }
 
-func (p *Probe) withAdditionalLabels(em *metrics.EventMetrics, ep endpoint.Endpoint) *metrics.EventMetrics {
-	for _, al := range p.opts.AdditionalLabels {
-		em.AddLabel(al.KeyValueForTarget(ep))
-	}
-	return em
-}
-
 func (p *Probe) defaultMetrics(ep endpoint.Endpoint, result *result) *metrics.EventMetrics {
 	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
@@ -324,7 +317,7 @@ func (p *Probe) defaultMetrics(ep endpoint.Endpoint, result *result) *metrics.Ev
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	return p.withAdditionalLabels(em, ep)
+	return em
 }
 
 func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
@@ -412,22 +405,13 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	}
 
 	em := p.defaultMetrics(ps.target, result)
-	p.opts.LogMetrics(em)
-
-	for _, ah := range p.opts.AlertHandlers {
-		if err := ah.Record(ps.target, em); err != nil {
-			p.l.Errorf("Error recording EventMetrics for target (%s) with alert handler: %v", ps.target.Name, err)
-		}
-	}
-
-	p.dataChan <- em
+	p.opts.RecordMetrics(ps.target, em, p.dataChan)
 
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
 		for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target.Name) {
-			p.opts.LogMetrics(em)
-			p.dataChan <- p.withAdditionalLabels(em, ps.target)
+			p.opts.RecordMetrics(ps.target, em, p.dataChan, options.WithNoAlert())
 		}
 	}
 }
