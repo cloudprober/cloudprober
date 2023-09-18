@@ -302,31 +302,6 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 }
 
-func (p *Probe) withAdditionalLabels(em *metrics.EventMetrics, target string) *metrics.EventMetrics {
-	for _, al := range p.opts.AdditionalLabels {
-		em.AddLabel(al.KeyValueForTarget(endpoint.Endpoint{Name: target}))
-	}
-	return em
-}
-
-func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetrics {
-	em := metrics.NewEventMetrics(time.Now()).
-		AddMetric("success", metrics.NewInt(result.success)).
-		AddMetric("total", metrics.NewInt(result.total)).
-		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
-		AddLabel("ptype", "external").
-		AddLabel("probe", p.name).
-		AddLabel("dst", target)
-
-	em.LatencyUnit = p.opts.LatencyUnit
-
-	if p.opts.Validators != nil {
-		em.AddMetric("validation_failure", result.validationFailure)
-	}
-
-	return p.withAdditionalLabels(em, target)
-}
-
 func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
 	labels := make(map[string]string)
 	if p.labelKeys["probe"] {
@@ -382,14 +357,14 @@ func (p *Probe) sendRequest(requestID int32, ep endpoint.Endpoint) error {
 }
 
 type requestInfo struct {
-	target    string
+	target    endpoint.Endpoint
 	timestamp time.Time
 }
 
 // probeStatus captures the single probe status. It's only used by runProbe
 // functions to pass a probe's status to processProbeResult method.
 type probeStatus struct {
-	target  string
+	target  endpoint.Endpoint
 	success bool
 	latency time.Duration
 	payload string
@@ -401,7 +376,7 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 
 		// If any validation failed, log and set success to false.
 		if len(failedValidations) > 0 {
-			p.l.Debug("Target:", ps.target, " failed validations: ", strings.Join(failedValidations, ","), ".")
+			p.l.Debug("Target:", ps.target.Name, " failed validations: ", strings.Join(failedValidations, ","), ".")
 			ps.success = false
 		}
 	}
@@ -411,24 +386,32 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 		result.latency.AddFloat64(ps.latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
 
-	em := p.defaultMetrics(ps.target, result)
-	p.opts.LogMetrics(em)
-	p.dataChan <- em
+	defaultEM := metrics.NewEventMetrics(time.Now()).
+		AddMetric("success", metrics.NewInt(result.success)).
+		AddMetric("total", metrics.NewInt(result.total)).
+		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
+		AddLabel("ptype", "external").
+		AddLabel("probe", p.name).
+		AddLabel("dst", ps.target.Name)
+
+	if p.opts.Validators != nil {
+		defaultEM.AddMetric("validation_failure", result.validationFailure)
+	}
+	p.opts.RecordMetrics(ps.target, defaultEM, p.dataChan)
 
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target) {
-			p.opts.LogMetrics(em)
-			p.dataChan <- p.withAdditionalLabels(em, ps.target)
+		for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target.Name) {
+			p.opts.RecordMetrics(ps.target, em, p.dataChan, options.WithNoAlert())
 		}
 	}
 }
 
 func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
-	requests := make(map[int32]requestInfo)
-	var requestsMu sync.RWMutex
-	doneChan := make(chan struct{})
+	outstandingReqs := make(map[int32]requestInfo)
+	var outstandingReqsMu sync.RWMutex
+	sendDoneCh := make(chan struct{})
 
 	if err := p.startCmdIfNotRunning(startCtx); err != nil {
 		p.l.Error(err.Error())
@@ -443,26 +426,17 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 		// Read probe replies until we have no outstanding requests or context has
 		// run out.
 		for {
-			_, ok := <-doneChan
-			if !ok {
-				// It is safe to access requests without lock here as it won't be accessed
-				// by the send loop after doneChan is closed.
-				p.l.Debugf("Number of outstanding requests: %d", len(requests))
-				if len(requests) == 0 {
-					return
-				}
-			}
 			select {
 			case <-ctx.Done():
 				p.l.Error(ctx.Err().Error())
 				return
 			case rep := <-p.replyChan:
-				requestsMu.Lock()
-				reqInfo, ok := requests[rep.GetRequestId()]
+				outstandingReqsMu.Lock()
+				reqInfo, ok := outstandingReqs[rep.GetRequestId()]
 				if ok {
-					delete(requests, rep.GetRequestId())
+					delete(outstandingReqs, rep.GetRequestId())
 				}
-				requestsMu.Unlock()
+				outstandingReqsMu.Unlock()
 				if !ok {
 					// Not our reply, could be from the last timed out probe.
 					p.l.Warningf("Got a reply that doesn't match any outstading request: Request id from reply: %v. Ignoring.", rep.GetRequestId())
@@ -473,12 +447,23 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 					p.l.Errorf("Probe for target %v failed with error message: %s", reqInfo.target, rep.GetErrorMessage())
 					success = false
 				}
-				p.processProbeResult(&probeStatus{
+				ps := &probeStatus{
 					target:  reqInfo.target,
 					success: success,
 					latency: time.Since(reqInfo.timestamp),
 					payload: rep.GetPayload(),
-				}, p.results[reqInfo.target])
+				}
+				p.processProbeResult(ps, p.results[reqInfo.target.Key()])
+			}
+
+			// If we are done sending requests, we can exit if we have no
+			// outstanding requests.
+			select {
+			case <-sendDoneCh:
+				if len(outstandingReqs) == 0 {
+					return
+				}
+			default:
 			}
 		}
 	}()
@@ -486,32 +471,29 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 	// Send probe requests
 	for _, target := range p.targets {
 		p.requestID++
-		p.results[target.Name].total++
-		requestsMu.Lock()
-		requests[p.requestID] = requestInfo{
-			target:    target.Name,
+		p.results[target.Key()].total++
+		outstandingReqsMu.Lock()
+		outstandingReqs[p.requestID] = requestInfo{
+			target:    target,
 			timestamp: time.Now(),
 		}
-		requestsMu.Unlock()
+		outstandingReqsMu.Unlock()
 		p.sendRequest(p.requestID, target)
 		time.Sleep(TimeBetweenRequests)
 	}
 
-	// Send signal to receiver loop that we are done sending request.
-	close(doneChan)
+	// Send signal to receiver loop that we are done sending requests.
+	close(sendDoneCh)
 
 	// Wait for receiver goroutine to exit.
 	wg.Wait()
 
 	// Handle requests that we have not yet received replies for: "requests" will
 	// contain only outstanding requests by this point.
-	requestsMu.Lock()
-	defer requestsMu.Unlock()
-	for _, req := range requests {
-		p.processProbeResult(&probeStatus{
-			target:  req.target,
-			success: false,
-		}, p.results[req.target])
+	outstandingReqsMu.Lock()
+	defer outstandingReqsMu.Unlock()
+	for _, req := range outstandingReqs {
+		p.processProbeResult(&probeStatus{target: req.target, success: false}, p.results[req.target.Key()])
 	}
 }
 
@@ -561,12 +543,12 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			}
 
 			p.processProbeResult(&probeStatus{
-				target:  target.Name,
+				target:  target,
 				success: success,
 				latency: time.Since(startTime),
 				payload: string(stdout),
 			}, result)
-		}(target, p.results[target.Name])
+		}(target, p.results[target.Key()])
 	}
 	wg.Wait()
 }
@@ -575,7 +557,7 @@ func (p *Probe) updateTargets() {
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	for _, target := range p.targets {
-		if _, ok := p.results[target.Name]; ok {
+		if _, ok := p.results[target.Key()]; ok {
 			continue
 		}
 
@@ -586,16 +568,13 @@ func (p *Probe) updateTargets() {
 			latencyValue = metrics.NewFloat(0)
 		}
 
-		p.results[target.Name] = &result{
+		p.results[target.Key()] = &result{
 			latency:           latencyValue,
 			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 		}
 
 		for _, al := range p.opts.AdditionalLabels {
-			// Note it's a bit convoluted right now because we want to use the
-			// same key while updating additional labels that we use while
-			// retrieving additional labels in withAdditionalLabels.
-			al.UpdateForTarget(endpoint.Endpoint{Name: target.Name}, "", 0)
+			al.UpdateForTarget(target, "", 0)
 		}
 	}
 }
