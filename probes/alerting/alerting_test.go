@@ -309,3 +309,40 @@ func TestNewAlertHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractValue(t *testing.T) {
+	em := metrics.NewEventMetrics(time.Now()).
+		AddMetric("total", metrics.NewInt(2)).
+		AddMetric("success", metrics.NewInt(1))
+
+	tests := []struct {
+		name    string
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "total",
+			want: 2,
+		},
+		{
+			name: "success",
+			want: 1,
+		},
+		{
+			name:    "success-err",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := extractValue(em, tt.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("extractValue() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("extractValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
