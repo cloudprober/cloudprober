@@ -144,10 +144,10 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	p.runProbe(context.Background())
 
 	for _, target := range p.targets {
-		tgt := target.Name
+		tgtKey := target.Key()
 
-		assert.Equal(t, total[tgt], p.results[tgt].total, "total")
-		assert.Equal(t, success[tgt], p.results[tgt].success, "success")
+		assert.Equal(t, total[target.Name], p.results[tgtKey].total, "total")
+		assert.Equal(t, success[target.Name], p.results[tgtKey].success, "success")
 	}
 }
 
@@ -521,16 +521,17 @@ func TestUpdateTargets(t *testing.T) {
 	}
 
 	p.updateTargets()
-	latVal := p.results["2.2.2.2"].latency
+	ep := endpoint.Endpoint{Name: "2.2.2.2"}
+	latVal := p.results[ep.Key()].latency
 	if _, ok := latVal.(*metrics.Float); !ok {
 		t.Errorf("latency value type is not metrics.Float: %v", latVal)
 	}
 
 	// Test with latency distribution option set.
 	p.opts.LatencyDist = metrics.NewDistribution([]float64{0.1, 0.2, 0.5})
-	delete(p.results, "2.2.2.2")
+	delete(p.results, ep.Key())
 	p.updateTargets()
-	latVal = p.results["2.2.2.2"].latency
+	latVal = p.results[ep.Key()].latency
 	if _, ok := latVal.(*metrics.Distribution); !ok {
 		t.Errorf("latency value type is not metrics.Distribution: %v", latVal)
 	}
@@ -658,7 +659,7 @@ func TestProcessProbeResult(t *testing.T) {
 
 			// First run
 			p.processProbeResult(&probeStatus{
-				target:  "test-target",
+				target:  endpoint.Endpoint{Name: "test-target"},
 				success: true,
 				latency: time.Millisecond,
 				payload: test.payloads[0],
@@ -669,7 +670,7 @@ func TestProcessProbeResult(t *testing.T) {
 
 			// Second run
 			p.processProbeResult(&probeStatus{
-				target:  "test-target",
+				target:  endpoint.Endpoint{Name: "test-target"},
 				success: true,
 				latency: time.Millisecond,
 				payload: test.payloads[1],
