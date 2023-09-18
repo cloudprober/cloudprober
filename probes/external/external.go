@@ -302,24 +302,6 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 }
 
-func (p *Probe) defaultMetrics(ep endpoint.Endpoint, result *result) *metrics.EventMetrics {
-	em := metrics.NewEventMetrics(time.Now()).
-		AddMetric("success", metrics.NewInt(result.success)).
-		AddMetric("total", metrics.NewInt(result.total)).
-		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
-		AddLabel("ptype", "external").
-		AddLabel("probe", p.name).
-		AddLabel("dst", ep.Name)
-
-	em.LatencyUnit = p.opts.LatencyUnit
-
-	if p.opts.Validators != nil {
-		em.AddMetric("validation_failure", result.validationFailure)
-	}
-
-	return em
-}
-
 func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
 	labels := make(map[string]string)
 	if p.labelKeys["probe"] {
@@ -404,8 +386,18 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 		result.latency.AddFloat64(ps.latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
 
-	em := p.defaultMetrics(ps.target, result)
-	p.opts.RecordMetrics(ps.target, em, p.dataChan)
+	defaultEM := metrics.NewEventMetrics(time.Now()).
+		AddMetric("success", metrics.NewInt(result.success)).
+		AddMetric("total", metrics.NewInt(result.total)).
+		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
+		AddLabel("ptype", "external").
+		AddLabel("probe", p.name).
+		AddLabel("dst", ps.target.Name)
+
+	if p.opts.Validators != nil {
+		defaultEM.AddMetric("validation_failure", result.validationFailure)
+	}
+	p.opts.RecordMetrics(ps.target, defaultEM, p.dataChan)
 
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
