@@ -84,16 +84,7 @@ func StatsKeeper(ctx context.Context, ptype, name string, opts *options.Options,
 					em.AddLabel("dst", t.Name)
 					em.Timestamp = ts
 
-					em.LatencyUnit = opts.LatencyUnit
-
-					for _, al := range opts.AdditionalLabels {
-						em.AddLabel(al.KeyValueForTarget(t))
-					}
-
-					if opts.LogMetrics != nil {
-						opts.LogMetrics(em)
-					}
-					dataChan <- em.Clone()
+					opts.RecordMetrics(t, em.Clone(), dataChan)
 				}
 			}
 		case <-ctx.Done():

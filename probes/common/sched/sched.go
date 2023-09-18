@@ -117,14 +117,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 				AddLabel("probe", s.ProbeName).
 				AddLabel("dst", target.Dst())
 
-			em.LatencyUnit = s.Opts.LatencyUnit
-
-			for _, al := range s.Opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(target))
-			}
-
-			s.Opts.LogMetrics(em)
-			s.DataChan <- em
+			s.Opts.RecordMetrics(target, em, s.DataChan)
 		}
 	}
 }

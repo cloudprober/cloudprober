@@ -103,7 +103,10 @@ func replaceAttrs(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-func slogHandler() slog.Handler {
+func slogHandler(w io.Writer) slog.Handler {
+	if w == nil {
+		w = defaultWritter
+	}
 	opts := &slog.HandlerOptions{
 		AddSource:   true,
 		ReplaceAttr: replaceAttrs,
@@ -112,9 +115,9 @@ func slogHandler() slog.Handler {
 	attrs := []slog.Attr{slog.String("system", "cloudprober")}
 	switch *logFmt {
 	case "json":
-		return slog.NewJSONHandler(defaultWritter, opts).WithAttrs(attrs)
+		return slog.NewJSONHandler(w, opts).WithAttrs(attrs)
 	case "text":
-		return slog.NewTextHandler(defaultWritter, opts).WithAttrs(attrs)
+		return slog.NewTextHandler(w, opts).WithAttrs(attrs)
 	}
 	panic("invalid log format: " + *logFmt)
 }
@@ -168,10 +171,7 @@ type Logger struct {
 	disableCloudLogging bool
 	labels              map[string]string
 	attrs               []slog.Attr
-	// TODO(manugarg): Logger should eventually embed the probe id and each probe
-	// should get a different Logger object (embedding that probe's probe id) but
-	// sharing the same logging client. We could then make probe id one of the
-	// metadata on all logging messages.
+	writer              io.Writer
 }
 
 // Option can be used for adding additional metadata information in logger.
@@ -202,7 +202,7 @@ func newLogger(opts ...Option) *Logger {
 	}
 
 	// Initialize the traditional logger.
-	l.slogger = slog.New(slogHandler().WithAttrs(l.attrs))
+	l.slogger = slog.New(slogHandler(l.writer).WithAttrs(l.attrs))
 	for k, v := range l.labels {
 		l.slogger = l.slogger.With(k, v)
 	}
@@ -233,6 +233,12 @@ func WithLabels(labels map[string]string) Option {
 		for k, v := range labels {
 			l.labels[k] = v
 		}
+	}
+}
+
+func WithWriter(w io.Writer) Option {
+	return func(l *Logger) {
+		l.writer = w
 	}
 }
 
@@ -384,7 +390,7 @@ func (l *Logger) genericLog(severity logging.Severity, depth int, s string, attr
 	if l != nil && l.slogger != nil {
 		_ = l.slogger.Handler().Handle(context.Background(), r)
 	} else {
-		_ = slogHandler().Handle(context.Background(), r)
+		_ = slogHandler(nil).Handle(context.Background(), r)
 	}
 }
 

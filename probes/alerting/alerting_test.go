@@ -49,7 +49,6 @@ type testAlertHandlerArgs struct {
 	targets     map[string]testData
 	wantAlerted map[string]bool
 	wantAlerts  []*notifier.AlertInfo
-	wantErr     bool
 	alertCfg    *configpb.AlertConf
 	waitTime    time.Duration
 }
@@ -75,9 +74,7 @@ func testAlertHandlerBehavior(t *testing.T, tt testAlertHandlerArgs) {
 			em.AddMetric("total", metrics.NewInt(td.total[i]))
 			em.AddMetric("success", metrics.NewInt(td.success[i]))
 
-			if err := ah.Record(ep, em); (err != nil) != tt.wantErr {
-				t.Errorf("AlertHandler.Record() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			ah.Record(ep, em)
 			t.Logf("target (%s) state: %+v", target, ah.targets[ep.Key()])
 
 			ts = ts.Add(time.Second)
@@ -309,6 +306,43 @@ func TestNewAlertHandler(t *testing.T) {
 			ah, err := NewAlertHandler(tt.conf, tt.probeName, nil)
 			assert.NoError(t, err, "NewAlertHandler(%v, %v, nil) failed", tt.conf, tt.probeName)
 			assert.Equal(t, tt.want, ah)
+		})
+	}
+}
+
+func TestExtractValue(t *testing.T) {
+	em := metrics.NewEventMetrics(time.Now()).
+		AddMetric("total", metrics.NewInt(2)).
+		AddMetric("success", metrics.NewInt(1))
+
+	tests := []struct {
+		name    string
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "total",
+			want: 2,
+		},
+		{
+			name: "success",
+			want: 1,
+		},
+		{
+			name:    "success-err",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := extractValue(em, tt.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("extractValue() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("extractValue() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
