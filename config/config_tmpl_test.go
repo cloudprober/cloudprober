@@ -63,6 +63,20 @@ func TestParseTemplate(t *testing.T) {
 			wantTargets: []string{"host_names:\"www.google.com\""},
 		},
 		{
+			desc: "config-with-secret-env",
+			config: `
+				probe {
+				name: "{{ envSecret "SECRET_PROBE_NAME" }}"
+				type: PING
+				targets {
+					host_names: "www.google.com"
+				}
+				}
+			`,
+			wantProbes:  []string{"{{ secret:$SECRET_PROBE_NAME }}"},
+			wantTargets: []string{"host_names:\"www.google.com\""},
+		},
+		{
 			desc: "config-with-map-and-template",
 			config: `
 				{{define "probeTmpl"}}
