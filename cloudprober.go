@@ -68,7 +68,8 @@ var cloudProber struct {
 	prober          *prober.Prober
 	defaultServerLn net.Listener
 	defaultGRPCLn   net.Listener
-	textConfig      string
+	rawConfig       string
+	parsedConfig    string
 	config          *configpb.ProberConfig
 	cancelInitCtx   context.CancelFunc
 	sync.Mutex
@@ -161,7 +162,7 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
-	cfg, err := config.ParseConfig(configStr, configFormat, sysvars.Vars())
+	cfg, parsedConfigStr, err := config.ParseConfig(configStr, configFormat, sysvars.Vars())
 	if err != nil {
 		return err
 	}
@@ -222,7 +223,8 @@ func InitFromConfig(configFile string) error {
 
 	cloudProber.prober = pr
 	cloudProber.config = cfg
-	cloudProber.textConfig = configStr
+	cloudProber.rawConfig = configStr
+	cloudProber.parsedConfig = parsedConfigStr
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
@@ -251,7 +253,7 @@ func Start(ctx context.Context) {
 		defer cloudProber.Unlock()
 		cloudProber.defaultServerLn = nil
 		cloudProber.defaultGRPCLn = nil
-		cloudProber.textConfig = ""
+		cloudProber.rawConfig = ""
 		cloudProber.config = nil
 		cloudProber.prober = nil
 	}()
@@ -278,11 +280,18 @@ func GetConfig() *configpb.ProberConfig {
 	return cloudProber.config
 }
 
-// GetTextConfig returns the prober config in text proto format.
-func GetTextConfig() string {
+// GetRawConfig returns the prober config in text proto format.
+func GetRawConfig() string {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
-	return cloudProber.textConfig
+	return cloudProber.rawConfig
+}
+
+// GetParsedConfig returns the parsed prober config.
+func GetParsedConfig() string {
+	cloudProber.Lock()
+	defer cloudProber.Unlock()
+	return cloudProber.parsedConfig
 }
 
 // GetInfo returns information on all the probes, servers and surfacers.

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober/common/file"
@@ -32,6 +33,8 @@ import (
 var (
 	configFile = flag.String("config_file", "", "Config file")
 )
+
+var envRegex = regexp.MustCompile(`{{ \$([^$]+) }}`)
 
 const (
 	configMetadataKeyName = "cloudprober_config"
@@ -139,7 +142,7 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 		return nil, err
 	}
 
-	cfg, err := ParseConfig(content, configFormat, baseVars)
+	cfg, _, err := ParseConfig(content, configFormat, baseVars)
 	if err != nil {
 		return nil, err
 	}
@@ -160,11 +163,43 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 	}
 }
 
-func ParseConfig(content, format string, vars map[string]string) (*configpb.ProberConfig, error) {
-	configStr, err := ParseTemplate(content, vars, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+// substEnvVars substitutes environment variables in the config string.
+func substEnvVars(configStr string) (string, error) {
+	m := envRegex.FindAllStringSubmatch(configStr, -1)
+	if len(m) == 0 {
+		return configStr, nil
 	}
 
-	return configToProto(configStr, format)
+	var envVars []string
+	// Collect all the environment variables that need to be substituted.
+	for _, word := range m {
+		if len(word) != 2 {
+			continue
+		}
+		envVars = append(envVars, word[1])
+	}
+
+	for _, v := range envVars {
+		if os.Getenv(v) == "" {
+			return "", fmt.Errorf("environment variable %s not defined", v)
+		}
+		configStr = envRegex.ReplaceAllString(configStr, os.Getenv(v))
+	}
+
+	return configStr, nil
+}
+
+func ParseConfig(content, format string, vars map[string]string) (*configpb.ProberConfig, string, error) {
+	parsedConfig, err := ParseTemplate(content, vars, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+	}
+
+	finalConfigStr, err := substEnvVars(parsedConfig)
+	if err != nil {
+		return nil, "", fmt.Errorf("error substituting secret environment variables in the config string. Err: %v", err)
+	}
+
+	cfg, err := configToProto(finalConfigStr, format)
+	return cfg, parsedConfig, err
 }

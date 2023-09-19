@@ -107,7 +107,10 @@ func Init() error {
 		}
 	}
 	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, cloudprober.GetTextConfig())
+		fmt.Fprint(w, cloudprober.GetRawConfig())
+	})
+	srvMux.HandleFunc("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, cloudprober.GetParsedConfig())
 	})
 	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, runningConfig())

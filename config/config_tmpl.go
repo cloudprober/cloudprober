@@ -184,10 +184,11 @@ func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 			}
 			matches := r.FindStringSubmatch(s)
 			if len(matches) <= n {
-				return "", fmt.Errorf("Match number %d not found. Regex: %s, String: %s", n, re, s)
+				return "", fmt.Errorf("match number %d not found. Regex: %s, String: %s", n, re, s)
 			}
 			return matches[n], nil
 		},
+		"envSecret": func(s string) string { return "{{ $" + s + " }}" },
 	}
 
 	for name, f := range sprig.TxtFuncMap() {
