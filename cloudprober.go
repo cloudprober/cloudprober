@@ -254,6 +254,7 @@ func Start(ctx context.Context) {
 		cloudProber.defaultServerLn = nil
 		cloudProber.defaultGRPCLn = nil
 		cloudProber.rawConfig = ""
+		cloudProber.parsedConfig = ""
 		cloudProber.config = nil
 		cloudProber.prober = nil
 	}()
