@@ -171,12 +171,11 @@ func substEnvVars(configStr string) (string, error) {
 	}
 
 	var envVars []string
-	// Collect all the environment variables that need to be substituted.
-	for _, word := range m {
-		if len(word) != 2 {
+	for _, match := range m {
+		if len(match) != 2 {
 			continue
 		}
-		envVars = append(envVars, word[1])
+		envVars = append(envVars, match[1]) // match[0] is the whole string.
 	}
 
 	for _, v := range envVars {

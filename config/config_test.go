@@ -16,6 +16,7 @@ package config
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -211,6 +212,47 @@ surfacer: {
 			default:
 				tt.want = strings.TrimLeft(tt.want, "\n")
 				assert.Equal(t, tt.want, string(got))
+			}
+		})
+	}
+}
+
+func TestSubstEnvVars(t *testing.T) {
+	os.Setenv("SECRET_PROBE_NAME", "probe-x")
+	// Make sure this env var is not set, for error behavior testing.
+	os.Unsetenv("SECRET_PROBEX_NAME")
+
+	tests := []struct {
+		name      string
+		configStr string
+		want      string
+		wantErr   bool
+	}{
+		{
+			name:      "no_env_vars",
+			configStr: `probe {name: "dns_k8s"}`,
+			want:      `probe {name: "dns_k8s"}`,
+		},
+		{
+			name:      "env_var",
+			configStr: `probe {name: "{{ secret:$SECRET_PROBE_NAME }}"}`,
+			want:      `probe {name: "probe-x"}`,
+		},
+		{
+			name:      "env_var_not_defined",
+			configStr: `probe {name: "{{ secret:$SECRET_PROBEX_NAME }}"}`,
+			wantErr:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := substEnvVars(tt.configStr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("substEnvVars() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("substEnvVars() = %v, want %v", got, tt.want)
 			}
 		})
 	}
