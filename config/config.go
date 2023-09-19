@@ -34,7 +34,7 @@ var (
 	configFile = flag.String("config_file", "", "Config file")
 )
 
-var envRegex = regexp.MustCompile(`{{ \$([^$]+) }}`)
+var envRegex = regexp.MustCompile(`{{ secret:\$([^$]+) }}`)
 
 const (
 	configMetadataKeyName = "cloudprober_config"

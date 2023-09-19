@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/common/httputils"
@@ -106,15 +107,29 @@ func Init() error {
 			return fmt.Errorf("url %s is already handled", url)
 		}
 	}
+
 	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, cloudprober.GetRawConfig())
 	})
+
+	parsedConfig := cloudprober.GetParsedConfig()
 	srvMux.HandleFunc("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, cloudprober.GetParsedConfig())
 	})
+
+	var configRunning string
+	if !strings.Contains(parsedConfig, "{{ secret:$") {
+		configRunning = runningConfig()
+	} else {
+		configRunning = `
+		<p>Config contains secrets. /config-running is not available.<br>
+		Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
+		`
+	}
 	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, runningConfig())
+		fmt.Fprint(w, configRunning)
 	})
+
 	srvMux.HandleFunc("/alerts", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, alertsState())
 	})

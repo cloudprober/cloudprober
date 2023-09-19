@@ -188,7 +188,7 @@ func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 			}
 			return matches[n], nil
 		},
-		"envSecret": func(s string) string { return "{{ $" + s + " }}" },
+		"envSecret": func(s string) string { return "{{ secret:$" + s + " }}" },
 	}
 
 	for name, f := range sprig.TxtFuncMap() {
