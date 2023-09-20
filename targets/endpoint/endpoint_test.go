@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -45,24 +46,27 @@ func TestKey(t *testing.T) {
 		name   string
 		port   int
 		labels map[string]string
+		ip     net.IP
 		key    string
 	}{
 		{
 			name: "t1",
 			port: 80,
-			key:  "t1_80",
+			ip:   net.ParseIP("10.0.0.1"),
+			key:  "t1_10.0.0.1_80",
 		},
 		{
 			name:   "t1",
 			port:   80,
+			ip:     net.ParseIP("1234:5678::72"),
 			labels: map[string]string{"app": "cloudprober", "dc": "xx"},
-			key:    "t1_80_app:cloudprober_dc:xx",
+			key:    "t1_1234:5678::72_80_app:cloudprober_dc:xx",
 		},
 		{
 			name:   "t1",
 			port:   80,
 			labels: map[string]string{"dc": "xx", "app": "cloudprober"},
-			key:    "t1_80_app:cloudprober_dc:xx",
+			key:    "t1__80_app:cloudprober_dc:xx",
 		},
 	} {
 		ep := Endpoint{
