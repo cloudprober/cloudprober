@@ -59,7 +59,7 @@ var (
 // EnvVars defines environment variables that can be used to modify the logging
 // behavior.
 var EnvVars = struct {
-	DisableCloudLogging, DebugLog, GcpLoggingEndpoint string
+	DisableCloudLogging, DebugLog, GCPLoggingEndpoint string
 }{
 	"CLOUDPROBER_DISABLE_CLOUD_LOGGING",
 	"CLOUDPROBER_DEBUG_LOG",
@@ -503,7 +503,7 @@ func (l *Logger) Criticalf(format string, args ...interface{}) {
 
 func envVarSet(key string) bool {
 	v, ok := os.LookupEnv(key)
-	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE"  && strings.ToUpper(v) != "" {
+	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE"  && v != "" {
 		return true
 	}
 	return false
@@ -518,8 +518,8 @@ func init() {
 		*debugLog = true
 	}
 
-	if envVarSet(EnvVars.GcpLoggingEndpoint) {
-		*gcpLoggingEndpoint = os.Getenv(EnvVars.GcpLoggingEndpoint)
+	if envVarSet(EnvVars.GCPLoggingEndpoint) {
+		*gcpLoggingEndpoint = os.Getenv(EnvVars.GCPLoggingEndpoint)
 	}
 
 	// Determine the base path for the cloudprober source code.
