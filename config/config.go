@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober/common/file"
@@ -32,6 +33,8 @@ import (
 var (
 	configFile = flag.String("config_file", "", "Config file")
 )
+
+var envRegex = regexp.MustCompile(`\*\*\$([^$]+)\*\*`)
 
 const (
 	configMetadataKeyName = "cloudprober_config"
@@ -139,7 +142,7 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 		return nil, err
 	}
 
-	cfg, err := ParseConfig(content, configFormat, baseVars)
+	cfg, _, err := ParseConfig(content, configFormat, baseVars, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -160,11 +163,38 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 	}
 }
 
-func ParseConfig(content, format string, vars map[string]string) (*configpb.ProberConfig, error) {
-	configStr, err := ParseTemplate(content, vars, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+// substEnvVars substitutes environment variables in the config string.
+func substEnvVars(configStr string, l *logger.Logger) string {
+	m := envRegex.FindAllStringSubmatch(configStr, -1)
+	if len(m) == 0 {
+		return configStr
 	}
 
-	return configToProto(configStr, format)
+	var envVars []string
+	for _, match := range m {
+		if len(match) != 2 {
+			continue
+		}
+		envVars = append(envVars, match[1]) // match[0] is the whole string.
+	}
+
+	for _, v := range envVars {
+		if os.Getenv(v) == "" {
+			l.Warningf("Environment variable %s not defined, skipping substitution.", v)
+			continue
+		}
+		configStr = envRegex.ReplaceAllString(configStr, os.Getenv(v))
+	}
+
+	return configStr
+}
+
+func ParseConfig(content, format string, vars map[string]string, l *logger.Logger) (*configpb.ProberConfig, string, error) {
+	parsedConfig, err := ParseTemplate(content, vars, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+	}
+
+	cfg, err := configToProto(substEnvVars(parsedConfig, l), format)
+	return cfg, parsedConfig, err
 }
