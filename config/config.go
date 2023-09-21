@@ -34,7 +34,7 @@ var (
 	configFile = flag.String("config_file", "", "Config file")
 )
 
-var envRegex = regexp.MustCompile(`{{ secret:\$([^$]+) }}`)
+var envRegex = regexp.MustCompile(`\*\*\$([^$]+)\*\*`)
 
 const (
 	configMetadataKeyName = "cloudprober_config"
@@ -142,7 +142,7 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 		return nil, err
 	}
 
-	cfg, _, err := ParseConfig(content, configFormat, baseVars)
+	cfg, _, err := ParseConfig(content, configFormat, baseVars, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -164,10 +164,10 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 }
 
 // substEnvVars substitutes environment variables in the config string.
-func substEnvVars(configStr string) (string, error) {
+func substEnvVars(configStr string, l *logger.Logger) string {
 	m := envRegex.FindAllStringSubmatch(configStr, -1)
 	if len(m) == 0 {
-		return configStr, nil
+		return configStr
 	}
 
 	var envVars []string
@@ -180,25 +180,21 @@ func substEnvVars(configStr string) (string, error) {
 
 	for _, v := range envVars {
 		if os.Getenv(v) == "" {
-			return "", fmt.Errorf("environment variable %s not defined", v)
+			l.Warningf("Environment variable %s not defined, skipping substitution.", v)
+			continue
 		}
 		configStr = envRegex.ReplaceAllString(configStr, os.Getenv(v))
 	}
 
-	return configStr, nil
+	return configStr
 }
 
-func ParseConfig(content, format string, vars map[string]string) (*configpb.ProberConfig, string, error) {
+func ParseConfig(content, format string, vars map[string]string, l *logger.Logger) (*configpb.ProberConfig, string, error) {
 	parsedConfig, err := ParseTemplate(content, vars, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("error parsing config file as Go template. Err: %v", err)
 	}
 
-	finalConfigStr, err := substEnvVars(parsedConfig)
-	if err != nil {
-		return nil, "", fmt.Errorf("error substituting secret environment variables in the config string. Err: %v", err)
-	}
-
-	cfg, err := configToProto(finalConfigStr, format)
+	cfg, err := configToProto(substEnvVars(parsedConfig, l), format)
 	return cfg, parsedConfig, err
 }

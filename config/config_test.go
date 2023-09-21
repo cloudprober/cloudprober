@@ -15,12 +15,15 @@
 package config
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"strings"
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/logger"
 	probespb "github.com/cloudprober/cloudprober/probes/proto"
 	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
@@ -226,7 +229,7 @@ func TestSubstEnvVars(t *testing.T) {
 		name      string
 		configStr string
 		want      string
-		wantErr   bool
+		wantLog   string
 	}{
 		{
 			name:      "no_env_vars",
@@ -235,25 +238,22 @@ func TestSubstEnvVars(t *testing.T) {
 		},
 		{
 			name:      "env_var",
-			configStr: `probe {name: "{{ secret:$SECRET_PROBE_NAME }}"}`,
+			configStr: `probe {name: "**$SECRET_PROBE_NAME**"}`,
 			want:      `probe {name: "probe-x"}`,
 		},
 		{
 			name:      "env_var_not_defined",
-			configStr: `probe {name: "{{ secret:$SECRET_PROBEX_NAME }}"}`,
-			wantErr:   true,
+			configStr: `probe {name: "**$SECRET_PROBEX_NAME**"}`,
+			want:      `probe {name: "**$SECRET_PROBEX_NAME**"}`,
+			wantLog:   "SECRET_PROBEX_NAME not defined",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := substEnvVars(tt.configStr)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("substEnvVars() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("substEnvVars() = %v, want %v", got, tt.want)
-			}
+			var buf bytes.Buffer
+			l, _ := logger.New(context.Background(), "config_test", logger.WithWriter(&buf))
+			assert.Equal(t, tt.want, substEnvVars(tt.configStr, l))
+			assert.Contains(t, buf.String(), tt.wantLog)
 		})
 	}
 }

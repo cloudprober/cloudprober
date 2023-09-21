@@ -73,7 +73,7 @@ func TestParseTemplate(t *testing.T) {
 				}
 				}
 			`,
-			wantProbes:  []string{"{{ secret:$SECRET_PROBE_NAME }}"},
+			wantProbes:  []string{"**$SECRET_PROBE_NAME**"},
 			wantTargets: []string{"host_names:\"www.google.com\""},
 		},
 		{

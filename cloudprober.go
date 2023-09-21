@@ -162,7 +162,7 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
-	cfg, parsedConfigStr, err := config.ParseConfig(configStr, configFormat, sysvars.Vars())
+	cfg, parsedConfigStr, err := config.ParseConfig(configStr, configFormat, sysvars.Vars(), globalLogger)
 	if err != nil {
 		return err
 	}
