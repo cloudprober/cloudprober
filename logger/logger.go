@@ -48,6 +48,9 @@ var (
 	// Enable/Disable cloud logging
 	disableCloudLogging = flag.Bool("disable_cloud_logging", false, "Disable cloud logging.")
 
+	// Override the GCP cloud logging endpoint.
+	gcpLoggingEndpoint = flag.String("gcp_logging_endpoint", "", "GCP logging endpoint")
+
 	// LogPrefixEnvVar environment variable is used to determine the stackdriver
 	// log name prefix. Default prefix is "cloudprober".
 	LogPrefixEnvVar = "CLOUDPROBER_LOG_PREFIX"
@@ -56,10 +59,11 @@ var (
 // EnvVars defines environment variables that can be used to modify the logging
 // behavior.
 var EnvVars = struct {
-	DisableCloudLogging, DebugLog string
+	DisableCloudLogging, DebugLog, GCPLoggingEndpoint string
 }{
 	"CLOUDPROBER_DISABLE_CLOUD_LOGGING",
 	"CLOUDPROBER_DEBUG_LOG",
+	"CLOUDPROBER_GCP_LOGGING_ENDPOINT",
 }
 
 const (
@@ -169,6 +173,7 @@ type Logger struct {
 	gcpLogger           *logging.Logger
 	debugLog            bool
 	disableCloudLogging bool
+	gcpLoggingEndpoint  string
 	labels              map[string]string
 	attrs               []slog.Attr
 	writer              io.Writer
@@ -196,6 +201,7 @@ func newLogger(opts ...Option) *Logger {
 	l := &Logger{
 		labels:              make(map[string]string),
 		disableCloudLogging: *disableCloudLogging,
+		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
 	}
 	for _, opt := range opts {
 		opt(l)
@@ -289,7 +295,14 @@ func (l *Logger) EnableStackdriverLogging() {
 		return
 	}
 
-	l.gcpLogc, err = logging.NewClient(context.Background(), projectID, option.WithTokenSource(google.ComputeTokenSource("")))
+	// Create Client options for logging client
+	o := []option.ClientOption{option.WithTokenSource(google.ComputeTokenSource(""))}
+	if l.gcpLoggingEndpoint != "" {
+		l.Infof("Setting logging endpoint to %s", l.gcpLoggingEndpoint)
+		o = append(o, option.WithEndpoint(l.gcpLoggingEndpoint))
+	}
+
+	l.gcpLogc, err = logging.NewClient(context.Background(), projectID, o...)
 	if err != nil {
 		l.Warningf("Error creating client for google cloud logging: %v, will skip", err)
 		return
@@ -490,7 +503,7 @@ func (l *Logger) Criticalf(format string, args ...interface{}) {
 
 func envVarSet(key string) bool {
 	v, ok := os.LookupEnv(key)
-	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE" {
+	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE"  && v != "" {
 		return true
 	}
 	return false
@@ -503,6 +516,10 @@ func init() {
 
 	if envVarSet(EnvVars.DebugLog) {
 		*debugLog = true
+	}
+
+	if envVarSet(EnvVars.GCPLoggingEndpoint) {
+		*gcpLoggingEndpoint = os.Getenv(EnvVars.GCPLoggingEndpoint)
 	}
 
 	// Determine the base path for the cloudprober source code.
