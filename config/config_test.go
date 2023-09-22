@@ -15,11 +15,15 @@
 package config
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/logger"
 	probespb "github.com/cloudprober/cloudprober/probes/proto"
 	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
@@ -212,6 +216,44 @@ surfacer: {
 				tt.want = strings.TrimLeft(tt.want, "\n")
 				assert.Equal(t, tt.want, string(got))
 			}
+		})
+	}
+}
+
+func TestSubstEnvVars(t *testing.T) {
+	os.Setenv("SECRET_PROBE_NAME", "probe-x")
+	// Make sure this env var is not set, for error behavior testing.
+	os.Unsetenv("SECRET_PROBEX_NAME")
+
+	tests := []struct {
+		name      string
+		configStr string
+		want      string
+		wantLog   string
+	}{
+		{
+			name:      "no_env_vars",
+			configStr: `probe {name: "dns_k8s"}`,
+			want:      `probe {name: "dns_k8s"}`,
+		},
+		{
+			name:      "env_var",
+			configStr: `probe {name: "**$SECRET_PROBE_NAME**"}`,
+			want:      `probe {name: "probe-x"}`,
+		},
+		{
+			name:      "env_var_not_defined",
+			configStr: `probe {name: "**$SECRET_PROBEX_NAME**"}`,
+			want:      `probe {name: "**$SECRET_PROBEX_NAME**"}`,
+			wantLog:   "SECRET_PROBEX_NAME not defined",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			l, _ := logger.New(context.Background(), "config_test", logger.WithWriter(&buf))
+			assert.Equal(t, tt.want, substEnvVars(tt.configStr, l))
+			assert.Contains(t, buf.String(), tt.wantLog)
 		})
 	}
 }
