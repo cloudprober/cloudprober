@@ -72,6 +72,7 @@ func TestKey(t *testing.T) {
 		ep := Endpoint{
 			Name:   test.name,
 			Port:   test.port,
+			IP:     test.ip,
 			Labels: test.labels,
 		}
 		t.Run(fmt.Sprintf("%v", ep), func(t *testing.T) {
