@@ -47,7 +47,11 @@ func (ep *Endpoint) Key() string {
 	}
 	sort.Strings(labelSlice)
 
-	return strings.Join(append([]string{ep.Name, strconv.Itoa(ep.Port)}, labelSlice...), "_")
+	ip := ""
+	if ep.IP != nil {
+		ip = ep.IP.String()
+	}
+	return strings.Join(append([]string{ep.Name, ip, strconv.Itoa(ep.Port)}, labelSlice...), "_")
 }
 
 // Lister should implement the ListEndpoints method.
