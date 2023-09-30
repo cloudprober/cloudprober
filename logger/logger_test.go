@@ -16,7 +16,6 @@ package logger
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -57,12 +56,6 @@ func TestEnvVarSet(t *testing.T) {
 }
 
 func TestWithLabels(t *testing.T) {
-	panicOnErr := func(l *Logger, err error) *Logger {
-		if err != nil {
-			panic(err)
-		}
-		return l
-	}
 	tests := []struct {
 		name       string
 		l          *Logger
@@ -70,12 +63,12 @@ func TestWithLabels(t *testing.T) {
 	}{
 		{
 			name:       "new-withlabels",
-			l:          panicOnErr(New(context.Background(), "newWithLabels", WithLabels(map[string]string{"k1": "v1"}))),
+			l:          New(WithLabels(map[string]string{"k1": "v1"})),
 			wantLabels: map[string]string{"k1": "v1"},
 		},
 		{
 			name:       "new-withlabels-overridden",
-			l:          panicOnErr(New(context.Background(), "newWithLabels", WithLabels(map[string]string{"k1": "v1"}), WithLabels(map[string]string{"k1": "v2"}))),
+			l:          New(WithLabels(map[string]string{"k1": "v1"}), WithLabels(map[string]string{"k1": "v2"})),
 			wantLabels: map[string]string{"k1": "v2"},
 		},
 		{

@@ -116,12 +116,11 @@ func slogHandler(w io.Writer) slog.Handler {
 		ReplaceAttr: replaceAttrs,
 	}
 
-	attrs := []slog.Attr{slog.String("system", "cloudprober")}
 	switch *logFmt {
 	case "json":
-		return slog.NewJSONHandler(w, opts).WithAttrs(attrs)
+		return slog.NewJSONHandler(w, opts)
 	case "text":
-		return slog.NewTextHandler(w, opts).WithAttrs(attrs)
+		return slog.NewTextHandler(w, opts)
 	}
 	panic("invalid log format: " + *logFmt)
 }
@@ -176,24 +175,27 @@ type Logger struct {
 	gcpLoggingEndpoint  string
 	labels              map[string]string
 	attrs               []slog.Attr
+	systemAttr          string
 	writer              io.Writer
 }
 
 // Option can be used for adding additional metadata information in logger.
 type Option func(*Logger)
 
-// NewWithAttrs returns a new cloudprober Logger.
-// This logger logs to stderr by default. If running on GCE, it also logs to
-// Google Cloud Logging.
+// NewWithAttrs is a shortcut to create a new logger with a set of attributes.
 func NewWithAttrs(attrs ...slog.Attr) *Logger {
-	return newLogger(WithAttr(attrs...))
+	return New(WithAttr(attrs...))
 }
 
-// New returns a new cloudprober Logger.
+func New(opts ...Option) *Logger {
+	return newLogger(opts...)
+}
+
+// NewLegacy returns a new cloudprober Logger.
 // This logger logs to stderr by default. If running on GCE, it also logs to
 // Google Cloud Logging.
-// Deprecated: Use NewWithAttrs instead.
-func New(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
+// Deprecated: Use New/NewWithAttrs instead.
+func NewLegacy(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	return newLogger(append(opts, WithAttr(slog.String("name", logName)))...), nil
 }
 
@@ -202,10 +204,13 @@ func newLogger(opts ...Option) *Logger {
 		labels:              make(map[string]string),
 		disableCloudLogging: *disableCloudLogging,
 		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
+		systemAttr:          "cloudprober", // default
 	}
 	for _, opt := range opts {
 		opt(l)
 	}
+
+	l.attrs = append([]slog.Attr{slog.String("system", l.systemAttr)}, l.attrs...)
 
 	// Initialize the traditional logger.
 	l.slogger = slog.New(slogHandler(l.writer).WithAttrs(l.attrs))
@@ -225,7 +230,13 @@ func newLogger(opts ...Option) *Logger {
 // logger.New(ctx, logName, logger.WithAttr(myLabels))
 func WithAttr(attrs ...slog.Attr) Option {
 	return func(l *Logger) {
-		l.attrs = append(l.attrs, attrs...)
+		for _, attr := range attrs {
+			if attr.Key == "system" {
+				l.systemAttr = attr.Value.String()
+				continue
+			}
+			l.attrs = append(l.attrs, attr)
+		}
 	}
 }
 
@@ -503,7 +514,7 @@ func (l *Logger) Criticalf(format string, args ...interface{}) {
 
 func envVarSet(key string) bool {
 	v, ok := os.LookupEnv(key)
-	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE"  && v != "" {
+	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE" && v != "" {
 		return true
 	}
 	return false

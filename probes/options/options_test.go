@@ -16,7 +16,6 @@ package options
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"net"
 	"testing"
@@ -380,7 +379,7 @@ func TestRecordMetrics(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	l, _ := logger.New(context.Background(), "test-probe", logger.WithWriter(&buf))
+	l := logger.New(logger.WithWriter(&buf))
 	opts.AdditionalLabels = []*AdditionalLabel{additionalLabel}
 	alertHandler, _ := alerting.NewAlertHandler(&alerting_configpb.AlertConf{}, "test-probe", l)
 	opts.AlertHandlers = []*alerting.AlertHandler{alertHandler}
