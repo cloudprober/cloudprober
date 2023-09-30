@@ -18,13 +18,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	testdatapb "github.com/cloudprober/cloudprober/probes/testdata"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 var testProbeIntialized int
