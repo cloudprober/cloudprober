@@ -27,6 +27,7 @@ func TestProbesAllowEmptyConfig(t *testing.T) {
 				t.Errorf("error building probe options: %v", err)
 			}
 
+			// ensure that we don't panic on empty config
 			_, _, _ = initProbe(probeDef, opts)
 		})
 	}
