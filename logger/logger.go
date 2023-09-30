@@ -67,8 +67,8 @@ var EnvVars = struct {
 }
 
 const (
-	// Prefix for the cloudprober stackdriver log names.
-	cloudproberPrefix = "cloudprober"
+	// Default "system" label and stackdriver log name prefix.
+	defaultSystemName = "cloudprober"
 )
 
 const (
@@ -204,13 +204,14 @@ func newLogger(opts ...Option) *Logger {
 		labels:              make(map[string]string),
 		disableCloudLogging: *disableCloudLogging,
 		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
-		systemAttr:          "cloudprober", // default
+		systemAttr:          defaultSystemName,
 	}
 	for _, opt := range opts {
 		opt(l)
 	}
 
 	l.attrs = append([]slog.Attr{slog.String("system", l.systemAttr)}, l.attrs...)
+	fmt.Println(l.attrs)
 
 	// Initialize the traditional logger.
 	l.slogger = slog.New(slogHandler(l.writer).WithAttrs(l.attrs))
@@ -273,7 +274,7 @@ func verifySDLogName(logName string) (string, error) {
 }
 
 func (l *Logger) sdLogName() (string, error) {
-	prefix := cloudproberPrefix
+	prefix := l.systemAttr
 	envLogPrefix := os.Getenv(LogPrefixEnvVar)
 	if os.Getenv(LogPrefixEnvVar) != "" {
 		prefix = envLogPrefix

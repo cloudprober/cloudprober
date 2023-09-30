@@ -88,6 +88,31 @@ func TestWithLabels(t *testing.T) {
 	}
 }
 
+func TestWithAttr(t *testing.T) {
+	tests := []struct {
+		name      string
+		l         *Logger
+		wantAttrs []slog.Attr
+	}{
+		{
+			name:      "new-withAttrs",
+			l:         New(WithAttr(slog.String("probe", "testprobe"))),
+			wantAttrs: []slog.Attr{slog.String("system", "cloudprober"), slog.String("probe", "testprobe")},
+		},
+		{
+			name:      "new-withAttrs-different-system",
+			l:         New(WithAttr(slog.String("probe", "testprobe"), slog.String("system", "testsystem"))),
+			wantAttrs: []slog.Attr{slog.String("system", "testsystem"), slog.String("probe", "testprobe")},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantAttrs, tt.l.attrs)
+		})
+	}
+
+}
+
 func testVerifyJSONLog(t *testing.T, b []byte, wantLabels map[string]string) {
 	t.Helper()
 
@@ -287,9 +312,14 @@ func TestSDLogName(t *testing.T) {
 			want:  "cloudprober.rds-server",
 		},
 		{
-			name:  "cloudwatch",
+			name:  "surfacer_cloudwatch",
 			attrs: []slog.Attr{slog.String("surfacer", "cloudwatch")},
 			want:  "cloudprober.cloudwatch",
+		},
+		{
+			name:  "different_system",
+			attrs: []slog.Attr{slog.String("system", "protodoc"), slog.String("surfacer", "cloudwatch")},
+			want:  "protodoc.cloudwatch",
 		},
 		{
 			name:    "invalid char",
