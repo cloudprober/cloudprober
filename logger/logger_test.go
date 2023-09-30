@@ -16,7 +16,6 @@ package logger
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -57,12 +56,6 @@ func TestEnvVarSet(t *testing.T) {
 }
 
 func TestWithLabels(t *testing.T) {
-	panicOnErr := func(l *Logger, err error) *Logger {
-		if err != nil {
-			panic(err)
-		}
-		return l
-	}
 	tests := []struct {
 		name       string
 		l          *Logger
@@ -70,12 +63,12 @@ func TestWithLabels(t *testing.T) {
 	}{
 		{
 			name:       "new-withlabels",
-			l:          panicOnErr(New(context.Background(), "newWithLabels", WithLabels(map[string]string{"k1": "v1"}))),
+			l:          New(WithLabels(map[string]string{"k1": "v1"})),
 			wantLabels: map[string]string{"k1": "v1"},
 		},
 		{
 			name:       "new-withlabels-overridden",
-			l:          panicOnErr(New(context.Background(), "newWithLabels", WithLabels(map[string]string{"k1": "v1"}), WithLabels(map[string]string{"k1": "v2"}))),
+			l:          New(WithLabels(map[string]string{"k1": "v1"}), WithLabels(map[string]string{"k1": "v2"})),
 			wantLabels: map[string]string{"k1": "v2"},
 		},
 		{
@@ -93,6 +86,31 @@ func TestWithLabels(t *testing.T) {
 			assert.Equal(t, tt.wantLabels, tt.l.labels)
 		})
 	}
+}
+
+func TestWithAttr(t *testing.T) {
+	tests := []struct {
+		name      string
+		l         *Logger
+		wantAttrs []slog.Attr
+	}{
+		{
+			name:      "new-withAttrs",
+			l:         New(WithAttr(slog.String("probe", "testprobe"))),
+			wantAttrs: []slog.Attr{slog.String("system", "cloudprober"), slog.String("probe", "testprobe")},
+		},
+		{
+			name:      "new-withAttrs-different-system",
+			l:         New(WithAttr(slog.String("probe", "testprobe"), slog.String("system", "testsystem"))),
+			wantAttrs: []slog.Attr{slog.String("system", "testsystem"), slog.String("probe", "testprobe")},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantAttrs, tt.l.attrs)
+		})
+	}
+
 }
 
 func testVerifyJSONLog(t *testing.T, b []byte, wantLabels map[string]string) {
@@ -294,9 +312,14 @@ func TestSDLogName(t *testing.T) {
 			want:  "cloudprober.rds-server",
 		},
 		{
-			name:  "cloudwatch",
+			name:  "surfacer_cloudwatch",
 			attrs: []slog.Attr{slog.String("surfacer", "cloudwatch")},
 			want:  "cloudprober.cloudwatch",
+		},
+		{
+			name:  "different_system",
+			attrs: []slog.Attr{slog.String("system", "protodoc"), slog.String("surfacer", "cloudwatch")},
+			want:  "protodoc.cloudwatch",
 		},
 		{
 			name:    "invalid char",
