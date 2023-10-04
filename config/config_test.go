@@ -220,7 +220,9 @@ surfacer: {
 }
 
 func TestSubstEnvVars(t *testing.T) {
-	os.Setenv("SECRET_PROBE_NAME", "probe-x")
+	os.Setenv("SECRET_PROBE_NAME1", "testprobe")
+	os.Setenv("SECRET_PROBE_NAME2", "x")
+	os.Setenv("SECRET_PROBE_TYPE", "SECRET")
 	// Make sure this env var is not set, for error behavior testing.
 	os.Unsetenv("SECRET_PROBEX_NAME")
 
@@ -237,8 +239,29 @@ func TestSubstEnvVars(t *testing.T) {
 		},
 		{
 			name:      "env_var",
-			configStr: `probe {name: "**$SECRET_PROBE_NAME**"}`,
-			want:      `probe {name: "probe-x"}`,
+			configStr: `probe {name: "**$SECRET_PROBE_NAME2**"}`,
+			want:      `probe {name: "x"}`,
+		},
+		{
+			name:      "env_var_concat",
+			configStr: `probe {name: "**$SECRET_PROBE_NAME1**-**$SECRET_PROBE_NAME2**"}`,
+			want:      `probe {name: "testprobe-x"}`,
+		},
+		{
+			name:      "env_var_partial",
+			configStr: `probe {name: "**$SECRET_PROBE_NAME1**-**$PASSWORD**"}`,
+			want:      `probe {name: "testprobe-**$PASSWORD**"}`,
+		},
+		{
+			name: "env_var_multi_line",
+			configStr: `probe {
+				name: "**$SECRET_PROBE_NAME1**"
+				type: "**$SECRET_PROBE_TYPE**"
+			}`,
+			want: `probe {
+				name: "testprobe"
+				type: "SECRET"
+			}`,
 		},
 		{
 			name:      "env_var_not_defined",
