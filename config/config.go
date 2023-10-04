@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober/common/file"
@@ -34,7 +35,7 @@ var (
 	configFile = flag.String("config_file", "", "Config file")
 )
 
-var envRegex = regexp.MustCompile(`\*\*\$([^$]+)\*\*`)
+var envRegex = regexp.MustCompile(`\*\*\$([^*\s]+)\*\*`)
 
 const (
 	configMetadataKeyName = "cloudprober_config"
@@ -175,15 +176,17 @@ func substEnvVars(configStr string, l *logger.Logger) string {
 		if len(match) != 2 {
 			continue
 		}
+		fmt.Printf("Found env var: %v\n", match)
 		envVars = append(envVars, match[1]) // match[0] is the whole string.
 	}
 
 	for _, v := range envVars {
-		if os.Getenv(v) == "" {
+		envVal := os.Getenv(v)
+		if envVal == "" {
 			l.Warningf("Environment variable %s not defined, skipping substitution.", v)
 			continue
 		}
-		configStr = envRegex.ReplaceAllString(configStr, os.Getenv(v))
+		configStr = strings.ReplaceAll(configStr, "**$"+v+"**", envVal)
 	}
 
 	return configStr
