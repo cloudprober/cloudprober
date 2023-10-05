@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strings"
 
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/common/httputils"
+	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/alerting"
@@ -118,7 +118,7 @@ func Init() error {
 	})
 
 	var configRunning string
-	if !strings.Contains(parsedConfig, "{{ secret:$") {
+	if !config.EnvRegex.MatchString(parsedConfig) {
 		configRunning = runningConfig()
 	} else {
 		configRunning = `
