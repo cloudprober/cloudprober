@@ -84,6 +84,10 @@ func (n *Notifier) alertFields(alertInfo *AlertInfo) (map[string]string, error) 
 		fields["target.label."+k] = v
 	}
 
+	if alertInfo.Target.IP != nil {
+		fields["target_ip"] = alertInfo.Target.IP.String()
+	}
+
 	alertJSON, err := json.Marshal(fields)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling alert fields into json: %v", err)
