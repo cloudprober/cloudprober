@@ -166,7 +166,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if !ok {
 		return errors.New("not a gRPC probe config")
 	}
+
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
+
 	p.name = name
 	p.opts = opts
 	if p.l = opts.Logger; p.l == nil {
