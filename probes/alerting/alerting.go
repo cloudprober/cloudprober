@@ -31,20 +31,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	DefaultDashboardURLTemplate = "http://localhost:9313/status?probe=@probe@"
-	DefaultSummaryTemplate      = "Cloudprober alert @alert@ for @target@"
-	DefaultDetailsTemplate      = `Cloudprober alert "@alert@" for "@target@":
-
-Failures: @failures@ out of @total@ probes
-Failing since: @since@
-Probe: @probe@
-Dashboard: @dashboard_url@
-Playbook: @playbook_url@
-Condition ID: @condition_id@
-`
-)
-
 type targetState struct {
 	lastSuccess int64
 	lastTotal   int64
