@@ -35,6 +35,9 @@ var (
 	configFile = flag.String("config_file", "", "Config file")
 )
 
+// EnvRegex is the regex used to find environment variable placeholders
+// in the config file. The placeholders are of the form **$<env_var_name>**,
+// and are added during Go template processing for envSecret functions.
 var EnvRegex = regexp.MustCompile(`\*\*\$([^*\s]+)\*\*`)
 
 const (
