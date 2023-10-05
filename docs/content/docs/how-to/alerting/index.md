@@ -5,17 +5,17 @@ menu:
     name: "Alerting"
     weight: 11
 title: "Alerting"
-date: 2016-10-25T17:24:32-07:00
+date: 2023-10-04T17:24:32-07:00
 ---
 
 You can configure Cloudprober to send alerts on probe failures. Alerts are
 configured per probe and each probe can have multiple alerts with independent
 configuration. Alert
-[configuration](/docs/config/probes/#cloudprober.probes.alerting.AlertConf)
-consists of mainly two parts:
+[configuration](/docs/config/alerting/#cloudprober_alerting_AlertConf) consists
+of mainly two parts:
 
-- [Alert condition](/docs/config/probes/#cloudprober.probes.alerting.Condition)
-- [Notification config](/docs/config/probes/#cloudprober.probes.alerting.NotifyConfig)
+- [Alert condition](/docs/config/alerting/#cloudprober_alerting_Condition)
+- [Notification config](/docs/config/alerting/#cloudprober_alerting_NotifyConfig)
 
 ## Alert Condition
 
@@ -50,21 +50,66 @@ More examples and explanation:
   starting. A pattern like **`F S F S S F`** or **`F F S S S F`** will also
   trigger an alert.
 
-## Notification Targets
+## Alerts Dashboard
 
-Cloudprober currently supports the following notification targets:
+Cloudprober comes with an _alerts dashboard_ that you can access at the
+`/alerts` URL. Alerts dashboard shows currently firing and 20 historical alerts.
 
-- [Email](/docs/config/probes/#cloudprober.probes.alerting.Email)
-- [PagerDuty](/docs/config/probes/#cloudprober.probes.alerting.PagerDuty)
-- [Slack](/docs/config/probes/#cloudprober.probes.alerting.Slack)
-- [Command](/docs/config/probes/#cloudprober.probes.alerting.NotifyConfig)
+## Notifications
 
-Configuration documentation has more details on each of them. You can configure
-multiple notification targets for an alert.
+When you add alerts, you'd probably also want to be notified when they fire. You
+can do that using the `notify` config block:
 
-## Notification Configuration
+```yaml
+# This example is in YAML format. You can use the original textpb format too.
+# See https://cloudprober.org/docs/config/alerting/cloudprober_alerting_AlertConf
+probe:
+  ...
+  alert:
+    notify:
+      pager_duty:
+        routing_key: "..."
+      slack:
+        webhook_url: "..."
+```
 
-In addition to the alert condition and notification targets, you can also
-configure the information included in your alert notification. Please look at
-the alert config documentation for more details about the individual fields:
-[AlertConf](/docs/config/probes/#cloudprober.probes.alerting.AlertConf).
+Above example configures two notifications: PagerDuty & Slack. Cloudprober
+currently supports the following notification targets:
+
+- [Email](/docs/config/alerting/#cloudprober_alerting_Email)
+- [PagerDuty](/docs/config/alerting/#cloudprober_alerting_PagerDuty)
+- [Slack](/docs/config/alerting/#cloudprober_alerting_Slack)
+- [Command](/docs/config/alerting/#cloudprober_alerting_NotifyConfig)
+
+Configuration documentation (linked above) has more details on each of them.
+
+## Notification Fields
+
+You can customize the information included in the alert notification. The
+following table shows the top-level notification parameters, corresponding
+config fields, and their default values.
+
+| Info          | Configuration Field      | Default                                                                                                                                                                                                                                              |
+| ------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard URL | `dashboard_url_template` | http://localhost:9313/status?probe=@probe@                                                                                                                                                                                                           |
+| Playbook URL  | `playbook_url_template`  | ""                                                                                                                                                                                                                                                   |
+| Summary       | `summary_template`       | Cloudprober alert `@alert@` for `@target@`                                                                                                                                                                                                           |
+| Details       | `details_template`       | Cloudprober alert `@alert@` for `@target@`:<br/>Failures: `@failures@` out of `@total@` probes<br/>Failing since: `@since@`<br>Probe: `@probe@`<br/> Dashboard: `@dashboard_url@`<br/> Playbook: `@playbook_url@`<br/>Condition ID: `@condition_id@` |
+
+As you see here, you can embed alert information in notifications using
+placeholders like `@field@`. For example if you host your alert playbooks at
+https://playbook/<alertname>, you can configure `playbook_url` to be
+`https://playbook/@alert@`. Cloudprober supports the following alert fields
+placeholders:
+
+| Placeholder                                                   | Alert field                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `@alert@`                                                     | Alert name. Same as probe name if alert name is not configured                                          |
+| `@probe@`                                                     | Probe name                                                                                              |
+| `@target@`                                                    | Target name                                                                                             |
+| `@target.label.<label>@`                                      | Target label value, e.g. if target has a label: env=prod, @target.label.env@ will be replaced with prod |
+| `@since@`                                                     | Alert start time                                                                                        |
+| `@failure@`                                                   | Failure count that caused the alert                                                                     |
+| `@total@`                                                     | Total number of probes                                                                                  |
+| `@target_ip@`                                                 | Target IP if available. It only works for targets discovered by Cloudprober                             |
+| `@dashboard_url@`, `@playbook_url@`, `@summary@`, `@details@` | See the table above.                                                                                    |
