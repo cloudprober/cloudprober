@@ -211,7 +211,6 @@ func newLogger(opts ...Option) *Logger {
 	}
 
 	l.attrs = append([]slog.Attr{slog.String("system", l.systemAttr)}, l.attrs...)
-	fmt.Println(l.attrs)
 
 	// Initialize the traditional logger.
 	l.slogger = slog.New(slogHandler(l.writer).WithAttrs(l.attrs))
