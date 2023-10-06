@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUpdateGlobalState(t *testing.T) {
+func TestUpdateState(t *testing.T) {
 	st := state{}
 
 	oldMaxAlertsHistory := maxAlertsHistory
