@@ -140,14 +140,24 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 	}
 
 	ah.notifier.Notify(context.Background(), alertInfo)
-	updateGlobalState(ah.globalKey(ep), alertInfo)
+	globalAlertsState.add(ah.globalKey(ep), alertInfo)
 }
 
 func (ah *AlertHandler) resolveAlertCondition(ts *targetState, ep endpoint.Endpoint) {
+	ah.l.Infof("ALERT Resolved (%s): target: %s", ah.name, ep.Name)
+
 	ts.alerted = false
 	ts.conditionID = ""
 	ts.alertTS = time.Time{}
-	updateGlobalState(ah.globalKey(ep), nil)
+
+	key := ah.globalKey(ep)
+	ai := globalAlertsState.get(key)
+	if ai == nil {
+		ah.l.Errorf("ALERT Resolved (%s): didn't find alert for target (%s) in the global state, will not send resolve notification", ah.name, ep.Name)
+		return
+	}
+	ah.notifier.NotifyResolve(context.Background(), ai)
+	globalAlertsState.resolve(key)
 }
 
 // handleAlertCondition handles the alert condition.

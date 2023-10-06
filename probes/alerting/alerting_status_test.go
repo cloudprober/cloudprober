@@ -24,7 +24,7 @@ import (
 )
 
 func TestUpdateGlobalState(t *testing.T) {
-	resetGlobalState()
+	st := state{}
 
 	oldMaxAlertsHistory := maxAlertsHistory
 	maxAlertsHistory = 2
@@ -104,13 +104,13 @@ func TestUpdateGlobalState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for i, ah := range ah {
 				for _, ai := range tt.addAlerts[i] {
-					updateGlobalState(ah.globalKey(ai.Target), ai)
+					st.add(ah.globalKey(ai.Target), ai)
 				}
 				for _, tgt := range tt.deleteAlerts[i] {
-					updateGlobalState(ah.globalKey(endpoint.Endpoint{Name: tgt}), nil)
+					st.resolve(ah.globalKey(endpoint.Endpoint{Name: tgt}))
 				}
 			}
-			curr, prev := currentState()
+			curr, prev := st.list()
 			assert.Equal(t, tt.wantCurrAlerts, curr, "current alerts")
 
 			var prevAlerts []*notifier.AlertInfo
@@ -123,7 +123,7 @@ func TestUpdateGlobalState(t *testing.T) {
 }
 
 func TestStatusHTML(t *testing.T) {
-	resetGlobalState()
+	st := state{}
 
 	ah := &AlertHandler{
 		name:      "test-alert-1",
@@ -187,7 +187,7 @@ func TestStatusHTML(t *testing.T) {
 		},
 		{
 			name:         "delete-alerts",
-			deleteAlerts: []endpoint.Endpoint{endpoint.Endpoint{Name: "target1"}},
+			deleteAlerts: []endpoint.Endpoint{{Name: "target1"}},
 			wantStatusHTML: `
 <h3>Current Alerts:</h3>
 
@@ -234,19 +234,19 @@ func TestStatusHTML(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, ai := range tt.addAlerts {
-				updateGlobalState(ah.globalKey(ai.Target), ai)
+				st.add(ah.globalKey(ai.Target), ai)
 			}
 			for _, ep := range tt.deleteAlerts {
-				updateGlobalState(ah.globalKey(ep), nil)
+				st.resolve(ah.globalKey(ep))
 			}
 
-			global.mu.Lock()
-			for i := range global.previousAlerts {
-				global.previousAlerts[i].ResolvedAt = time.Time{}.Add(4 * time.Second)
+			st.mu.Lock()
+			for i := range st.previousAlerts {
+				st.previousAlerts[i].ResolvedAt = time.Time{}.Add(4 * time.Second)
 			}
-			global.mu.Unlock()
+			st.mu.Unlock()
 
-			status, err := StatusHTML()
+			status, err := st.statusHTML()
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantStatusHTML, status)
 		})
