@@ -17,6 +17,7 @@
 package logger
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -69,6 +70,8 @@ var EnvVars = struct {
 const (
 	// Default "system" label and stackdriver log name prefix.
 	defaultSystemName = "cloudprober"
+
+	criticalLevel = slog.Level(12)
 )
 
 const (
@@ -76,15 +79,8 @@ const (
 	//	Ref: https://cloud.google.com/logging/docs/api/ref_v2beta1/rest/v2beta1/LogEntry
 	disapprovedRegExp = "[^A-Za-z0-9_/.-]"
 
-	// MaxLogEntrySize Max size of each log entry (100 KB)
-	// This limit helps avoid creating very large log lines in case someone
-	// accidentally creates a large EventMetric, which in turn is possible due to
-	// unbounded nature of "map" metric where keys are created on demand.
-	//
-	// TODO(manugarg): We can possibly get rid of this check now as the code that
-	// could cause a large map metric has been fixed now. Earlier, cloudprober's
-	// HTTP server used to respond to all URLs and used to record access to those
-	// URLs as a "map" metric. Now, it responds only to pre-configured URLs.
+	// MaxLogEntrySize Max size of each log entry (100 KB). We truncate logs if
+	// they are bigger than this size.
 	MaxLogEntrySize = 102400
 )
 
@@ -125,7 +121,7 @@ func slogHandler(w io.Writer) slog.Handler {
 	panic("invalid log format: " + *logFmt)
 }
 
-func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
+func enableDebugLog(debugLog bool, debugLogRe string, attrs ...slog.Attr) bool {
 	if !debugLog && debugLogRe == "" {
 		return false
 	}
@@ -140,7 +136,7 @@ func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
 		panic(fmt.Sprintf("error while parsing log name regex (%s): %v", debugLogRe, err))
 	}
 
-	for _, attr := range l.attrs {
+	for _, attr := range attrs {
 		if r.MatchString(attr.Key + "=" + attr.Value.String()) {
 			return true
 		}
@@ -167,13 +163,12 @@ func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
 // metadata about the log entries can be inserted into this map.
 // For example probe id can be inserted into this map.
 type Logger struct {
-	slogger             *slog.Logger
+	shandler            slog.Handler
 	gcpLogc             *logging.Client
 	gcpLogger           *logging.Logger
 	debugLog            bool
 	disableCloudLogging bool
 	gcpLoggingEndpoint  string
-	labels              map[string]string
 	attrs               []slog.Attr
 	systemAttr          string
 	writer              io.Writer
@@ -187,21 +182,19 @@ func NewWithAttrs(attrs ...slog.Attr) *Logger {
 	return New(WithAttr(attrs...))
 }
 
+// New returns a new cloudprober Logger.
 func New(opts ...Option) *Logger {
 	return newLogger(opts...)
 }
 
 // NewLegacy returns a new cloudprober Logger.
-// This logger logs to stderr by default. If running on GCE, it also logs to
-// Google Cloud Logging.
-// Deprecated: Use New/NewWithAttrs instead.
+// Deprecated: Use New or NewWithAttrs instead.
 func NewLegacy(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	return newLogger(append(opts, WithAttr(slog.String("name", logName)))...), nil
 }
 
 func newLogger(opts ...Option) *Logger {
 	l := &Logger{
-		labels:              make(map[string]string),
 		disableCloudLogging: *disableCloudLogging,
 		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
 		systemAttr:          defaultSystemName,
@@ -213,12 +206,9 @@ func newLogger(opts ...Option) *Logger {
 	l.attrs = append([]slog.Attr{slog.String("system", l.systemAttr)}, l.attrs...)
 
 	// Initialize the traditional logger.
-	l.slogger = slog.New(slogHandler(l.writer).WithAttrs(l.attrs))
-	for k, v := range l.labels {
-		l.slogger = l.slogger.With(k, v)
-	}
+	l.shandler = slogHandler(l.writer).WithAttrs(l.attrs)
 
-	l.debugLog = l.enableDebugLog(*debugLog, *debugLogList)
+	l.debugLog = enableDebugLog(*debugLog, *debugLogList, l.attrs...)
 
 	if metadata.OnGCE() && !l.disableCloudLogging {
 		l.EnableStackdriverLogging()
@@ -236,19 +226,6 @@ func WithAttr(attrs ...slog.Attr) Option {
 				continue
 			}
 			l.attrs = append(l.attrs, attr)
-		}
-	}
-}
-
-// WithLabels option can be used to add a set of labels to all logs, e.g.
-// logger.New(ctx, logName, logger.WithLabels(myLabels))
-func WithLabels(labels map[string]string) Option {
-	return func(l *Logger) {
-		if l.labels == nil {
-			l.labels = make(map[string]string)
-		}
-		for k, v := range labels {
-			l.labels[k] = v
 		}
 	}
 }
@@ -319,13 +296,14 @@ func (l *Logger) EnableStackdriverLogging() {
 		return
 	}
 
+	commonLabels := make(map[string]string)
 	// Add instance_name to common labels if available.
 	if !md.IsKubernetes() && !md.IsCloudRunJob() && !md.IsCloudRunService() {
 		instanceName, err := metadata.InstanceName()
 		if err != nil {
 			l.Infof("Error getting instance name on GCE: %v", err)
 		} else {
-			l.labels["instance_name"] = instanceName
+			commonLabels["instance_name"] = instanceName
 		}
 	}
 
@@ -339,33 +317,32 @@ func (l *Logger) EnableStackdriverLogging() {
 		// above), rather than time.
 		logging.DelayThreshold(10 * time.Second),
 		// Common labels that will be present in all log entries.
-		logging.CommonLabels(l.labels),
+		logging.CommonLabels(commonLabels),
 	}
 
 	l.gcpLogger = l.gcpLogc.Logger(logName, loggerOpts...)
 }
 
-// logWithAttrs logs the message to stderr with the given attributes. If
-// running on GCE, logs are also sent to GCE or cloud logging.
-func (l *Logger) log(severity logging.Severity, depth int, payload ...string) {
-	depth++
+func (l *Logger) gcpLogEntry(r *slog.Record) logging.Entry {
+	// Let's print the log message.
+	var buf bytes.Buffer
+	slogHandler(&buf).Handle(context.Background(), *r)
 
-	if len(payload) == 1 {
-		l.logAttrs(severity, depth, payload[0])
-		return
+	return logging.Entry{
+		Severity: map[slog.Level]logging.Severity{
+			slog.LevelDebug: logging.Debug,
+			slog.LevelInfo:  logging.Info,
+			slog.LevelWarn:  logging.Warning,
+			slog.LevelError: logging.Error,
+			criticalLevel:   logging.Critical,
+		}[r.Level],
+		Payload: buf.String(),
 	}
-
-	var b strings.Builder
-	for _, s := range payload {
-		b.WriteString(s)
-	}
-
-	l.logAttrs(severity, depth, b.String())
 }
 
 // logAttrs logs the message to stderr with the given attributes. If
 // running on GCE, logs are also sent to GCE or cloud logging.
-func (l *Logger) logAttrs(severity logging.Severity, depth int, msg string, attrs ...slog.Attr) {
+func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog.Attr) {
 	depth++
 
 	if len(msg) > MaxLogEntrySize {
@@ -374,142 +351,118 @@ func (l *Logger) logAttrs(severity logging.Severity, depth int, msg string, attr
 		msg = msg[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
 	}
 
-	l.genericLog(severity, depth, msg, attrs...)
+	var pcs [1]uintptr
+	runtime.Callers(depth, pcs[:])
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	r.AddAttrs(attrs...)
 
-	if l != nil && l.gcpLogger != nil {
-		l.gcpLogger.Log(logging.Entry{
-			Severity: severity,
-			Payload:  msg,
-		})
+	if l != nil && l.shandler != nil {
+		l.shandler.Handle(context.Background(), r)
+	} else {
+		slogHandler(nil).Handle(context.Background(), r)
 	}
 
-	if severity == logging.Critical {
-		l.Close()
+	if l != nil && l.gcpLogger != nil {
+		l.gcpLogger.Log(l.gcpLogEntry(&r))
+	}
+
+	if level == criticalLevel {
+		if l != nil && l.gcpLogc != nil {
+			l.gcpLogc.Close()
+		}
 		os.Exit(1)
 	}
 }
 
-func (l *Logger) genericLog(severity logging.Severity, depth int, s string, attrs ...slog.Attr) {
-	depth++
-	var pcs [1]uintptr
-	runtime.Callers(depth, pcs[:])
-
-	var r slog.Record
-
-	switch severity {
-	case logging.Debug:
-		r = slog.NewRecord(time.Now(), slog.LevelDebug, s, pcs[0])
-	case logging.Info:
-		r = slog.NewRecord(time.Now(), slog.LevelInfo, s, pcs[0])
-	case logging.Warning:
-		r = slog.NewRecord(time.Now(), slog.LevelWarn, s, pcs[0])
-	case logging.Error:
-		r = slog.NewRecord(time.Now(), slog.LevelError, s, pcs[0])
-	case logging.Critical:
-		r = slog.NewRecord(time.Now(), slog.Level(12), s, pcs[0])
+func (l *Logger) logDebug() bool {
+	if l != nil {
+		return l.debugLog
 	}
-
-	r.AddAttrs(attrs...)
-
-	if l != nil && l.slogger != nil {
-		_ = l.slogger.Handler().Handle(context.Background(), r)
-	} else {
-		_ = slogHandler(nil).Handle(context.Background(), r)
-	}
-}
-
-// Close closes the cloud logging client if it exists. This flushes the buffer
-// and should be called before exiting the program to ensure all logs are persisted.
-func (l *Logger) Close() error {
-	if l != nil && l.gcpLogc != nil {
-		return l.gcpLogc.Close()
-	}
-
-	return nil
+	return enableDebugLog(*debugLog, *debugLogList)
 }
 
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) Debug(payload ...string) {
-	if l != nil && l.debugLog {
-		l.log(logging.Debug, 2, payload...)
+	if l.logDebug() {
+		l.logAttrs(slog.LevelDebug, 2, strings.Join(payload, ""))
 	}
 }
 
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) DebugAttrs(msg string, attrs ...slog.Attr) {
-	if l != nil && l.debugLog {
-		l.logAttrs(logging.Debug, 2, msg, attrs...)
+	if l.logDebug() {
+		l.logAttrs(slog.LevelDebug, 2, msg, attrs...)
 	}
 }
 
 // Info logs messages with logging level set to "Info".
 func (l *Logger) Info(payload ...string) {
-	l.log(logging.Info, 2, payload...)
+	l.logAttrs(slog.LevelInfo, 2, strings.Join(payload, ""))
 }
 
 // InfoWithAttrs logs messages with logging level set to "Info".
 func (l *Logger) InfoAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Info, 2, msg, attrs...)
+	l.logAttrs(slog.LevelInfo, 2, msg, attrs...)
 }
 
 // Warning logs messages with logging level set to "Warning".
 func (l *Logger) Warning(payload ...string) {
-	l.log(logging.Warning, 2, payload...)
+	l.logAttrs(slog.LevelWarn, 2, strings.Join(payload, ""))
 }
 
 // WarningAttrs logs messages with logging level set to "Warning".
 func (l *Logger) WarningAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Warning, 2, msg, attrs...)
+	l.logAttrs(slog.LevelWarn, 2, msg, attrs...)
 }
 
 // Error logs messages with logging level set to "Error".
 func (l *Logger) Error(payload ...string) {
-	l.log(logging.Error, 2, payload...)
+	l.logAttrs(slog.LevelError, 2, strings.Join(payload, ""))
 }
 
 // ErrorAttrs logs messages with logging level set to "Warning".
 func (l *Logger) ErrorAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Error, 2, msg, attrs...)
+	l.logAttrs(slog.LevelError, 2, msg, attrs...)
 }
 
 // Critical logs messages with logging level set to "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Critical(payload ...string) {
-	l.log(logging.Critical, 2, payload...)
+	l.logAttrs(criticalLevel, 2, strings.Join(payload, ""))
 }
 
 // Critical logs messages with logging level set to "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) CriticalAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Critical, 2, msg, attrs...)
+	l.logAttrs(criticalLevel, 2, msg, attrs...)
 }
 
 // Debugf logs formatted text messages with logging level "Debug".
 func (l *Logger) Debugf(format string, args ...interface{}) {
-	if l != nil && l.debugLog {
-		l.log(logging.Debug, 2, fmt.Sprintf(format, args...))
+	if l.logDebug() {
+		l.logAttrs(slog.LevelDebug, 2, fmt.Sprintf(format, args...))
 	}
 }
 
 // Infof logs formatted text messages with logging level "Info".
 func (l *Logger) Infof(format string, args ...interface{}) {
-	l.log(logging.Info, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(slog.LevelInfo, 2, fmt.Sprintf(format, args...))
 }
 
 // Warningf logs formatted text messages with logging level "Warning".
 func (l *Logger) Warningf(format string, args ...interface{}) {
-	l.log(logging.Warning, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(slog.LevelWarn, 2, fmt.Sprintf(format, args...))
 }
 
 // Errorf logs formatted text messages with logging level "Error".
 func (l *Logger) Errorf(format string, args ...interface{}) {
-	l.log(logging.Error, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(slog.LevelError, 2, fmt.Sprintf(format, args...))
 }
 
 // Criticalf logs formatted text messages with logging level "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Criticalf(format string, args ...interface{}) {
-	l.log(logging.Critical, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(criticalLevel, 2, fmt.Sprintf(format, args...))
 }
 
 func envVarSet(key string) bool {
