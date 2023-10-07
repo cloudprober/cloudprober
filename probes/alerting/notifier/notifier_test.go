@@ -73,9 +73,7 @@ func TestAlertFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n, _ := New(nil, nil)
-			fields, err := n.alertFields(tt.ai)
-			assert.NoError(t, err, "Error getting alert fields")
-			assert.Equal(t, tt.want, fields, "Fields don't match")
+			assert.Equal(t, tt.want, n.alertFields(tt.ai), "Fields don't match")
 		})
 	}
 }
