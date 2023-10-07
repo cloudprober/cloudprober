@@ -69,7 +69,7 @@ type AlertInfo struct {
 	FailingSince time.Time
 }
 
-func (n *Notifier) alertFields(alertInfo *AlertInfo) (map[string]string, error) {
+func (n *Notifier) alertFields(alertInfo *AlertInfo) map[string]string {
 	fields := map[string]string{
 		"alert":        alertInfo.Name,
 		"probe":        alertInfo.ProbeName,
@@ -84,12 +84,16 @@ func (n *Notifier) alertFields(alertInfo *AlertInfo) (map[string]string, error) 
 		fields["target.label."+k] = v
 	}
 
-	alertJSON, err := json.Marshal(fields)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling alert fields into json: %v", err)
+	if alertInfo.Target.IP != nil {
+		fields["target_ip"] = alertInfo.Target.IP.String()
 	}
 
-	fields["json"] = string(alertJSON)
+	alertJSON, err := json.Marshal(fields)
+	if err != nil {
+		n.l.Warningf("Error marshalling alert fields into json, will skip json field. Err: %v", err)
+	} else {
+		fields["json"] = string(alertJSON)
+	}
 
 	summary, _ := strtemplate.SubstituteLabels(n.summaryTmpl, fields)
 	fields["summary"] = summary
@@ -108,50 +112,51 @@ func (n *Notifier) alertFields(alertInfo *AlertInfo) (map[string]string, error) 
 	details, _ := strtemplate.SubstituteLabels(n.detailsTmpl, fields)
 	fields["details"] = details
 
-	return fields, nil
+	return fields
 }
 
 func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
-	var err error
+	fields := n.alertFields(alertInfo)
 
-	fields, err := n.alertFields(alertInfo)
-	if err != nil {
-		n.l.Errorf("Error getting alert fields: %v", err)
-	}
-
+	var errs error
 	if n.cmdNotifier != nil {
-		cmdErr := n.cmdNotifier.Notify(ctx, fields)
-		if cmdErr != nil {
-			n.l.Errorf("Error running notify command: %v", cmdErr)
-			err = errors.Join(err, cmdErr)
+		err := n.cmdNotifier.Notify(ctx, fields)
+		if err != nil {
+			n.l.Errorf("Error running notify command: %v", err)
+			errs = errors.Join(errs, err)
 		}
 	}
 
 	if n.emailNotifier != nil {
-		emailerr := n.emailNotifier.Notify(ctx, fields)
-		if emailerr == nil {
-			n.l.Errorf("Error sending email: %v", emailerr)
-			err = errors.Join(err, emailerr)
+		err := n.emailNotifier.Notify(ctx, fields)
+		if err == nil {
+			n.l.Errorf("Error sending email: %v", err)
+			errs = errors.Join(errs, err)
 		}
 	}
 
 	if n.pagerdutyNotifier != nil {
-		pdErr := n.pagerdutyNotifier.Notify(ctx, fields)
-		if pdErr != nil {
-			n.l.Errorf("Error sending PagerDuty event: %v", pdErr)
-			err = errors.Join(err, pdErr)
+		err := n.pagerdutyNotifier.Notify(ctx, fields)
+		if err != nil {
+			n.l.Errorf("Error sending PagerDuty event: %v", err)
+			errs = errors.Join(errs, err)
 		}
 	}
 
 	if n.slackNotifier != nil {
-		slackErr := n.slackNotifier.Notify(ctx, fields)
-		if slackErr != nil {
-			n.l.Errorf("Error sending Slack message: %v", slackErr)
-			err = errors.Join(err, slackErr)
+		err := n.slackNotifier.Notify(ctx, fields)
+		if err != nil {
+			n.l.Errorf("Error sending Slack message: %v", err)
+			errs = errors.Join(errs, err)
 		}
 	}
 
-	return err
+	return errs
+}
+
+func (n *Notifier) NotifyResolve(ctx context.Context, alertInfo *AlertInfo) error {
+	// TODO(manugarg): Implement this.
+	return nil
 }
 
 func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {

@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/cloudprober/cloudprober/common/file"
@@ -34,7 +35,10 @@ var (
 	configFile = flag.String("config_file", "", "Config file")
 )
 
-var envRegex = regexp.MustCompile(`\*\*\$([^$]+)\*\*`)
+// EnvRegex is the regex used to find environment variable placeholders
+// in the config file. The placeholders are of the form **$<env_var_name>**,
+// and are added during Go template processing for envSecret functions.
+var EnvRegex = regexp.MustCompile(`\*\*\$([^*\s]+)\*\*`)
 
 const (
 	configMetadataKeyName = "cloudprober_config"
@@ -165,7 +169,7 @@ func DumpConfig(fileName, outFormat string, baseVars map[string]string) ([]byte,
 
 // substEnvVars substitutes environment variables in the config string.
 func substEnvVars(configStr string, l *logger.Logger) string {
-	m := envRegex.FindAllStringSubmatch(configStr, -1)
+	m := EnvRegex.FindAllStringSubmatch(configStr, -1)
 	if len(m) == 0 {
 		return configStr
 	}
@@ -175,15 +179,17 @@ func substEnvVars(configStr string, l *logger.Logger) string {
 		if len(match) != 2 {
 			continue
 		}
+		fmt.Printf("Found env var: %v\n", match)
 		envVars = append(envVars, match[1]) // match[0] is the whole string.
 	}
 
 	for _, v := range envVars {
-		if os.Getenv(v) == "" {
+		envVal := os.Getenv(v)
+		if envVal == "" {
 			l.Warningf("Environment variable %s not defined, skipping substitution.", v)
 			continue
 		}
-		configStr = envRegex.ReplaceAllString(configStr, os.Getenv(v))
+		configStr = strings.ReplaceAll(configStr, "**$"+v+"**", envVal)
 	}
 
 	return configStr

@@ -53,6 +53,7 @@ var statusTmpl = template.Must(template.New("status").Parse(`
 {{ if not .PreviousAlerts }}
   <p>No alerts.</p>
 {{ else }}
+<p>[Showing last {{ len .PreviousAlerts }} resolved alerts..]</p>
 <table class="status-list">
 <tr>
   <th>Started At</th>
@@ -83,44 +84,45 @@ type resolvedAlert struct {
 
 var maxAlertsHistory = 20
 
-var global = struct {
+type state struct {
 	mu             sync.RWMutex
 	currentAlerts  map[string]*notifier.AlertInfo
-	previousAlerts []resolvedAlert
-}{
-	currentAlerts: make(map[string]*notifier.AlertInfo),
+	resolvedAlerts []resolvedAlert
 }
 
-func updateGlobalState(key string, ai *notifier.AlertInfo) {
-	global.mu.Lock()
-	defer global.mu.Unlock()
+func (st *state) get(key string) *notifier.AlertInfo {
+	st.mu.RLock()
+	defer st.mu.RUnlock()
+	return st.currentAlerts[key]
+}
 
-	if ai == nil {
-		ra := resolvedAlert{global.currentAlerts[key], time.Now().Truncate(time.Second)}
-		global.previousAlerts = append([]resolvedAlert{ra}, global.previousAlerts...)
-		if len(global.previousAlerts) > maxAlertsHistory {
-			global.previousAlerts = global.previousAlerts[:maxAlertsHistory]
-		}
-		delete(global.currentAlerts, key)
-		return
+func (st *state) add(key string, ai *notifier.AlertInfo) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if st.currentAlerts == nil {
+		st.currentAlerts = make(map[string]*notifier.AlertInfo)
 	}
-
-	global.currentAlerts[key] = ai
+	st.currentAlerts[key] = ai
 }
 
-func resetGlobalState() {
-	global.mu.Lock()
-	defer global.mu.Unlock()
-	global.currentAlerts = make(map[string]*notifier.AlertInfo)
-	global.previousAlerts = nil
+func (st *state) resolve(key string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	ra := resolvedAlert{st.currentAlerts[key], time.Now().Truncate(time.Second)}
+	st.resolvedAlerts = append([]resolvedAlert{ra}, st.resolvedAlerts...)
+	if len(st.resolvedAlerts) > maxAlertsHistory {
+		st.resolvedAlerts = st.resolvedAlerts[:maxAlertsHistory]
+	}
+	delete(st.currentAlerts, key)
 }
 
-func currentState() ([]*notifier.AlertInfo, []resolvedAlert) {
-	global.mu.RLock()
-	defer global.mu.RUnlock()
+func (st *state) list() ([]*notifier.AlertInfo, []resolvedAlert) {
+	st.mu.RLock()
+	defer st.mu.RUnlock()
 
 	var currentAlerts []*notifier.AlertInfo
-	for _, ai := range global.currentAlerts {
+	for _, ai := range st.currentAlerts {
 		currentAlerts = append(currentAlerts, ai)
 	}
 
@@ -128,13 +130,13 @@ func currentState() ([]*notifier.AlertInfo, []resolvedAlert) {
 		return currentAlerts[i].FailingSince.Before(currentAlerts[j].FailingSince)
 	})
 
-	return currentAlerts, append([]resolvedAlert{}, global.previousAlerts...)
+	return currentAlerts, append([]resolvedAlert{}, st.resolvedAlerts...)
 }
 
-func StatusHTML() (string, error) {
+func (st *state) statusHTML() (string, error) {
 	var statusBuf bytes.Buffer
 
-	currentAlerts, previousAlerts := currentState()
+	currentAlerts, previousAlerts := st.list()
 	for _, ai := range currentAlerts {
 		ai.FailingSince = ai.FailingSince.Truncate(time.Second)
 	}
@@ -150,4 +152,12 @@ func StatusHTML() (string, error) {
 	})
 
 	return statusBuf.String(), err
+}
+
+var globalState = state{
+	currentAlerts: make(map[string]*notifier.AlertInfo),
+}
+
+func StatusHTML() (string, error) {
+	return globalState.statusHTML()
 }

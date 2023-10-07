@@ -124,7 +124,11 @@ func (p *Probe) initInternal() error {
 	if !ok {
 		return errors.New("no ping config")
 	}
+
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 
 	if p.l = p.opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}

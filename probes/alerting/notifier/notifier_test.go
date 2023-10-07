@@ -16,6 +16,7 @@ package notifier
 
 import (
 	"context"
+	"net"
 	"net/smtp"
 	"testing"
 	"time"
@@ -28,6 +29,7 @@ import (
 func TestAlertFields(t *testing.T) {
 	testTarget := endpoint.Endpoint{
 		Name: "test-target",
+		IP:   net.ParseIP("10.11.12.13"),
 		Labels: map[string]string{
 			"apptype":  "backend",
 			"language": "go",
@@ -55,12 +57,13 @@ func TestAlertFields(t *testing.T) {
 				"probe":                 "test-probe",
 				"condition_id":          "122333444",
 				"target":                "test-target",
+				"target_ip":             "10.11.12.13",
 				"failures":              "8",
 				"total":                 "12",
 				"since":                 "0001-01-01T00:00:01Z",
 				"target.label.apptype":  "backend",
 				"target.label.language": "go",
-				"json":                  `{"alert":"test-alert","condition_id":"122333444","failures":"8","probe":"test-probe","since":"0001-01-01T00:00:01Z","target":"test-target","target.label.apptype":"backend","target.label.language":"go","total":"12"}`,
+				"json":                  `{"alert":"test-alert","condition_id":"122333444","failures":"8","probe":"test-probe","since":"0001-01-01T00:00:01Z","target":"test-target","target.label.apptype":"backend","target.label.language":"go","target_ip":"10.11.12.13","total":"12"}`,
 				"summary":               "Cloudprober alert test-alert for test-target",
 				"details":               "Cloudprober alert \"test-alert\" for \"test-target\":\n\nFailures: 8 out of 12 probes\nFailing since: 0001-01-01T00:00:01Z\nProbe: test-probe\nDashboard: @dashboard_url@\nPlaybook: \nCondition ID: 122333444\n",
 				"playbook_url":          "",
@@ -70,9 +73,7 @@ func TestAlertFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n, _ := New(nil, nil)
-			fields, err := n.alertFields(tt.ai)
-			assert.NoError(t, err, "Error getting alert fields")
-			assert.Equal(t, tt.want, fields, "Fields don't match")
+			assert.Equal(t, tt.want, n.alertFields(tt.ai), "Fields don't match")
 		})
 	}
 }

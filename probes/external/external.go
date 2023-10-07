@@ -26,6 +26,7 @@ package external
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -144,6 +145,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if err != nil {
 		return fmt.Errorf("error parsing command line (%s): %v", p.c.GetCommand(), err)
 	}
+
+	if len(cmdParts) == 0 {
+		return errors.New("command not specified")
+	}
+
 	p.cmdName = cmdParts[0]
 	p.cmdArgs = cmdParts[1:]
 

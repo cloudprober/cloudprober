@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -808,6 +809,22 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 		return p.cmdRunning
 	}
 
+	waitForCmdToEnd := func(p *Probe) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		for {
+			select {
+			case <-ctx.Done():
+				t.Fatal("Timed out waiting for command to finish")
+			default:
+			}
+			if !isCmdRunning(p) {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
 	tests := []struct {
 		pauseSec int
 		wantErr  bool
@@ -816,7 +833,7 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			pauseSec: 0,
 		},
 		{
-			pauseSec: 60,
+			pauseSec: 10,
 		},
 	}
 	for _, test := range tests {
@@ -838,30 +855,26 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			stdin, stdout, stderr := p.cmdStdin, p.cmdStdout, p.cmdStderr
 			// Wait for the command to finish if it's not supposed to wait
 			if test.pauseSec == 0 {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				for {
-					select {
-					case <-ctx.Done():
-						t.Fatal("Timed out waiting for command to finish")
-					default:
-					}
-					if !isCmdRunning(p) {
-						break
-					}
-					time.Sleep(10 * time.Millisecond)
-				}
+				waitForCmdToEnd(p)
 			}
 
 			if err := p.startCmdIfNotRunning(context.Background()); err != nil {
 				t.Fatal(err)
 			}
 
-			// stdin, stdout, and stdout should get reset if pausesec is 0.
-			resetOrNot := test.pauseSec == 0
-			assert.Equal(t, resetOrNot, stdin != p.cmdStdin)
-			assert.Equal(t, resetOrNot, stdout != p.cmdStdout)
-			assert.Equal(t, resetOrNot, stderr != p.cmdStderr)
+			// if original process has died, i.e pauseSec == 0, stdin, stdout,
+			// and stdout should be different now as new process will have started.
+			changedOrNot := test.pauseSec == 0
+			assert.Equal(t, changedOrNot, stdin != p.cmdStdin)
+			assert.Equal(t, changedOrNot, stdout != p.cmdStdout)
+			assert.Equal(t, changedOrNot, stderr != p.cmdStderr)
+
+			// Windows has trouble deleting executable that are still running.
+			// This result in an error on test cleanup. So on Windows, we make
+			// sure command finishes before we exit.
+			if runtime.GOOS != "windows" {
+				waitForCmdToEnd(p)
+			}
 		})
 	}
 }

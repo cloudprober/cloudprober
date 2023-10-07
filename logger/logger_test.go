@@ -21,8 +21,12 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"runtime"
+	"strings"
 	"testing"
+	"time"
 
+	"cloud.google.com/go/logging"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,39 +55,6 @@ func TestEnvVarSet(t *testing.T) {
 			if got != row.expected {
 				t.Errorf("Variable set: got=%v, expected=%v", got, row.expected)
 			}
-		})
-	}
-}
-
-func TestWithLabels(t *testing.T) {
-	tests := []struct {
-		name       string
-		l          *Logger
-		wantLabels map[string]string
-	}{
-		{
-			name:       "new-withlabels",
-			l:          New(WithLabels(map[string]string{"k1": "v1"})),
-			wantLabels: map[string]string{"k1": "v1"},
-		},
-		{
-			name:       "new-withlabels-overridden",
-			l:          New(WithLabels(map[string]string{"k1": "v1"}), WithLabels(map[string]string{"k1": "v2"})),
-			wantLabels: map[string]string{"k1": "v2"},
-		},
-		{
-			name: "withlabels",
-			l: func() *Logger {
-				l := &Logger{}
-				WithLabels(map[string]string{"k1": "v1", "k3": "v3"})(l)
-				return l
-			}(),
-			wantLabels: map[string]string{"k1": "v1", "k3": "v3"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.wantLabels, tt.l.labels)
 		})
 	}
 }
@@ -120,7 +91,7 @@ func testVerifyJSONLog(t *testing.T, b []byte, wantLabels map[string]string) {
 	gotMap := make(map[string]interface{})
 	err := json.Unmarshal(b, &gotMap)
 	if err != nil {
-		t.Errorf("Error unmarshalling JSON: %v", err)
+		t.Errorf("Error unmarshalling JSON (%s): %v, ", string(b), err)
 		return
 	}
 
@@ -136,8 +107,9 @@ func testVerifyJSONLog(t *testing.T, b []byte, wantLabels map[string]string) {
 
 }
 
-func testVerifyTextLog(t *testing.T, line string, wantLabels map[string]string) {
+func testVerifyTextLog(t *testing.T, lineBytes []byte, wantLabels map[string]string) {
 	t.Helper()
+	line := string(lineBytes)
 
 	for k, v := range wantLabels {
 		assert.Contains(t, line, k+"="+v, "label in %s", line)
@@ -146,37 +118,59 @@ func testVerifyTextLog(t *testing.T, line string, wantLabels map[string]string) 
 	assert.Regexp(t, sourceRegex, line, "source in log")
 }
 
-func testLog(t *testing.T, funcName string, msg string, logAttr slog.Attr, strAttrs [][2]string) {
+func testLog(t *testing.T, funcName string, msg string, logAttr slog.Attr, strAttrs [][2]string, nilLogger bool) []byte {
 	t.Helper()
+
+	var buf bytes.Buffer
 
 	var attrs []slog.Attr
 	for _, a := range strAttrs {
 		attrs = append(attrs, slog.String(a[0], a[1]))
 	}
 
-	l := NewWithAttrs(logAttr)
+	var l *Logger
+	if !nilLogger {
+		l = New(WithAttr(logAttr), WithWriter(&buf))
+	} else {
+		defaultWritter = &buf
+		defer func() {
+			defaultWritter = os.Stderr
+		}()
+	}
 
 	switch funcName {
 	case "Debug":
 		l.Debug(msg)
+	case "Debugf":
+		l.Debugf(msg)
 	case "DebugAttrs":
 		l.DebugAttrs(msg, attrs...)
+	case "Infof":
+		l.Infof(msg)
 	case "InfoAttrs":
 		l.InfoAttrs(msg, attrs...)
 	case "Warning":
 		l.Warning(msg)
+	case "Warningf":
+		l.Warningf(msg)
 	case "WarningAttrs":
 		l.WarningAttrs(msg, attrs...)
 	case "Error":
 		l.Error(msg)
+	case "Errorf":
+		l.Errorf(msg)
 	case "ErrorAttrs":
 		l.ErrorAttrs(msg, attrs...)
 	default:
 		l.Info(msg)
 	}
+
+	return buf.Bytes()
 }
 
 func TestLog(t *testing.T) {
+	largeLogLine := strings.Repeat("cloudprober", 10000)
+
 	tests := []struct {
 		msg          string
 		funcName     string
@@ -187,67 +181,102 @@ func TestLog(t *testing.T) {
 		wantLabels   map[string]string
 	}{
 		{
-			msg: "test message - text",
+			msg: "test-message_text",
 			wantLabels: map[string]string{
 				"level": "INFO",
 			},
 		},
 		{
-			msg:        "test message - json",
+			msg:      "test-message_text_infof",
+			funcName: "Infof",
+			wantLabels: map[string]string{
+				"level": "INFO",
+			},
+		},
+		{
+			msg: "test message_text_with_space",
+			wantLabels: map[string]string{
+				"level": "INFO",
+			},
+		},
+		{
+			msg: largeLogLine,
+			wantLabels: map[string]string{
+				"level": "INFO",
+			},
+		},
+		{
+			msg:        "test-message_json",
 			logFmtFlag: "json",
 			wantLabels: map[string]string{"level": "INFO"},
 		},
 		{
-			msg:        "test message - text - warning",
+			msg:        "test-message_text_warning",
 			funcName:   "Warning",
 			wantLabels: map[string]string{"level": "WARN"},
 		},
 		{
-			msg:        "test message - text - error",
+			msg:        "test-message_text_warningf",
+			funcName:   "Warningf",
+			wantLabels: map[string]string{"level": "WARN"},
+		},
+		{
+			msg:        "test-message_text_error",
 			funcName:   "Error",
 			wantLabels: map[string]string{"level": "ERROR"},
 		},
 		{
-			msg:        "test message - text - info - attrs",
+			msg:        "test-message_text_errorf",
+			funcName:   "Errorf",
+			wantLabels: map[string]string{"level": "ERROR"},
+		},
+		{
+			msg:        "test-message_text_info_attrs",
 			funcName:   "InfoAttrs",
 			attrs:      [][2]string{{"attr1", "v1"}, {"attr2", "v2"}},
 			wantLabels: map[string]string{"level": "INFO", "attr1": "v1", "attr2": "v2"},
 		},
 		{
-			msg:        "test message - text - warning - attrs",
+			msg:        "test-message_text_warning_attrs",
 			funcName:   "WarningAttrs",
 			attrs:      [][2]string{{"attr1", "v1"}, {"attr2", "v2"}},
 			wantLabels: map[string]string{"level": "WARN", "attr1": "v1", "attr2": "v2"},
 		},
 		{
-			msg:        "test message - text - error - attrs",
+			msg:        "test-message_text_error_attrs",
 			funcName:   "ErrorAttrs",
 			attrs:      [][2]string{{"attr1", "v1"}, {"attr2", "v2"}},
 			wantLabels: map[string]string{"level": "ERROR", "attr1": "v1", "attr2": "v2"},
 		},
 		{
-			msg:      "test message - text - debug - nolog",
+			msg:      "test-message_text_debug_nolog",
 			funcName: "Debug",
 		},
 		{
-			msg:         "test message - text - debug - log",
+			msg:         "test-message_text_debug_log",
 			debugReFlag: ".*testc.*",
 			funcName:    "Debug",
 			wantLabels:  map[string]string{"level": "DEBUG"},
 		},
 		{
-			msg:         "test message - text - debug - log",
+			msg:         "test-message_text_debug_noregexmatch",
 			debugReFlag: ".*probe1.*",
 			funcName:    "Debug",
 		},
 		{
-			msg:          "test message - text - debug",
+			msg:          "test-message_text_debug",
 			funcName:     "Debug",
 			debugLogFlag: true,
 			wantLabels:   map[string]string{"level": "DEBUG"},
 		},
 		{
-			msg:          "test message - text - debug - attrs",
+			msg:          "test-message_text_debugf",
+			funcName:     "Debugf",
+			debugLogFlag: true,
+			wantLabels:   map[string]string{"level": "DEBUG"},
+		},
+		{
+			msg:          "test-message_text_debug_attrs",
 			funcName:     "DebugAttrs",
 			debugLogFlag: true,
 			attrs:        [][2]string{{"attr1", "v1"}, {"attr2", "v2"}},
@@ -256,37 +285,55 @@ func TestLog(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.msg, func(t *testing.T) {
-			var b bytes.Buffer
-			defaultWritter = &b
-			defer func() {
-				defaultWritter = os.Stderr
-			}()
-
-			if tt.logFmtFlag == "" {
-				tt.logFmtFlag = "text"
+		for _, nilLogger := range []bool{false, true} {
+			name := tt.msg
+			if tt.msg == largeLogLine {
+				name = "large-log-line"
 			}
-			*logFmt = tt.logFmtFlag
-			*debugLog = tt.debugLogFlag
-			*debugLogList = tt.debugReFlag
-
-			testLog(t, tt.funcName, tt.msg, slog.String("component", "testc"), tt.attrs)
-
-			if len(tt.wantLabels) == 0 {
-				assert.Equal(t, "", b.String())
-				return
+			if nilLogger {
+				name += "-nilLogger"
 			}
-			tt.wantLabels["component"] = "testc"
-			tt.wantLabels["system"] = "cloudprober"
+			t.Run(name, func(t *testing.T) {
+				wantLabels := make(map[string]string)
+				for k, v := range tt.wantLabels {
+					wantLabels[k] = v
+				}
 
-			if tt.logFmtFlag == "json" {
-				tt.wantLabels["msg"] = tt.msg
-				testVerifyJSONLog(t, b.Bytes(), tt.wantLabels)
-			} else {
-				tt.wantLabels["msg"] = "\"" + tt.msg + "\""
-				testVerifyTextLog(t, b.String(), tt.wantLabels)
-			}
-		})
+				if tt.logFmtFlag == "" {
+					tt.logFmtFlag = "text"
+				}
+				*logFmt = tt.logFmtFlag
+				*debugLog = tt.debugLogFlag
+				*debugLogList = tt.debugReFlag
+
+				b := testLog(t, tt.funcName, tt.msg, slog.String("component", "testc"), tt.attrs, nilLogger)
+
+				if len(tt.wantLabels) == 0 || (nilLogger && tt.debugReFlag == ".*testc.*") {
+					assert.Equal(t, "", string(b))
+					return
+				}
+				if !nilLogger {
+					wantLabels["component"] = "testc"
+					wantLabels["system"] = "cloudprober"
+				}
+
+				wantLabels["msg"] = tt.msg
+				if tt.msg == largeLogLine {
+					s := "... (truncated)"
+					wantLabels["msg"] = tt.msg[:MaxLogEntrySize-len(s)] + s
+				}
+
+				if tt.logFmtFlag == "json" {
+					testVerifyJSONLog(t, b, wantLabels)
+				} else {
+					// Logger adds quotes to the message if it contains spaces.
+					if strings.Contains(wantLabels["msg"], " ") {
+						wantLabels["msg"] = "\"" + wantLabels["msg"] + "\""
+					}
+					testVerifyTextLog(t, b, wantLabels)
+				}
+			})
+		}
 	}
 }
 
@@ -349,6 +396,43 @@ func TestSDLogName(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestGCPLogEntry(t *testing.T) {
+	l := New(WithAttr(slog.String("dst", "gcp")))
+	msg := "test message"
+	tests := []struct {
+		name  string
+		level slog.Level
+		want  logging.Entry
+	}{
+		{
+			name:  "info",
+			level: slog.LevelInfo,
+			want: logging.Entry{
+				Severity: logging.Info,
+				Payload:  "level=INFO source=logger/logger_test.go:432 msg=\"test message\" system=cloudprober dst=gcp\n",
+			},
+		},
+		{
+			name:  "warning",
+			level: slog.LevelWarn,
+			want: logging.Entry{
+				Severity: logging.Warning,
+				Payload:  "level=WARN source=logger/logger_test.go:432 msg=\"test message\" system=cloudprober dst=gcp\n",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pcs [1]uintptr
+			runtime.Callers(1, pcs[:])
+			r := slog.NewRecord(time.Time{}, tt.level, msg, pcs[0])
+			r.AddAttrs(l.attrs...)
+			assert.Equal(t, tt.want, l.gcpLogEntry(&r))
 		})
 	}
 }
