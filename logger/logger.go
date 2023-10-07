@@ -356,7 +356,7 @@ func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog
 	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
 	r.AddAttrs(attrs...)
 
-	if l != nil {
+	if l != nil && l.shandler != nil {
 		l.shandler.Handle(context.Background(), r)
 	} else {
 		slogHandler(nil).Handle(context.Background(), r)
