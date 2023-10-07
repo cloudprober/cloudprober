@@ -18,7 +18,7 @@ package pagerduty
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"os"
 
@@ -27,10 +27,11 @@ import (
 )
 
 type Client struct {
-	httpClient *http.Client
-	logger     *logger.Logger
-	hostname   string
-	routingKey string
+	httpClient          *http.Client
+	logger              *logger.Logger
+	hostname            string
+	routingKey          string
+	disableSendResolved bool
 }
 
 const (
@@ -55,10 +56,11 @@ func New(pagerdutycfg *configpb.PagerDuty, l *logger.Logger) (*Client, error) {
 	}
 
 	return &Client{
-		httpClient: &http.Client{},
-		logger:     l,
-		hostname:   hostname,
-		routingKey: routingKey,
+		httpClient:          &http.Client{},
+		logger:              l,
+		hostname:            hostname,
+		routingKey:          routingKey,
+		disableSendResolved: pagerdutycfg.GetDisableSendResolved(),
 	}, nil
 }
 
@@ -77,7 +79,7 @@ func lookupRoutingKey(pagerdutycfg *configpb.PagerDuty) (string, error) {
 		return routingKey, nil
 	}
 
-	return "", fmt.Errorf("No routing key found")
+	return "", errors.New("No routing key found")
 }
 
 // routingKeyEnvVar returns the environment variable to use for the routing key,
@@ -92,7 +94,7 @@ func routingKeyEnvVar(pagerdutycfg *configpb.PagerDuty) string {
 
 func (c *Client) Notify(ctx context.Context, alertFields map[string]string) error {
 	// Create the event
-	event := c.createEventV2Request(alertFields)
+	event := c.createTriggerRequest(alertFields)
 
 	// Send the event
 	response, err := c.sendEventV2(event)
@@ -100,7 +102,26 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 		return err
 	}
 
-	c.logger.Debugf("PagerDuty event sent successfully. Dedupe key: %s, message: %s", response.DedupKey, response.Message)
+	c.logger.Debugf("PagerDuty: trigger event sent successfully. Dedupe key: %s, message: %s", response.DedupKey, response.Message)
+
+	return nil
+}
+
+func (c *Client) NotifyResolve(ctx context.Context, alertFields map[string]string) error {
+	if c.disableSendResolved {
+		return nil
+	}
+
+	// Create the event
+	event := c.createResolveRequest(alertFields)
+
+	// Send the event
+	response, err := c.sendEventV2(event)
+	if err != nil {
+		return err
+	}
+
+	c.logger.Debugf("PagerDuty: resolved event sent successfully. Dedupe key: %s, message: %s", response.DedupKey, response.Message)
 
 	return nil
 }
