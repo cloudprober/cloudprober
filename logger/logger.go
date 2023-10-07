@@ -69,6 +69,8 @@ var EnvVars = struct {
 const (
 	// Default "system" label and stackdriver log name prefix.
 	defaultSystemName = "cloudprober"
+
+	criticalLevel = slog.Level(12)
 )
 
 const (
@@ -330,7 +332,7 @@ func (l *Logger) EnableStackdriverLogging() {
 
 // logAttrs logs the message to stderr with the given attributes. If
 // running on GCE, logs are also sent to GCE or cloud logging.
-func (l *Logger) logAttrs(severity logging.Severity, depth int, msg string, attrs ...slog.Attr) {
+func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog.Attr) {
 	depth++
 
 	if len(msg) > MaxLogEntrySize {
@@ -339,41 +341,38 @@ func (l *Logger) logAttrs(severity logging.Severity, depth int, msg string, attr
 		msg = msg[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
 	}
 
-	l.genericLog(severity, depth, msg, attrs...)
+	l.genericLog(level, depth, msg, attrs...)
 
 	if l != nil && l.gcpLogger != nil {
+		labels := make(map[string]string)
+		for _, attr := range l.attrs {
+			labels[attr.Key] = attr.Value.String()
+		}
 		l.gcpLogger.Log(logging.Entry{
-			Severity: severity,
-			Payload:  msg,
+			Severity: map[slog.Level]logging.Severity{
+				slog.LevelDebug: logging.Debug,
+				slog.LevelInfo:  logging.Info,
+				slog.LevelWarn:  logging.Warning,
+				slog.LevelError: logging.Error,
+				criticalLevel:   logging.Critical,
+			}[level],
+			Payload: msg,
+			Labels:  labels,
 		})
 	}
 
-	if severity == logging.Critical {
+	if level == criticalLevel {
 		l.Close()
 		os.Exit(1)
 	}
 }
 
-func (l *Logger) genericLog(severity logging.Severity, depth int, s string, attrs ...slog.Attr) {
+func (l *Logger) genericLog(level slog.Level, depth int, s string, attrs ...slog.Attr) {
 	depth++
 	var pcs [1]uintptr
 	runtime.Callers(depth, pcs[:])
 
-	var r slog.Record
-
-	switch severity {
-	case logging.Debug:
-		r = slog.NewRecord(time.Now(), slog.LevelDebug, s, pcs[0])
-	case logging.Info:
-		r = slog.NewRecord(time.Now(), slog.LevelInfo, s, pcs[0])
-	case logging.Warning:
-		r = slog.NewRecord(time.Now(), slog.LevelWarn, s, pcs[0])
-	case logging.Error:
-		r = slog.NewRecord(time.Now(), slog.LevelError, s, pcs[0])
-	case logging.Critical:
-		r = slog.NewRecord(time.Now(), slog.Level(12), s, pcs[0])
-	}
-
+	r := slog.NewRecord(time.Now(), level, s, pcs[0])
 	r.AddAttrs(attrs...)
 
 	if l != nil && l.slogger != nil {
@@ -396,85 +395,85 @@ func (l *Logger) Close() error {
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) Debug(payload ...string) {
 	if l != nil && l.debugLog {
-		l.logAttrs(logging.Debug, 2, strings.Join(payload, ""))
+		l.logAttrs(slog.LevelDebug, 2, strings.Join(payload, ""))
 	}
 }
 
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) DebugAttrs(msg string, attrs ...slog.Attr) {
 	if l != nil && l.debugLog {
-		l.logAttrs(logging.Debug, 2, msg, attrs...)
+		l.logAttrs(slog.LevelDebug, 2, msg, attrs...)
 	}
 }
 
 // Info logs messages with logging level set to "Info".
 func (l *Logger) Info(payload ...string) {
-	l.logAttrs(logging.Info, 2, strings.Join(payload, ""))
+	l.logAttrs(slog.LevelInfo, 2, strings.Join(payload, ""))
 }
 
 // InfoWithAttrs logs messages with logging level set to "Info".
 func (l *Logger) InfoAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Info, 2, msg, attrs...)
+	l.logAttrs(slog.LevelInfo, 2, msg, attrs...)
 }
 
 // Warning logs messages with logging level set to "Warning".
 func (l *Logger) Warning(payload ...string) {
-	l.logAttrs(logging.Warning, 2, strings.Join(payload, ""))
+	l.logAttrs(slog.LevelWarn, 2, strings.Join(payload, ""))
 }
 
 // WarningAttrs logs messages with logging level set to "Warning".
 func (l *Logger) WarningAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Warning, 2, msg, attrs...)
+	l.logAttrs(slog.LevelWarn, 2, msg, attrs...)
 }
 
 // Error logs messages with logging level set to "Error".
 func (l *Logger) Error(payload ...string) {
-	l.logAttrs(logging.Error, 2, strings.Join(payload, ""))
+	l.logAttrs(slog.LevelError, 2, strings.Join(payload, ""))
 }
 
 // ErrorAttrs logs messages with logging level set to "Warning".
 func (l *Logger) ErrorAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Error, 2, msg, attrs...)
+	l.logAttrs(slog.LevelError, 2, msg, attrs...)
 }
 
 // Critical logs messages with logging level set to "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Critical(payload ...string) {
-	l.logAttrs(logging.Critical, 2, strings.Join(payload, ""))
+	l.logAttrs(criticalLevel, 2, strings.Join(payload, ""))
 }
 
 // Critical logs messages with logging level set to "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) CriticalAttrs(msg string, attrs ...slog.Attr) {
-	l.logAttrs(logging.Critical, 2, msg, attrs...)
+	l.logAttrs(criticalLevel, 2, msg, attrs...)
 }
 
 // Debugf logs formatted text messages with logging level "Debug".
 func (l *Logger) Debugf(format string, args ...interface{}) {
 	if l != nil && l.debugLog {
-		l.logAttrs(logging.Debug, 2, fmt.Sprintf(format, args...))
+		l.logAttrs(slog.LevelDebug, 2, fmt.Sprintf(format, args...))
 	}
 }
 
 // Infof logs formatted text messages with logging level "Info".
 func (l *Logger) Infof(format string, args ...interface{}) {
-	l.logAttrs(logging.Info, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(slog.LevelInfo, 2, fmt.Sprintf(format, args...))
 }
 
 // Warningf logs formatted text messages with logging level "Warning".
 func (l *Logger) Warningf(format string, args ...interface{}) {
-	l.logAttrs(logging.Warning, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(slog.LevelWarn, 2, fmt.Sprintf(format, args...))
 }
 
 // Errorf logs formatted text messages with logging level "Error".
 func (l *Logger) Errorf(format string, args ...interface{}) {
-	l.logAttrs(logging.Error, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(slog.LevelError, 2, fmt.Sprintf(format, args...))
 }
 
 // Criticalf logs formatted text messages with logging level "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Criticalf(format string, args ...interface{}) {
-	l.logAttrs(logging.Critical, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(criticalLevel, 2, fmt.Sprintf(format, args...))
 }
 
 func envVarSet(key string) bool {
