@@ -382,7 +382,7 @@ func TestGCPLogEntry(t *testing.T) {
 			level: slog.LevelInfo,
 			want: logging.Entry{
 				Severity: logging.Info,
-				Payload:  "level=INFO source=/opt/homebrew/Cellar/go/1.21.0/libexec/src/runtime/extern.go:301 msg=\"test message\" system=cloudprober dst=gcp\n",
+				Payload:  "level=INFO source=logger/logger_test.go:401 msg=\"test message\" system=cloudprober dst=gcp\n",
 			},
 		},
 		{
@@ -390,7 +390,7 @@ func TestGCPLogEntry(t *testing.T) {
 			level: slog.LevelWarn,
 			want: logging.Entry{
 				Severity: logging.Warning,
-				Payload:  "level=WARN source=/opt/homebrew/Cellar/go/1.21.0/libexec/src/runtime/extern.go:301 msg=\"test message\" system=cloudprober dst=gcp\n",
+				Payload:  "level=WARN source=logger/logger_test.go:401 msg=\"test message\" system=cloudprober dst=gcp\n",
 			},
 		},
 	}
@@ -398,7 +398,7 @@ func TestGCPLogEntry(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var pcs [1]uintptr
-			runtime.Callers(0, pcs[:])
+			runtime.Callers(1, pcs[:])
 			r := slog.NewRecord(time.Time{}, tt.level, msg, pcs[0])
 			r.AddAttrs(l.attrs...)
 			assert.Equal(t, tt.want, l.gcpLogEntry(&r))
