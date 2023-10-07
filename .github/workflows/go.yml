@@ -88,6 +88,10 @@ jobs:
           go test github.com/cloudprober/cloudprober/probes/ping -c
           sudo PING_HOSTS_V4=${{ env.PING_HOSTS_V4 }} PING_HOSTS_V6=${{ env.PING_HOSTS_V6 }} ./ping.test -test.v -test.run ^TestRunProbeRealICMP$
 
+      - name: Example config tests
+        if: matrix.os == 'ubuntu-latest'
+        run: tools/test_example_configs.sh
+
       - name: Upload test and coverage reports
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v3
