@@ -17,6 +17,7 @@
 package logger
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -78,15 +79,8 @@ const (
 	//	Ref: https://cloud.google.com/logging/docs/api/ref_v2beta1/rest/v2beta1/LogEntry
 	disapprovedRegExp = "[^A-Za-z0-9_/.-]"
 
-	// MaxLogEntrySize Max size of each log entry (100 KB)
-	// This limit helps avoid creating very large log lines in case someone
-	// accidentally creates a large EventMetric, which in turn is possible due to
-	// unbounded nature of "map" metric where keys are created on demand.
-	//
-	// TODO(manugarg): We can possibly get rid of this check now as the code that
-	// could cause a large map metric has been fixed now. Earlier, cloudprober's
-	// HTTP server used to respond to all URLs and used to record access to those
-	// URLs as a "map" metric. Now, it responds only to pre-configured URLs.
+	// MaxLogEntrySize Max size of each log entry (100 KB). We truncate logs if
+	// they are bigger than this size.
 	MaxLogEntrySize = 102400
 )
 
@@ -127,7 +121,7 @@ func slogHandler(w io.Writer) slog.Handler {
 	panic("invalid log format: " + *logFmt)
 }
 
-func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
+func enableDebugLog(debugLog bool, debugLogRe string, attrs ...slog.Attr) bool {
 	if !debugLog && debugLogRe == "" {
 		return false
 	}
@@ -142,7 +136,7 @@ func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
 		panic(fmt.Sprintf("error while parsing log name regex (%s): %v", debugLogRe, err))
 	}
 
-	for _, attr := range l.attrs {
+	for _, attr := range attrs {
 		if r.MatchString(attr.Key + "=" + attr.Value.String()) {
 			return true
 		}
@@ -169,7 +163,7 @@ func (l *Logger) enableDebugLog(debugLog bool, debugLogRe string) bool {
 // metadata about the log entries can be inserted into this map.
 // For example probe id can be inserted into this map.
 type Logger struct {
-	slogger             *slog.Logger
+	shandler            slog.Handler
 	gcpLogc             *logging.Client
 	gcpLogger           *logging.Logger
 	debugLog            bool
@@ -188,14 +182,13 @@ func NewWithAttrs(attrs ...slog.Attr) *Logger {
 	return New(WithAttr(attrs...))
 }
 
+// New returns a new cloudprober Logger.
 func New(opts ...Option) *Logger {
 	return newLogger(opts...)
 }
 
 // NewLegacy returns a new cloudprober Logger.
-// This logger logs to stderr by default. If running on GCE, it also logs to
-// Google Cloud Logging.
-// Deprecated: Use New/NewWithAttrs instead.
+// Deprecated: Use New or NewWithAttrs instead.
 func NewLegacy(ctx context.Context, logName string, opts ...Option) (*Logger, error) {
 	return newLogger(append(opts, WithAttr(slog.String("name", logName)))...), nil
 }
@@ -213,9 +206,9 @@ func newLogger(opts ...Option) *Logger {
 	l.attrs = append([]slog.Attr{slog.String("system", l.systemAttr)}, l.attrs...)
 
 	// Initialize the traditional logger.
-	l.slogger = slog.New(slogHandler(l.writer).WithAttrs(l.attrs))
+	l.shandler = slogHandler(l.writer).WithAttrs(l.attrs)
 
-	l.debugLog = l.enableDebugLog(*debugLog, *debugLogList)
+	l.debugLog = enableDebugLog(*debugLog, *debugLogList, l.attrs...)
 
 	if metadata.OnGCE() && !l.disableCloudLogging {
 		l.EnableStackdriverLogging()
@@ -330,6 +323,23 @@ func (l *Logger) EnableStackdriverLogging() {
 	l.gcpLogger = l.gcpLogc.Logger(logName, loggerOpts...)
 }
 
+func (l *Logger) gcpLogEntry(r *slog.Record) logging.Entry {
+	// Let's print the log message.
+	var buf bytes.Buffer
+	slogHandler(&buf).Handle(context.Background(), *r)
+
+	return logging.Entry{
+		Severity: map[slog.Level]logging.Severity{
+			slog.LevelDebug: logging.Debug,
+			slog.LevelInfo:  logging.Info,
+			slog.LevelWarn:  logging.Warning,
+			slog.LevelError: logging.Error,
+			criticalLevel:   logging.Critical,
+		}[r.Level],
+		Payload: buf.String(),
+	}
+}
+
 // logAttrs logs the message to stderr with the given attributes. If
 // running on GCE, logs are also sent to GCE or cloud logging.
 func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog.Attr) {
@@ -341,67 +351,46 @@ func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog
 		msg = msg[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
 	}
 
-	l.genericLog(level, depth, msg, attrs...)
+	var pcs [1]uintptr
+	runtime.Callers(depth, pcs[:])
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	r.AddAttrs(attrs...)
+
+	if l != nil {
+		l.shandler.Handle(context.Background(), r)
+	} else {
+		slogHandler(nil).Handle(context.Background(), r)
+	}
 
 	if l != nil && l.gcpLogger != nil {
-		labels := make(map[string]string)
-		for _, attr := range l.attrs {
-			labels[attr.Key] = attr.Value.String()
-		}
-		l.gcpLogger.Log(logging.Entry{
-			Severity: map[slog.Level]logging.Severity{
-				slog.LevelDebug: logging.Debug,
-				slog.LevelInfo:  logging.Info,
-				slog.LevelWarn:  logging.Warning,
-				slog.LevelError: logging.Error,
-				criticalLevel:   logging.Critical,
-			}[level],
-			Payload: msg,
-			Labels:  labels,
-		})
+		l.gcpLogger.Log(l.gcpLogEntry(&r))
 	}
 
 	if level == criticalLevel {
-		l.Close()
+		if l != nil && l.gcpLogc != nil {
+			l.gcpLogc.Close()
+		}
 		os.Exit(1)
 	}
 }
 
-func (l *Logger) genericLog(level slog.Level, depth int, s string, attrs ...slog.Attr) {
-	depth++
-	var pcs [1]uintptr
-	runtime.Callers(depth, pcs[:])
-
-	r := slog.NewRecord(time.Now(), level, s, pcs[0])
-	r.AddAttrs(attrs...)
-
-	if l != nil && l.slogger != nil {
-		_ = l.slogger.Handler().Handle(context.Background(), r)
-	} else {
-		_ = slogHandler(nil).Handle(context.Background(), r)
+func (l *Logger) logDebug() bool {
+	if l != nil {
+		return l.debugLog
 	}
-}
-
-// Close closes the cloud logging client if it exists. This flushes the buffer
-// and should be called before exiting the program to ensure all logs are persisted.
-func (l *Logger) Close() error {
-	if l != nil && l.gcpLogc != nil {
-		return l.gcpLogc.Close()
-	}
-
-	return nil
+	return enableDebugLog(*debugLog, *debugLogList)
 }
 
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) Debug(payload ...string) {
-	if l != nil && l.debugLog {
+	if l.logDebug() {
 		l.logAttrs(slog.LevelDebug, 2, strings.Join(payload, ""))
 	}
 }
 
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) DebugAttrs(msg string, attrs ...slog.Attr) {
-	if l != nil && l.debugLog {
+	if l.logDebug() {
 		l.logAttrs(slog.LevelDebug, 2, msg, attrs...)
 	}
 }
