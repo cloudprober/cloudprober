@@ -439,7 +439,7 @@ func (l *Logger) CriticalAttrs(msg string, attrs ...slog.Attr) {
 
 // Debugf logs formatted text messages with logging level "Debug".
 func (l *Logger) Debugf(format string, args ...interface{}) {
-	if l != nil && l.debugLog {
+	if l.logDebug() {
 		l.logAttrs(slog.LevelDebug, 2, fmt.Sprintf(format, args...))
 	}
 }
