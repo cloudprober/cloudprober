@@ -141,16 +141,24 @@ func testLog(t *testing.T, funcName string, msg string, logAttr slog.Attr, strAt
 	switch funcName {
 	case "Debug":
 		l.Debug(msg)
+	case "Debugf":
+		l.Debugf(msg)
 	case "DebugAttrs":
 		l.DebugAttrs(msg, attrs...)
+	case "Infof":
+		l.Infof(msg)
 	case "InfoAttrs":
 		l.InfoAttrs(msg, attrs...)
 	case "Warning":
 		l.Warning(msg)
+	case "Warningf":
+		l.Warningf(msg)
 	case "WarningAttrs":
 		l.WarningAttrs(msg, attrs...)
 	case "Error":
 		l.Error(msg)
+	case "Errorf":
+		l.Errorf(msg)
 	case "ErrorAttrs":
 		l.ErrorAttrs(msg, attrs...)
 	default:
@@ -179,6 +187,13 @@ func TestLog(t *testing.T) {
 			},
 		},
 		{
+			msg:      "test-message_text_infof",
+			funcName: "Infof",
+			wantLabels: map[string]string{
+				"level": "INFO",
+			},
+		},
+		{
 			msg: "test message_text_with_space",
 			wantLabels: map[string]string{
 				"level": "INFO",
@@ -201,8 +216,18 @@ func TestLog(t *testing.T) {
 			wantLabels: map[string]string{"level": "WARN"},
 		},
 		{
+			msg:        "test-message_text_warningf",
+			funcName:   "Warningf",
+			wantLabels: map[string]string{"level": "WARN"},
+		},
+		{
 			msg:        "test-message_text_error",
 			funcName:   "Error",
+			wantLabels: map[string]string{"level": "ERROR"},
+		},
+		{
+			msg:        "test-message_text_errorf",
+			funcName:   "Errorf",
 			wantLabels: map[string]string{"level": "ERROR"},
 		},
 		{
@@ -241,6 +266,12 @@ func TestLog(t *testing.T) {
 		{
 			msg:          "test-message_text_debug",
 			funcName:     "Debug",
+			debugLogFlag: true,
+			wantLabels:   map[string]string{"level": "DEBUG"},
+		},
+		{
+			msg:          "test-message_text_debugf",
+			funcName:     "Debugf",
 			debugLogFlag: true,
 			wantLabels:   map[string]string{"level": "DEBUG"},
 		},
@@ -382,7 +413,7 @@ func TestGCPLogEntry(t *testing.T) {
 			level: slog.LevelInfo,
 			want: logging.Entry{
 				Severity: logging.Info,
-				Payload:  "level=INFO source=logger/logger_test.go:401 msg=\"test message\" system=cloudprober dst=gcp\n",
+				Payload:  "level=INFO source=logger/logger_test.go:432 msg=\"test message\" system=cloudprober dst=gcp\n",
 			},
 		},
 		{
@@ -390,7 +421,7 @@ func TestGCPLogEntry(t *testing.T) {
 			level: slog.LevelWarn,
 			want: logging.Entry{
 				Severity: logging.Warning,
-				Payload:  "level=WARN source=logger/logger_test.go:401 msg=\"test message\" system=cloudprober dst=gcp\n",
+				Payload:  "level=WARN source=logger/logger_test.go:432 msg=\"test message\" system=cloudprober dst=gcp\n",
 			},
 		},
 	}
