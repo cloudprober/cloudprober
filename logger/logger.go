@@ -173,7 +173,6 @@ type Logger struct {
 	debugLog            bool
 	disableCloudLogging bool
 	gcpLoggingEndpoint  string
-	labels              map[string]string
 	attrs               []slog.Attr
 	systemAttr          string
 	writer              io.Writer
@@ -201,7 +200,6 @@ func NewLegacy(ctx context.Context, logName string, opts ...Option) (*Logger, er
 
 func newLogger(opts ...Option) *Logger {
 	l := &Logger{
-		labels:              make(map[string]string),
 		disableCloudLogging: *disableCloudLogging,
 		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
 		systemAttr:          defaultSystemName,
@@ -214,9 +212,6 @@ func newLogger(opts ...Option) *Logger {
 
 	// Initialize the traditional logger.
 	l.slogger = slog.New(slogHandler(l.writer).WithAttrs(l.attrs))
-	for k, v := range l.labels {
-		l.slogger = l.slogger.With(k, v)
-	}
 
 	l.debugLog = l.enableDebugLog(*debugLog, *debugLogList)
 
@@ -236,19 +231,6 @@ func WithAttr(attrs ...slog.Attr) Option {
 				continue
 			}
 			l.attrs = append(l.attrs, attr)
-		}
-	}
-}
-
-// WithLabels option can be used to add a set of labels to all logs, e.g.
-// logger.New(ctx, logName, logger.WithLabels(myLabels))
-func WithLabels(labels map[string]string) Option {
-	return func(l *Logger) {
-		if l.labels == nil {
-			l.labels = make(map[string]string)
-		}
-		for k, v := range labels {
-			l.labels[k] = v
 		}
 	}
 }
@@ -319,13 +301,14 @@ func (l *Logger) EnableStackdriverLogging() {
 		return
 	}
 
+	commonLabels := make(map[string]string)
 	// Add instance_name to common labels if available.
 	if !md.IsKubernetes() && !md.IsCloudRunJob() && !md.IsCloudRunService() {
 		instanceName, err := metadata.InstanceName()
 		if err != nil {
 			l.Infof("Error getting instance name on GCE: %v", err)
 		} else {
-			l.labels["instance_name"] = instanceName
+			commonLabels["instance_name"] = instanceName
 		}
 	}
 
@@ -339,28 +322,10 @@ func (l *Logger) EnableStackdriverLogging() {
 		// above), rather than time.
 		logging.DelayThreshold(10 * time.Second),
 		// Common labels that will be present in all log entries.
-		logging.CommonLabels(l.labels),
+		logging.CommonLabels(commonLabels),
 	}
 
 	l.gcpLogger = l.gcpLogc.Logger(logName, loggerOpts...)
-}
-
-// logWithAttrs logs the message to stderr with the given attributes. If
-// running on GCE, logs are also sent to GCE or cloud logging.
-func (l *Logger) log(severity logging.Severity, depth int, payload ...string) {
-	depth++
-
-	if len(payload) == 1 {
-		l.logAttrs(severity, depth, payload[0])
-		return
-	}
-
-	var b strings.Builder
-	for _, s := range payload {
-		b.WriteString(s)
-	}
-
-	l.logAttrs(severity, depth, b.String())
 }
 
 // logAttrs logs the message to stderr with the given attributes. If
@@ -431,7 +396,7 @@ func (l *Logger) Close() error {
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) Debug(payload ...string) {
 	if l != nil && l.debugLog {
-		l.log(logging.Debug, 2, payload...)
+		l.logAttrs(logging.Debug, 2, strings.Join(payload, ""))
 	}
 }
 
@@ -444,7 +409,7 @@ func (l *Logger) DebugAttrs(msg string, attrs ...slog.Attr) {
 
 // Info logs messages with logging level set to "Info".
 func (l *Logger) Info(payload ...string) {
-	l.log(logging.Info, 2, payload...)
+	l.logAttrs(logging.Info, 2, strings.Join(payload, ""))
 }
 
 // InfoWithAttrs logs messages with logging level set to "Info".
@@ -454,7 +419,7 @@ func (l *Logger) InfoAttrs(msg string, attrs ...slog.Attr) {
 
 // Warning logs messages with logging level set to "Warning".
 func (l *Logger) Warning(payload ...string) {
-	l.log(logging.Warning, 2, payload...)
+	l.logAttrs(logging.Warning, 2, strings.Join(payload, ""))
 }
 
 // WarningAttrs logs messages with logging level set to "Warning".
@@ -464,7 +429,7 @@ func (l *Logger) WarningAttrs(msg string, attrs ...slog.Attr) {
 
 // Error logs messages with logging level set to "Error".
 func (l *Logger) Error(payload ...string) {
-	l.log(logging.Error, 2, payload...)
+	l.logAttrs(logging.Error, 2, strings.Join(payload, ""))
 }
 
 // ErrorAttrs logs messages with logging level set to "Warning".
@@ -475,7 +440,7 @@ func (l *Logger) ErrorAttrs(msg string, attrs ...slog.Attr) {
 // Critical logs messages with logging level set to "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Critical(payload ...string) {
-	l.log(logging.Critical, 2, payload...)
+	l.logAttrs(logging.Critical, 2, strings.Join(payload, ""))
 }
 
 // Critical logs messages with logging level set to "Critical" and
@@ -487,29 +452,29 @@ func (l *Logger) CriticalAttrs(msg string, attrs ...slog.Attr) {
 // Debugf logs formatted text messages with logging level "Debug".
 func (l *Logger) Debugf(format string, args ...interface{}) {
 	if l != nil && l.debugLog {
-		l.log(logging.Debug, 2, fmt.Sprintf(format, args...))
+		l.logAttrs(logging.Debug, 2, fmt.Sprintf(format, args...))
 	}
 }
 
 // Infof logs formatted text messages with logging level "Info".
 func (l *Logger) Infof(format string, args ...interface{}) {
-	l.log(logging.Info, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(logging.Info, 2, fmt.Sprintf(format, args...))
 }
 
 // Warningf logs formatted text messages with logging level "Warning".
 func (l *Logger) Warningf(format string, args ...interface{}) {
-	l.log(logging.Warning, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(logging.Warning, 2, fmt.Sprintf(format, args...))
 }
 
 // Errorf logs formatted text messages with logging level "Error".
 func (l *Logger) Errorf(format string, args ...interface{}) {
-	l.log(logging.Error, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(logging.Error, 2, fmt.Sprintf(format, args...))
 }
 
 // Criticalf logs formatted text messages with logging level "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Criticalf(format string, args ...interface{}) {
-	l.log(logging.Critical, 2, fmt.Sprintf(format, args...))
+	l.logAttrs(logging.Critical, 2, fmt.Sprintf(format, args...))
 }
 
 func envVarSet(key string) bool {

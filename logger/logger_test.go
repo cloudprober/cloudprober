@@ -55,39 +55,6 @@ func TestEnvVarSet(t *testing.T) {
 	}
 }
 
-func TestWithLabels(t *testing.T) {
-	tests := []struct {
-		name       string
-		l          *Logger
-		wantLabels map[string]string
-	}{
-		{
-			name:       "new-withlabels",
-			l:          New(WithLabels(map[string]string{"k1": "v1"})),
-			wantLabels: map[string]string{"k1": "v1"},
-		},
-		{
-			name:       "new-withlabels-overridden",
-			l:          New(WithLabels(map[string]string{"k1": "v1"}), WithLabels(map[string]string{"k1": "v2"})),
-			wantLabels: map[string]string{"k1": "v2"},
-		},
-		{
-			name: "withlabels",
-			l: func() *Logger {
-				l := &Logger{}
-				WithLabels(map[string]string{"k1": "v1", "k3": "v3"})(l)
-				return l
-			}(),
-			wantLabels: map[string]string{"k1": "v1", "k3": "v3"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.wantLabels, tt.l.labels)
-		})
-	}
-}
-
 func TestWithAttr(t *testing.T) {
 	tests := []struct {
 		name      string
