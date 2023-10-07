@@ -123,7 +123,9 @@ func TestUpdateState(t *testing.T) {
 }
 
 func TestStatusHTML(t *testing.T) {
-	st := state{}
+	oldGlobalState := globalState
+	globalState = state{}
+	defer func() { globalState = oldGlobalState }()
 
 	ah := &AlertHandler{
 		name:      "test-alert-1",
@@ -235,21 +237,21 @@ func TestStatusHTML(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, ai := range tt.addAlerts {
-				st.add(ah.globalKey(ai.Target), ai)
+				globalState.add(ah.globalKey(ai.Target), ai)
 			}
 			for _, ep := range tt.deleteAlerts {
-				st.resolve(ah.globalKey(ep))
+				globalState.resolve(ah.globalKey(ep))
 			}
 
-			st.mu.Lock()
-			for i := range st.resolvedAlerts {
-				st.resolvedAlerts[i].ResolvedAt = time.Time{}.Add(4 * time.Second)
+			globalState.mu.Lock()
+			for i := range globalState.resolvedAlerts {
+				globalState.resolvedAlerts[i].ResolvedAt = time.Time{}.Add(4 * time.Second)
 			}
-			st.mu.Unlock()
+			globalState.mu.Unlock()
 
-			status, err := st.statusHTML()
+			statusHTML, err := StatusHTML()
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantStatusHTML, status)
+			assert.Equal(t, tt.wantStatusHTML, statusHTML)
 		})
 	}
 }

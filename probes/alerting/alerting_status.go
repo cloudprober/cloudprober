@@ -154,10 +154,10 @@ func (st *state) statusHTML() (string, error) {
 	return statusBuf.String(), err
 }
 
-var globalAlertsState = state{
+var globalState = state{
 	currentAlerts: make(map[string]*notifier.AlertInfo),
 }
 
 func StatusHTML() (string, error) {
-	return globalAlertsState.statusHTML()
+	return globalState.statusHTML()
 }
