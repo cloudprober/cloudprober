@@ -90,7 +90,7 @@ jobs:
 
       - name: Example config tests
         if: matrix.os == 'ubuntu-latest'
-        run: tools/test_config.sh
+        run: tools/test_example_configs.sh
 
       - name: Upload test and coverage reports
         if: matrix.os == 'ubuntu-latest'
