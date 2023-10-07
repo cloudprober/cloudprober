@@ -53,6 +53,7 @@ var statusTmpl = template.Must(template.New("status").Parse(`
 {{ if not .PreviousAlerts }}
   <p>No alerts.</p>
 {{ else }}
+<p>[Showing last {{ len .PreviousAlerts }} resolved alerts..]</p>
 <table class="status-list">
 <tr>
   <th>Started At</th>
@@ -86,7 +87,7 @@ var maxAlertsHistory = 20
 type state struct {
 	mu             sync.RWMutex
 	currentAlerts  map[string]*notifier.AlertInfo
-	previousAlerts []resolvedAlert
+	resolvedAlerts []resolvedAlert
 }
 
 func (st *state) get(key string) *notifier.AlertInfo {
@@ -109,9 +110,9 @@ func (st *state) resolve(key string) {
 	defer st.mu.Unlock()
 
 	ra := resolvedAlert{st.currentAlerts[key], time.Now().Truncate(time.Second)}
-	st.previousAlerts = append([]resolvedAlert{ra}, st.previousAlerts...)
-	if len(st.previousAlerts) > maxAlertsHistory {
-		st.previousAlerts = st.previousAlerts[:maxAlertsHistory]
+	st.resolvedAlerts = append([]resolvedAlert{ra}, st.resolvedAlerts...)
+	if len(st.resolvedAlerts) > maxAlertsHistory {
+		st.resolvedAlerts = st.resolvedAlerts[:maxAlertsHistory]
 	}
 	delete(st.currentAlerts, key)
 }
@@ -129,7 +130,7 @@ func (st *state) list() ([]*notifier.AlertInfo, []resolvedAlert) {
 		return currentAlerts[i].FailingSince.Before(currentAlerts[j].FailingSince)
 	})
 
-	return currentAlerts, append([]resolvedAlert{}, st.previousAlerts...)
+	return currentAlerts, append([]resolvedAlert{}, st.resolvedAlerts...)
 }
 
 func (st *state) statusHTML() (string, error) {

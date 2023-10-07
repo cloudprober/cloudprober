@@ -211,6 +211,7 @@ func TestStatusHTML(t *testing.T) {
 
 <h3>Alerts History:</h3>
 
+<p>[Showing last 1 resolved alerts..]</p>
 <table class="status-list">
 <tr>
   <th>Started At</th>
@@ -241,8 +242,8 @@ func TestStatusHTML(t *testing.T) {
 			}
 
 			st.mu.Lock()
-			for i := range st.previousAlerts {
-				st.previousAlerts[i].ResolvedAt = time.Time{}.Add(4 * time.Second)
+			for i := range st.resolvedAlerts {
+				st.resolvedAlerts[i].ResolvedAt = time.Time{}.Add(4 * time.Second)
 			}
 			st.mu.Unlock()
 
