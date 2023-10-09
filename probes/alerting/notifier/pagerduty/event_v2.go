@@ -127,10 +127,10 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 	return body, nil
 }
 
-// createEventV2Request creates a new PagerDuty event, from the alertFields
+// createTriggerRequest creates a new PagerDuty event, from the alertFields
 // that are passed in from the alerting package.
-func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Request {
-	event := EventV2Request{
+func (c *Client) createTriggerRequest(alertFields map[string]string) *EventV2Request {
+	event := &EventV2Request{
 		RoutingKey:  c.routingKey,
 		DedupKey:    eventV2DedupeKey(alertFields),
 		EventAction: Trigger,
@@ -153,7 +153,17 @@ func (c *Client) createEventV2Request(alertFields map[string]string) *EventV2Req
 		event.Links = links
 	}
 
-	return &event
+	return event
+}
+
+// createTriggerRequest creates a new PagerDuty event, from the alertFields
+// that are passed in from the alerting package.
+func (c *Client) createResolveRequest(alertFields map[string]string) *EventV2Request {
+	return &EventV2Request{
+		RoutingKey:  c.routingKey,
+		DedupKey:    eventV2DedupeKey(alertFields),
+		EventAction: Resolve,
+	}
 }
 
 // generateLinks generates a slice of EventV2Links from the alertFields.

@@ -165,7 +165,7 @@ func TestPagerDutyEventV2DedupeKey(t *testing.T) {
 	}
 }
 
-func TestPagerDutyCreateEventV2Request(t *testing.T) {
+func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 	tests := map[string]struct {
 		alertFields map[string]string
 		want        *EventV2Request
@@ -233,7 +233,43 @@ func TestPagerDutyCreateEventV2Request(t *testing.T) {
 				t.Errorf("Error creating PagerDuty client: %v", err)
 			}
 
-			got := p.createEventV2Request(tc.alertFields)
+			got := p.createTriggerRequest(tc.alertFields)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("createEventV2Request = \n%+v\n, want \n%+v\n", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPagerDutyCreateResolveRequest(t *testing.T) {
+	tests := map[string]struct {
+		alertFields map[string]string
+		want        *EventV2Request
+	}{
+		"simple": {
+			alertFields: map[string]string{
+				"condition_id": "test-condition-id",
+			},
+			want: &EventV2Request{
+				RoutingKey:  "test-routing-key",
+				DedupKey:    "test-condition-id",
+				EventAction: Resolve,
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			pagerdutyConfig := &configpb.PagerDuty{
+				RoutingKey: "test-routing-key",
+			}
+
+			p, err := New(pagerdutyConfig, nil)
+			if err != nil {
+				t.Errorf("Error creating PagerDuty client: %v", err)
+			}
+
+			got := p.createResolveRequest(tc.alertFields)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("createEventV2Request = \n%+v\n, want \n%+v\n", got, tc.want)
 			}
