@@ -154,19 +154,12 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
 	return errs
 }
 
-func (n *Notifier) NotifyResolve(ctx context.Context, alertInfo *AlertInfo) error {
+func (n *Notifier) NotifyResolve(ctx context.Context, alertInfo *AlertInfo) {
 	fields := n.alertFields(alertInfo)
 
-	var errs error
 	if n.pagerdutyNotifier != nil {
-		err := n.pagerdutyNotifier.NotifyResolve(ctx, fields)
-		if err != nil {
-			errs = errors.Join(errs, err)
-		}
+		n.pagerdutyNotifier.NotifyResolve(ctx, fields)
 	}
-
-	// TODO(manugarg): Implement more notifiers.
-	return errs
 }
 
 func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {

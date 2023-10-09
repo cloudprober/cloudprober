@@ -156,6 +156,7 @@ func (ah *AlertHandler) resolveAlertCondition(ts *targetState, ep endpoint.Endpo
 		ah.l.Errorf("ALERT Resolved (%s): didn't find alert for target (%s) in the global state, will not send resolve notification", ah.name, ep.Name)
 		return
 	}
+
 	ah.notifier.NotifyResolve(context.Background(), ai)
 	globalState.resolve(key)
 }

@@ -115,13 +115,13 @@ func (c *Client) NotifyResolve(ctx context.Context, alertFields map[string]strin
 	// Create the event
 	event := c.createResolveRequest(alertFields)
 
+	c.logger.Infof("PagerDuty: sending resolve event: dedupe key: %s", event.DedupKey)
+
 	// Send the event
-	response, err := c.sendEventV2(event)
+	_, err := c.sendEventV2(event)
 	if err != nil {
+		c.logger.Errorf("PagerDuty: error sending resolve event: %v", err)
 		return err
 	}
-
-	c.logger.Debugf("PagerDuty: resolved event sent successfully. Dedupe key: %s, message: %s", response.DedupKey, response.Message)
-
 	return nil
 }
