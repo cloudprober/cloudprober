@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 func newPagerDutyEventV2TestServer(testCallback func(r *http.Request) error) *httptest.Server {
@@ -249,11 +250,18 @@ func TestPagerDutyCreateResolveRequest(t *testing.T) {
 		"simple": {
 			alertFields: map[string]string{
 				"condition_id": "test-condition-id",
+				"summary":      "test-summary",
+				"target":       "test-target",
 			},
 			want: &EventV2Request{
 				RoutingKey:  "test-routing-key",
 				DedupKey:    "test-condition-id",
 				EventAction: Resolve,
+				Payload: EventV2Payload{
+					Summary:  "test-summary",
+					Severity: "critical",
+					Source:   "test-target",
+				},
 			},
 		},
 	}
@@ -269,10 +277,7 @@ func TestPagerDutyCreateResolveRequest(t *testing.T) {
 				t.Errorf("Error creating PagerDuty client: %v", err)
 			}
 
-			got := p.createResolveRequest(tc.alertFields)
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("createEventV2Request = \n%+v\n, want \n%+v\n", got, tc.want)
-			}
+			assert.Equal(t, tc.want, p.createResolveRequest(tc.alertFields), "Requests don't match")
 		})
 	}
 }

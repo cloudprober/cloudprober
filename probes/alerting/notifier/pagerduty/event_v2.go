@@ -108,14 +108,14 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 	}
 	defer resp.Body.Close()
 
-	// check status code, return error if not 202
-	if resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf("PagerDuty API returned status code %d", resp.StatusCode)
-	}
-
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	// check status code, return error if not 202
+	if resp.StatusCode != http.StatusAccepted {
+		return nil, fmt.Errorf("PagerDuty API returned status code %d, response: %s", resp.StatusCode, string(b))
 	}
 
 	body := &EventV2Response{}
@@ -163,6 +163,11 @@ func (c *Client) createResolveRequest(alertFields map[string]string) *EventV2Req
 		RoutingKey:  c.routingKey,
 		DedupKey:    eventV2DedupeKey(alertFields),
 		EventAction: Resolve,
+		Payload: EventV2Payload{
+			Summary:  alertFields["summary"],
+			Source:   alertFields["target"],
+			Severity: "critical",
+		},
 	}
 }
 
