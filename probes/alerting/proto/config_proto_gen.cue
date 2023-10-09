@@ -36,6 +36,10 @@ package proto
 	// PagerDuty API URL.
 	// Used to overwrite the default PagerDuty API URL.
 	apiUrl?: string @protobuf(3,string,name=api_url) // Default: https://event.pagerduty.com
+
+	// Whether to send resolve notifications or not. Default is to send resolve
+	// notifications.
+	disableSendResolved?: bool @protobuf(4,bool,name=disable_send_resolved) // Default: false
 }
 
 #Slack: {

@@ -41,6 +41,9 @@ message PagerDuty {
     // Used to overwrite the default PagerDuty API URL.
     string api_url = 3; // Default: https://event.pagerduty.com
 
+    // Whether to send resolve notifications or not. Default is to send resolve
+    // notifications.
+    bool disable_send_resolved = 4; // Default: false
 }
 
 message Slack {
