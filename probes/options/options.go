@@ -150,6 +150,10 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		}
 	}
 
+	if intervalDuration < timeoutDuration && p.GetType() != configpb.ProbeDef_UDP {
+		return nil, fmt.Errorf("interval (%v) cannot be smaller than timeout (%v)", intervalDuration, timeoutDuration)
+	}
+
 	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
 		return nil, fmt.Errorf("negative_test is not supported by %s probes", p.GetType().String())
 	}
