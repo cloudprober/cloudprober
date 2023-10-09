@@ -218,7 +218,7 @@ func TestStatsExportInterval(t *testing.T) {
 			name:         "Timeout bigger than intervalMsec",
 			intervalMsec: 10,
 			timeoutMsec:  12,
-			want:         12,
+			wantError:    true,
 		},
 		{
 			name:         "Interval and timeout less than default",
