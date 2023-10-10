@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server/filter"
+	"github.com/golang/protobuf/proto"
 )
 
 type servicesLister struct {
@@ -87,7 +87,7 @@ func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 		resources = append(resources, svc.resources(allFilters.RegexFilters["port"], req.GetIpConfig().GetIpType(), lister.l)...)
 	}
 
-	lister.l.Infof("kubernetes.listResources: returning %d services", len(resources))
+	lister.l.Debugf("kubernetes.listResources: returning %d services", len(resources))
 	return resources, nil
 }
 
@@ -202,7 +202,7 @@ func (lister *servicesLister) expand() {
 		lister.l.Warningf("servicesLister.expand(): error while parsing services API response (%s): %v", string(resp), err)
 	}
 
-	lister.l.Infof("servicesLister.expand(): got %d services", len(keys))
+	lister.l.Debugf("servicesLister.expand(): got %d services", len(keys))
 
 	lister.mu.Lock()
 	defer lister.mu.Unlock()
