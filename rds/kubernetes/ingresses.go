@@ -87,7 +87,7 @@ func (lister *ingressesLister) listResources(req *pb.ListResourcesRequest) ([]*p
 		}
 	}
 
-	lister.l.Infof("kubernetes.listResources: returning %d ingresses", len(resources))
+	lister.l.Debugf("kubernetes.listResources: returning %d ingresses", len(resources))
 	return resources, nil
 }
 
@@ -200,7 +200,7 @@ func (lister *ingressesLister) expand() {
 		lister.l.Warningf("ingressesLister.expand(): error while parsing ingresses API response (%s): %v", string(resp), err)
 	}
 
-	lister.l.Infof("ingressesLister.expand(): got %d ingresses", len(keys))
+	lister.l.Debugf("ingressesLister.expand(): got %d ingresses", len(keys))
 
 	lister.mu.Lock()
 	defer lister.mu.Unlock()
