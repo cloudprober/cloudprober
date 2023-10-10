@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -71,7 +72,7 @@ func (c *client) getURL(url string) ([]byte, error) {
 		return nil, err
 	}
 
-	c.l.Infof("kubernetes.client: getting URL: %s", req.URL.String())
+	c.l.Debugf("kubernetes.client: getting URL: %s", req.URL.String())
 	resp, err := c.httpC.Do(req)
 	if err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func (c *client) getURL(url string) ([]byte, error) {
 		return nil, fmt.Errorf("HTTP response status code: %d, status: %s", resp.StatusCode, resp.Status)
 	}
 
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 func (c *client) initAPIHost() error {
