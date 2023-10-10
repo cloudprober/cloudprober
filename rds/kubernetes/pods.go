@@ -79,7 +79,7 @@ func (pl *podsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resourc
 		})
 	}
 
-	pl.l.Infof("kubernetes.listResources: returning %d pods", len(resources))
+	pl.l.Debugf("kubernetes.listResources: returning %d pods", len(resources))
 	return resources, nil
 }
 
@@ -125,7 +125,7 @@ func (pl *podsLister) expand() {
 		pl.l.Warningf("podsLister.expand(): error while parsing pods API response (%s): %v", string(resp), err)
 	}
 
-	pl.l.Infof("podsLister.expand(): got %d pods", len(keys))
+	pl.l.Debugf("podsLister.expand(): got %d pods", len(keys))
 
 	pl.mu.Lock()
 	defer pl.mu.Unlock()

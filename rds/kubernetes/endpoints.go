@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/rds/server/filter"
+	"github.com/golang/protobuf/proto"
 )
 
 type epLister struct {
@@ -87,7 +87,7 @@ func (lister *epLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resou
 		resources = append(resources, epi.resources(allFilters.RegexFilters["port"], lister.l)...)
 	}
 
-	lister.l.Infof("kubernetes.endpoints.listResources: returning %d resources", len(resources))
+	lister.l.Debugf("kubernetes.endpoints.listResources: returning %d resources", len(resources))
 	return resources, nil
 }
 
@@ -187,7 +187,7 @@ func (lister *epLister) expand() {
 		lister.l.Warningf("epLister.expand(): error while parsing endpoints API response (%s): %v", string(resp), err)
 	}
 
-	lister.l.Infof("epLister.expand(): got %d endpoints", len(keys))
+	lister.l.Debugf("epLister.expand(): got %d endpoints", len(keys))
 
 	lister.mu.Lock()
 	defer lister.mu.Unlock()
