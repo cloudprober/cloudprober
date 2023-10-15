@@ -420,7 +420,7 @@ type AlertConf struct {
 	// Default: http://localhost:9313/status?probe=@probe@
 	DashboardUrlTemplate string `protobuf:"bytes,4,opt,name=dashboard_url_template,json=dashboardUrlTemplate,proto3" json:"dashboard_url_template,omitempty"` // Default: ""
 	PlaybookUrlTemplate  string `protobuf:"bytes,5,opt,name=playbook_url_template,json=playbookUrlTemplate,proto3" json:"playbook_url_template,omitempty"`    // Default: ""
-	// Default: "Cloudprober alert @alert@ for @target@"
+	// Default: Cloudprober alert "@alert@" for "@target@"
 	SummaryTemplate string `protobuf:"bytes,6,opt,name=summary_template,json=summaryTemplate,proto3" json:"summary_template,omitempty"`
 	// Default:
 	// Cloudprober alert "@alert@" for "@target@":
