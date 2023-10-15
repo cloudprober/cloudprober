@@ -110,7 +110,7 @@ package proto
 	dashboardUrlTemplate?: string @protobuf(4,string,name=dashboard_url_template) // Default: ""
 	playbookUrlTemplate?:  string @protobuf(5,string,name=playbook_url_template)  // Default: ""
 
-	// Default: "Cloudprober alert @alert@ for @target@"
+	// Default: Cloudprober alert "@alert@" for "@target@"
 	summaryTemplate?: string @protobuf(6,string,name=summary_template)
 
 	// Default:
