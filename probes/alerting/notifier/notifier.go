@@ -32,7 +32,7 @@ import (
 
 const (
 	DefaultDashboardURLTemplate = "http://localhost:9313/status?probe=@probe@"
-	DefaultSummaryTemplate      = "Cloudprober alert @alert@ for @target@"
+	DefaultSummaryTemplate      = `Cloudprober alert "@alert@" for "@target@"`
 	DefaultDetailsTemplate      = `Cloudprober alert "@alert@" for "@target@":
 
 Failures: @failures@ out of @total@ probes

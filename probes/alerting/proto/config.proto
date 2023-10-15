@@ -115,7 +115,7 @@ message AlertConf {
     
     string playbook_url_template = 5;  // Default: ""
 
-    // Default: "Cloudprober alert @alert@ for @target@"
+    // Default: Cloudprober alert "@alert@" for "@target@"
     string summary_template = 6;
 
     // Default:
