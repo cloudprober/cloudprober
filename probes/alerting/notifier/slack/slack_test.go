@@ -75,10 +75,16 @@ func TestSlackCreateWebhookMessage(t *testing.T) {
 	}{
 		"valid": {
 			alertFields: map[string]string{
-				"details": "test-details",
+				"details":       "test-details",
+				"severity":      "critical",
+				"dashboard_url": "http://localhost:9313/status?probe=test-probe",
 			},
 			want: webhookMessage{
-				Text: "test-details",
+				Text: `test-details
+
+Details:
+dashboard_url: http://localhost:9313/status?probe=test-probe
+severity: critical`,
 			},
 		},
 	}

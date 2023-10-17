@@ -25,6 +25,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 )
 
 // EventV2Request is the data structure for a Pagerduty event.
@@ -50,7 +53,7 @@ type EventV2Links struct {
 type EventV2Payload struct {
 	Summary       string            `json:"summary"`  // required
 	Source        string            `json:"source"`   // required
-	Severity      string            `json:"severity"` // required
+	Severity      EventV2Severity   `json:"severity"` // required
 	Timestamp     string            `json:"timestamp,omitempty"`
 	Component     string            `json:"component,omitempty"`
 	CustomDetails map[string]string `json:"custom_details,omitempty"`
@@ -127,24 +130,42 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 	return body, nil
 }
 
+func severityFromAlertFields(alertFields map[string]string) EventV2Severity {
+	severity := strings.ToLower(alertFields["severity"])
+	if severity != "critical" && severity != "error" && severity != "warning" && severity != "info" {
+		return Error
+	}
+	return EventV2Severity(severity)
+}
+
+func payloadFromAlertFields(alertFields map[string]string) EventV2Payload {
+	customDetails := make(map[string]string)
+	for k, v := range alertFields {
+		if k != "summary" && k != "details" && k != "severity" {
+			customDetails[k] = v
+		}
+	}
+
+	return EventV2Payload{
+		Summary:       alertFields["summary"],
+		Source:        alertFields["target"],
+		Severity:      severityFromAlertFields(alertFields),
+		Timestamp:     alertFields["since"],
+		Component:     alertFields["probe"],
+		CustomDetails: customDetails,
+	}
+}
+
 // createTriggerRequest creates a new PagerDuty event, from the alertFields
 // that are passed in from the alerting package.
-func (c *Client) createTriggerRequest(alertFields map[string]string) *EventV2Request {
+func (c *Client) createTriggerRequest(alertInfo *alertinfo.AlertInfo, alertFields map[string]string) *EventV2Request {
 	event := &EventV2Request{
 		RoutingKey:  c.routingKey,
-		DedupKey:    eventV2DedupeKey(alertFields),
+		DedupKey:    eventV2DedupeKey(alertInfo),
 		EventAction: Trigger,
 		Client:      "Cloudprober",
 		ClientURL:   "https://cloudprober.org/",
-		Payload: EventV2Payload{
-			Summary:   alertFields["summary"],
-			Source:    alertFields["target"],
-			Severity:  "critical",
-			Timestamp: alertFields["since"],
-			Component: alertFields["probe"],
-			// pass all alert fields as custom details
-			CustomDetails: alertFields,
-		},
+		Payload:     payloadFromAlertFields(alertFields),
 	}
 
 	// add links for the dashboard and playbook to the event if they
@@ -158,15 +179,15 @@ func (c *Client) createTriggerRequest(alertFields map[string]string) *EventV2Req
 
 // createTriggerRequest creates a new PagerDuty event, from the alertFields
 // that are passed in from the alerting package.
-func (c *Client) createResolveRequest(alertFields map[string]string) *EventV2Request {
+func (c *Client) createResolveRequest(alertInfo *alertinfo.AlertInfo, alertFields map[string]string) *EventV2Request {
 	return &EventV2Request{
 		RoutingKey:  c.routingKey,
-		DedupKey:    eventV2DedupeKey(alertFields),
+		DedupKey:    eventV2DedupeKey(alertInfo),
 		EventAction: Resolve,
 		Payload: EventV2Payload{
 			Summary:  alertFields["summary"],
 			Source:   alertFields["target"],
-			Severity: "critical",
+			Severity: severityFromAlertFields(alertFields),
 		},
 	}
 }
@@ -196,6 +217,6 @@ func generateLinks(alertFields map[string]string) []EventV2Links {
 // note: submitting subsequent events with the same dedup_key will result in
 // those events being applied to an open alert matching that dedup_key.
 // https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event#alert-de-duplication
-func eventV2DedupeKey(alertFields map[string]string) string {
-	return alertFields["condition_id"]
+func eventV2DedupeKey(alertInfo *alertinfo.AlertInfo) string {
+	return alertInfo.ConditionID
 }

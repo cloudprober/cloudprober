@@ -120,8 +120,32 @@ package proto
 	// Probe: @probe@
 	// Dashboard: @dashboard_url@
 	// Playbook: @playbook_url@
-	// Condition ID: @condition_id@
 	detailsTemplate?: string @protobuf(7,string,name=details_template) // Default: ""
+
+	// Key values to be included in the alert. These fields are expanded
+	// using the same template expansion rules as summary_template and
+	// details_template (see above).
+	otherInfo?: {
+		[string]: string
+	} @protobuf(9,map[string]string,other_info)
+
+	// Severity of the alert. If provided it's included in the alert
+	// notifications. If severity is not defined, we set it to ERROR for
+	// PagerDuty notifications.
+	#Severity: {"UNKNOWN_SEVERITY", #enumValue: 0} |
+		{"CRITICAL", #enumValue: 1} |
+		{"ERROR", #enumValue: 2} |
+		{"WARNING", #enumValue: 3} |
+		{"INFO", #enumValue: 4}
+
+	#Severity_value: {
+		UNKNOWN_SEVERITY: 0
+		CRITICAL:         1
+		ERROR:            2
+		WARNING:          3
+		INFO:             4
+	}
+	severity?: #Severity @protobuf(10,Severity)
 
 	// How often to repeat notification for the same alert. Default is 1hr.
 	// To disable any kind of notification throttling, set this to 0.

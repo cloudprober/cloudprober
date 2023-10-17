@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
@@ -92,9 +93,9 @@ func routingKeyEnvVar(pagerdutycfg *configpb.PagerDuty) string {
 	return DEFAULT_PAGERDUTY_ROUTING_KEY_ENV_VAR
 }
 
-func (c *Client) Notify(ctx context.Context, alertFields map[string]string) error {
+func (c *Client) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo, alertFields map[string]string) error {
 	// Create the event
-	event := c.createTriggerRequest(alertFields)
+	event := c.createTriggerRequest(alertInfo, alertFields)
 
 	// Send the event
 	response, err := c.sendEventV2(event)
@@ -107,13 +108,13 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 	return nil
 }
 
-func (c *Client) NotifyResolve(ctx context.Context, alertFields map[string]string) error {
+func (c *Client) NotifyResolve(ctx context.Context, alertInfo *alertinfo.AlertInfo, alertFields map[string]string) error {
 	if c.disableSendResolved {
 		return nil
 	}
 
 	// Create the event
-	event := c.createResolveRequest(alertFields)
+	event := c.createResolveRequest(alertInfo, alertFields)
 
 	c.logger.Infof("PagerDuty: sending resolve event: dedupe key: %s", event.DedupKey)
 

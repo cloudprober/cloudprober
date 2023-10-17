@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/probes/alerting/notifier"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,8 +41,8 @@ func TestUpdateState(t *testing.T) {
 		},
 	}
 
-	alert := func(handlerIndex int, target string, delay int) *notifier.AlertInfo {
-		return &notifier.AlertInfo{
+	alert := func(handlerIndex int, target string, delay int) *alertinfo.AlertInfo {
+		return &alertinfo.AlertInfo{
 			Name:         ah[handlerIndex].name,
 			ProbeName:    ah[handlerIndex].probeName,
 			Target:       endpoint.Endpoint{Name: target},
@@ -52,14 +52,14 @@ func TestUpdateState(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		addAlerts      [2][]*notifier.AlertInfo
+		addAlerts      [2][]*alertinfo.AlertInfo
 		deleteAlerts   [2][]string
-		wantCurrAlerts []*notifier.AlertInfo
-		wantPrevAlerts []*notifier.AlertInfo
+		wantCurrAlerts []*alertinfo.AlertInfo
+		wantPrevAlerts []*alertinfo.AlertInfo
 	}{
 		{
 			name: "add-alerts",
-			addAlerts: [2][]*notifier.AlertInfo{
+			addAlerts: [2][]*alertinfo.AlertInfo{
 				{
 					alert(0, "target1", 1),
 					alert(0, "target2", 3),
@@ -68,7 +68,7 @@ func TestUpdateState(t *testing.T) {
 					alert(1, "target1", 2),
 				},
 			},
-			wantCurrAlerts: []*notifier.AlertInfo{
+			wantCurrAlerts: []*alertinfo.AlertInfo{
 				alert(0, "target1", 1),
 				alert(1, "target1", 2),
 				alert(0, "target2", 3),
@@ -80,10 +80,10 @@ func TestUpdateState(t *testing.T) {
 				{"target2"},
 				{"target1"},
 			},
-			wantCurrAlerts: []*notifier.AlertInfo{
+			wantCurrAlerts: []*alertinfo.AlertInfo{
 				alert(0, "target1", 1),
 			},
-			wantPrevAlerts: []*notifier.AlertInfo{
+			wantPrevAlerts: []*alertinfo.AlertInfo{
 				alert(1, "target1", 2),
 				alert(0, "target2", 3),
 			},
@@ -94,7 +94,7 @@ func TestUpdateState(t *testing.T) {
 				{"target1"},
 				{},
 			},
-			wantPrevAlerts: []*notifier.AlertInfo{
+			wantPrevAlerts: []*alertinfo.AlertInfo{
 				alert(0, "target1", 1),
 				alert(1, "target1", 2),
 			},
@@ -113,7 +113,7 @@ func TestUpdateState(t *testing.T) {
 			curr, prev := st.list()
 			assert.Equal(t, tt.wantCurrAlerts, curr, "current alerts")
 
-			var prevAlerts []*notifier.AlertInfo
+			var prevAlerts []*alertinfo.AlertInfo
 			for _, ra := range prev {
 				prevAlerts = append(prevAlerts, ra.AlertInfo)
 			}
@@ -132,8 +132,8 @@ func TestStatusHTML(t *testing.T) {
 		probeName: "test-probe-2",
 	}
 
-	alertInfo := func(target string, delay int) *notifier.AlertInfo {
-		return &notifier.AlertInfo{
+	alertInfo := func(target string, delay int) *alertinfo.AlertInfo {
+		return &alertinfo.AlertInfo{
 			Name:         ah.name,
 			ProbeName:    ah.probeName,
 			Target:       endpoint.Endpoint{Name: target},
@@ -143,13 +143,13 @@ func TestStatusHTML(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		addAlerts      []*notifier.AlertInfo
+		addAlerts      []*alertinfo.AlertInfo
 		deleteAlerts   []endpoint.Endpoint
 		wantStatusHTML string
 	}{
 		{
 			name: "add-alerts",
-			addAlerts: []*notifier.AlertInfo{
+			addAlerts: []*alertinfo.AlertInfo{
 				alertInfo("target1", 1),
 				alertInfo("target2", 3),
 			},
