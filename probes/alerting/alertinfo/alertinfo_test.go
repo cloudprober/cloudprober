@@ -104,3 +104,32 @@ func TestAlertInfoFields(t *testing.T) {
 		})
 	}
 }
+
+func TestFieldsToString(t *testing.T) {
+	fields := map[string]string{
+		"alert":        "test-alert",
+		"probe":        "test-probe",
+		"condition_id": "122333444",
+	}
+
+	tests := []struct {
+		name     string
+		skipKeys []string
+		want     string
+	}{
+		{
+			name: "skip_none",
+			want: "alert: test-alert\ncondition_id: 122333444\nprobe: test-probe",
+		},
+		{
+			name:     "skip_probe",
+			skipKeys: []string{"condition_id"},
+			want:     "alert: test-alert\nprobe: test-probe",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, FieldsToString(fields, tt.skipKeys...), "Fields don't match")
+		})
+	}
+}
