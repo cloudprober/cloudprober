@@ -125,7 +125,6 @@ message AlertConf {
     // Probe: @probe@
     // Dashboard: @dashboard_url@
     // Playbook: @playbook_url@
-    // Condition ID: @condition_id@
     string details_template = 7;  // Default: ""
 
     // Key values to be included in the alert. These fields are expanded

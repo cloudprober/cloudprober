@@ -124,13 +124,13 @@ func TestEmailNotifierNotify(t *testing.T) {
 			name:    "default",
 			to:      []string{"user1@gmail.com"},
 			wantTo:  []string{"user1@gmail.com"},
-			wantMsg: "From: f@gmail.com\r\nTo: user1@gmail.com\r\nSubject: summary1\r\n\r\ndetails1\r\n",
+			wantMsg: "From: f@gmail.com\r\nTo: user1@gmail.com\r\nSubject: summary1\r\n\r\ndetails1\nDetails:\ntarget.label.owner: manugarg@cloudprober.org\nteam: sre\r\n",
 		},
 		{
 			name:    "email_substitution",
 			to:      []string{"@target.label.owner@"},
 			wantTo:  []string{"manugarg@cloudprober.org"},
-			wantMsg: "From: f@gmail.com\r\nTo: manugarg@cloudprober.org\r\nSubject: summary1\r\n\r\ndetails1\r\n",
+			wantMsg: "From: f@gmail.com\r\nTo: manugarg@cloudprober.org\r\nSubject: summary1\r\n\r\ndetails1\nDetails:\ntarget.label.owner: manugarg@cloudprober.org\nteam: sre\r\n",
 		},
 	}
 
@@ -144,6 +144,7 @@ func TestEmailNotifierNotify(t *testing.T) {
 				"summary":            "summary1",
 				"details":            "details1",
 				"target.label.owner": "manugarg@cloudprober.org",
+				"team":               "sre",
 			}
 		)
 
@@ -212,7 +213,7 @@ func TestEmaiFrom(t *testing.T) {
 				os.Setenv("HOSTNAME", tt.envHostname)
 				defer os.Unsetenv("HOSTNAME")
 			}
-			assert.Equal(t, tt.want, emaiFrom(tt.user, tt.emailCfg))
+			assert.Equal(t, tt.want, emailFrom(tt.user, tt.emailCfg))
 		})
 	}
 }

@@ -17,7 +17,9 @@
 package alertinfo
 
 import (
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
@@ -66,4 +68,27 @@ func (ai *AlertInfo) Fields(templateDetails map[string]string) map[string]string
 	}
 
 	return fields
+}
+
+func FieldsToString(fields map[string]string, skipKeys ...string) string {
+	skipMap := make(map[string]bool)
+	for _, k := range skipKeys {
+		skipMap[k] = true
+	}
+
+	var keys []string
+	for k := range fields {
+		if !skipMap[k] {
+			keys = append(keys, k)
+		}
+	}
+
+	sort.Strings(keys)
+
+	var out []string
+	for _, k := range keys {
+		out = append(out, k+": "+fields[k])
+	}
+
+	return strings.Join(out, "\n")
 }

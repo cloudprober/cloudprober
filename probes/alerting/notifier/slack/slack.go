@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
@@ -105,6 +106,6 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 // createMessage creates a new Slack webhook message, from the alertFields
 func createMessage(alertFields map[string]string) webhookMessage {
 	return webhookMessage{
-		Text: alertFields["details"],
+		Text: alertFields["details"] + "\n\nDetails:\n" + alertinfo.FieldsToString(alertFields, "details"),
 	}
 }

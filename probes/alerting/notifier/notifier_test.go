@@ -65,7 +65,7 @@ func TestAlertFields(t *testing.T) {
 				"target.label.apptype":  "backend",
 				"target.label.language": "go",
 				"summary":               "Cloudprober alert \"test-alert\" for \"test-target\"",
-				"details":               "Cloudprober alert \"test-alert\" for \"test-target\":\n\nFailures: 8 out of 12 probes\nFailing since: 0001-01-01T00:00:01Z\nProbe: test-probe\nDashboard: http://localhost:9313/status?probe=test-probe\nPlaybook: \nCondition ID: 122333444\n",
+				"details":               "Cloudprober alert \"test-alert\" for \"test-target\":\n\nFailures: 8 out of 12 probes\nFailing since: 0001-01-01T00:00:01Z\nProbe: test-probe\nDashboard: http://localhost:9313/status?probe=test-probe\nPlaybook: \n",
 				"dashboard_url":         "http://localhost:9313/status?probe=test-probe",
 				"playbook_url":          "",
 			},
@@ -117,7 +117,7 @@ func TestNotify(t *testing.T) {
 			},
 			errorContains: "/random-cmd-test-alert-manugarg@a.b",
 			wantEmailFrom: "cloudprober-alert@localhost",
-			wantEmailMsg:  "From: cloudprober-alert@localhost\r\nTo: manugarg@a.b\r\nSubject: Cloudprober alert \"test-alert\" for \"test-target:1234\"\r\n\r\nCloudprober alert \"test-alert\" for \"test-target:1234\":\n\nFailures: 1 out of 2 probes\nFailing since: 0001-01-01T00:00:00Z\nProbe: test-probe\nDashboard: @dashboard_url@\nPlaybook: \nCondition ID: cond-id\n\r\n",
+			wantEmailMsg:  "From: cloudprober-alert@localhost\r\nTo: manugarg@a.b\r\nSubject: Cloudprober alert \"test-alert\" for \"test-target:1234\"\r\n\r\nCloudprober alert \"test-alert\" for \"test-target:1234\":\n\nFailures: 1 out of 2 probes\nFailing since: 0001-01-01T00:00:00Z\nProbe: test-probe\nDashboard: http://localhost:9313/status?probe=test-probe\nPlaybook: \n\nDetails:\nalert: test-alert\ncondition_id: cond-id\ndashboard_url: http://localhost:9313/status?probe=test-probe\nfailures: 1\nplaybook_url: \nprobe: test-probe\nsince: 0001-01-01T00:00:00Z\ntarget: test-target:1234\ntarget.label.owner: manugarg@a.b\ntotal: 2\r\n",
 		},
 	}
 

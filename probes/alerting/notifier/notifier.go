@@ -37,7 +37,6 @@ Failing since: @since@
 Probe: @probe@
 Dashboard: @dashboard_url@
 Playbook: @playbook_url@
-Condition ID: @condition_id@
 `
 )
 
