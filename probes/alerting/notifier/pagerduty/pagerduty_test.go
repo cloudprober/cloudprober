@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/stretchr/testify/assert"
 )
@@ -144,35 +145,49 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 }
 
 func TestPagerDutyEventV2DedupeKey(t *testing.T) {
+	assert.Equal(t, "testConditionId", eventV2DedupeKey(&alertinfo.AlertInfo{ConditionID: "testConditionId"}))
+}
+
+func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 	tests := map[string]struct {
-		alertFields map[string]string
-		want        string
+		severity     string
+		details      string
+		wantSeverity EventV2Severity
 	}{
-		"simple": {
-			alertFields: map[string]string{
-				"condition_id": "test-condition-id",
-			},
-			want: "test-condition-id",
+		"default_severity": {
+			severity:     "",
+			wantSeverity: Error,
+		},
+		"uppercase_sev": {
+			severity:     "CRITICAL",
+			wantSeverity: Critical,
+		},
+		"unknown_sec": {
+			severity:     "fatal",
+			wantSeverity: Error,
+		},
+		"details_dont_show": {
+			details:      "test-details",
+			wantSeverity: Error,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := eventV2DedupeKey(tc.alertFields)
-			if got != tc.want {
-				t.Errorf("dedupeKey(%v) = %s, want %s", tc.alertFields, got, tc.want)
+			pagerdutyConfig := &configpb.PagerDuty{
+				RoutingKey: "test-routing-key",
 			}
-		})
-	}
-}
 
-func TestPagerDutyCreateTriggerRequest(t *testing.T) {
-	tests := map[string]struct {
-		alertFields map[string]string
-		want        *EventV2Request
-	}{
-		"simple": {
-			alertFields: map[string]string{
+			p, err := New(pagerdutyConfig, nil)
+			if err != nil {
+				t.Errorf("Error creating PagerDuty client: %v", err)
+			}
+
+			alertInfo := &alertinfo.AlertInfo{
+				ConditionID: "test-condition-id",
+			}
+
+			alertFields := map[string]string{
 				"alert":         "test-alert",
 				"summary":       "test-summary",
 				"probe":         "test-probe",
@@ -183,8 +198,15 @@ func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 				"since":         "2020-01-01T00:00:00Z",
 				"dashboard_url": "test_dashboard_url",
 				"playbook_url":  "test_playbook_url",
-			},
-			want: &EventV2Request{
+			}
+			if tc.severity != "" {
+				alertFields["severity"] = tc.severity
+			}
+			if tc.details != "" {
+				alertFields["details"] = tc.details
+			}
+
+			want := &EventV2Request{
 				RoutingKey:  "test-routing-key",
 				DedupKey:    "test-condition-id",
 				EventAction: Trigger,
@@ -203,12 +225,11 @@ func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 				Payload: EventV2Payload{
 					Summary:   "test-summary",
 					Source:    "test-target",
-					Severity:  "critical",
+					Severity:  tc.wantSeverity,
 					Timestamp: "2020-01-01T00:00:00Z",
 					Component: "test-probe",
 					CustomDetails: map[string]string{
 						"alert":         "test-alert",
-						"summary":       "test-summary",
 						"probe":         "test-probe",
 						"target":        "test-target",
 						"condition_id":  "test-condition-id",
@@ -219,35 +240,23 @@ func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 						"playbook_url":  "test_playbook_url",
 					},
 				},
-			},
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			pagerdutyConfig := &configpb.PagerDuty{
-				RoutingKey: "test-routing-key",
 			}
 
-			p, err := New(pagerdutyConfig, nil)
-			if err != nil {
-				t.Errorf("Error creating PagerDuty client: %v", err)
-			}
-
-			got := p.createTriggerRequest(tc.alertFields)
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("createEventV2Request = \n%+v\n, want \n%+v\n", got, tc.want)
-			}
+			assert.Equal(t, want, p.createTriggerRequest(alertInfo, alertFields), "Requests don't match")
 		})
 	}
 }
 
 func TestPagerDutyCreateResolveRequest(t *testing.T) {
 	tests := map[string]struct {
+		alertInfo   *alertinfo.AlertInfo
 		alertFields map[string]string
 		want        *EventV2Request
 	}{
 		"simple": {
+			alertInfo: &alertinfo.AlertInfo{
+				ConditionID: "test-condition-id",
+			},
 			alertFields: map[string]string{
 				"condition_id": "test-condition-id",
 				"summary":      "test-summary",
@@ -259,7 +268,7 @@ func TestPagerDutyCreateResolveRequest(t *testing.T) {
 				EventAction: Resolve,
 				Payload: EventV2Payload{
 					Summary:  "test-summary",
-					Severity: "critical",
+					Severity: Error,
 					Source:   "test-target",
 				},
 			},
@@ -277,7 +286,7 @@ func TestPagerDutyCreateResolveRequest(t *testing.T) {
 				t.Errorf("Error creating PagerDuty client: %v", err)
 			}
 
-			assert.Equal(t, tc.want, p.createResolveRequest(tc.alertFields), "Requests don't match")
+			assert.Equal(t, tc.want, p.createResolveRequest(tc.alertInfo, tc.alertFields), "Requests don't match")
 		})
 	}
 }

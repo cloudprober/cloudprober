@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
@@ -38,12 +39,12 @@ func TestAlertFields(t *testing.T) {
 
 	tests := []struct {
 		name string
-		ai   *AlertInfo
+		ai   *alertinfo.AlertInfo
 		want map[string]string
 	}{
 		{
 			name: "simple",
-			ai: &AlertInfo{
+			ai: &alertinfo.AlertInfo{
 				Name:         "test-alert",
 				ProbeName:    "test-probe",
 				ConditionID:  "122333444",
@@ -63,9 +64,9 @@ func TestAlertFields(t *testing.T) {
 				"since":                 "0001-01-01T00:00:01Z",
 				"target.label.apptype":  "backend",
 				"target.label.language": "go",
-				"json":                  `{"alert":"test-alert","condition_id":"122333444","failures":"8","probe":"test-probe","since":"0001-01-01T00:00:01Z","target":"test-target","target.label.apptype":"backend","target.label.language":"go","target_ip":"10.11.12.13","total":"12"}`,
 				"summary":               "Cloudprober alert \"test-alert\" for \"test-target\"",
-				"details":               "Cloudprober alert \"test-alert\" for \"test-target\":\n\nFailures: 8 out of 12 probes\nFailing since: 0001-01-01T00:00:01Z\nProbe: test-probe\nDashboard: @dashboard_url@\nPlaybook: \nCondition ID: 122333444\n",
+				"details":               "Cloudprober alert \"test-alert\" for \"test-target\":\n\nFailures: 8 out of 12 probes\nFailing since: 0001-01-01T00:00:01Z\nProbe: test-probe\nDashboard: http://localhost:9313/status?probe=test-probe\nPlaybook: \nCondition ID: 122333444\n",
+				"dashboard_url":         "http://localhost:9313/status?probe=test-probe",
 				"playbook_url":          "",
 			},
 		},
@@ -79,7 +80,7 @@ func TestAlertFields(t *testing.T) {
 }
 
 func TestNotify(t *testing.T) {
-	alertInfo := &AlertInfo{
+	alertInfo := &alertinfo.AlertInfo{
 		Name:        "test-alert",
 		ProbeName:   "test-probe",
 		ConditionID: "cond-id",
