@@ -23,6 +23,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
@@ -45,7 +46,9 @@ func (en *emailNotifier) Notify(ctx context.Context, alertFields map[string]stri
 	msg := fmt.Sprintf("From: %s\r\n", en.from)
 	msg += fmt.Sprintf("To: %s\r\n", strings.Join(to, ","))
 	msg += fmt.Sprintf("Subject: %s\r\n", alertFields["summary"])
-	msg += fmt.Sprintf("\r\n%s\r\n", alertFields["details"])
+	msgBody := alertFields["details"] + "\nDetails:\n" + alertinfo.FieldsToString(alertFields, "summary", "details")
+	msg += fmt.Sprintf("\r\n%s\r\n", msgBody)
+
 	en.l.Infof("Sending email notification to: %v \nserver: %s\nmsg:\n%s", en.to, en.server, msg)
 
 	if en.sendMailFunc == nil {
@@ -68,7 +71,7 @@ func smtpPassword(user string, emailCfg *configpb.Email) (string, error) {
 	return password, nil
 }
 
-func emaiFrom(user string, emailCfg *configpb.Email) string {
+func emailFrom(user string, emailCfg *configpb.Email) string {
 	if from := emailCfg.GetFrom(); from != "" {
 		return from
 	}
@@ -108,7 +111,7 @@ func newEmailNotifier(emailCfg *configpb.Email, l *logger.Logger) (*emailNotifie
 
 	en := &emailNotifier{
 		to:     emailCfg.To,
-		from:   emaiFrom(user, emailCfg),
+		from:   emailFrom(user, emailCfg),
 		server: server,
 		l:      l,
 	}

@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/probes/alerting/notifier"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 )
 
 var statusTmpl = template.Must(template.New("status").Parse(`
@@ -78,7 +78,7 @@ var statusTmpl = template.Must(template.New("status").Parse(`
 // resolvedAlert is used to keep track of resolved alerts, to be able to show
 // alerts hitory on the alerts dashboard.
 type resolvedAlert struct {
-	AlertInfo  *notifier.AlertInfo
+	AlertInfo  *alertinfo.AlertInfo
 	ResolvedAt time.Time
 }
 
@@ -86,21 +86,21 @@ var maxAlertsHistory = 20
 
 type state struct {
 	mu             sync.RWMutex
-	currentAlerts  map[string]*notifier.AlertInfo
+	currentAlerts  map[string]*alertinfo.AlertInfo
 	resolvedAlerts []resolvedAlert
 }
 
-func (st *state) get(key string) *notifier.AlertInfo {
+func (st *state) get(key string) *alertinfo.AlertInfo {
 	st.mu.RLock()
 	defer st.mu.RUnlock()
 	return st.currentAlerts[key]
 }
 
-func (st *state) add(key string, ai *notifier.AlertInfo) {
+func (st *state) add(key string, ai *alertinfo.AlertInfo) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if st.currentAlerts == nil {
-		st.currentAlerts = make(map[string]*notifier.AlertInfo)
+		st.currentAlerts = make(map[string]*alertinfo.AlertInfo)
 	}
 	st.currentAlerts[key] = ai
 }
@@ -117,11 +117,11 @@ func (st *state) resolve(key string) {
 	delete(st.currentAlerts, key)
 }
 
-func (st *state) list() ([]*notifier.AlertInfo, []resolvedAlert) {
+func (st *state) list() ([]*alertinfo.AlertInfo, []resolvedAlert) {
 	st.mu.RLock()
 	defer st.mu.RUnlock()
 
-	var currentAlerts []*notifier.AlertInfo
+	var currentAlerts []*alertinfo.AlertInfo
 	for _, ai := range st.currentAlerts {
 		currentAlerts = append(currentAlerts, ai)
 	}
@@ -145,7 +145,7 @@ func (st *state) statusHTML() (string, error) {
 	}
 
 	err := statusTmpl.Execute(&statusBuf, struct {
-		CurrentAlerts  []*notifier.AlertInfo
+		CurrentAlerts  []*alertinfo.AlertInfo
 		PreviousAlerts []resolvedAlert
 	}{
 		CurrentAlerts: currentAlerts, PreviousAlerts: previousAlerts,
@@ -155,7 +155,7 @@ func (st *state) statusHTML() (string, error) {
 }
 
 var globalState = state{
-	currentAlerts: make(map[string]*notifier.AlertInfo),
+	currentAlerts: make(map[string]*alertinfo.AlertInfo),
 }
 
 func StatusHTML() (string, error) {

@@ -125,8 +125,24 @@ message AlertConf {
     // Probe: @probe@
     // Dashboard: @dashboard_url@
     // Playbook: @playbook_url@
-    // Condition ID: @condition_id@
     string details_template = 7;  // Default: ""
+
+    // Key values to be included in the alert. These fields are expanded
+    // using the same template expansion rules as summary_template and
+    // details_template (see above).
+    map<string, string> other_info = 9;
+
+    // Severity of the alert. If provided it's included in the alert
+    // notifications. If severity is not defined, we set it to ERROR for
+    // PagerDuty notifications.
+    enum Severity {
+        UNKNOWN_SEVERITY = 0;
+        CRITICAL = 1;
+        ERROR = 2;
+        WARNING = 3;
+        INFO = 4;
+    }
+    Severity severity = 10;
 
     // How often to repeat notification for the same alert. Default is 1hr.
     // To disable any kind of notification throttling, set this to 0.

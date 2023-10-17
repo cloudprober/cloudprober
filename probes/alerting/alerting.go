@@ -25,6 +25,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	"github.com/cloudprober/cloudprober/probes/alerting/notifier"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -50,7 +51,7 @@ type AlertHandler struct {
 	probeName    string
 	condition    *configpb.Condition
 	notifyConfig *configpb.NotifyConfig
-	notifyCh     chan *notifier.AlertInfo // Used only for testing for now.
+	notifyCh     chan *alertinfo.AlertInfo // Used only for testing for now.
 	notifier     *notifier.Notifier
 
 	mu      sync.Mutex
@@ -125,7 +126,7 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 	ah.l.Warningf("ALERT (%s): target (%s), failures (%d) higher than (%d) since (%v)", ah.name, ep.Name, totalFailures, ah.condition.Failures, ts.failingSince)
 
 	ts.alerted = true
-	alertInfo := &notifier.AlertInfo{
+	alertInfo := &alertinfo.AlertInfo{
 		Name:         ah.name,
 		ProbeName:    ah.probeName,
 		ConditionID:  ts.conditionID,

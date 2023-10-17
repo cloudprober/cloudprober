@@ -6,10 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
@@ -96,7 +98,8 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 
 	// check status code, return error if not 200
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Slack webhook returned status code %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("slack webhook returned error; statusCode: %d, response: %s", resp.StatusCode, string(b))
 	}
 
 	return nil
@@ -105,6 +108,6 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 // createMessage creates a new Slack webhook message, from the alertFields
 func createMessage(alertFields map[string]string) webhookMessage {
 	return webhookMessage{
-		Text: alertFields["details"],
+		Text: alertFields["details"] + "\n\nDetails:\n" + alertinfo.FieldsToString(alertFields, "details", "summary"),
 	}
 }

@@ -12,22 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package notifier implements notifications related functionality.
 package notifier
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
-	"time"
 
-	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
 	"github.com/cloudprober/cloudprober/probes/alerting/notifier/pagerduty"
 	"github.com/cloudprober/cloudprober/probes/alerting/notifier/slack"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
-	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 const (
@@ -40,7 +37,6 @@ Failing since: @since@
 Probe: @probe@
 Dashboard: @dashboard_url@
 Playbook: @playbook_url@
-Condition ID: @condition_id@
 `
 )
 
@@ -58,64 +54,28 @@ type Notifier struct {
 	slackNotifier     *slack.Client
 }
 
-// AlertInfo contains information about an alert.
-type AlertInfo struct {
-	Name         string
-	ProbeName    string
-	ConditionID  string
-	Target       endpoint.Endpoint
-	Failures     int
-	Total        int
-	FailingSince time.Time
-}
-
-func (n *Notifier) alertFields(alertInfo *AlertInfo) map[string]string {
-	fields := map[string]string{
-		"alert":        alertInfo.Name,
-		"probe":        alertInfo.ProbeName,
-		"target":       alertInfo.Target.Dst(),
-		"condition_id": alertInfo.ConditionID,
-		"failures":     strconv.Itoa(alertInfo.Failures),
-		"total":        strconv.Itoa(alertInfo.Total),
-		"since":        alertInfo.FailingSince.Format(time.RFC3339),
+func (n *Notifier) alertFields(alertInfo *alertinfo.AlertInfo) map[string]string {
+	templateDetails := map[string]string{
+		"summary":       n.summaryTmpl,
+		"details":       n.detailsTmpl,
+		"dashboard_url": n.dashboardURLTmpl,
+		"playbook_url":  n.alertcfg.GetPlaybookUrlTemplate(),
+	}
+	for k, v := range n.alertcfg.GetOtherInfo() {
+		templateDetails[k] = v
 	}
 
-	for k, v := range alertInfo.Target.Labels {
-		fields["target.label."+k] = v
+	fields := alertInfo.Fields(templateDetails)
+
+	severity := n.alertcfg.GetSeverity()
+	if severity != configpb.AlertConf_UNKNOWN_SEVERITY {
+		fields["severity"] = severity.String()
 	}
-
-	if alertInfo.Target.IP != nil {
-		fields["target_ip"] = alertInfo.Target.IP.String()
-	}
-
-	alertJSON, err := json.Marshal(fields)
-	if err != nil {
-		n.l.Warningf("Error marshalling alert fields into json, will skip json field. Err: %v", err)
-	} else {
-		fields["json"] = string(alertJSON)
-	}
-
-	summary, _ := strtemplate.SubstituteLabels(n.summaryTmpl, fields)
-	fields["summary"] = summary
-
-	if n.alertcfg.GetDashboardUrlTemplate() != "" {
-		url, _ := strtemplate.SubstituteLabels(n.dashboardURLTmpl, fields)
-		fields["dashboard_url"] = url
-	}
-
-	fields["playbook_url"] = ""
-	if n.alertcfg.GetPlaybookUrlTemplate() != "" {
-		url, _ := strtemplate.SubstituteLabels(n.alertcfg.GetPlaybookUrlTemplate(), fields)
-		fields["playbook_url"] = url
-	}
-
-	details, _ := strtemplate.SubstituteLabels(n.detailsTmpl, fields)
-	fields["details"] = details
 
 	return fields
 }
 
-func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
+func (n *Notifier) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo) error {
 	fields := n.alertFields(alertInfo)
 
 	var errs error
@@ -136,7 +96,7 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
 	}
 
 	if n.pagerdutyNotifier != nil {
-		err := n.pagerdutyNotifier.Notify(ctx, fields)
+		err := n.pagerdutyNotifier.Notify(ctx, alertInfo, fields)
 		if err != nil {
 			n.l.Errorf("Error sending PagerDuty event: %v", err)
 			errs = errors.Join(errs, err)
@@ -154,11 +114,11 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *AlertInfo) error {
 	return errs
 }
 
-func (n *Notifier) NotifyResolve(ctx context.Context, alertInfo *AlertInfo) {
+func (n *Notifier) NotifyResolve(ctx context.Context, alertInfo *alertinfo.AlertInfo) {
 	fields := n.alertFields(alertInfo)
 
 	if n.pagerdutyNotifier != nil {
-		n.pagerdutyNotifier.NotifyResolve(ctx, fields)
+		n.pagerdutyNotifier.NotifyResolve(ctx, alertInfo, fields)
 	}
 }
 
