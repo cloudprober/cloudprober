@@ -20,7 +20,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Severity of the alert. Default is "ERROR".
+// Severity of the alert. If provided it's included in the alert
+// notifications. If severity is not defined, we set it to ERROR for
+// PagerDuty notifications.
 type AlertConf_Severity int32
 
 const (
@@ -491,7 +493,7 @@ type AlertConf struct {
 	// using the same template expansion rules as summary_template and
 	// details_template (see above).
 	OtherInfo map[string]string  `protobuf:"bytes,9,rep,name=other_info,json=otherInfo,proto3" json:"other_info,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Severity  AlertConf_Severity `protobuf:"varint,10,opt,name=severity,proto3,enum=cloudprober.alerting.AlertConf_Severity" json:"severity,omitempty"` // Default: ERROR
+	Severity  AlertConf_Severity `protobuf:"varint,10,opt,name=severity,proto3,enum=cloudprober.alerting.AlertConf_Severity" json:"severity,omitempty"`
 	// How often to repeat notification for the same alert. Default is 1hr.
 	// To disable any kind of notification throttling, set this to 0.
 	RepeatIntervalSec *int32 `protobuf:"varint,8,opt,name=repeat_interval_sec,json=repeatIntervalSec,proto3,oneof" json:"repeat_interval_sec,omitempty"` // Default: 1hr

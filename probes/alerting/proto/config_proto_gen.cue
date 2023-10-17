@@ -130,7 +130,9 @@ package proto
 		[string]: string
 	} @protobuf(9,map[string]string,other_info)
 
-	// Severity of the alert. Default is "ERROR".
+	// Severity of the alert. If provided it's included in the alert
+	// notifications. If severity is not defined, we set it to ERROR for
+	// PagerDuty notifications.
 	#Severity: {"UNKNOWN_SEVERITY", #enumValue: 0} |
 		{"CRITICAL", #enumValue: 1} |
 		{"ERROR", #enumValue: 2} |
@@ -144,8 +146,7 @@ package proto
 		WARNING:          3
 		INFO:             4
 	}
-
-	severity?: #Severity @protobuf(10,Severity) // Default: ERROR
+	severity?: #Severity @protobuf(10,Severity)
 
 	// How often to repeat notification for the same alert. Default is 1hr.
 	// To disable any kind of notification throttling, set this to 0.
