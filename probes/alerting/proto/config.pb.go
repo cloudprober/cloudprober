@@ -487,7 +487,6 @@ type AlertConf struct {
 	// Probe: @probe@
 	// Dashboard: @dashboard_url@
 	// Playbook: @playbook_url@
-	// Condition ID: @condition_id@
 	DetailsTemplate string `protobuf:"bytes,7,opt,name=details_template,json=detailsTemplate,proto3" json:"details_template,omitempty"` // Default: ""
 	// Key values to be included in the alert. These fields are expanded
 	// using the same template expansion rules as summary_template and

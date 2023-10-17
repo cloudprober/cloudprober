@@ -120,7 +120,6 @@ package proto
 	// Probe: @probe@
 	// Dashboard: @dashboard_url@
 	// Playbook: @playbook_url@
-	// Condition ID: @condition_id@
 	detailsTemplate?: string @protobuf(7,string,name=details_template) // Default: ""
 
 	// Key values to be included in the alert. These fields are expanded
