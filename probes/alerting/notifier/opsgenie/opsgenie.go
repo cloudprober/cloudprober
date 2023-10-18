@@ -41,7 +41,7 @@ const (
 
 	// DEFAULT_opsgenie_ROUTING_KEY_ENV_VAR is the default environment variable
 	// to use for the Opsgenie routing key.
-	DefaultGenieKeyEnvVar = "GENIE_KEY"
+	DefaultGenieKeyEnvVar = "OPSGENIE_KEY"
 )
 
 func New(cfg *configpb.OpsGenie, l *logger.Logger) (*Client, error) {

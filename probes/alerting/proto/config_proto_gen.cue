@@ -20,10 +20,11 @@ package proto
 }
 
 #OpsGenie: {
-	// Genie Key. Authorization key for OpsGenie API.
+	// API key to access OpsGenie. It's usually tied to a team and is
+	// obtained by creating a new API integration or using an existing one.
 	genieKey?: string @protobuf(1,string,name=genie_key)
 
-	// Default: GENIE_KEY
+	// Environment variable name Default: OPSGENIE_KEY
 	genieKeyEnvVar?: string @protobuf(2,string,name=genie_key_env_var)
 
 	#Responder: {
@@ -65,17 +66,16 @@ package proto
 
 #PagerDuty: {
 	// PagerDuty Routing Key.
-	// The routing key is used to determine which service the alerts are sent to
-	// and is generated with the service. The routing key is found under the
-	// service, when the events v2 integration is enabled, under integrations,
-	// in the pagerduty console.
+	// The routing key is used to authenticate to PagerDuty and is tied to a
+	// service. You can obtain the routing key from the service page, under the
+	// integrations tab.
 	// Note: set either routing_key or routing_key_env_var. routing_key
 	// takes precedence over routing_key_env_var.
 	routingKey?: string @protobuf(1,string,name=routing_key)
 
-	// The environment variable that is used to contain the pagerduty routing
-	// key.
-	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var) // Default: PAGERDUTY_ROUTING_KEY;
+	// The environment variable containing the pagerduty routing key.
+	// Default: PAGERDUTY_ROUTING_KEY;
+	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var)
 
 	// PagerDuty API URL.
 	// Used to overwrite the default PagerDuty API URL.

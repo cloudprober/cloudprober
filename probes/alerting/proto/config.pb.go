@@ -224,9 +224,10 @@ type OpsGenie struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Genie Key. Authorization key for OpsGenie API.
+	// API key to access OpsGenie. It's usually tied to a team and is
+	// obtained by creating a new API integration or using an existing one.
 	GenieKey string `protobuf:"bytes,1,opt,name=genie_key,json=genieKey,proto3" json:"genie_key,omitempty"`
-	// Default: GENIE_KEY
+	// Environment variable name Default: OPSGENIE_KEY
 	GenieKeyEnvVar string `protobuf:"bytes,2,opt,name=genie_key_env_var,json=genieKeyEnvVar,proto3" json:"genie_key_env_var,omitempty"`
 	// OpsGenie responders. OpsGenie uses the responders to route the alerts.
 	// If API Key belongs to a team integration, this field will be ignored.
@@ -308,16 +309,15 @@ type PagerDuty struct {
 	unknownFields protoimpl.UnknownFields
 
 	// PagerDuty Routing Key.
-	// The routing key is used to determine which service the alerts are sent to
-	// and is generated with the service. The routing key is found under the
-	// service, when the events v2 integration is enabled, under integrations,
-	// in the pagerduty console.
+	// The routing key is used to authenticate to PagerDuty and is tied to a
+	// service. You can obtain the routing key from the service page, under the
+	// integrations tab.
 	// Note: set either routing_key or routing_key_env_var. routing_key
 	// takes precedence over routing_key_env_var.
 	RoutingKey string `protobuf:"bytes,1,opt,name=routing_key,json=routingKey,proto3" json:"routing_key,omitempty"`
-	// The environment variable that is used to contain the pagerduty routing
-	// key.
-	RoutingKeyEnvVar string `protobuf:"bytes,2,opt,name=routing_key_env_var,json=routingKeyEnvVar,proto3" json:"routing_key_env_var,omitempty"` // Default: PAGERDUTY_ROUTING_KEY;
+	// The environment variable containing the pagerduty routing key.
+	// Default: PAGERDUTY_ROUTING_KEY;
+	RoutingKeyEnvVar string `protobuf:"bytes,2,opt,name=routing_key_env_var,json=routingKeyEnvVar,proto3" json:"routing_key_env_var,omitempty"`
 	// PagerDuty API URL.
 	// Used to overwrite the default PagerDuty API URL.
 	ApiUrl string `protobuf:"bytes,3,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"` // Default: https://event.pagerduty.com
