@@ -454,8 +454,13 @@ type NotifyConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Command to run when alert is fired. In the command line following fields
-	// are substituted:
+	// Command to run when alert is fired. You can use this command to do
+	// various things, e.g.:
+	//   - Send a notification using a method not supported by Cloudprober.
+	//   - Collect more information, e.g. send mtr report on ping failures.
+	//   - Attempt fix the issue, e.g. restart a pod or clear cache.
+	//
+	// In the command line following fields are substituted:
 	//
 	//	@alert@: Alert name
 	//	@probe@: Probe name
