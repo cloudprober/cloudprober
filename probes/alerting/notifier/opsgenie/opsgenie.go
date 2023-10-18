@@ -88,16 +88,5 @@ func lookupOpsgenieKey(cfg *configpb.Opsgenie) (string, error) {
 }
 
 func (c *Client) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo, alertFields map[string]string) error {
-	// Create the event
-	event := c.createAlertMessage(alertInfo, alertFields)
-
-	// Send the event
-	_, err := c.sendAlert(event)
-	if err != nil {
-		return err
-	}
-
-	// c.logger.Debugf("Opsgenie: trigger event sent successfully. Dedupe key: %s, message: %s", response.DedupKey, response.Message)
-
-	return nil
+	return c.sendAlert(c.createAlertMessage(alertInfo, alertFields))
 }
