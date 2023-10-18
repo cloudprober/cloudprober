@@ -29,11 +29,22 @@ playbook_url_template: &lt;string>
 # Failing since: @since@
 # Probe: @probe@
 # Dashboard: @dashboard_url@
-# Playbook: @playbook_url@
-# Condition ID: @condition_id@</div>details_template: &lt;string>
+# Playbook: @playbook_url@</div>details_template: &lt;string>
+
+<div class=comment># Key values to be included in the alert. These fields are expanded
+# using the same template expansion rules as summary_template and
+# details_template (see above).</div>other_info: &lt;<a href=../alerting#cloudprober_alerting_AlertConf_OtherInfoEntry>cloudprober.alerting.AlertConf.OtherInfoEntry</a>>
+
+severity: (UNKNOWN_SEVERITY|CRITICAL|ERROR|WARNING|INFO): &lt;enum>
 
 <div class=comment># How often to repeat notification for the same alert. Default is 1hr.
 # To disable any kind of notification throttling, set this to 0.</div>repeat_interval_sec: &lt;int32>
+
+</pre><h3 id=cloudprober_alerting_AlertConf_OtherInfoEntry>cloudprober.alerting.AlertConf.OtherInfoEntry <a class=anchor href=#cloudprober_alerting_AlertConf_OtherInfoEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
 
 </pre><h3 id=cloudprober_alerting_Condition>cloudprober.alerting.Condition <a class=anchor href=#cloudprober_alerting_Condition>#</a></h3><pre class=protodoc>
 
@@ -57,8 +68,13 @@ total: &lt;int32>
 
 </pre><h3 id=cloudprober_alerting_NotifyConfig>cloudprober.alerting.NotifyConfig <a class=anchor href=#cloudprober_alerting_NotifyConfig>#</a></h3><pre class=protodoc>
 
-<div class=comment># Command to run when alert is fired. In the command line following fields
-# are substituted:
+<div class=comment># Command to run when alert is fired. You can use this command to do
+# various things, e.g.:
+#  - Send a notification using a method not supported by Cloudprober.
+#  - Collect more information, e.g. send mtr report on ping failures.
+#  - Attempt fix the issue, e.g. restart a pod or clear cache.
+#
+# In the command line following fields are substituted:
 #  @alert@: Alert name
 #  @probe@: Probe name
 #  @target@: Target name, or target and port if port is specified.
@@ -78,18 +94,43 @@ total: &lt;int32>
 
 <div class=comment># Slack configuration.</div>slack: &lt;<a href=../alerting#cloudprober_alerting_Slack>cloudprober.alerting.Slack</a>>
 
+<div class=comment># Opsgenie configuration.</div>opsgenie: &lt;<a href=../alerting#cloudprober_alerting_Opsgenie>cloudprober.alerting.Opsgenie</a>>
+
+</pre><h3 id=cloudprober_alerting_Opsgenie>cloudprober.alerting.Opsgenie <a class=anchor href=#cloudprober_alerting_Opsgenie>#</a></h3><pre class=protodoc>
+
+<div class=comment># API key to access Opsgenie. It&#39;s usually tied to a team and is
+# obtained by creating a new API integration or using an existing one.</div>api_key: &lt;string>
+
+<div class=comment># Environment variable name Default: OPSGENIE_API_KEY</div>api_key_env_var: &lt;string>
+
+<div class=comment># Opsgenie responders. Opsgenie uses the responders to route the alerts if
+# API key doesn&#39;t belong to a team integration.
+# Example:
+#  responders {
+#    id: &#34;4513b7ea-3b91-438f-b7e4-e3e54af9147c&#34;
+#    type: TEAM
+#  }</div>responders: &lt;<a href=../alerting#cloudprober_alerting_Opsgenie_Responder>cloudprober.alerting.Opsgenie.Responder</a>>
+
+<div class=comment># Opsgenie API URL.
+# Default: https://api.opsgenie.com/v2/alerts</div>api_url: &lt;string>
+
+</pre><h3 id=cloudprober_alerting_Opsgenie_Responder>cloudprober.alerting.Opsgenie.Responder <a class=anchor href=#cloudprober_alerting_Opsgenie_Responder>#</a></h3><pre class=protodoc>
+
+[id &lt;string&gt; | name &lt;string&gt;]: &lt;oneof>
+
+type: (UNKNOWN_RESPONDER|USER|TEAM|ESCALATION|SCHEDULE): &lt;enum>
+
 </pre><h3 id=cloudprober_alerting_PagerDuty>cloudprober.alerting.PagerDuty <a class=anchor href=#cloudprober_alerting_PagerDuty>#</a></h3><pre class=protodoc>
 
 <div class=comment># PagerDuty Routing Key.
-# The routing key is used to determine which service the alerts are sent to
-# and is generated with the service. The routing key is found under the 
-# service, when the events v2 integration is enabled, under integrations,
-# in the pagerduty console.
+# The routing key is used to authenticate to PagerDuty and is tied to a
+# service. You can obtain the routing key from the service page, under the
+# integrations tab.
 # Note: set either routing_key or routing_key_env_var. routing_key
 # takes precedence over routing_key_env_var.</div>routing_key: &lt;string>
 
-<div class=comment># The environment variable that is used to contain the pagerduty routing 
-# key.</div>routing_key_env_var: &lt;string>
+<div class=comment># The environment variable containing the pagerduty routing key.
+# Default: PAGERDUTY_ROUTING_KEY;</div>routing_key_env_var: &lt;string>
 
 <div class=comment># PagerDuty API URL.
 # Used to overwrite the default PagerDuty API URL.</div>api_url: &lt;string>
@@ -137,11 +178,22 @@ playbook_url_template: &lt;string>
 # Failing since: @since@
 # Probe: @probe@
 # Dashboard: @dashboard_url@
-# Playbook: @playbook_url@
-# Condition ID: @condition_id@</div>details_template: &lt;string>
+# Playbook: @playbook_url@</div>details_template: &lt;string>
+
+<div class=comment># Key values to be included in the alert. These fields are expanded
+# using the same template expansion rules as summary_template and
+# details_template (see above).</div>other_info: &lt;<a href=../alerting#cloudprober_alerting_AlertConf_OtherInfoEntry>cloudprober.alerting.AlertConf.OtherInfoEntry</a>>
+
+severity: (UNKNOWN_SEVERITY|CRITICAL|ERROR|WARNING|INFO): &lt;enum>
 
 <div class=comment># How often to repeat notification for the same alert. Default is 1hr.
 # To disable any kind of notification throttling, set this to 0.</div>repeat_interval_sec: &lt;int32>
+
+</pre><h3 id=cloudprober_alerting_AlertConf_OtherInfoEntry>cloudprober.alerting.AlertConf.OtherInfoEntry <a class=anchor href=#cloudprober_alerting_AlertConf_OtherInfoEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
 
 </pre><h3 id=cloudprober_alerting_Condition>cloudprober.alerting.Condition <a class=anchor href=#cloudprober_alerting_Condition>#</a></h3><pre class=protodoc>
 
@@ -165,8 +217,13 @@ total: &lt;int32>
 
 </pre><h3 id=cloudprober_alerting_NotifyConfig>cloudprober.alerting.NotifyConfig <a class=anchor href=#cloudprober_alerting_NotifyConfig>#</a></h3><pre class=protodoc>
 
-<div class=comment># Command to run when alert is fired. In the command line following fields
-# are substituted:
+<div class=comment># Command to run when alert is fired. You can use this command to do
+# various things, e.g.:
+#  - Send a notification using a method not supported by Cloudprober.
+#  - Collect more information, e.g. send mtr report on ping failures.
+#  - Attempt fix the issue, e.g. restart a pod or clear cache.
+#
+# In the command line following fields are substituted:
 #  @alert@: Alert name
 #  @probe@: Probe name
 #  @target@: Target name, or target and port if port is specified.
@@ -186,18 +243,43 @@ total: &lt;int32>
 
 <div class=comment># Slack configuration.</div>slack: &lt;<a href=../alerting#cloudprober_alerting_Slack>cloudprober.alerting.Slack</a>>
 
+<div class=comment># Opsgenie configuration.</div>opsgenie: &lt;<a href=../alerting#cloudprober_alerting_Opsgenie>cloudprober.alerting.Opsgenie</a>>
+
+</pre><h3 id=cloudprober_alerting_Opsgenie>cloudprober.alerting.Opsgenie <a class=anchor href=#cloudprober_alerting_Opsgenie>#</a></h3><pre class=protodoc>
+
+<div class=comment># API key to access Opsgenie. It&#39;s usually tied to a team and is
+# obtained by creating a new API integration or using an existing one.</div>api_key: &lt;string>
+
+<div class=comment># Environment variable name Default: OPSGENIE_API_KEY</div>api_key_env_var: &lt;string>
+
+<div class=comment># Opsgenie responders. Opsgenie uses the responders to route the alerts if
+# API key doesn&#39;t belong to a team integration.
+# Example:
+#  responders {
+#    id: &#34;4513b7ea-3b91-438f-b7e4-e3e54af9147c&#34;
+#    type: TEAM
+#  }</div>responders: &lt;<a href=../alerting#cloudprober_alerting_Opsgenie_Responder>cloudprober.alerting.Opsgenie.Responder</a>>
+
+<div class=comment># Opsgenie API URL.
+# Default: https://api.opsgenie.com/v2/alerts</div>api_url: &lt;string>
+
+</pre><h3 id=cloudprober_alerting_Opsgenie_Responder>cloudprober.alerting.Opsgenie.Responder <a class=anchor href=#cloudprober_alerting_Opsgenie_Responder>#</a></h3><pre class=protodoc>
+
+[id &lt;string&gt; | name &lt;string&gt;]: &lt;oneof>
+
+type: (UNKNOWN_RESPONDER|USER|TEAM|ESCALATION|SCHEDULE): &lt;enum>
+
 </pre><h3 id=cloudprober_alerting_PagerDuty>cloudprober.alerting.PagerDuty <a class=anchor href=#cloudprober_alerting_PagerDuty>#</a></h3><pre class=protodoc>
 
 <div class=comment># PagerDuty Routing Key.
-# The routing key is used to determine which service the alerts are sent to
-# and is generated with the service. The routing key is found under the 
-# service, when the events v2 integration is enabled, under integrations,
-# in the pagerduty console.
+# The routing key is used to authenticate to PagerDuty and is tied to a
+# service. You can obtain the routing key from the service page, under the
+# integrations tab.
 # Note: set either routing_key or routing_key_env_var. routing_key
 # takes precedence over routing_key_env_var.</div>routing_key: &lt;string>
 
-<div class=comment># The environment variable that is used to contain the pagerduty routing 
-# key.</div>routing_key_env_var: &lt;string>
+<div class=comment># The environment variable containing the pagerduty routing key.
+# Default: PAGERDUTY_ROUTING_KEY;</div>routing_key_env_var: &lt;string>
 
 <div class=comment># PagerDuty API URL.
 # Used to overwrite the default PagerDuty API URL.</div>api_url: &lt;string>
@@ -220,4 +302,4 @@ total: &lt;int32>
 </pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/how-to/targets/><div class="card my-1"><div class="card-body py-2">&larr; Targets</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/how-to/built-in-servers/><div class="card my-1"><div class="card-body py-2">Built-in Servers &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.811a042a9dcf06d25d49467f2411fc9f522175259302a2053057556a3f0778c57b0f477238ef7ae570b0d1ec9f3b9bd916cef56a49e2af5b51e559f7fe0fc0db.js integrity="sha512-gRoEKp3PBtJdSUZ/JBH8n1IhdSWTAqIFMFdVaj8HeMV7D0dyOO965XCw0eyfO5vZFs71aknir1tR5Vn3/g/A2w==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.2d71e10e54cb7fdd92d5478a858e3f2b722f81eba72fea415260119bf51805f0d49a51aaa496a51ff4ec872bd4832cc23529f8bbfeaff4eac16a72750871bdb0.js integrity="sha512-LXHhDlTLf92S1UeKhY4/K3IvgeunL+pBUmARm/UYBfDUmlGqpJalH/TshyvUgyzCNSn4u/6v9OrBanJ1CHG9sA==" crossorigin=anonymous defer></script></body></html>
