@@ -22,6 +22,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
+	"github.com/cloudprober/cloudprober/probes/alerting/notifier/opsgenie"
 	"github.com/cloudprober/cloudprober/probes/alerting/notifier/pagerduty"
 	"github.com/cloudprober/cloudprober/probes/alerting/notifier/slack"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
@@ -51,6 +52,7 @@ type Notifier struct {
 	cmdNotifier       *commandNotifier
 	emailNotifier     *emailNotifier
 	pagerdutyNotifier *pagerduty.Client
+	opsgenieNotifier  *opsgenie.Client
 	slackNotifier     *slack.Client
 }
 
@@ -99,6 +101,14 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo) e
 		err := n.pagerdutyNotifier.Notify(ctx, alertInfo, fields)
 		if err != nil {
 			n.l.Errorf("Error sending PagerDuty event: %v", err)
+			errs = errors.Join(errs, err)
+		}
+	}
+
+	if n.opsgenieNotifier != nil {
+		err := n.opsgenieNotifier.Notify(ctx, alertInfo, fields)
+		if err != nil {
+			n.l.Errorf("Error sending OpsGenie alert: %v", err)
 			errs = errors.Join(errs, err)
 		}
 	}
@@ -171,6 +181,14 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 			return nil, fmt.Errorf("error configuring PagerDuty notifier: %v", err)
 		}
 		n.pagerdutyNotifier = pd
+	}
+
+	if n.alertcfg.GetNotify().GetOpsgenie() != nil {
+		og, err := opsgenie.New(n.alertcfg.Notify.GetOpsgenie(), l)
+		if err != nil {
+			return nil, fmt.Errorf("error configuring OpsGenie notifier: %v", err)
+		}
+		n.opsgenieNotifier = og
 	}
 
 	if n.alertcfg.GetNotify().GetSlack() != nil {

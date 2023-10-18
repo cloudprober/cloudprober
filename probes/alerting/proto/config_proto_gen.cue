@@ -19,19 +19,63 @@ package proto
 	smtpPassword?: string @protobuf(5,string,name=smtp_password)
 }
 
+#OpsGenie: {
+	// API key to access OpsGenie. It's usually tied to a team and is
+	// obtained by creating a new API integration or using an existing one.
+	genieKey?: string @protobuf(1,string,name=genie_key)
+
+	// Environment variable name Default: OPSGENIE_KEY
+	genieKeyEnvVar?: string @protobuf(2,string,name=genie_key_env_var)
+
+	#Responder: {
+		{} | {
+			id: string @protobuf(1,string)
+		} | {
+			name: string @protobuf(2,string)
+		}
+
+		#Type: {"UNKNOWN_RESPONDER", #enumValue: 0} |
+			{"USER", #enumValue: 1} |
+			{"TEAM", #enumValue: 2} |
+			{"ESCALATION", #enumValue: 3} |
+			{"SCHEDULE", #enumValue: 4}
+
+		#Type_value: {
+			UNKNOWN_RESPONDER: 0
+			USER:              1
+			TEAM:              2
+			ESCALATION:        3
+			SCHEDULE:          4
+		}
+		type?: #Type @protobuf(3,Type)
+	}
+
+	// OpsGenie responders. OpsGenie uses the responders to route the alerts.
+	// If API Key belongs to a team integration, this field will be ignored.
+	// Example:
+	//  responders {
+	//    id: "4513b7ea-3b91-438f-b7e4-e3e54af9147c"
+	//    type: TEAM
+	//  }
+	responders?: [...#Responder] @protobuf(3,Responder)
+
+	// OpsGenie API URL.
+	// Default: https://api.opsgenie.com/v2/alerts
+	apiUrl?: string @protobuf(4,string,name=api_url)
+}
+
 #PagerDuty: {
 	// PagerDuty Routing Key.
-	// The routing key is used to determine which service the alerts are sent to
-	// and is generated with the service. The routing key is found under the
-	// service, when the events v2 integration is enabled, under integrations,
-	// in the pagerduty console.
+	// The routing key is used to authenticate to PagerDuty and is tied to a
+	// service. You can obtain the routing key from the service page, under the
+	// integrations tab.
 	// Note: set either routing_key or routing_key_env_var. routing_key
 	// takes precedence over routing_key_env_var.
 	routingKey?: string @protobuf(1,string,name=routing_key)
 
-	// The environment variable that is used to contain the pagerduty routing
-	// key.
-	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var) // Default: PAGERDUTY_ROUTING_KEY;
+	// The environment variable containing the pagerduty routing key.
+	// Default: PAGERDUTY_ROUTING_KEY;
+	routingKeyEnvVar?: string @protobuf(2,string,name=routing_key_env_var)
 
 	// PagerDuty API URL.
 	// Used to overwrite the default PagerDuty API URL.
@@ -81,6 +125,9 @@ package proto
 
 	// Slack configuration.
 	slack?: #Slack @protobuf(13,Slack)
+
+	// OpsGenie configuration.
+	opsgenie?: #OpsGenie @protobuf(14,OpsGenie)
 }
 
 #Condition: {
