@@ -36,7 +36,7 @@ func TestAlertRequest(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		cfg         *configpb.OpsGenie
+		cfg         *configpb.Opsgenie
 		apiURL      string
 		alertInfo   *alertinfo.AlertInfo
 		alertFields map[string]string
@@ -77,15 +77,15 @@ func TestAlertRequest(t *testing.T) {
 		},
 		{
 			name: "withResponders",
-			cfg: &configpb.OpsGenie{
-				Responders: []*configpb.OpsGenie_Responder{
+			cfg: &configpb.Opsgenie{
+				Responders: []*configpb.Opsgenie_Responder{
 					{
-						Type: configpb.OpsGenie_Responder_TEAM,
-						Ref:  &configpb.OpsGenie_Responder_Name{Name: "test-team"},
+						Type: configpb.Opsgenie_Responder_TEAM,
+						Ref:  &configpb.Opsgenie_Responder_Name{Name: "test-team"},
 					},
 					{
-						Type: configpb.OpsGenie_Responder_SCHEDULE,
-						Ref:  &configpb.OpsGenie_Responder_Id{Id: "test-schedule-id"},
+						Type: configpb.Opsgenie_Responder_SCHEDULE,
+						Ref:  &configpb.Opsgenie_Responder_Id{Id: "test-schedule-id"},
 					},
 				},
 			},

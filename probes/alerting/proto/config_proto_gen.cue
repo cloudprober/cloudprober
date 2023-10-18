@@ -19,13 +19,13 @@ package proto
 	smtpPassword?: string @protobuf(5,string,name=smtp_password)
 }
 
-#OpsGenie: {
-	// API key to access OpsGenie. It's usually tied to a team and is
+#Opsgenie: {
+	// API key to access Opsgenie. It's usually tied to a team and is
 	// obtained by creating a new API integration or using an existing one.
-	genieKey?: string @protobuf(1,string,name=genie_key)
+	apiKey?: string @protobuf(1,string,name=api_key)
 
-	// Environment variable name Default: OPSGENIE_KEY
-	genieKeyEnvVar?: string @protobuf(2,string,name=genie_key_env_var)
+	// Environment variable name Default: OPSGENIE_API_KEY
+	apiKeyEnvVar?: string @protobuf(2,string,name=api_key_env_var)
 
 	#Responder: {
 		{} | {
@@ -50,8 +50,8 @@ package proto
 		type?: #Type @protobuf(3,Type)
 	}
 
-	// OpsGenie responders. OpsGenie uses the responders to route the alerts.
-	// If API Key belongs to a team integration, this field will be ignored.
+	// Opsgenie responders. Opsgenie uses the responders to route the alerts if
+	// API key doesn't belong to a team integration.
 	// Example:
 	//  responders {
 	//    id: "4513b7ea-3b91-438f-b7e4-e3e54af9147c"
@@ -59,7 +59,7 @@ package proto
 	//  }
 	responders?: [...#Responder] @protobuf(3,Responder)
 
-	// OpsGenie API URL.
+	// Opsgenie API URL.
 	// Default: https://api.opsgenie.com/v2/alerts
 	apiUrl?: string @protobuf(4,string,name=api_url)
 }
@@ -126,8 +126,8 @@ package proto
 	// Slack configuration.
 	slack?: #Slack @protobuf(13,Slack)
 
-	// OpsGenie configuration.
-	opsgenie?: #OpsGenie @protobuf(14,OpsGenie)
+	// Opsgenie configuration.
+	opsgenie?: #Opsgenie @protobuf(14,Opsgenie)
 }
 
 #Condition: {

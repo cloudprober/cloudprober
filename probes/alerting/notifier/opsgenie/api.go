@@ -53,38 +53,30 @@ const (
 	P1, P2, P3, P4 priority = "P1", "P2", "P3", "P4"
 )
 
-// EventV2Response is the data structure that is returned from PagerDuty when
-// sending a EventV2 request.
-type EventV2Response struct {
-	Status   string `json:"status,omitempty"`
-	Message  string `json:"message,omitempty"`
-	DedupKey string `json:"dedup_key,omitempty"`
-}
-
-// sendEventV2 sends an event to PagerDuty using the V2 API.
-func (c *Client) sendAlert(msg *alertMessage) (*EventV2Response, error) {
+// sendAlert sends an event to PagerDuty using the V2 API.
+func (c *Client) sendAlert(msg *alertMessage) error {
 	req, err := c.alertRequest(msg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("opsgenie - error reading API response body: %v", err)
 	}
 
 	// check status code, return error if not 202
 	if resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf("opsGenie API returned status code %d, response: %s", resp.StatusCode, string(b))
+		return fmt.Errorf("opsGenie API returned status code %d, response: %s", resp.StatusCode, string(b))
 	}
 
-	return nil, nil
+	return nil
 }
 
 // sendEventV2 sends an event to PagerDuty using the V2 API.
