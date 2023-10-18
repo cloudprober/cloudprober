@@ -23,13 +23,13 @@ message Email {
     string smtp_password = 5;  
 }
 
-message OpsGenie {
-    // API key to access OpsGenie. It's usually tied to a team and is
+message Opsgenie {
+    // API key to access Opsgenie. It's usually tied to a team and is
     // obtained by creating a new API integration or using an existing one.
-    string genie_key = 1;
+    string api_key = 1;
 
-    // Environment variable name Default: OPSGENIE_KEY
-    string genie_key_env_var = 2; 
+    // Environment variable name Default: OPSGENIE_API_KEY
+    string api_key_env_var = 2; 
 
     message Responder {
         oneof ref {
@@ -46,8 +46,8 @@ message OpsGenie {
         Type type = 3; 
     }
 
-    // OpsGenie responders. OpsGenie uses the responders to route the alerts.
-    // If API Key belongs to a team integration, this field will be ignored.
+    // Opsgenie responders. Opsgenie uses the responders to route the alerts if
+    // API key doesn't belong to a team integration.
     // Example:
     //  responders {
     //    id: "4513b7ea-3b91-438f-b7e4-e3e54af9147c"
@@ -55,7 +55,7 @@ message OpsGenie {
     //  }
     repeated Responder responders = 3;
 
-    // OpsGenie API URL.
+    // Opsgenie API URL.
     // Default: https://api.opsgenie.com/v2/alerts
     string api_url = 4;
 }
@@ -122,8 +122,8 @@ message NotifyConfig {
     // Slack configuration.
     Slack slack = 13;
 
-    // OpsGenie configuration.
-    OpsGenie opsgenie = 14;
+    // Opsgenie configuration.
+    Opsgenie opsgenie = 14;
 }
 
 message Condition {

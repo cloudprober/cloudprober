@@ -28,7 +28,7 @@ import (
 )
 
 type Client struct {
-	cfg        *configpb.OpsGenie
+	cfg        *configpb.Opsgenie
 	httpClient *http.Client
 	logger     *logger.Logger
 	apiURL     string
@@ -41,10 +41,10 @@ const (
 
 	// DEFAULT_opsgenie_ROUTING_KEY_ENV_VAR is the default environment variable
 	// to use for the Opsgenie routing key.
-	DefaultGenieKeyEnvVar = "OPSGENIE_KEY"
+	DefaultApiKeyEnvVar = "OPSGENIE_API_KEY"
 )
 
-func New(cfg *configpb.OpsGenie, l *logger.Logger) (*Client, error) {
+func New(cfg *configpb.Opsgenie, l *logger.Logger) (*Client, error) {
 	apiURL := DefaultOpsgenieAPIURL
 	if cfg.GetApiUrl() != "" {
 		apiURL = cfg.GetApiUrl()
@@ -69,15 +69,15 @@ func New(cfg *configpb.OpsGenie, l *logger.Logger) (*Client, error) {
 // in order of precendence:
 // 1. Routing key supplied by the user in the config
 // 2. Routing key environment variable
-func lookupOpsgenieKey(cfg *configpb.OpsGenie) (string, error) {
+func lookupOpsgenieKey(cfg *configpb.Opsgenie) (string, error) {
 	// check if the user supplied a routing key
-	if cfg.GetGenieKey() != "" {
-		return cfg.GetGenieKey(), nil
+	if cfg.GetApiKey() != "" {
+		return cfg.GetApiKey(), nil
 	}
 
-	envVar := cfg.GetGenieKeyEnvVar()
+	envVar := cfg.GetApiKeyEnvVar()
 	if envVar == "" {
-		envVar = DefaultGenieKeyEnvVar
+		envVar = DefaultApiKeyEnvVar
 	}
 	// check if the environment variable is set for the routing key
 	if routingKey, exists := os.LookupEnv(envVar); exists {

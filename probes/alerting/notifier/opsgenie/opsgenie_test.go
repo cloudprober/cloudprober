@@ -29,20 +29,20 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	os.Setenv(DefaultGenieKeyEnvVar, "default-genie-key")
-	defer os.Unsetenv(DefaultGenieKeyEnvVar)
+	os.Setenv(DefaultApiKeyEnvVar, "default-genie-key")
+	defer os.Unsetenv(DefaultApiKeyEnvVar)
 	os.Setenv("TEST_GENIE_KEY", "test-genie-key")
 	defer os.Unsetenv("TEST_GENIE_KEY")
 
 	tests := []struct {
 		name    string
-		cfg     *configpb.OpsGenie
+		cfg     *configpb.Opsgenie
 		want    *Client
 		wantErr bool
 	}{
 		{
 			name: "default-key-url",
-			cfg:  &configpb.OpsGenie{},
+			cfg:  &configpb.Opsgenie{},
 			want: &Client{
 				apiURL:     DefaultOpsgenieAPIURL,
 				httpClient: http.DefaultClient,
@@ -51,9 +51,9 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "config",
-			cfg: &configpb.OpsGenie{
-				ApiUrl:   "https://test-api.opsgenie.com/v2/alerts",
-				GenieKey: "config-genie-key",
+			cfg: &configpb.Opsgenie{
+				ApiUrl: "https://test-api.opsgenie.com/v2/alerts",
+				ApiKey: "config-genie-key",
 			},
 			want: &Client{
 				apiURL:     "https://test-api.opsgenie.com/v2/alerts",
@@ -63,8 +63,8 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "custom-key-env-var",
-			cfg: &configpb.OpsGenie{
-				GenieKeyEnvVar: "TEST_GENIE_KEY",
+			cfg: &configpb.Opsgenie{
+				ApiKeyEnvVar: "TEST_GENIE_KEY",
 			},
 			want: &Client{
 				apiURL:     DefaultOpsgenieAPIURL,
