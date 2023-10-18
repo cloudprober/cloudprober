@@ -23,6 +23,42 @@ message Email {
     string smtp_password = 5;  
 }
 
+message OpsGenie {
+    // Genie Key. Authorization key for OpsGenie API.
+    string genie_key = 1;
+
+    // Default: GENIE_KEY
+    string genie_key_env_var = 2; 
+
+    message Responder {
+        oneof ref {
+            string id = 1;
+            string name = 2;
+        }
+        enum Type {
+            UNKNOWN_RESPONDER = 0;
+            USER = 1;
+            TEAM = 2;
+            ESCALATION = 3;
+            SCHEDULE = 4;
+        }
+        Type type = 3; 
+    }
+
+    // OpsGenie responders. OpsGenie uses the responders to route the alerts.
+    // If API Key belongs to a team integration, this field will be ignored.
+    // Example:
+    //  responders {
+    //    id: "4513b7ea-3b91-438f-b7e4-e3e54af9147c"
+    //    type: TEAM
+    //  }
+    repeated Responder responders = 3;
+
+    // OpsGenie API URL.
+    // Default: https://api.opsgenie.com/v2/alerts
+    string api_url = 4;
+}
+
 message PagerDuty {
     // PagerDuty Routing Key.
     // The routing key is used to determine which service the alerts are sent to
@@ -85,6 +121,9 @@ message NotifyConfig {
 
     // Slack configuration.
     Slack slack = 13;
+
+    // OpsGenie configuration.
+    OpsGenie opsgenie = 14;
 }
 
 message Condition {

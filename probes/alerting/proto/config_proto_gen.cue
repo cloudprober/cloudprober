@@ -19,6 +19,50 @@ package proto
 	smtpPassword?: string @protobuf(5,string,name=smtp_password)
 }
 
+#OpsGenie: {
+	// Genie Key. Authorization key for OpsGenie API.
+	genieKey?: string @protobuf(1,string,name=genie_key)
+
+	// Default: GENIE_KEY
+	genieKeyEnvVar?: string @protobuf(2,string,name=genie_key_env_var)
+
+	#Responder: {
+		{} | {
+			id: string @protobuf(1,string)
+		} | {
+			name: string @protobuf(2,string)
+		}
+
+		#Type: {"UNKNOWN_RESPONDER", #enumValue: 0} |
+			{"USER", #enumValue: 1} |
+			{"TEAM", #enumValue: 2} |
+			{"ESCALATION", #enumValue: 3} |
+			{"SCHEDULE", #enumValue: 4}
+
+		#Type_value: {
+			UNKNOWN_RESPONDER: 0
+			USER:              1
+			TEAM:              2
+			ESCALATION:        3
+			SCHEDULE:          4
+		}
+		type?: #Type @protobuf(3,Type)
+	}
+
+	// OpsGenie responders. OpsGenie uses the responders to route the alerts.
+	// If API Key belongs to a team integration, this field will be ignored.
+	// Example:
+	//  responders {
+	//    id: "4513b7ea-3b91-438f-b7e4-e3e54af9147c"
+	//    type: TEAM
+	//  }
+	responders?: [...#Responder] @protobuf(3,Responder)
+
+	// OpsGenie API URL.
+	// Default: https://api.opsgenie.com/v2/alerts
+	apiUrl?: string @protobuf(4,string,name=api_url)
+}
+
 #PagerDuty: {
 	// PagerDuty Routing Key.
 	// The routing key is used to determine which service the alerts are sent to
@@ -81,6 +125,9 @@ package proto
 
 	// Slack configuration.
 	slack?: #Slack @protobuf(13,Slack)
+
+	// OpsGenie configuration.
+	opsgenie?: #OpsGenie @protobuf(14,OpsGenie)
 }
 
 #Condition: {
