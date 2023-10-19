@@ -78,6 +78,7 @@ currently supports the following notification targets:
 
 - [Email](/docs/config/alerting/#cloudprober_alerting_Email)
 - [PagerDuty](/docs/config/alerting/#cloudprober_alerting_PagerDuty)
+- [Opsgenie](/docs/config/alerting/#cloudprober_alerting_Opsgenie)
 - [Slack](/docs/config/alerting/#cloudprober_alerting_Slack)
 - [Command](/docs/config/alerting/#cloudprober_alerting_NotifyConfig)
 
