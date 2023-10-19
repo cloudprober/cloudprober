@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"sync"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/alerting/notifier"
 	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -39,7 +39,6 @@ type targetState struct {
 
 	alerted      bool
 	alertTS      time.Time
-	conditionID  string
 	failingSince time.Time
 }
 
@@ -122,14 +121,20 @@ func extractValue(em *metrics.EventMetrics, name string) (int64, error) {
 	return numV.Int64(), nil
 }
 
+func conditionID(alertKey string) string {
+	return uuid.NewMD5(uuid.NameSpaceOID, []byte(alertKey)).String()
+}
+
 func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailures int) {
 	ah.l.Warningf("ALERT (%s): target (%s), failures (%d) higher than (%d) since (%v)", ah.name, ep.Name, totalFailures, ah.condition.Failures, ts.failingSince)
 
 	ts.alerted = true
+	alertKey := ah.globalKey(ep)
+
 	alertInfo := &alertinfo.AlertInfo{
 		Name:         ah.name,
 		ProbeName:    ah.probeName,
-		ConditionID:  ts.conditionID,
+		ConditionID:  conditionID(alertKey),
 		Target:       ep,
 		Failures:     totalFailures,
 		Total:        int(ah.condition.Total),
@@ -141,14 +146,13 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 	}
 
 	ah.notifier.Notify(context.Background(), alertInfo)
-	globalState.add(ah.globalKey(ep), alertInfo)
+	globalState.add(alertKey, alertInfo)
 }
 
 func (ah *AlertHandler) resolveAlertCondition(ts *targetState, ep endpoint.Endpoint) {
 	ah.l.Infof("ALERT Resolved (%s): target: %s", ah.name, ep.Name)
 
 	ts.alerted = false
-	ts.conditionID = ""
 	ts.alertTS = time.Time{}
 
 	key := ah.globalKey(ep)
@@ -175,7 +179,6 @@ func (ah *AlertHandler) handleAlertCondition(ts *targetState, ep endpoint.Endpoi
 
 	// New alert.
 	ts.alerted = true
-	ts.conditionID = strconv.FormatInt(timestamp.Unix(), 10)
 	ts.failingSince = timestamp
 	ts.alertTS = time.Now()
 	ah.notify(ep, ts, totalFailures)

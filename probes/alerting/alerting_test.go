@@ -347,3 +347,28 @@ func TestExtractValue(t *testing.T) {
 		})
 	}
 }
+
+func TestConditionID(t *testing.T) {
+	tests := []struct {
+		alertKey string
+		want     string
+	}{
+		{
+			alertKey: "test-probe-target1",
+			want:     "33b0ac57-887d-3205-bba1-26f0d9a97104",
+		},
+		{
+			alertKey: "test-probe-target1",
+			want:     "33b0ac57-887d-3205-bba1-26f0d9a97104",
+		},
+		{
+			alertKey: "test-probe-target2",
+			want:     "e93e4809-4dc5-3a74-972c-a30d2c253e97",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.alertKey, func(t *testing.T) {
+			assert.Equal(t, tt.want, conditionID(tt.alertKey))
+		})
+	}
+}
