@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -87,48 +88,60 @@ func TestNew(t *testing.T) {
 }
 
 type testTransport struct {
-	wantMessage string
-	wantKey     string
-	wantAlias   string
+	closeRequest bool
+	wantMessage  string
+	wantKey      string
+	wantAlias    string
+	wantCloseURL string
 }
 
-func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (tt *testTransport) verifyCreateRequest(req *http.Request) error {
 	reqBody, _ := io.ReadAll(req.Body)
 	msg := alertMessage{}
 
-	err := json.Unmarshal(reqBody, &msg)
-	if err != nil {
-		return &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       io.NopCloser(bytes.NewBufferString("error unmarshaling")),
-		}, err
+	if err := json.Unmarshal(reqBody, &msg); err != nil {
+		return fmt.Errorf("error unmarshaling: %v", err)
 	}
 
 	if msg.Message != tt.wantMessage {
-		return &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       io.NopCloser(bytes.NewBufferString("message mismatch")),
-		}, nil
+		return fmt.Errorf("message mismatch, want: %s, got: %s", tt.wantMessage, msg.Message)
 	}
 
 	if msg.Alias != tt.wantAlias {
-		return &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       io.NopCloser(bytes.NewBufferString("alias mismatch")),
-		}, nil
+		return fmt.Errorf("alias mismatch, want: %s, got: %s", tt.wantAlias, msg.Alias)
 	}
 
 	authHeader := req.Header.Get("Authorization")
 	if authHeader != "GenieKey "+tt.wantKey {
-		return &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       io.NopCloser(bytes.NewBufferString("auth header mismatch")),
-		}, nil
+		return fmt.Errorf("auth header mismatch, want: %s, got: %s", "GenieKey "+tt.wantKey, authHeader)
+	}
+
+	return nil
+}
+
+func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if !tt.closeRequest {
+		if err := tt.verifyCreateRequest(req); err != nil {
+			return &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Body:       io.NopCloser(bytes.NewBufferString(err.Error())),
+			}, nil
+		}
+	}
+
+	if tt.closeRequest {
+		if req.URL.String() != tt.wantCloseURL {
+			s := fmt.Sprintf("url mismatch, want: %s, got: %s", tt.wantCloseURL, req.URL.String())
+			return &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Body:       io.NopCloser(bytes.NewBufferString(s)),
+			}, nil
+		}
 	}
 
 	return &http.Response{
 		StatusCode: http.StatusAccepted,
-		Body:       io.NopCloser(bytes.NewBufferString(msg.Message)),
+		Body:       io.NopCloser(bytes.NewBufferString(tt.wantMessage)),
 	}, nil
 }
 
@@ -185,6 +198,69 @@ func TestClientNotify(t *testing.T) {
 			}
 
 			err := c.Notify(context.Background(), tt.alertInfo, tt.alertFields)
+			if tt.errorContains != "" {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+					return
+				}
+				assert.Contains(t, err.Error(), tt.errorContains)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestClientNotifyResolve(t *testing.T) {
+	ogKey := "default-genie-key"
+
+	tests := []struct {
+		name          string
+		cfg           *configpb.Opsgenie
+		alertInfo     *alertinfo.AlertInfo
+		wantURL       string
+		errorContains string
+	}{
+		{
+			name: "default",
+			alertInfo: &alertinfo.AlertInfo{
+				ConditionID: "test-condition",
+			},
+			wantURL: "https://api.opsgenie.com/v2/alerts/test-condition/close?identifierType=alias",
+		},
+		{
+			name: "default-mismatch",
+			alertInfo: &alertinfo.AlertInfo{
+				ConditionID: "test-condition2",
+			},
+			wantURL:       "https://api.opsgenie.com/v2/alerts/test-condition/close?identifierType=alias",
+			errorContains: "url mismatch",
+		},
+		{
+			name: "disabled",
+			cfg: &configpb.Opsgenie{
+				DisableSendResolved: true,
+			},
+			alertInfo: &alertinfo.AlertInfo{
+				// there is mismatch but resolve is disabled
+				ConditionID: "test-condition2",
+			},
+			wantURL: "https://api.opsgenie.com/v2/alerts/test-condition/close?identifierType=alias",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{
+				cfg: tt.cfg,
+				httpClient: &http.Client{Transport: &testTransport{
+					closeRequest: true,
+					wantCloseURL: tt.wantURL,
+				}},
+				apiURL: DefaultOpsgenieAPIURL,
+				ogKey:  ogKey,
+			}
+
+			err := c.NotifyResolve(context.Background(), tt.alertInfo, map[string]string{})
 			if tt.errorContains != "" {
 				if err == nil {
 					t.Errorf("expected error, got nil")

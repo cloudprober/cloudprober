@@ -62,6 +62,10 @@ package proto
 	// Opsgenie API URL.
 	// Default: https://api.opsgenie.com/v2/alerts
 	apiUrl?: string @protobuf(4,string,name=api_url)
+
+	// Whether to send resolve notifications or not. Default is to send resolve
+	// notifications.
+	disableSendResolved?: bool @protobuf(5,bool,name=disable_send_resolved) // Default: false
 }
 
 #PagerDuty: {

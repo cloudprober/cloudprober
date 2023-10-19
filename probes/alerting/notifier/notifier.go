@@ -128,7 +128,15 @@ func (n *Notifier) NotifyResolve(ctx context.Context, alertInfo *alertinfo.Alert
 	fields := n.alertFields(alertInfo)
 
 	if n.pagerdutyNotifier != nil {
-		n.pagerdutyNotifier.NotifyResolve(ctx, alertInfo, fields)
+		if err := n.pagerdutyNotifier.NotifyResolve(ctx, alertInfo, fields); err != nil {
+			n.l.Errorf("Error sending PagerDuty resolve event: %v", err)
+		}
+	}
+
+	if n.opsgenieNotifier != nil {
+		if err := n.opsgenieNotifier.NotifyResolve(ctx, alertInfo, fields); err != nil {
+			n.l.Errorf("Error closing OpsGenie alert: %v", err)
+		}
 	}
 }
 
