@@ -44,18 +44,17 @@ func TestAlertInfoFields(t *testing.T) {
 		{
 			name: "no_template_details",
 			ai: &AlertInfo{
-				Name:         "test-alert",
-				ProbeName:    "test-probe",
-				ConditionID:  "122333444",
-				Target:       testTarget,
-				Failures:     8,
-				Total:        12,
-				FailingSince: time.Time{}.Add(time.Second),
+				Name:            "test-alert",
+				ProbeName:       "test-probe",
+				DeduplicationID: "122333444",
+				Target:          testTarget,
+				Failures:        8,
+				Total:           12,
+				FailingSince:    time.Time{}.Add(time.Second),
 			},
 			want: map[string]string{
 				"alert":                 "test-alert",
 				"probe":                 "test-probe",
-				"condition_id":          "122333444",
 				"target":                "test-target",
 				"target_ip":             "10.11.12.13",
 				"failures":              "8",
@@ -68,13 +67,13 @@ func TestAlertInfoFields(t *testing.T) {
 		{
 			name: "with_template_details",
 			ai: &AlertInfo{
-				Name:         "test-alert",
-				ProbeName:    "test-probe",
-				ConditionID:  "122333444",
-				Target:       testTarget,
-				Failures:     8,
-				Total:        12,
-				FailingSince: time.Time{}.Add(time.Second),
+				Name:            "test-alert",
+				ProbeName:       "test-probe",
+				DeduplicationID: "122333444",
+				Target:          testTarget,
+				Failures:        8,
+				Total:           12,
+				FailingSince:    time.Time{}.Add(time.Second),
 			},
 			templateDetails: map[string]string{
 				"summary":       "Cloudprober alert \"@alert@\" for \"@target@\"",
@@ -84,7 +83,6 @@ func TestAlertInfoFields(t *testing.T) {
 			want: map[string]string{
 				"alert":                 "test-alert",
 				"probe":                 "test-probe",
-				"condition_id":          "122333444",
 				"target":                "test-target",
 				"target_ip":             "10.11.12.13",
 				"failures":              "8",
@@ -107,9 +105,8 @@ func TestAlertInfoFields(t *testing.T) {
 
 func TestFieldsToString(t *testing.T) {
 	fields := map[string]string{
-		"alert":        "test-alert",
-		"probe":        "test-probe",
-		"condition_id": "122333444",
+		"alert": "test-alert",
+		"probe": "test-probe",
 	}
 
 	tests := []struct {
@@ -119,12 +116,12 @@ func TestFieldsToString(t *testing.T) {
 	}{
 		{
 			name: "skip_none",
-			want: "alert: test-alert\ncondition_id: 122333444\nprobe: test-probe",
+			want: "alert: test-alert\nprobe: test-probe",
 		},
 		{
 			name:     "skip_probe",
-			skipKeys: []string{"condition_id"},
-			want:     "alert: test-alert\nprobe: test-probe",
+			skipKeys: []string{"probe"},
+			want:     "alert: test-alert",
 		},
 	}
 	for _, tt := range tests {

@@ -25,7 +25,7 @@ import (
 
 func TestAlertRequest(t *testing.T) {
 	alertInfo := &alertinfo.AlertInfo{
-		ConditionID: "test-condition",
+		DeduplicationID: "test-condition",
 	}
 
 	testKey := "test-genie-key"

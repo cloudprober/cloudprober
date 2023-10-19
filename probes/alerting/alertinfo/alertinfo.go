@@ -30,22 +30,24 @@ import (
 type AlertInfo struct {
 	Name         string
 	ProbeName    string
-	ConditionID  string
 	Target       endpoint.Endpoint
 	Failures     int
 	Total        int
 	FailingSince time.Time
+
+	// DeduplicationID is used to de-duplicate alerts. It is set to a UUID
+	// created using the alert name, probe name and target.
+	DeduplicationID string
 }
 
 func (ai *AlertInfo) Fields(templateDetails map[string]string) map[string]string {
 	fields := map[string]string{
-		"alert":        ai.Name,
-		"probe":        ai.ProbeName,
-		"target":       ai.Target.Dst(),
-		"condition_id": ai.ConditionID,
-		"failures":     strconv.Itoa(ai.Failures),
-		"total":        strconv.Itoa(ai.Total),
-		"since":        ai.FailingSince.Format(time.RFC3339),
+		"alert":    ai.Name,
+		"probe":    ai.ProbeName,
+		"target":   ai.Target.Dst(),
+		"failures": strconv.Itoa(ai.Failures),
+		"total":    strconv.Itoa(ai.Total),
+		"since":    ai.FailingSince.Format(time.RFC3339),
 	}
 
 	for k, v := range ai.Target.Labels {
