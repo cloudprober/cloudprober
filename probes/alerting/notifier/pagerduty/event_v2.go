@@ -105,6 +105,8 @@ func (c *Client) sendEventV2(event *EventV2Request) (*EventV2Response, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
+	c.l.Infof("Sending event to PagerDuty (URL: %s): %s", req.URL.String(), event.Payload.Summary)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err

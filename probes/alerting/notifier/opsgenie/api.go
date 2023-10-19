@@ -60,6 +60,8 @@ func (c *Client) sendAlert(msg *alertMessage) error {
 		return err
 	}
 
+	c.l.Infof("Sending alert to Opsgenie (URL: %s): %s", req.URL.String(), msg.Message)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err

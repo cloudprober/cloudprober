@@ -29,7 +29,7 @@ import (
 
 type Client struct {
 	httpClient          *http.Client
-	logger              *logger.Logger
+	l                   *logger.Logger
 	hostname            string
 	routingKey          string
 	disableSendResolved bool
@@ -58,7 +58,7 @@ func New(pagerdutycfg *configpb.PagerDuty, l *logger.Logger) (*Client, error) {
 
 	return &Client{
 		httpClient:          &http.Client{},
-		logger:              l,
+		l:                   l,
 		hostname:            hostname,
 		routingKey:          routingKey,
 		disableSendResolved: pagerdutycfg.GetDisableSendResolved(),
@@ -103,7 +103,7 @@ func (c *Client) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo, ale
 		return err
 	}
 
-	c.logger.Debugf("PagerDuty: trigger event sent successfully. Dedupe key: %s, message: %s", response.DedupKey, response.Message)
+	c.l.Debugf("PagerDuty: trigger event sent successfully. Dedupe key: %s, message: %s", response.DedupKey, response.Message)
 
 	return nil
 }
@@ -116,12 +116,12 @@ func (c *Client) NotifyResolve(ctx context.Context, alertInfo *alertinfo.AlertIn
 	// Create the event
 	event := c.createResolveRequest(alertInfo, alertFields)
 
-	c.logger.Infof("PagerDuty: sending resolve event: dedupe key: %s", event.DedupKey)
+	c.l.Infof("PagerDuty: sending resolve event: dedupe key: %s", event.DedupKey)
 
 	// Send the event
 	_, err := c.sendEventV2(event)
 	if err != nil {
-		c.logger.Errorf("PagerDuty: error sending resolve event: %v", err)
+		c.l.Errorf("PagerDuty: error sending resolve event: %v", err)
 		return err
 	}
 	return nil
