@@ -30,7 +30,7 @@ import (
 type Client struct {
 	cfg        *configpb.Opsgenie
 	httpClient *http.Client
-	logger     *logger.Logger
+	l          *logger.Logger
 	apiURL     string
 	ogKey      string
 }
@@ -59,7 +59,7 @@ func New(cfg *configpb.Opsgenie, l *logger.Logger) (*Client, error) {
 	return &Client{
 		cfg:        cfg,
 		httpClient: http.DefaultClient,
-		logger:     l,
+		l:          l,
 		apiURL:     apiURL,
 		ogKey:      ogKey,
 	}, nil
