@@ -46,7 +46,7 @@ func TestAlertInfoFields(t *testing.T) {
 			ai: &AlertInfo{
 				Name:            "test-alert",
 				ProbeName:       "test-probe",
-				DeDuplicationID: "122333444",
+				DeduplicationID: "122333444",
 				Target:          testTarget,
 				Failures:        8,
 				Total:           12,
@@ -69,7 +69,7 @@ func TestAlertInfoFields(t *testing.T) {
 			ai: &AlertInfo{
 				Name:            "test-alert",
 				ProbeName:       "test-probe",
-				DeDuplicationID: "122333444",
+				DeduplicationID: "122333444",
 				Target:          testTarget,
 				Failures:        8,
 				Total:           12,

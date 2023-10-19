@@ -35,9 +35,9 @@ type AlertInfo struct {
 	Total        int
 	FailingSince time.Time
 
-	// DeDuplicationID is used to de-duplicate alerts. It is set to a UUID
+	// DeduplicationID is used to de-duplicate alerts. It is set to a UUID
 	// created using the alert name, probe name and target.
-	DeDuplicationID string
+	DeduplicationID string
 }
 
 func (ai *AlertInfo) Fields(templateDetails map[string]string) map[string]string {

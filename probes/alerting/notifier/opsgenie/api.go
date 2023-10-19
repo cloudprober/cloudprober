@@ -148,5 +148,5 @@ func (c *Client) createAlertMessage(alertInfo *alertinfo.AlertInfo, alertFields 
 
 // dedupeKey returns a deduplication key.
 func dedupeKey(alertInfo *alertinfo.AlertInfo) string {
-	return alertInfo.DeDuplicationID
+	return alertInfo.DeduplicationID
 }

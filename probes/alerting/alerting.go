@@ -134,7 +134,7 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 	alertInfo := &alertinfo.AlertInfo{
 		Name:            ah.name,
 		ProbeName:       ah.probeName,
-		DeDuplicationID: conditionID(alertKey),
+		DeduplicationID: conditionID(alertKey),
 		Target:          ep,
 		Failures:        totalFailures,
 		Total:           int(ah.condition.Total),

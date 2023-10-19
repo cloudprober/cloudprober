@@ -47,7 +47,7 @@ func TestAlertFields(t *testing.T) {
 			ai: &alertinfo.AlertInfo{
 				Name:            "test-alert",
 				ProbeName:       "test-probe",
-				DeDuplicationID: "122333444",
+				DeduplicationID: "122333444",
 				Target:          testTarget,
 				Failures:        8,
 				Total:           12,
@@ -82,7 +82,7 @@ func TestNotify(t *testing.T) {
 	alertInfo := &alertinfo.AlertInfo{
 		Name:            "test-alert",
 		ProbeName:       "test-probe",
-		DeDuplicationID: "cond-id",
+		DeduplicationID: "cond-id",
 		Target: endpoint.Endpoint{
 			Name:   "test-target:1234",
 			Labels: map[string]string{"owner": "manugarg@a.b"},

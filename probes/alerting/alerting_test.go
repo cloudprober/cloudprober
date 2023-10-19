@@ -41,7 +41,7 @@ func testAlertInfo(target string, failures, total, dur int) *alertinfo.AlertInfo
 		Failures:        failures,
 		Total:           total,
 		FailingSince:    time.Time{}.Add(time.Duration(dur) * time.Second),
-		DeDuplicationID: conditionID(ah.globalKey(ep)),
+		DeduplicationID: conditionID(ah.globalKey(ep)),
 	}
 }
 

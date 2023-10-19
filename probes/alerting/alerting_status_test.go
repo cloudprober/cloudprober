@@ -158,23 +158,26 @@ func TestStatusHTML(t *testing.T) {
 
 <table class="status-list">
 <tr>
-  <th>Failing Since</th>
+  <th>Alert</th>
   <th>Probe</th>
+  <th>Failing Since</th>
   <th>Target</th>
-  <th>Condition ID</th>
+  <th>Deduplication ID</th>
   <th>Failures / Total</th>
 </tr>
 
 <tr>
-  <td>0001-01-01 00:00:01 &#43;0000 UTC</td>
+  <td>test-alert-1</td>
   <td>test-probe-2</td>
+  <td>0001-01-01 00:00:01 &#43;0000 UTC</td>
   <td>target1</td>
   <td></td>
   <td>0 / 0</td>
 </tr>
 <tr>
-  <td>0001-01-01 00:00:03 &#43;0000 UTC</td>
+  <td>test-alert-1</td>
   <td>test-probe-2</td>
+  <td>0001-01-01 00:00:03 &#43;0000 UTC</td>
   <td>target2</td>
   <td></td>
   <td>0 / 0</td>
@@ -195,16 +198,18 @@ func TestStatusHTML(t *testing.T) {
 
 <table class="status-list">
 <tr>
-  <th>Failing Since</th>
+  <th>Alert</th>
   <th>Probe</th>
+  <th>Failing Since</th>
   <th>Target</th>
-  <th>Condition ID</th>
+  <th>Deduplication ID</th>
   <th>Failures / Total</th>
 </tr>
 
 <tr>
-  <td>0001-01-01 00:00:03 &#43;0000 UTC</td>
+  <td>test-alert-1</td>
   <td>test-probe-2</td>
+  <td>0001-01-01 00:00:03 &#43;0000 UTC</td>
   <td>target2</td>
   <td></td>
   <td>0 / 0</td>
@@ -216,16 +221,18 @@ func TestStatusHTML(t *testing.T) {
 <p>[Showing last 1 resolved alerts..]</p>
 <table class="status-list">
 <tr>
-  <th>Started At</th>
+  <th>Alert</th>
   <th>Probe</th>
+  <th>Started At</th>
   <th>Target</th>
-  <th>Condition ID</th>
+  <th>Deduplication ID</th>
   <th>Resolved At</th>
 </tr>
 
 <tr>
-  <td>0001-01-01 00:00:01 &#43;0000 UTC</td>
+  <td>test-alert-1</td>
   <td>test-probe-2</td>
+  <td>0001-01-01 00:00:01 &#43;0000 UTC</td>
   <td>target1</td>
   <td></td>
   <td>0001-01-01 00:00:04 &#43;0000 UTC</td>
