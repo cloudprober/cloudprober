@@ -15,7 +15,6 @@
 package alerting
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -29,14 +28,20 @@ import (
 )
 
 func testAlertInfo(target string, failures, total, dur int) *alertinfo.AlertInfo {
+	ep := endpoint.Endpoint{Name: target}
+	ah := &AlertHandler{
+		name:      "test-probe",
+		probeName: "test-probe",
+	}
+
 	return &alertinfo.AlertInfo{
-		Name:         "test-probe",
-		ProbeName:    "test-probe",
-		Target:       endpoint.Endpoint{Name: target},
+		Name:         ah.name,
+		ProbeName:    ah.probeName,
+		Target:       ep,
 		Failures:     failures,
 		Total:        total,
 		FailingSince: time.Time{}.Add(time.Duration(dur) * time.Second),
-		ConditionID:  strconv.FormatInt(time.Time{}.Add(time.Duration(dur)*time.Second).Unix(), 10),
+		ConditionID:  conditionID(ah.globalKey(ep)),
 	}
 }
 
