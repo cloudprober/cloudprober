@@ -53,14 +53,9 @@ const (
 	P1, P2, P3, P4 priority = "P1", "P2", "P3", "P4"
 )
 
-// sendAlert sends an event to PagerDuty using the V2 API.
-func (c *Client) sendAlert(msg *alertMessage) error {
-	req, err := c.alertRequest(msg)
-	if err != nil {
-		return err
-	}
-
-	c.l.Infof("Sending alert to Opsgenie (URL: %s): %s", req.URL.String(), msg.Message)
+// sendRequest sends an event to PagerDuty using the V2 API.
+func (c *Client) sendRequest(req *http.Request, msg string) error {
+	c.l.Infof("Sending request to Opsgenie (URL: %s): %s", req.URL.String(), msg)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -81,14 +76,9 @@ func (c *Client) sendAlert(msg *alertMessage) error {
 	return nil
 }
 
-// sendEventV2 sends an event to PagerDuty using the V2 API.
-func (c *Client) alertRequest(msg *alertMessage) (*http.Request, error) {
-	jsonBody, err := json.Marshal(msg)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling json: %v", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, c.apiURL, bytes.NewBuffer(jsonBody))
+// httpRequest prepares an HTTP request to create an alert.
+func (c *Client) httpRequest(method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %v", err)
 	}
@@ -97,6 +87,21 @@ func (c *Client) alertRequest(msg *alertMessage) (*http.Request, error) {
 	req.Header.Set("Authorization", "GenieKey "+c.ogKey)
 
 	return req, nil
+}
+
+// alertRequest prepares an HTTP request to create an alert.
+func (c *Client) alertRequest(msg *alertMessage) (*http.Request, error) {
+	jsonBody, err := json.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling json: %v", err)
+	}
+	return c.httpRequest(http.MethodPost, c.apiURL, bytes.NewBuffer(jsonBody))
+}
+
+// closeRequest prepares an HTTP request to find an alert.
+func (c *Client) closeRequest(alias string) (*http.Request, error) {
+	url := fmt.Sprintf("%s/%s/close?identifierType=alias", c.apiURL, alias)
+	return c.httpRequest(http.MethodPost, url, bytes.NewBufferString("{}"))
 }
 
 func priorityFromAlertFields(alertFields map[string]string) priority {
@@ -141,10 +146,7 @@ func (c *Client) createAlertMessage(alertInfo *alertinfo.AlertInfo, alertFields 
 	return msg
 }
 
-// dedupeKey returns a key that can be used to dedupe PagerDuty events.
-// note: submitting subsequent events with the same dedup_key will result in
-// those events being applied to an open alert matching that dedup_key.
-// https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event#alert-de-duplication
+// dedupeKey returns a deduplication key.
 func dedupeKey(alertInfo *alertinfo.AlertInfo) string {
 	return alertInfo.ConditionID
 }

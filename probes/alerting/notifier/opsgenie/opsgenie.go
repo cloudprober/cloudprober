@@ -19,6 +19,7 @@ package opsgenie
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -88,5 +89,28 @@ func lookupOpsgenieKey(cfg *configpb.Opsgenie) (string, error) {
 }
 
 func (c *Client) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo, alertFields map[string]string) error {
-	return c.sendAlert(c.createAlertMessage(alertInfo, alertFields))
+	alertMsg := c.createAlertMessage(alertInfo, alertFields)
+
+	req, err := c.alertRequest(alertMsg)
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err)
+	}
+
+	return c.sendRequest(req, alertMsg.Message)
+}
+
+func (c *Client) NotifyResolve(ctx context.Context, alertInfo *alertinfo.AlertInfo, alertFields map[string]string) error {
+	if c.cfg.GetDisableSendResolved() {
+		return nil
+	}
+
+	alertMsg := c.createAlertMessage(alertInfo, alertFields)
+
+	req, err := c.closeRequest(alertMsg.Alias)
+	if err != nil {
+		c.l.Errorf("Error creating close alert request: %v", err)
+		return err
+	}
+
+	return c.sendRequest(req, alertMsg.Message)
 }
