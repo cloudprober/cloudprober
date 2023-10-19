@@ -98,7 +98,7 @@ func (c *Client) alertRequest(msg *alertMessage) (*http.Request, error) {
 	return c.httpRequest(http.MethodPost, c.apiURL, bytes.NewBuffer(jsonBody))
 }
 
-// closeRequest prepares an HTTP request to find an alert.
+// closeRequest prepares an HTTP request to close an alert.
 func (c *Client) closeRequest(alias string) (*http.Request, error) {
 	url := fmt.Sprintf("%s/%s/close?identifierType=alias", c.apiURL, alias)
 	return c.httpRequest(http.MethodPost, url, bytes.NewBufferString("{}"))

@@ -135,7 +135,7 @@ func (n *Notifier) NotifyResolve(ctx context.Context, alertInfo *alertinfo.Alert
 
 	if n.opsgenieNotifier != nil {
 		if err := n.opsgenieNotifier.NotifyResolve(ctx, alertInfo, fields); err != nil {
-			n.l.Errorf("Error sending OpsGenie resolve event: %v", err)
+			n.l.Errorf("Error closing OpsGenie alert: %v", err)
 		}
 	}
 }
