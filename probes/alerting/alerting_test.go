@@ -35,13 +35,13 @@ func testAlertInfo(target string, failures, total, dur int) *alertinfo.AlertInfo
 	}
 
 	return &alertinfo.AlertInfo{
-		Name:         ah.name,
-		ProbeName:    ah.probeName,
-		Target:       ep,
-		Failures:     failures,
-		Total:        total,
-		FailingSince: time.Time{}.Add(time.Duration(dur) * time.Second),
-		ConditionID:  conditionID(ah.globalKey(ep)),
+		Name:            ah.name,
+		ProbeName:       ah.probeName,
+		Target:          ep,
+		Failures:        failures,
+		Total:           total,
+		FailingSince:    time.Time{}.Add(time.Duration(dur) * time.Second),
+		DeDuplicationID: conditionID(ah.globalKey(ep)),
 	}
 }
 

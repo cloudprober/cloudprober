@@ -220,5 +220,5 @@ func generateLinks(alertFields map[string]string) []EventV2Links {
 // those events being applied to an open alert matching that dedup_key.
 // https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgx-send-an-alert-event#alert-de-duplication
 func eventV2DedupeKey(alertInfo *alertinfo.AlertInfo) string {
-	return alertInfo.ConditionID
+	return alertInfo.DeDuplicationID
 }

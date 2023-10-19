@@ -132,13 +132,13 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 	alertKey := ah.globalKey(ep)
 
 	alertInfo := &alertinfo.AlertInfo{
-		Name:         ah.name,
-		ProbeName:    ah.probeName,
-		ConditionID:  conditionID(alertKey),
-		Target:       ep,
-		Failures:     totalFailures,
-		Total:        int(ah.condition.Total),
-		FailingSince: ts.failingSince,
+		Name:            ah.name,
+		ProbeName:       ah.probeName,
+		DeDuplicationID: conditionID(alertKey),
+		Target:          ep,
+		Failures:        totalFailures,
+		Total:           int(ah.condition.Total),
+		FailingSince:    ts.failingSince,
 	}
 
 	if ah.notifyCh != nil {

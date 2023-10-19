@@ -159,7 +159,7 @@ func TestClientNotify(t *testing.T) {
 		{
 			name: "no-error",
 			alertInfo: &alertinfo.AlertInfo{
-				ConditionID: "test-condition",
+				DeDuplicationID: "test-condition",
 			},
 			alertFields: map[string]string{
 				"summary": "test-alert-message",
@@ -170,7 +170,7 @@ func TestClientNotify(t *testing.T) {
 		{
 			name: "alias-mismatch",
 			alertInfo: &alertinfo.AlertInfo{
-				ConditionID: "test-condition-2",
+				DeDuplicationID: "test-condition-2",
 			},
 			alertFields:   map[string]string{},
 			wantAlias:     "test-condition-3",
@@ -224,14 +224,14 @@ func TestClientNotifyResolve(t *testing.T) {
 		{
 			name: "default",
 			alertInfo: &alertinfo.AlertInfo{
-				ConditionID: "test-condition",
+				DeDuplicationID: "test-condition",
 			},
 			wantURL: "https://api.opsgenie.com/v2/alerts/test-condition/close?identifierType=alias",
 		},
 		{
 			name: "default-mismatch",
 			alertInfo: &alertinfo.AlertInfo{
-				ConditionID: "test-condition2",
+				DeDuplicationID: "test-condition2",
 			},
 			wantURL:       "https://api.opsgenie.com/v2/alerts/test-condition/close?identifierType=alias",
 			errorContains: "url mismatch",
@@ -243,7 +243,7 @@ func TestClientNotifyResolve(t *testing.T) {
 			},
 			alertInfo: &alertinfo.AlertInfo{
 				// there is mismatch but resolve is disabled
-				ConditionID: "test-condition2",
+				DeDuplicationID: "test-condition2",
 			},
 			wantURL: "https://api.opsgenie.com/v2/alerts/test-condition/close?identifierType=alias",
 		},
