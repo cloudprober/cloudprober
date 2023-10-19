@@ -58,6 +58,11 @@ message Opsgenie {
     // Opsgenie API URL.
     // Default: https://api.opsgenie.com/v2/alerts
     string api_url = 4;
+
+    // Whether to send resolve notifications or not. Default is to send resolve
+    // notifications.
+    bool disable_send_resolved = 5; // Default: false
+
 }
 
 message PagerDuty {

@@ -144,3 +144,23 @@ func TestAlertRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestClientCloseRequest(t *testing.T) {
+	c := &Client{
+		apiURL: "https://api.opsgenie.com/v2/alerts",
+		ogKey:  "test-genie-key",
+	}
+	alias := "test-condition"
+	wantReqURL := "https://api.opsgenie.com/v2/alerts/test-condition/close?identifierType=alias"
+	wantReqBody := "{}"
+
+	req, err := c.closeRequest(alias)
+	assert.NoError(t, err, "error creating request")
+	assert.Equal(t, wantReqURL, req.URL.String(), "request url mismatch")
+	assert.Equal(t, "POST", req.Method, "request method mismatch")
+	assert.Equal(t, "GenieKey "+c.ogKey, req.Header.Get("Authorization"), "request header mismatch")
+
+	gotBody, _ := io.ReadAll(req.Body)
+	assert.Equal(t, wantReqBody, string(gotBody), "request body mismatch")
+
+}
