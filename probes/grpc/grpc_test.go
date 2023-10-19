@@ -19,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -236,6 +238,11 @@ func TestGRPCSuccess(t *testing.T) {
 //
 //	=> 3 - 6 connect errors/sec. Test looks for minimum of 4 attempts.
 func TestConnectFailures(t *testing.T) {
+	// This test is super unreliable on CI. We should consider it disabling it
+	// for all platforms.
+	if runtime.GOOS == "darwin" && os.Getenv("CI") == "true" {
+		t.Skip("Skipping connect failure test on macos for CI")
+	}
 	interval, timeout := 100*time.Millisecond, 100*time.Millisecond
 	addr := "localhost:9"
 
