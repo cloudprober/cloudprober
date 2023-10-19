@@ -15,7 +15,6 @@
 package alerting
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -29,14 +28,20 @@ import (
 )
 
 func testAlertInfo(target string, failures, total, dur int) *alertinfo.AlertInfo {
+	ep := endpoint.Endpoint{Name: target}
+	ah := &AlertHandler{
+		name:      "test-probe",
+		probeName: "test-probe",
+	}
+
 	return &alertinfo.AlertInfo{
-		Name:         "test-probe",
-		ProbeName:    "test-probe",
-		Target:       endpoint.Endpoint{Name: target},
-		Failures:     failures,
-		Total:        total,
-		FailingSince: time.Time{}.Add(time.Duration(dur) * time.Second),
-		ConditionID:  strconv.FormatInt(time.Time{}.Add(time.Duration(dur)*time.Second).Unix(), 10),
+		Name:            ah.name,
+		ProbeName:       ah.probeName,
+		Target:          ep,
+		Failures:        failures,
+		Total:           total,
+		FailingSince:    time.Time{}.Add(time.Duration(dur) * time.Second),
+		DeduplicationID: conditionID(ah.globalKey(ep)),
 	}
 }
 
@@ -344,6 +349,31 @@ func TestExtractValue(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("extractValue() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestConditionID(t *testing.T) {
+	tests := []struct {
+		alertKey string
+		want     string
+	}{
+		{
+			alertKey: "test-probe-target1",
+			want:     "33b0ac57-887d-3205-bba1-26f0d9a97104",
+		},
+		{
+			alertKey: "test-probe-target1",
+			want:     "33b0ac57-887d-3205-bba1-26f0d9a97104",
+		},
+		{
+			alertKey: "test-probe-target2",
+			want:     "e93e4809-4dc5-3a74-972c-a30d2c253e97",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.alertKey, func(t *testing.T) {
+			assert.Equal(t, tt.want, conditionID(tt.alertKey))
 		})
 	}
 }

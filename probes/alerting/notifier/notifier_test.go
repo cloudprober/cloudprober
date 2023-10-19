@@ -45,18 +45,17 @@ func TestAlertFields(t *testing.T) {
 		{
 			name: "simple",
 			ai: &alertinfo.AlertInfo{
-				Name:         "test-alert",
-				ProbeName:    "test-probe",
-				ConditionID:  "122333444",
-				Target:       testTarget,
-				Failures:     8,
-				Total:        12,
-				FailingSince: time.Time{}.Add(time.Second),
+				Name:            "test-alert",
+				ProbeName:       "test-probe",
+				DeduplicationID: "122333444",
+				Target:          testTarget,
+				Failures:        8,
+				Total:           12,
+				FailingSince:    time.Time{}.Add(time.Second),
 			},
 			want: map[string]string{
 				"alert":                 "test-alert",
 				"probe":                 "test-probe",
-				"condition_id":          "122333444",
 				"target":                "test-target",
 				"target_ip":             "10.11.12.13",
 				"failures":              "8",
@@ -81,9 +80,9 @@ func TestAlertFields(t *testing.T) {
 
 func TestNotify(t *testing.T) {
 	alertInfo := &alertinfo.AlertInfo{
-		Name:        "test-alert",
-		ProbeName:   "test-probe",
-		ConditionID: "cond-id",
+		Name:            "test-alert",
+		ProbeName:       "test-probe",
+		DeduplicationID: "cond-id",
 		Target: endpoint.Endpoint{
 			Name:   "test-target:1234",
 			Labels: map[string]string{"owner": "manugarg@a.b"},
@@ -117,7 +116,7 @@ func TestNotify(t *testing.T) {
 			},
 			errorContains: "/random-cmd-test-alert-manugarg@a.b",
 			wantEmailFrom: "cloudprober-alert@localhost",
-			wantEmailMsg:  "From: cloudprober-alert@localhost\r\nTo: manugarg@a.b\r\nSubject: Cloudprober alert \"test-alert\" for \"test-target:1234\"\r\n\r\nCloudprober alert \"test-alert\" for \"test-target:1234\":\n\nFailures: 1 out of 2 probes\nFailing since: 0001-01-01T00:00:00Z\nProbe: test-probe\nDashboard: http://localhost:9313/status?probe=test-probe\nPlaybook: \n\nDetails:\nalert: test-alert\ncondition_id: cond-id\ndashboard_url: http://localhost:9313/status?probe=test-probe\nfailures: 1\nplaybook_url: \nprobe: test-probe\nsince: 0001-01-01T00:00:00Z\ntarget: test-target:1234\ntarget.label.owner: manugarg@a.b\ntotal: 2\r\n",
+			wantEmailMsg:  "From: cloudprober-alert@localhost\r\nTo: manugarg@a.b\r\nSubject: Cloudprober alert \"test-alert\" for \"test-target:1234\"\r\n\r\nCloudprober alert \"test-alert\" for \"test-target:1234\":\n\nFailures: 1 out of 2 probes\nFailing since: 0001-01-01T00:00:00Z\nProbe: test-probe\nDashboard: http://localhost:9313/status?probe=test-probe\nPlaybook: \n\nDetails:\nalert: test-alert\ndashboard_url: http://localhost:9313/status?probe=test-probe\nfailures: 1\nplaybook_url: \nprobe: test-probe\nsince: 0001-01-01T00:00:00Z\ntarget: test-target:1234\ntarget.label.owner: manugarg@a.b\ntotal: 2\r\n",
 		},
 	}
 

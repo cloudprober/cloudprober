@@ -31,18 +31,20 @@ var statusTmpl = template.Must(template.New("status").Parse(`
 {{ else }}
 <table class="status-list">
 <tr>
-  <th>Failing Since</th>
+  <th>Alert</th>
   <th>Probe</th>
+  <th>Failing Since</th>
   <th>Target</th>
-  <th>Condition ID</th>
+  <th>Deduplication ID</th>
   <th>Failures / Total</th>
 </tr>
 {{ range .CurrentAlerts }}
 <tr>
-  <td>{{ .FailingSince }}</td>
+  <td>{{ .Name }}</td>
   <td>{{ .ProbeName }}</td>
-  <td>{{ .Target.Name }}</td>
-  <td>{{ .ConditionID }}</td>
+  <td>{{ .FailingSince }}</td>
+  <td>{{ .Target.Dst }}</td>
+  <td>{{ .DeduplicationID }}</td>
   <td>{{ .Failures }} / {{ .Total }}</td>
 </tr>
 {{- end }}
@@ -56,18 +58,20 @@ var statusTmpl = template.Must(template.New("status").Parse(`
 <p>[Showing last {{ len .PreviousAlerts }} resolved alerts..]</p>
 <table class="status-list">
 <tr>
-  <th>Started At</th>
+  <th>Alert</th>
   <th>Probe</th>
+  <th>Started At</th>
   <th>Target</th>
-  <th>Condition ID</th>
+  <th>Deduplication ID</th>
   <th>Resolved At</th>
 </tr>
 {{ range .PreviousAlerts }}
 <tr>
-  <td>{{ .AlertInfo.FailingSince }}</td>
+  <td>{{ .AlertInfo.Name }}</td>
   <td>{{ .AlertInfo.ProbeName }}</td>
-  <td>{{ .AlertInfo.Target.Name }}</td>
-  <td>{{ .AlertInfo.ConditionID }}</td>
+  <td>{{ .AlertInfo.FailingSince }}</td>
+  <td>{{ .AlertInfo.Target.Dst }}</td>
+  <td>{{ .AlertInfo.DeduplicationID }}</td>
   <td>{{ .ResolvedAt }}</td>
 </tr>
 {{- end }}

@@ -145,7 +145,7 @@ func TestPagerDutySendEventV2Error(t *testing.T) {
 }
 
 func TestPagerDutyEventV2DedupeKey(t *testing.T) {
-	assert.Equal(t, "testConditionId", eventV2DedupeKey(&alertinfo.AlertInfo{ConditionID: "testConditionId"}))
+	assert.Equal(t, "testConditionId", eventV2DedupeKey(&alertinfo.AlertInfo{DeduplicationID: "testConditionId"}))
 }
 
 func TestPagerDutyCreateTriggerRequest(t *testing.T) {
@@ -184,7 +184,7 @@ func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 			}
 
 			alertInfo := &alertinfo.AlertInfo{
-				ConditionID: "test-condition-id",
+				DeduplicationID: "test-condition-id",
 			}
 
 			alertFields := map[string]string{
@@ -192,7 +192,6 @@ func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 				"summary":       "test-summary",
 				"probe":         "test-probe",
 				"target":        "test-target",
-				"condition_id":  "test-condition-id",
 				"failures":      "1",
 				"total":         "2",
 				"since":         "2020-01-01T00:00:00Z",
@@ -232,7 +231,6 @@ func TestPagerDutyCreateTriggerRequest(t *testing.T) {
 						"alert":         "test-alert",
 						"probe":         "test-probe",
 						"target":        "test-target",
-						"condition_id":  "test-condition-id",
 						"failures":      "1",
 						"total":         "2",
 						"since":         "2020-01-01T00:00:00Z",
@@ -255,12 +253,11 @@ func TestPagerDutyCreateResolveRequest(t *testing.T) {
 	}{
 		"simple": {
 			alertInfo: &alertinfo.AlertInfo{
-				ConditionID: "test-condition-id",
+				DeduplicationID: "test-condition-id",
 			},
 			alertFields: map[string]string{
-				"condition_id": "test-condition-id",
-				"summary":      "test-summary",
-				"target":       "test-target",
+				"summary": "test-summary",
+				"target":  "test-target",
 			},
 			want: &EventV2Request{
 				RoutingKey:  "test-routing-key",
