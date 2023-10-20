@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/file"
+	"github.com/cloudprober/cloudprober/internal/file"
 	configpb "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 )
 
