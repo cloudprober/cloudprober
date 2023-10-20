@@ -23,14 +23,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/cloudprober/cloudprober/common/message"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
+	"github.com/cloudprober/cloudprober/internal/udpmessage"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
 	"github.com/cloudprober/cloudprober/probes/options"
-	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets"
+	"google.golang.org/protobuf/proto"
 
 	configpb "github.com/cloudprober/cloudprober/probes/udplistener/proto"
 )
@@ -80,7 +80,7 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 		src = inp.src
 	}
 
-	fm := message.NewFlowStateMap()
+	fm := udpmessage.NewFlowStateMap()
 	fs := fm.FlowState(src, "", localhost)
 
 	// Receive loop: keep receiving packets will context is cancelled.
@@ -102,7 +102,7 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 				t.Logf("Error reading from udp: %v", err)
 				continue
 			}
-			msg, err := message.NewMessage(b[:n])
+			msg, err := udpmessage.NewMessage(b[:n])
 			if err != nil {
 				t.Logf("Error processing message: %v", err)
 				continue

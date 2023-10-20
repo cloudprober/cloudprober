@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/file"
+	"github.com/cloudprober/cloudprober/internal/file"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/file/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/internal/rds/server/filter"

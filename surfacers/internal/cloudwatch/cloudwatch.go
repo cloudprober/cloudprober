@@ -26,9 +26,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/sysvars"
 
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/cloudwatch/proto"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"

@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package message
+package udpmessage
 
 import (
 	"testing"
 	"time"
 
-	msgpb "github.com/cloudprober/cloudprober/common/message/proto"
+	msgpb "github.com/cloudprober/cloudprober/internal/udpmessage/proto"
 	"google.golang.org/protobuf/proto"
 )
 
