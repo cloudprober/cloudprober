@@ -1,0 +1,37 @@
+// Configuration proto for ResourceDiscovery (rds) server.
+// Example config:
+//
+// provider {
+//   id: "gcp"
+//   gcp_config {
+//     project_id: 'test-project-id'
+//     gce_instances {}
+//     forwarding_rules {}
+//   }
+// }
+syntax = "proto2";
+
+package cloudprober.rds;
+
+import "github.com/cloudprober/cloudprober/internal/rds/file/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/rds/gcp/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/rds/server/proto";
+
+message ServerConf {
+  // List of providers that server supports.
+  repeated Provider provider = 1;
+}
+
+message Provider {
+  // Provider identifier, e.g. "gcp". Server routes incoming requests to various
+  // providers based on this id.
+  optional string id = 1;
+
+  oneof config {
+    file.ProviderConfig file_config = 4;
+    gcp.ProviderConfig gcp_config = 2;
+    kubernetes.ProviderConfig kubernetes_config = 3;
+  }
+}

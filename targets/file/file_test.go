@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
 	"google.golang.org/protobuf/proto"
@@ -78,7 +78,7 @@ func TestListEndpointsWithFilter(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			ft, err := New(&configpb.TargetsConf{
-				FilePath: proto.String("../../rds/file/testdata/targets.json"),
+				FilePath: proto.String("../../internal/rds/file/testdata/targets.json"),
 				Filter:   test.f,
 			}, nil, nil)
 

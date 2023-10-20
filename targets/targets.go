@@ -32,10 +32,10 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/config/runconfig"
+	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
+	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	rdsclient "github.com/cloudprober/cloudprober/rds/client"
-	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/file"
 	"github.com/cloudprober/cloudprober/targets/gce"
@@ -54,10 +54,11 @@ var (
 // Targets must have refreshed this much time after the lameduck for them to
 // become valid again. This is to take care of the following race between
 // targets refresh and lameduck creation:
-//   Targets are refreshed few seconds after lameduck, and are deleted few more
-//   seconds after that. If there is no min lameduck duration, we'll end up
-//   ignoring lameduck in this case. With min lameduck duration, targets will
-//   need to be refreshed few minutes after being lameducked.
+//
+//	Targets are refreshed few seconds after lameduck, and are deleted few more
+//	seconds after that. If there is no min lameduck duration, we'll end up
+//	ignoring lameduck in this case. With min lameduck duration, targets will
+//	need to be refreshed few minutes after being lameducked.
 const minLameduckDuration = 5 * time.Minute
 
 // extensionMap is a map of targets-types extensions. While creating new

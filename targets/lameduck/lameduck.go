@@ -26,19 +26,19 @@ import (
 	"sync"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
+	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
+	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/gcp"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/server"
+	serverconfigpb "github.com/cloudprober/cloudprober/internal/rds/server/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	rdsclient "github.com/cloudprober/cloudprober/rds/client"
-	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
-	"github.com/cloudprober/cloudprober/rds/gcp"
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
-	"github.com/cloudprober/cloudprober/rds/server"
-	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/cloudprober/cloudprober/targets/rtc/rtcservice"
+	"github.com/golang/protobuf/proto"
 )
 
 // Lameducker provides an interface to Lameduck/Unlameduck an instance.

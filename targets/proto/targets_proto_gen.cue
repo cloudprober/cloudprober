@@ -1,8 +1,8 @@
 package proto
 
 import (
-	"github.com/cloudprober/cloudprober/rds/client/proto"
-	proto_1 "github.com/cloudprober/cloudprober/rds/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	proto_1 "github.com/cloudprober/cloudprober/internal/rds/proto"
 	proto_5 "github.com/cloudprober/cloudprober/targets/gce/proto"
 	proto_A "github.com/cloudprober/cloudprober/targets/file/proto"
 	proto_8 "github.com/cloudprober/cloudprober/targets/lameduck/proto"

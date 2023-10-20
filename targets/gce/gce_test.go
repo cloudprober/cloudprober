@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/client"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/rds/client"
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	configpb "github.com/cloudprober/cloudprober/targets/gce/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type testNetIf struct {
