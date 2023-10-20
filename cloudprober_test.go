@@ -22,11 +22,11 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	serverspb "github.com/cloudprober/cloudprober/internal/servers/proto"
+	udpserverpb "github.com/cloudprober/cloudprober/internal/servers/udp/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	probepb "github.com/cloudprober/cloudprober/probes/proto"
 	udpprobepb "github.com/cloudprober/cloudprober/probes/udp/proto"
-	serverspb "github.com/cloudprober/cloudprober/servers/proto"
-	udpserverpb "github.com/cloudprober/cloudprober/servers/udp/proto"
 	"github.com/cloudprober/cloudprober/surfacers"
 	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"

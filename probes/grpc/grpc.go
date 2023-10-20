@@ -46,8 +46,8 @@ import (
 	"github.com/cloudprober/cloudprober/validators"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/cloudprober/cloudprober/servers/grpc/proto"
-	spb "github.com/cloudprober/cloudprober/servers/grpc/proto"
+	pb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
+	spb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	"github.com/fullstorydev/grpcurl"
 
 	"google.golang.org/grpc"
