@@ -17,7 +17,7 @@ package json
 import (
 	"testing"
 
-	configpb "github.com/cloudprober/cloudprober/validators/json/proto"
+	configpb "github.com/cloudprober/cloudprober/internal/validators/json/proto"
 	"github.com/stretchr/testify/assert"
 )
 

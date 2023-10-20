@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package cloudprober.validators;
+
+import "github.com/cloudprober/cloudprober/internal/validators/http/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/validators/integrity/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/validators/json/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/validators/proto";
+
+message Validator {
+  string name = 1;
+  oneof type {
+    http.Validator http_validator = 2;
+
+    // Data integrity validator
+    integrity.Validator integrity_validator = 3;
+
+    // JSON validator
+    json.Validator json_validator = 5;
+
+    // Regex validator
+    string regex = 4;
+  }
+}

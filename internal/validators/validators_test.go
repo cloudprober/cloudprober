@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	configpb "github.com/cloudprober/cloudprober/validators/proto"
+	configpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/prototext"
 )

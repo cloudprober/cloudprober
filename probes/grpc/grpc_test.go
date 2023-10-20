@@ -29,6 +29,8 @@ import (
 	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	pb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
+	"github.com/cloudprober/cloudprober/internal/validators"
+	validators_configpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
@@ -37,8 +39,6 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/resolver"
-	"github.com/cloudprober/cloudprober/validators"
-	validators_configpb "github.com/cloudprober/cloudprober/validators/proto"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
