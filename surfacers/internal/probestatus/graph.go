@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/sysvars"
 )
 
 type graphOptions struct {

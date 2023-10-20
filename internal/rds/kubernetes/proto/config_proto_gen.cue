@@ -1,6 +1,6 @@
 package proto
 
-import "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
+import "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 
 #Pods: {
 }

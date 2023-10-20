@@ -14,15 +14,15 @@
 
 // Package message implements wrappers for sending and receiving messages with
 // sequence numbers and timestamps.
-package message
+package udpmessage
 
 import (
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	msgpb "github.com/cloudprober/cloudprober/common/message/proto"
+	msgpb "github.com/cloudprober/cloudprober/internal/udpmessage/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // FlowState maintains the state of flow on both the src and dst sides.

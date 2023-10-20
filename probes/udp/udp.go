@@ -30,14 +30,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/message"
 	udpsrv "github.com/cloudprober/cloudprober/internal/servers/udp"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
+	"github.com/cloudprober/cloudprober/internal/udpmessage"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/probes/probeutils"
 	configpb "github.com/cloudprober/cloudprober/probes/udp/proto"
-	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
@@ -69,9 +69,9 @@ type Probe struct {
 	runID       uint64
 	ipVer       int
 
-	targets []endpoint.Endpoint   // List of targets for a probe iteration.
-	res     map[flow]*probeResult // Results by flow.
-	fsm     *message.FlowStateMap // Map flow parameters to flow state.
+	targets []endpoint.Endpoint      // List of targets for a probe iteration.
+	res     map[flow]*probeResult    // Results by flow.
+	fsm     *udpmessage.FlowStateMap // Map flow parameters to flow state.
 	payload []byte
 
 	// Intermediate buffers of sent and received packets
@@ -139,7 +139,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.src = sysvars.Vars()["hostname"]
 	p.c = c
-	p.fsm = message.NewFlowStateMap()
+	p.fsm = udpmessage.NewFlowStateMap()
 	p.res = make(map[flow]*probeResult)
 
 	if p.c.GetPayloadSize() != 0 {
@@ -346,7 +346,7 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 		}
 
 		rxTS := time.Now()
-		msg, err := message.NewMessage(b[:msgLen])
+		msg, err := udpmessage.NewMessage(b[:msgLen])
 		if err != nil {
 			p.l.Errorf("Incoming message error from %s: %v", raddr, err)
 			continue

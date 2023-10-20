@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/httputils"
-	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
+	configpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
 )
