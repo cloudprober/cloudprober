@@ -19,9 +19,9 @@ package integrity
 import (
 	"fmt"
 
+	configpb "github.com/cloudprober/cloudprober/internal/validators/integrity/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/probeutils"
-	configpb "github.com/cloudprober/cloudprober/validators/integrity/proto"
 )
 
 // Validator implements an integrity validator.
@@ -76,7 +76,7 @@ func (v *Validator) Validate(responseBody []byte) (bool, error) {
 }
 
 // PatternNumBytesValidator returns a data integrity validator with number of
-/// pattern bytes set to patternNumbBytes.
+// / pattern bytes set to patternNumbBytes.
 func PatternNumBytesValidator(patternNumbBytes int32, l *logger.Logger) (*Validator, error) {
 	v := &Validator{}
 

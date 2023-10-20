@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package cloudprober.validators.json;
 
-option go_package = "github.com/cloudprober/cloudprober/validators/json/proto";
+option go_package = "github.com/cloudprober/cloudprober/internal/validators/json/proto";
 
 // JSON validator configuration.
 message Validator {

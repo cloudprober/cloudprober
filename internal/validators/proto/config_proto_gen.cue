@@ -1,9 +1,9 @@
 package proto
 
 import (
-	"github.com/cloudprober/cloudprober/validators/http/proto"
-	proto_1 "github.com/cloudprober/cloudprober/validators/integrity/proto"
-	proto_5 "github.com/cloudprober/cloudprober/validators/json/proto"
+	"github.com/cloudprober/cloudprober/internal/validators/http/proto"
+	proto_1 "github.com/cloudprober/cloudprober/internal/validators/integrity/proto"
+	proto_5 "github.com/cloudprober/cloudprober/internal/validators/json/proto"
 )
 
 #Validator: {

@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/internal/validators/http/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	configpb "github.com/cloudprober/cloudprober/validators/http/proto"
 	"google.golang.org/protobuf/proto"
 )
 

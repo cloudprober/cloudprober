@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	configpb "github.com/cloudprober/cloudprober/internal/validators/json/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	configpb "github.com/cloudprober/cloudprober/validators/json/proto"
 	"github.com/itchyny/gojq"
 )
 

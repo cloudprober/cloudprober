@@ -3,7 +3,7 @@ package proto
 import (
 	"github.com/cloudprober/cloudprober/targets/proto"
 	proto_1 "github.com/cloudprober/cloudprober/metrics/proto"
-	proto_5 "github.com/cloudprober/cloudprober/validators/proto"
+	proto_5 "github.com/cloudprober/cloudprober/internal/validators/proto"
 	proto_A "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	proto_8 "github.com/cloudprober/cloudprober/probes/ping/proto"
 	proto_E "github.com/cloudprober/cloudprober/probes/http/proto"

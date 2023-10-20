@@ -39,6 +39,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
+	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -47,7 +48,6 @@ import (
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/cloudprober/cloudprober/validators"
 	"github.com/google/shlex"
 	"google.golang.org/protobuf/proto"
 )

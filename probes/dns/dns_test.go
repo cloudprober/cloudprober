@@ -20,14 +20,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/internal/validators"
+	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/cloudprober/cloudprober/validators"
-	validatorpb "github.com/cloudprober/cloudprober/validators/proto"
 	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
 )

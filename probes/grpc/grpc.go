@@ -36,6 +36,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
@@ -43,7 +44,6 @@ import (
 	"github.com/cloudprober/cloudprober/probes/probeutils"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/cloudprober/cloudprober/validators"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
