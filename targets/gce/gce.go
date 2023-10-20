@@ -15,6 +15,7 @@
 // Package gce implements Google Compute Engine (GCE) targets for Cloudprober.
 //
 // It currently supports following GCE targets:
+//
 //	Instances
 //	Forwarding Rules (only regional currently)
 //
@@ -22,6 +23,7 @@
 // in the config.proto file in the same directory. Example config:
 //
 // All instances matching a certain regex:
+//
 //	targets {
 //	  gce_targets {
 //	    instances {}
@@ -30,6 +32,7 @@
 //	}
 //
 // Public IP of all instances matching a certain regex:
+//
 //	targets {
 //	  gce_targets {
 //	    instances {
@@ -40,6 +43,7 @@
 //	}
 //
 // All forwarding rules in the local region:
+//
 //	targets {
 //	  gce_targets {
 //	    forwarding_rules {}
@@ -55,18 +59,18 @@ import (
 	"sync"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/protobuf/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/gce/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
+	"github.com/golang/protobuf/proto"
 
-	"github.com/cloudprober/cloudprober/rds/client"
-	clientconfigpb "github.com/cloudprober/cloudprober/rds/client/proto"
-	"github.com/cloudprober/cloudprober/rds/gcp"
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
-	"github.com/cloudprober/cloudprober/rds/server"
-	serverconfigpb "github.com/cloudprober/cloudprober/rds/server/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/client"
+	clientconfigpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/gcp"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/server"
+	serverconfigpb "github.com/cloudprober/cloudprober/internal/rds/server/proto"
 )
 
 var global struct {

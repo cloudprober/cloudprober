@@ -20,12 +20,12 @@ package file
 import (
 	"context"
 
+	"github.com/cloudprober/cloudprober/internal/rds/client"
+	client_configpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/file"
+	file_configpb "github.com/cloudprober/cloudprober/internal/rds/file/proto"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/rds/client"
-	client_configpb "github.com/cloudprober/cloudprober/rds/client/proto"
-	"github.com/cloudprober/cloudprober/rds/file"
-	file_configpb "github.com/cloudprober/cloudprober/rds/file/proto"
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
 	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 	"google.golang.org/protobuf/proto"

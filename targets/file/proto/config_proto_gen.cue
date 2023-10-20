@@ -1,8 +1,8 @@
 package proto
 
 import (
-	"github.com/cloudprober/cloudprober/rds/proto"
-	proto_1 "github.com/cloudprober/cloudprober/rds/file/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/proto"
+	proto_1 "github.com/cloudprober/cloudprober/internal/rds/file/proto"
 )
 
 #TargetsConf: {

@@ -1,6 +1,6 @@
 package proto
 
-import "github.com/cloudprober/cloudprober/rds/client/proto"
+import "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 
 #Options: {
 	// How often to check for lame-ducked targets

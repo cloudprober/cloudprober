@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	rdsserver "github.com/cloudprober/cloudprober/rds/server"
+	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"google.golang.org/grpc"
 )
 
