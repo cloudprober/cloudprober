@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
+	"github.com/cloudprober/cloudprober/internal/alerting/alertinfo"
 )
 
 var statusTmpl = template.Must(template.New("status").Parse(`

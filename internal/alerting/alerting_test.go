@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/internal/alerting/alertinfo"
+	"github.com/cloudprober/cloudprober/internal/alerting/notifier"
+	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
-	"github.com/cloudprober/cloudprober/probes/alerting/notifier"
-	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"

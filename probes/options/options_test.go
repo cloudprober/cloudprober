@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/internal/alerting"
+	alerting_configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/probes/alerting"
-	alerting_configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"

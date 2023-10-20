@@ -3,7 +3,7 @@ syntax = "proto2";
 package cloudprober.probes;
 
 import "github.com/cloudprober/cloudprober/metrics/proto/dist.proto";
-import "github.com/cloudprober/cloudprober/probes/alerting/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/alerting/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/dns/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/external/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/grpc/proto/config.proto";
