@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/cloudprober/cloudprober/common/file"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"

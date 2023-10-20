@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/config/runconfig"
-	"github.com/cloudprober/cloudprober/sysvars"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
 )
 
 var t = template.Must(template.New("header").Parse(`

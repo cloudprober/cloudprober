@@ -28,10 +28,10 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/internal/servers/http/proto"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/probeutils"
-	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/lameduck"
 )

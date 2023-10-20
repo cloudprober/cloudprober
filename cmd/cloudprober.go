@@ -36,8 +36,8 @@ import (
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/web"
 )
 

@@ -34,8 +34,8 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/httputils"
-	"github.com/cloudprober/cloudprober/common/oauth"
-	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	"github.com/cloudprober/cloudprober/internal/oauth"
+	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
