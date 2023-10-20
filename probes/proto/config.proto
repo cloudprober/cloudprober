@@ -13,7 +13,7 @@ import "github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/udp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
-import "github.com/cloudprober/cloudprober/validators/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/validators/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 

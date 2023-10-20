@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package cloudprober.validators.http;
 
-option go_package = "github.com/cloudprober/cloudprober/validators/http/proto";
+option go_package = "github.com/cloudprober/cloudprober/internal/validators/http/proto";
 
 // HTTP validator configuration. For HTTP validator to succeed, all conditions
 // specified in the validator should succeed. Note that failures conditions are
