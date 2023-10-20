@@ -5,7 +5,7 @@ package cloudprober;
 import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
 import "github.com/cloudprober/cloudprober/rds/server/proto/config.proto";
-import "github.com/cloudprober/cloudprober/servers/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/servers/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
 

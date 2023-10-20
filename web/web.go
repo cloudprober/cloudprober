@@ -27,8 +27,8 @@ import (
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/alerting"
+	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/probes"
-	"github.com/cloudprober/cloudprober/servers"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
 )
