@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package cloudprober.alerting;
 
-option go_package = "github.com/cloudprober/cloudprober/probes/alerting/proto";
+option go_package = "github.com/cloudprober/cloudprober/alerting/proto";
 
 message Email {
     // Email addresses to send the alert to.

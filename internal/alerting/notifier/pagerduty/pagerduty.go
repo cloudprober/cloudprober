@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/cloudprober/cloudprober/internal/alerting/alertinfo"
+	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
-	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
 type Client struct {

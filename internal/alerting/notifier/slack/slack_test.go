@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
+	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 )
 
 func TestSlackNew(t *testing.T) {

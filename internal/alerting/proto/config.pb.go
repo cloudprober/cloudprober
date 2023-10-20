@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.31.0
 // 	protoc        v3.21.5
-// source: github.com/cloudprober/cloudprober/probes/alerting/proto/config.proto
+// source: github.com/cloudprober/cloudprober/internal/alerting/proto/config.proto
 
 package proto
 
