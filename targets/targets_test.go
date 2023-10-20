@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
+	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	rdsclientpb "github.com/cloudprober/cloudprober/rds/client/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	testdatapb "github.com/cloudprober/cloudprober/targets/testdata"

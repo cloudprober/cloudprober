@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	k8sconfigpb "github.com/cloudprober/cloudprober/rds/kubernetes/proto"
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
+	k8sconfigpb "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/prototext"

@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	rdspb "github.com/cloudprober/cloudprober/rds/proto"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
 	"google.golang.org/protobuf/proto"

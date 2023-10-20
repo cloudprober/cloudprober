@@ -31,6 +31,7 @@ import (
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
+	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -38,7 +39,6 @@ import (
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
-	rdsserver "github.com/cloudprober/cloudprober/rds/server"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/sysvars"
 	"github.com/cloudprober/cloudprober/targets"
