@@ -3,7 +3,7 @@ package proto
 import (
 	"github.com/cloudprober/cloudprober/probes/proto"
 	proto_1 "github.com/cloudprober/cloudprober/surfacers/proto"
-	proto_5 "github.com/cloudprober/cloudprober/servers/proto"
+	proto_5 "github.com/cloudprober/cloudprober/internal/servers/proto"
 	proto_A "github.com/cloudprober/cloudprober/rds/server/proto"
 	proto_8 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	proto_E "github.com/cloudprober/cloudprober/targets/proto"

@@ -56,8 +56,8 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 
+	udpsrv "github.com/cloudprober/cloudprober/internal/servers/udp"
 	configpb "github.com/cloudprober/cloudprober/probes/udplistener/proto"
-	udpsrv "github.com/cloudprober/cloudprober/servers/udp"
 )
 
 const (
