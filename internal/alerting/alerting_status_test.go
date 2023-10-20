@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
+	"github.com/cloudprober/cloudprober/internal/alerting/alertinfo"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 )

@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
+	"github.com/cloudprober/cloudprober/internal/alerting/alertinfo"
 )
 
 type responder struct {

@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
+	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -8,7 +8,7 @@ package proto
 
 import (
 	proto1 "github.com/cloudprober/cloudprober/metrics/proto"
-	proto3 "github.com/cloudprober/cloudprober/probes/alerting/proto"
+	proto3 "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	proto6 "github.com/cloudprober/cloudprober/probes/dns/proto"
 	proto7 "github.com/cloudprober/cloudprober/probes/external/proto"
 	proto10 "github.com/cloudprober/cloudprober/probes/grpc/proto"

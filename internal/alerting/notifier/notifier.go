@@ -20,12 +20,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cloudprober/cloudprober/internal/alerting/alertinfo"
+	"github.com/cloudprober/cloudprober/internal/alerting/notifier/opsgenie"
+	"github.com/cloudprober/cloudprober/internal/alerting/notifier/pagerduty"
+	"github.com/cloudprober/cloudprober/internal/alerting/notifier/slack"
+	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
-	"github.com/cloudprober/cloudprober/probes/alerting/notifier/opsgenie"
-	"github.com/cloudprober/cloudprober/probes/alerting/notifier/pagerduty"
-	"github.com/cloudprober/cloudprober/probes/alerting/notifier/slack"
-	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
 )
 
 const (

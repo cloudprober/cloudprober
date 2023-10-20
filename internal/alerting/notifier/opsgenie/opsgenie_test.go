@@ -24,8 +24,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cloudprober/cloudprober/probes/alerting/alertinfo"
-	configpb "github.com/cloudprober/cloudprober/probes/alerting/proto"
+	"github.com/cloudprober/cloudprober/internal/alerting/alertinfo"
+	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	"github.com/stretchr/testify/assert"
 )
 
