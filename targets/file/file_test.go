@@ -78,7 +78,7 @@ func TestListEndpointsWithFilter(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			ft, err := New(&configpb.TargetsConf{
-				FilePath: proto.String("../../rds/file/testdata/targets.json"),
+				FilePath: proto.String("../../internal/rds/file/testdata/targets.json"),
 				Filter:   test.f,
 			}, nil, nil)
 
