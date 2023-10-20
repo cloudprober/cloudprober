@@ -8,7 +8,11 @@ title: "What is a Probe"
 ---
 
 Cloudprober's main task is to run probes. A probe executes something, usually
-against a set of targets, to verify that the systems are working as expected from consumers' point of view. For example, an HTTP probe executes an HTTP request against a web server to verify that the web server is available. Cloudprober probes run repeatedly at a configured interval and export probe results as a set of metrics.
+against a set of targets, to verify that the systems are working as expected
+from consumers' point of view. For example, an HTTP probe executes an HTTP
+request against a web server to verify that the web server is available.
+Cloudprober probes run repeatedly at a configured interval and export probe
+results as a set of metrics.
 
 A probe is defined as a set of the following fields:
 
@@ -22,7 +26,10 @@ A probe is defined as a set of the following fields:
 | `validator`     | Probe validators, further explained [here](/how-to/validators). |
 | `<type>_probe`  | Probe type specific configuration.                              |
 
-Please take a look at the [ProbeDef protobuf](https://github.com/cloudprober/cloudprober/blob/master/probes/proto/config.proto) for further details on various fields and options. All probe types export following metrics at a minimum:
+Please take a look at the
+[ProbeDef protobuf](/docs/config/probes/#cloudprober_probes_ProbeDef) for
+further details on various fields and options. All probe types export following
+metrics at a minimum:
 
 | Metric    | Description                                                                                                                                                                                                                                                                                                                                   |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,8 +51,8 @@ More probe types can be added through cloudprober extensions (to be documented).
 
 ### Ping
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/ping) | [`Config
-options`](http://github.com/cloudprober/cloudprober/tree/master/probes/ping/proto/config.proto)
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/ping) |
+[`Config options`](/docs/config/probes/#cloudprober_probes_ping_ProbeConf)
 
 Ping probe type implements a fast ping prober, that can probe hundreds of
 targets in parallel. Probe results are reported as number of packets sent
@@ -59,42 +66,43 @@ enable them by running the following command:
 
 ### HTTP
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/http) | [`Config
-options`](http://github.com/cloudprober/cloudprober/tree/master/probes/http/proto/config.proto)
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/http) |
+[`Config options`](/docs/config/probes/#cloudprober_probes_http_ProbeConf)
 
 HTTP probe is be used to send HTTP(s) requests to a target and verify that a
 response is received. Apart from the core probe metrics (total, success, and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.
 
-- **SSL Certificate Expiry**:
-  If the target serves a SSL Certificate, cloudprober will walk the certificate chain and
-  export the earliest expiry time in seconds as a metric. The metric is named `ssl_earliest_cert_expiry_sec`,
-  and will only be exported when the expiry time in seconds is a positive number.
+- **SSL Certificate Expiry**: If the target serves a SSL Certificate,
+  cloudprober will walk the certificate chain and export the earliest expiry
+  time in seconds as a metric. The metric is named
+  `ssl_earliest_cert_expiry_sec`, and will only be exported when the expiry time
+  in seconds is a positive number.
 
 ### UDP
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/udp) | [`Config
-options`](http://github.com/cloudprober/cloudprober/tree/master/probes/udp/proto/config.proto)
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/udp) |
+[`Config options`](/docs/config/probes/#cloudprober_probes_udp_ProbeConf)
 
-UDP probe sends a UDP packet to the configured targets. UDP probe (and all
-other probes that use ports) provides more coverage for the network elements on
-the data path as most packet forwarding elements use 5-tuple hashing and using
-a new source port for each probe ensures that we hit different network element
-each time.
+UDP probe sends a UDP packet to the configured targets. UDP probe (and all other
+probes that use ports) provides more coverage for the network elements on the
+data path as most packet forwarding elements use 5-tuple hashing and using a new
+source port for each probe ensures that we hit different network element each
+time.
 
 ### DNS
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/dns) | [`Config
-options`](http://github.com/cloudprober/cloudprober/tree/master/probes/dns/proto/config.proto)
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/dns) |
+[`Config options`](/docs/config/probes/#cloudprober_probes_dns_ProbeConf)
 
 DNS probe type is implemented in a similar way as other probes except for that
 it sends DNS requests to the target.
 
 ### External
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/external) | [`Config
-options`](http://github.com/cloudprober/cloudprober/tree/master/probes/external/proto/config.proto)
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/external)
+| [`Config options`](/docs/config/probes/#cloudprober_probes_external_ProbeConf)
 
 External probe type allows running arbitrary probes through cloudprober. For an
 external probe, actual probe logic resides in an external program; cloudprober
@@ -103,17 +111,16 @@ data through the standard channel.
 
 External probe can be configured in two modes:
 
-- **ONCE**:
-  In this mode, an external program is executed for each probe run. Exit
-  status of the program determines the success or failure of the probe.
+- **ONCE**: In this mode, an external program is executed for each probe run.
+  Exit status of the program determines the success or failure of the probe.
   External probe can optionally be configured to interpret external program's
   output as metrics. This is a simple model but it doesn't allow the external
-  program to maintain state and multiple forks can be expensive depending on
-  the frequency of the probes.
+  program to maintain state and multiple forks can be expensive depending on the
+  frequency of the probes.
 
-- **SERVER**:
-  In this mode, external program is expected to run in server mode. Cloudprober
-  automatically starts the external program if it's not running at the time of
-  the probe execution. Cloudprober and external probe process communicate with
-  each other over stdin/stdout using protobuf messages defined in
+- **SERVER**: In this mode, external program is expected to run in server mode.
+  Cloudprober automatically starts the external program if it's not running at
+  the time of the probe execution. Cloudprober and external probe process
+  communicate with each other over stdin/stdout using protobuf messages defined
+  in
   [probes/external/proto/server.proto](https://github.com/cloudprober/cloudprober/blob/master/probes/external/proto/server.proto).
