@@ -128,8 +128,8 @@ The full list of configuration options for the cloudwatch surfacer is:
   optional int32 batch_timer_sec = 5 [default = 30];
 ```
 
-(Source:
-https://github.com/cloudprober/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
+(All config options:
+[SurfacerConf](/docs/config/surfacer/#cloudprober_surfacer_cloudwatch_SurfacerConf)
 
 ## Calculating the metric delta with Cloudwatch Metric Maths
 
