@@ -47,12 +47,12 @@ in your systems.
 * Multiple options for checks:
 
   - _Efficient, highly scalable_, built-in probes:
-    [HTTP](https://github.com/cloudprober/cloudprober/blob/master/probes/http/proto/config.proto),
-    [PING](https://github.com/cloudprober/cloudprober/blob/master/probes/ping/proto/config.proto),
-    [TCP](https://github.com/cloudprober/cloudprober/blob/master/probes/tcp/proto/config.proto),
-    [DNS](https://github.com/cloudprober/cloudprober/blob/master/probes/dns/proto/config.proto),
-    [gRPC](https://github.com/cloudprober/cloudprober/blob/master/probes/grpc/proto/config.proto),
-    [UDP](https://github.com/cloudprober/cloudprober/blob/master/probes/udp/proto/config.proto).
+    [HTTP](/docs/config/probes/#cloudprober_probes_http_ProbeConf),
+    [PING](/docs/config/probes/#cloudprober_probes_ping_ProbeConf),
+    [TCP](/docs/config/probes/#cloudprober_probes_tcp_ProbeConf),
+    [DNS](/docs/config/probes/#cloudprober_probes_dns_ProbeConf),
+    [gRPC](/docs/config/probes/#cloudprober_probes_grpc_ProbeConf),
+    [UDP](/docs/config/probes/#cloudprober_probes_udp_ProbeConf).
   - Run custom checks through the _"[external]({{< ref external-probe >}})"_
     probe type.
 

@@ -1,9 +1,9 @@
 ---
 menu:
   docs:
-    parent: 'how-to'
+    parent: "how-to"
     weight: 32
-title: 'Built-in Servers'
+title: "Built-in Servers"
 ---
 
 Cloudprober has a few built in servers. This is useful when you are probing that
@@ -50,9 +50,8 @@ This adds two endpoints to the HTTP server:
   `cloudprobercloudprobercloudprober`.
 - `/data_4` which responds with `four`.
 
-See
-[servers/http/proto/config.go](https://github.com/cloudprober/cloudprober/blob/master/servers/http/proto/config.proto)
-for all HTTP server configuration options.
+See [ServerConf](/docs/config/servers/#cloudprober_servers_http_ServerConf) for
+all HTTP server configuration options.
 
 ## UDP
 
@@ -77,12 +76,10 @@ server {
 }
 ```
 
-See
-[servers/udp/proto/config.go](https://github.com/cloudprober/cloudprober/blob/master/servers/udp/proto/config.proto)
-for all UDP server configuration options.
+See [ServerConf](/docs/config/servers/#cloudprober_servers_udp_ServerConf) for
+all UDP server configuration options.
 
 ## GRPC
 
-See
-[servers/grpc/proto/config.go](https://github.com/cloudprober/cloudprober/blob/master/servers/grpc/proto/config.proto)
-for all GRPC server configuration options.
+See [ServerConf](/docs/config/servers/#cloudprober_servers_grpc_ServerConf) for
+all GRPC server configuration options.
