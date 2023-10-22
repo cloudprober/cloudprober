@@ -4,30 +4,30 @@ lead: ""
 draft: false
 images: []
 weight: 300
-date: 2023-08-20
-lastmod: 2023-08-20
+date: 2023-10-05
+lastmod: 2023-10-20
 contributors: ["Manu Garg"]
 ---
 
-{{% blog-meta author="Manu Garg" publishDate="Sep 05, 2023" readingTime="3 min" %}}
+{{% blog-meta author="Manu Garg" publishDate="Oct 05, 2023" readingTime="3 min" %}}
 
 ## Origin
 
-I started working on Cloudprober in 2016. I was leading the Cloud Networking SRE
-team at Google at that time. As Google Cloud started to grow big time, we
-started running into observability issues all over. Customers were finding
-problems before us, resulting in a lot of time being spent in troubleshooting
-and communicating back and forth[^1].
+I started building Cloudprober in 2016, while I was at Google, leading the Cloud
+Networking SRE team there. Google Cloud was just beginning to grow big, and we
+were still grappling with some early growth issue, for example, the lack of good
+monitoring tools for Cloud. Our customers were discovering problems before us,
+which in turn resulted in a lot of time being spent in just identifying the
+issue by communicating back and forth with the customer[^1].
 
 [^1]:
     A customer-reported infrastructure issue is much harder to debug than an
-    issue discovered by your own observability stack.
+    issue discovered by your own monitoring.
 
-Problem was that Google's existing observability tools didn't work for the
-external Cloud. We needed to build things from ground up. As probers[^2] are
-pretty much the foundation of the reliable observability at Google, we decided
-to prioritize the development of a prober for Cloud. That's how the journey of
-Cloudprober began.
+Google's existing monitoring tools didn't work well in Cloud, necessitating the
+need to build things from ground up. And since probers are the cornerstone of
+monitoring and reliability at Google[^2], that's where we decided to start.
+_Thus began the journey of Cloudprober_.
 
 [^2]:
     Almost all of Google's systems rely on probers to detect customer facing
@@ -37,37 +37,42 @@ Even though the primary goal of Cloudprober at that time was to discover and
 alert on Cloud Networking availability and performance problems, we decided to
 develop it as a generic prober that could be used to monitor a wide variety of
 systems and services. We also decided to make Cloudprober open source so that a
-wider community could trust it, contribute to it, and run it on their systems.
+wider community could trust it, contribute to it, and run it on their own
+systems.
 
-Keeping Cloudprober generic and ready for open-source paid off. More and more
-Cloud teams started using it internally, and our open-source readiness
-commitment made sure we kept our interfaces clean.
+## Scale, Efficiency
 
-## Built for Scale
+For scales as big as Google Cloud, horizontal scalability and efficiency become
+critical requirements, and for a monitoring software to be useful reliability is
+super important as well. Keeping these requirements in mind, our goal for
+Cloudprober was for it to be able to reliably monitor 100s of 1000s of endpoints
+(IPs, Ports, HTTP/S URLs, etc) from each instance, while keeping the resource
+requirements and management overhead very low[^3].
 
-Cloudprober was built to probe 100s of 1000s of endpoints (IPs and HTTP URLs),
-while keeping resources, and more importantly, management overhead very very
-low. That's the reason Cloudprober tries to be frugal with the resources,
-maximizes resources utilization relying heavily on Go concurrency, supports
-probing large number of targets in parallel at a high frequency (in
-milliseconds), minimizes the need of frequent rollouts by supporting dynamic
-targets discovery, has native implementations for common probe types, and so on.
+[^3]:
+    Hostinger was able to probe 1.8M targets using a single instance:
+    [blog](https://www.hostinger.com/blog/cloudprober-explained-the-way-we-use-it-at-hostinger).
+
+Cloudprober maximizes resources utilization by relying heavily on Go concurrency
+(_resource efficiency_), supports probing large number of targets in parallel at
+a high frequency (_each instance does more_), minimizes the need of frequent
+updates by supporting dynamic targets discovery (_ease of management_), has
+native implementations for common probe types (_efficiency_), and so on.
 
 ## Beyond Google and Open-Source
 
-During its early days, our priorities for Cloudprober were scalability,
-reliability, and ease of management. Things began to change as more and more
-Cloud products started using it, and users started asking for more features.
-However, the real shift to features happened after we open-sourced Cloudprober
-in 2017.
+We
+[open-sourced](https://opensource.googleblog.com/2018/03/cloudprober-open-source-black-box.html)
+Cloudprober in 2017. That brought in a new phase in its evolution. We added many
+features over time to make it more useful to the wider community, such as
+first-class Kubernetes support, a built-in probe status UI, PostgreSQL and
+Cloudwatch surfacers, OAuth support, Validators, and most recently, built-in
+alerting capability.
 
-We added a wealth of features over time, such as first-class Kubernetes support,
-a built-in probe status UI, PostgreSQL and Cloudwatch surfacers, OAuth support,
-Validators, and most recently, built-in alerting capability. We used the same
-codebase for the internal and open-source versions, which created a huge
-advantage -- we had an extensive deployment internally which provided a
-continuous testing platform for Cloudprober, particularly for its scalability
-and performance aspects, while it was going through all the big changes.
+We used the same codebase for the internal and open-source versions, which was
+more work but it created a huge advantage -- our own extensive internal
+deployment provided a continuous testing platform for Cloudprober, particularly
+for its scalability and performance aspects, while we added all these features.
 
 ## Move away from Google Github
 
@@ -76,16 +81,20 @@ Cloudprober's Github repository from
 <a href="https://github.com/google/cloudprober">github.com/google/cloudprober<a>
 to
 <a href="https://github.com/cloudprober/cloudprober">github.com/cloudprober/cloudprober</a>.
-This was a disruptive move (and we lost a lot of Github stars in the process
-:smiley:), but it had to be done one day anyway, in order for Cloudprober to
-become an independent entity and grow even faster. While I can't say this
-authoritatively now, I believe Google still uses Cloudprober, possibly even more
-widely now, based on Googlers' interactions with the project.
+This was a disruptive move and we lost a lot of Github stars in the process
+(1.4k - :smiley:), but overall it was a good move as Cloudprober has grown much
+faster after becoming independent.
+
+While I can't say this authoritatively now as I don't work there anymore, from
+what I know, Google still uses Cloudprober, in fact, even more widely now.
 
 ## Growth and stability
 
 Throughout its journey, Cloudprober has continuously adapted and expanded to
-meet the evolving needs of its users -- an essential trait for any software.
-Without this attribute, software inevitably withers over time. To ensure
-Cloudprober thrives and evolves robustly, we've been very diligent that it grows
-in a structured way, a commitment we'll uphold in future as well.
+meet the evolving needs of its users[^4]. To ensure that Cloudprober thrives and
+evolves robustly, we've been very diligent that it grows in a structured way, a
+commitment we'll uphold in future as well.
+
+[^4]:
+    I think it's an essential trait for any software. Software that don't evolve
+    with time wither away.
