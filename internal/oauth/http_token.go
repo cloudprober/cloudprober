@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/httputils"
+	"github.com/cloudprober/cloudprober/internal/httpreq"
 	configpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
@@ -82,7 +82,7 @@ func (ts *httpTokenSource) tokenFromHTTP(req *http.Request) (*oauth2.Token, erro
 }
 
 func newRequest(method, url string, headers map[string]string, data []string) (*http.Request, error) {
-	req, err := httputils.NewRequest(method, url, httputils.NewRequestBody(data...))
+	req, err := httpreq.NewRequest(method, url, httpreq.NewRequestBody(data...))
 	if err != nil {
 		return nil, fmt.Errorf("error creating HTTP request: %v", err)
 	}

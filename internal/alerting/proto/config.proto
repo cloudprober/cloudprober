@@ -4,6 +4,9 @@ package cloudprober.alerting;
 
 option go_package = "github.com/cloudprober/cloudprober/internal/alerting/proto";
 
+import "github.com/cloudprober/cloudprober/internal/httpreq/proto/config.proto";
+
+
 message Email {
     // Email addresses to send the alert to.
     repeated string to = 1;
@@ -134,6 +137,20 @@ message NotifyConfig {
 
     // Opsgenie configuration.
     Opsgenie opsgenie = 14;
+
+    // Send an HTTP request to notfiy. HTTP request fields are expanded using
+    // the same template expansion rules as summary and details templates.
+    // For example, to send an notification using a rest API, you can use the:
+    //  http_notify {
+    //    url: "http://localhost:8080/alert"
+    //    method: POST
+    //    headers {
+    //      key: "Authorization"
+    //      value: "Bearer {{env 'AUTH_TOKEN'}}"
+    //    }
+    //    data: "{\"message\": \"@alert@ fired for @target@\", \"details\": \"name\"}"
+    //  }
+    utils.httpreq.HTTPRequest http_notify = 3;
 }
 
 message Condition {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package httputils
+package httpreq
 
 import (
 	"fmt"
@@ -21,81 +21,85 @@ import (
 	"strings"
 	"testing"
 
+	configpb "github.com/cloudprober/cloudprober/internal/httpreq/proto"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsHandled(t *testing.T) {
-	srvMux := http.NewServeMux()
-
-	srvMux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {})
-	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {})
-	srvMux.Handle("/", http.RedirectHandler("/status", http.StatusFound))
-
-	tests := map[string]bool{
-		"/":            true,
-		"/probestatus": false,
-		"/status":      true,
-		"/config":      true,
-		"/config2":     false,
-	}
-
-	for url, wantResult := range tests {
-		assert.Equal(t, wantResult, IsHandled(srvMux, url))
-	}
-}
-
-func TestNewRequest(t *testing.T) {
+func TestFromConfigNewRequest(t *testing.T) {
 	tests := []struct {
 		name        string
-		data        []string
+		cfg         *configpb.HTTPRequest
+		wantMethod  string
 		wantReqBody string
 		wantCT      string
 		wantErr     bool
 	}{
 		{
-			name:        "json_body",
-			data:        []string{`{"clientId":"testID", "clientSecret":"testSecret"}`},
+			name: "json_body",
+			cfg: &configpb.HTTPRequest{
+				Method: configpb.HTTPRequest_POST,
+				Data:   []string{`{"clientId":"testID", "clientSecret":"testSecret"}`},
+			},
+			wantMethod:  "POST",
 			wantReqBody: `{"clientId":"testID", "clientSecret":"testSecret"}`,
 			wantCT:      "application/json",
 		},
 		{
-			name:        "query_body",
-			data:        []string{"clientId=testID", "clientSecret=testSecret"},
+			name: "query_body",
+			cfg: &configpb.HTTPRequest{
+				Method: configpb.HTTPRequest_GET,
+				Data:   []string{"clientId=testID", "clientSecret=testSecret"},
+			},
+			wantMethod:  "GET",
 			wantReqBody: "clientId=testID&clientSecret=testSecret",
 			wantCT:      "application/x-www-form-urlencoded",
 		},
 		{
 			name:        "no_data",
-			data:        []string{},
+			cfg:         &configpb.HTTPRequest{},
+			wantMethod:  "GET", // Default method
 			wantReqBody: "",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req, err := NewRequest("method", "test-url", NewRequestBody(tt.data...))
-			if (err != nil) != tt.wantErr {
-				t.Errorf("newHTTPTokenSource() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+		tt.cfg.Url = "test-url"
+		for _, subtest := range []string{"newreq", "cfg"} {
+			t.Run(tt.name, func(t *testing.T) {
+				var req *http.Request
+				var err error
+				switch subtest {
+				case "newreq":
+					req, err = NewRequest(tt.cfg.GetMethod().String(), tt.cfg.GetUrl(), NewRequestBody(tt.cfg.GetData()...))
+				case "cfg":
+					req, err = FromConfig(tt.cfg)
+				}
 
-			if len(tt.data) == 0 {
-				assert.Equal(t, nil, req.Body, "request Body not nil")
-				assert.Nil(t, req.GetBody, "request GetBody not nil")
-				return
-			}
+				if (err != nil) != tt.wantErr {
+					t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
 
-			assert.NotEqual(t, nil, req.Body, "request Body nil")
-			assert.NotNil(t, req.GetBody, "request GetBody nil")
+				assert.Equal(t, tt.wantMethod, req.Method, "method mismatch")
 
-			got, _ := io.ReadAll(req.Body)
-			assert.Equal(t, tt.wantReqBody, string(got))
-			assert.Equal(t, tt.wantCT, req.Header.Get("Content-Type"), "Content-Type Header")
+				if len(tt.cfg.Data) == 0 {
+					assert.Equal(t, nil, req.Body, "request Body not nil")
+					assert.Nil(t, req.GetBody, "request GetBody not nil")
+					return
+				}
 
-			// We want an empty read next time.
-			got, _ = io.ReadAll(req.Body)
-			assert.Equal(t, "", string(got))
-		})
+				assert.NotEqual(t, nil, req.Body, "request Body nil")
+				assert.NotNil(t, req.GetBody, "request GetBody nil")
+
+				got, _ := io.ReadAll(req.Body)
+				assert.Equal(t, tt.wantReqBody, string(got))
+				assert.Equal(t, tt.wantCT, req.Header.Get("Content-Type"), "Content-Type Header")
+
+				// We want an empty read next time.
+				got, _ = io.ReadAll(req.Body)
+				assert.Equal(t, "", string(got))
+			})
+		}
 	}
 }
 
