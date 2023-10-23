@@ -494,14 +494,14 @@ type NotifyConfig struct {
 	Slack *Slack `protobuf:"bytes,13,opt,name=slack,proto3" json:"slack,omitempty"`
 	// Opsgenie configuration.
 	Opsgenie *Opsgenie `protobuf:"bytes,14,opt,name=opsgenie,proto3" json:"opsgenie,omitempty"`
-	// Send an HTTP request to notfiy. HTTP request fields are expanded using
-	// the same template expansion rules as summary and details templates.
-	// For example, to send an notification using a rest API, you can use the:
+	// Notify using an HTTP request. HTTP request fields are expanded using the
+	// same template expansion rules as "command" above:
+	// For example, to send a notification using rest API:
 	//
 	//	http_notify {
 	//	  url: "http://localhost:8080/alert"
 	//	  method: POST
-	//	  headers {
+	//	  header {
 	//	    key: "Authorization"
 	//	    value: "Bearer {{env 'AUTH_TOKEN'}}"
 	//	  }
