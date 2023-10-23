@@ -25,45 +25,54 @@ import (
 	httpreqpb "github.com/cloudprober/cloudprober/internal/httpreq/proto"
 )
 
+var doHTTPRequest = func(req *http.Request) (*http.Response, error) {
+	return http.DefaultClient.Do(req)
+}
+
 func (n *Notifier) httpNotify(ctx context.Context, fields map[string]string) error {
-	newCfg := &httpreqpb.HTTPRequest{
+	req := &httpreqpb.HTTPRequest{
 		Method: n.httpNotifier.GetMethod(),
+		Header: make(map[string]string),
 	}
 
 	url, _ := strtemplate.SubstituteLabels(n.httpNotifier.GetUrl(), fields)
-	newCfg.Url = url
+	req.Url = url
 
 	for k, v := range n.httpNotifier.GetHeader() {
-		newCfg.Header[k], _ = strtemplate.SubstituteLabels(v, fields)
+		req.Header[k], _ = strtemplate.SubstituteLabels(v, fields)
 	}
 	for _, d := range n.httpNotifier.GetData() {
-		newData, _ := strtemplate.SubstituteLabels(d, fields)
-		newCfg.Data = append(newCfg.Data, newData)
+		d2, _ := strtemplate.SubstituteLabels(d, fields)
+		req.Data = append(req.Data, d2)
 	}
 
-	n.l.Infof("Sending HTTP notification to URL: %s", newCfg.Url)
+	n.l.Infof("Sending HTTP notification to URL: %s", req.Url)
 
-	req, err := httpreq.FromConfig(newCfg)
+	r, err := httpreq.FromConfig(req)
 	if err != nil {
 		return fmt.Errorf("error creating HTTP request: %v", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := doHTTPRequest(r)
 	if err != nil {
 		return fmt.Errorf("error sending HTTP request: %v", err)
 	}
 
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("status code: %d, error reading HTTP response body: %v", resp.StatusCode, err)
+	var respBody string
+	if resp.Body != nil {
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("status code: %d, error reading HTTP response body: %v", resp.StatusCode, err)
+		}
+		respBody = string(b)
+		resp.Body.Close()
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode > 299 {
-		return fmt.Errorf("status code: %d, response: %s", resp.StatusCode, string(b))
+		return fmt.Errorf("status code: %d, response: %s", resp.StatusCode, respBody)
 	}
 
-	n.l.Infof("HTTP notification sent successfully. Response code: %d, body: %s", resp.StatusCode, string(b))
+	n.l.Infof("HTTP notification sent successfully. Response code: %d, body: %s", resp.StatusCode, respBody)
 
 	return nil
 }

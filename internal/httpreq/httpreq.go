@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 
@@ -31,11 +30,6 @@ import (
 const (
 	largeBodyThreshold = bytes.MinRead // 512.
 )
-
-func IsHandled(mux *http.ServeMux, url string) bool {
-	_, matchedPattern := mux.Handler(httptest.NewRequest("", url, nil))
-	return matchedPattern == url
-}
 
 // RequestBody implements an HTTP request body.
 type RequestBody struct {
