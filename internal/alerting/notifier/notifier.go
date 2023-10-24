@@ -25,6 +25,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/alerting/notifier/pagerduty"
 	"github.com/cloudprober/cloudprober/internal/alerting/notifier/slack"
 	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
+	httpreqpb "github.com/cloudprober/cloudprober/internal/httpreq/proto"
 	"github.com/cloudprober/cloudprober/logger"
 )
 
@@ -42,18 +43,22 @@ Playbook: @playbook_url@
 )
 
 type Notifier struct {
-	l        *logger.Logger
-	alertcfg *configpb.AlertConf
+	l   *logger.Logger
+	cfg *configpb.NotifyConfig
 
 	summaryTmpl      string
 	detailsTmpl      string
 	dashboardURLTmpl string
+	playbookURLTmpl  string
+	severity         configpb.AlertConf_Severity
+	otherInfo        map[string]string
 
 	cmdNotifier       *commandNotifier
 	emailNotifier     *emailNotifier
 	pagerdutyNotifier *pagerduty.Client
 	opsgenieNotifier  *opsgenie.Client
 	slackNotifier     *slack.Client
+	httpNotifier      *httpreqpb.HTTPRequest
 }
 
 func (n *Notifier) alertFields(alertInfo *alertinfo.AlertInfo) map[string]string {
@@ -61,17 +66,16 @@ func (n *Notifier) alertFields(alertInfo *alertinfo.AlertInfo) map[string]string
 		"summary":       n.summaryTmpl,
 		"details":       n.detailsTmpl,
 		"dashboard_url": n.dashboardURLTmpl,
-		"playbook_url":  n.alertcfg.GetPlaybookUrlTemplate(),
+		"playbook_url":  n.playbookURLTmpl,
 	}
-	for k, v := range n.alertcfg.GetOtherInfo() {
+	for k, v := range n.otherInfo {
 		templateDetails[k] = v
 	}
 
 	fields := alertInfo.Fields(templateDetails)
 
-	severity := n.alertcfg.GetSeverity()
-	if severity != configpb.AlertConf_UNKNOWN_SEVERITY {
-		fields["severity"] = severity.String()
+	if n.severity != configpb.AlertConf_UNKNOWN_SEVERITY {
+		fields["severity"] = n.severity.String()
 	}
 
 	return fields
@@ -121,6 +125,13 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo) e
 		}
 	}
 
+	if n.httpNotifier != nil {
+		err := n.httpNotify(ctx, fields)
+		if err != nil {
+			n.l.Errorf("Error sending HTTP notification: %v", err)
+			errs = errors.Join(errs, err)
+		}
+	}
 	return errs
 }
 
@@ -146,11 +157,15 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 	}
 
 	n := &Notifier{
-		alertcfg:         alertcfg,
-		l:                l,
+		cfg: alertcfg.GetNotify(),
+		l:   l,
+
+		severity:         alertcfg.GetSeverity(),
+		otherInfo:        alertcfg.GetOtherInfo(),
 		summaryTmpl:      alertcfg.GetSummaryTemplate(),
 		detailsTmpl:      alertcfg.GetDetailsTemplate(),
 		dashboardURLTmpl: alertcfg.GetDashboardUrlTemplate(),
+		playbookURLTmpl:  alertcfg.GetPlaybookUrlTemplate(),
 	}
 
 	if n.summaryTmpl == "" {
@@ -163,48 +178,52 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 		n.dashboardURLTmpl = DefaultDashboardURLTemplate
 	}
 
-	if n.alertcfg.GetNotify() == nil {
+	if n.cfg == nil {
 		return n, nil
 	}
 
-	if n.alertcfg.GetNotify().Command != "" {
-		cmdParts, err := newCommandNotifier(n.alertcfg.GetNotify().Command, l)
+	if n.cfg.Command != "" {
+		cmdParts, err := newCommandNotifier(n.cfg.Command, l)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing notify command: %v", err)
 		}
 		n.cmdNotifier = cmdParts
 	}
 
-	if n.alertcfg.GetNotify().GetEmail() != nil {
-		en, err := newEmailNotifier(n.alertcfg.GetNotify().GetEmail(), l)
+	if n.cfg.GetEmail() != nil {
+		en, err := newEmailNotifier(n.cfg.GetEmail(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring email notifier: %v", err)
 		}
 		n.emailNotifier = en
 	}
 
-	if n.alertcfg.GetNotify().GetPagerDuty() != nil {
-		pd, err := pagerduty.New(n.alertcfg.Notify.GetPagerDuty(), l)
+	if n.cfg.GetPagerDuty() != nil {
+		pd, err := pagerduty.New(n.cfg.GetPagerDuty(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring PagerDuty notifier: %v", err)
 		}
 		n.pagerdutyNotifier = pd
 	}
 
-	if n.alertcfg.GetNotify().GetOpsgenie() != nil {
-		og, err := opsgenie.New(n.alertcfg.Notify.GetOpsgenie(), l)
+	if n.cfg.GetOpsgenie() != nil {
+		og, err := opsgenie.New(n.cfg.GetOpsgenie(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring OpsGenie notifier: %v", err)
 		}
 		n.opsgenieNotifier = og
 	}
 
-	if n.alertcfg.GetNotify().GetSlack() != nil {
-		slack, err := slack.New(n.alertcfg.Notify.GetSlack(), l)
+	if n.cfg.GetSlack() != nil {
+		slack, err := slack.New(n.cfg.GetSlack(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring Slack notifier: %v", err)
 		}
 		n.slackNotifier = slack
+	}
+
+	if n.cfg.GetHttpNotify() != nil {
+		n.httpNotifier = n.cfg.GetHttpNotify()
 	}
 
 	return n, nil

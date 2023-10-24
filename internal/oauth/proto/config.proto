@@ -4,7 +4,6 @@ package cloudprober.oauth;
 
 option go_package = "github.com/cloudprober/cloudprober/internal/oauth/proto";
 
-
 message Config {
   oneof type {
     HTTPRequest http_request = 3;

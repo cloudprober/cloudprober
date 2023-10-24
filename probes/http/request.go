@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cloudprober/cloudprober/common/httputils"
+	"github.com/cloudprober/cloudprober/internal/httpreq"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"golang.org/x/oauth2"
@@ -114,7 +114,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 
 	url := fmt.Sprintf("%s://%s%s", p.protocol, hostWithPort(urlHost, port), relURLForTarget(target, p.url))
 
-	req, err := httputils.NewRequest(p.method, url, p.requestBody)
+	req, err := httpreq.NewRequest(p.method, url, p.requestBody)
 	if err != nil {
 		p.l.Error("target: ", target.Name, ", error creating HTTP request: ", err.Error())
 		return nil

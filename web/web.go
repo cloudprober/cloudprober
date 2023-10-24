@@ -23,7 +23,6 @@ import (
 	"net/http"
 
 	"github.com/cloudprober/cloudprober"
-	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/alerting"
@@ -31,6 +30,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
+	"github.com/cloudprober/cloudprober/web/webutils"
 )
 
 //go:embed static/*
@@ -103,7 +103,7 @@ func alertsState() string {
 func Init() error {
 	srvMux := runconfig.DefaultHTTPServeMux()
 	for _, url := range []string{"/config", "/config-running", "/static/"} {
-		if httputils.IsHandled(srvMux, url) {
+		if webutils.IsHandled(srvMux, url) {
 			return fmt.Errorf("url %s is already handled", url)
 		}
 	}

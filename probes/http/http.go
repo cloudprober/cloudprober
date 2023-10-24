@@ -33,7 +33,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/httputils"
+	"github.com/cloudprober/cloudprober/internal/httpreq"
 	"github.com/cloudprober/cloudprober/internal/oauth"
 	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
@@ -85,7 +85,7 @@ type Probe struct {
 	cancelFuncs map[string]context.CancelFunc
 	waitGroup   sync.WaitGroup
 
-	requestBody *httputils.RequestBody
+	requestBody *httpreq.RequestBody
 }
 
 type probeResult struct {
@@ -192,7 +192,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.url)
 	}
 
-	p.requestBody = httputils.NewRequestBody(p.c.GetBody()...)
+	p.requestBody = httpreq.NewRequestBody(p.c.GetBody()...)
 
 	if p.c.GetOauthConfig() != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(p.c.GetOauthConfig(), p.l)
