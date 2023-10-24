@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package httputils implements HTTP related utilities.
-package httputils
+package httpreq
 
 import (
 	"bytes"
@@ -21,19 +21,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
+
+	configpb "github.com/cloudprober/cloudprober/internal/httpreq/proto"
 )
 
 const (
 	largeBodyThreshold = bytes.MinRead // 512.
 )
-
-func IsHandled(mux *http.ServeMux, url string) bool {
-	_, matchedPattern := mux.Handler(httptest.NewRequest("", url, nil))
-	return matchedPattern == url
-}
 
 // RequestBody implements an HTTP request body.
 type RequestBody struct {
@@ -117,5 +113,18 @@ func NewRequest(method, url string, reqBody *RequestBody) (*http.Request, error)
 		}
 	}
 
+	return req, nil
+}
+
+// NewRequest returns a new HTTP request object, with the given method, url,
+// request body.
+func FromConfig(c *configpb.HTTPRequest) (*http.Request, error) {
+	req, err := NewRequest(c.GetMethod().String(), c.GetUrl(), NewRequestBody(c.GetData()...))
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range c.GetHeader() {
+		req.Header.Set(k, v)
+	}
 	return req, nil
 }

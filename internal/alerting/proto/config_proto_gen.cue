@@ -1,5 +1,7 @@
 package proto
 
+import "github.com/cloudprober/cloudprober/internal/httpreq/proto"
+
 #Email: {
 	// Email addresses to send the alert to.
 	to?: [...string] @protobuf(1,string)
@@ -137,6 +139,20 @@ package proto
 
 	// Opsgenie configuration.
 	opsgenie?: #Opsgenie @protobuf(14,Opsgenie)
+
+	// Notify using an HTTP request. HTTP request fields are expanded using the
+	// same template expansion rules as "command" above:
+	// For example, to send a notification using rest API:
+	//  http_notify {
+	//    url: "http://localhost:8080/alert"
+	//    method: POST
+	//    header {
+	//      key: "Authorization"
+	//      value: "Bearer {{env 'AUTH_TOKEN'}}"
+	//    }
+	//    data: "{\"message\": \"@alert@ fired for @target@\", \"details\": \"name\"}"
+	//  }
+	httpNotify?: proto.#HTTPRequest @protobuf(3,utils.httpreq.HTTPRequest,name=http_notify)
 }
 
 #Condition: {

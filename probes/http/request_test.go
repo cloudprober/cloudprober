@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/httputils"
+	"github.com/cloudprober/cloudprober/internal/httpreq"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
@@ -367,13 +367,13 @@ func TestPrepareRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &Probe{
-				requestBody: httputils.NewRequestBody(tt.data...),
+				requestBody: httpreq.NewRequestBody(tt.data...),
 			}
 			if tt.token != "" {
 				p.oauthTS = &fakeTokenSource{token: tt.token}
 			}
 
-			inReq, _ := httputils.NewRequest("GET", "http://cloudprober.org", p.requestBody)
+			inReq, _ := httpreq.NewRequest("GET", "http://cloudprober.org", p.requestBody)
 			got := p.prepareRequest(inReq)
 
 			if tt.wantIsCloned != (inReq != got) {

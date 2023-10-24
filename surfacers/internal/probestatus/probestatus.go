@@ -30,13 +30,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/httputils"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto"
 	"github.com/cloudprober/cloudprober/web/resources"
+	"github.com/cloudprober/cloudprober/web/webutils"
 )
 
 //go:embed static/*
@@ -128,7 +128,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		return nil, nil
 	}
 
-	if httputils.IsHandled(opts.HTTPServeMux, config.GetUrl()) {
+	if webutils.IsHandled(opts.HTTPServeMux, config.GetUrl()) {
 		return nil, fmt.Errorf("probestatus surfacer URL (%s) is already registered", config.GetUrl())
 	}
 
@@ -179,13 +179,13 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		<-doneChan
 	})
 
-	if !httputils.IsHandled(opts.HTTPServeMux, "/probestatus") {
+	if !webutils.IsHandled(opts.HTTPServeMux, "/probestatus") {
 		opts.HTTPServeMux.Handle("/probestatus", http.RedirectHandler(config.GetUrl(), http.StatusFound))
 	}
 
 	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
 
-	if !httputils.IsHandled(opts.HTTPServeMux, "/") {
+	if !webutils.IsHandled(opts.HTTPServeMux, "/") {
 		opts.HTTPServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/" {
 				http.NotFound(w, r)
