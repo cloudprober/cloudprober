@@ -50,6 +50,7 @@ func TestGenericRequest(t *testing.T) {
 			},
 			wantResp: strings.Join([]string{
 				"cloudprober.servers.grpc.Prober",
+				"grpc.reflection.v1.ServerReflection",
 				"grpc.reflection.v1alpha.ServerReflection",
 			}, ","),
 		},

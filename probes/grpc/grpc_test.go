@@ -150,7 +150,7 @@ func TestGRPCSuccess(t *testing.T) {
 		{
 			name:            "generic_request",
 			method:          configpb.ProbeConf_GENERIC.Enum(),
-			validationRegex: "^cloudprober.servers.grpc.Prober,grpc.reflection.v1alpha.ServerReflection$",
+			validationRegex: "^cloudprober.servers.grpc.Prober,grpc.reflection.v1.ServerReflection,grpc.reflection.v1alpha.ServerReflection$",
 		},
 	}
 
