@@ -17,7 +17,7 @@ package http
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -83,7 +83,7 @@ func get(t *testing.T, ln net.Listener, path string) (string, string) {
 	}
 	status := resp.Status
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("Error while reading response for the URL '/%s': Err: %v", path, err)
 		return "", status

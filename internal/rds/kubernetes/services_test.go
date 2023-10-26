@@ -15,7 +15,7 @@
 package kubernetes
 
 import (
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -176,7 +176,7 @@ func TestListSvcResources(t *testing.T) {
 
 func TestParseSvcResourceList(t *testing.T) {
 	servicesListFile := "./testdata/services.json"
-	data, err := ioutil.ReadFile(servicesListFile)
+	data, err := os.ReadFile(servicesListFile)
 
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", servicesListFile)

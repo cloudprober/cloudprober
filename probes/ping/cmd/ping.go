@@ -20,8 +20,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
 	"flag"
@@ -45,7 +45,7 @@ func main() {
 
 	probeConfig := &configpb.ProbeConf{}
 	if *config != "" {
-		b, err := ioutil.ReadFile(*config)
+		b, err := os.ReadFile(*config)
 		if err != nil {
 			log.Fatal(err)
 		}
