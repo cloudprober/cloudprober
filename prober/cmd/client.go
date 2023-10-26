@@ -21,8 +21,8 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
 	"log"
+	"os"
 
 	"flag"
 
@@ -61,7 +61,7 @@ func main() {
 	}
 
 	if *addProbe != "" {
-		b, err := ioutil.ReadFile(*addProbe)
+		b, err := os.ReadFile(*addProbe)
 		if err != nil {
 			log.Fatalf("Failed to read the config file: %v", err)
 		}

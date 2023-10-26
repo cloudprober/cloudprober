@@ -178,7 +178,7 @@ func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
 	testFile := tf.Name()
 	defer os.Remove(tf.Name())
 
-	b, err := ioutil.ReadFile(testResourcesFiles["json"][0])
+	b, err := os.ReadFile(testResourcesFiles["json"][0])
 	if err != nil {
 		t.Fatal(err)
 	}

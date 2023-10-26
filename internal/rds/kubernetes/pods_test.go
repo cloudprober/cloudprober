@@ -15,7 +15,7 @@
 package kubernetes
 
 import (
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -110,7 +110,7 @@ func TestListResources(t *testing.T) {
 
 func TestParseResourceList(t *testing.T) {
 	podsListFile := "./testdata/pods.json"
-	data, err := ioutil.ReadFile(podsListFile)
+	data, err := os.ReadFile(podsListFile)
 
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", podsListFile)

@@ -16,9 +16,9 @@ package gcp
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -361,7 +361,7 @@ func readTestJSON(t *testing.T, fileName string) (b []byte) {
 	t.Helper()
 
 	instancesListFile := "./testdata/" + fileName
-	data, err := ioutil.ReadFile(instancesListFile)
+	data, err := os.ReadFile(instancesListFile)
 
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", instancesListFile)

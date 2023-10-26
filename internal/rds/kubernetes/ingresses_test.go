@@ -15,7 +15,7 @@
 package kubernetes
 
 import (
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -41,7 +41,7 @@ func listerFromDataFile(t *testing.T) *ingressesLister {
 	t.Helper()
 
 	ingressesListFile := "./testdata/ingresses.json"
-	data, err := ioutil.ReadFile(ingressesListFile)
+	data, err := os.ReadFile(ingressesListFile)
 
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", ingressesListFile)

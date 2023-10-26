@@ -19,7 +19,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -117,7 +116,7 @@ func (c *client) httpTransportWithTLS() (*http.Transport, error) {
 	}
 
 	// If TLS config is not provided, assume in-cluster.
-	certs, err := ioutil.ReadFile(LocalCACert)
+	certs, err := os.ReadFile(LocalCACert)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading local ca.crt file (%s): %v", LocalCACert, err)
 	}
