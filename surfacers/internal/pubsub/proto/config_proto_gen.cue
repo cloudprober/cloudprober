@@ -1,8 +1,8 @@
 package proto
 
 #SurfacerConf: {
-	// GCP project name for pubsub. If not specified and running on GCP,
-	// project is used.
+	// GCP project name for pubsub. It's required if not running on GCP,
+	// otherwise it's retrieved from the metadata.
 	project?: string @protobuf(1,string)
 
 	// Pubsub topic name.

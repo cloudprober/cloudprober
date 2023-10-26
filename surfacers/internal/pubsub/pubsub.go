@@ -125,12 +125,16 @@ func (s *Surfacer) init(ctx context.Context) error {
 		s.topicName = "cloudprober-" + sysvars.Vars()["hostname"]
 	}
 
-	if s.gcpProject == "" && metadata.OnGCE() {
-		project, err := metadata.ProjectID()
-		if err != nil {
-			return fmt.Errorf("pubsub_surfacer: unable to retrieve project id: %v", err)
+	if s.gcpProject == "" {
+		if metadata.OnGCE() {
+			project, err := metadata.ProjectID()
+			if err != nil {
+				return fmt.Errorf("pubsub_surfacer: unable to retrieve project id: %v", err)
+			}
+			s.gcpProject = project
+		} else {
+			return fmt.Errorf("pubsub_surfacer: project id not provided and not running on GCE")
 		}
-		s.gcpProject = project
 	}
 
 	client, err := newPubsubClient(ctx, s.gcpProject)
