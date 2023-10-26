@@ -50,8 +50,8 @@ import (
 
 	epb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
-	"github.com/golang/protobuf/proto"
 	"github.com/hoisie/redis"
+	"google.golang.org/protobuf/proto"
 )
 
 var server = flag.Bool("server", false, "Whether to run in server mode")

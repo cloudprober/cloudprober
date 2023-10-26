@@ -81,6 +81,7 @@ currently supports the following notification targets:
 - [Opsgenie](/docs/config/alerting/#cloudprober_alerting_Opsgenie)
 - [Slack](/docs/config/alerting/#cloudprober_alerting_Slack)
 - [Command](/docs/config/alerting/#cloudprober_alerting_NotifyConfig)
+- [HTTP](/docs/config/alerting/#cloudprober_alerting_NotifyConfig)
 
 Configuration documentation (linked above) has more details on each of them.
 

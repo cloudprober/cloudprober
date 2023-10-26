@@ -21,16 +21,17 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"time"
 
 	"flag"
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/probes/ping"
 	configpb "github.com/cloudprober/cloudprober/probes/ping/proto"
 	"github.com/cloudprober/cloudprober/targets"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var (
@@ -46,10 +47,10 @@ func main() {
 	if *config != "" {
 		b, err := ioutil.ReadFile(*config)
 		if err != nil {
-			glog.Exit(err)
+			log.Fatal(err)
 		}
-		if err = proto.UnmarshalText(string(b), probeConfig); err != nil {
-			glog.Exitf("error while parsing config: %v", err)
+		if err = prototext.Unmarshal(b, probeConfig); err != nil {
+			log.Fatalf("error while parsing config: %v", err)
 		}
 	}
 
@@ -64,7 +65,7 @@ func main() {
 	}
 	p := &ping.Probe{}
 	if err := p.Init("ping", opts); err != nil {
-		glog.Exitf("error initializing ping probe from config: %v", err)
+		log.Fatalf("error initializing ping probe from config: %v", err)
 	}
 
 	dataChan := make(chan *metrics.EventMetrics, 1000)

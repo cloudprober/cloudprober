@@ -23,9 +23,9 @@ import (
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	configpb "github.com/cloudprober/cloudprober/targets/gce/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // defaultComputeService returns the compute service to use for the GCE API

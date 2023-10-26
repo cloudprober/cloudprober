@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func readPayload(r *bufio.Reader) ([]byte, error) {
@@ -103,20 +103,21 @@ func WriteMessage(pb proto.Message, w io.Writer) error {
 // Serve blocks indefinitely, servicing probe requests. Note that this function is
 // provided mainly to help external probe server implementations. Cloudprober doesn't
 // make use of it. Example usage:
-//	import (
-//		serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
-//		"github.com/cloudprober/cloudprober/probes/external/serverutils"
-//	)
-//	func runProbe(opts []*cppb.ProbeRequest_Option) {
-//  	...
-//	}
-//	serverutils.Serve(func(req *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
-// 		payload, errMsg, _ := runProbe(req.GetOptions())
-//		reply.Payload = proto.String(payload)
-//		if errMsg != "" {
-//			reply.ErrorMessage = proto.String(errMsg)
+//
+//		import (
+//			serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
+//			"github.com/cloudprober/cloudprober/probes/external/serverutils"
+//		)
+//		func runProbe(opts []*cppb.ProbeRequest_Option) {
+//	 	...
 //		}
-//	})
+//		serverutils.Serve(func(req *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
+//			payload, errMsg, _ := runProbe(req.GetOptions())
+//			reply.Payload = proto.String(payload)
+//			if errMsg != "" {
+//				reply.ErrorMessage = proto.String(errMsg)
+//			}
+//		})
 func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
 	stdin := bufio.NewReader(os.Stdin)
 
