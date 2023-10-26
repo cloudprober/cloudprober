@@ -5,8 +5,8 @@ package cloudprober.surfacer.pubsub;
 option go_package = "github.com/cloudprober/cloudprober/surfacers/internal/pubsub/proto";
 
 message SurfacerConf {
-  // GCP project name for pubsub. If not specified and running on GCP,
-  // project is used.
+  // GCP project name for pubsub. It's required if not running on GCP,
+  // otherwise it's retrieved from the metadata.
   optional string project = 1;
 
   // Pubsub topic name.

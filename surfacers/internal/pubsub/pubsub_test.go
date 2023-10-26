@@ -133,6 +133,7 @@ func createSurfacerAndVerify(t *testing.T, srv *testServer, compression bool) {
 	//defer cancel()
 
 	s, err := New(context.Background(), &configpb.SurfacerConf{
+		Project:            proto.String("test-project"),
 		TopicName:          proto.String("test-topic"),
 		CompressionEnabled: proto.Bool(compression),
 	}, &options.Options{MetricsBufferSize: 1000}, &logger.Logger{})

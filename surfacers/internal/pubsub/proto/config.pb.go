@@ -25,8 +25,8 @@ type SurfacerConf struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// GCP project name for pubsub. If not specified and running on GCP,
-	// project is used.
+	// GCP project name for pubsub. It's required if not running on GCP,
+	// otherwise it's retrieved from the metadata.
 	Project *string `protobuf:"bytes,1,opt,name=project" json:"project,omitempty"`
 	// Pubsub topic name.
 	// Default is cloudprober-{hostname}
