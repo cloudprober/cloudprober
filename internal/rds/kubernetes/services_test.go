@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func testServiceInfo(name, ns, ip, publicIP, hostname string, labels map[string]string, ports []int) *serviceInfo {

@@ -38,7 +38,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/cloudprober/cloudprober/targets/rtc/rtcservice"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Lameducker provides an interface to Lameduck/Unlameduck an instance.

@@ -28,8 +28,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/pretty"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/compress"

@@ -28,8 +28,8 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
+	"google.golang.org/protobuf/proto"
 )
 
 // If question contains a bad domain or type, DNS query response status should

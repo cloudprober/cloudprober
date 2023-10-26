@@ -21,8 +21,8 @@ import (
 	"time"
 
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
-	"github.com/golang/protobuf/proto"
 	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
+	"google.golang.org/protobuf/proto"
 )
 
 type testVar struct {

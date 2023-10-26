@@ -26,9 +26,9 @@ import (
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/oauth2/google"
 	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
+	"google.golang.org/protobuf/proto"
 )
 
 // rtcVar is an internal representation of the runtimeconfig (RTC) variables.

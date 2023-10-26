@@ -63,7 +63,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/gce/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cloudprober/cloudprober/internal/rds/client"
 	clientconfigpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"

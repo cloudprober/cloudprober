@@ -22,10 +22,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	configpb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
