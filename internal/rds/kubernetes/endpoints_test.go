@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -10,7 +10,7 @@ import (
 
 func TestParseEndpoints(t *testing.T) {
 	epListFile := "./testdata/endpoints.json"
-	data, err := ioutil.ReadFile(epListFile)
+	data, err := os.ReadFile(epListFile)
 
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", epListFile)

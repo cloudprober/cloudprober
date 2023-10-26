@@ -90,7 +90,7 @@ func testWrite(t *testing.T, compressionEnabled bool) {
 		s.Write(context.Background(), tt.em)
 		s.close()
 
-		dat, err := ioutil.ReadFile(f.Name())
+		dat, err := os.ReadFile(f.Name())
 		if err != nil {
 			t.Errorf("Unable to open test output file for reading: %v\ntest description: %s", err, tt.description)
 		}

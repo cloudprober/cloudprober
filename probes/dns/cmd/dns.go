@@ -20,9 +20,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"flag"
@@ -50,7 +50,7 @@ func main() {
 
 	// If we are given a config file, read it. If not, use defaults.
 	if *config != "" {
-		b, err := ioutil.ReadFile(*config)
+		b, err := os.ReadFile(*config)
 		if err != nil {
 			log.Fatal(err)
 		}
