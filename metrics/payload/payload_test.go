@@ -23,7 +23,8 @@ import (
 
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -44,7 +45,7 @@ func parserForTest(t *testing.T, agg bool, additionalLabels string) *Parser {
  `
 
 	var c configpb.OutputMetricsOptions
-	if err := proto.UnmarshalText(fmt.Sprintf(testConf, agg), &c); err != nil {
+	if err := prototext.Unmarshal([]byte(fmt.Sprintf(testConf, agg)), &c); err != nil {
 		t.Error(err)
 	}
 	if additionalLabels != "" {

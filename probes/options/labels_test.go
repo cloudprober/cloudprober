@@ -20,7 +20,7 @@ import (
 
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var configWithAdditionalLabels = &configpb.ProbeDef{

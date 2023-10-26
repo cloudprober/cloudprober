@@ -29,8 +29,8 @@ import (
 	pb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 var once sync.Once

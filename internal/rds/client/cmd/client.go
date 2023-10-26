@@ -17,13 +17,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"flag"
 
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cloudprober/cloudprober/internal/rds/client"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
@@ -47,7 +47,7 @@ func main() {
 	flag.Parse()
 
 	if *project == "" {
-		glog.Exit("--project is a required paramater")
+		log.Fatal("--project is a required paramater")
 	}
 
 	serverName := *certServerName
@@ -90,7 +90,7 @@ func main() {
 		}
 		fParts := strings.SplitN(f, "=", 2)
 		if len(fParts) != 2 {
-			glog.Exitf("bad filter in --filters flag (%s): %s", *filtersF, f)
+			log.Fatalf("bad filter in --filters flag (%s): %s", *filtersF, f)
 		}
 		c.Request.Filter = append(c.Request.Filter, &pb.Filter{
 			Key:   proto.String(fParts[0]),
@@ -100,7 +100,7 @@ func main() {
 
 	tgts, err := client.New(c, nil, &logger.Logger{})
 	if err != nil {
-		glog.Exit(err)
+		log.Fatal(err)
 	}
 	for {
 		fmt.Printf("%s\n", time.Now())

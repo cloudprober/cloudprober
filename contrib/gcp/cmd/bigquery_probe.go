@@ -25,13 +25,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"flag"
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+
 	"github.com/cloudprober/cloudprober/contrib/gcp/bigquery"
 	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -54,14 +55,14 @@ func main() {
 	flag.Parse()
 
 	if *projectID == "" {
-		glog.Exitf("--project_id must be specified")
+		log.Fatalf("--project_id must be specified")
 	}
 
 	dstTable := *table
 	ctx := context.Background()
 	runner, err := bigquery.NewRunner(ctx, *projectID)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	if *serverMode {
@@ -70,7 +71,7 @@ func main() {
 			opts := parseProbeRequest(request)
 			if val, ok := opts["table"]; ok {
 				dstTable = val
-				glog.Infof("--table set to %q by ProbeRequest config", val)
+				log.Printf("--table set to %q by ProbeRequest config", val)
 			}
 			payload, err := bigquery.Probe(ctx, runner, dstTable)
 			reply.Payload = proto.String(payload)
@@ -82,7 +83,7 @@ func main() {
 
 	payload, err := bigquery.Probe(ctx, runner, dstTable)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 	fmt.Println(payload)
 

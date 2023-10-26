@@ -27,7 +27,7 @@ import (
 
 	configpb "github.com/cloudprober/cloudprober/internal/servers/udp/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Return true if the underlying error indicates a udp.Client timeout.

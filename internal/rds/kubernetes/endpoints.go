@@ -27,7 +27,7 @@ import (
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type epLister struct {
@@ -148,7 +148,7 @@ func (epi *epInfo) resources(portFilter *filter.RegexFilter, l *logger.Logger) (
 				resources = append(resources, &pb.Resource{
 					Name:   proto.String(resName),
 					Ip:     proto.String(addr.IP),
-					Port:   proto.Int(port.Port),
+					Port:   proto.Int32(int32(port.Port)),
 					Labels: labels,
 				})
 			}
