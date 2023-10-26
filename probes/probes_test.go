@@ -27,7 +27,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	testdatapb "github.com/cloudprober/cloudprober/probes/testdata"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var testProbeIntialized int
@@ -59,10 +59,7 @@ func TestGetExtensionProbe(t *testing.T) {
 	//      name: "fancy"
 	//    }
 	// }
-	err := proto.SetExtension(probeDef, testdatapb.E_FancyProbe, &testdatapb.FancyProbe{Name: proto.String("fancy")})
-	if err != nil {
-		t.Fatalf("error setting up extension in test probe proto: %v", err)
-	}
+	proto.SetExtension(probeDef, testdatapb.E_FancyProbe, &testdatapb.FancyProbe{Name: proto.String("fancy")})
 	probeInfo, err := probes.CreateProbe(probeDef, &options.Options{})
 	if err == nil {
 		t.Errorf("Expected error in building probe from extensions, got probe: %v", probeInfo)

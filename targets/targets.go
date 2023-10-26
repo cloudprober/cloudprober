@@ -41,7 +41,8 @@ import (
 	"github.com/cloudprober/cloudprober/targets/gce"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // globalResolver is a singleton DNS resolver that is used as the default
@@ -384,25 +385,25 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 }
 
 func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (Targets, error) {
-	extensions, err := proto.ExtensionDescs(pb)
-	if err != nil {
-		return nil, fmt.Errorf("error getting extensions from the target config (%s): %v", pb.String(), err)
-	}
-	if len(extensions) != 1 {
-		return nil, fmt.Errorf("there should be exactly one extension in the targets config (%s), got %d extensions", pb.String(), len(extensions))
-	}
-	desc := extensions[0]
-	value, err := proto.GetExtension(pb, desc)
-	if err != nil {
-		return nil, err
-	}
-	l.Infof("Extension field: %d, value: %v", desc.Field, value)
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()
-	newTargetsFunc, ok := extensionMap[int(desc.Field)]
-	if !ok {
-		return nil, fmt.Errorf("no targets type registered for the extension: %d", desc.Field)
+
+	var newTargetsFunc func(interface{}, *logger.Logger) (Targets, error)
+	var value interface{}
+
+	proto.RangeExtensions(pb, func(xt protoreflect.ExtensionType, val interface{}) bool {
+		newTargetsFunc = extensionMap[int(xt.TypeDescriptor().Number())]
+		if newTargetsFunc != nil {
+			value = val
+			return false
+		}
+		return true
+	})
+
+	if newTargetsFunc == nil {
+		return nil, fmt.Errorf("no extension targets found in the targets config")
 	}
+
 	return newTargetsFunc(value, l)
 }
 

@@ -29,7 +29,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	testdatapb "github.com/cloudprober/cloudprober/targets/testdata"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type mockLister struct {
@@ -180,10 +180,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	//      name: "fancy"
 	//    }
 	// }
-	err := proto.SetExtension(targetsDef, testdatapb.E_FancyTargets, &testdatapb.FancyTargets{Name: proto.String("fancy")})
-	if err != nil {
-		t.Fatalf("error setting up extension in test targets proto: %v", err)
-	}
+	proto.SetExtension(targetsDef, testdatapb.E_FancyTargets, &testdatapb.FancyTargets{Name: proto.String("fancy")})
 	tgts, err := New(targetsDef, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Expected error in building targets from extensions, got nil. targets: %v", tgts)
@@ -194,7 +191,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	})
 	tgts, err = New(targetsDef, nil, nil, nil, nil)
 	if err != nil {
-		t.Errorf("Got error in building targets from extensions: %v.", err)
+		t.Fatalf("Got error in building targets from extensions: %v.", err)
 	}
 	tgtsList := endpoint.NamesFromEndpoints(tgts.ListEndpoints())
 	if !reflect.DeepEqual(tgtsList, testTargets) {

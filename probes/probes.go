@@ -34,14 +34,15 @@ import (
 	"github.com/cloudprober/cloudprober/probes/udp"
 	"github.com/cloudprober/cloudprober/probes/udplistener"
 	"github.com/cloudprober/cloudprober/web/formatutils"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var (
 	userDefinedProbes   = make(map[string]Probe)
-	userDefinedProbesMu sync.Mutex
+	userDefinedProbesMu sync.RWMutex
 	extensionMap        = make(map[int]func() Probe)
-	extensionMapMu      sync.Mutex
+	extensionMapMu      sync.RWMutex
 )
 
 // Probe interface represents a probe.
@@ -75,24 +76,25 @@ type ProbeInfo struct {
 }
 
 func getExtensionProbe(p *configpb.ProbeDef) (Probe, interface{}, error) {
-	extensions, err := proto.ExtensionDescs(p)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting extensions from the probe config (%s): %v", p.String(), err)
+	extensionMapMu.RLock()
+	defer extensionMapMu.RUnlock()
+
+	var newProbeFunc func() Probe
+	var value interface{}
+
+	proto.RangeExtensions(p, func(xt protoreflect.ExtensionType, val interface{}) bool {
+		newProbeFunc = extensionMap[int(xt.TypeDescriptor().Number())]
+		if newProbeFunc != nil {
+			value = val
+			return false
+		}
+		return true
+	})
+
+	if newProbeFunc == nil {
+		return nil, nil, fmt.Errorf("no extension probe found in the probe config")
 	}
-	if len(extensions) != 1 {
-		return nil, nil, fmt.Errorf("there should be exactly one extension in the probe config (%s), got %d extensions", p.String(), len(extensions))
-	}
-	desc := extensions[0]
-	value, err := proto.GetExtension(p, desc)
-	if err != nil {
-		return nil, nil, err
-	}
-	extensionMapMu.Lock()
-	defer extensionMapMu.Unlock()
-	newProbeFunc, ok := extensionMap[int(desc.Field)]
-	if !ok {
-		return nil, nil, fmt.Errorf("no probes registered for the extension: %d", desc.Field)
-	}
+
 	return newProbeFunc(), value, nil
 }
 
@@ -157,8 +159,8 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 			return
 		}
 	case configpb.ProbeDef_USER_DEFINED:
-		userDefinedProbesMu.Lock()
-		defer userDefinedProbesMu.Unlock()
+		userDefinedProbesMu.RLock()
+		defer userDefinedProbesMu.RUnlock()
 		probe = userDefinedProbes[p.GetName()]
 		if probe == nil {
 			err = fmt.Errorf("unregistered user defined probe: %s", p.GetName())
@@ -178,6 +180,7 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 // RegisterUserDefined allows you to register a user defined probe with
 // cloudprober.
 // Example usage:
+//
 //	import (
 //		"github.com/cloudprober/cloudprober"
 //		"github.com/cloudprober/cloudprober/probes"
