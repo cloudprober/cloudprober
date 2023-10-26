@@ -150,7 +150,7 @@ func (slb *srvListBuilder) Scheme() string {
 }
 
 func (slb *srvListBuilder) Build(target resolver.Target, cc resolver.ClientConn, _ resolver.BuildOptions) (resolver.Resolver, error) {
-	res, err := newSrvListResolver(target.Endpoint, slb.defaultPort)
+	res, err := newSrvListResolver(target.Endpoint(), slb.defaultPort)
 	if err != nil {
 		return nil, err
 	}
