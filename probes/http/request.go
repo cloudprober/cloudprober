@@ -66,10 +66,10 @@ func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 
 	for _, label := range []string{relURLLabel, "__cp_path__"} {
 		if path := target.Labels[label]; path != "" {
-			if strings.HasPrefix(path, "/") {
-				return path
+			if !strings.HasPrefix(path, "/") {
+				return "/" + path
 			}
-			return "/" + path
+			return path
 		}
 	}
 

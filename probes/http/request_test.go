@@ -56,6 +56,17 @@ func TestHostWithPort(t *testing.T) {
 	}
 }
 
+func TestHandleIPv6(t *testing.T) {
+	tests := map[string]string{
+		"2600:2d00:4030:a47:c0a8:210d:0:0": "[2600:2d00:4030:a47:c0a8:210d:0:0]",
+		"cloudprober.org":                  "cloudprober.org",
+		"10.12.13.14":                      "10.12.13.14",
+	}
+	for in, want := range tests {
+		assert.Equalf(t, want, handleIPv6(in), "handleIPv6(%s) is not as expected", in)
+	}
+}
+
 func TestURLHostAndHeader(t *testing.T) {
 	for _, test := range []struct {
 		name            string
@@ -137,13 +148,13 @@ func TestURLHostAndHeader(t *testing.T) {
 func TestPathforTarget(t *testing.T) {
 	allLabels := map[string]string{
 		relURLLabel:   "/target-url",
-		"__cp_path__": "/target-cp-path",
+		"__cp_path__": "target-cp-path", // "/" is added automatically.
 	}
 
 	// This is a map of wanted output to defined labels.
 	tests := map[string][]string{
-		"/target-url":     {relURLLabel, "url", "__cp_url__", "path", "__cp_path__"},
-		"/target-cp-path": {"__cp_path__", "url", "__cp_url__"},
+		"/target-url":     {relURLLabel, "__cp_path__"},
+		"/target-cp-path": {"__cp_path__"},
 	}
 
 	for want, labelKeys := range tests {
