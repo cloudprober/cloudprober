@@ -187,8 +187,7 @@ type testData struct {
 	resolvedIP string // IP that will be returned by the test resolve function.
 
 	// Probe configuration parameters
-	resolveFirst bool
-	probeHost    string
+	probeHost string
 
 	// Used by TestURLHostAndHeaderForTarget to verify URL host, and
 	// TestRequestHostAndURL to build URL to verify.
@@ -199,24 +198,21 @@ type testData struct {
 func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, expectedPort int) {
 	t.Helper()
 
+	// Initialize proe
 	p := &Probe{}
 	opts := options.DefaultOptions()
-	opts.ProbeConf = &configpb.ProbeConf{
-		ResolveFirst: proto.Bool(td.resolveFirst),
+	c := &configpb.ProbeConf{
+		Port: proto.Int32(int32(probePort)),
+		Header: map[string]string{
+			"X-Probe-Name": "probe1",
+		},
 	}
-	opts.Targets = targets.StaticTargets(td.targetName)
-	p.Init("test", opts)
-
-	if probePort != 0 {
-		p.c.Port = proto.Int32(int32(probePort))
-	}
-
 	if td.probeHost != "" {
-		p.c.Headers = append(p.c.Headers, &configpb.ProbeConf_Header{
-			Name:  proto.String("Host"),
-			Value: proto.String(td.probeHost),
-		})
+		c.Header["Host"] = td.probeHost
 	}
+	opts.ProbeConf = c
+	opts.Targets = targets.StaticTargets(td.targetName)
+	assert.NoError(t, p.Init("test", opts), "Error initializing probe")
 
 	target := endpoint.Endpoint{
 		Name: td.targetName,
@@ -229,14 +225,10 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 	req := p.httpRequestForTarget(target)
 
 	wantURL := fmt.Sprintf("http://%s", hostWithPort(td.wantURLHost, expectedPort))
-	if req.URL.String() != wantURL {
-		t.Errorf("HTTP req URL: %s, wanted: %s", req.URL.String(), wantURL)
-	}
+	assert.Equal(t, wantURL, req.URL.String(), "URL mismatch")
 
-	// Note that we test hostHeaderForTarget independently.
-	// _, hostHeader := p.headers(td.wantURLHost, expectedPort)
-	// wantHostHeader := hostWithPort(td.wantHostHeader, expectedPort)
 	assert.Equal(t, td.wantHostHeader, req.Host, "host header mismatch")
+	assert.Equal(t, "probe1", req.Header.Get("X-Probe-Name"), "probe name header mismatch")
 }
 
 func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
@@ -275,6 +267,7 @@ func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
 
 func TestRequestHostAndURL(t *testing.T) {
 	tests := []testData{
+		// No resolve first
 		{
 			desc:           "no_resolve_first,no_probe_host_header",
 			targetName:     "test-target.com",
@@ -301,10 +294,10 @@ func TestRequestHostAndURL(t *testing.T) {
 			wantURLHost:    "[2600:2d00:4030:a47:c0a8:210d:0:0]",
 			wantHostHeader: "[2600:2d00:4030:a47:c0a8:210d:0:0]",
 		},
+		// Resolves first, as resolved IP is given.
 		{
 			desc:           "resolve_first,no_probe_host_header",
 			targetName:     "localhost",
-			resolveFirst:   true,
 			resolvedIP:     "127.0.0.1",
 			wantURLHost:    "127.0.0.1",
 			wantHostHeader: "localhost",
@@ -312,7 +305,6 @@ func TestRequestHostAndURL(t *testing.T) {
 		{
 			desc:           "resolve_first,ipv6,no_probe_host_header",
 			targetName:     "localhost",
-			resolveFirst:   true,
 			resolvedIP:     "2600:2d00:4030:a47:c0a8:210d:0:0", // Resolved IP
 			wantURLHost:    "[2600:2d00:4030:a47:c0a8:210d::]", // IPv6 literal host
 			wantHostHeader: "localhost",
@@ -320,7 +312,6 @@ func TestRequestHostAndURL(t *testing.T) {
 		{
 			desc:           "resolve_first,probe_host_header",
 			targetName:     "localhost",
-			resolveFirst:   true,
 			probeHost:      "test-host",
 			resolvedIP:     "127.0.0.1",
 			wantURLHost:    "127.0.0.1",
