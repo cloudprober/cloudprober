@@ -1,4 +1,4 @@
-// Copyright 2017-2019 The Cloudprober Authors.
+// Copyright 2017-2023 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -119,11 +119,12 @@ func (d *dummy) Resolve(name string, ipVer int) (net.IP, error) {
 // providing various filtering options. Currently filtering by regex and lameduck
 // is supported.
 type targets struct {
-	lister   endpoint.Lister
-	resolver endpoint.Resolver
-	re       *regexp.Regexp
-	ldLister endpoint.Lister
-	l        *logger.Logger
+	lister          endpoint.Lister
+	resolver        endpoint.Resolver
+	staticEndpoints []endpoint.Endpoint
+	re              *regexp.Regexp
+	ldLister        endpoint.Lister
+	l               *logger.Logger
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -186,14 +187,15 @@ func (t *targets) includeInResult(ep endpoint.Endpoint, ldMap map[string]endpoin
 // associated metadata at all, those endpoint fields are left empty in that
 // case.
 func (t *targets) ListEndpoints() []endpoint.Endpoint {
-	if t.lister == nil {
-		t.l.Error("List(): Lister t.lister is nil")
+	if t.lister == nil && len(t.staticEndpoints) == 0 {
+		t.l.Error("no lister or static endpoints")
 		return []endpoint.Endpoint{}
 	}
 
-	var list []endpoint.Endpoint
-
-	list = t.lister.ListEndpoints()
+	list := append([]endpoint.Endpoint{}, t.staticEndpoints...)
+	if t.lister != nil {
+		list = append(list, t.lister.ListEndpoints()...)
+	}
 
 	ldMap := t.lameduckMap()
 	if t.re != nil || len(ldMap) != 0 {
@@ -220,6 +222,16 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 		l:        l,
 		resolver: globalResolver,
 		ldLister: ldLister,
+	}
+
+	for _, res := range targetsDef.GetEndpoints() {
+		tgts.staticEndpoints = append(tgts.staticEndpoints, endpoint.Endpoint{
+			Name:        res.GetName(),
+			Port:        int(res.GetPort()),
+			IP:          net.ParseIP(res.GetIp()),
+			Labels:      res.GetLabels(),
+			LastUpdated: time.Unix(res.GetLastUpdated(), 0),
+		})
 	}
 
 	if targetsDef == nil {
@@ -249,10 +261,7 @@ func StaticTargets(hosts string) Targets {
 }
 
 func StaticEndpoints(eps []endpoint.Endpoint) Targets {
-	t, _ := baseTargets(nil, nil, nil)
-	t.lister = &staticLister{list: eps}
-	t.resolver = globalResolver
-	return t
+	return &targets{staticEndpoints: eps}
 }
 
 // rdsClientConf converts RDS targets into RDS client configuration.
@@ -374,22 +383,26 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = dummy, dummy
 
 	default:
-		extT, err := getExtensionTargets(targetsDef, t.l)
-		if err != nil {
-			return nil, fmt.Errorf("targets.New(): %v", err)
+		targetsFunc, value := getExtensionTargets(targetsDef, t.l)
+		if targetsFunc != nil {
+			extT, err := targetsFunc(value, l)
+			if err != nil {
+				return nil, fmt.Errorf("targets.New(): targets extension: %v", err)
+			}
+			t.lister, t.resolver = extT, extT
 		}
-		t.lister, t.resolver = extT, extT
+	}
+
+	if t.lister == nil && len(t.staticEndpoints) == 0 {
+		return nil, fmt.Errorf("targets.New(): no targets type specified and no static endpoints")
 	}
 
 	return t, nil
 }
 
-func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (Targets, error) {
+func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (newTargetsFunc func(interface{}, *logger.Logger) (Targets, error), value interface{}) {
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()
-
-	var newTargetsFunc func(interface{}, *logger.Logger) (Targets, error)
-	var value interface{}
 
 	proto.RangeExtensions(pb, func(xt protoreflect.ExtensionType, val interface{}) bool {
 		newTargetsFunc = extensionMap[int(xt.TypeDescriptor().Number())]
@@ -400,11 +413,7 @@ func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (Targets, e
 		return true
 	})
 
-	if newTargetsFunc == nil {
-		return nil, fmt.Errorf("no extension targets found in the targets config")
-	}
-
-	return newTargetsFunc(value, l)
+	return
 }
 
 // RegisterTargetsType registers a new targets type. New targets types are

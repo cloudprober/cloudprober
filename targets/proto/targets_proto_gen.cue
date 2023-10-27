@@ -138,6 +138,20 @@ import (
 		dummyTargets: #DummyTargets @protobuf(20,DummyTargets,name=dummy_targets)
 	}
 
+	// Static endpoints. These endpoints are merged with the resources returned
+	// by the targets type above.
+	// Example:
+	//   endpoints {
+	//     name: "service-gtwy-1"
+	//     ip: "10.1.18.121"
+	//     port: 8080
+	//     labels {
+	//       key: "service"
+	//       value: "products-service"
+	//     }
+	//   }
+	endpoints?: [...proto_1.#Resource] @protobuf(23,rds.Resource)
+
 	// Regex to apply on the targets.
 	regex?: string @protobuf(21,string)
 

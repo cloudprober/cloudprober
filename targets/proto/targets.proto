@@ -140,6 +140,20 @@ message TargetsDef {
     DummyTargets dummy_targets = 20;
   }
 
+  // Static endpoints. These endpoints are merged with the resources returned
+  // by the targets type above.
+  // Example:
+  //   endpoints {
+  //     name: "service-gtwy-1"
+  //     ip: "10.1.18.121"
+  //     port: 8080
+  //     labels {
+  //       key: "service"
+  //       value: "products-service"
+  //     }
+  //   }
+  repeated rds.Resource endpoints = 23;
+
   // Regex to apply on the targets.
   optional string regex = 21;
 
