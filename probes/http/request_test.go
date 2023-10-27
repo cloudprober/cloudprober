@@ -17,6 +17,7 @@ package http
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -55,7 +56,7 @@ func TestHostWithPort(t *testing.T) {
 	}
 }
 
-func TestURLHostAndHeaderForTarget(t *testing.T) {
+func TestURLHostAndHeader(t *testing.T) {
 	for _, test := range []struct {
 		name            string
 		fqdn            string
@@ -105,61 +106,65 @@ func TestURLHostAndHeaderForTarget(t *testing.T) {
 			wantURLHost:     "target1",
 		},
 	} {
-		t.Run(fmt.Sprintf("test:%+v", test), func(t *testing.T) {
+		t.Run("", func(t *testing.T) {
 			target := endpoint.Endpoint{
 				Name:   test.name,
 				Labels: map[string]string{"fqdn": test.fqdn},
 			}
 
-			hostHeader := hostHeaderForTarget(target, test.probeHostHeader, test.port)
-			if hostHeader != test.wantHostHeader {
-				t.Errorf("Got host header: %s, want header: %s", hostHeader, test.wantHostHeader)
-			}
-
-			urlHost := urlHostForTarget(target)
+			urlHost := hostForTarget(target)
 			if urlHost != test.wantURLHost {
 				t.Errorf("Got URL host: %s, want URL host: %s", urlHost, test.wantURLHost)
 			}
+
+			p := &Probe{
+				c: &configpb.ProbeConf{
+					Header: map[string]string{
+						"Host":         test.probeHostHeader,
+						"X-Probe-Name": "probe1",
+					},
+				},
+			}
+
+			req, _ := http.NewRequest("GET", "http://cloudprober.org", nil)
+			p.setHeaders(req, urlHost, test.port)
+			assert.Equal(t, test.wantHostHeader, req.Host, "host header mismatch")
+			assert.Equal(t, "probe1", req.Header.Get("X-Probe-Name"), "probe name header mismatch")
 		})
 	}
 }
 
-func TestRelURLforTarget(t *testing.T) {
-	for _, test := range []struct {
-		targetURLLabel string
-		probeURL       string
-		wantRelURL     string
-	}{
-		{
-			// Both set, probe URL wins.
-			targetURLLabel: "/target-url",
-			probeURL:       "/metrics",
-			wantRelURL:     "/metrics",
-		},
-		{
-			// Only target label set.
-			targetURLLabel: "/target-url",
-			probeURL:       "",
-			wantRelURL:     "/target-url",
-		},
-		{
-			// Nothing set, we get nothing.
-			targetURLLabel: "",
-			probeURL:       "",
-			wantRelURL:     "",
-		},
-	} {
-		t.Run(fmt.Sprintf("test:%+v", test), func(t *testing.T) {
-			target := endpoint.Endpoint{
-				Name:   "test-target",
-				Labels: map[string]string{relURLLabel: test.targetURLLabel},
-			}
+func TestPathforTarget(t *testing.T) {
+	allLabels := map[string]string{
+		relURLLabel:   "/target-url",
+		"__cp_path__": "/target-cp-path",
+	}
 
-			relURL := relURLForTarget(target, test.probeURL)
-			if relURL != test.wantRelURL {
-				t.Errorf("Got URL: %s, want: %s", relURL, test.wantRelURL)
-			}
-		})
+	// This is a map of wanted output to defined labels.
+	tests := map[string][]string{
+		"/target-url":     {relURLLabel, "url", "__cp_url__", "path", "__cp_path__"},
+		"/target-cp-path": {"__cp_path__", "url", "__cp_url__"},
+	}
+
+	for want, labelKeys := range tests {
+		for _, probeURL := range []string{"", "/metrics"} {
+			t.Run(fmt.Sprintf("want:%s,probeURL:%s", want, probeURL), func(t *testing.T) {
+				labels := map[string]string{}
+				for _, labelKey := range labelKeys {
+					labels[labelKey] = allLabels[labelKey]
+				}
+				target := endpoint.Endpoint{
+					Name:   "test-target",
+					Labels: labels,
+				}
+				gotPath := pathForTarget(target, probeURL)
+				if probeURL != "" {
+					assert.Equal(t, probeURL, gotPath, "path is not set to non-empty probeURL")
+				} else {
+					assert.Equal(t, want, gotPath, "path is not set to expected value")
+				}
+			})
+		}
 	}
 }
 
@@ -176,7 +181,8 @@ type testData struct {
 
 	// Used by TestURLHostAndHeaderForTarget to verify URL host, and
 	// TestRequestHostAndURL to build URL to verify.
-	wantURLHost string
+	wantURLHost    string
+	wantHostHeader string
 }
 
 func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, expectedPort int) {
@@ -217,10 +223,9 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 	}
 
 	// Note that we test hostHeaderForTarget independently.
-	wantHostHeader := hostHeaderForTarget(target, td.probeHost, expectedPort)
-	if req.Host != wantHostHeader {
-		t.Errorf("HTTP req.Host: %s, wanted: %s", req.Host, wantHostHeader)
-	}
+	// _, hostHeader := p.headers(td.wantURLHost, expectedPort)
+	// wantHostHeader := hostWithPort(td.wantHostHeader, expectedPort)
+	assert.Equal(t, td.wantHostHeader, req.Host, "host header mismatch")
 }
 
 func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
@@ -248,6 +253,10 @@ func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s_probe_port_%d_endpoint_port_%d", td.desc, ports.probePort, ports.targetPort), func(t *testing.T) {
+			td := td
+			if td.probeHost == "" {
+				td.wantHostHeader = hostWithPort(td.wantHostHeader, ports.expectedPort)
+			}
 			createRequestAndVerify(t, td, ports.probePort, ports.targetPort, ports.expectedPort)
 		})
 	}
@@ -256,48 +265,55 @@ func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
 func TestRequestHostAndURL(t *testing.T) {
 	tests := []testData{
 		{
-			desc:        "no_resolve_first,no_probe_host_header",
-			targetName:  "test-target.com",
-			wantURLHost: "test-target.com",
+			desc:           "no_resolve_first,no_probe_host_header",
+			targetName:     "test-target.com",
+			wantURLHost:    "test-target.com",
+			wantHostHeader: "test-target.com",
 		},
 		{
-			desc:        "no_resolve_first,fqdn,no_probe_host_header",
-			targetName:  "test-target.com",
-			targetFQDN:  "test.svc.cluster.local",
-			wantURLHost: "test.svc.cluster.local",
+			desc:           "no_resolve_first,fqdn,no_probe_host_header",
+			targetName:     "test-target.com",
+			targetFQDN:     "test.svc.cluster.local",
+			wantURLHost:    "test.svc.cluster.local",
+			wantHostHeader: "test.svc.cluster.local",
 		},
 		{
-			desc:        "no_resolve_first,host_header",
-			targetName:  "test-target.com",
-			probeHost:   "test-host",
-			wantURLHost: "test-target.com",
+			desc:           "no_resolve_first,host_header",
+			targetName:     "test-target.com",
+			probeHost:      "test-host",
+			wantURLHost:    "test-target.com",
+			wantHostHeader: "test-host",
 		},
 		{
-			desc:        "ipv6_literal_host,no_probe_host_header",
-			targetName:  "2600:2d00:4030:a47:c0a8:210d:0:0", // IPv6 literal host
-			wantURLHost: "[2600:2d00:4030:a47:c0a8:210d:0:0]",
+			desc:           "ipv6_literal_host,no_probe_host_header",
+			targetName:     "2600:2d00:4030:a47:c0a8:210d:0:0", // IPv6 literal host
+			wantURLHost:    "[2600:2d00:4030:a47:c0a8:210d:0:0]",
+			wantHostHeader: "[2600:2d00:4030:a47:c0a8:210d:0:0]",
 		},
 		{
-			desc:         "resolve_first,no_probe_host_header",
-			targetName:   "localhost",
-			resolveFirst: true,
-			resolvedIP:   "127.0.0.1",
-			wantURLHost:  "127.0.0.1",
+			desc:           "resolve_first,no_probe_host_header",
+			targetName:     "localhost",
+			resolveFirst:   true,
+			resolvedIP:     "127.0.0.1",
+			wantURLHost:    "127.0.0.1",
+			wantHostHeader: "localhost",
 		},
 		{
-			desc:         "resolve_first,ipv6,no_probe_host_header",
-			targetName:   "localhost",
-			resolveFirst: true,
-			resolvedIP:   "2600:2d00:4030:a47:c0a8:210d:0:0", // Resolved IP
-			wantURLHost:  "[2600:2d00:4030:a47:c0a8:210d::]", // IPv6 literal host
+			desc:           "resolve_first,ipv6,no_probe_host_header",
+			targetName:     "localhost",
+			resolveFirst:   true,
+			resolvedIP:     "2600:2d00:4030:a47:c0a8:210d:0:0", // Resolved IP
+			wantURLHost:    "[2600:2d00:4030:a47:c0a8:210d::]", // IPv6 literal host
+			wantHostHeader: "localhost",
 		},
 		{
-			desc:         "resolve_first,probe_host_header",
-			targetName:   "localhost",
-			resolveFirst: true,
-			probeHost:    "test-host",
-			resolvedIP:   "127.0.0.1",
-			wantURLHost:  "127.0.0.1",
+			desc:           "resolve_first,probe_host_header",
+			targetName:     "localhost",
+			resolveFirst:   true,
+			probeHost:      "test-host",
+			resolvedIP:     "127.0.0.1",
+			wantURLHost:    "127.0.0.1",
+			wantHostHeader: "test-host",
 		},
 	}
 

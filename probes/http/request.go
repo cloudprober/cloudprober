@@ -16,10 +16,12 @@ package http
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -35,38 +37,40 @@ func hostWithPort(host string, port int) string {
 	return fmt.Sprintf("%s:%d", host, port)
 }
 
-// hostHeaderForTarget computes request's Host header for a target.
-//   - If host header is set in the probe, it overrides everything else.
-//   - If target's fqdn is provided in its labels, use that along with the
-//     given port.
-//   - Finally, use target's name with port.
-func hostHeaderForTarget(target endpoint.Endpoint, probeHostHeader string, port int) string {
-	if probeHostHeader != "" {
-		return probeHostHeader
+// Put square brackets around literal IPv6 hosts.
+func handleIPv6(host string) string {
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return host
 	}
-
-	if target.Labels["fqdn"] != "" {
-		return hostWithPort(target.Labels["fqdn"], port)
+	if iputils.IPVersion(ip) == 6 {
+		return "[" + host + "]"
 	}
-
-	return hostWithPort(target.Name, port)
+	return host
 }
 
-func urlHostForTarget(target endpoint.Endpoint) string {
-	if target.Labels["fqdn"] != "" {
-		return target.Labels["fqdn"]
+func hostForTarget(target endpoint.Endpoint) string {
+	for _, label := range []string{"fqdn", "__cp_host__"} {
+		if target.Labels[label] != "" {
+			return handleIPv6(target.Labels[label])
+		}
 	}
 
-	return target.Name
+	return handleIPv6(target.Name)
 }
 
-func relURLForTarget(target endpoint.Endpoint, probeURL string) string {
+func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 	if probeURL != "" {
 		return probeURL
 	}
 
-	if target.Labels[relURLLabel] != "" {
-		return target.Labels[relURLLabel]
+	for _, label := range []string{relURLLabel, "__cp_path__"} {
+		if path := target.Labels[label]; path != "" {
+			if strings.HasPrefix(path, "/") {
+				return path
+			}
+			return "/" + path
+		}
 	}
 
 	return ""
@@ -79,6 +83,51 @@ func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
 	return target.IP != nil
 }
 
+// setHeaders computes setHeaders for a target. Host header is computed slightly
+// differently than other setHeaders.
+//   - If host header is set in the probe, it overrides everything else.
+//   - Otherwise we use target's host (computed elsewhere) along with port.
+func (p *Probe) setHeaders(req *http.Request, host string, port int) {
+	var hostHeader string
+
+	for _, h := range p.c.GetHeaders() {
+		if h.GetName() == "Host" {
+			hostHeader = h.GetValue()
+			continue
+		}
+		req.Header.Set(h.GetName(), h.GetValue())
+	}
+
+	for k, v := range p.c.GetHeader() {
+		if k == "Host" {
+			hostHeader = v
+			continue
+		}
+		req.Header.Set(k, v)
+	}
+
+	if hostHeader == "" {
+		hostHeader = hostWithPort(host, port)
+	}
+	req.Host = hostHeader
+}
+
+func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string, string, error) {
+	if !p.resolveFirst(target) {
+		return host, "", nil
+	}
+
+	ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
+	if err != nil {
+		p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
+		return "", "", nil
+	}
+
+	ipStr := ip.String()
+
+	return handleIPv6(ipStr), ipStr, nil
+}
+
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
@@ -87,32 +136,18 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 		port = target.Port
 	}
 
-	urlHost := urlHostForTarget(target)
-	ipForLabel := ""
+	host := hostForTarget(target)
 
-	if p.resolveFirst(target) {
-		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
-		if err != nil {
-			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
-			return nil
-		}
-
-		ipStr := ip.String()
-		urlHost, ipForLabel = ipStr, ipStr
+	urlHost, ipForLabel, err := p.urlHostAndIPLabel(target, host)
+	if err != nil {
+		return nil
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
 		al.UpdateForTarget(target, ipForLabel, port)
 	}
 
-	// Put square brackets around literal IPv6 hosts. This is the same logic as
-	// net.JoinHostPort, but we cannot use net.JoinHostPort as it works only for
-	// non default ports.
-	if strings.IndexByte(urlHost, ':') >= 0 {
-		urlHost = "[" + urlHost + "]"
-	}
-
-	url := fmt.Sprintf("%s://%s%s", p.protocol, hostWithPort(urlHost, port), relURLForTarget(target, p.url))
+	url := fmt.Sprintf("%s://%s%s", p.protocol, hostWithPort(urlHost, port), pathForTarget(target, p.url))
 
 	req, err := httpreq.NewRequest(p.method, url, p.requestBody)
 	if err != nil {
@@ -120,27 +155,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 		return nil
 	}
 
-	var probeHostHeader string
-	for _, header := range p.c.GetHeaders() {
-		if header.GetName() == "Host" {
-			probeHostHeader = header.GetValue()
-			continue
-		}
-		req.Header.Set(header.GetName(), header.GetValue())
-	}
-
-	for k, v := range p.c.GetHeader() {
-		if k == "Host" {
-			probeHostHeader = v
-			continue
-		}
-		req.Header.Set(k, v)
-	}
-
-	// Host header is set by http.NewRequest based on the URL, update it based
-	// on various conditions.
-	req.Host = hostHeaderForTarget(target, probeHostHeader, port)
-
+	p.setHeaders(req, host, port)
 	if p.c.GetUserAgent() != "" {
 		req.Header.Set("User-Agent", p.c.GetUserAgent())
 	}
