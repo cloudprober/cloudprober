@@ -67,11 +67,10 @@ type Probe struct {
 	redirectFunc  func(req *http.Request, via []*http.Request) error
 
 	// book-keeping params
-	targets  []endpoint.Endpoint
-	protocol string
-	method   string
-	url      string
-	oauthTS  oauth2.TokenSource
+	targets []endpoint.Endpoint
+	method  string
+	url     string
+	oauthTS oauth2.TokenSource
 
 	// How often to resolve targets (in probe counts), it's the minimum of
 	targetsUpdateInterval time.Duration
@@ -184,7 +183,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			totalDuration, p.opts.Interval)
 	}
 
-	p.protocol = strings.ToLower(p.c.GetProtocol().String())
 	p.method = p.c.GetMethod().String()
 
 	p.url = p.c.GetRelativeUrl()
@@ -433,7 +431,11 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 		// RoundTripper implementation.
 		if ht, ok := p.baseTransport.(*http.Transport); ok {
 			t := ht.Clone()
-			if p.c.GetProtocol() == configpb.ProbeConf_HTTPS && p.resolveFirst(target) {
+
+			// If we're resolving target first, url.Host will be an IP address.
+			// In that case, we need to set ServerName in TLSClientConfig to
+			// the actual hostname.
+			if p.schemeForTarget(target) == "https" && p.resolveFirst(target) {
 				if t.TLSClientConfig == nil {
 					t.TLSClientConfig = &tls.Config{}
 				}
@@ -441,6 +443,7 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 					t.TLSClientConfig.ServerName = hostForTarget(target)
 				}
 			}
+
 			clients[i] = &http.Client{Transport: t}
 		} else {
 			clients[i] = &http.Client{Transport: p.baseTransport}

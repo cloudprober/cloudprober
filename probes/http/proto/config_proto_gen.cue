@@ -7,10 +7,10 @@ import (
 
 // Next tag: 21
 #ProbeConf: {
-	#ProtocolType: {"HTTP", #enumValue: 0} |
+	#Scheme: {"HTTP", #enumValue: 0} |
 		{"HTTPS", #enumValue: 1}
 
-	#ProtocolType_value: {
+	#Scheme_value: {
 		HTTP:  0
 		HTTPS: 1
 	}
@@ -38,8 +38,12 @@ import (
 		value?: string @protobuf(2,string)
 	}
 
-	// Which HTTP protocol to use
-	protocol?: #ProtocolType @protobuf(1,ProtocolType,"default=HTTP")
+	// HTTP request scheme. protocol is deprecated, use scheme instead.
+	{} | {
+		protocol: #Scheme @protobuf(1,Scheme,"default=HTTP")
+	} | {
+		scheme: #Scheme @protobuf(21,Scheme,"default=HTTP")
+	}
 
 	// Relative URL (to append to all targets). Must begin with '/'
 	relativeUrl?: string @protobuf(2,string,name=relative_url)
