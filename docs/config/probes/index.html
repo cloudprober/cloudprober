@@ -60,7 +60,8 @@ type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|EXTENSION|USER_DEFINED):
 <div class=comment># Validators for this probe. Validators are run on the data returned by the
 # probe. See https://cloudprober.org/docs/how-to/validators/ for more info.</div>validator: &lt;<a href=../validators#cloudprober_validators_Validator>cloudprober.validators.Validator</a>>
 
-[source_ip &lt;string&gt; | source_interface &lt;string&gt;]: &lt;oneof>
+<div class=comment># Set the source IP to send packets from, either by providing an IP address
+# directly, or a network interface.</div>[source_ip &lt;string&gt; | source_interface &lt;string&gt;]: &lt;oneof>
 
 ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 
@@ -124,7 +125,7 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 
 <div class=comment># Domain to use when making DNS queries</div>resolved_domain: &lt;string> | default: www.google.com.
 
-query_type: (NONE|A|NS|CNAME|SOA|PTR|MX|TXT|RP|AFSDB|SIG|KEY|AAAA|LOC|SRV|NAPTR|KX|CERT|DNAME|APL|DS|SSHFP|IPSECKEY|RRSIG|NSEC|DNSKEY|DHCID|NSEC3|NSEC3PARAM|TLSA|HIP|CDS|CDNSKEY|OPENPGPKEY|TKEY|TSIG|URI|CAA|TA|DLV): &lt;enum>
+<div class=comment># DNS Query Type</div>query_type: (NONE|A|NS|CNAME|SOA|PTR|MX|TXT|RP|AFSDB|SIG|KEY|AAAA|LOC|SRV|NAPTR|KX|CERT|DNAME|APL|DS|SSHFP|IPSECKEY|RRSIG|NSEC|DNSKEY|DHCID|NSEC3|NSEC3PARAM|TLSA|HIP|CDS|CDNSKEY|OPENPGPKEY|TKEY|TSIG|URI|CAA|TA|DLV): &lt;enum>
 
 <div class=comment># Minimum number of answers expected. Default behavior is to return success
 # if DNS response status is NOERROR.</div>min_answers: &lt;uint32> | default: 0
@@ -180,7 +181,7 @@ value: &lt;string>
 #   protoc --proto_path=. --descriptor_set_out=myservice.protoset \
 #     --include_imports my/custom/server/service.proto</div>protoset_file: &lt;string>
 
-[list_services &lt;bool&gt; | list_service_methods &lt;string&gt; | 
+<div class=comment># Note first 3 methods are valid only if descriptor source is not set.</div>[list_services &lt;bool&gt; | list_service_methods &lt;string&gt; | 
 &nbsp;describe_service_method &lt;string&gt; | call_service_method &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Request data (in JSON format) for the call_service_method request.</div>body: &lt;string>
@@ -239,9 +240,7 @@ value: &lt;string>
 
 </pre><h3 id=cloudprober_probes_http_ProbeConf>cloudprober.probes.http.ProbeConf <a class=anchor href=#cloudprober_probes_http_ProbeConf>#</a></h3><pre class=protodoc>
 
-protocol: (HTTP|HTTPS): &lt;enum>
-
-scheme: (HTTP|HTTPS): &lt;enum>
+<div class=comment># HTTP request scheme. protocol is deprecated, use scheme instead.</div>[protocol: (HTTP|HTTPS) | scheme: (HTTP|HTTPS)]: &lt;oneof>
 
 <div class=comment># Relative URL (to append to all targets). Must begin with &#39;/&#39;</div>relative_url: &lt;string>
 
@@ -260,7 +259,7 @@ scheme: (HTTP|HTTPS): &lt;enum>
 
 <div class=comment># Export response (body) count as a metric</div>export_response_as_metrics: &lt;bool> | default: false
 
-method: (GET|POST|PUT|HEAD|DELETE|PATCH|OPTIONS): &lt;enum>
+<div class=comment># HTTP request method</div>method: (GET|POST|PUT|HEAD|DELETE|PATCH|OPTIONS): &lt;enum>
 
 <div class=comment># HTTP request headers
 # It is recommended to use &#34;header&#34; instead of &#34;headers&#34; for new configs.
@@ -485,7 +484,8 @@ type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|EXTENSION|USER_DEFINED):
 <div class=comment># Validators for this probe. Validators are run on the data returned by the
 # probe. See https://cloudprober.org/docs/how-to/validators/ for more info.</div>validator: &lt;<a href=../validators#cloudprober_validators_Validator>cloudprober.validators.Validator</a>>
 
-[source_ip &lt;string&gt; | source_interface &lt;string&gt;]: &lt;oneof>
+<div class=comment># Set the source IP to send packets from, either by providing an IP address
+# directly, or a network interface.</div>[source_ip &lt;string&gt; | source_interface &lt;string&gt;]: &lt;oneof>
 
 ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 
@@ -549,7 +549,7 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 
 <div class=comment># Domain to use when making DNS queries</div>resolved_domain: &lt;string> | default: www.google.com.
 
-query_type: (NONE|A|NS|CNAME|SOA|PTR|MX|TXT|RP|AFSDB|SIG|KEY|AAAA|LOC|SRV|NAPTR|KX|CERT|DNAME|APL|DS|SSHFP|IPSECKEY|RRSIG|NSEC|DNSKEY|DHCID|NSEC3|NSEC3PARAM|TLSA|HIP|CDS|CDNSKEY|OPENPGPKEY|TKEY|TSIG|URI|CAA|TA|DLV): &lt;enum>
+<div class=comment># DNS Query Type</div>query_type: (NONE|A|NS|CNAME|SOA|PTR|MX|TXT|RP|AFSDB|SIG|KEY|AAAA|LOC|SRV|NAPTR|KX|CERT|DNAME|APL|DS|SSHFP|IPSECKEY|RRSIG|NSEC|DNSKEY|DHCID|NSEC3|NSEC3PARAM|TLSA|HIP|CDS|CDNSKEY|OPENPGPKEY|TKEY|TSIG|URI|CAA|TA|DLV): &lt;enum>
 
 <div class=comment># Minimum number of answers expected. Default behavior is to return success
 # if DNS response status is NOERROR.</div>min_answers: &lt;uint32> | default: 0
@@ -605,7 +605,7 @@ value: &lt;string>
 #   protoc --proto_path=. --descriptor_set_out=myservice.protoset \
 #     --include_imports my/custom/server/service.proto</div>protoset_file: &lt;string>
 
-[list_services &lt;bool&gt; | list_service_methods &lt;string&gt; | 
+<div class=comment># Note first 3 methods are valid only if descriptor source is not set.</div>[list_services &lt;bool&gt; | list_service_methods &lt;string&gt; | 
 &nbsp;describe_service_method &lt;string&gt; | call_service_method &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Request data (in JSON format) for the call_service_method request.</div>body: &lt;string>
@@ -664,9 +664,7 @@ value: &lt;string>
 
 </pre><h3 id=cloudprober_probes_http_ProbeConf>cloudprober.probes.http.ProbeConf <a class=anchor href=#cloudprober_probes_http_ProbeConf>#</a></h3><pre class=protodoc>
 
-protocol: (HTTP|HTTPS): &lt;enum>
-
-scheme: (HTTP|HTTPS): &lt;enum>
+<div class=comment># HTTP request scheme. protocol is deprecated, use scheme instead.</div>[protocol: (HTTP|HTTPS) | scheme: (HTTP|HTTPS)]: &lt;oneof>
 
 <div class=comment># Relative URL (to append to all targets). Must begin with &#39;/&#39;</div>relative_url: &lt;string>
 
@@ -685,7 +683,7 @@ scheme: (HTTP|HTTPS): &lt;enum>
 
 <div class=comment># Export response (body) count as a metric</div>export_response_as_metrics: &lt;bool> | default: false
 
-method: (GET|POST|PUT|HEAD|DELETE|PATCH|OPTIONS): &lt;enum>
+<div class=comment># HTTP request method</div>method: (GET|POST|PUT|HEAD|DELETE|PATCH|OPTIONS): &lt;enum>
 
 <div class=comment># HTTP request headers
 # It is recommended to use &#34;header&#34; instead of &#34;headers&#34; for new configs.
@@ -854,4 +852,4 @@ type: (INVALID|ECHO|DISCARD): &lt;enum>
 </pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/overview/cloudprober/><div class="card my-1"><div class="card-body py-2">&larr; Overview</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/rds/><div class="card my-1"><div class="card-body py-2">RDS Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.e9af548b61995771f5829ad4d5a9a9a6e2380de980c378e1f07f807dd2be4fd7b887ccf4a141bebf11166ca73123e89dd5a464a306f4e6a2e4c786b3572ab48a.js integrity="sha512-6a9Ui2GZV3H1gprU1amppuI4DemAw3jh8H+AfdK+T9e4h8z0oUG+vxEWbKcxI+id1aRkowb05qLkx4azVyq0ig==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.51d8ad5c98ad17b55fabb58f4f761072faa9473cec2f3d82c8de0bd6db97e6b8d97febc38d3b83ccfd7d0ddb502f63e84f8449d86e02eb337559105dfbb747b5.js integrity="sha512-UditXJitF7Vfq7WPT3YQcvqpRzzsLz2CyN4L1tuX5rjZf+vDjTuDzP19DdtQL2PoT4RJ2G4C6zN1WRBd+7dHtQ==" crossorigin=anonymous defer></script></body></html>
