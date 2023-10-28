@@ -438,7 +438,7 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 					t.TLSClientConfig = &tls.Config{}
 				}
 				if t.TLSClientConfig.ServerName == "" {
-					t.TLSClientConfig.ServerName = urlHostForTarget(target)
+					t.TLSClientConfig.ServerName = hostForTarget(target)
 				}
 			}
 			clients[i] = &http.Client{Transport: t}
