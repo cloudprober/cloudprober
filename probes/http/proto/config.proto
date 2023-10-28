@@ -9,7 +9,7 @@ option go_package = "github.com/cloudprober/cloudprober/probes/http/proto";
 
 // Next tag: 21
 message ProbeConf {
-  enum ProtocolType {
+  enum Scheme {
     HTTP = 0;
     HTTPS = 1;
   }
@@ -29,8 +29,12 @@ message ProbeConf {
     optional string value = 2;
   }
 
-  // Which HTTP protocol to use
-  optional ProtocolType protocol = 1 [default = HTTP];
+  // HTTP request scheme. protocol is deprecated, use scheme instead.
+  oneof scheme_type {
+    Scheme protocol = 1 [default = HTTP];
+    Scheme scheme = 21 [default = HTTP];
+  };
+
   // Relative URL (to append to all targets). Must begin with '/'
   optional string relative_url = 2;
   // Port for HTTP requests. If not specfied, port is selected in the following

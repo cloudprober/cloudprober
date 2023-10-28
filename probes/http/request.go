@@ -24,6 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
 	"github.com/cloudprober/cloudprober/logger"
+	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"golang.org/x/oauth2"
 )
@@ -47,6 +48,23 @@ func handleIPv6(host string) string {
 		return "[" + host + "]"
 	}
 	return host
+}
+
+func (p *Probe) schemeForTarget(target endpoint.Endpoint) string {
+	switch p.c.SchemeType.(type) {
+	case *configpb.ProbeConf_Scheme_:
+		return strings.ToLower(p.c.GetScheme().String())
+	case *configpb.ProbeConf_Protocol:
+		return strings.ToLower(p.c.GetProtocol().String())
+	}
+
+	for _, label := range []string{"__cp_scheme__"} {
+		if target.Labels[label] != "" {
+			return strings.ToLower(target.Labels[label])
+		}
+	}
+
+	return "http"
 }
 
 func hostForTarget(target endpoint.Endpoint) string {
@@ -147,7 +165,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 		al.UpdateForTarget(target, ipForLabel, port)
 	}
 
-	url := fmt.Sprintf("%s://%s%s", p.protocol, hostWithPort(urlHost, port), pathForTarget(target, p.url))
+	url := fmt.Sprintf("%s://%s%s", p.schemeForTarget(target), hostWithPort(urlHost, port), pathForTarget(target, p.url))
 
 	req, err := httpreq.NewRequest(p.method, url, p.requestBody)
 	if err != nil {

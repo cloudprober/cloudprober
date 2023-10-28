@@ -205,7 +205,6 @@ func TestProbeVariousMethods(t *testing.T) {
 		want  string
 	}{
 		{&configpb.ProbeConf{}, "total: 1, success: 1"},
-		{&configpb.ProbeConf{Protocol: configpb.ProbeConf_HTTPS.Enum()}, "total: 1, success: 1"},
 		{&configpb.ProbeConf{RequestsPerProbe: proto.Int32(1)}, "total: 1, success: 1"},
 		{&configpb.ProbeConf{RequestsPerProbe: proto.Int32(4)}, "total: 4, success: 4"},
 		{&configpb.ProbeConf{Method: mpb("GET")}, "total: 1, success: 1"},
@@ -776,6 +775,7 @@ func TestClientsForTarget(t *testing.T) {
 	tests := []struct {
 		name                string
 		conf                *configpb.ProbeConf
+		https               bool
 		baseTransport       *http.Transport
 		target              endpoint.Endpoint
 		wantNumClients      int
@@ -798,9 +798,9 @@ func TestClientsForTarget(t *testing.T) {
 		{
 			name: "2_clients_https",
 			conf: &configpb.ProbeConf{
-				Protocol:         configpb.ProbeConf_HTTPS.Enum(),
 				RequestsPerProbe: proto.Int32(2),
 			},
+			https:          true,
 			baseTransport:  http.DefaultTransport.(*http.Transport),
 			target:         endpoint.Endpoint{Name: "cloudprober.org"},
 			wantNumClients: 2,
@@ -808,10 +808,10 @@ func TestClientsForTarget(t *testing.T) {
 		{
 			name: "2_clients_https_server_name",
 			conf: &configpb.ProbeConf{
-				Protocol:         configpb.ProbeConf_HTTPS.Enum(),
 				RequestsPerProbe: proto.Int32(2),
 			},
 			baseTransport: http.DefaultTransport.(*http.Transport),
+			https:         true,
 			target: endpoint.Endpoint{
 				Name: "cloudprober.org",
 				IP:   net.ParseIP("1.2.3.4"),
@@ -822,7 +822,6 @@ func TestClientsForTarget(t *testing.T) {
 		{
 			name: "2_clients_https_server_name_from_fqdn",
 			conf: &configpb.ProbeConf{
-				Protocol:         configpb.ProbeConf_HTTPS.Enum(),
 				RequestsPerProbe: proto.Int32(2),
 			},
 			baseTransport: http.DefaultTransport.(*http.Transport),
@@ -830,7 +829,8 @@ func TestClientsForTarget(t *testing.T) {
 				Name: "cloudprober.org",
 				IP:   net.ParseIP("1.2.3.4"),
 				Labels: map[string]string{
-					"fqdn": "manugarg.com",
+					"__cp_scheme__": "https", // Note: using target label here.
+					"fqdn":          "manugarg.com",
 				},
 			},
 			wantNumClients:      2,
@@ -840,6 +840,11 @@ func TestClientsForTarget(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.https {
+				tt.conf.SchemeType = &configpb.ProbeConf_Scheme_{
+					Scheme: configpb.ProbeConf_HTTPS,
+				}
+			}
 			p := &Probe{
 				baseTransport: tt.baseTransport,
 				c:             tt.conf,
