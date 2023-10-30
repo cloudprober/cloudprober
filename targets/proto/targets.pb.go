@@ -402,6 +402,10 @@ type TargetsDef struct {
 	//	    value: "products-service"
 	//	  }
 	//	}
+	//	endpoints {
+	//	  name: "frontend-url1"
+	//	  url: "https://frontend.example.com/url1"
+	//	}
 	Endpoints []*Endpoint `protobuf:"bytes,23,rep,name=endpoints" json:"endpoints,omitempty"`
 	// Regex to apply on the targets.
 	Regex *string `protobuf:"bytes,21,opt,name=regex" json:"regex,omitempty"`

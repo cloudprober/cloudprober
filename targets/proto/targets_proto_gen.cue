@@ -171,6 +171,10 @@ import (
 	//       value: "products-service"
 	//     }
 	//   }
+	//   endpoints {
+	//     name: "frontend-url1"
+	//     url: "https://frontend.example.com/url1"
+	//   }
 	endpoints?: [...#Endpoint] @protobuf(23,Endpoint)
 
 	// Regex to apply on the targets.
