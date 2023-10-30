@@ -76,6 +76,26 @@ message K8sTargets {
   optional rds.ClientConf.ServerOptions rds_server_options = 20;
 }
 
+message Endpoint {
+  // Resource name.
+  required string name = 1;
+
+  // Resource's IP address. If not specified, resource name is DNS resolved.
+  optional string ip = 2;
+
+  // Resource's port. If specified, this port will be used by the port-based
+  // probes (e.g.  TCP, HTTP), if probe's configuration doesn't specify a port.
+  optional int32 port = 3;
+
+  // Resource's URL. If provided, this field is used by the HTTP probe, if
+  // probe configuration itself doesn't specify URL fields.
+  optional string url = 4;
+
+  
+  // Resource's labels, if any.
+  map<string, string> labels = 5;
+}
+
 message TargetsDef {
   oneof type {
     // Static host names, for example:
@@ -152,7 +172,7 @@ message TargetsDef {
   //       value: "products-service"
   //     }
   //   }
-  repeated rds.Resource endpoints = 23;
+  repeated Endpoint endpoints = 23;
 
   // Regex to apply on the targets.
   optional string regex = 21;

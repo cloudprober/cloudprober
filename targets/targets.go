@@ -224,15 +224,11 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 		ldLister: ldLister,
 	}
 
-	for _, res := range targetsDef.GetEndpoints() {
-		tgts.staticEndpoints = append(tgts.staticEndpoints, endpoint.Endpoint{
-			Name:        res.GetName(),
-			Port:        int(res.GetPort()),
-			IP:          net.ParseIP(res.GetIp()),
-			Labels:      res.GetLabels(),
-			LastUpdated: time.Unix(res.GetLastUpdated(), 0),
-		})
+	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoints())
+	if err != nil {
+		return nil, fmt.Errorf("targets.baseTargets(): error creating static endpoints from proto: %v", err)
 	}
+	tgts.staticEndpoints = eps
 
 	if targetsDef == nil {
 		return tgts, nil

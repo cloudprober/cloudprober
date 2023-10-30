@@ -24,7 +24,6 @@ import (
 	"time"
 
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
-	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
@@ -93,9 +92,8 @@ func TestList(t *testing.T) {
 				Regex: proto.String(tt.re),
 			}
 			for _, ep := range staticHosts {
-				targetsDef.Endpoints = append(targetsDef.Endpoints, &rdspb.Resource{
-					Name:        proto.String(ep),
-					LastUpdated: proto.Int64(time.Now().Unix()),
+				targetsDef.Endpoints = append(targetsDef.Endpoints, &targetspb.Endpoint{
+					Name: proto.String(ep),
 				})
 			}
 
@@ -304,7 +302,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "static endpoints",
 			targetsDef: &targetspb.TargetsDef{
-				Endpoints: []*rdspb.Resource{
+				Endpoints: []*targetspb.Endpoint{
 					{
 						Name: proto.String("host1"),
 					},
@@ -318,7 +316,7 @@ func TestNew(t *testing.T) {
 				Type: &targetspb.TargetsDef_HostNames{
 					HostNames: "host2,host3",
 				},
-				Endpoints: []*rdspb.Resource{
+				Endpoints: []*targetspb.Endpoint{
 					{
 						Name: proto.String("host1"),
 					},

@@ -19,12 +19,14 @@ package endpoint
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 )
 
 // Endpoint represents a targets and associated parameters.
@@ -108,4 +110,62 @@ func NamesFromEndpoints(endpoints []Endpoint) []string {
 		result[i] = ep.Name
 	}
 	return result
+}
+
+func parseURL(s string) (scheme, host, path string, port int, err error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		return "", "", "", 0, fmt.Errorf("invalid URL: %v", err)
+	}
+
+	scheme = u.Scheme
+	host = u.Hostname()
+	port, _ = strconv.Atoi(u.Port())
+	path = "/"
+
+	hostPath := strings.TrimPrefix(s, scheme+"://")
+	if i := strings.Index(hostPath, "/"); i != -1 {
+		path = hostPath[i:]
+	}
+	return scheme, host, path, port, nil
+}
+
+func FromProtoMessage(endpointspb []*targetspb.Endpoint) ([]Endpoint, error) {
+	var endpoints []Endpoint
+	seen := make(map[string]bool)
+
+	for _, pb := range endpointspb {
+		ep := Endpoint{
+			Name:        pb.GetName(),
+			Labels:      pb.GetLabels(),
+			IP:          net.ParseIP(pb.GetIp()),
+			Port:        int(pb.GetPort()),
+			LastUpdated: time.Now(),
+		}
+
+		if pb.GetUrl() != "" {
+			scheme, host, path, port, err := parseURL(pb.GetUrl())
+			if err != nil {
+				return nil, err
+			}
+			if ep.Labels == nil {
+				ep.Labels = make(map[string]string)
+			}
+			ep.Labels["__cp_scheme__"] = scheme
+			ep.Labels["__cp_host__"] = host
+			ep.Labels["__cp_path__"] = path
+
+			if ep.Port == 0 {
+				ep.Port = port
+			}
+		}
+		epKey := ep.Key()
+		if seen[epKey] {
+			return nil, fmt.Errorf("duplicate endpoint: %s", ep.Key())
+		}
+		seen[epKey] = true
+		endpoints = append(endpoints, ep)
+	}
+
+	return endpoints, nil
 }
