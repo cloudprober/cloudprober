@@ -133,6 +133,7 @@ func parseURL(s string) (scheme, host, path string, port int, err error) {
 func FromProtoMessage(endpointspb []*targetspb.Endpoint) ([]Endpoint, error) {
 	var endpoints []Endpoint
 	seen := make(map[string]bool)
+	timestamp := time.Now()
 
 	for _, pb := range endpointspb {
 		ep := Endpoint{
@@ -140,7 +141,7 @@ func FromProtoMessage(endpointspb []*targetspb.Endpoint) ([]Endpoint, error) {
 			Labels:      pb.GetLabels(),
 			IP:          net.ParseIP(pb.GetIp()),
 			Port:        int(pb.GetPort()),
-			LastUpdated: time.Now(),
+			LastUpdated: timestamp,
 		}
 
 		if pb.GetUrl() != "" {

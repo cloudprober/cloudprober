@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
@@ -267,6 +268,9 @@ func TestFromProtoMessage(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FromProtoMessage() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			for i := range got {
+				got[i].LastUpdated = time.Time{}
 			}
 			assert.Equal(t, tt.want, got, "endpoints")
 		})
