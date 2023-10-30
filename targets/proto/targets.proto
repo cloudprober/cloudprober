@@ -172,6 +172,10 @@ message TargetsDef {
   //       value: "products-service"
   //     }
   //   }
+  //   endpoints {
+  //     name: "frontend-url1"
+  //     url: "https://frontend.example.com/url1"
+  //   }
   repeated Endpoint endpoints = 23;
 
   // Regex to apply on the targets.
