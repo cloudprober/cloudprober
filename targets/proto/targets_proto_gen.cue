@@ -74,6 +74,27 @@ import (
 	rdsServerOptions?: proto.#ClientConf.#ServerOptions @protobuf(20,rds.ClientConf.ServerOptions,name=rds_server_options)
 }
 
+#Endpoint: {
+	// Resource name.
+	name?: string @protobuf(1,string)
+
+	// Resource's IP address. If not specified, resource name is DNS resolved.
+	ip?: string @protobuf(2,string)
+
+	// Resource's port. If specified, this port will be used by the port-based
+	// probes (e.g.  TCP, HTTP), if probe's configuration doesn't specify a port.
+	port?: int32 @protobuf(3,int32)
+
+	// Resource's URL. If provided, this field is used by the HTTP probe, if
+	// probe configuration itself doesn't specify URL fields.
+	url?: string @protobuf(4,string)
+
+	// Resource's labels, if any.
+	labels?: {
+		[string]: string
+	} @protobuf(5,map[string]string)
+}
+
 #TargetsDef: {
 	{} | {
 		// Static host names, for example:
@@ -137,6 +158,24 @@ import (
 		// actually no targets, for example in case of some external probes.
 		dummyTargets: #DummyTargets @protobuf(20,DummyTargets,name=dummy_targets)
 	}
+
+	// Static endpoints. These endpoints are merged with the resources returned
+	// by the targets type above.
+	// Example:
+	//   endpoints {
+	//     name: "service-gtwy-1"
+	//     ip: "10.1.18.121"
+	//     port: 8080
+	//     labels {
+	//       key: "service"
+	//       value: "products-service"
+	//     }
+	//   }
+	//   endpoints {
+	//     name: "frontend-url1"
+	//     url: "https://frontend.example.com/url1"
+	//   }
+	endpoints?: [...#Endpoint] @protobuf(23,Endpoint)
 
 	// Regex to apply on the targets.
 	regex?: string @protobuf(21,string)

@@ -18,8 +18,11 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestEndpointsFromNames(t *testing.T) {
@@ -106,6 +109,170 @@ func TestEndpointDst(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.ep.Key(), func(t *testing.T) {
 			assert.Equal(t, tt.want, tt.ep.Dst(), "destination")
+		})
+	}
+}
+
+func TestParseURL(t *testing.T) {
+	type parts struct {
+		scheme, host, path string
+		port               int
+	}
+	tests := []struct {
+		name      string
+		s         string
+		wantParts parts
+		wantErr   bool
+	}{
+		{
+			s:         "http://host:8080/path",
+			wantParts: parts{scheme: "http", host: "host", path: "/path", port: 8080},
+		},
+		{
+			s:         "https://host:8080",
+			wantParts: parts{scheme: "https", host: "host", path: "/", port: 8080},
+		},
+		{
+			s:         "http://host/path?query=1",
+			wantParts: parts{scheme: "http", host: "host", path: "/path?query=1", port: 0},
+		},
+		{
+			s:         "http://[abcf::0000]/path?query=1",
+			wantParts: parts{scheme: "http", host: "abcf::0000", path: "/path?query=1", port: 0},
+		},
+		{
+			s:         "http://[abcf::0000]:8080/path?query=1",
+			wantParts: parts{scheme: "http", host: "abcf::0000", path: "/path?query=1", port: 8080},
+		},
+		{
+			s:         "http://[abcf::0000]:8080/path?query=1",
+			wantParts: parts{scheme: "http", host: "abcf::0000", path: "/path?query=1", port: 8080},
+		},
+		{
+			s:       "http://[abcf::0000/path?query=1",
+			wantErr: true,
+		},
+		{
+			s:       "http://[abcf::0000]:asd/path?query=1",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.s, func(t *testing.T) {
+			gotScheme, gotHost, gotPath, gotPort, err := parseURL(tt.s)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tt.wantParts.scheme, gotScheme, "scheme")
+			assert.Equal(t, tt.wantParts.host, gotHost, "host")
+			assert.Equal(t, tt.wantParts.path, gotPath, "path")
+			assert.Equal(t, tt.wantParts.port, gotPort, "port")
+		})
+	}
+}
+
+func TestFromProtoMessage(t *testing.T) {
+	tests := []struct {
+		name        string
+		endpointspb []*targetspb.Endpoint
+		want        []Endpoint
+		wantErr     bool
+	}{
+		{
+			name: "static endpoints",
+			endpointspb: []*targetspb.Endpoint{
+				{
+					Name: proto.String("host1_url1"),
+					Url:  proto.String("http://host1:8080/url1"),
+				},
+				{
+					Name:   proto.String("host2"),
+					Url:    proto.String("https://host2.com"),
+					Labels: map[string]string{"app": "frontend-cloudprober"},
+				},
+			},
+			want: []Endpoint{
+				{
+					Name: "host1_url1",
+					Labels: map[string]string{
+						"__cp_scheme__": "http",
+						"__cp_host__":   "host1",
+						"__cp_path__":   "/url1",
+					},
+					Port: 8080,
+				},
+				{
+					Name: "host2",
+					Labels: map[string]string{
+						"app":           "frontend-cloudprober",
+						"__cp_scheme__": "https",
+						"__cp_host__":   "host2.com",
+						"__cp_path__":   "/",
+					},
+				},
+			},
+		},
+		{
+			name: "same keys error",
+			endpointspb: []*targetspb.Endpoint{
+				{
+					Name: proto.String("host1_url1"),
+					Url:  proto.String("http://host1:8080/url1"),
+				},
+				{
+					Name: proto.String("host1_url1"),
+					Url:  proto.String("http://host1:8080/url1"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "different keys",
+			endpointspb: []*targetspb.Endpoint{
+				{
+					Name: proto.String("host1"),
+					Url:  proto.String("http://host1/url1"),
+				},
+				{
+					Name: proto.String("host1"),
+					Url:  proto.String("http://host1/url2"),
+				},
+			},
+			want: []Endpoint{
+				{
+					Name: "host1",
+					Labels: map[string]string{
+						"__cp_scheme__": "http",
+						"__cp_host__":   "host1",
+						"__cp_path__":   "/url1",
+					},
+				},
+				{
+					Name: "host1",
+					Labels: map[string]string{
+						"__cp_scheme__": "http",
+						"__cp_host__":   "host1",
+						"__cp_path__":   "/url2",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FromProtoMessage(tt.endpointspb)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FromProtoMessage() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			for i := range got {
+				got[i].LastUpdated = time.Time{}
+			}
+			assert.Equal(t, tt.want, got, "endpoints")
 		})
 	}
 }
