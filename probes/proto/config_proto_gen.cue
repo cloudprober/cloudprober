@@ -75,7 +75,8 @@ import (
 	// Default timeout is 1s.
 	timeout?: string @protobuf(17,string)
 
-	// Targets for the probe
+	// Targets for the probe. Targets are required for all probes except
+	// for external, user_defined, and extension probe types.
 	targets?: proto.#TargetsDef @protobuf(6,targets.TargetsDef)
 
 	// Latency distribution. If specified, latency is stored as a distribution.
