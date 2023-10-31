@@ -276,3 +276,78 @@ func TestFromProtoMessage(t *testing.T) {
 		})
 	}
 }
+
+type testResolver struct {
+	data map[string]net.IP
+}
+
+func (tr *testResolver) Resolve(name string, ipVersion int) (net.IP, error) {
+	if tr.data == nil {
+		tr.data = make(map[string]net.IP)
+	}
+	if tr.data[name] == nil {
+		return nil, fmt.Errorf("no such host: %s", name)
+	}
+	return tr.data[name], nil
+}
+
+func TestEndpointResolve(t *testing.T) {
+	res := &testResolver{
+		data: map[string]net.IP{
+			"host1": net.ParseIP("10.10.3.4"),
+			"host2": net.ParseIP("2001:db8::1"),
+		},
+	}
+
+	tests := []struct {
+		name      string
+		ep        Endpoint
+		ipVersion int
+		opts      []ResolverOption
+		wantIP    string
+		wantErr   bool
+	}{
+		{
+			name:   "contains valid ip",
+			ep:     Endpoint{Name: "host0", IP: net.ParseIP("10.1.1.1")},
+			wantIP: "10.1.1.1",
+		},
+		{
+			name:      "no ipv6",
+			ep:        Endpoint{Name: "host0", IP: net.ParseIP("10.1.1.1")},
+			ipVersion: 6,
+			wantErr:   true,
+		},
+		{
+			name:   "use_resolver",
+			ep:     Endpoint{Name: "host1"},
+			wantIP: "10.10.3.4",
+		},
+		{
+			name:      "name_override",
+			ep:        Endpoint{Name: "host0"},
+			opts:      []ResolverOption{WithNameOverride("host2")},
+			ipVersion: 6,
+			wantIP:    "2001:db8::1",
+		},
+		{
+			name:    "no host",
+			ep:      Endpoint{Name: "host0"},
+			opts:    []ResolverOption{WithNameOverride("host3")},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.ep.Resolve(tt.ipVersion, res, tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Endpoint.Resolve() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tt.wantIP, got.String(), "resolved IP")
+		})
+	}
+}

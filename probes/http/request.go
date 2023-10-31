@@ -135,7 +135,7 @@ func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string
 		return host, "", nil
 	}
 
-	ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
+	ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets, endpoint.WithNameOverride(host))
 	if err != nil {
 		return "", "", fmt.Errorf("error resolving target: %s, %v", target.Name, err)
 	}
