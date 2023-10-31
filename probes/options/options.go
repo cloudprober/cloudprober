@@ -167,6 +167,16 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		Logger:            logger.NewWithAttrs(slog.String("probe", p.GetName())),
 	}
 
+	if p.GetTargets() == nil {
+		if p.GetType() != configpb.ProbeDef_USER_DEFINED && p.GetType() != configpb.ProbeDef_EXTERNAL && p.GetType() != configpb.ProbeDef_EXTENSION {
+			return nil, fmt.Errorf("no targets specified for the probe (%s)", p.GetName())
+		} else {
+			p.Targets = &targetspb.TargetsDef{
+				Type: &targetspb.TargetsDef_DummyTargets{},
+			}
+		}
+	}
+
 	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, globalTargetsOpts, l, opts.Logger); err != nil {
 		return nil, err
 	}
