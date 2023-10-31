@@ -443,21 +443,21 @@ func TestNilTargets(t *testing.T) {
 				Type: configpb.ProbeDef_USER_DEFINED.Enum(),
 				Name: proto.String("test-probe"),
 			},
-			wantEndpoints: []endpoint.Endpoint{},
+			wantEndpoints: []endpoint.Endpoint{{Name: ""}},
 		},
 		{
 			cfg: &configpb.ProbeDef{
 				Type: configpb.ProbeDef_EXTERNAL.Enum(),
 				Name: proto.String("test-probe"),
 			},
-			wantEndpoints: []endpoint.Endpoint{},
+			wantEndpoints: []endpoint.Endpoint{{Name: ""}},
 		},
 		{
 			cfg: &configpb.ProbeDef{
 				Type: configpb.ProbeDef_EXTENSION.Enum(),
 				Name: proto.String("test-probe"),
 			},
-			wantEndpoints: []endpoint.Endpoint{},
+			wantEndpoints: []endpoint.Endpoint{{Name: ""}},
 		},
 		{
 			cfg: &configpb.ProbeDef{

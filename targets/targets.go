@@ -105,7 +105,7 @@ type dummy struct {
 // List for dummy targets returns one empty string.  This is to ensure
 // that any iteration over targets will at least be executed once.
 func (d *dummy) ListEndpoints() []endpoint.Endpoint {
-	return []endpoint.Endpoint{}
+	return []endpoint.Endpoint{{Name: ""}}
 }
 
 // Resolve will just return an unspecified IP address.  This can be
