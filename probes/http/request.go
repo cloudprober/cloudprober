@@ -137,8 +137,7 @@ func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string
 
 	ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 	if err != nil {
-		p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
-		return "", "", nil
+		return "", "", fmt.Errorf("error resolving target: %s, %v", target.Name, err)
 	}
 
 	ipStr := ip.String()
@@ -158,6 +157,8 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 
 	urlHost, ipForLabel, err := p.urlHostAndIPLabel(target, host)
 	if err != nil {
+		// We just return a nil request. The caller will skip nil requests.
+		p.l.Error(err.Error())
 		return nil
 	}
 

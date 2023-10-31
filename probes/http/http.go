@@ -477,6 +477,8 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 		// creation gets retried at a regular interval (stats export interval).
 		if req != nil {
 			p.runProbe(ctx, target, clients, req, result)
+		} else {
+			result.total += int64(p.c.GetRequestsPerProbe())
 		}
 
 		// Export stats if it's the time to do so.
