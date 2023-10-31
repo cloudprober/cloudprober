@@ -424,3 +424,64 @@ func TestRecordMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestNilTargets(t *testing.T) {
+	tests := []struct {
+		cfg           *configpb.ProbeDef
+		wantEndpoints []endpoint.Endpoint
+		wantErr       bool
+	}{
+		{
+			cfg: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_PING.Enum(),
+				Name: proto.String("test-probe"),
+			},
+			wantErr: true,
+		},
+		{
+			cfg: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_USER_DEFINED.Enum(),
+				Name: proto.String("test-probe"),
+			},
+			wantEndpoints: []endpoint.Endpoint{{Name: ""}},
+		},
+		{
+			cfg: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_EXTERNAL.Enum(),
+				Name: proto.String("test-probe"),
+			},
+			wantEndpoints: []endpoint.Endpoint{{Name: ""}},
+		},
+		{
+			cfg: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_EXTENSION.Enum(),
+				Name: proto.String("test-probe"),
+			},
+			wantEndpoints: []endpoint.Endpoint{{Name: ""}},
+		},
+		{
+			cfg: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_EXTERNAL.Enum(),
+				Name: proto.String("test-probe"),
+				Targets: &targetspb.TargetsDef{
+					Type: &targetspb.TargetsDef_HostNames{HostNames: "testHost"},
+				},
+			},
+			wantEndpoints: []endpoint.Endpoint{{Name: "testHost"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.cfg.String(), func(t *testing.T) {
+			got, err := BuildProbeOptions(tt.cfg, nil, nil, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("BuildProbeOptions() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tt.wantEndpoints, got.Targets.ListEndpoints())
+		})
+	}
+}
