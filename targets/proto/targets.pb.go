@@ -292,17 +292,19 @@ type Endpoint struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Resource name.
+	// Endpoint name. Metrics for a target are identified by a combination of
+	// endpoint name and port name, if specified.
 	Name *string `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
-	// Resource's IP address. If not specified, resource name is DNS resolved.
+	// Optional IP address. If not specified, endpoint name is DNS resolved.
 	Ip *string `protobuf:"bytes,2,opt,name=ip" json:"ip,omitempty"`
-	// Resource's port. If specified, this port will be used by the port-based
+	// Endpoint port. If specified, this port will be used by the port-based
 	// probes (e.g.  TCP, HTTP), if probe's configuration doesn't specify a port.
 	Port *int32 `protobuf:"varint,3,opt,name=port" json:"port,omitempty"`
-	// Resource's URL. If provided, this field is used by the HTTP probe, if
+	// HTTP probe URL. If provided, this field is used by the HTTP probe, if
 	// probe configuration itself doesn't specify URL fields.
 	Url *string `protobuf:"bytes,4,opt,name=url" json:"url,omitempty"`
-	// Resource's labels, if any.
+	// Endpoint labels. These labels can be exported as metrics labels using the
+	// `additional_label` field in the probe configuration.
 	Labels map[string]string `protobuf:"bytes,5,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 

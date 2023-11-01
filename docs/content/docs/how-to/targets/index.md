@@ -11,28 +11,28 @@ date: 2016-10-25T17:24:32-07:00
 Cloudprober probes usually run against some targets[^1] to check those targets'
 status, such as an HTTP probe to your APIs servers, or PING/TCP probes to a
 third-party provider to verify network connectivity to them. Each probe can have
-multiple targets. If a probe has multiple targets, Cloudprober runs concurrent
-probes against each target. This page further explains how targets work in
+multiple targets. If a probe has multiple targets, Cloudprober runs parallel
+probes for each target. This page further explains how targets work in
 Cloudprober.
+
+[^1]:
+    There are some cases where there is no explicit target, for example, you may
+    run a probe to measure your CI system's performance, or run a complex probe
+    that touches many endpoints.
 
 {{< figure src=targets.svg width=350 >}}
 
 ## Dynamically Discovered Targets
 
 One of the core features of Cloudprober is the automatic and continuous
-discovery of targets. This feature is especially critical for the dynamic
-environments that today's cloud based deployments make possible. For exmaple in
+discovery of targets. This feature is especially important for the dynamic
+environments that today's cloud based deployments make possible. For example in
 a kubernetes cluster the number of pods and their IPs can change on the fly,
 either in response to replica count changes or node failures. Automated targets
 discovery makes sure that we don't have to reconfigure Cloudprober in response
 to such events.
 
 {{< figure src=targets2.svg width=350 >}}
-
-[^1]:
-    There are some cases where there is no explicit target, for example, you may
-    run a probe to measure your CI system's performance, or run a complex probe
-    that touches many endpoints.
 
 ## Targets Configuration
 
@@ -52,9 +52,36 @@ probe {
 }
 ```
 
-In the above config, probe will run concurrently against 3 hosts:
+In the above config, probe will run against 3 hosts in parallel:
 _www.google.com_, _www.yahoo.com_, and _cloudprober:9313_ (yes, you can specify
 ports here for port-aware probes).
+
+You can specify more detailed targets using the
+[`endpoints`](/docs/config/targets/#cloudprober_targets_TargetsDef) field. Using
+endpoints, you can even specify the URL directly in target definition; this
+method is particularly useful if you want to run an HTTP probe for multiple
+similar targets.
+
+```shell
+probe {
+  type: HTTP
+  ...
+  targets {
+    endpoints {
+      # This will probe https://web.example.com/url1, target will show up as
+      # "frontend_main" in metrics.
+      name: "frontend_main"
+      url: "https://web.example.com/url1"
+    }
+    endpoints {
+      # This will probe http://cms.example.com, target will show up as
+      # "cms.example.com" in metrics.
+      name: "cms.example.com"
+    }
+  }
+  ..
+}
+```
 
 ### File based targets
 
