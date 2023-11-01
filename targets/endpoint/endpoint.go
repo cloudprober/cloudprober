@@ -88,9 +88,26 @@ func (ep *Endpoint) Dst() string {
 	return net.JoinHostPort(ep.Name, strconv.Itoa(ep.Port))
 }
 
+type resolverOptions struct {
+	nameOverride string
+}
+
+type ResolverOption func(*resolverOptions)
+
+func WithNameOverride(nameOverride string) ResolverOption {
+	return func(ro *resolverOptions) {
+		ro.nameOverride = nameOverride
+	}
+}
+
 // Resolve resolves endpoint to an IP address. If endpoint has an embedded IP
 // address it uses that, otherwise a global reolver is used.
-func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver) (net.IP, error) {
+func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver, opts ...ResolverOption) (net.IP, error) {
+	ro := &resolverOptions{}
+	for _, opt := range opts {
+		opt(ro)
+	}
+
 	if ep.IP != nil {
 		if ipVersion == 0 || iputils.IPVersion(ep.IP) == ipVersion {
 			return ep.IP, nil
@@ -99,7 +116,11 @@ func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver) (net.IP, error) {
 		return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s", ipVersion, ep.IP.String(), ep.Name)
 	}
 
-	return resolver.Resolve(ep.Name, ipVersion)
+	name := ep.Name
+	if ro.nameOverride != "" {
+		name = ro.nameOverride
+	}
+	return resolver.Resolve(name, ipVersion)
 }
 
 // NamesFromEndpoints is convenience function to build a list of names
