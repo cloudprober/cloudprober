@@ -287,17 +287,20 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 
 	for {
 		for _, target := range p.targets {
+			p.results[target.Name].sent++
+
 			if p.target2addr[target.Name] == nil {
 				p.l.Debug("Skipping unresolved target: ", target.Name)
 				continue
 			}
+
 			p.prepareRequestPacket(pktbuf, runID, seq, time.Now().UnixNano())
 			if _, err := p.conn.write(pktbuf, p.target2addr[target.Name]); err != nil {
-				p.l.Warning(err.Error())
+				p.l.Error(err.Error())
 				continue
 			}
+
 			tracker <- true
-			p.results[target.Name].sent++
 		}
 
 		packetsSent++
