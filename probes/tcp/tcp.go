@@ -127,6 +127,8 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	// Convert interface to struct type
 	result := res.(*probeResult)
 
+	result.total++
+
 	host := target.Name
 	ipLabel := ""
 
@@ -162,8 +164,6 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	if conn != nil {
 		defer conn.Close()
 	}
-
-	result.total++
 
 	if p.opts.NegativeTest {
 		if err == nil {
