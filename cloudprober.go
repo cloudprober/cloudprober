@@ -142,10 +142,15 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 
 // InitFromConfig initializes Cloudprober using the provided config.
 func InitFromConfig(configFile string) error {
-	return Init(config.ConfigSourceWithFile(configFile))
+	return InitWithConfigSource(config.ConfigSourceWithFile(configFile))
 }
 
-func Init(configSrc config.ConfigSource) error {
+// Init initializes Cloudprober using the default config source.
+func Init() error {
+	return InitWithConfigSource(config.DefaultConfigSource())
+}
+
+func InitWithConfigSource(configSrc config.ConfigSource) error {
 	// Return immediately if prober is already initialized.
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
