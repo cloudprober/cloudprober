@@ -38,7 +38,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/servers"
-	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/prober"
@@ -142,6 +141,13 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 
 // InitFromConfig initializes Cloudprober using the provided config.
 func InitFromConfig(configFile string) error {
+	configSrc := &config.DefaultConfigSource{
+		OverrideConfigFile: configFile,
+	}
+	return Init(configSrc)
+}
+
+func Init(configSrc config.ConfigSource) error {
 	// Return immediately if prober is already initialized.
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
@@ -150,19 +156,9 @@ func InitFromConfig(configFile string) error {
 		return nil
 	}
 
-	// Initialize sysvars module
-	if err := sysvars.Init(logger.NewWithAttrs(slog.String("component", sysvarsModuleName)), nil); err != nil {
-		return err
-	}
-
 	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
 
-	configStr, configFormat, err := config.GetConfig(configFile, globalLogger)
-	if err != nil {
-		return err
-	}
-
-	cfg, parsedConfigStr, err := config.ParseConfig(configStr, configFormat, sysvars.Vars(), globalLogger)
+	cfg, err := configSrc.GetConfig()
 	if err != nil {
 		return err
 	}
@@ -223,11 +219,12 @@ func InitFromConfig(configFile string) error {
 
 	cloudProber.prober = pr
 	cloudProber.config = cfg
-	cloudProber.rawConfig = configStr
-	cloudProber.parsedConfig = parsedConfigStr
+	cloudProber.rawConfig = configSrc.RawConfig()
+	cloudProber.parsedConfig = configSrc.ParsedConfig()
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
+
 	return nil
 }
 
