@@ -46,9 +46,9 @@ type DefaultConfigSource struct {
 	cfg          *configpb.ProberConfig
 }
 
-func getConfigContent(confFile string, l *logger.Logger) (content string, format string, err error) {
-	if confFile != "" {
-		return readConfigFile(confFile)
+func (dcs *DefaultConfigSource) getConfigContent() (content string, format string, err error) {
+	if dcs.OverrideConfigFile != "" {
+		return readConfigFile(dcs.OverrideConfigFile)
 	}
 
 	if *configFile != "" {
@@ -59,7 +59,7 @@ func getConfigContent(confFile string, l *logger.Logger) (content string, format
 	// attributes.
 	if metadata.OnGCE() {
 		if config, err := readFromGCEMetadata(configMetadataKeyName); err != nil {
-			l.Infof("Error reading config from metadata. Err: %v", err)
+			dcs.l.Infof("Error reading config from metadata. Err: %v", err)
 		} else {
 			return config, "", nil
 		}
@@ -70,7 +70,7 @@ func getConfigContent(confFile string, l *logger.Logger) (content string, format
 		return readConfigFile(defaultConfigFile)
 	}
 
-	l.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
+	dcs.l.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
 	return DefaultConfig(), "textpb", nil
 }
 
@@ -93,7 +93,7 @@ func (dcs *DefaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 		dcs.BaseVars = sysvars.Vars()
 	}
 
-	configStr, configFormat, err := getConfigContent(dcs.OverrideConfigFile, dcs.l)
+	configStr, configFormat, err := dcs.getConfigContent()
 	if err != nil {
 		return nil, err
 	}

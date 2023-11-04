@@ -156,12 +156,12 @@ func Init(configSrc config.ConfigSource) error {
 		return nil
 	}
 
-	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
-
 	cfg, err := configSrc.GetConfig()
 	if err != nil {
 		return err
 	}
+
+	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
 
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.

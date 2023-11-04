@@ -170,7 +170,7 @@ func main() {
 
 	setupProfiling()
 
-	if err := cloudprober.InitFromConfig(""); err != nil {
+	if err := cloudprober.Init(nil); err != nil {
 		l.Criticalf("Error initializing cloudprober. Err: %v", err)
 	}
 
