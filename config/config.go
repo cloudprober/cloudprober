@@ -15,6 +15,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -31,7 +32,8 @@ import (
 )
 
 var (
-	configFile = flag.String("config_file", "", "Config file")
+	configFile       = flag.String("config_file", "", "Config file")
+	testInstanceName = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
 )
 
 // EnvRegex is the regex used to find environment variable placeholders
@@ -43,6 +45,27 @@ const (
 	configMetadataKeyName = "cloudprober_config"
 	defaultConfigFile     = "/etc/cloudprober.cfg"
 )
+
+var configTestVars = map[string]string{
+	"zone":              "us-central1-a",
+	"project":           "fake-domain.com:fake-project",
+	"project_id":        "12345678",
+	"instance":          *testInstanceName,
+	"internal_ip":       "192.168.0.10",
+	"external_ip":       "10.10.10.10",
+	"instance_template": "ig-us-central1-a-01",
+	"machine_type":      "e2-small",
+}
+
+func DefaultConfigSource() ConfigSource {
+	return ConfigSourceWithFile(*configFile)
+}
+
+func ConfigSourceWithFile(fileName string) ConfigSource {
+	return &defaultConfigSource{
+		FileName: fileName,
+	}
+}
 
 func readConfigFile(fileName string) (string, string, error) {
 	b, err := file.ReadFile(fileName)
@@ -62,7 +85,7 @@ func readConfigFile(fileName string) (string, string, error) {
 	return string(b), "", nil
 }
 
-func configTextToProto(configStr, configFormat string) (*configpb.ProberConfig, error) {
+func unmarshalConfig(configStr, configFormat string) (*configpb.ProberConfig, error) {
 	cfg := &configpb.ProberConfig{}
 	switch configFormat {
 	case "yaml":
@@ -115,8 +138,14 @@ func substEnvVars(configStr string, l *logger.Logger) string {
 }
 
 func ConfigTest(cs ConfigSource) error {
+	// cs is provided only for testing.
 	if cs == nil {
-		cs = &DefaultConfigSource{
+		if *configFile == "" {
+			return errors.New("config_file is required for testing")
+		}
+		cs = &defaultConfigSource{
+			FileName: *configFile,
+			BaseVars: configTestVars,
 			GetGCECustomMetadata: func(v string) (string, error) {
 				return v + "-test-value", nil
 			},
@@ -128,7 +157,9 @@ func ConfigTest(cs ConfigSource) error {
 
 func DumpConfig(outFormat string, cs ConfigSource) ([]byte, error) {
 	if cs == nil {
-		cs = &DefaultConfigSource{}
+		cs = &defaultConfigSource{
+			BaseVars: configTestVars,
+		}
 	}
 	cfg, err := cs.GetConfig()
 	if err != nil {

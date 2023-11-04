@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"cloud.google.com/go/compute/metadata"
@@ -35,8 +34,8 @@ type ConfigSource interface {
 	ParsedConfig() string
 }
 
-type DefaultConfigSource struct {
-	OverrideConfigFile   string
+type defaultConfigSource struct {
+	FileName             string
 	BaseVars             map[string]string
 	GetGCECustomMetadata func(string) (string, error)
 	l                    *logger.Logger
@@ -46,74 +45,67 @@ type DefaultConfigSource struct {
 	cfg          *configpb.ProberConfig
 }
 
-func (dcs *DefaultConfigSource) getConfigContent() (content string, format string, err error) {
-	if dcs.OverrideConfigFile != "" {
-		return readConfigFile(dcs.OverrideConfigFile)
+func (dcs *defaultConfigSource) configContent() (content string, format string, err error) {
+	if dcs.FileName != "" {
+		return readConfigFile(dcs.FileName)
 	}
 
-	if *configFile != "" {
-		return readConfigFile(*configFile)
-	}
-
-	// On GCE first check if there is a config in custom metadata
-	// attributes.
+	// On GCE first check if there is a config in custom metadata attributes.
 	if metadata.OnGCE() {
-		if config, err := readFromGCEMetadata(configMetadataKeyName); err != nil {
+		if config, err := dcs.GetGCECustomMetadata(configMetadataKeyName); err != nil {
 			dcs.l.Infof("Error reading config from metadata. Err: %v", err)
 		} else {
 			return config, "", nil
 		}
 	}
 
-	// If config not found in metadata, check default config on disk
-	if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
-		return readConfigFile(defaultConfigFile)
-	}
-
 	dcs.l.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
 	return DefaultConfig(), "textpb", nil
 }
 
-func (dcs *DefaultConfigSource) parseConfig(configStr, configFormat string) (*configpb.ProberConfig, string, error) {
-	parsedConfig, err := ParseTemplate(configStr, dcs.BaseVars, nil)
-	if err != nil {
-		return nil, "", fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
+	// Figure out which file to read
+	if dcs.FileName == "" {
+		dcs.FileName = *configFile
 	}
 
-	cfg, err := configTextToProto(substEnvVars(parsedConfig, dcs.l), configFormat)
-	return cfg, parsedConfig, err
-}
-
-func (dcs *DefaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
-	if dcs.BaseVars == nil {
-		// Initialize sysvars module
-		if err := sysvars.Init(logger.NewWithAttrs(slog.String("component", sysvarsModuleName)), nil); err != nil {
-			return nil, err
+	if dcs.FileName == "" {
+		if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
+			dcs.FileName = defaultConfigFile
 		}
+	}
+
+	if dcs.BaseVars == nil {
 		dcs.BaseVars = sysvars.Vars()
 	}
 
-	configStr, configFormat, err := dcs.getConfigContent()
+	if dcs.GetGCECustomMetadata == nil {
+		dcs.GetGCECustomMetadata = readFromGCEMetadata
+	}
+
+	configStr, configFormat, err := dcs.configContent()
 	if err != nil {
 		return nil, err
 	}
-
-	cfg, parsedConfigStr, err := dcs.parseConfig(configStr, configFormat)
-	if err != nil {
-		return nil, err
-	}
-
-	dcs.parsedConfig = parsedConfigStr
 	dcs.rawConfig = configStr
-	dcs.cfg = cfg
 
-	return cfg, nil
+	dcs.parsedConfig, err = parseTemplate(dcs.rawConfig, dcs.BaseVars, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+	}
+
+	dcs.cfg, err = unmarshalConfig(substEnvVars(dcs.parsedConfig, dcs.l), configFormat)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling config. Err: %v", err)
+	}
+
+	return dcs.cfg, nil
 }
 
-func (dcs *DefaultConfigSource) RawConfig() string {
+func (dcs *defaultConfigSource) RawConfig() string {
 	return dcs.rawConfig
 }
 
-func (dcs *DefaultConfigSource) ParsedConfig() string {
+func (dcs *defaultConfigSource) ParsedConfig() string {
 	return dcs.parsedConfig
 }

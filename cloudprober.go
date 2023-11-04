@@ -38,6 +38,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/servers"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/prober"
@@ -141,10 +142,7 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 
 // InitFromConfig initializes Cloudprober using the provided config.
 func InitFromConfig(configFile string) error {
-	configSrc := &config.DefaultConfigSource{
-		OverrideConfigFile: configFile,
-	}
-	return Init(configSrc)
+	return Init(config.ConfigSourceWithFile(configFile))
 }
 
 func Init(configSrc config.ConfigSource) error {
@@ -154,6 +152,11 @@ func Init(configSrc config.ConfigSource) error {
 
 	if cloudProber.prober != nil {
 		return nil
+	}
+
+	// Initialize sysvars module
+	if err := sysvars.Init(logger.NewWithAttrs(slog.String("component", sysvarsModuleName)), nil); err != nil {
+		return err
 	}
 
 	cfg, err := configSrc.GetConfig()

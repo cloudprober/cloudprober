@@ -38,7 +38,7 @@ func testConfigToProto(t *testing.T, fileName string) (*configpb.ProberConfig, e
 	if err != nil {
 		t.Error(err)
 	}
-	return configTextToProto(configStr, configFormat)
+	return unmarshalConfig(configStr, configFormat)
 }
 
 func TestConfigToProto(t *testing.T) {
@@ -129,9 +129,9 @@ func TestConfigTest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cs := &DefaultConfigSource{
-				OverrideConfigFile: tt.configFile,
-				BaseVars:           tt.baseVars,
+			cs := &defaultConfigSource{
+				FileName: tt.configFile,
+				BaseVars: tt.baseVars,
 			}
 			if err := ConfigTest(cs); (err != nil) != tt.wantErr {
 				t.Errorf("ConfigTest() error = %v, wantErr %v", err, tt.wantErr)
@@ -196,7 +196,7 @@ surfacer: {
 	}
 	for _, tt := range tests {
 		t.Run(tt.format, func(t *testing.T) {
-			got, err := DumpConfig(tt.format, &DefaultConfigSource{OverrideConfigFile: tt.configFile})
+			got, err := DumpConfig(tt.format, &defaultConfigSource{FileName: tt.configFile})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DumpConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return

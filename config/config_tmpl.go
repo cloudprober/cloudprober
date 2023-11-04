@@ -154,8 +154,8 @@ func DefaultConfig() string {
 	return string(b)
 }
 
-// ParseTemplate processes a config file as a Go text template.
-func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadata func(string) (string, error)) (string, error) {
+// parseTemplate processes a config file as a Go text template.
+func parseTemplate(config string, sysVars map[string]string, getGCECustomMetadata func(string) (string, error)) (string, error) {
 	if getGCECustomMetadata == nil {
 		getGCECustomMetadata = readFromGCEMetadata
 	}
