@@ -108,32 +108,36 @@ func TestConfigTest(t *testing.T) {
 	tests := []struct {
 		name       string
 		configFile string
-		baseVars   map[string]string
+		cs         ConfigSource
 		wantErr    bool
 	}{
 		{
-			name: "invalid_without_vars",
-			baseVars: map[string]string{
-				"az": "us-east-1a",
-			},
+			name:       "valid_base",
+			configFile: "testdata/cloudprober_base.cfg",
+		},
+		{
+			name:       "invalid_without_vars",
 			configFile: "testdata/cloudprober_invalid.cfg",
 			wantErr:    true,
 		},
 		{
+			name:    "no_config_error",
+			wantErr: true,
+		},
+		{
 			name: "valid_with_vars",
-			baseVars: map[string]string{
-				"probetype": "HTTP",
+			cs: &defaultConfigSource{
+				BaseVars: map[string]string{
+					"probetype": "HTTP",
+				},
 			},
 			configFile: "testdata/cloudprober_invalid.cfg",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cs := &defaultConfigSource{
-				FileName: tt.configFile,
-				BaseVars: tt.baseVars,
-			}
-			if err := ConfigTest(cs); (err != nil) != tt.wantErr {
+			*configFile = tt.configFile
+			if err := ConfigTest(tt.cs); (err != nil) != tt.wantErr {
 				t.Errorf("ConfigTest() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
