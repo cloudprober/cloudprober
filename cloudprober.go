@@ -142,6 +142,15 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 
 // InitFromConfig initializes Cloudprober using the provided config.
 func InitFromConfig(configFile string) error {
+	return InitWithConfigSource(config.ConfigSourceWithFile(configFile))
+}
+
+// Init initializes Cloudprober using the default config source.
+func Init() error {
+	return InitWithConfigSource(config.DefaultConfigSource())
+}
+
+func InitWithConfigSource(configSrc config.ConfigSource) error {
 	// Return immediately if prober is already initialized.
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
@@ -155,17 +164,12 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
+	cfg, err := configSrc.GetConfig()
+	if err != nil {
+		return err
+	}
+
 	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
-
-	configStr, configFormat, err := config.GetConfig(configFile, globalLogger)
-	if err != nil {
-		return err
-	}
-
-	cfg, parsedConfigStr, err := config.ParseConfig(configStr, configFormat, sysvars.Vars(), globalLogger)
-	if err != nil {
-		return err
-	}
 
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.
@@ -223,11 +227,12 @@ func InitFromConfig(configFile string) error {
 
 	cloudProber.prober = pr
 	cloudProber.config = cfg
-	cloudProber.rawConfig = configStr
-	cloudProber.parsedConfig = parsedConfigStr
+	cloudProber.rawConfig = configSrc.RawConfig()
+	cloudProber.parsedConfig = configSrc.ParsedConfig()
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
+
 	return nil
 }
 

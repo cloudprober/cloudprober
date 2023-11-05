@@ -36,7 +36,6 @@ import (
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
-	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/web"
 )
@@ -50,10 +49,6 @@ var (
 	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
 	dumpConfig       = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
 	dumpConfigFormat = flag.String("dumpconfig_fmt", "textpb", "Dump config format (textpb, json, yaml)")
-	testInstanceName = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
-
-	// configTestVars provides a sane set of sysvars for config testing.
-	configTestVars = map[string]string(nil)
 )
 
 // These variables get overwritten by using -ldflags="-X main.<var>=<value?" at
@@ -62,19 +57,6 @@ var version string
 var buildTimestamp string
 var dirty string
 var l *logger.Logger
-
-func setupConfigTestVars() {
-	configTestVars = map[string]string{
-		"zone":              "us-central1-a",
-		"project":           "fake-domain.com:fake-project",
-		"project_id":        "12345678",
-		"instance":          *testInstanceName,
-		"internal_ip":       "192.168.0.10",
-		"external_ip":       "10.10.10.10",
-		"instance_template": "ig-us-central1-a-01",
-		"machine_type":      "e2-small",
-	}
-}
 
 func setupProfiling() {
 	sigChan := make(chan os.Signal, 1)
@@ -148,11 +130,8 @@ func main() {
 		return
 	}
 
-	setupConfigTestVars()
-
 	if *dumpConfig {
-		sysvars.Init(nil, configTestVars)
-		out, err := config.DumpConfig("", *dumpConfigFormat, sysvars.Vars())
+		out, err := config.DumpConfig(*dumpConfigFormat, nil)
 		if err != nil {
 			l.Criticalf("Error dumping config. Err: %v", err)
 		}
@@ -161,8 +140,7 @@ func main() {
 	}
 
 	if *configTest {
-		sysvars.Init(nil, configTestVars)
-		if err := config.ConfigTest("", sysvars.Vars()); err != nil {
+		if err := config.ConfigTest(nil); err != nil {
 			l.Criticalf("Config test failed. Err: %v", err)
 		}
 		return
@@ -170,7 +148,7 @@ func main() {
 
 	setupProfiling()
 
-	if err := cloudprober.InitFromConfig(""); err != nil {
+	if err := cloudprober.Init(); err != nil {
 		l.Criticalf("Error initializing cloudprober. Err: %v", err)
 	}
 

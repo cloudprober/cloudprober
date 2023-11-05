@@ -129,7 +129,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
-// ReadFromGCEMetadata returns the value of GCE custom metadata variables. To
+// readFromGCEMetadata returns the value of GCE custom metadata variables. To
 // allow for instance level as project level variables, it looks for metadata
 // variable in the following order:
 //
@@ -138,7 +138,7 @@ import (
 //
 // b. If (and only if), the key is not found in the step above, we look for
 // the same key in the project's custom metadata.
-var ReadFromGCEMetadata = func(metadataKeyName string) (string, error) {
+var readFromGCEMetadata = func(metadataKeyName string) (string, error) {
 	val, err := metadata.InstanceAttributeValue(metadataKeyName)
 	// If instance level config found, return
 	if _, notFound := err.(metadata.NotDefinedError); !notFound {
@@ -154,10 +154,10 @@ func DefaultConfig() string {
 	return string(b)
 }
 
-// ParseTemplate processes a config file as a Go text template.
-func ParseTemplate(config string, sysVars map[string]string, getGCECustomMetadata func(string) (string, error)) (string, error) {
+// parseTemplate processes a config file as a Go text template.
+func parseTemplate(config string, sysVars map[string]string, getGCECustomMetadata func(string) (string, error)) (string, error) {
 	if getGCECustomMetadata == nil {
-		getGCECustomMetadata = ReadFromGCEMetadata
+		getGCECustomMetadata = readFromGCEMetadata
 	}
 
 	gceCustomMetadataFunc := func(v string) (string, error) {
