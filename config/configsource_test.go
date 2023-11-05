@@ -15,6 +15,8 @@
 package config
 
 import (
+	"runtime"
+	"strings"
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
@@ -55,6 +57,10 @@ func TestDefaultConfigSource(t *testing.T) {
 surfacer {
     type: STACKDRIVER
 }`
+
+	if runtime.GOOS == "windows" {
+		wantCfgStr = strings.ReplaceAll(wantCfgStr, "\n", "\r\n")
+	}
 
 	tests := []struct {
 		name              string
