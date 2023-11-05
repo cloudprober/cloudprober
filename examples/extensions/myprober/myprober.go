@@ -17,10 +17,10 @@ func main() {
 	var log = logger.New()
 
 	// Register stubby probe type
-	probes.RegisterProbeType(int(myprobe.E_RedisProbe.Field),
+	probes.RegisterProbeType(int(myprobe.E_RedisProbe.TypeDescriptor().Number()),
 		func() probes.Probe { return &myprobe.Probe{} })
 
-	if err := cloudprober.InitFromConfig(""); err != nil {
+	if err := cloudprober.Init(); err != nil {
 		log.Criticalf("Error initializing cloudprober. Err: %v", err)
 	}
 
