@@ -179,10 +179,10 @@ func main() {
   flag.Parse()
 
   // Register our probe type
-  probes.RegisterProbeType(int(myprobe.E_RedisProbe.Field),
+  probes.RegisterProbeType(int(myprobe.E_RedisProbe.TypeDescriptor().Number()),
                            func() probes.Probe { return &myprobe.Probe{} })
 
-  err := cloudprober.InitFromConfig(getConfig()) // getConfig not shown here.
+  err := cloudprober.Init() // getConfig not shown here.
   if err != nil {
     glog.Exitf("Error initializing cloudprober. Err: %v", err)
   }
@@ -225,8 +225,7 @@ Full example in
 Let's compile our prober and run it with the above config:
 
 ```bash
-go build ./myprober.go
-./myprober --config_file=myprober.cfg
+go run ./myprober.go --config_file=myprober.cfg
 ```
 
 you should see an output like the following:

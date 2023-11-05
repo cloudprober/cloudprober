@@ -25,7 +25,7 @@ import (
 )
 
 func testParse(config string, sysVars map[string]string) (*configpb.ProberConfig, error) {
-	textConfig, err := ParseTemplate(config, sysVars, nil)
+	textConfig, err := parseTemplate(config, sysVars, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ probe {
   }
 }
 `
-	textConfig, err := ParseTemplate(testConfig, map[string]string{}, func(key string) (string, error) {
+	textConfig, err := parseTemplate(testConfig, map[string]string{}, func(key string) (string, error) {
 		if key == "google-probe-name" {
 			return "google_dot_com_from", nil
 		}

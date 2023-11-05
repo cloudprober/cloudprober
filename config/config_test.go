@@ -31,17 +31,17 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func testConfigToProto(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
+func testUnmarshalConfig(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
 	t.Helper()
 
 	configStr, configFormat, err := readConfigFile(fileName)
 	if err != nil {
 		t.Error(err)
 	}
-	return configToProto(configStr, configFormat)
+	return unmarshalConfig(configStr, configFormat)
 }
 
-func TestConfigToProto(t *testing.T) {
+func TestUnmarshalConfig(t *testing.T) {
 	wantCfg := &configpb.ProberConfig{
 		Probe: []*probespb.ProbeDef{
 			{
@@ -86,14 +86,14 @@ func TestConfigToProto(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := testConfigToProto(t, tt.configFile)
+			got, err := testUnmarshalConfig(t, tt.configFile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConfigToProto() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if tt.want == nil {
-				cfg, err := testConfigToProto(t, tt.baseConfigFile)
+				cfg, err := testUnmarshalConfig(t, tt.baseConfigFile)
 				if err != nil {
 					t.Errorf("Error reading the base config itself: %v", err)
 				}
@@ -108,28 +108,36 @@ func TestConfigTest(t *testing.T) {
 	tests := []struct {
 		name       string
 		configFile string
-		baseVars   map[string]string
+		cs         ConfigSource
 		wantErr    bool
 	}{
 		{
-			name: "invalid_without_vars",
-			baseVars: map[string]string{
-				"az": "us-east-1a",
-			},
+			name:       "valid_base",
+			configFile: "testdata/cloudprober_base.cfg",
+		},
+		{
+			name:       "invalid_without_vars",
 			configFile: "testdata/cloudprober_invalid.cfg",
 			wantErr:    true,
 		},
 		{
+			name:    "no_config_error",
+			wantErr: true,
+		},
+		{
 			name: "valid_with_vars",
-			baseVars: map[string]string{
-				"probetype": "HTTP",
+			cs: &defaultConfigSource{
+				BaseVars: map[string]string{
+					"probetype": "HTTP",
+				},
 			},
 			configFile: "testdata/cloudprober_invalid.cfg",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ConfigTest(tt.configFile, tt.baseVars); (err != nil) != tt.wantErr {
+			*configFile = tt.configFile
+			if err := ConfigTest(tt.cs); (err != nil) != tt.wantErr {
 				t.Errorf("ConfigTest() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -192,7 +200,7 @@ surfacer: {
 	}
 	for _, tt := range tests {
 		t.Run(tt.format, func(t *testing.T) {
-			got, err := DumpConfig(tt.configFile, tt.format, nil)
+			got, err := DumpConfig(tt.format, &defaultConfigSource{FileName: tt.configFile})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DumpConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
