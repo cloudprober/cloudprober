@@ -31,7 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func testConfigToProto(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
+func testUnmarshalConfig(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
 	t.Helper()
 
 	configStr, configFormat, err := readConfigFile(fileName)
@@ -41,7 +41,7 @@ func testConfigToProto(t *testing.T, fileName string) (*configpb.ProberConfig, e
 	return unmarshalConfig(configStr, configFormat)
 }
 
-func TestConfigToProto(t *testing.T) {
+func TestUnmarshalConfig(t *testing.T) {
 	wantCfg := &configpb.ProberConfig{
 		Probe: []*probespb.ProbeDef{
 			{
@@ -86,14 +86,14 @@ func TestConfigToProto(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := testConfigToProto(t, tt.configFile)
+			got, err := testUnmarshalConfig(t, tt.configFile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConfigToProto() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if tt.want == nil {
-				cfg, err := testConfigToProto(t, tt.baseConfigFile)
+				cfg, err := testUnmarshalConfig(t, tt.baseConfigFile)
 				if err != nil {
 					t.Errorf("Error reading the base config itself: %v", err)
 				}

@@ -28,6 +28,8 @@ const (
 	sysvarsModuleName = "sysvars"
 )
 
+var defaultConfigFile = "/etc/cloudprober.cfg"
+
 type ConfigSource interface {
 	GetConfig() (*configpb.ProberConfig, error)
 	RawConfig() string

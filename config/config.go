@@ -43,7 +43,6 @@ var EnvRegex = regexp.MustCompile(`\*\*\$([^*\s]+)\*\*`)
 
 const (
 	configMetadataKeyName = "cloudprober_config"
-	defaultConfigFile     = "/etc/cloudprober.cfg"
 )
 
 var configTestVars = map[string]string{
