@@ -3,9 +3,9 @@
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 
-_NOTE: Cloudprober's active development has moved to
-[github.com/cloudprober/cloudprober](https://github.com/cloudprober/cloudprober)
-from ~~[github.com/google/cloudprober](https://github.com/google/cloudprober)~~. See the [about](http://cloudprober.org/docs/about/) page to read more on the history of Cloudprober._
+_NOTE: Cloudprober's active development moved from ~~[github.com/google/cloudprober](https://github.com/google/cloudprober)~~ to
+[github.com/cloudprober/cloudprober](https://github.com/cloudprober/cloudprober) in Nov, 2021. We lost a bunch of Github stars (1400)
+in the process. See the [about](http://cloudprober.org/docs/about/) page to learn more about the history of Cloudprober._
 
 Cloudprober is a monitoring software that makes it super-easy to monitor
 availability and performance of various components of your system. Cloudprober
