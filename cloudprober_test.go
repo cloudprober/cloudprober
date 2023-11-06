@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	serverspb "github.com/cloudprober/cloudprober/internal/servers/proto"
 	udpserverpb "github.com/cloudprober/cloudprober/internal/servers/udp/proto"
@@ -30,6 +31,7 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers"
 	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
@@ -214,6 +216,44 @@ func TestRestart(t *testing.T) {
 				t.Fatal("surfacer timed out before getting results")
 			case <-s.c:
 			}
+		})
+	}
+}
+
+func TestCloudproberConfig(t *testing.T) {
+	rawCfg := `probe { type: PING, name: "test_probe", targets { host_names: "localhost" }}`
+	f, err := os.CreateTemp("", "cloudprober_test")
+	if err != nil {
+		t.Fatalf("os.CreateTemp(): %v", err)
+	}
+	defer os.Remove(f.Name())
+	os.WriteFile(f.Name(), []byte(rawCfg), 0644)
+
+	tests := []struct {
+		name             string
+		fileName         string
+		wantProbename    string
+		wantRawConfig    string
+		wantParsedConfig string
+	}{
+		{
+			name:             "config from file",
+			fileName:         f.Name(),
+			wantProbename:    "test_probe",
+			wantRawConfig:    rawCfg,
+			wantParsedConfig: rawCfg,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configSrc := config.ConfigSourceWithFile(tt.fileName)
+			cloudProber.configSource = configSrc
+			cloudProber.config, _ = configSrc.GetConfig()
+
+			assert.Equal(t, tt.wantProbename, GetConfig().GetProbe()[0].GetName(), "GetConfig()")
+			assert.Equal(t, tt.wantRawConfig, GetRawConfig(), "GetRawConfig()")
+			assert.Equal(t, tt.wantParsedConfig, GetParsedConfig(), "GetParsedConfig()")
 		})
 	}
 }

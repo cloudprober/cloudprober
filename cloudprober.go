@@ -68,11 +68,10 @@ var cloudProber struct {
 	prober          *prober.Prober
 	defaultServerLn net.Listener
 	defaultGRPCLn   net.Listener
-	rawConfig       string
-	parsedConfig    string
+	configSource    config.ConfigSource
 	config          *configpb.ProberConfig
 	cancelInitCtx   context.CancelFunc
-	sync.Mutex
+	sync.RWMutex
 }
 
 func getServerHost(c *configpb.ProberConfig) string {
@@ -227,8 +226,7 @@ func InitWithConfigSource(configSrc config.ConfigSource) error {
 
 	cloudProber.prober = pr
 	cloudProber.config = cfg
-	cloudProber.rawConfig = configSrc.RawConfig()
-	cloudProber.parsedConfig = configSrc.ParsedConfig()
+	cloudProber.configSource = configSrc
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
@@ -258,9 +256,8 @@ func Start(ctx context.Context) {
 		defer cloudProber.Unlock()
 		cloudProber.defaultServerLn = nil
 		cloudProber.defaultGRPCLn = nil
-		cloudProber.rawConfig = ""
-		cloudProber.parsedConfig = ""
 		cloudProber.config = nil
+		cloudProber.configSource = nil
 		cloudProber.prober = nil
 	}()
 
@@ -281,28 +278,34 @@ func Start(ctx context.Context) {
 
 // GetConfig returns the prober config.
 func GetConfig() *configpb.ProberConfig {
-	cloudProber.Lock()
-	defer cloudProber.Unlock()
+	cloudProber.RLock()
+	defer cloudProber.RUnlock()
 	return cloudProber.config
 }
 
 // GetRawConfig returns the prober config in text proto format.
 func GetRawConfig() string {
-	cloudProber.Lock()
-	defer cloudProber.Unlock()
-	return cloudProber.rawConfig
+	cloudProber.RLock()
+	defer cloudProber.RUnlock()
+	return cloudProber.configSource.RawConfig()
 }
 
 // GetParsedConfig returns the parsed prober config.
 func GetParsedConfig() string {
-	cloudProber.Lock()
-	defer cloudProber.Unlock()
-	return cloudProber.parsedConfig
+	cloudProber.RLock()
+	defer cloudProber.RUnlock()
+	return cloudProber.configSource.ParsedConfig()
 }
 
 // GetInfo returns information on all the probes, servers and surfacers.
 func GetInfo() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
-	cloudProber.Lock()
-	defer cloudProber.Unlock()
+	cloudProber.RLock()
+	defer cloudProber.RUnlock()
 	return cloudProber.prober.Probes, cloudProber.prober.Surfacers, cloudProber.prober.Servers
+}
+
+func GetProber() *prober.Prober {
+	cloudProber.RLock()
+	defer cloudProber.RUnlock()
+	return cloudProber.prober
 }
