@@ -155,27 +155,34 @@ type ProbeConf struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// HTTP request scheme. protocol is deprecated, use scheme instead.
+	// HTTP request scheme (Corresponding target label: "scheme"). If not set, we
+	// use taget's 'scheme' label if present.
+	// Note: protocol is deprecated, use scheme instead.
 	//
 	// Types that are assignable to SchemeType:
 	//
 	//	*ProbeConf_Protocol
 	//	*ProbeConf_Scheme_
 	SchemeType isProbeConf_SchemeType `protobuf_oneof:"scheme_type"`
-	// Relative URL (to append to all targets). Must begin with '/'
+	// Relative URL (Corresponding target label: "path"). We construct the final
+	// URL like this:
+	// <scheme>://<host>:<port>/<relative_url>.
+	//
+	// Note that the relative_url should start with a '/'.
 	RelativeUrl *string `protobuf:"bytes,2,opt,name=relative_url,json=relativeUrl" json:"relative_url,omitempty"`
-	// Port for HTTP requests. If not specfied, port is selected in the following
-	// order:
-	//   - If port is provided by the targets (e.g. kubernetes endpoint or
-	//     service), that port is used.
-	//   - 80 for HTTP and 443 for HTTPS.
+	// Port for HTTP requests (Corresponding target field: port)
+	// Default is to use the scheme specific port, but if this field is not
+	// set and discovered target has a port (e.g., k8s services, ingresses),
+	// we use target's port.
 	Port *int32 `protobuf:"varint,3,opt,name=port" json:"port,omitempty"`
-	// Whether to resolve the target before making the request. If set to false,
-	// we hand over the target and relative_url directly to the golang's HTTP
-	// module, Otherwise, we resolve the target first to an IP address and
-	// make a request using that while passing target name as Host header.
-	// By default we resolve first if it's a discovered resource, e.g., a k8s
-	// endpoint.
+	// Whether to resolve the target before making the request. If set to true,
+	// we resolve the target first to an IP address and make a request using
+	// that while passing target name (or 'host' label if present) as Host
+	// header.
+	//
+	// This behavior is automatic for discovered targets if they have an IP
+	// address associated with them. Usually you don't need to worry about this
+	// field and you can left it unspecified. We'll ty to do the right thing.
 	ResolveFirst *bool `protobuf:"varint,4,opt,name=resolve_first,json=resolveFirst" json:"resolve_first,omitempty"`
 	// Export response (body) count as a metric
 	ExportResponseAsMetrics *bool `protobuf:"varint,5,opt,name=export_response_as_metrics,json=exportResponseAsMetrics,def=0" json:"export_response_as_metrics,omitempty"`
