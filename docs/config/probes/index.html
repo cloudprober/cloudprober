@@ -241,22 +241,29 @@ value: &lt;string>
 
 </pre><h3 id=cloudprober_probes_http_ProbeConf>cloudprober.probes.http.ProbeConf <a class=anchor href=#cloudprober_probes_http_ProbeConf>#</a></h3><pre class=protodoc>
 
-<div class=comment># HTTP request scheme. protocol is deprecated, use scheme instead.</div>[protocol: (HTTP|HTTPS) | scheme: (HTTP|HTTPS)]: &lt;oneof>
+<div class=comment># HTTP request scheme (Corresponding target label: &#34;scheme&#34;). If not set, we
+# use taget&#39;s &#39;scheme&#39; label if present.
+# Note: protocol is deprecated, use scheme instead.</div>[protocol: (HTTP|HTTPS) | scheme: (HTTP|HTTPS)]: &lt;oneof>
 
-<div class=comment># Relative URL (to append to all targets). Must begin with &#39;/&#39;</div>relative_url: &lt;string>
+<div class=comment># Relative URL (Corresponding target label: &#34;path&#34;). We construct the final
+# URL like this:
+# &lt;scheme&gt;://&lt;host&gt;:&lt;port&gt;/&lt;relative_url&gt;.
+#
+# Note that the relative_url should start with a &#39;/&#39;.</div>relative_url: &lt;string>
 
-<div class=comment># Port for HTTP requests. If not specfied, port is selected in the following
-# order:
-#  - If port is provided by the targets (e.g. kubernetes endpoint or
-#    service), that port is used.
-#  - 80 for HTTP and 443 for HTTPS.</div>port: &lt;int32>
+<div class=comment># Port for HTTP requests (Corresponding target field: port)
+# Default is to use the scheme specific port, but if this field is not
+# set and discovered target has a port (e.g., k8s services, ingresses),
+# we use target&#39;s port.</div>port: &lt;int32>
 
-<div class=comment># Whether to resolve the target before making the request. If set to false,
-# we hand over the target and relative_url directly to the golang&#39;s HTTP
-# module, Otherwise, we resolve the target first to an IP address and
-# make a request using that while passing target name as Host header.
-# By default we resolve first if it&#39;s a discovered resource, e.g., a k8s
-# endpoint.</div>resolve_first: &lt;bool>
+<div class=comment># Whether to resolve the target before making the request. If set to true,
+# we resolve the target first to an IP address and make a request using
+# that while passing target name (or &#39;host&#39; label if present) as Host
+# header.
+#
+# This behavior is automatic for discovered targets if they have an IP
+# address associated with them. Usually you don&#39;t need to worry about this
+# field and you can left it unspecified. We&#39;ll ty to do the right thing.</div>resolve_first: &lt;bool>
 
 <div class=comment># Export response (body) count as a metric</div>export_response_as_metrics: &lt;bool> | default: false
 
@@ -666,22 +673,29 @@ value: &lt;string>
 
 </pre><h3 id=cloudprober_probes_http_ProbeConf>cloudprober.probes.http.ProbeConf <a class=anchor href=#cloudprober_probes_http_ProbeConf>#</a></h3><pre class=protodoc>
 
-<div class=comment># HTTP request scheme. protocol is deprecated, use scheme instead.</div>[protocol: (HTTP|HTTPS) | scheme: (HTTP|HTTPS)]: &lt;oneof>
+<div class=comment># HTTP request scheme (Corresponding target label: &#34;scheme&#34;). If not set, we
+# use taget&#39;s &#39;scheme&#39; label if present.
+# Note: protocol is deprecated, use scheme instead.</div>[protocol: (HTTP|HTTPS) | scheme: (HTTP|HTTPS)]: &lt;oneof>
 
-<div class=comment># Relative URL (to append to all targets). Must begin with &#39;/&#39;</div>relative_url: &lt;string>
+<div class=comment># Relative URL (Corresponding target label: &#34;path&#34;). We construct the final
+# URL like this:
+# &lt;scheme&gt;://&lt;host&gt;:&lt;port&gt;/&lt;relative_url&gt;.
+#
+# Note that the relative_url should start with a &#39;/&#39;.</div>relative_url: &lt;string>
 
-<div class=comment># Port for HTTP requests. If not specfied, port is selected in the following
-# order:
-#  - If port is provided by the targets (e.g. kubernetes endpoint or
-#    service), that port is used.
-#  - 80 for HTTP and 443 for HTTPS.</div>port: &lt;int32>
+<div class=comment># Port for HTTP requests (Corresponding target field: port)
+# Default is to use the scheme specific port, but if this field is not
+# set and discovered target has a port (e.g., k8s services, ingresses),
+# we use target&#39;s port.</div>port: &lt;int32>
 
-<div class=comment># Whether to resolve the target before making the request. If set to false,
-# we hand over the target and relative_url directly to the golang&#39;s HTTP
-# module, Otherwise, we resolve the target first to an IP address and
-# make a request using that while passing target name as Host header.
-# By default we resolve first if it&#39;s a discovered resource, e.g., a k8s
-# endpoint.</div>resolve_first: &lt;bool>
+<div class=comment># Whether to resolve the target before making the request. If set to true,
+# we resolve the target first to an IP address and make a request using
+# that while passing target name (or &#39;host&#39; label if present) as Host
+# header.
+#
+# This behavior is automatic for discovered targets if they have an IP
+# address associated with them. Usually you don&#39;t need to worry about this
+# field and you can left it unspecified. We&#39;ll ty to do the right thing.</div>resolve_first: &lt;bool>
 
 <div class=comment># Export response (body) count as a metric</div>export_response_as_metrics: &lt;bool> | default: false
 
@@ -854,4 +868,4 @@ type: (INVALID|ECHO|DISCARD): &lt;enum>
 </pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/overview/cloudprober/><div class="card my-1"><div class="card-body py-2">&larr; Overview</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/rds/><div class="card my-1"><div class="card-body py-2">RDS Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.fb91110dc125c52a65df65d5beb1e128f3ecafbe143f63128e01d26b9ede34d1db7843f21e2d9f655e56e527a5312826787fa95a8f9c9ec6d5290c13bd77ec7b.js integrity="sha512-+5ERDcElxSpl32XVvrHhKPPsr74UP2MSjgHSa57eNNHbeEPyHi2fZV5W5SelMSgmeH+pWo+cnsbVKQwTvXfsew==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.31ed1355529e0173c18eb05c3f53a7be9e4a902991c91fd5510d6d79cebc081cb9961e91abc91fb99c7cb0899975c21c95cd3f27cb1f624cc11f75da5dd370a6.js integrity="sha512-Me0TVVKeAXPBjrBcP1Onvp5KkCmRyR/VUQ1tec68CBy5lh6Rq8kfuZx8sImZdcIclc0/J8sfYkzBH3XaXdNwpg==" crossorigin=anonymous defer></script></body></html>
