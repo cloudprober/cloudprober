@@ -1,10 +1,9 @@
 ---
-title: "Surfacers"
+title: "Exporting Metrics (Surfacers)"
 menu:
   docs:
     parent: "surfacers"
-    params:
-      hide: true
+    weight: 10
 ---
 
 One of the biggest strengths of cloudprober is that it can export data to
@@ -136,3 +135,36 @@ surfacer {
   ignore_metrics_with_name: "validation_failure"
 }
 ```
+
+## Modifying Metrics
+
+You can configure surfacers to modify the metrics before they are sent to the
+backend monitoring system:
+
+1. **add_failure_metric**: Export failure count along with the default _total_
+   and _success_ metrics:
+
+   ```
+   surfacer {
+      type: ...
+
+      add_failure_metric = true
+      ..
+   }
+   ```
+
+2. **export_as_gauge**: Export gauge metrics instead of cumulative. Cloudprober
+   exports cumulative metrics (sum of values so far) by default, but you can
+   configure it to export gauge metrics instead. Gauge metrics make
+   point-in-time calculations easier (e.g. you can just divide latency by
+   success to get the average latency), but we lose the historical information
+   if metrics are not received for a few intervals for some reason.
+
+   ```
+   surfacer {
+      type: ...
+
+      export_as_gauge = true
+      ..
+   }
+   ```
