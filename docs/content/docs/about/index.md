@@ -15,10 +15,10 @@ contributors: ["Manu Garg"]
 
 I started building Cloudprober in 2016, while I was at Google, leading the Cloud
 Networking SRE team there. Google Cloud was just beginning to grow big, and we
-were still grappling with some early growth issue, for example, the lack of good
-monitoring tools for Cloud. Our customers were discovering problems before us,
-which in turn resulted in a lot of time being spent in just identifying the
-issue by communicating back and forth with the customer[^1].
+were still grappling with some early growth issue. Our biggest problem was that
+our customers were discovering problems before us, which resulted in bad
+experience for our customers and huge time sink for my team in debugging those
+issues.[^1].
 
 [^1]:
     A customer-reported infrastructure issue is much harder to debug than an
