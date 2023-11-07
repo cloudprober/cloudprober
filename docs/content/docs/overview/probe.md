@@ -7,14 +7,23 @@ menu:
 title: "What is a Probe"
 ---
 
-Cloudprober's main task is to run probes. A probe executes something, usually
-against a set of targets, to verify that the systems are working as expected
-from consumers' point of view. For example, an HTTP probe executes an HTTP
-request against a web server to verify that the web server is available.
-Cloudprober probes run repeatedly at a configured interval and export probe
-results as a set of metrics.
+Cloudprober runs probes, but what is a probe? A probe runs an operation, usually
+against a set of targets (e.g., your API servers), and looks for an expected
+outcome. Typically probes access your systems the same way as your customers,
+hence verifying systems' availability and performance from consumers' point of
+view. For example, an HTTP probe executes an HTTP request against a web server
+to verify that the web server is available. Cloudprober probes run repeatedly at
+a configured interval and export probe results as a set of metrics.
 
-A probe is defined as a set of the following fields:
+```
+Example of an HTTP Probe checking the frontend and API availability.
+ _____________                   _______________
+|             |   HTTP Probe    |               |
+| Cloudprober |  ------------>  |  Website/APIs |
+|_____________|                 |_______________|
+```
+
+Here are some of the options used to configure a probe:
 
 | Field           | Description                                                     |
 | --------------- | --------------------------------------------------------------- |
@@ -24,61 +33,102 @@ A probe is defined as a set of the following fields:
 | `timeout_msec`  | Probe timeout (in milliseconds).                                |
 | `targets`       | Targets to run probe against.                                   |
 | `validator`     | Probe validators, further explained [here](/how-to/validators). |
-| `<type>_probe`  | Probe type specific configuration.                              |
+| `<type>_probe`  | Probe type specific configuration, e.g. http_probe              |
 
 Please take a look at the
 [ProbeDef protobuf](/docs/config/probes/#cloudprober_probes_ProbeDef) for
-further details on various fields and options. All probe types export following
-metrics at a minimum:
+further details on various fields and options. All probe types export at least
+the following metrics:
 
-| Metric    | Description                                                                                                                                                                                                                                                                                                                                   |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `total`   | Total number of probes.                                                                                                                                                                                                                                                                                                                       |
-| `success` | Number of successful probes. Deficit between _total_ and _success_ indicates failures.                                                                                                                                                                                                                                                        |
-| `latency` | Cumulative probe latency (by default in microseconds). Latency can also be configured to be a [distribution](/how-to/percentiles/) (histogram) metric through a config option (`latency_distribution`). By default it's just the sum of the latencies observed so far. Average latency can be computed using _rate(latency) / rate(success)_. |
+| Metric    | Description                                                                                                                                   |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `total`   | Total probes run so far.                                                                                                                      |
+| `success` | Number of successful probes. Deficit between _total_ and _success_ indicates failures.                                                        |
+| `latency` | Cumulative probe latency (by default in microseconds). You can get more insights into latency by using [distributions](/how-to/percentiles/). |
+
+Note that by default all metrics are cumulative, i.e. we export sum of all the
+values so far. Cumulative metrics have this nice property that you don't lose
+historical information if you miss a metrics read cycle, but they also make
+certain calculations slightly more complicated (see below). To provide a choice
+to the user, Cloudprober provides an option to export metrics as gauge values.
+See [modifying metrics](/docs/surfacers/overview/#modifying-metrics) for more
+details.
+
+Example: In prometheus, you'll do something like the following to compute
+success ratio and average latency from cumulative metrics.
+
+```
+success_ratio_1m = increase(success[1m]) / increase(total[1m])
+average_latency_1m = increase(latency[1m]) / increase(success[1m])
+```
 
 ## Probe Types
 
 Cloudprober has built-in support for the following probe types:
 
-- [Ping](#ping)
 - [HTTP](#http)
-- [UDP](#udp)
-- [DNS](#dns)
 - [External](#external)
+- [Ping](#ping)
+- [DNS](#dns)
+- [UDP](#udp)
+- [TCP](#tcp)
 
-More probe types can be added through cloudprober extensions (to be documented).
-
-### Ping
-
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/ping) |
-[`Config options`](/docs/config/probes/#cloudprober_probes_ping_ProbeConf)
-
-Ping probe type implements a fast ping prober, that can probe hundreds of
-targets in parallel. Probe results are reported as number of packets sent
-(total), received (success) and round-trip time (latency). It supports raw
-sockets (requires root access) as well as datagram sockets for ICMP (doesn't
-require root access).
-
-ICMP datagram sockets are not enabled by default on most Linux systems. You can
-enable them by running the following command:
-`sudo sysctl -w net.ipv4.ping_group_range="0 5000"`
+More probe types can be added through
+[cloudprober extensions](/docs/how-to/extensions).
 
 ### HTTP
 
 [`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/http) |
 [`Config options`](/docs/config/probes/#cloudprober_probes_http_ProbeConf)
 
-HTTP probe is be used to send HTTP(s) requests to a target and verify that a
-response is received. Apart from the core probe metrics (total, success, and
-latency), HTTP probes also export a map of response code counts. Requests are
-marked as failed if there is a timeout.
+HTTP probe sends HTTP(s) requests to a target and verify that a response is
+received. Apart from the core probe metrics (total, success, and latency), HTTP
+probes also export a map of response code counts (`resp_code`). By default,
+requests are marked as successful as long as they succeed, regardless of the
+HTTP response code, but this behavior can be changed by using
+[validators](/docs/how-to/validators). For example, you can add a validator to
+require status code to in a certain range, or response body to match a regex,
+etc
+([validator example](https://github.com/cloudprober/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg)).
 
-- **SSL Certificate Expiry**: If the target serves a SSL Certificate,
+- **SSL Certificate Expiry**: If the target serves an SSL Certificate,
   cloudprober will walk the certificate chain and export the earliest expiry
   time in seconds as a metric. The metric is named
   `ssl_earliest_cert_expiry_sec`, and will only be exported when the expiry time
   in seconds is a positive number.
+
+### External
+
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/external)
+| [`Config options`](/docs/config/probes/#cloudprober_probes_external_ProbeConf)
+
+External probe type allows running arbitrary programs for probing. This is
+useful for running complex checks through Cloudprober. External probes are
+documented in much more detail here:
+[external probe](/docs/how-to/external-probe).
+
+### Ping
+
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/ping) |
+[`Config options`](/docs/config/probes/#cloudprober_probes_ping_ProbeConf)
+
+Ping probe type implements a fast native ICMP ping prober, that can probe
+hundreds of targets in parallel. Probe results are reported as number of packets
+sent (total), received (success) and round-trip time (latency). It supports
+both, privileged and unprivileged (uses ICMP datagram socket) pings.
+
+Note that ICMP datagram sockets are not enabled by default on most Linux
+systems. You can enable them by running the following command:
+`sudo sysctl -w net.ipv4.ping_group_range="0 5000"`
+
+### DNS
+
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/dns) |
+[`Config options`](/docs/config/probes/#cloudprober_probes_dns_ProbeConf)
+
+As the name suggests, DNS probe sends a DNS request to the target. This is
+useful to verify that your DNS server, typically a critical component of the
+infrastructure e.g. kube-dns, is working as expected.
 
 ### UDP
 
@@ -91,36 +141,10 @@ data path as most packet forwarding elements use 5-tuple hashing and using a new
 source port for each probe ensures that we hit different network element each
 time.
 
-### DNS
+### TCP
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/dns) |
-[`Config options`](/docs/config/probes/#cloudprober_probes_dns_ProbeConf)
+[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/tcp) |
+[`Config options`](/docs/config/probes/#cloudprober_probes_tcp_ProbeConf)
 
-DNS probe type is implemented in a similar way as other probes except for that
-it sends DNS requests to the target.
-
-### External
-
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/external)
-| [`Config options`](/docs/config/probes/#cloudprober_probes_external_ProbeConf)
-
-External probe type allows running arbitrary probes through cloudprober. For an
-external probe, actual probe logic resides in an external program; cloudprober
-only manages the execution of that program and provides a way to export that
-data through the standard channel.
-
-External probe can be configured in two modes:
-
-- **ONCE**: In this mode, an external program is executed for each probe run.
-  Exit status of the program determines the success or failure of the probe.
-  External probe can optionally be configured to interpret external program's
-  output as metrics. This is a simple model but it doesn't allow the external
-  program to maintain state and multiple forks can be expensive depending on the
-  frequency of the probes.
-
-- **SERVER**: In this mode, external program is expected to run in server mode.
-  Cloudprober automatically starts the external program if it's not running at
-  the time of the probe execution. Cloudprober and external probe process
-  communicate with each other over stdin/stdout using protobuf messages defined
-  in
-  [probes/external/proto/server.proto](https://github.com/cloudprober/cloudprober/blob/master/probes/external/proto/server.proto).
+TCP probe verifies that we can establish a TCP connection to the given target
+and port.
