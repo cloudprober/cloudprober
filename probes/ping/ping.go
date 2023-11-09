@@ -301,6 +301,9 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 			}
 
 			tracker <- true
+			// When have high number targets (does not matter in one probe or in different probes),
+			// do not send packets to aggressive to avoid buffer overflow.
+			time.Sleep(1 * time.Millisecond)
 		}
 
 		packetsSent++
@@ -358,6 +361,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			}
 			// if it's a timeout, return immediately.
 			if neterr, ok := err.(*net.OpError); ok && neterr.Timeout() {
+                                p.l.Debugf("Network timed out %d", p.runCnt)
 				return
 			}
 			continue
@@ -426,7 +430,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 
 		// check if this packet belongs to this run
 		if !matchPacket(runID, pkt.id, pkt.seq, p.useDatagramSocket) {
-			p.l.Info("Reply ", pkt.String(rtt), " Unmatched packet, probably from the last probe run.")
+			p.l.Info("Reply ", pkt.String(rtt), " Unmatched packet, probably received after probe timeout is reached.")
 			continue
 		}
 
@@ -522,8 +526,9 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		default:
 		}
 
+		p.l.Debugf("Probe started, runcount %d", p.runCnt)
 		p.runProbe()
-		p.l.Debugf("%s: Probe finished.", p.name)
+		p.l.Debugf("Probe finished, runcount %d", p.runCnt)
 		if (p.runCnt % uint64(p.statsExportFreq)) != 0 {
 			continue
 		}
