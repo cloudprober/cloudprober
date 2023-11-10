@@ -301,8 +301,8 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 			}
 
 			tracker <- true
-			// When have high number targets (does not matter in one probe or in different probes),
-			// do not send packets to aggressive to avoid buffer overflow.
+			// Sleep between pushing packets to avoid network buffer overflow
+			// in case of larger number of targets.
 			time.Sleep(1 * time.Millisecond)
 		}
 
@@ -430,7 +430,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 
 		// check if this packet belongs to this run
 		if !matchPacket(runID, pkt.id, pkt.seq, p.useDatagramSocket) {
-			p.l.Info("Reply ", pkt.String(rtt), " Unmatched packet, probably received after probe timeout is reached.")
+			p.l.Info("Reply ", pkt.String(rtt), " Unmatched packet, probably received after last probe's timeout.")
 			continue
 		}
 
