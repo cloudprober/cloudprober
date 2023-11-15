@@ -6,11 +6,20 @@ menu:
 title: "Built-in Servers"
 ---
 
-Cloudprober has a few built in servers. This is useful when you are probing that
-a connection is working, or as a baseline to compare the probing results from
-your actual service to.
+Cloudprober comes with some custom servers that can be enabled through
+configuration. These servers can act as targets for the other probes -- for
+example, you can run two Cloudprober instances on two different machines and
+have one instance's servers act as targets and other instance probe those
+targets.
 
-## HTTP
+These servers can come in handy when the goal is to monitor the underlying
+infrastructure: e.g. network or load balancers.
+
+<pre>
+Cloudprober (probes) ===(Network)===> Cloudprober (servers)
+</pre>
+
+## HTTP Server
 
 ```shell
 server {
@@ -21,11 +30,22 @@ server {
 }
 ```
 
-This creates an HTTP server that responds on port `8080`. By default it will
-respond to the following endpoints:
+This creates an HTTP server that responds on the port `8080`. This HTTP server
+supports the following two endpoints by default:
 
-- `/healthcheck`
-- `/lameduck`
+- `/healthcheck` - returns 'OK' if instance is not in the lameduck mode.
+- `/lameduck` - returns the lameduck status (true/false).
+
+Lameduck mode is a mode in which a server is still running but is signaling that
+it is about to go down for maintenance so new requests should not be sent to it.
+This is typically used with load balancers to take out a backend for maintenance
+without returning any actual errors.
+
+TODO(manugarg): Document how a Cloudprober can be put in the lameduck mode.
+
+### Data Handlers
+
+You can also add custom data handlers to the above HTTP server:
 
 ```shell
 server {
@@ -44,19 +64,22 @@ server {
 }
 ```
 
-This adds two endpoints to the HTTP server:
+Above configuration adds the following two URLs to the HTTP server:
 
 - `/data_1024` which responds with 1024 bytes of
-  `cloudprobercloudprobercloudprober`.
+  `cloudprobercloudprober...(repeated)`.
 - `/data_4` which responds with `four`.
 
-See [ServerConf](/docs/config/servers/#cloudprober_servers_http_ServerConf) for
-all HTTP server configuration options.
+These endpoints are useful to monitor other aspects of the underlying network
+like MTU, and consistency (make sure data is not getting corrupted), etc.
+
+See [this](/docs/config/servers/#cloudprober_servers_http_ServerConf) for all
+HTTP server configuration options.
 
 ## UDP
 
-A Cloudprober UDP server can be configured to either echo or discard packets it
-receives.
+UDP server can either echo packets back or completely ignore them. In echo mode,
+you can use it along with the UDP probe type.
 
 ```shell
 server {
