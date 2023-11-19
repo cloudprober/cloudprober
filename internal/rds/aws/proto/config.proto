@@ -1,0 +1,75 @@
+// Configuration proto for AWS provider.
+// Example config:
+// {
+//
+//   # EC2 instances
+//   ec2_instances {}
+//
+//   # ElastiCache cluster
+//   elasticache {}
+//
+//   # RDS clusters
+//   rds {
+//     identifier: "arn"
+//   }
+// }
+syntax = "proto2";
+
+package cloudprober.rds.aws;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/rds/aws/proto";
+
+message EC2Instances {
+  // How often resources should be refreshed.
+  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
+}
+
+// ElastiCaches discovery options.
+message ElastiCaches {
+
+  // How often resources should be refreshed.
+  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
+}
+
+// RDS (Amazon Relational Databases) discovery options.
+message RDS {
+  // DB cluster identifier or the Amazon Resource Name (ARN) of the DB cluster
+  // if specified, only the corresponding cluster information is returned.
+  optional string identifier = 1;
+
+  // Filters to be added to the discovery and search.
+  repeated string filter = 2;
+
+  // Whether to includes information about clusters shared from other AWS accounts.
+  optional bool include_shared = 3;
+
+  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
+}
+
+// LoadBalancers discovery options.
+message LoadBalancers {
+  // Amazon Resource Name (ARN) of the load balancer
+  // if specified, only the corresponding load balancer information is returned.
+  repeated string name = 1;
+}
+
+// AWS provider config.
+message ProviderConfig {
+  // Profile for the session.
+  optional string profile_name = 1;
+
+  // AWS region
+  optional string region = 2;
+
+  // ECS instances discovery options. This field should be declared for the AWS
+  // instances discovery to be enabled.
+  optional EC2Instances ec2_instances = 3;
+
+  // ElastiCache discovery options. This field should be declared for the
+  // elasticache discovery to be enabled.
+  optional ElastiCaches elasticaches = 4;
+
+  // RDS discovery options.
+  optional RDS rds = 5;
+
+}
