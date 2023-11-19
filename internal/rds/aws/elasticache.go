@@ -135,6 +135,9 @@ func (cl *elastiCacheLister) expand(reEvalInterval time.Duration) {
 
 	ts := time.Now().Unix()
 	for _, r := range resCC.CacheClusters {
+		if len(r.CacheNodes) == 0 {
+			continue
+		}
 		ci := &cacheInfo{
 			ID:         *r.CacheClusterId,
 			TLSEnabled: *r.TransitEncryptionEnabled,
@@ -181,6 +184,7 @@ func (cl *elastiCacheLister) expand(reEvalInterval time.Duration) {
 				Port:       *r.ConfigurationEndpoint.Port,
 				TLSEnabled: tlsEnabled,
 				Clustered:  true,
+				Tags:       make(map[string]string),
 			}
 		} else if len(r.NodeGroups) > 0 && r.NodeGroups[0].PrimaryEndpoint != nil {
 			ci = &cacheInfo{
@@ -188,6 +192,7 @@ func (cl *elastiCacheLister) expand(reEvalInterval time.Duration) {
 				Port:       *r.NodeGroups[0].PrimaryEndpoint.Port,
 				TLSEnabled: tlsEnabled,
 				Clustered:  false,
+				Tags:       make(map[string]string),
 			}
 		} else {
 			continue
