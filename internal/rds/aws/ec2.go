@@ -71,7 +71,7 @@ var AWSInstancesFilters = struct {
 // Listing actually only returns the current contents of that cache.
 type ec2InstancesLister struct {
 	c      *configpb.EC2Instances
-	client *ec2.Client
+	client ec2.DescribeInstancesAPIClient
 	l      *logger.Logger
 	mu     sync.RWMutex
 	names  []string
