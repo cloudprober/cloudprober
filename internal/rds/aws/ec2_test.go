@@ -21,20 +21,20 @@ func (m mockEC2DescribeInstances) DescribeInstances(ctx context.Context, params 
 	return m(ctx, params, optFns...)
 }
 
-type testInstance struct {
+type testEC2Instance struct {
 	id     string
 	ipAddr string
 	tags   map[string]string
 }
 
-func TestExpand(t *testing.T) {
+func TestEC2Expand(t *testing.T) {
 	cases := []struct {
 		err         error
-		instances   []*testInstance
+		instances   []*testEC2Instance
 		expectCount int
 	}{
 		{
-			instances: []*testInstance{
+			instances: []*testEC2Instance{
 				{
 					id:     "test-id",
 					ipAddr: "10.0.0.2",
@@ -50,12 +50,12 @@ func TestExpand(t *testing.T) {
 			expectCount: 2,
 		},
 		{
-			instances:   []*testInstance{},
+			instances:   []*testEC2Instance{},
 			err:         nil,
 			expectCount: 0,
 		},
 		{
-			instances: []*testInstance{
+			instances: []*testEC2Instance{
 				{
 					id: "test-id",
 				},
@@ -67,7 +67,7 @@ func TestExpand(t *testing.T) {
 			expectCount: 0,
 		},
 		{
-			instances:   []*testInstance{},
+			instances:   []*testEC2Instance{},
 			err:         fmt.Errorf("some error"),
 			expectCount: 0,
 		},
@@ -75,7 +75,7 @@ func TestExpand(t *testing.T) {
 
 	for i, tt := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			client := func(t *testing.T, instances []*testInstance) ec2.DescribeInstancesAPIClient {
+			client := func(t *testing.T, instances []*testEC2Instance) ec2.DescribeInstancesAPIClient {
 				return mockEC2DescribeInstances(func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
 					t.Helper()
 
@@ -125,15 +125,15 @@ func TestExpand(t *testing.T) {
 	}
 }
 
-func TestLister(t *testing.T) {
+func TestEC2Lister(t *testing.T) {
 	cases := []struct {
-		instances     []*testInstance
+		instances     []*testEC2Instance
 		filter        []*pb.Filter
 		expectErr     bool
 		expectedCount int
 	}{
 		{
-			instances: []*testInstance{
+			instances: []*testEC2Instance{
 				{
 					id:     "test-id",
 					ipAddr: "10.0.0.2",
@@ -154,7 +154,7 @@ func TestLister(t *testing.T) {
 			expectedCount: 2,
 		},
 		{
-			instances: []*testInstance{
+			instances: []*testEC2Instance{
 				{
 					id:     "test-id",
 					ipAddr: "10.0.0.2",
@@ -175,11 +175,11 @@ func TestLister(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			instances:     []*testInstance{},
+			instances:     []*testEC2Instance{},
 			expectedCount: 0,
 		},
 		{
-			instances: []*testInstance{
+			instances: []*testEC2Instance{
 				{
 					id:     "test-id",
 					ipAddr: "10.0.0.2",
@@ -200,7 +200,7 @@ func TestLister(t *testing.T) {
 			expectedCount: 0,
 		},
 		{
-			instances: []*testInstance{
+			instances: []*testEC2Instance{
 				{
 					id:     "test-id",
 					ipAddr: "10.0.0.2",
