@@ -49,7 +49,8 @@ type defaultConfigSource struct {
 
 func (dcs *defaultConfigSource) configContent() (content string, format string, err error) {
 	if dcs.FileName != "" {
-		return readConfigFile(dcs.FileName)
+		content, err := readConfigFile(dcs.FileName)
+		return content, formatFromFileName(dcs.FileName), err
 	}
 
 	// On GCE first check if there is a config in custom metadata attributes.

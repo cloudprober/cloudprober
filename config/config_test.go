@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/tools/txtar"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
@@ -34,11 +36,11 @@ import (
 func testUnmarshalConfig(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
 	t.Helper()
 
-	configStr, configFormat, err := readConfigFile(fileName)
+	configStr, err := readConfigFile(fileName)
 	if err != nil {
 		t.Error(err)
 	}
-	return unmarshalConfig(configStr, configFormat)
+	return unmarshalConfig(configStr, formatFromFileName(fileName))
 }
 
 func TestUnmarshalConfig(t *testing.T) {
@@ -284,6 +286,64 @@ func TestSubstEnvVars(t *testing.T) {
 			l := logger.New(logger.WithWriter(&buf))
 			assert.Equal(t, tt.want, substEnvVars(tt.configStr, l))
 			assert.Contains(t, buf.String(), tt.wantLog)
+		})
+	}
+}
+
+func TestReadConfigFile(t *testing.T) {
+	tests := []struct {
+		fileName string
+		want     string
+		wantErr  bool
+	}{
+		{
+			fileName: "testdata/cloudprober_include.1.txtar",
+		},
+		{
+			fileName: "testdata/cloudprober_include.2.txtar",
+		},
+		{
+			fileName: "testdata/cloudprober_include.3.txtar",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(filepath.Base(tt.fileName), func(t *testing.T) {
+			ar, err := txtar.ParseFile(tt.fileName)
+			if err != nil {
+				t.Errorf("Error parsing txtar file: %v", err)
+			}
+
+			tmpDir, err := os.MkdirTemp("", "cloudprober-test")
+			if err != nil {
+				t.Errorf("Error creating temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			for _, f := range ar.Files {
+				fpath := filepath.Join(tmpDir, f.Name)
+				if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
+					t.Errorf("Error creating dir %s: %v", filepath.Dir(fpath), err)
+				}
+
+				err := os.WriteFile(filepath.Join(tmpDir, f.Name), []byte(strings.TrimSpace(string(f.Data))), 0644)
+				if err != nil {
+					t.Errorf("Error writing file %s: %v", f.Name, err)
+				}
+				if f.Name == "output" {
+					// We expect the output file to be the last file in the txtar.
+					tt.want = strings.TrimSpace(string(f.Data))
+				}
+			}
+
+			configFile := filepath.Join(tmpDir, "cloudprober.cfg")
+
+			got, err := readConfigFile(configFile)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readConfigFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -1,0 +1,24 @@
+Files to test include feature
+
+-- cloudprober.cfg --
+include "templates/vars.cfg"
+
+probe {
+    name: "probe1"
+    type: PING
+    targets {
+        host_names: "{{ $targets }}"
+    }
+}
+-- templates/vars.cfg --
+{{ $targets := "cloudprober.org" }}
+-- output --
+{{ $targets := "cloudprober.org" }}
+
+probe {
+    name: "probe1"
+    type: PING
+    targets {
+        host_names: "{{ $targets }}"
+    }
+}
