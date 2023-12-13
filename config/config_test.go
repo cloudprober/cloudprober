@@ -321,14 +321,17 @@ func TestReadConfigFile(t *testing.T) {
 
 			for _, f := range ar.Files {
 				fpath := filepath.Join(tmpDir, f.Name)
+				t.Logf("Creating file %s", fpath)
+
 				if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
 					t.Errorf("Error creating dir %s: %v", filepath.Dir(fpath), err)
 				}
 
-				err := os.WriteFile(filepath.Join(tmpDir, f.Name), []byte(strings.TrimSpace(string(f.Data))), 0644)
+				err := os.WriteFile(fpath, []byte(strings.TrimSpace(string(f.Data))), 0644)
 				if err != nil {
 					t.Errorf("Error writing file %s: %v", f.Name, err)
 				}
+
 				if f.Name == "output" {
 					// We expect the output file to be the last file in the txtar.
 					tt.want = strings.TrimSpace(string(f.Data))
