@@ -305,19 +305,28 @@ func TestReadConfigFile(t *testing.T) {
 		{
 			fileName: "testdata/cloudprober_include.3.txtar",
 		},
+		{
+			fileName: "testdata/cloudprober_include.4.txtar",
+			wantErr:  true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(filepath.Base(tt.fileName), func(t *testing.T) {
-			fContent, err := os.ReadFile(tt.fileName)
+			arContent, err := os.ReadFile(tt.fileName)
 			if err != nil {
 				t.Errorf("Error reading file %s: %v", tt.fileName, err)
 			}
+
 			// txtar.Parse() doesn't work with CRLF endings. os.ReadFile()
 			// on Windows is not consistent somehow, in some environments we
 			// get CRLF and in some LF.
-			fContent = []byte(strings.ReplaceAll(string(fContent), "\r\n", "\n"))
+			arContent = []byte(strings.ReplaceAll(string(arContent), "\r\n", "\n"))
 
-			ar := txtar.Parse(fContent)
+			ar := txtar.Parse(arContent)
+			if len(ar.Files) < 2 {
+				t.Errorf("Expected at least 2 files in txtar, got %d. Txtar source: %s", len(ar.Files), arContent)
+				return
+			}
 
 			tmpDir, err := os.MkdirTemp("", "cloudprober-test-")
 			if err != nil {
@@ -326,13 +335,7 @@ func TestReadConfigFile(t *testing.T) {
 			}
 			defer os.RemoveAll(tmpDir)
 
-			if len(ar.Files) < 2 {
-				t.Errorf("Expected at least 2 files in txtar, got %d. Txtar source: %s", len(ar.Files), fContent)
-				return
-			}
-
 			var configFile string
-
 			for _, f := range ar.Files {
 				fpath := filepath.Join(tmpDir, f.Name)
 				t.Logf("Creating file %s", fpath)
@@ -369,10 +372,12 @@ func TestReadConfigFile(t *testing.T) {
 				t.Errorf("readConfigFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			if err != nil {
+				return
+			}
 
-			// Replace CRLF on windows for comparison.
+			// Clear CRLF for comparison.
 			got = strings.ReplaceAll(got, "\r\n", "\n")
-
 			assert.Equal(t, tt.want, got)
 		})
 	}
