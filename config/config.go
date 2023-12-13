@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
@@ -101,7 +102,11 @@ func handleIncludes(baseDir string, content []byte) (string, error) {
 		final = append(final, includedCfg)
 	}
 
-	return strings.Join(final, "\n"), nil
+	newline := "\n"
+	if runtime.GOOS == "windows" {
+		newline = "\r\n"
+	}
+	return strings.Join(final, newline), nil
 }
 
 func readConfigFile(fileName string) (string, error) {
