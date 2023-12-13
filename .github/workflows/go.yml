@@ -57,7 +57,6 @@ jobs:
           echo "TMPDIR=$env:USERPROFILE\AppData\Local\Temp" >> $env:GITHUB_ENV
           echo "TMP=$env:USERPROFILE\AppData\Local\Temp" >> $env:GITHUB_ENV
           echo "TEMP=$env:USERPROFILE\AppData\Local\Temp" >> $env:GITHUB_ENV
-          set
 
       - name: Print environment variables
         run: |
