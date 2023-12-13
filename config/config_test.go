@@ -313,32 +313,47 @@ func TestReadConfigFile(t *testing.T) {
 				t.Errorf("Error parsing txtar file: %v", err)
 			}
 
-			tmpDir, err := os.MkdirTemp("", "cloudprober-test")
+			tmpDir, err := os.MkdirTemp("", "cloudprober-test-")
 			if err != nil {
 				t.Errorf("Error creating temp dir: %v", err)
 			}
 			defer os.RemoveAll(tmpDir)
 
+			if len(ar.Files) < 2 {
+				t.Errorf("Expected at least 2 files in txtar, got %d", len(ar.Files))
+				return
+			}
+
+			var configFile string
+
 			for _, f := range ar.Files {
 				fpath := filepath.Join(tmpDir, f.Name)
 				t.Logf("Creating file %s", fpath)
+
+				fdata := strings.TrimSpace(string(f.Data))
+				if f.Name == "output" {
+					tt.want = fdata
+					continue
+				}
+
+				if f.Name == "cloudprober.cfg" {
+					configFile = fpath
+				}
 
 				if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
 					t.Errorf("Error creating dir %s: %v", filepath.Dir(fpath), err)
 				}
 
-				err := os.WriteFile(fpath, []byte(strings.TrimSpace(string(f.Data))), 0644)
+				err := os.WriteFile(fpath, []byte(fdata), 0644)
 				if err != nil {
 					t.Errorf("Error writing file %s: %v", f.Name, err)
 				}
-
-				if f.Name == "output" {
-					// We expect the output file to be the last file in the txtar.
-					tt.want = strings.TrimSpace(string(f.Data))
-				}
 			}
 
-			configFile := filepath.Join(tmpDir, "cloudprober.cfg")
+			if configFile == "" {
+				t.Errorf("Config file not found in txtar")
+				return
+			}
 
 			got, err := readConfigFile(configFile)
 			if (err != nil) != tt.wantErr {
