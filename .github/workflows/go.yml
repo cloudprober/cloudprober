@@ -50,11 +50,9 @@ jobs:
           cache: true
         id: go
 
-      - name: Set Windows environment variables
+      - name: Set DISABLE_IPV6_TESTS on Windows OS
         if: matrix.os == 'windows-latest'
-        run: |
-          echo "DISABLE_IPV6_TESTS=yes" >> $env:GITHUB_ENV
-          echo "TMP=$env:USERPROFILE\AppData\Local\Temp" >> $env:GITHUB_ENV
+        run: echo "DISABLE_IPV6_TESTS=yes" >> $env:GITHUB_ENV
 
       - name: Get dependencies
         run: go get -v -t -d ./...
