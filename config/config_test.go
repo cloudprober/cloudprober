@@ -308,14 +308,18 @@ func TestReadConfigFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(filepath.Base(tt.fileName), func(t *testing.T) {
-			ar, err := txtar.ParseFile(tt.fileName)
+			fContent, err := os.ReadFile(tt.fileName)
 			if err != nil {
-				t.Errorf("Error parsing txtar file: %v", err)
+				t.Errorf("Error reading file %s: %v", tt.fileName, err)
 			}
+			fContent = []byte(strings.ReplaceAll(string(fContent), "\r\n", "\n"))
+
+			ar := txtar.Parse(fContent)
 
 			tmpDir, err := os.MkdirTemp("", "cloudprober-test-")
 			if err != nil {
 				t.Errorf("Error creating temp dir: %v", err)
+				return
 			}
 			defer os.RemoveAll(tmpDir)
 
@@ -342,11 +346,13 @@ func TestReadConfigFile(t *testing.T) {
 
 				if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
 					t.Errorf("Error creating dir %s: %v", filepath.Dir(fpath), err)
+					return
 				}
 
 				err := os.WriteFile(fpath, []byte(fdata), 0644)
 				if err != nil {
 					t.Errorf("Error writing file %s: %v", f.Name, err)
+					return
 				}
 			}
 
