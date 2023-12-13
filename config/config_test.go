@@ -312,6 +312,9 @@ func TestReadConfigFile(t *testing.T) {
 			if err != nil {
 				t.Errorf("Error reading file %s: %v", tt.fileName, err)
 			}
+			// txtar.Parse() doesn't work with CRLF endings. os.ReadFile()
+			// on Windows is not consistent somehow, in some environments we
+			// get CRLF and in some LF.
 			fContent = []byte(strings.ReplaceAll(string(fContent), "\r\n", "\n"))
 
 			ar := txtar.Parse(fContent)
@@ -366,6 +369,9 @@ func TestReadConfigFile(t *testing.T) {
 				t.Errorf("readConfigFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
+			// Replace CRLF on windows for comparison.
+			got = strings.ReplaceAll(got, "\r\n", "\n")
 
 			assert.Equal(t, tt.want, got)
 		})
