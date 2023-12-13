@@ -10,8 +10,10 @@ probe {
         host_names: "{{ $targets }}"
     }
 }
+
 -- templates/vars.cfg --
 {{ $targets := "cloudprober.org" }}
+
 -- output --
 {{ $targets := "cloudprober.org" }}
 
