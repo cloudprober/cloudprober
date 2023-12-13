@@ -324,7 +324,7 @@ func TestReadConfigFile(t *testing.T) {
 			defer os.RemoveAll(tmpDir)
 
 			if len(ar.Files) < 2 {
-				t.Errorf("Expected at least 2 files in txtar, got %d", len(ar.Files))
+				t.Errorf("Expected at least 2 files in txtar, got %d. Txtar source: %s", len(ar.Files), fContent)
 				return
 			}
 
