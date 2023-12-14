@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/tools/txtar"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
@@ -34,11 +36,11 @@ import (
 func testUnmarshalConfig(t *testing.T, fileName string) (*configpb.ProberConfig, error) {
 	t.Helper()
 
-	configStr, configFormat, err := readConfigFile(fileName)
+	configStr, err := readConfigFile(fileName)
 	if err != nil {
 		t.Error(err)
 	}
-	return unmarshalConfig(configStr, configFormat)
+	return unmarshalConfig(configStr, formatFromFileName(fileName))
 }
 
 func TestUnmarshalConfig(t *testing.T) {
@@ -284,6 +286,96 @@ func TestSubstEnvVars(t *testing.T) {
 			l := logger.New(logger.WithWriter(&buf))
 			assert.Equal(t, tt.want, substEnvVars(tt.configStr, l))
 			assert.Contains(t, buf.String(), tt.wantLog)
+		})
+	}
+}
+
+func TestReadConfigFile(t *testing.T) {
+	tests := []struct {
+		fileName string
+		want     string
+		wantErr  bool
+	}{
+		{
+			fileName: "testdata/cloudprober_include.team.txtar",
+		},
+		{
+			fileName: "testdata/cloudprober_include.nested.txtar",
+		},
+		{
+			fileName: "testdata/cloudprober_include.error.txtar",
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(filepath.Base(tt.fileName), func(t *testing.T) {
+			arContent, err := os.ReadFile(tt.fileName)
+			if err != nil {
+				t.Errorf("Error reading file %s: %v", tt.fileName, err)
+			}
+
+			// txtar.Parse() doesn't work with CRLF endings. os.ReadFile()
+			// on Windows is not consistent somehow, in some environments we
+			// get CRLF and in some LF.
+			arContent = []byte(strings.ReplaceAll(string(arContent), "\r\n", "\n"))
+
+			ar := txtar.Parse(arContent)
+			if len(ar.Files) < 2 {
+				t.Errorf("Expected at least 2 files in txtar, got %d. Txtar source: %s", len(ar.Files), arContent)
+				return
+			}
+
+			tmpDir, err := os.MkdirTemp("", "cloudprober-test-")
+			if err != nil {
+				t.Errorf("Error creating temp dir: %v", err)
+				return
+			}
+			defer os.RemoveAll(tmpDir)
+
+			var configFile string
+			for _, f := range ar.Files {
+				fpath := filepath.Join(tmpDir, f.Name)
+				t.Logf("Creating file %s", fpath)
+
+				fdata := strings.TrimSpace(string(f.Data))
+				if f.Name == "output" {
+					tt.want = fdata
+					continue
+				}
+
+				if f.Name == "cloudprober.cfg" {
+					configFile = fpath
+				}
+
+				if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
+					t.Errorf("Error creating dir %s: %v", filepath.Dir(fpath), err)
+					return
+				}
+
+				err := os.WriteFile(fpath, []byte(fdata), 0644)
+				if err != nil {
+					t.Errorf("Error writing file %s: %v", f.Name, err)
+					return
+				}
+			}
+
+			if configFile == "" {
+				t.Errorf("Config file not found in txtar")
+				return
+			}
+
+			got, err := readConfigFile(configFile)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readConfigFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+
+			// Clear CRLF for comparison.
+			got = strings.ReplaceAll(got, "\r\n", "\n")
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

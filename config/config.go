@@ -15,12 +15,15 @@
 package config
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
@@ -66,22 +69,54 @@ func ConfigSourceWithFile(fileName string) ConfigSource {
 	}
 }
 
-func readConfigFile(fileName string) (string, string, error) {
+func formatFromFileName(fileName string) string {
+	switch filepath.Ext(fileName) {
+	case ".json":
+		return "json"
+	case ".yaml", ".yml":
+		return "yaml"
+	default:
+		return "textpb"
+	}
+}
+
+// handleIncludes handles "include" statements in the config file. It handles
+// nested includes in a depth-first manner.
+func handleIncludes(baseDir string, content []byte) (string, error) {
+	var final []string
+
+	re := regexp.MustCompile(`(?m)^include\s+"([^"]+)"\s*$`)
+
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	for scanner.Scan() {
+		line := scanner.Text()
+		m := re.FindStringSubmatch(line)
+		if len(m) != 2 {
+			final = append(final, line)
+			continue
+		}
+		includedCfg, err := readConfigFile(filepath.Join(baseDir, m[1]))
+		if err != nil {
+			return "", err
+		}
+		final = append(final, includedCfg)
+	}
+
+	newline := "\n"
+	if runtime.GOOS == "windows" {
+		newline = "\r\n"
+	}
+	return strings.Join(final, newline), nil
+}
+
+func readConfigFile(fileName string) (string, error) {
 	b, err := file.ReadFile(fileName)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	switch filepath.Ext(fileName) {
-	case ".pb.txt", ".cfg", ".textpb":
-		return string(b), "textpb", nil
-	case ".json":
-		return string(b), "json", nil
-	case ".yaml", ".yml":
-		return string(b), "yaml", nil
-	}
-
-	return string(b), "", nil
+	final, err := handleIncludes(filepath.Dir(fileName), b)
+	return final, err
 }
 
 func unmarshalConfig(configStr, configFormat string) (*configpb.ProberConfig, error) {
