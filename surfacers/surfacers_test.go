@@ -71,6 +71,7 @@ func TestInferType(t *testing.T) {
 		"PUBSUB":      {Surfacer: &surfacerpb.SurfacerDef_PubsubSurfacer{}},
 		"STACKDRIVER": {Surfacer: &surfacerpb.SurfacerDef_StackdriverSurfacer{}},
 		"BIGQUERY":    {Surfacer: &surfacerpb.SurfacerDef_BigquerySurfacer{}},
+		"OTEL":        {Surfacer: &surfacerpb.SurfacerDef_OtelSurfacer{}},
 	}
 
 	for k := range surfacerpb.Type_value {
