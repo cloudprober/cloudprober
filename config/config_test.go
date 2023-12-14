@@ -297,16 +297,13 @@ func TestReadConfigFile(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			fileName: "testdata/cloudprober_include.1.txtar",
+			fileName: "testdata/cloudprober_include.team.txtar",
 		},
 		{
-			fileName: "testdata/cloudprober_include.2.txtar",
+			fileName: "testdata/cloudprober_include.nested.txtar",
 		},
 		{
-			fileName: "testdata/cloudprober_include.3.txtar",
-		},
-		{
-			fileName: "testdata/cloudprober_include.4.txtar",
+			fileName: "testdata/cloudprober_include.error.txtar",
 			wantErr:  true,
 		},
 	}
