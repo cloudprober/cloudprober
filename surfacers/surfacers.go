@@ -39,6 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/transform"
 	"github.com/cloudprober/cloudprober/surfacers/internal/datadog"
 	"github.com/cloudprober/cloudprober/surfacers/internal/file"
+	"github.com/cloudprober/cloudprober/surfacers/internal/otel"
 	"github.com/cloudprober/cloudprober/surfacers/internal/postgres"
 	"github.com/cloudprober/cloudprober/surfacers/internal/probestatus"
 	"github.com/cloudprober/cloudprober/surfacers/internal/prometheus"
@@ -162,7 +163,8 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerpb.Type {
 		return surfacerpb.Type_PROBESTATUS
 	case *surfacerpb.SurfacerDef_BigquerySurfacer:
 		return surfacerpb.Type_BIGQUERY
-
+	case *surfacerpb.SurfacerDef_OtelSurfacer:
+		return surfacerpb.Type_OTEL
 	}
 
 	return surfacerpb.Type_NONE
@@ -214,6 +216,9 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	case surfacerpb.Type_BIGQUERY:
 		surfacer, err = bigquery.New(ctx, s.GetBigquerySurfacer(), opts, l)
 		conf = s.GetBigquerySurfacer()
+	case surfacerpb.Type_OTEL:
+		surfacer, err = otel.New(ctx, s.GetOtelSurfacer(), opts, l)
+		conf = s.GetOtelSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()

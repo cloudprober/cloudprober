@@ -10,6 +10,7 @@ import (
 	proto_B "github.com/cloudprober/cloudprober/surfacers/internal/datadog/proto"
 	proto_36 "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto"
 	proto_9 "github.com/cloudprober/cloudprober/surfacers/internal/bigquery/proto"
+	proto_3 "github.com/cloudprober/cloudprober/surfacers/internal/otel/proto"
 )
 
 // Enumeration for each type of surfacer we can parse and create
@@ -23,11 +24,11 @@ import (
 		#enumValue: 6
 	} | {
 		"DATADOG"// Experimental mode.
-		#enumValue: 7
-	} | {
-		"PROBESTATUS"// Experimental mode.
-					#enumValue: 8
-	} | {"BIGQUERY", #enumValue: 9} |
+					#enumValue: 7
+	} | {"PROBESTATUS", #enumValue: 8} | {
+		"BIGQUERY"// Experimental mode.
+					#enumValue: 9
+	} | {"OTEL", #enumValue: 10} |
 	{"USER_DEFINED", #enumValue: 99}
 
 #Type_value: {
@@ -41,6 +42,7 @@ import (
 	DATADOG:      7
 	PROBESTATUS:  8
 	BIGQUERY:     9
+	OTEL:         10
 	USER_DEFINED: 99
 }
 
@@ -127,5 +129,7 @@ import (
 		probestatusSurfacer: proto_36.#SurfacerConf @protobuf(17,probestatus.SurfacerConf,name=probestatus_surfacer)
 	} | {
 		bigquerySurfacer: proto_9.#SurfacerConf @protobuf(18,bigquery.SurfacerConf,name=bigquery_surfacer)
+	} | {
+		otelSurfacer: proto_3.#SurfacerConf @protobuf(19,otel.SurfacerConf,name=otel_surfacer)
 	}
 }

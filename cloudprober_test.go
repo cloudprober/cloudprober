@@ -248,8 +248,11 @@ func TestCloudproberConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configSrc := config.ConfigSourceWithFile(tt.fileName)
+
+			cloudProber.Lock()
 			cloudProber.configSource = configSrc
 			cloudProber.config, _ = configSrc.GetConfig()
+			cloudProber.Unlock()
 
 			assert.Equal(t, tt.wantProbename, GetConfig().GetProbe()[0].GetName(), "GetConfig()")
 			assert.Equal(t, tt.wantRawConfig, GetRawConfig(), "GetRawConfig()")

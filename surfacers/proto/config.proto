@@ -5,6 +5,7 @@ package cloudprober.surfacer;
 import "github.com/cloudprober/cloudprober/surfacers/internal/cloudwatch/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/internal/datadog/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/internal/file/proto/config.proto";
+import "github.com/cloudprober/cloudprober/surfacers/internal/otel/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/internal/postgres/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto/config.proto";
 import "github.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto/config.proto";
@@ -24,8 +25,9 @@ enum Type {
   PUBSUB = 5;
   CLOUDWATCH = 6;  // Experimental mode.
   DATADOG = 7;     // Experimental mode.
-  PROBESTATUS = 8; // Experimental mode.
-  BIGQUERY = 9;
+  PROBESTATUS = 8;
+  BIGQUERY = 9;    // Experimental mode.
+  OTEL = 10;
   USER_DEFINED = 99;
 }
 
@@ -106,5 +108,6 @@ message SurfacerDef {
     datadog.SurfacerConf datadog_surfacer = 16;
     probestatus.SurfacerConf probestatus_surfacer = 17;
     bigquery.SurfacerConf bigquery_surfacer = 18;
+    otel.SurfacerConf otel_surfacer = 19;
   }
 }
