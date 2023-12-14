@@ -1,0 +1,38 @@
+Files to test include feature
+
+-- cloudprober.cfg --
+include "templates/vars.cfg"
+include "templates/alert_targets.cfg"
+
+probe {
+    name: "probe1"
+    type: PING
+    targets {
+        host_names: "{{ $targets }}"
+    }
+}
+
+-- templates/system/base.cfg --
+{{ $company := "Cloudprober" }}
+
+-- templates/vars.cfg --
+include "system/base.cfg"
+
+{{ $targets := "cloudprober.org" }}
+
+-- templates/alert_targets.cfg --
+{{ $sre_pagerduty_key := "ynocheese" }}
+
+-- output --
+{{ $company := "Cloudprober" }}
+
+{{ $targets := "cloudprober.org" }}
+{{ $sre_pagerduty_key := "ynocheese" }}
+
+probe {
+    name: "probe1"
+    type: PING
+    targets {
+        host_names: "{{ $targets }}"
+    }
+}

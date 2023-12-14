@@ -1,0 +1,49 @@
+Files to test include feature
+
+-- cloudprober.cfg --
+include "cloudprober.d/team1.cfg"
+
+include "cloudprober.d/team2.cfg"
+
+surfacer {
+    type: PROMETHEUS
+}
+
+-- cloudprober.d/team1.cfg --
+probe {
+    name: "probe_web1"
+    type: HTTP
+    targets {
+        host_names: "web1.example.com"
+    }
+}
+
+-- cloudprober.d/team2.cfg --
+probe {
+    name: "probe_web2"
+    type: HTTP
+    targets {
+        host_names: "web2.example.com"
+    }
+}
+
+-- output --
+probe {
+    name: "probe_web1"
+    type: HTTP
+    targets {
+        host_names: "web1.example.com"
+    }
+}
+
+probe {
+    name: "probe_web2"
+    type: HTTP
+    targets {
+        host_names: "web2.example.com"
+    }
+}
+
+surfacer {
+    type: PROMETHEUS
+}
