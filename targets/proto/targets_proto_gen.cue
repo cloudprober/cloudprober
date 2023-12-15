@@ -164,7 +164,7 @@ import (
 	// Static endpoints. These endpoints are merged with the resources returned
 	// by the targets type above.
 	// Example:
-	//   endpoints {
+	//   endpoint {
 	//     name: "service-gtwy-1"
 	//     ip: "10.1.18.121"
 	//     port: 8080
@@ -173,11 +173,11 @@ import (
 	//       value: "products-service"
 	//     }
 	//   }
-	//   endpoints {
+	//   endpoint {
 	//     name: "frontend-url1"
 	//     url: "https://frontend.example.com/url1"
 	//   }
-	endpoints?: [...#Endpoint] @protobuf(23,Endpoint)
+	endpoint?: [...#Endpoint] @protobuf(23,Endpoint)
 
 	// Regex to apply on the targets.
 	regex?: string @protobuf(21,string)

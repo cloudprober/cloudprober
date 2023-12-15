@@ -164,7 +164,7 @@ message TargetsDef {
   // Static endpoints. These endpoints are merged with the resources returned
   // by the targets type above.
   // Example:
-  //   endpoints {
+  //   endpoint {
   //     name: "service-gtwy-1"
   //     ip: "10.1.18.121"
   //     port: 8080
@@ -173,11 +173,11 @@ message TargetsDef {
   //       value: "products-service"
   //     }
   //   }
-  //   endpoints {
+  //   endpoint {
   //     name: "frontend-url1"
   //     url: "https://frontend.example.com/url1"
   //   }
-  repeated Endpoint endpoints = 23;
+  repeated Endpoint endpoint = 23;
 
   // Regex to apply on the targets.
   optional string regex = 21;

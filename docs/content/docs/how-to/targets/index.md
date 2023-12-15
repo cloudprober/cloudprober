@@ -67,13 +67,13 @@ probe {
   type: HTTP
   ...
   targets {
-    endpoints {
+    endpoint {
       # This will probe https://web.example.com/url1, target will show up as
       # "frontend_main" in metrics.
       name: "frontend_main"
       url: "https://web.example.com/url1"
     }
-    endpoints {
+    endpoint {
       # This will probe http://cms.example.com, target will show up as
       # "cms.example.com" in metrics.
       name: "cms.example.com"
