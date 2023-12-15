@@ -343,6 +343,10 @@ func (os *OtelSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 	}
 
 	for _, metricName := range em.MetricsKeys() {
+		if !os.opts.AllowMetric(metricName) {
+			continue
+		}
+
 		otelmetrics, err := os.convertMetric(em, metricName)
 		if err != nil {
 			os.l.Errorf("Error converting metric: %s, err: %v", metricName, err)

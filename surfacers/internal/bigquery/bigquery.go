@@ -146,8 +146,8 @@ func distToBqMetrics(d *metrics.DistributionData, metricName string, labels map[
 	countMetric := updateMetricValues(labels, metricName+"_count", d.Count, timestamp, conf)
 
 	bqMetrics := []*bqrow{
-		&bqrow{value: sumMetric},
-		&bqrow{value: countMetric},
+		{value: sumMetric},
+		{value: countMetric},
 	}
 
 	// Create and format all metrics for each bucket in this distribution. Each
