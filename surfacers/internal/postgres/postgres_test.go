@@ -21,7 +21,8 @@ func TestEMToPGMetricsNoDistribution(t *testing.T) {
 		AddMetric("resp_code", respCodesVal).
 		AddLabel("ptype", "http")
 
-	rows := emToPGMetrics(em)
+	s := &Surfacer{}
+	rows := s.emToPGMetrics(em)
 
 	if len(rows) != 4 {
 		t.Errorf("Expected %d rows, received: %d\n", 4, len(rows))
@@ -55,7 +56,8 @@ func TestEMToPGMetricsWithDistribution(t *testing.T) {
 		AddMetric("latency", latencyVal).
 		AddLabel("ptype", "http")
 
-	rows := emToPGMetrics(em)
+	s := &Surfacer{}
+	rows := s.emToPGMetrics(em)
 
 	if len(rows) != 5 {
 		t.Errorf("Expected %d rows, received: %d\n", 5, len(rows))
