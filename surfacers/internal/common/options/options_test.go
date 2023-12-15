@@ -24,6 +24,8 @@ import (
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/surfacers/proto"
+	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -204,4 +206,63 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 	runconfig.SetDefaultHTTPServeMux(nil)
 	os.Exit(code)
+}
+
+func TestBuildOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		sdef    *surfacerpb.SurfacerDef
+		want    *Options
+		wantErr bool
+	}{
+		{
+			name: "default",
+			sdef: &surfacerpb.SurfacerDef{
+				Type: configpb.Type_DATADOG.Enum(),
+			},
+			want: &Options{AddFailureMetric: true},
+		},
+		{
+			name: "default_file",
+			sdef: &surfacerpb.SurfacerDef{
+				Type: configpb.Type_FILE.Enum(),
+			},
+			want: &Options{AddFailureMetric: false},
+		},
+		{
+			name: "disable_failure_metric_dd",
+			sdef: &surfacerpb.SurfacerDef{
+				Type:             configpb.Type_DATADOG.Enum(),
+				AddFailureMetric: proto.Bool(false),
+			},
+			want: &Options{AddFailureMetric: false},
+		},
+		{
+			name: "enable_failure_metric_file",
+			sdef: &surfacerpb.SurfacerDef{
+				Type:             configpb.Type_FILE.Enum(),
+				AddFailureMetric: proto.Bool(true),
+			},
+			want: &Options{AddFailureMetric: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.want.Config = tt.sdef
+
+			if tt.want.MetricsBufferSize == 0 {
+				tt.want.MetricsBufferSize = 10000
+			}
+			if tt.want.HTTPServeMux == nil {
+				tt.want.HTTPServeMux = runconfig.DefaultHTTPServeMux()
+			}
+
+			got, err := buildOptions(tt.sdef, true, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildOptions() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

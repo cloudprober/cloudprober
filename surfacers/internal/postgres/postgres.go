@@ -38,6 +38,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	"github.com/lib/pq"
 
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/postgres/proto"
@@ -121,7 +122,7 @@ func mapToPGMetrics[T int64 | float64](m *metrics.Map[T], em *metrics.EventMetri
 }
 
 // emToPGMetrics converts an EventMetrics struct into a list of pgMetrics.
-func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
+func (s *Surfacer) emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 	baseLabels := make(map[string]string)
 	for _, k := range em.LabelsKeys() {
 		baseLabels[k] = em.Label(k)
@@ -129,6 +130,10 @@ func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 
 	pgMerics := []pgMetric{}
 	for _, metricName := range em.MetricsKeys() {
+		if !s.opts.AllowMetric(metricName) {
+			continue
+		}
+
 		val := em.Metric(metricName)
 
 		// Map metric
@@ -165,6 +170,7 @@ func emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 type Surfacer struct {
 	// Configuration
 	c       *configpb.SurfacerConf
+	opts    *options.Options
 	columns []string
 
 	// Channel for incoming data.
@@ -207,7 +213,7 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 
 	// Transaction for defined columns
 	if len(s.c.GetLabelToColumn()) > 0 {
-		for _, pgMetric := range emToPGMetrics(em) {
+		for _, pgMetric := range s.emToPGMetrics(em) {
 			// args are the column values generated based on the chosen labels
 			args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
 			args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
@@ -217,7 +223,7 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 			}
 		}
 	} else {
-		for _, pgMetric := range emToPGMetrics(em) {
+		for _, pgMetric := range s.emToPGMetrics(em) {
 			var s string
 			if s, err = labelsJSON(pgMetric.labels); err != nil {
 				return err

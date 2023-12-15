@@ -23,6 +23,8 @@ Cloudprober currently supports following surfacer types:
 
 - Prometheus
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_prometheus_SurfacerConf))
+- OpenTelemetry (OTEL)
+  ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_otel_SurfacerConf))
 - [Stackdriver (Google Cloud Monitoring)](../stackdriver)
 - Google Pub/Sub
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_pubsub_SurfacerConf))
