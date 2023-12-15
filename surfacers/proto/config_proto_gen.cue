@@ -92,13 +92,13 @@ import (
 	//
 	// For efficiency reasons, filtering by metric name has to be implemented by
 	// individual surfacers (while going through metrics within an EventMetrics).
-	// Currently following surfacers implement it:
-	//     CLOUDWATCH, PROMETHEUS, STACKDRIVER
+	// As FILE and PUBSUB surfacers export eventmetrics as is, they don't support
+	// this option.
 	allowMetricsWithName?:  string @protobuf(6,string,name=allow_metrics_with_name)
 	ignoreMetricsWithName?: string @protobuf(7,string,name=ignore_metrics_with_name)
 
-	// Whether to add failure metric or not. For stackdriver surfacer, we add
-	// failure metric by default.
+	// Whether to add failure metric or not. This option is enabled by default
+	// for all surfacers except FILE and PUBSUB.
 	addFailureMetric?: bool @protobuf(8,bool,name=add_failure_metric)
 
 	// If set to true, cloudprober will export all metrics as gauge metrics. Note

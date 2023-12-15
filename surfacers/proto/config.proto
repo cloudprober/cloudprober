@@ -78,13 +78,13 @@ message SurfacerDef {
   //
   // For efficiency reasons, filtering by metric name has to be implemented by
   // individual surfacers (while going through metrics within an EventMetrics).
-  // Currently following surfacers implement it:
-  //     CLOUDWATCH, PROMETHEUS, STACKDRIVER
+  // As FILE and PUBSUB surfacers export eventmetrics as is, they don't support
+  // this option.
   optional string allow_metrics_with_name = 6;
   optional string ignore_metrics_with_name = 7;
 
-  // Whether to add failure metric or not. For stackdriver surfacer, we add
-  // failure metric by default.
+  // Whether to add failure metric or not. This option is enabled by default
+  // for all surfacers except FILE and PUBSUB.
   optional bool add_failure_metric = 8;
 
   // If set to true, cloudprober will export all metrics as gauge metrics. Note

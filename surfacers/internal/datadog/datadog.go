@@ -46,6 +46,7 @@ var datadogKind = map[metrics.Kind]string{
 // DDSurfacer implements a datadog surfacer for datadog metrics.
 type DDSurfacer struct {
 	c         *configpb.SurfacerConf
+	opts      *options.Options
 	writeChan chan *metrics.EventMetrics
 	client    *ddClient
 	l         *logger.Logger
@@ -124,6 +125,10 @@ func recordMapValue[T int64 | float64](dd *DDSurfacer, m *metrics.Map[T], baseTa
 
 func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time.Ticker, em *metrics.EventMetrics) {
 	for _, metricKey := range em.MetricsKeys() {
+		if !dd.opts.AllowMetric(metricKey) {
+			continue
+		}
+
 		var series []ddSeries
 		switch value := em.Metric(metricKey).(type) {
 		case metrics.NumValue:
