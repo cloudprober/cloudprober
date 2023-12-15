@@ -224,7 +224,7 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 		ldLister: ldLister,
 	}
 
-	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoints())
+	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoint())
 	if err != nil {
 		return nil, fmt.Errorf("targets.baseTargets(): error creating static endpoints from proto: %v", err)
 	}
