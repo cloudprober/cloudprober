@@ -25,6 +25,7 @@ Cloudprober currently supports following surfacer types:
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_prometheus_SurfacerConf))
 - OpenTelemetry (OTEL)
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_otel_SurfacerConf))
+  [New in v0.13.2]
 - [Stackdriver (Google Cloud Monitoring)](../stackdriver)
 - Google Pub/Sub
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_pubsub_SurfacerConf))
@@ -76,8 +77,8 @@ Cloudwatch to save on the costs.
 
 ### Filtering by Label
 
-To filter metrics by labels, use one of the following keys in the surfacer
-configuration:
+To filter metrics by labels, use one of the following options in the
+[surfacers config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_SurfacerDef):
 
 - `allow_metrics_with_label` (`allowMetricsWithLabel` in yaml)
 - `ignore_metrics_with_label` (`ignoreMetricsWithLabel` in yaml)
@@ -113,14 +114,8 @@ surfacer {
 
 #### Filtering by Metric Name
 
-For certain surfacers, cloudprober can filter metrics by name as well. Surfacers
-that support this functionality are:
-
-- Cloudwatch
-- Prometheus
-- Stackdriver
-
-Within the surfacer configuration, use one of the following options:
+To filter metrics by name, use one of the following options in the
+[surfacers config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_SurfacerDef):
 
 - `allow_metrics_with_name ` (`allowMetricsWithName` in yaml)
 - `ignore_metrics_with_name` (`ignoreMetricsWithName` in yaml)
@@ -154,6 +149,9 @@ backend monitoring system:
       ..
    }
    ```
+
+   _NOTE: This option is now enabled by default for all surfacers, except for
+   FILE and PUBSUB surfacers._
 
 2. **export_as_gauge**: Export gauge metrics instead of cumulative. Cloudprober
    exports cumulative metrics (sum of values so far) by default, but you can
