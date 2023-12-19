@@ -24,7 +24,7 @@ import (
 )
 
 func TestSchedules(t *testing.T) {
-	var scheduleConfs = []*configpb.Schedule{
+	scheduleConfs := []*configpb.Schedule{
 		{
 			Type:         configpb.Schedule_DISABLE.Enum(),
 			StartTime:    proto.String("22:00"),
@@ -42,6 +42,22 @@ func TestSchedules(t *testing.T) {
 			Timezone:     proto.String("America/New_York"),
 		},
 	}
+
+	everyDayDisableConf := []*configpb.Schedule{
+		{
+			Type:      configpb.Schedule_DISABLE.Enum(),
+			StartTime: proto.String("18:00"),
+			EndTime:   proto.String("23:59"),
+			Timezone:  proto.String("America/New_York"),
+		},
+		{
+			Type:      configpb.Schedule_DISABLE.Enum(),
+			StartTime: proto.String("00:00"),
+			EndTime:   proto.String("06:59"),
+			Timezone:  proto.String("America/New_York"),
+		},
+	}
+
 	tests := []struct {
 		name    string
 		confs   []*configpb.Schedule
@@ -49,7 +65,7 @@ func TestSchedules(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:  "test1",
+			name:  "weekendAndRollout",
 			confs: scheduleConfs,
 			results: map[string]bool{
 				"2023-12-14 22:00:00 -0500": true,  // Thu
@@ -62,6 +78,17 @@ func TestSchedules(t *testing.T) {
 				"2023-12-19 16:30:00 -0800": false, // Tue -- disable for rollouts (PST)
 				"2023-12-19 19:30:00 -0500": false, // Tue -- disable for rollouts
 				"2023-12-19 21:01:00 -0500": true,  // Tue -- re-enabel after rollout
+			},
+		},
+		{
+			name:  "everydatDisable",
+			confs: everyDayDisableConf,
+			results: map[string]bool{
+				"2023-12-14 17:59:00 -0500": true,  // Thu
+				"2023-12-14 18:01:00 -0500": false, // Thu
+				"2023-12-15 00:01:00 -0500": false, // Fri
+				"2023-12-15 05:01:00 -0500": false, // Fri
+				"2023-12-15 07:01:00 -0500": true,  // Fri
 			},
 		},
 	}

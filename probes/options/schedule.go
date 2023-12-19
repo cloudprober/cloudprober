@@ -48,8 +48,6 @@ func (p *period) isInPeriod(t time.Time) bool {
 	if nt.Before(p.startTime) {
 		nt = nt.Add(7 * 24 * time.Hour)
 	}
-	// Debug
-	fmt.Printf("t=%s, nt=%s\n", t, nt.UTC())
 
 	if nt == p.startTime || nt == p.endTime {
 		return true
@@ -140,8 +138,6 @@ func parsePeriod(sched *configpb.Schedule) (*period, error) {
 		p.endTime = p.endTime.Add(7 * 24 * time.Hour)
 	}
 
-	// Debug
-	fmt.Printf("startTime=%s, endTime=%s\n", p.startTime.UTC(), p.endTime.UTC())
 	return p, nil
 }
 
