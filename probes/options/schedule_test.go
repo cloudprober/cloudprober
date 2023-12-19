@@ -79,6 +79,28 @@ func TestSchedules(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "err-time-spec",
+			confs: []*configpb.Schedule{
+				{
+					Type:      configpb.Schedule_DISABLE.Enum(),
+					StartTime: proto.String("2200"),
+					EndTime:   proto.String("2359"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "err-invalid-sched",
+			confs: []*configpb.Schedule{
+				{
+					Type:      configpb.Schedule_DISABLE.Enum(),
+					StartTime: proto.String("22:00"),
+					EndTime:   proto.String("16:59"), // End time < start time
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name:  "weekendAndRollout",
 			confs: scheduleConfs,
 			results: map[string]bool{
@@ -119,7 +141,7 @@ func TestSchedules(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, err := NewSchedule(tt.confs)
+			s, err := NewSchedule(tt.confs, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseSchedules() error = %v, wantErr %v", err, tt.wantErr)
 				return

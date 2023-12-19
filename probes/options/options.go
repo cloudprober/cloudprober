@@ -233,7 +233,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	}
 
 	if p.GetSchedule() != nil {
-		opts.Schedule, err = NewSchedule(p.GetSchedule())
+		opts.Schedule, err = NewSchedule(p.GetSchedule(), opts.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("error creating schedule for the probe (%s): %v", p.GetName(), err)
 		}

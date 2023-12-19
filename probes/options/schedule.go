@@ -20,6 +20,7 @@ import (
 
 	_ "time/tzdata"
 
+	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 )
 
@@ -110,7 +111,7 @@ func parseTime(t string) (int, int, error) {
 	return h, m, nil
 }
 
-func parsePeriod(sched *configpb.Schedule) (*period, error) {
+func parsePeriod(sched *configpb.Schedule, l *logger.Logger) (*period, error) {
 	p := &period{}
 
 	if sched.GetStartWeekday() == configpb.Schedule_EVERYDAY || sched.GetEndWeekday() == configpb.Schedule_EVERYDAY {
@@ -140,16 +141,21 @@ func parsePeriod(sched *configpb.Schedule) (*period, error) {
 	p.endTime = p.normalizeTime(weekDayNum(sched.GetEndWeekday()), endTimeHour, endTimeMin).Add(-offsetDur)
 
 	if p.endTime.Before(p.startTime) {
+		if p.everyDay || sched.GetStartWeekday() == sched.GetEndWeekday() {
+			return nil, fmt.Errorf("invalid schedule: for same day start time (%s) should be before end time (%s)", sched.GetStartTime(), sched.GetEndTime())
+		}
 		p.endTime = p.endTime.Add(7 * 24 * time.Hour)
 	}
+
+	l.Infof("Schedule: %s - %s", p.startTime.Format("Mon 15:04 MST"), p.endTime.Format("Mon 15:04 MST"))
 
 	return p, nil
 }
 
-func NewSchedule(scheds []*configpb.Schedule) (*Schedule, error) {
+func NewSchedule(scheds []*configpb.Schedule, l *logger.Logger) (*Schedule, error) {
 	s := &Schedule{}
 	for _, sched := range scheds {
-		p, err := parsePeriod(sched)
+		p, err := parsePeriod(sched, l)
 		if err != nil {
 			return nil, err
 		}
