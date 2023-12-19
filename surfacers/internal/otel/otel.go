@@ -65,7 +65,7 @@ func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.L
 
 		var opts []otlpmetrichttp.Option
 
-		if expConf.GetEndpointUrl() == "" {
+		if expConf.GetEndpointUrl() != "" {
 			u, err := url.Parse(expConf.GetEndpointUrl())
 			if err != nil {
 				return nil, fmt.Errorf("invalid http endpoint_url: %s, err: %v", expConf.GetEndpointUrl(), err)
@@ -107,7 +107,7 @@ func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.L
 
 		var opts []otlpmetricgrpc.Option
 
-		if expConf.GetEndpoint() == "" {
+		if expConf.GetEndpoint() != "" {
 			opts = append(opts, otlpmetricgrpc.WithEndpoint(expConf.GetEndpoint()))
 		}
 
