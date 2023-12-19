@@ -238,26 +238,24 @@ import (
 }
 
 #Schedule: {
-	#Weekday: {"Weekday_UNSPECIFIED", #enumValue: 0} |
+	#Weekday: {"EVERYDAY", #enumValue: 0} |
 		{"SUNDAY", #enumValue: 1} |
 		{"MONDAY", #enumValue: 2} |
 		{"TUESDAY", #enumValue: 3} |
 		{"WEDNESDAY", #enumValue: 4} |
 		{"THURSDAY", #enumValue: 5} |
 		{"FRIDAY", #enumValue: 6} |
-		{"SATURDAY", #enumValue: 7} |
-		{"EVERYDAY", #enumValue: 8}
+		{"SATURDAY", #enumValue: 7}
 
 	#Weekday_value: {
-		Weekday_UNSPECIFIED: 0
-		SUNDAY:              1
-		MONDAY:              2
-		TUESDAY:             3
-		WEDNESDAY:           4
-		THURSDAY:            5
-		FRIDAY:              6
-		SATURDAY:            7
-		EVERYDAY:            8
+		EVERYDAY:  0
+		SUNDAY:    1
+		MONDAY:    2
+		TUESDAY:   3
+		WEDNESDAY: 4
+		THURSDAY:  5
+		FRIDAY:    6
+		SATURDAY:  7
 	}
 
 	#ScheduleType: {"ScheduleType_UNSPECIFIED", #enumValue: 0} |
@@ -275,13 +273,13 @@ import (
 	startWeekday?: #Weekday @protobuf(2,Weekday,name=start_weekday,"default=EVERYDAY")
 
 	// Start time in 24 hour HH:MM format.
-	startTime?: string @protobuf(3,string,name=start_time)
+	startTime?: string @protobuf(3,string,name=start_time,#"default="00:00""#)
 
 	// Period end weekday. If not specified, it defaults to EVERYDAY.
 	endWeekday?: #Weekday @protobuf(4,Weekday,name=end_weekday,"default=EVERYDAY")
 
 	// End time in 24 hour HH:MM format.
-	endTime?: string @protobuf(5,string,name=end_time)
+	endTime?: string @protobuf(5,string,name=end_time,#"default="23:59""#)
 
 	// Timezone in which the probe should run. If not specified, it defaults to
 	// UTC. Example: "America/New_York"

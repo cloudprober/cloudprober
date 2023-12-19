@@ -221,7 +221,7 @@ message AdditionalLabel {
 
 message Schedule {
   enum Weekday {
-    Weekday_UNSPECIFIED = 0;
+    EVERYDAY = 0;
     SUNDAY = 1;
     MONDAY = 2;
     TUESDAY = 3;
@@ -229,7 +229,6 @@ message Schedule {
     THURSDAY = 5;
     FRIDAY = 6;
     SATURDAY = 7;
-    EVERYDAY = 8;
   }
 
   enum ScheduleType {
@@ -244,13 +243,13 @@ message Schedule {
   optional Weekday start_weekday = 2 [default = EVERYDAY];
 
   // Start time in 24 hour HH:MM format.
-  required string start_time = 3;
+  optional string start_time = 3 [default = "00:00"];
 
   // Period end weekday. If not specified, it defaults to EVERYDAY.
   optional Weekday end_weekday = 4 [default = EVERYDAY];
 
   // End time in 24 hour HH:MM format.
-  required string end_time = 5;
+  optional string end_time = 5 [default = "23:59"];
 
   // Timezone in which the probe should run. If not specified, it defaults to
   // UTC. Example: "America/New_York"

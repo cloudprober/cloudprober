@@ -46,15 +46,12 @@ func TestSchedules(t *testing.T) {
 	everyDayDisableConf := []*configpb.Schedule{
 		{
 			Type:      configpb.Schedule_DISABLE.Enum(),
-			StartTime: proto.String("18:00"),
-			EndTime:   proto.String("23:59"),
+			StartTime: proto.String("18:00"), // Default end time is 23:59
 			Timezone:  proto.String("America/New_York"),
 		},
 		{
-			Type:      configpb.Schedule_DISABLE.Enum(),
-			StartTime: proto.String("00:00"),
-			EndTime:   proto.String("06:59"),
-			Timezone:  proto.String("America/New_York"),
+			Type:    configpb.Schedule_DISABLE.Enum(),
+			EndTime: proto.String("11:59"), // UTC: NY 06:59
 		},
 	}
 
@@ -98,7 +95,7 @@ func TestSchedules(t *testing.T) {
 			},
 		},
 		{
-			name:  "everydatDisable",
+			name:  "everydayDisable",
 			confs: everyDayDisableConf,
 			results: map[string]bool{
 				"2023-12-14 17:59:00 -0500": true,  // Thu

@@ -86,6 +86,7 @@ func (s *Schedule) IsEnabled(t time.Time) bool {
 
 func weekDayNum(wd configpb.Schedule_Weekday) int {
 	return map[configpb.Schedule_Weekday]int{
+		configpb.Schedule_EVERYDAY:  -1,
 		configpb.Schedule_SUNDAY:    0,
 		configpb.Schedule_MONDAY:    1,
 		configpb.Schedule_TUESDAY:   2,
