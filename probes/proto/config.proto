@@ -188,6 +188,20 @@ message ProbeDef {
   // everywhere but run this probe only on a subset of machines.
   optional string run_on = 3;
 
+  // Schedule for the probe. You can use a schedule to specify when a probe
+  // should or should not run. This is useful for running probes only during
+  // business hours.
+  // For example, to disable a probe during weekends:
+  //   schdule {
+  //     type: DISABLE
+  //     start_weekday: FRIDAY
+  //     start_time: "22:00"
+  //     end_weekday: SUNDAY
+  //     end_time: "17:00" 
+  //     timezone: "America/New_York"
+  //   }
+  repeated Schedule schedule = 101;
+
   // Debug options. Currently only used to enable logging metrics.
   optional DebugOptions debug_options = 100;
 
@@ -203,6 +217,44 @@ message AdditionalLabel {
   // To get value from target's labels, use target.labels.<target's label key>
   // as value.
   required string value = 2;
+}
+
+message Schedule {
+  enum Weekday {
+    Weekday_UNSPECIFIED = 0;
+    SUNDAY = 1;
+    MONDAY = 2;
+    TUESDAY = 3;
+    WEDNESDAY = 4;
+    THURSDAY = 5;
+    FRIDAY = 6;
+    SATURDAY = 7;
+    EVERYDAY = 8;
+  }
+
+  enum ScheduleType {
+    ScheduleType_UNSPECIFIED = 0;
+    ENABLE = 1;
+    DISABLE = 2;
+  }
+
+  required ScheduleType type = 1;
+
+  // Period start weekday. If not specified, it defaults to EVERYDAY.
+  optional Weekday start_weekday = 2 [default = EVERYDAY];
+
+  // Start time in 24 hour HH:MM format.
+  required string start_time = 3;
+
+  // Period end weekday. If not specified, it defaults to EVERYDAY.
+  optional Weekday end_weekday = 4 [default = EVERYDAY];
+
+  // End time in 24 hour HH:MM format.
+  required string end_time = 5;
+
+  // Timezone in which the probe should run. If not specified, it defaults to
+  // UTC. Example: "America/New_York"
+  optional string timezone = 6 [default = "UTC"];
 }
 
 message DebugOptions {

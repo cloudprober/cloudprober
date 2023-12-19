@@ -210,6 +210,20 @@ import (
 	// everywhere but run this probe only on a subset of machines.
 	runOn?: string @protobuf(3,string,name=run_on)
 
+	// Schedule for the probe. You can use a schedule to specify when a probe
+	// should or should not run. This is useful for running probes only during
+	// business hours.
+	// For example, to disable a probe during weekends:
+	//   schdule {
+	//     type: DISABLE
+	//     start_weekday: FRIDAY
+	//     start_time: "22:00"
+	//     end_weekday: SUNDAY
+	//     end_time: "17:00"
+	//     timezone: "America/New_York"
+	//   }
+	schedule?: [...#Schedule] @protobuf(101,Schedule)
+
 	// Debug options. Currently only used to enable logging metrics.
 	debugOptions?: #DebugOptions @protobuf(100,DebugOptions,name=debug_options)
 }
@@ -221,6 +235,57 @@ import (
 	// To get value from target's labels, use target.labels.<target's label key>
 	// as value.
 	value?: string @protobuf(2,string)
+}
+
+#Schedule: {
+	#Weekday: {"Weekday_UNSPECIFIED", #enumValue: 0} |
+		{"SUNDAY", #enumValue: 1} |
+		{"MONDAY", #enumValue: 2} |
+		{"TUESDAY", #enumValue: 3} |
+		{"WEDNESDAY", #enumValue: 4} |
+		{"THURSDAY", #enumValue: 5} |
+		{"FRIDAY", #enumValue: 6} |
+		{"SATURDAY", #enumValue: 7} |
+		{"EVERYDAY", #enumValue: 8}
+
+	#Weekday_value: {
+		Weekday_UNSPECIFIED: 0
+		SUNDAY:              1
+		MONDAY:              2
+		TUESDAY:             3
+		WEDNESDAY:           4
+		THURSDAY:            5
+		FRIDAY:              6
+		SATURDAY:            7
+		EVERYDAY:            8
+	}
+
+	#ScheduleType: {"ScheduleType_UNSPECIFIED", #enumValue: 0} |
+		{"ENABLE", #enumValue: 1} |
+		{"DISABLE", #enumValue: 2}
+
+	#ScheduleType_value: {
+		ScheduleType_UNSPECIFIED: 0
+		ENABLE:                   1
+		DISABLE:                  2
+	}
+	type?: #ScheduleType @protobuf(1,ScheduleType)
+
+	// Period start weekday. If not specified, it defaults to EVERYDAY.
+	startWeekday?: #Weekday @protobuf(2,Weekday,name=start_weekday,"default=EVERYDAY")
+
+	// Start time in 24 hour HH:MM format.
+	startTime?: string @protobuf(3,string,name=start_time)
+
+	// Period end weekday. If not specified, it defaults to EVERYDAY.
+	endWeekday?: #Weekday @protobuf(4,Weekday,name=end_weekday,"default=EVERYDAY")
+
+	// End time in 24 hour HH:MM format.
+	endTime?: string @protobuf(5,string,name=end_time)
+
+	// Timezone in which the probe should run. If not specified, it defaults to
+	// UTC. Example: "America/New_York"
+	timezone?: string @protobuf(6,string,#"default="UTC""#)
 }
 
 #DebugOptions: {
