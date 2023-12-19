@@ -58,6 +58,23 @@ func TestSchedules(t *testing.T) {
 		},
 	}
 
+	enableDisable := []*configpb.Schedule{
+		{
+			Type:         configpb.Schedule_ENABLE.Enum(),
+			StartWeekday: configpb.Schedule_MONDAY.Enum(),
+			StartTime:    proto.String("08:00"),
+			EndWeekday:   configpb.Schedule_FRIDAY.Enum(),
+			EndTime:      proto.String("20:00"),
+			Timezone:     proto.String("America/New_York"),
+		},
+		{
+			Type:      configpb.Schedule_DISABLE.Enum(),
+			StartTime: proto.String("17:00"),
+			EndTime:   proto.String("17:59"),
+			Timezone:  proto.String("America/New_York"),
+		},
+	}
+
 	tests := []struct {
 		name    string
 		confs   []*configpb.Schedule
@@ -89,6 +106,17 @@ func TestSchedules(t *testing.T) {
 				"2023-12-15 00:01:00 -0500": false, // Fri
 				"2023-12-15 05:01:00 -0500": false, // Fri
 				"2023-12-15 07:01:00 -0500": true,  // Fri
+			},
+		},
+		{
+			name:  "enableDisable",
+			confs: enableDisable,
+			results: map[string]bool{
+				"2023-12-10 17:59:00 -0500": false, // Sun
+				"2023-12-11 08:01:00 -0500": true,  // Mon
+				"2023-12-11 17:01:00 -0500": false, // Mon
+				"2023-12-11 18:01:00 -0500": true,  // Mon
+				"2023-12-15 22:01:00 -0500": false, // Fri
 			},
 		},
 	}
