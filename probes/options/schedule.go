@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	_ "time/tzdata"
+
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 )
 
@@ -115,17 +117,24 @@ func parsePeriod(sched *configpb.Schedule) (*period, error) {
 	}
 	p.everyDay = sched.GetStartWeekday() == configpb.Schedule_EVERYDAY
 
+	loc, err := time.LoadLocation(sched.GetTimezone())
+	if err != nil {
+		return nil, fmt.Errorf("error loading timezone (%s): %v", sched.GetTimezone(), err)
+	}
+	_, offset := time.Now().In(loc).Zone()
+	offsetDur := time.Duration(offset) * time.Second
+
 	startTimeHour, startTimeMin, err := parseTime(sched.GetStartTime())
 	if err != nil {
 		return nil, fmt.Errorf("error parsing start time (%s): %v", sched.GetStartTime(), err)
 	}
-	p.startTime = p.normalizeTime(weekDayNum(sched.GetStartWeekday()), startTimeHour, startTimeMin)
+	p.startTime = p.normalizeTime(weekDayNum(sched.GetStartWeekday()), startTimeHour, startTimeMin).Add(-offsetDur)
 
 	endTimeHour, endTimeMin, err := parseTime(sched.GetEndTime())
 	if err != nil {
 		return nil, fmt.Errorf("error parsing end time (%s): %v", sched.GetEndTime(), err)
 	}
-	p.endTime = p.normalizeTime(weekDayNum(sched.GetEndWeekday()), endTimeHour, endTimeMin)
+	p.endTime = p.normalizeTime(weekDayNum(sched.GetEndWeekday()), endTimeHour, endTimeMin).Add(-offsetDur)
 
 	if p.endTime.Before(p.startTime) {
 		p.endTime = p.endTime.Add(7 * 24 * time.Hour)

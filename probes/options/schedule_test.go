@@ -31,6 +31,7 @@ func TestSchedules(t *testing.T) {
 			StartWeekday: configpb.Schedule_FRIDAY.Enum(),
 			EndWeekday:   configpb.Schedule_SUNDAY.Enum(),
 			EndTime:      proto.String("16:59"),
+			Timezone:     proto.String("America/New_York"),
 		},
 		{
 			Type:         configpb.Schedule_DISABLE.Enum(),
@@ -38,6 +39,7 @@ func TestSchedules(t *testing.T) {
 			StartWeekday: configpb.Schedule_TUESDAY.Enum(),
 			EndWeekday:   configpb.Schedule_TUESDAY.Enum(),
 			EndTime:      proto.String("21:00"),
+			Timezone:     proto.String("America/New_York"),
 		},
 	}
 	tests := []struct {
@@ -50,15 +52,16 @@ func TestSchedules(t *testing.T) {
 			name:  "test1",
 			confs: scheduleConfs,
 			results: map[string]bool{
-				"2023-12-14 22:00:00": true,  // Thu
-				"2023-12-15 21:59:00": true,  // Fri
-				"2023-12-15 22:00:00": false, // Fri -- disable for the weekend
-				"2023-12-16 12:00:00": false, // Sat
-				"2023-12-17 16:59:00": false, // Sun
-				"2023-12-17 17:00:00": true,  // Sun -- re-enable for Asia
-				"2023-12-19 17:00:00": true,  // Tue
-				"2023-12-19 19:30:00": false, // Tue -- disable for rollouts
-				"2023-12-19 21:01:00": true,  // Tue -- re-enabel after rollout
+				"2023-12-14 22:00:00 -0500": true,  // Thu
+				"2023-12-15 21:59:00 -0500": true,  // Fri
+				"2023-12-15 22:00:00 -0500": false, // Fri -- disable for the weekend
+				"2023-12-16 12:00:00 -0500": false, // Sat
+				"2023-12-17 16:59:00 -0500": false, // Sun
+				"2023-12-17 17:00:00 -0500": true,  // Sun -- re-enable for Asia
+				"2023-12-19 17:00:00 -0500": true,  // Tue
+				"2023-12-19 16:30:00 -0800": false, // Tue -- disable for rollouts (PST)
+				"2023-12-19 19:30:00 -0500": false, // Tue -- disable for rollouts
+				"2023-12-19 21:01:00 -0500": true,  // Tue -- re-enabel after rollout
 			},
 		},
 	}
@@ -75,7 +78,7 @@ func TestSchedules(t *testing.T) {
 
 			for timeStr, want := range tt.results {
 				t.Run(timeStr, func(t *testing.T) {
-					ttime, _ := time.Parse("2006-01-02 15:04:05", timeStr)
+					ttime, _ := time.Parse("2006-01-02 15:04:05 -0700", timeStr)
 					assert.Equal(t, want, s.IsEnabled(ttime))
 				})
 			}
