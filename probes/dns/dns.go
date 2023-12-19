@@ -294,6 +294,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			return
 		default:
 		}
+
+		if !p.opts.IsScheduled() {
+			continue
+		}
+
 		p.runProbe(resultsChan)
 	}
 }

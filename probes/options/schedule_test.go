@@ -119,7 +119,7 @@ func TestSchedules(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, err := ParseSchedules(tt.confs)
+			s, err := NewSchedule(tt.confs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseSchedules() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -131,7 +131,7 @@ func TestSchedules(t *testing.T) {
 			for timeStr, want := range tt.results {
 				t.Run(timeStr, func(t *testing.T) {
 					ttime, _ := time.Parse("2006-01-02 15:04:05 -0700", timeStr)
-					assert.Equal(t, want, s.IsEnabled(ttime))
+					assert.Equal(t, want, s.isIn(ttime))
 				})
 			}
 		})

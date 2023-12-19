@@ -49,6 +49,7 @@ type Options struct {
 	StatsExportInterval time.Duration
 	LogMetrics          func(*metrics.EventMetrics)
 	AdditionalLabels    []*AdditionalLabel
+	Schedule            *Schedule
 	NegativeTest        bool
 	AlertHandlers       []*alerting.AlertHandler
 }
@@ -231,6 +232,13 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		opts.AlertHandlers = append(opts.AlertHandlers, ah)
 	}
 
+	if p.GetSchedule() != nil {
+		opts.Schedule, err = NewSchedule(p.GetSchedule())
+		if err != nil {
+			return nil, fmt.Errorf("error creating schedule for the probe (%s): %v", p.GetName(), err)
+		}
+	}
+
 	if !p.GetDebugOptions().GetLogMetrics() {
 		opts.LogMetrics = func(em *metrics.EventMetrics) {}
 	} else {
@@ -273,6 +281,10 @@ func WithNoAlert() RecordOptions {
 	return func(ro *recordOptions) {
 		ro.NoAlert = true
 	}
+}
+
+func (opts *Options) IsScheduled() bool {
+	return opts.Schedule.isIn(time.Now())
 }
 
 func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics, ropts ...RecordOptions) {

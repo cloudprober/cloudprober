@@ -60,8 +60,12 @@ type Schedule struct {
 	disablePeriods []*period
 }
 
-// IsEnabled returns true if the probe is enabled at the given time.
-func (s *Schedule) IsEnabled(t time.Time) bool {
+// isIn returns true if the probe is enabled at the given time.
+func (s *Schedule) isIn(t time.Time) bool {
+	if s == nil {
+		return true
+	}
+
 	isEnabled := false
 	if len(s.enablePeriods) == 0 {
 		isEnabled = true
@@ -142,7 +146,7 @@ func parsePeriod(sched *configpb.Schedule) (*period, error) {
 	return p, nil
 }
 
-func ParseSchedules(scheds []*configpb.Schedule) (*Schedule, error) {
+func NewSchedule(scheds []*configpb.Schedule) (*Schedule, error) {
 	s := &Schedule{}
 	for _, sched := range scheds {
 		p, err := parsePeriod(sched)
