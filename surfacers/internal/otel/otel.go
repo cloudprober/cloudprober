@@ -295,8 +295,8 @@ func (os *OtelSurfacer) convertMetric(em *metrics.EventMetrics, metricName strin
 
 	otelmetrics := func(data metricdata.Aggregation) metricdata.Metrics {
 		return metricdata.Metrics{
-			Name:        metricName,
-			Description: metricName + " metric for Cloudprober",
+			Name:        os.c.GetMetricsPrefix() + metricName,
+			Description: os.c.GetMetricsPrefix() + metricName + " metric for Cloudprober",
 			Unit:        unit,
 			Data:        data,
 		}

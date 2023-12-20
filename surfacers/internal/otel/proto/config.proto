@@ -53,5 +53,11 @@ message SurfacerConf {
     GRPCExporter otlp_grpc_exporter = 2;
   }
 
+  // How often metrics will be exported. Note that metrics are accumulated
+  // internally and exported at this interval. Increasing this value will
+  // increase the memory usage.
   optional int32 export_interval_sec = 3 [default = 10];
+
+  // Prefix to use for metrics. Defaults to "cloudprober_".
+  optional string metrics_prefix = 4 [default = "cloudprober_"];
 }

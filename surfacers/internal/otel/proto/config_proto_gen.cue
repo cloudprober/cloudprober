@@ -53,5 +53,12 @@ import "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 		// OTLP gRPC exporter.
 		otlpGrpcExporter: #GRPCExporter @protobuf(2,GRPCExporter,name=otlp_grpc_exporter)
 	}
+
+	// How often metrics will be exported. Note that metrics are accumulated
+	// internally and exported at this interval. Increasing this value will
+	// increase the memory usage.
 	exportIntervalSec?: int32 @protobuf(3,int32,name=export_interval_sec,"default=10")
+
+	// Prefix to use for metrics. Defaults to "cloudprober_".
+	metricsPrefix?: string @protobuf(4,string,name=metrics_prefix,#"default="cloudprober_""#)
 }

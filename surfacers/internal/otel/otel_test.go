@@ -105,8 +105,8 @@ func TestOtelSurfacerWrite(t *testing.T) {
 				"probe.p1": {
 					Scope: instrumentation.Scope{Name: "probe.p1"},
 					Metrics: []metricdata.Metrics{
-						testMetric("failures", "1", sumData(dataPoint[int64](20, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
-						testMetric("latency", "us", sumData(dataPoint[float64](9.2, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
+						testMetric("cloudprober_failures", "1", sumData(dataPoint[int64](20, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
+						testMetric("cloudprober_latency", "us", sumData(dataPoint[float64](9.2, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
 					},
 				},
 			},
@@ -118,10 +118,10 @@ func TestOtelSurfacerWrite(t *testing.T) {
 				"probe.p2": {
 					Scope: instrumentation.Scope{Name: "probe.p2"},
 					Metrics: []metricdata.Metrics{
-						testMetric("resp_code", "1", sumData(
+						testMetric("cloudprober_resp_code", "1", sumData(
 							dataPoint[int64](2, [][2]string{{"probe", "p2"}, {"code", "200"}}, startTime, ems[1].Timestamp),
 							dataPoint[int64](1, [][2]string{{"probe", "p2"}, {"code", "500"}}, startTime, ems[1].Timestamp))),
-						testMetric("latency", "ms", metricdata.Histogram[float64]{
+						testMetric("cloudprober_latency", "ms", metricdata.Histogram[float64]{
 							DataPoints: []metricdata.HistogramDataPoint[float64]{
 								{
 									Attributes:   attribute.NewSet(attribute.String("probe", "p2")),
@@ -146,10 +146,10 @@ func TestOtelSurfacerWrite(t *testing.T) {
 				"probe.p1": {
 					Scope: instrumentation.Scope{Name: "probe.p1"},
 					Metrics: []metricdata.Metrics{
-						testMetric("failures", "1", sumData(dataPoint[int64](20, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
-						testMetric("latency", "us", sumData(dataPoint[float64](9.2, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
-						testMetric("failures", "1", sumData(dataPoint[int64](25, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp.Add(2*time.Second)))),
-						testMetric("latency", "us", sumData(dataPoint[float64](8.7, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp.Add(2*time.Second)))),
+						testMetric("cloudprober_failures", "1", sumData(dataPoint[int64](20, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
+						testMetric("cloudprober_latency", "us", sumData(dataPoint[float64](9.2, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
+						testMetric("cloudprober_failures", "1", sumData(dataPoint[int64](25, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp.Add(2*time.Second)))),
+						testMetric("cloudprober_latency", "us", sumData(dataPoint[float64](8.7, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp.Add(2*time.Second)))),
 					},
 				},
 			},
