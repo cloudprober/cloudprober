@@ -170,7 +170,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	exportInterval := time.Second * time.Duration(config.GetExportIntervalSec())
 	r := metric.NewPeriodicReader(exp, metric.WithProducer(os), metric.WithInterval(exportInterval))
 
-	res, err := resource.New(ctx, resource.WithHost(), resource.WithContainer(), resource.WithFromEnv())
+	res, err := resource.New(ctx, resource.WithHost(), resource.WithFromEnv())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource: %v", err)
 	}
