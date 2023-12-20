@@ -15,8 +15,10 @@
 package options
 
 import (
+	"strings"
 	"testing"
 	"time"
+	_ "time/tzdata"
 
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/stretchr/testify/assert"
@@ -108,7 +110,7 @@ func TestSchedules(t *testing.T) {
 				"2023-12-15 21:59:00 -0500": true,  // Fri
 				"2023-12-15 22:00:00 -0500": false, // Fri -- disable for the weekend
 				"2023-12-16 12:00:00 -0500": false, // Sat
-				"2023-12-17 16:59:00 -0500": false, // Sun
+				"2023-12-17 00:59:00 -0500": false, // Sun
 				"2023-12-17 17:00:00 -0500": true,  // Sun -- re-enable for Asia
 				"2023-12-19 17:00:00 -0500": true,  // Tue
 				"2023-12-19 16:30:00 -0800": false, // Tue -- disable for rollouts (PST)
@@ -118,10 +120,21 @@ func TestSchedules(t *testing.T) {
 		},
 		{
 			name:  "everydayDisable",
+			confs: everyDayDisableConf[:1],
+			results: map[string]bool{
+				"2023-12-14 17:59:00 -0500": true,  // Thu
+				"2023-12-14 18:01:00 -0500": false, // Thu
+				"2023-12-14 20:01:00 -0500": false, // Thu
+				"2023-12-15 00:01:00 -0500": true,  // Fri
+			},
+		},
+		{
+			name:  "everydayDisableFull",
 			confs: everyDayDisableConf,
 			results: map[string]bool{
 				"2023-12-14 17:59:00 -0500": true,  // Thu
 				"2023-12-14 18:01:00 -0500": false, // Thu
+				"2023-12-14 20:01:00 -0500": false, // Thu
 				"2023-12-15 00:01:00 -0500": false, // Fri
 				"2023-12-15 05:01:00 -0500": false, // Fri
 				"2023-12-15 07:01:00 -0500": true,  // Fri
@@ -156,6 +169,122 @@ func TestSchedules(t *testing.T) {
 					assert.Equal(t, want, s.isIn(ttime))
 				})
 			}
+		})
+	}
+}
+
+func TestPeriodNormalizeTime(t *testing.T) {
+	tests := []struct {
+		name      string
+		everyDay  bool
+		wantTable map[string]string
+	}{
+		{
+			name:     "everyDay",
+			everyDay: true,
+			wantTable: map[string]string{
+				"2023-12-14 17:59:00": "2023-01-01 17:59:00", // Thu (4)
+				"2023-12-17 18:01:00": "2023-01-01 18:01:00", // Sun (0)
+			},
+		},
+		{
+			name: "weekDay",
+			wantTable: map[string]string{
+				"2023-12-14 17:59:00": "2023-01-05 17:59:00", // Thu (4)
+				"2023-12-14 00:00:00": "2023-01-05 00:00:00", // Thu (4)
+				"2023-12-17 18:01:00": "2023-01-01 18:01:00", // Sun (0)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &period{
+				baseTime: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+				everyDay: tt.everyDay,
+			}
+			for in, want := range tt.wantTable {
+				t.Run(in, func(t *testing.T) {
+					ttime, _ := time.Parse("2006-01-02 15:04:05", in)
+					wantTime, _ := time.Parse("2006-01-02 15:04:05", want)
+					assert.Equal(t, wantTime, p.normalizeTime(int(ttime.Weekday()), ttime.Hour(), ttime.Minute()))
+				})
+			}
+		})
+	}
+}
+
+func TestParsePeriod(t *testing.T) {
+	tests := []struct {
+		name          string
+		in            string
+		wantStartTime string
+		wantEndTime   string
+		wantEveryDay  bool
+		wantErr       bool
+	}{
+		{
+			name:          "everyday",
+			in:            "18:00 19:00",
+			wantStartTime: "2023-01-01 18:00:00",
+			wantEndTime:   "2023-01-01 19:00:00",
+			wantEveryDay:  true,
+		},
+		{
+			name:    "everyday-error",
+			in:      "18:00 16:00",
+			wantErr: true,
+		},
+		{
+			name:    "sameday-error",
+			in:      "TUESDAY 18:00 TUESDAY 16:00",
+			wantErr: true,
+		},
+		{
+			name:          "sameday",
+			in:            "TUESDAY 18:00 TUESDAY 19:00",
+			wantStartTime: "2023-01-03 18:00:00",
+			wantEndTime:   "2023-01-03 19:00:00",
+		},
+		{
+			name:          "weekdays",
+			in:            "MONDAY 08:00 FRIDAY 19:00",
+			wantStartTime: "2023-01-02 08:00:00",
+			wantEndTime:   "2023-01-06 19:00:00",
+		},
+		{
+			name:          "weekEnd",
+			in:            "FRIDAY 21:00 SUNDAY 17:00",
+			wantStartTime: "2023-01-06 21:00:00",
+			wantEndTime:   "2023-01-08 17:00:00",
+			// Sunday gets normalized to next week
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			toks := strings.Split(tt.in, " ")
+			sched := &configpb.Schedule{}
+			if len(toks) == 2 {
+				sched.StartTime = proto.String(toks[0])
+				sched.EndTime = proto.String(toks[1])
+			} else if len(toks) == 4 {
+				sched.StartWeekday = configpb.Schedule_Weekday(configpb.Schedule_Weekday_value[toks[0]]).Enum()
+				sched.StartTime = proto.String(toks[1])
+				sched.EndWeekday = configpb.Schedule_Weekday(configpb.Schedule_Weekday_value[toks[2]]).Enum()
+				sched.EndTime = proto.String(toks[3])
+			}
+
+			got, err := parsePeriod(sched, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parsePeriod() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+
+			assert.Equal(t, tt.wantStartTime, got.startTime.Format("2006-01-02 15:04:05"), "startTime")
+			assert.Equal(t, tt.wantEndTime, got.endTime.Format("2006-01-02 15:04:05"), "endTime")
+			assert.Equal(t, tt.wantEveryDay, got.everyDay, "everyDay")
 		})
 	}
 }
