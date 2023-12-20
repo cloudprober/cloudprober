@@ -213,6 +213,24 @@ func TestPeriodNormalizeTime(t *testing.T) {
 	}
 }
 
+func parseTestPeriodSpec(t *testing.T, in string, sched *configpb.Schedule) {
+	toks := strings.Split(in, " ")
+
+	if len(toks) == 2 {
+		sched.StartTime = proto.String(toks[0])
+		sched.EndTime = proto.String(toks[1])
+		return
+	}
+
+	if len(toks) == 4 {
+		sched.StartWeekday = configpb.Schedule_Weekday(configpb.Schedule_Weekday_value[toks[0]]).Enum()
+		sched.StartTime = proto.String(toks[1])
+		sched.EndWeekday = configpb.Schedule_Weekday(configpb.Schedule_Weekday_value[toks[2]]).Enum()
+		sched.EndTime = proto.String(toks[3])
+		return
+	}
+}
+
 func TestParsePeriod(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -260,31 +278,73 @@ func TestParsePeriod(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		for _, loc := range []string{"UTC", "America/New_York", "America/Los_Angeles", "Asia/Kolkata"} {
+			t.Run(tt.name+loc, func(t *testing.T) {
+				sched := &configpb.Schedule{
+					Timezone: proto.String(loc),
+				}
+				parseTestPeriodSpec(t, tt.in, sched)
+
+				got, err := parsePeriod(sched, nil)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("parsePeriod() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				if err != nil {
+					return
+				}
+
+				wantStartTime, _ := time.ParseInLocation("2006-01-02 15:04:05", tt.wantStartTime, got.loc)
+				wantEndTime, _ := time.ParseInLocation("2006-01-02 15:04:05", tt.wantEndTime, got.loc)
+
+				assert.Equal(t, wantStartTime, got.startTime, "startTime")
+				assert.Equal(t, wantEndTime, got.endTime, "endTime")
+				assert.Equal(t, tt.wantEveryDay, got.everyDay, "everyDay")
+			})
+		}
+	}
+}
+
+func TestIsInPeriod(t *testing.T) {
+	tests := []struct {
+		name       string
+		tz         string
+		periodSpec string
+		results    map[string]bool
+	}{
+		{
+			name:       "everyday",
+			tz:         "America/New_York",
+			periodSpec: "18:00 19:00",
+			results: map[string]bool{
+				"2023-12-14 17:59:00 -0500": false, // Thu
+				"2023-12-14 18:01:00 -0500": true,  // Thu
+				"2023-12-14 20:01:00 -0500": false, // Thu
+				"2023-12-15 00:01:00 -0500": false, // Fri
+				"2023-12-17 17:55:00 -0500": false, // Sun
+				"2023-12-17 18:55:00 -0500": true,  // Sun
+			},
+		},
+	}
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			toks := strings.Split(tt.in, " ")
-			sched := &configpb.Schedule{}
-			if len(toks) == 2 {
-				sched.StartTime = proto.String(toks[0])
-				sched.EndTime = proto.String(toks[1])
-			} else if len(toks) == 4 {
-				sched.StartWeekday = configpb.Schedule_Weekday(configpb.Schedule_Weekday_value[toks[0]]).Enum()
-				sched.StartTime = proto.String(toks[1])
-				sched.EndWeekday = configpb.Schedule_Weekday(configpb.Schedule_Weekday_value[toks[2]]).Enum()
-				sched.EndTime = proto.String(toks[3])
+			sched := &configpb.Schedule{
+				Timezone: proto.String(tt.tz),
 			}
+			parseTestPeriodSpec(t, tt.periodSpec, sched)
+			p, _ := parsePeriod(sched, nil)
 
-			got, err := parsePeriod(sched, nil)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parsePeriod() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			for timeStr, want := range tt.results {
+				ttime, _ := time.Parse("2006-01-02 15:04:05 -0700", timeStr)
+				// Use the provided time in multiple timezones
+				for _, loc := range []string{"UTC", "America/New_York", "America/Los_Angeles", "Asia/Kolkata"} {
+					t.Run(timeStr+loc, func(t *testing.T) {
+						tloc, _ := time.LoadLocation(loc)
+						ttime = ttime.In(tloc)
+						assert.Equal(t, want, p.isInPeriod(ttime))
+					})
+				}
 			}
-			if err != nil {
-				return
-			}
-
-			assert.Equal(t, tt.wantStartTime, got.startTime.Format("2006-01-02 15:04:05"), "startTime")
-			assert.Equal(t, tt.wantEndTime, got.endTime.Format("2006-01-02 15:04:05"), "endTime")
-			assert.Equal(t, tt.wantEveryDay, got.everyDay, "everyDay")
 		})
 	}
 }

@@ -38,8 +38,7 @@ type period struct {
 // Wed 10:00:00, normalizeTime will become "Jan 4, 2023 10:00:00".
 //
 // Note that normalizeTime doesn't take care of the timezone. It assumes that
-// the provided time is in the same period's configured timezone. Caller should
-// take care of that.
+// the provided time is in the same timezone as the period.
 func (p *period) normalizeTime(weekDay, h, m int) time.Time {
 	timeSinceToday := (time.Duration(h) * time.Hour) + (time.Duration(m) * time.Minute)
 	if p.everyDay {
@@ -54,9 +53,13 @@ func (p *period) normalizeTime(weekDay, h, m int) time.Time {
 
 // isInPeriod returns true if the provided time is in the schedule.
 func (p *period) isInPeriod(t time.Time) bool {
+	// Convert the provided time to the same timezone as the period.
 	t = t.In(p.loc)
+
 	nt := p.normalizeTime(int(t.Weekday()), t.Hour(), t.Minute())
-	if nt.Before(p.startTime) {
+
+	// For times between Sunday 00:00 and the start of the schedule.
+	if !p.everyDay && nt.Before(p.startTime) {
 		nt = nt.Add(7 * 24 * time.Hour)
 	}
 
@@ -66,6 +69,48 @@ func (p *period) isInPeriod(t time.Time) bool {
 		return true
 	}
 	return nt.After(p.startTime) && nt.Before(p.endTime)
+}
+
+func parsePeriod(sched *configpb.Schedule, l *logger.Logger) (*period, error) {
+	p := &period{l: l}
+
+	if sched.GetStartWeekday() == configpb.Schedule_EVERYDAY || sched.GetEndWeekday() == configpb.Schedule_EVERYDAY {
+		if sched.GetStartWeekday() != sched.GetEndWeekday() {
+			return nil, fmt.Errorf("invalid schedule: if start_weekday is set to EVERYDAY, end_weekday should also be set to EVERYDAY, and vice versa")
+		}
+	}
+
+	p.everyDay = sched.GetStartWeekday() == configpb.Schedule_EVERYDAY
+
+	loc, err := time.LoadLocation(sched.GetTimezone())
+	if err != nil {
+		return nil, fmt.Errorf("error loading timezone (%s): %v", sched.GetTimezone(), err)
+	}
+	p.loc = loc
+	p.baseTime, _ = time.ParseInLocation("2006-Jan-02", "2023-Jan-01", p.loc)
+
+	startTimeHour, startTimeMin, err := parseTime(sched.GetStartTime())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing start time (%s): %v", sched.GetStartTime(), err)
+	}
+	p.startTime = p.normalizeTime(weekDayNum(sched.GetStartWeekday()), startTimeHour, startTimeMin)
+
+	endTimeHour, endTimeMin, err := parseTime(sched.GetEndTime())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing end time (%s): %v", sched.GetEndTime(), err)
+	}
+	p.endTime = p.normalizeTime(weekDayNum(sched.GetEndWeekday()), endTimeHour, endTimeMin)
+
+	if p.endTime.Before(p.startTime) {
+		if p.everyDay || sched.GetStartWeekday() == sched.GetEndWeekday() {
+			return nil, fmt.Errorf("invalid schedule: for same day start time (%s) should be after end time (%s)", sched.GetStartTime(), sched.GetEndTime())
+		}
+		p.endTime = p.endTime.Add(7 * 24 * time.Hour)
+	}
+
+	l.Infof("Schedule: %s", p.String())
+
+	return p, nil
 }
 
 func (p *period) String() string {
@@ -131,47 +176,6 @@ func parseTime(t string) (int, int, error) {
 		return 0, 0, err
 	}
 	return h, m, nil
-}
-
-func parsePeriod(sched *configpb.Schedule, l *logger.Logger) (*period, error) {
-	p := &period{l: l}
-
-	if sched.GetStartWeekday() == configpb.Schedule_EVERYDAY || sched.GetEndWeekday() == configpb.Schedule_EVERYDAY {
-		if sched.GetStartWeekday() != sched.GetEndWeekday() {
-			return nil, fmt.Errorf("invalid schedule: if start_weekday is set to EVERYDAY, end_weekday should also be set to EVERYDAY, and vice versa")
-		}
-	}
-	p.everyDay = sched.GetStartWeekday() == configpb.Schedule_EVERYDAY
-
-	loc, err := time.LoadLocation(sched.GetTimezone())
-	if err != nil {
-		return nil, fmt.Errorf("error loading timezone (%s): %v", sched.GetTimezone(), err)
-	}
-	p.loc = loc
-	p.baseTime, _ = time.ParseInLocation("2006-Jan-02", "2023-Jan-01", p.loc)
-
-	startTimeHour, startTimeMin, err := parseTime(sched.GetStartTime())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing start time (%s): %v", sched.GetStartTime(), err)
-	}
-	p.startTime = p.normalizeTime(weekDayNum(sched.GetStartWeekday()), startTimeHour, startTimeMin)
-
-	endTimeHour, endTimeMin, err := parseTime(sched.GetEndTime())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing end time (%s): %v", sched.GetEndTime(), err)
-	}
-	p.endTime = p.normalizeTime(weekDayNum(sched.GetEndWeekday()), endTimeHour, endTimeMin)
-
-	if p.endTime.Before(p.startTime) {
-		if p.everyDay || sched.GetStartWeekday() == sched.GetEndWeekday() {
-			return nil, fmt.Errorf("invalid schedule: for same day start time (%s) should be after end time (%s)", sched.GetStartTime(), sched.GetEndTime())
-		}
-		p.endTime = p.endTime.Add(7 * 24 * time.Hour)
-	}
-
-	l.Infof("Schedule: %s", p.String())
-
-	return p, nil
 }
 
 func NewSchedule(scheds []*configpb.Schedule, l *logger.Logger) (*Schedule, error) {
