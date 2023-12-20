@@ -213,13 +213,27 @@ import (
 	// Schedule for the probe. You can use a schedule to specify when a probe
 	// should or should not run. This is useful for running probes only during
 	// business hours.
-	// For example, to disable a probe during weekends:
+	//
+	// You can specify multiple schedules. Probe will not run if any of the
+	// "DISABLE" schedules are active. If both "ENABLE" and "DISABLE" schedules
+	// overlap, "DISABLE" takes precedence.
+	//
+	// For example, to disable a probe during weekends and on Tuesday between 7pm
+	// and 8pm, e.g. for rollouts:
 	//   schdule {
 	//     type: DISABLE
 	//     start_weekday: FRIDAY
-	//     start_time: "22:00"
+	//     start_time: "20:00"
 	//     end_weekday: SUNDAY
 	//     end_time: "17:00"
+	//     timezone: "America/New_York"
+	//   }
+	//   schdule {
+	//     type: DISABLE
+	//     start_weekday: TUESDAY
+	//     start_time: "19:00"
+	//     end_weekday: TUESDAY
+	//     end_time: "20:00"
 	//     timezone: "America/New_York"
 	//   }
 	schedule?: [...#Schedule] @protobuf(101,Schedule)
