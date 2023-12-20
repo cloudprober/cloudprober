@@ -43,6 +43,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -169,10 +170,15 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	exportInterval := time.Second * time.Duration(config.GetExportIntervalSec())
 	r := metric.NewPeriodicReader(exp, metric.WithProducer(os), metric.WithInterval(exportInterval))
 
+	res, err := resource.New(ctx, resource.WithHost(), resource.WithContainer(), resource.WithFromEnv())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource: %v", err)
+	}
+
 	// This step registers the reader and pipelines behind the scene.
 	// manugarg: This step seems kind of unnecessary right now but it's
 	// required.
-	metric.NewMeterProvider(metric.WithReader(r))
+	metric.NewMeterProvider(metric.WithReader(r), metric.WithResource(res))
 
 	l.Infof("Initialized opentelemetry surfacer with config: %s", config.String())
 	return os, nil
