@@ -612,6 +612,10 @@ func (p *Probe) Start(startCtx context.Context, dataChan chan *metrics.EventMetr
 		default:
 		}
 
+		if !p.opts.IsScheduled() {
+			continue
+		}
+
 		p.runProbe(startCtx)
 	}
 }

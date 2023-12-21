@@ -472,6 +472,10 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 			return
 		}
 
+		if !p.opts.IsScheduled() {
+			continue
+		}
+
 		// If request is nil (most likely because target resolving failed or it
 		// was an invalid target), skip this probe cycle. Note that request
 		// creation gets retried at a regular interval (stats export interval).
