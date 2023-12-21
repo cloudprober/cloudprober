@@ -390,7 +390,7 @@ func (p *Probe) runSingleProbe(f flow, conn *net.UDPConn, maxLen int, raddr *net
 // capture the responses before "timeout" and the main loop will flush the
 // results.
 func (p *Probe) runProbe() {
-	if len(p.targets) == 0 {
+	if !p.opts.IsScheduled() || len(p.targets) == 0 {
 		return
 	}
 	maxLen := int(p.c.GetMaxLength())
