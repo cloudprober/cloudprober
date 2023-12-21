@@ -361,7 +361,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			}
 			// if it's a timeout, return immediately.
 			if neterr, ok := err.(*net.OpError); ok && neterr.Timeout() {
-                                p.l.Debugf("Network timed out %d", p.runCnt)
+				p.l.Debugf("Network timed out %d", p.runCnt)
 				return
 			}
 			continue
@@ -524,6 +524,10 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-ctx.Done():
 			return
 		default:
+		}
+
+		if !p.opts.IsScheduled() {
+			continue
 		}
 
 		p.l.Debugf("Probe started, runcount %d", p.runCnt)

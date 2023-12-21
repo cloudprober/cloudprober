@@ -358,6 +358,10 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index 
 		case <-ticker.C:
 		}
 
+		if !p.opts.IsScheduled() {
+			continue
+		}
+
 		reqCtx, cancelFunc := context.WithTimeout(ctx, timeout)
 
 		reqCtx = p.ctxWithHeaders(reqCtx)

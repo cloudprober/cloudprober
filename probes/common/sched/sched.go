@@ -108,6 +108,9 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		if ctxDone(ctx) {
 			return
 		}
+		if !s.Opts.IsScheduled() {
+			continue
+		}
 		s.RunProbeForTarget(ctx, target, result)
 
 		// Export stats if it's the time to do so.
