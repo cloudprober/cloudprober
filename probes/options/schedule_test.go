@@ -45,7 +45,7 @@ func TestSchedules(t *testing.T) {
 		},
 	}
 
-	everyDayDisableConf := []*configpb.Schedule{
+	everydayDisableConf := []*configpb.Schedule{
 		{
 			Type:      configpb.Schedule_DISABLE.Enum(),
 			StartTime: proto.String("18:00"), // Default end time is 23:59
@@ -54,6 +54,20 @@ func TestSchedules(t *testing.T) {
 		{
 			Type:    configpb.Schedule_DISABLE.Enum(),
 			EndTime: proto.String("11:59"), // UTC: NY 06:59
+		},
+	}
+
+	everyWeekdayDisableConf := []*configpb.Schedule{
+		{
+			Type:      configpb.Schedule_ENABLE.Enum(),
+			StartTime: proto.String("07:00"),
+			EndTime:   proto.String("18:00"),
+			Timezone:  proto.String("America/New_York"),
+		},
+		{
+			Type:         configpb.Schedule_DISABLE.Enum(),
+			StartWeekday: configpb.Schedule_SATURDAY.Enum(),
+			EndWeekday:   configpb.Schedule_SUNDAY.Enum(),
 		},
 	}
 
@@ -120,7 +134,7 @@ func TestSchedules(t *testing.T) {
 		},
 		{
 			name:  "everydayDisable",
-			confs: everyDayDisableConf[:1],
+			confs: everydayDisableConf[:1],
 			results: map[string]bool{
 				"2023-12-14 17:59:00 -0500": true,  // Thu
 				"2023-12-14 18:01:00 -0500": false, // Thu
@@ -130,7 +144,7 @@ func TestSchedules(t *testing.T) {
 		},
 		{
 			name:  "everydayDisableFull",
-			confs: everyDayDisableConf,
+			confs: everydayDisableConf,
 			results: map[string]bool{
 				"2023-12-14 17:59:00 -0500": true,  // Thu
 				"2023-12-14 18:01:00 -0500": false, // Thu
@@ -138,6 +152,19 @@ func TestSchedules(t *testing.T) {
 				"2023-12-15 00:01:00 -0500": false, // Fri
 				"2023-12-15 05:01:00 -0500": false, // Fri
 				"2023-12-15 07:01:00 -0500": true,  // Fri
+			},
+		},
+		{
+			name:  "everyWeekdayDisableFull",
+			confs: everyWeekdayDisableConf,
+			results: map[string]bool{
+				"2023-12-14 17:59:00 -0500": true,  // Thu
+				"2023-12-14 18:01:00 -0500": false, // Thu
+				"2023-12-14 20:01:00 -0500": false, // Thu
+				"2023-12-16 00:01:00 -0500": false, // Sat
+				"2023-12-16 07:01:00 -0500": false, // Sat - down
+				"2023-12-17 07:01:00 -0500": false, // Sun
+				"2023-12-18 07:01:00 -0500": true,  // Mon - back
 			},
 		},
 		{
