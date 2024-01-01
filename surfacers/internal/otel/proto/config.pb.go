@@ -253,7 +253,8 @@ type SurfacerConf struct {
 	// increase the memory usage.
 	ExportIntervalSec *int32 `protobuf:"varint,3,opt,name=export_interval_sec,json=exportIntervalSec,def=10" json:"export_interval_sec,omitempty"`
 	// Prefix to use for metrics. Defaults to "cloudprober_".
-	MetricsPrefix *string `protobuf:"bytes,4,opt,name=metrics_prefix,json=metricsPrefix,def=cloudprober_" json:"metrics_prefix,omitempty"`
+	MetricsPrefix     *string                   `protobuf:"bytes,4,opt,name=metrics_prefix,json=metricsPrefix,def=cloudprober_" json:"metrics_prefix,omitempty"`
+	ResourceAttribute []*SurfacerConf_Attribute `protobuf:"bytes,5,rep,name=resource_attribute,json=resourceAttribute" json:"resource_attribute,omitempty"`
 }
 
 // Default values for SurfacerConf fields.
@@ -329,6 +330,13 @@ func (x *SurfacerConf) GetMetricsPrefix() string {
 	return Default_SurfacerConf_MetricsPrefix
 }
 
+func (x *SurfacerConf) GetResourceAttribute() []*SurfacerConf_Attribute {
+	if x != nil {
+		return x.ResourceAttribute
+	}
+	return nil
+}
+
 type isSurfacerConf_Exporter interface {
 	isSurfacerConf_Exporter()
 }
@@ -346,6 +354,62 @@ type SurfacerConf_OtlpGrpcExporter struct {
 func (*SurfacerConf_OtlpHttpExporter) isSurfacerConf_Exporter() {}
 
 func (*SurfacerConf_OtlpGrpcExporter) isSurfacerConf_Exporter() {}
+
+// Additional attributes to be added to all the metrics.
+type SurfacerConf_Attribute struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Key   *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+}
+
+func (x *SurfacerConf_Attribute) Reset() {
+	*x = SurfacerConf_Attribute{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SurfacerConf_Attribute) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SurfacerConf_Attribute) ProtoMessage() {}
+
+func (x *SurfacerConf_Attribute) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SurfacerConf_Attribute.ProtoReflect.Descriptor instead.
+func (*SurfacerConf_Attribute) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_rawDescGZIP(), []int{2, 0}
+}
+
+func (x *SurfacerConf_Attribute) GetKey() string {
+	if x != nil && x.Key != nil {
+		return *x.Key
+	}
+	return ""
+}
+
+func (x *SurfacerConf_Attribute) GetValue() string {
+	if x != nil && x.Value != nil {
+		return *x.Value
+	}
+	return ""
+}
 
 var File_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto protoreflect.FileDescriptor
 
@@ -405,7 +469,7 @@ var file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config
 	0x74, 0x70, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a,
 	0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12,
 	0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
-	0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0xb5, 0x02, 0x0a, 0x0c, 0x53, 0x75,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0xcc, 0x03, 0x0a, 0x0c, 0x53, 0x75,
 	0x72, 0x66, 0x61, 0x63, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x12, 0x57, 0x0a, 0x12, 0x6f, 0x74,
 	0x6c, 0x70, 0x5f, 0x68, 0x74, 0x74, 0x70, 0x5f, 0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x72,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72,
@@ -424,14 +488,23 @@ var file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config
 	0x12, 0x33, 0x0a, 0x0e, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x5f, 0x70, 0x72, 0x65, 0x66,
 	0x69, 0x78, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x3a, 0x0c, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70,
 	0x72, 0x6f, 0x62, 0x65, 0x72, 0x5f, 0x52, 0x0d, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x50,
-	0x72, 0x65, 0x66, 0x69, 0x78, 0x42, 0x0a, 0x0a, 0x08, 0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x65,
-	0x72, 0x2a, 0x21, 0x0a, 0x0b, 0x43, 0x6f, 0x6d, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e,
-	0x12, 0x08, 0x0a, 0x04, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x47, 0x5a,
-	0x49, 0x50, 0x10, 0x01, 0x42, 0x42, 0x5a, 0x40, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
-	0x6f, 0x6d, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x63,
-	0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x73, 0x75, 0x72, 0x66, 0x61,
-	0x63, 0x65, 0x72, 0x73, 0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x6f, 0x74,
-	0x65, 0x6c, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x72, 0x65, 0x66, 0x69, 0x78, 0x12, 0x60, 0x0a, 0x12, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
+	0x65, 0x5f, 0x61, 0x74, 0x74, 0x72, 0x69, 0x62, 0x75, 0x74, 0x65, 0x18, 0x05, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x31, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e,
+	0x73, 0x75, 0x72, 0x66, 0x61, 0x63, 0x65, 0x72, 0x2e, 0x6f, 0x74, 0x65, 0x6c, 0x2e, 0x53, 0x75,
+	0x72, 0x66, 0x61, 0x63, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x2e, 0x41, 0x74, 0x74, 0x72, 0x69,
+	0x62, 0x75, 0x74, 0x65, 0x52, 0x11, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x41, 0x74,
+	0x74, 0x72, 0x69, 0x62, 0x75, 0x74, 0x65, 0x1a, 0x33, 0x0a, 0x09, 0x41, 0x74, 0x74, 0x72, 0x69,
+	0x62, 0x75, 0x74, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x42, 0x0a, 0x0a, 0x08,
+	0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x72, 0x2a, 0x21, 0x0a, 0x0b, 0x43, 0x6f, 0x6d, 0x70,
+	0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x08, 0x0a, 0x04, 0x4e, 0x4f, 0x4e, 0x45, 0x10,
+	0x00, 0x12, 0x08, 0x0a, 0x04, 0x47, 0x5a, 0x49, 0x50, 0x10, 0x01, 0x42, 0x42, 0x5a, 0x40, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70,
+	0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65,
+	0x72, 0x2f, 0x73, 0x75, 0x72, 0x66, 0x61, 0x63, 0x65, 0x72, 0x73, 0x2f, 0x69, 0x6e, 0x74, 0x65,
+	0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x6f, 0x74, 0x65, 0x6c, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 }
 
 var (
@@ -447,30 +520,32 @@ func file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_confi
 }
 
 var file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_goTypes = []interface{}{
-	(Compression)(0),        // 0: cloudprober.surfacer.otel.Compression
-	(*HTTPExporter)(nil),    // 1: cloudprober.surfacer.otel.HTTPExporter
-	(*GRPCExporter)(nil),    // 2: cloudprober.surfacer.otel.GRPCExporter
-	(*SurfacerConf)(nil),    // 3: cloudprober.surfacer.otel.SurfacerConf
-	nil,                     // 4: cloudprober.surfacer.otel.HTTPExporter.HttpHeaderEntry
-	nil,                     // 5: cloudprober.surfacer.otel.GRPCExporter.HttpHeaderEntry
-	(*proto.TLSConfig)(nil), // 6: cloudprober.tlsconfig.TLSConfig
+	(Compression)(0),               // 0: cloudprober.surfacer.otel.Compression
+	(*HTTPExporter)(nil),           // 1: cloudprober.surfacer.otel.HTTPExporter
+	(*GRPCExporter)(nil),           // 2: cloudprober.surfacer.otel.GRPCExporter
+	(*SurfacerConf)(nil),           // 3: cloudprober.surfacer.otel.SurfacerConf
+	nil,                            // 4: cloudprober.surfacer.otel.HTTPExporter.HttpHeaderEntry
+	nil,                            // 5: cloudprober.surfacer.otel.GRPCExporter.HttpHeaderEntry
+	(*SurfacerConf_Attribute)(nil), // 6: cloudprober.surfacer.otel.SurfacerConf.Attribute
+	(*proto.TLSConfig)(nil),        // 7: cloudprober.tlsconfig.TLSConfig
 }
 var file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_depIdxs = []int32{
-	6, // 0: cloudprober.surfacer.otel.HTTPExporter.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	7, // 0: cloudprober.surfacer.otel.HTTPExporter.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
 	4, // 1: cloudprober.surfacer.otel.HTTPExporter.http_header:type_name -> cloudprober.surfacer.otel.HTTPExporter.HttpHeaderEntry
 	0, // 2: cloudprober.surfacer.otel.HTTPExporter.compression:type_name -> cloudprober.surfacer.otel.Compression
-	6, // 3: cloudprober.surfacer.otel.GRPCExporter.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	7, // 3: cloudprober.surfacer.otel.GRPCExporter.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
 	5, // 4: cloudprober.surfacer.otel.GRPCExporter.http_header:type_name -> cloudprober.surfacer.otel.GRPCExporter.HttpHeaderEntry
 	0, // 5: cloudprober.surfacer.otel.GRPCExporter.compression:type_name -> cloudprober.surfacer.otel.Compression
 	1, // 6: cloudprober.surfacer.otel.SurfacerConf.otlp_http_exporter:type_name -> cloudprober.surfacer.otel.HTTPExporter
 	2, // 7: cloudprober.surfacer.otel.SurfacerConf.otlp_grpc_exporter:type_name -> cloudprober.surfacer.otel.GRPCExporter
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	6, // 8: cloudprober.surfacer.otel.SurfacerConf.resource_attribute:type_name -> cloudprober.surfacer.otel.SurfacerConf.Attribute
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() {
@@ -517,6 +592,18 @@ func file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_confi
 				return nil
 			}
 		}
+		file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SurfacerConf_Attribute); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_msgTypes[2].OneofWrappers = []interface{}{
 		(*SurfacerConf_OtlpHttpExporter)(nil),
@@ -528,7 +615,7 @@ func file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_confi
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_cloudprober_cloudprober_surfacers_internal_otel_proto_config_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
