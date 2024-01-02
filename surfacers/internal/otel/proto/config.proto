@@ -60,4 +60,11 @@ message SurfacerConf {
 
   // Prefix to use for metrics. Defaults to "cloudprober_".
   optional string metrics_prefix = 4 [default = "cloudprober_"];
+
+  // Additional attributes to be added to all the metrics.
+  message Attribute {
+    optional string key = 1;
+    optional string value = 2;
+  }
+  repeated Attribute resource_attribute = 5;
 }
