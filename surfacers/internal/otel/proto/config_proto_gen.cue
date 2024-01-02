@@ -61,4 +61,11 @@ import "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 
 	// Prefix to use for metrics. Defaults to "cloudprober_".
 	metricsPrefix?: string @protobuf(4,string,name=metrics_prefix,#"default="cloudprober_""#)
+
+	// Additional attributes to be added to all the metrics.
+	#Attribute: {
+		key?:   string @protobuf(1,string)
+		value?: string @protobuf(2,string)
+	}
+	resourceAttribute?: [...#Attribute] @protobuf(5,Attribute,name=resource_attribute)
 }
