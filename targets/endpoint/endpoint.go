@@ -29,13 +29,14 @@ import (
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 )
 
-// Endpoint represents a targets and associated parameters.
+// Endpoint represents a target and associated parameters.
 type Endpoint struct {
 	Name        string
 	Labels      map[string]string
 	LastUpdated time.Time
 	Port        int
 	IP          net.IP
+	Info        string
 }
 
 // Key returns a string key that uniquely identifies that endpoint.

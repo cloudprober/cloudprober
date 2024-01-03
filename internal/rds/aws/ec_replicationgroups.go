@@ -17,25 +17,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// cacheInfo represents instance items that we fetch from the elasticache API.
-type cacheInfo struct {
+// elastiCacheClusterLister represents replication group items that we fetch from the elasticache API.
+type ecReplicationGroupInfo struct {
 	ID         string
-	Ip         string
+	IP         string
 	Port       int32
-	Clustered  bool
 	TLSEnabled bool
+	Clustered  bool
 	Engine     string
 	Tags       map[string]string
 }
 
-// cacheData represents objects that we store in cache.
-type cacheData struct {
-	ci          *cacheInfo
+// ecReplicationGroupCacheData represents objects that we store in the local cache.
+type ecReplicationGroupCacheData struct {
+	ci          *ecReplicationGroupInfo
 	lastUpdated int64
 }
 
 /*
-AWSInstancesFilters defines filters supported by the ec2_instances resource
+ElastiCacheRGFilters defines filters supported by the ec_replicationgroups_instances resource
 type.
 
 	 Example:
@@ -53,7 +53,7 @@ type.
 	 }
 */
 
-var ElastiCacheFilters = struct {
+var ElastiCacheRGFilters = struct {
 	RegexFilterKeys []string
 	LabelsFilter    bool
 }{
@@ -61,18 +61,17 @@ var ElastiCacheFilters = struct {
 	true,
 }
 
-// elastiCacheLister is a AWS ElastiCache cluster lister. It implements a cache,
+// elastiCacheRGLister is a AWS ElastiCache replication group lister. It implements a cache,
 // that's populated at a regular interval by making the AWS API calls.
 // Listing actually only returns the current contents of that cache.
-type elastiCacheLister struct {
-	c             *configpb.ElastiCaches
-	clusterclient elasticache.DescribeCacheClustersAPIClient
-	rgclient      elasticache.DescribeReplicationGroupsAPIClient
-	tagclient     *elasticache.Client
-	l             *logger.Logger
-	mu            sync.RWMutex
-	names         []string
-	cacheList     map[string]*cacheData
+type elastiCacheRGLister struct {
+	c         *configpb.ElastiCacheReplicationGroups
+	client    elasticache.DescribeReplicationGroupsAPIClient
+	tagclient *elasticache.Client
+	l         *logger.Logger
+	mu        sync.RWMutex
+	names     []string
+	cacheList map[string]*ecReplicationGroupCacheData
 	// This is for unit testing, should be taken out if/when there is a respective
 	// interface in AWS SDK for go v2 to replace this logs
 	discoverTags bool
@@ -80,10 +79,10 @@ type elastiCacheLister struct {
 
 // listResources returns the list of resource records, where each record
 // consists of an cluster name and the endpoint associated with it.
-func (cl *elastiCacheLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
+func (cl *elastiCacheRGLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
 
-	allFilters, err := filter.ParseFilters(req.GetFilter(), ElastiCacheFilters.RegexFilterKeys, "")
+	allFilters, err := filter.ParseFilters(req.GetFilter(), ElastiCacheRGFilters.RegexFilterKeys, "")
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +95,7 @@ func (cl *elastiCacheLister) listResources(req *pb.ListResourcesRequest) ([]*pb.
 	for _, name := range cl.names {
 		ins := cl.cacheList[name].ci
 		if ins == nil {
-			cl.l.Errorf("elacticaches: cached info missing for %s", name)
+			cl.l.Errorf("ec_replicationgroups: cached info missing for %s", name)
 			continue
 		}
 
@@ -111,90 +110,56 @@ func (cl *elastiCacheLister) listResources(req *pb.ListResourcesRequest) ([]*pb.
 			continue
 		}
 
+		var info string
+		if ins.Clustered {
+			info = "clustered"
+		}
 		resources = append(resources, &pb.Resource{
+			Id:          proto.String(ins.ID),
 			Name:        proto.String(name),
-			Ip:          proto.String(ins.Ip),
+			Ip:          proto.String(ins.IP),
 			Port:        proto.Int32(ins.Port),
 			Labels:      ins.Tags,
 			LastUpdated: proto.Int64(cl.cacheList[name].lastUpdated),
+			Info:        []byte(info),
 		})
 	}
 
-	cl.l.Infof("elasticaches.listResources: returning %d instances", len(resources))
+	cl.l.Infof("ec_replicationgroups.listResources: returning %d instances", len(resources))
 	return resources, nil
 }
 
-// expand runs equivalent API calls as "aws describe-instances",
-// and is used to populate the cache.
-func (cl *elastiCacheLister) expand(reEvalInterval time.Duration) {
-	cl.l.Infof("elasticaches.expand: expanding AWS targets")
+// expand runs equivalent API calls as "aws elasticache describe-replication-groups",
+// and is used to populate the cache. More details about this API call can be found in
+// https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/API_DescribeReplicationGroups.html
+func (cl *elastiCacheRGLister) expand(reEvalInterval time.Duration) {
+	cl.l.Infof("ec_replicationgroups.expand: expanding AWS targets")
 
-	resCC, err := cl.clusterclient.DescribeCacheClusters(context.TODO(), nil)
+	resp, err := cl.client.DescribeReplicationGroups(context.TODO(), nil)
 	if err != nil {
-		cl.l.Errorf("elasticaches.expand: error while listing cache clusters: %v", err)
+		cl.l.Errorf("ec_replicationgroups.expand: error while listing replication groups: %v", err)
 		return
 	}
 
 	var ids = make([]string, 0)
-	var cacheList = make(map[string]*cacheData)
-
+	var cacheList = make(map[string]*ecReplicationGroupCacheData)
 	ts := time.Now().Unix()
-	for _, r := range resCC.CacheClusters {
-		if len(r.CacheNodes) == 0 {
-			continue
-		}
-		ci := &cacheInfo{
-			ID:         *r.CacheClusterId,
-			TLSEnabled: *r.TransitEncryptionEnabled,
-			Ip:         *r.CacheNodes[0].Endpoint.Address,
-			Port:       *r.CacheNodes[0].Endpoint.Port,
-			Engine:     *r.Engine,
-			Clustered:  false,
-			Tags:       make(map[string]string),
-		}
 
-		if cl.discoverTags {
-			// AWS doesn't return Tag information in the response, we'll need to request it separately
-			// NB: This might get throttled by AWS, if we make too many requests, see if we can batch or slow down
-			// Add sleep if needed to the end of the loop
-			tagsResp, err := cl.tagclient.ListTagsForResource(context.TODO(), &elasticache.ListTagsForResourceInput{
-				ResourceName: r.ARN,
-			})
-			if err != nil {
-				cl.l.Errorf("elasticaches.expand: error getting tags for cluster %s: %v", *r.CacheClusterId, err)
-				continue
-			}
-
-			// Convert to map
-			for _, t := range tagsResp.TagList {
-				ci.Tags[*t.Key] = *t.Value
-			}
-		}
-
-		cacheList[*r.CacheClusterId] = &cacheData{ci, ts}
-		ids = append(ids, *r.CacheClusterId)
-	}
-
-	resRG, err := cl.rgclient.DescribeReplicationGroups(context.TODO(), nil)
-	if err != nil {
-		cl.l.Errorf("elasticaches.expand: error while listing replication groups: %v", err)
-		return
-	}
-	for _, r := range resRG.ReplicationGroups {
-		var ci *cacheInfo
+	for _, r := range resp.ReplicationGroups {
+		var ci *ecReplicationGroupInfo
 		if r.ConfigurationEndpoint != nil { //clustered
-			ci = &cacheInfo{
+			ci = &ecReplicationGroupInfo{
 				ID:         *r.ReplicationGroupId,
-				Ip:         *r.ConfigurationEndpoint.Address,
+				IP:         *r.ConfigurationEndpoint.Address,
 				Port:       *r.ConfigurationEndpoint.Port,
 				TLSEnabled: *r.TransitEncryptionEnabled,
 				Clustered:  true,
 				Tags:       make(map[string]string),
 			}
 		} else if len(r.NodeGroups) > 0 && r.NodeGroups[0].PrimaryEndpoint != nil {
-			ci = &cacheInfo{
+			ci = &ecReplicationGroupInfo{
 				ID:         *r.ReplicationGroupId,
-				Ip:         *r.NodeGroups[0].PrimaryEndpoint.Address,
+				IP:         *r.NodeGroups[0].PrimaryEndpoint.Address,
 				Port:       *r.NodeGroups[0].PrimaryEndpoint.Port,
 				TLSEnabled: *r.TransitEncryptionEnabled,
 				Clustered:  false,
@@ -210,7 +175,7 @@ func (cl *elastiCacheLister) expand(reEvalInterval time.Duration) {
 				ResourceName: r.ARN,
 			})
 			if err != nil {
-				cl.l.Errorf("elasticaches.expand: error getting tags for replication group %s: %v", *r.ReplicationGroupId, err)
+				cl.l.Errorf("ec_replicationgroups.expand: error getting tags for replication group %s: %v", *r.ReplicationGroupId, err)
 				continue
 			}
 
@@ -220,7 +185,7 @@ func (cl *elastiCacheLister) expand(reEvalInterval time.Duration) {
 			}
 		}
 
-		cacheList[*r.ReplicationGroupId] = &cacheData{ci, ts}
+		cacheList[*r.ReplicationGroupId] = &ecReplicationGroupCacheData{ci, ts}
 		ids = append(ids, *r.ReplicationGroupId)
 	}
 
@@ -229,25 +194,24 @@ func (cl *elastiCacheLister) expand(reEvalInterval time.Duration) {
 	cl.cacheList = cacheList
 	cl.mu.Unlock()
 
-	cl.l.Infof("elasticaches.expand: got %d caches", len(ids))
+	cl.l.Infof("ec_replicationgroups.expand: got %d caches", len(ids))
 }
 
-func newElastiCacheLister(c *configpb.ElastiCaches, region string, l *logger.Logger) (*elastiCacheLister, error) {
+func newElastiCacheRGLister(c *configpb.ElastiCacheReplicationGroups, region string, l *logger.Logger) (*elastiCacheRGLister, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
-		return nil, fmt.Errorf("AWS configuration error : %v", err)
+		return nil, fmt.Errorf("AWS configuration error: %v", err)
 	}
 
 	client := elasticache.NewFromConfig(cfg)
 
-	cl := &elastiCacheLister{
-		c:             c,
-		clusterclient: client,
-		rgclient:      client,
-		tagclient:     client,
-		cacheList:     make(map[string]*cacheData),
-		l:             l,
-		discoverTags:  true,
+	cl := &elastiCacheRGLister{
+		c:            c,
+		client:       client,
+		tagclient:    client,
+		cacheList:    make(map[string]*ecReplicationGroupCacheData),
+		l:            l,
+		discoverTags: true,
 	}
 
 	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
