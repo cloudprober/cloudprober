@@ -5,14 +5,34 @@ package proto
 	reEvalSec?: int32 @protobuf(98,int32,name=re_eval_sec,"default=600") // default 10 mins
 }
 
-// ElastiCaches discovery options.
-#ElastiCaches: {
+// ElastiCacheReplicationGroups discovery options.
+#ElastiCacheReplicationGroups: {
 	// How often resources should be refreshed.
 	reEvalSec?: int32 @protobuf(98,int32,name=re_eval_sec,"default=600") // default 10 mins
 }
 
-// RDS (Amazon Relational Databases) discovery options.
-#RDS: {
+// ElastiCacheClusters discovery options.
+#ElastiCacheClusters: {
+	// How often resources should be refreshed.
+	reEvalSec?: int32 @protobuf(98,int32,name=re_eval_sec,"default=600") // default 10 mins
+}
+
+// RDS (Amazon Relational Databases) Clusters discovery options.
+#RDSClusters: {
+	// DB cluster identifier or the Amazon Resource Name (ARN) of the DB cluster
+	// if specified, only the corresponding cluster information is returned.
+	identifier?: string @protobuf(1,string)
+
+	// Filters to be added to the discovery and search.
+	filter?: [...string] @protobuf(2,string)
+
+	// Whether to includes information about clusters shared from other AWS accounts.
+	includeShared?: bool  @protobuf(3,bool,name=include_shared)
+	reEvalSec?:     int32 @protobuf(98,int32,name=re_eval_sec,"default=600") // default 10 mins
+}
+
+// RDS (Amazon Relational Databases) Clusters discovery options.
+#RDSInstances: {
 	// DB cluster identifier or the Amazon Resource Name (ARN) of the DB cluster
 	// if specified, only the corresponding cluster information is returned.
 	identifier?: string @protobuf(1,string)
@@ -44,10 +64,17 @@ package proto
 	// instances discovery to be enabled.
 	ec2Instances?: #EC2Instances @protobuf(3,EC2Instances,name=ec2_instances)
 
-	// ElastiCache discovery options. This field should be declared for the
-	// elasticache discovery to be enabled.
-	elasticaches?: #ElastiCaches @protobuf(4,ElastiCaches)
+	// ElastiCacheReplicationGroups discovery options. This field should be declared for the
+	// elasticache replication groups discovery to be enabled.
+	elasticacheReplicationgroups?: #ElastiCacheReplicationGroups @protobuf(4,ElastiCacheReplicationGroups,name=elasticache_replicationgroups)
 
-	// RDS discovery options.
-	rds?: #RDS @protobuf(5,RDS)
+	// ElastiCacheClusters discovery options. This field should be declared for the
+	// elasticache cluster discovery to be enabled.
+	elasticacheClusters?: #ElastiCacheClusters @protobuf(5,ElastiCacheClusters,name=elasticache_clusters)
+
+	// RDS instances discovery options.
+	rdsInstances?: #RDSInstances @protobuf(6,RDSInstances,name=rds_instances)
+
+	// RDS clusters discovery options.
+	rdsClusters?: #RDSClusters @protobuf(7,RDSClusters,name=rds_clusters)
 }

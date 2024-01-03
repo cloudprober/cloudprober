@@ -30,13 +30,14 @@ import (
 	endpointpb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 )
 
-// Endpoint represents a targets and associated parameters.
+// Endpoint represents a target and associated parameters.
 type Endpoint struct {
 	Name        string
 	Labels      map[string]string
 	LastUpdated time.Time
 	Port        int
 	IP          net.IP
+	Info        string
 }
 
 // Clone creates a deep copy of an Endpoint.

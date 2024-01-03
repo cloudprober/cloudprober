@@ -33,12 +33,12 @@ import (
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
-	spb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/protobuf/proto"
 )
@@ -55,6 +55,7 @@ type cacheRecord struct {
 	ipStr       string
 	port        int
 	labels      map[string]string
+	info        string
 	lastUpdated time.Time
 }
 
@@ -137,6 +138,7 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 			ipStr:       res.GetIp(),
 			port:        int(res.GetPort()),
 			labels:      res.Labels,
+			info:        string(res.GetInfo()),
 			lastUpdated: time.Unix(res.GetLastUpdated(), 0),
 		}
 		client.names[i] = res.GetName()
@@ -158,7 +160,7 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 	result := make([]endpoint.Endpoint, len(client.names))
 	for i, name := range client.names {
 		cr := client.cache[name]
-		result[i] = endpoint.Endpoint{Name: name, IP: cr.ip, Port: cr.port, Labels: cr.labels, LastUpdated: cr.lastUpdated}
+		result[i] = endpoint.Endpoint{Name: name, IP: cr.ip, Port: cr.port, Labels: cr.labels, LastUpdated: cr.lastUpdated, Info: cr.info}
 	}
 	return result
 }
@@ -213,15 +215,15 @@ func (client *Client) initListResourcesFunc() error {
 	}
 
 	// Transport security options.
+	transportCred := insecure.NewCredentials()
 	if client.serverOpts.GetTlsConfig() != nil {
 		tlsConfig := &tls.Config{}
 		if err := tlsconfig.UpdateTLSConfig(tlsConfig, client.serverOpts.GetTlsConfig()); err != nil {
 			return fmt.Errorf("rds/client: error initializing TLS config (%+v): %v", client.serverOpts.GetTlsConfig(), err)
 		}
-		client.dialOpts = append(client.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-	} else {
-		client.dialOpts = append(client.dialOpts, grpc.WithInsecure())
+		transportCred = credentials.NewTLS(tlsConfig)
 	}
+	client.dialOpts = append(client.dialOpts, grpc.WithTransportCredentials(transportCred))
 
 	// OAuth related options.
 	if client.serverOpts.GetOauthConfig() != nil {
@@ -238,7 +240,7 @@ func (client *Client) initListResourcesFunc() error {
 	}
 
 	client.listResources = func(ctx context.Context, in *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
-		return spb.NewResourceDiscoveryClient(conn).ListResources(ctx, in)
+		return pb.NewResourceDiscoveryClient(conn).ListResources(ctx, in)
 	}
 
 	return nil
@@ -271,7 +273,6 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 		// refreshState loop. If there are multiple cloudprober instances, this will
 		// make sure that each instance calls RDS server at a different point of
 		// time.
-		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
 		for range time.Tick(reEvalInterval) {

@@ -45,11 +45,13 @@ const DefaultProviderID = "aws"
 
 // ResourceTypes declares resource types supported by the AWS provider.
 var ResourceTypes = struct {
-	EC2Instances, ElastiCaches, RDS string
+	EC2Instances, ElastiCacheClusters, ElastiCacheReplicationGroups, RDSClusters, RDSInstances string
 }{
 	"ec2_instances",
-	"elasticaches",
-	"rds",
+	"elasticache_clusters",
+	"elasticache_replicationgroups",
+	"rds_clusters",
+	"rds_instances",
 }
 
 type lister interface {
@@ -84,22 +86,40 @@ func initAWSProject(c *configpb.ProviderConfig, l *logger.Logger) (map[string]li
 		resourceLister[ResourceTypes.EC2Instances] = lr
 	}
 
-	// Enable ElastiCaches lister if configured.
-	if c.GetElasticaches() != nil {
-		lr, err := newElastiCacheLister(c.GetElasticaches(), c.GetRegion(), l)
+	// Enable GetElasticacheClusters lister if configured.
+	if c.GetElasticacheClusters() != nil {
+		lr, err := newElastiCacheClusterLister(c.GetElasticacheClusters(), c.GetRegion(), l)
 		if err != nil {
 			return nil, err
 		}
-		resourceLister[ResourceTypes.ElastiCaches] = lr
+		resourceLister[ResourceTypes.ElastiCacheClusters] = lr
 	}
 
-	// Enable RDS (AWS) if configured.
-	if c.GetRds() != nil {
-		lr, err := newRdsLister(c.GetRds(), c.GetRegion(), l)
+	// Enable GetElasticacheClusters lister if configured.
+	if c.GetElasticacheReplicationgroups() != nil {
+		lr, err := newElastiCacheRGLister(c.GetElasticacheReplicationgroups(), c.GetRegion(), l)
 		if err != nil {
 			return nil, err
 		}
-		resourceLister[ResourceTypes.RDS] = lr
+		resourceLister[ResourceTypes.ElastiCacheReplicationGroups] = lr
+	}
+
+	// Enable RDSInstances (AWS) lister if configured.
+	if c.GetRdsInstances() != nil {
+		lr, err := newRdsInstancesLister(c.GetRdsInstances(), c.GetRegion(), l)
+		if err != nil {
+			return nil, err
+		}
+		resourceLister[ResourceTypes.RDSInstances] = lr
+	}
+
+	// Enable RDSClusters (AWS) lister if configured.
+	if c.GetRdsClusters() != nil {
+		lr, err := newRdsClustersLister(c.GetRdsClusters(), c.GetRegion(), l)
+		if err != nil {
+			return nil, err
+		}
+		resourceLister[ResourceTypes.RDSClusters] = lr
 	}
 
 	return resourceLister, nil
@@ -129,16 +149,27 @@ func DefaultProviderConfig(resTypes map[string]string, reEvalSec int) *servercon
 				ReEvalSec: proto.Int32(int32(reEvalSec)),
 			}
 
-		case ResourceTypes.ElastiCaches:
-			c.Elasticaches = &configpb.ElastiCaches{
+		case ResourceTypes.ElastiCacheClusters:
+			c.ElasticacheClusters = &configpb.ElastiCacheClusters{
 				ReEvalSec: proto.Int32(int32(reEvalSec)),
 			}
 
-		case ResourceTypes.RDS:
-			c.Rds = &configpb.RDS{
+		case ResourceTypes.ElastiCacheReplicationGroups:
+			c.ElasticacheReplicationgroups = &configpb.ElastiCacheReplicationGroups{
+				ReEvalSec: proto.Int32(int32(reEvalSec)),
+			}
+
+		case ResourceTypes.RDSInstances:
+			c.RdsInstances = &configpb.RDSInstances{
+				ReEvalSec: proto.Int32(int32(reEvalSec)),
+			}
+
+		case ResourceTypes.RDSClusters:
+			c.RdsClusters = &configpb.RDSClusters{
 				ReEvalSec: proto.Int32(int32(reEvalSec)),
 			}
 		}
+
 	}
 
 	return &serverconfigpb.Provider{
