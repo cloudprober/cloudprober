@@ -169,7 +169,7 @@ func (il *ec2InstancesLister) expand(reEvalInterval time.Duration) {
 func newEC2InstancesLister(c *configpb.EC2Instances, region string, l *logger.Logger) (*ec2InstancesLister, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
-		return nil, fmt.Errorf("AWS configuration error : %v", err)
+		return nil, fmt.Errorf("AWS configuration error: %v", err)
 	}
 
 	client := ec2.NewFromConfig(cfg)

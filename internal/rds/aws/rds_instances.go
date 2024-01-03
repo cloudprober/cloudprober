@@ -17,23 +17,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// rdsInfo represents instance items that we fetch from the RDS API.
-type rdsInfo struct {
+// rdsInstanceInfo represents instance items that we fetch from the RDS API.
+type rdsInstanceInfo struct {
 	Name      string
 	Ip        string
 	Port      int32
 	IsReplica bool
-	IsCluster bool
 	Tags      map[string]string
 }
 
 // rdsData represents objects that we store in cache.
-type rdsData struct {
-	ri          *rdsInfo
+type rdsInstanceData struct {
+	ri          *rdsInstanceInfo
 	lastUpdated int64
 }
 
-var RDSFilters = struct {
+var RDSInstancesFilters = struct {
 	RegexFilterKeys []string
 	LabelsFilter    bool
 }{
@@ -41,24 +40,24 @@ var RDSFilters = struct {
 	true,
 }
 
-// rdsLister is a AWS Relational Database Service lister. It implements a cache,
+// rdsInstancesLister is an AWS Relational Database Service Instances lister. It implements a cache,
 // that's populated at a regular interval by making the AWS API calls.
 // Listing actually only returns the current contents of that cache.
-type rdsLister struct {
-	c      *configpb.RDS
-	client *rds.Client
-	l      *logger.Logger
-	mu     sync.RWMutex
-	names  []string
-	dbList map[string]*rdsData
+type rdsInstancesLister struct {
+	c               *configpb.RDSInstances
+	client          rds.DescribeDBInstancesAPIClient
+	l               *logger.Logger
+	mu              sync.RWMutex
+	names           []string
+	dbInstancesList map[string]*rdsInstanceData
 }
 
 // listResources returns the list of resource records, where each record
 // consists of an cluster name and the endpoint associated with it.
-func (rl *rdsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
+func (rl *rdsInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
 
-	allFilters, err := filter.ParseFilters(req.GetFilter(), AWSInstancesFilters.RegexFilterKeys, "")
+	allFilters, err := filter.ParseFilters(req.GetFilter(), RDSInstancesFilters.RegexFilterKeys, "")
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +68,9 @@ func (rl *rdsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource
 	defer rl.mu.RUnlock()
 
 	for _, name := range rl.names {
-		ins := rl.dbList[name].ri
+		ins := rl.dbInstancesList[name].ri
 		if ins == nil {
-			rl.l.Errorf("rds: db info missing for %s", name)
+			rl.l.Errorf("rds_instances.listResources: db info missing for %s", name)
 			continue
 		}
 
@@ -87,27 +86,30 @@ func (rl *rdsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource
 			Ip:          proto.String(ins.Ip),
 			Port:        proto.Int32(ins.Port),
 			Labels:      ins.Tags,
-			LastUpdated: proto.Int64(rl.dbList[name].lastUpdated),
+			LastUpdated: proto.Int64(rl.dbInstancesList[name].lastUpdated),
 		})
 	}
 
-	rl.l.Infof("rds.listResources: returning %d instances", len(resources))
+	rl.l.Infof("rds_instances.listResources: returning %d instances", len(resources))
 	return resources, nil
 }
 
-// expand runs equivalent API calls as "aws describe-db-instances",
-// and is used to populate the cache.
-func (rl *rdsLister) expand(reEvalInterval time.Duration) {
-	rl.l.Infof("rds.expand: expanding AWS targets")
+// expand runs equivalent API calls as "aws rds describe-db-instances",
+// and is used to populate the cache. It returns the instance information
+// for instances provisioned for RDS.
+// More details can be found in
+// https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBInstances.html
+func (rl *rdsInstancesLister) expand(reEvalInterval time.Duration) {
+	rl.l.Infof("rds_instances.expand: expanding AWS targets")
 
 	result, err := rl.client.DescribeDBInstances(context.TODO(), nil)
 	if err != nil {
-		rl.l.Errorf("rds.expand: error while listing database instances: %v", err)
+		rl.l.Errorf("rds_instances.expand: error while listing database instances: %v", err)
 		return
 	}
 
 	var ids = make([]string, 0)
-	var dbList = make(map[string]*rdsData)
+	var dbInstancesList = make(map[string]*rdsInstanceData)
 
 	ts := time.Now().Unix()
 	for _, r := range result.DBInstances {
@@ -119,7 +121,7 @@ func (rl *rdsLister) expand(reEvalInterval time.Duration) {
 			isReplica = true
 		}
 
-		ci := &rdsInfo{
+		ci := &rdsInstanceInfo{
 			Name:      *r.DBName,
 			Ip:        *r.Endpoint.Address,
 			Port:      *r.Endpoint.Port,
@@ -132,57 +134,31 @@ func (rl *rdsLister) expand(reEvalInterval time.Duration) {
 			ci.Tags[*t.Key] = *t.Value
 		}
 
-		dbList[*r.DBName] = &rdsData{ci, ts}
+		dbInstancesList[*r.DBName] = &rdsInstanceData{ci, ts}
 		ids = append(ids, *r.DBName)
-	}
-
-	resCluster, err := rl.client.DescribeDBClusters(context.TODO(), nil)
-	if err != nil {
-		rl.l.Errorf("rds.expand: error while listing database clusters: %v", err)
-		return
-	}
-	for _, r := range resCluster.DBClusters {
-		if r.DBClusterIdentifier == nil || r.DatabaseName == nil || r.Endpoint == nil || r.Port == nil {
-			continue
-		}
-
-		ci := &rdsInfo{
-			Name:      *r.DBClusterIdentifier,
-			Ip:        *r.Endpoint,
-			Port:      *r.Port,
-			IsCluster: true,
-		}
-
-		// Convert to map
-		for _, t := range r.TagList {
-			ci.Tags[*t.Key] = *t.Value
-		}
-
-		dbList[*r.DBClusterIdentifier] = &rdsData{ci, ts}
-		ids = append(ids, *r.DBClusterIdentifier)
 	}
 
 	rl.mu.Lock()
 	rl.names = ids
-	rl.dbList = dbList
+	rl.dbInstancesList = dbInstancesList
 	rl.mu.Unlock()
 
-	rl.l.Infof("rds.expand: got %d databases", len(ids))
+	rl.l.Infof("rds_instances.expand: got %d databases", len(ids))
 }
 
-func newRdsLister(c *configpb.RDS, region string, l *logger.Logger) (*rdsLister, error) {
+func newRdsInstancesLister(c *configpb.RDSInstances, region string, l *logger.Logger) (*rdsInstancesLister, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
-		return nil, fmt.Errorf("AWS configuration error : %v", err)
+		return nil, fmt.Errorf("AWS configuration error: %v", err)
 	}
 
 	client := rds.NewFromConfig(cfg)
 
-	cl := &rdsLister{
-		c:      c,
-		client: client,
-		dbList: make(map[string]*rdsData),
-		l:      l,
+	cl := &rdsInstancesLister{
+		c:               c,
+		client:          client,
+		dbInstancesList: make(map[string]*rdsInstanceData),
+		l:               l,
 	}
 
 	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
