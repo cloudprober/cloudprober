@@ -7,6 +7,12 @@
 # Unignore all dirs
 !*/
 
+# Unignore files without extensions
+!Dockerfile
+!AUTHORS
+!Makefile
+!LICENSE
+
 docs/node_modules
 docs/public
 docs/resources
