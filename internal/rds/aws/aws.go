@@ -77,50 +77,7 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 func initAWSProject(c *configpb.ProviderConfig, l *logger.Logger) (map[string]lister, error) {
 	resourceLister := make(map[string]lister)
 
-	// Enable EC2 instances lister if configured.
-	if c.GetEc2Instances() != nil {
-		lr, err := newEC2InstancesLister(c.GetEc2Instances(), c.GetRegion(), l)
-		if err != nil {
-			return nil, err
-		}
-		resourceLister[ResourceTypes.EC2Instances] = lr
-	}
-
-	// Enable GetElasticacheClusters lister if configured.
-	if c.GetElasticacheClusters() != nil {
-		lr, err := newElastiCacheClusterLister(c.GetElasticacheClusters(), c.GetRegion(), l)
-		if err != nil {
-			return nil, err
-		}
-		resourceLister[ResourceTypes.ElastiCacheClusters] = lr
-	}
-
-	// Enable GetElasticacheClusters lister if configured.
-	if c.GetElasticacheReplicationgroups() != nil {
-		lr, err := newElastiCacheRGLister(c.GetElasticacheReplicationgroups(), c.GetRegion(), l)
-		if err != nil {
-			return nil, err
-		}
-		resourceLister[ResourceTypes.ElastiCacheReplicationGroups] = lr
-	}
-
-	// Enable RDSInstances (AWS) lister if configured.
-	if c.GetRdsInstances() != nil {
-		lr, err := newRdsInstancesLister(c.GetRdsInstances(), c.GetRegion(), l)
-		if err != nil {
-			return nil, err
-		}
-		resourceLister[ResourceTypes.RDSInstances] = lr
-	}
-
-	// Enable RDSClusters (AWS) lister if configured.
-	if c.GetRdsClusters() != nil {
-		lr, err := newRdsClustersLister(c.GetRdsClusters(), c.GetRegion(), l)
-		if err != nil {
-			return nil, err
-		}
-		resourceLister[ResourceTypes.RDSClusters] = lr
-	}
+	// TODO when resources are added
 
 	return resourceLister, nil
 }
