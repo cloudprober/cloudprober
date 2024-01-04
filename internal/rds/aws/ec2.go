@@ -121,7 +121,8 @@ func (il *ec2InstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 }
 
 // expand runs equivalent API calls as "aws describe-instances",
-// and is used to populate the cache.
+// and is used to populate the cache. It will list the EC2 instances
+// in the target account with some basic networking information
 func (il *ec2InstancesLister) expand(reEvalInterval time.Duration) {
 	il.l.Infof("ec2_instances.expand: expanding AWS EC2 targets")
 

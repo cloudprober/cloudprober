@@ -5,11 +5,19 @@
 //   # EC2 instances
 //   ec2_instances {}
 //
-//   # ElastiCache cluster
-//   elasticache {}
+//   # ElastiCache clusters
+//   elasticache_clusters {}
+//
+//   # ElastiCache replication groups
+//   elasticache_replicationgroups {}
 //
 //   # RDS clusters
-//   rds {
+//   rds_clusters {
+//     identifier: "arn"
+//   }
+//
+//   # RDS instances
+//   rds_instances {
 //     identifier: "arn"
 //   }
 // }
