@@ -119,12 +119,26 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if !ok {
 		return errors.New("no dns config")
 	}
+
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
+
 	p.name = name
 	p.opts = opts
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
+
+	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
+	if totalDuration > p.opts.Interval {
+		return fmt.Errorf("invalid config - executing all requests will take "+
+			"longer than the probe interval, i.e. "+
+			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
+			totalDuration, p.opts.Interval)
+	}
+
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	queryType := p.c.GetQueryType()
