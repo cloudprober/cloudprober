@@ -72,7 +72,7 @@ func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Dura
 func (*mockClient) setReadTimeout(time.Duration) {}
 func (*mockClient) setSourceIP(net.IP)           {}
 
-func runProbe(t *testing.T, testName string, p *Probe, total, success int64) {
+func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -95,17 +95,56 @@ func runProbe(t *testing.T, testName string, p *Probe, total, success int64) {
 }
 
 func TestRun(t *testing.T) {
-	p := &Probe{}
-	opts := &options.Options{
-		Targets:   targets.StaticTargets("8.8.8.8"),
-		Interval:  2 * time.Second,
-		Timeout:   time.Second,
-		ProbeConf: &configpb.ProbeConf{},
+	tests := []struct {
+		description string
+		probeConf   *configpb.ProbeConf
+		wantTotal   int64
+		wantSuccess int64
+		wantErr     bool
+	}{
+		{
+			description: "basic",
+			probeConf:   &configpb.ProbeConf{},
+			wantTotal:   1,
+			wantSuccess: 1,
+		},
+		{
+			description: "error_in_config",
+			probeConf: &configpb.ProbeConf{
+				RequestsPerProbe:     proto.Int32(21),
+				RequestsIntervalMsec: proto.Int32(100),
+			},
+			wantErr: true,
+		},
+		{
+			description: "req_per_probe",
+			probeConf: &configpb.ProbeConf{
+				RequestsPerProbe: proto.Int32(2),
+			},
+			wantTotal:   2,
+			wantSuccess: 2,
+		},
 	}
-	if err := p.Init("dns_test", opts); err != nil {
-		t.Fatalf("Error creating probe: %v", err)
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			p := &Probe{}
+			opts := &options.Options{
+				Targets:   targets.StaticTargets("8.8.8.8"),
+				Interval:  2 * time.Second,
+				Timeout:   time.Second,
+				ProbeConf: test.probeConf,
+			}
+			err := p.Init("dns_test", opts)
+			if (err != nil) != test.wantErr {
+				t.Errorf("got err: %v, want err: %v", err, test.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			runProbeAndVerify(t, "basic", p, test.wantTotal, test.wantSuccess)
+		})
 	}
-	runProbe(t, "basic", p, 1, 1)
 }
 
 type testTargets struct {
@@ -133,12 +172,12 @@ func TestResolveFirst(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		runProbe(t, "resolve_first_success", p, 1, 1)
+		runProbeAndVerify(t, "resolve_first_success", p, 1, 1)
 	})
 
 	tt.IP = nil
 	t.Run("error", func(t *testing.T) {
-		runProbe(t, "resolve_first_error", p, 1, 0)
+		runProbeAndVerify(t, "resolve_first_error", p, 1, 0)
 	})
 }
 
@@ -156,7 +195,7 @@ func TestProbeType(t *testing.T) {
 	if err := p.Init("dns_probe_type_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, "probetype", p, 1, 0)
+	runProbeAndVerify(t, "probetype", p, 1, 0)
 }
 
 func TestBadName(t *testing.T) {
@@ -172,7 +211,7 @@ func TestBadName(t *testing.T) {
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, "baddomain", p, 1, 0)
+	runProbeAndVerify(t, "baddomain", p, 1, 0)
 }
 
 func TestAnswerCheck(t *testing.T) {
@@ -189,7 +228,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect success minAnswers == num answers returned == 1.
-	runProbe(t, "matchminanswers", p, 1, 1)
+	runProbeAndVerify(t, "matchminanswers", p, 1, 1)
 
 	opts.ProbeConf = &configpb.ProbeConf{
 		MinAnswers: proto.Uint32(2),
@@ -198,7 +237,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect failure because only one answer returned and two wanted.
-	runProbe(t, "toofewanswers", p, 1, 0)
+	runProbeAndVerify(t, "toofewanswers", p, 1, 0)
 }
 
 func TestValidator(t *testing.T) {
@@ -231,6 +270,6 @@ func TestValidator(t *testing.T) {
 		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
 			t.Fatalf("Error creating probe: %v", err)
 		}
-		runProbe(t, tst.name, p, 1, tst.successCt)
+		runProbeAndVerify(t, tst.name, p, 1, tst.successCt)
 	}
 }
