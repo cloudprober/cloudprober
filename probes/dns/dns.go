@@ -1,4 +1,4 @@
-// Copyright 2017-2019 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -119,12 +119,26 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if !ok {
 		return errors.New("no dns config")
 	}
+
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
+
 	p.name = name
 	p.opts = opts
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
+
+	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
+	if totalDuration > p.opts.Interval {
+		return fmt.Errorf("invalid config - executing all requests will take "+
+			"longer than the probe interval, i.e. "+
+			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
+			totalDuration, p.opts.Interval)
+	}
+
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	queryType := p.c.GetQueryType()
@@ -192,6 +206,31 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	return true
 }
 
+func (p *Probe) doDNSRequest(target string, result *probeRunResult, resultMu *sync.Mutex) {
+	// Generate a new question for each probe so transaction IDs aren't repeated.
+	msg := new(dns.Msg)
+	msg.SetQuestion(p.fqdn, p.queryType)
+
+	resp, latency, err := p.client.Exchange(msg, target)
+
+	if resultMu != nil {
+		resultMu.Lock()
+		defer resultMu.Unlock()
+	}
+
+	if err != nil {
+		if isClientTimeout(err) {
+			p.l.Warningf("Target(%s): client.Exchange: Timeout error: %v", target, err)
+			result.timeouts.Inc()
+		} else {
+			p.l.Warningf("Target(%s): client.Exchange: %v", target, err)
+		}
+	} else if p.validateResponse(resp, target, result) {
+		result.success.Inc()
+		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	}
+}
+
 func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 	// Refresh the list of targets to probe.
 	p.targets = p.opts.Targets.ListEndpoints()
@@ -221,7 +260,7 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 			if target.Port != 0 {
 				port = target.Port
 			}
-			result.total.Inc()
+			result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
 
 			ipLabel := ""
 			fullTarget := net.JoinHostPort(target.Name, strconv.Itoa(port))
@@ -247,23 +286,30 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 				al.UpdateForTarget(target, ipLabel, port)
 			}
 
-			// Generate a new question for each probe so transaction IDs aren't repeated.
-			msg := new(dns.Msg)
-			msg.SetQuestion(p.fqdn, p.queryType)
-
-			resp, latency, err := p.client.Exchange(msg, fullTarget)
-
-			if err != nil {
-				if isClientTimeout(err) {
-					p.l.Warningf("Target(%s): client.Exchange: Timeout error: %v", fullTarget, err)
-					result.timeouts.Inc()
-				} else {
-					p.l.Warningf("Target(%s): client.Exchange: %v", fullTarget, err)
-				}
-			} else if p.validateResponse(resp, fullTarget, &result) {
-				result.success.Inc()
-				result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+			if p.c.GetRequestsPerProbe() == 1 {
+				p.doDNSRequest(fullTarget, &result, nil)
+				resultsChan <- result
+				return
 			}
+
+			// For multiple requests per probe, we launch a separate goroutine for each
+			// DNS request. We use a mutex to protect access to per-target result object
+			// in doDNSRequest. Note that result object is not accessed concurrently
+			// anywhere else -- export of metrics happens when probe is not running.
+			var resultMu sync.Mutex
+			var wg sync.WaitGroup
+			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
+				wg.Add(1)
+				go func(reqNum int, result *probeRunResult) {
+					defer wg.Done()
+
+					time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
+					p.doDNSRequest(fullTarget, result, &resultMu)
+				}(i, &result)
+			}
+			p.l.Debug("Waiting for DNS requests to finish")
+			wg.Wait()
+
 			resultsChan <- result
 		}(target, resultsChan)
 	}
