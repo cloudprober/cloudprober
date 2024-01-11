@@ -16,6 +16,7 @@ package prober
 
 import (
 	"context"
+	"errors"
 
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	"google.golang.org/grpc/codes"
@@ -39,6 +40,10 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	// at the prober start time.
 	pr.grpcStartProbeCh <- p.GetName()
 
+	if *configSavePath != "" {
+		pr.saveConfigUnprotected(*configSavePath)
+	}
+
 	return &pb.AddProbeResponse{}, nil
 }
 
@@ -61,6 +66,10 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 	pr.probeCancelFunc[name]()
 	delete(pr.Probes, name)
 
+	if *configSavePath != "" {
+		pr.saveConfigUnprotected(*configSavePath)
+	}
+
 	return &pb.RemoveProbeResponse{}, nil
 }
 
@@ -79,4 +88,25 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 	}
 
 	return resp, nil
+}
+
+func (pr *Prober) SaveConfigToDisk(ctx context.Context, req *pb.SaveConfigToDiskRequest) (*pb.SaveConfigToDiskResponse, error) {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	filePath := req.GetFilePath()
+	if filePath == "" {
+		filePath = *configSavePath
+	}
+	if filePath == "" {
+		return nil, errors.New("file_path not provided and --config_save_path flag is also not set")
+	}
+
+	if err := pr.saveConfigUnprotected(filePath); err != nil {
+		return nil, err
+	}
+
+	return &pb.SaveConfigToDiskResponse{
+		FilePath: &filePath,
+	}, nil
 }

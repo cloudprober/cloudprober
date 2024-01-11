@@ -23,8 +23,10 @@ package prober
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"math/rand"
+	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -46,9 +48,14 @@ import (
 	"github.com/cloudprober/cloudprober/targets/lameduck"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var randGenerator = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+var (
+	configSavePath = flag.String("config_save_path", "", "Path to save the config to on API triggered config changes. If empty, config saving is disabled.")
+)
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
@@ -68,9 +75,6 @@ type Prober struct {
 
 	// dataChan for passing metrics between probes and main goroutine.
 	dataChan chan *metrics.EventMetrics
-
-	// Used by GetConfig for /config handler.
-	TextConfig string
 
 	// Required for all gRPC server implementations.
 	spb.UnimplementedCloudproberServer
@@ -310,4 +314,30 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 		}(interval, probeInfos, iter)
 		iter++
 	}
+}
+
+func (pr *Prober) saveConfigUnprotected(filePath string) error {
+	cfg := &configpb.ProberConfig{}
+	for _, p := range pr.Probes {
+		cfg.Probe = append(cfg.Probe, p.ProbeDef)
+	}
+	for _, s := range pr.Servers {
+		cfg.Server = append(cfg.Server, s.ServerDef)
+	}
+	for _, surfacer := range pr.Surfacers {
+		cfg.Surfacer = append(cfg.Surfacer, surfacer.SurfacerDef)
+	}
+
+	textCfg, err := prototext.Marshal(cfg)
+	if err != nil {
+		pr.l.Errorf("Error converting config to textproto: %v", err)
+		return err
+	}
+
+	if err := os.WriteFile(*configSavePath, textCfg, 0644); err != nil {
+		pr.l.Errorf("Error saving config to disk: %v", err)
+		return err
+	}
+
+	return nil
 }

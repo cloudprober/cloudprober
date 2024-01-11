@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Cloudprober_AddProbe_FullMethodName    = "/cloudprober.Cloudprober/AddProbe"
-	Cloudprober_RemoveProbe_FullMethodName = "/cloudprober.Cloudprober/RemoveProbe"
-	Cloudprober_ListProbes_FullMethodName  = "/cloudprober.Cloudprober/ListProbes"
+	Cloudprober_AddProbe_FullMethodName         = "/cloudprober.Cloudprober/AddProbe"
+	Cloudprober_RemoveProbe_FullMethodName      = "/cloudprober.Cloudprober/RemoveProbe"
+	Cloudprober_ListProbes_FullMethodName       = "/cloudprober.Cloudprober/ListProbes"
+	Cloudprober_SaveConfigToDisk_FullMethodName = "/cloudprober.Cloudprober/SaveConfigToDisk"
 )
 
 // CloudproberClient is the client API for Cloudprober service.
@@ -35,6 +36,7 @@ type CloudproberClient interface {
 	RemoveProbe(ctx context.Context, in *RemoveProbeRequest, opts ...grpc.CallOption) (*RemoveProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error)
+	SaveConfigToDisk(ctx context.Context, in *SaveConfigToDiskRequest, opts ...grpc.CallOption) (*SaveConfigToDiskResponse, error)
 }
 
 type cloudproberClient struct {
@@ -72,6 +74,15 @@ func (c *cloudproberClient) ListProbes(ctx context.Context, in *ListProbesReques
 	return out, nil
 }
 
+func (c *cloudproberClient) SaveConfigToDisk(ctx context.Context, in *SaveConfigToDiskRequest, opts ...grpc.CallOption) (*SaveConfigToDiskResponse, error) {
+	out := new(SaveConfigToDiskResponse)
+	err := c.cc.Invoke(ctx, Cloudprober_SaveConfigToDisk_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CloudproberServer is the server API for Cloudprober service.
 // All implementations must embed UnimplementedCloudproberServer
 // for forward compatibility
@@ -83,6 +94,7 @@ type CloudproberServer interface {
 	RemoveProbe(context.Context, *RemoveProbeRequest) (*RemoveProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error)
+	SaveConfigToDisk(context.Context, *SaveConfigToDiskRequest) (*SaveConfigToDiskResponse, error)
 	mustEmbedUnimplementedCloudproberServer()
 }
 
@@ -98,6 +110,9 @@ func (UnimplementedCloudproberServer) RemoveProbe(context.Context, *RemoveProbeR
 }
 func (UnimplementedCloudproberServer) ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListProbes not implemented")
+}
+func (UnimplementedCloudproberServer) SaveConfigToDisk(context.Context, *SaveConfigToDiskRequest) (*SaveConfigToDiskResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveConfigToDisk not implemented")
 }
 func (UnimplementedCloudproberServer) mustEmbedUnimplementedCloudproberServer() {}
 
@@ -166,6 +181,24 @@ func _Cloudprober_ListProbes_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cloudprober_SaveConfigToDisk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveConfigToDiskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudproberServer).SaveConfigToDisk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Cloudprober_SaveConfigToDisk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudproberServer).SaveConfigToDisk(ctx, req.(*SaveConfigToDiskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Cloudprober_ServiceDesc is the grpc.ServiceDesc for Cloudprober service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -184,6 +217,10 @@ var Cloudprober_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListProbes",
 			Handler:    _Cloudprober_ListProbes_Handler,
+		},
+		{
+			MethodName: "SaveConfigToDisk",
+			Handler:    _Cloudprober_SaveConfigToDisk_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
