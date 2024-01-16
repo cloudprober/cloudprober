@@ -21,9 +21,11 @@ import (
 	"testing"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/probes"
 	probespb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -134,8 +136,13 @@ probe: {
 				t.Errorf("Prober.saveProbesConfigUnprotected() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			b, _ := os.ReadFile(tt.filePath)
-			assert.Equal(t, tt.wantConfig, string(b))
+			got, _ := os.ReadFile(tt.filePath)
+
+			var g configpb.ProberConfig
+			var w configpb.ProberConfig
+			assert.NoError(t, prototext.Unmarshal(got, &g))
+			assert.NoError(t, prototext.Unmarshal([]byte(tt.wantConfig), &w))
+			assert.Equal(t, w.String(), g.String())
 		})
 	}
 }
