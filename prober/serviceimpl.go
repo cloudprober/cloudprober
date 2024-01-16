@@ -40,8 +40,8 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	// at the prober start time.
 	pr.grpcStartProbeCh <- p.GetName()
 
-	if *configSavePath != "" {
-		pr.saveConfigUnprotected(*configSavePath)
+	if *probesConfigSavePath != "" {
+		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
 	}
 
 	return &pb.AddProbeResponse{}, nil
@@ -66,8 +66,8 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 	pr.probeCancelFunc[name]()
 	delete(pr.Probes, name)
 
-	if *configSavePath != "" {
-		pr.saveConfigUnprotected(*configSavePath)
+	if *probesConfigSavePath != "" {
+		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
 	}
 
 	return &pb.RemoveProbeResponse{}, nil
@@ -90,23 +90,23 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 	return resp, nil
 }
 
-func (pr *Prober) SaveConfigToDisk(ctx context.Context, req *pb.SaveConfigToDiskRequest) (*pb.SaveConfigToDiskResponse, error) {
+func (pr *Prober) SaveProbesConfig(ctx context.Context, req *pb.SaveProbesConfigRequest) (*pb.SaveProbesConfigResponse, error) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
 	filePath := req.GetFilePath()
 	if filePath == "" {
-		filePath = *configSavePath
+		filePath = *probesConfigSavePath
 	}
 	if filePath == "" {
 		return nil, errors.New("file_path not provided and --config_save_path flag is also not set")
 	}
 
-	if err := pr.saveConfigUnprotected(filePath); err != nil {
+	if err := pr.saveProbesConfigUnprotected(filePath); err != nil {
 		return nil, err
 	}
 
-	return &pb.SaveConfigToDiskResponse{
+	return &pb.SaveProbesConfigResponse{
 		FilePath: &filePath,
 	}, nil
 }

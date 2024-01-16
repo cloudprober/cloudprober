@@ -331,18 +331,18 @@ func (x *ListProbesResponse) GetProbe() []*Probe {
 	return nil
 }
 
-type SaveConfigToDiskRequest struct {
+type SaveProbesConfigRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// File path to save config to. Default is configured through the
-	// command-line flag: --config_save_path
+	// File path to save probes config to. Default is configured through the
+	// command-line flag: --probes_config_save_path
 	FilePath *string `protobuf:"bytes,1,opt,name=file_path,json=filePath" json:"file_path,omitempty"`
 }
 
-func (x *SaveConfigToDiskRequest) Reset() {
-	*x = SaveConfigToDiskRequest{}
+func (x *SaveProbesConfigRequest) Reset() {
+	*x = SaveProbesConfigRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_github_com_cloudprober_cloudprober_prober_proto_service_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -350,13 +350,13 @@ func (x *SaveConfigToDiskRequest) Reset() {
 	}
 }
 
-func (x *SaveConfigToDiskRequest) String() string {
+func (x *SaveProbesConfigRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveConfigToDiskRequest) ProtoMessage() {}
+func (*SaveProbesConfigRequest) ProtoMessage() {}
 
-func (x *SaveConfigToDiskRequest) ProtoReflect() protoreflect.Message {
+func (x *SaveProbesConfigRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_prober_proto_service_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -368,19 +368,19 @@ func (x *SaveConfigToDiskRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveConfigToDiskRequest.ProtoReflect.Descriptor instead.
-func (*SaveConfigToDiskRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use SaveProbesConfigRequest.ProtoReflect.Descriptor instead.
+func (*SaveProbesConfigRequest) Descriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_prober_proto_service_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *SaveConfigToDiskRequest) GetFilePath() string {
+func (x *SaveProbesConfigRequest) GetFilePath() string {
 	if x != nil && x.FilePath != nil {
 		return *x.FilePath
 	}
 	return ""
 }
 
-type SaveConfigToDiskResponse struct {
+type SaveProbesConfigResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -388,8 +388,8 @@ type SaveConfigToDiskResponse struct {
 	FilePath *string `protobuf:"bytes,1,opt,name=file_path,json=filePath" json:"file_path,omitempty"`
 }
 
-func (x *SaveConfigToDiskResponse) Reset() {
-	*x = SaveConfigToDiskResponse{}
+func (x *SaveProbesConfigResponse) Reset() {
+	*x = SaveProbesConfigResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_github_com_cloudprober_cloudprober_prober_proto_service_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -397,13 +397,13 @@ func (x *SaveConfigToDiskResponse) Reset() {
 	}
 }
 
-func (x *SaveConfigToDiskResponse) String() string {
+func (x *SaveProbesConfigResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveConfigToDiskResponse) ProtoMessage() {}
+func (*SaveProbesConfigResponse) ProtoMessage() {}
 
-func (x *SaveConfigToDiskResponse) ProtoReflect() protoreflect.Message {
+func (x *SaveProbesConfigResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_prober_proto_service_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -415,12 +415,12 @@ func (x *SaveConfigToDiskResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveConfigToDiskResponse.ProtoReflect.Descriptor instead.
-func (*SaveConfigToDiskResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use SaveProbesConfigResponse.ProtoReflect.Descriptor instead.
+func (*SaveProbesConfigResponse) Descriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_prober_proto_service_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *SaveConfigToDiskResponse) GetFilePath() string {
+func (x *SaveProbesConfigResponse) GetFilePath() string {
 	if x != nil && x.FilePath != nil {
 		return *x.FilePath
 	}
@@ -460,12 +460,12 @@ var file_github_com_cloudprober_cloudprober_prober_proto_service_proto_rawDesc =
 	0x6f, 0x62, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x28, 0x0a, 0x05,
 	0x70, 0x72, 0x6f, 0x62, 0x65, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6c,
 	0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x50, 0x72, 0x6f, 0x62, 0x65, 0x52,
-	0x05, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x22, 0x36, 0x0a, 0x17, 0x53, 0x61, 0x76, 0x65, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x54, 0x6f, 0x44, 0x69, 0x73, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x05, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x22, 0x36, 0x0a, 0x17, 0x53, 0x61, 0x76, 0x65, 0x50, 0x72,
+	0x6f, 0x62, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
 	0x74, 0x12, 0x1b, 0x0a, 0x09, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x70, 0x61, 0x74, 0x68, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x50, 0x61, 0x74, 0x68, 0x22, 0x37,
-	0x0a, 0x18, 0x53, 0x61, 0x76, 0x65, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x54, 0x6f, 0x44, 0x69,
-	0x73, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x66, 0x69,
+	0x0a, 0x18, 0x53, 0x61, 0x76, 0x65, 0x50, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x66, 0x69,
 	0x6c, 0x65, 0x5f, 0x70, 0x61, 0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66,
 	0x69, 0x6c, 0x65, 0x50, 0x61, 0x74, 0x68, 0x32, 0xe0, 0x02, 0x0a, 0x0b, 0x43, 0x6c, 0x6f, 0x75,
 	0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x12, 0x49, 0x0a, 0x08, 0x41, 0x64, 0x64, 0x50, 0x72,
@@ -483,12 +483,12 @@ var file_github_com_cloudprober_cloudprober_prober_proto_service_proto_rawDesc =
 	0x65, 0x72, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x52, 0x65, 0x71,
 	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62,
 	0x65, 0x72, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x61, 0x0a, 0x10, 0x53, 0x61, 0x76, 0x65, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x54, 0x6f, 0x44, 0x69, 0x73, 0x6b, 0x12, 0x24, 0x2e, 0x63, 0x6c,
-	0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x53, 0x61, 0x76, 0x65, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x54, 0x6f, 0x44, 0x69, 0x73, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x61, 0x0a, 0x10, 0x53, 0x61, 0x76, 0x65, 0x50,
+	0x72, 0x6f, 0x62, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x24, 0x2e, 0x63, 0x6c,
+	0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x53, 0x61, 0x76, 0x65, 0x50, 0x72,
+	0x6f, 0x62, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
 	0x74, 0x1a, 0x25, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e,
-	0x53, 0x61, 0x76, 0x65, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x54, 0x6f, 0x44, 0x69, 0x73, 0x6b,
+	0x53, 0x61, 0x76, 0x65, 0x50, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x31, 0x5a, 0x2f, 0x67, 0x69,
 	0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72,
 	0x6f, 0x62, 0x65, 0x72, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72,
@@ -516,8 +516,8 @@ var file_github_com_cloudprober_cloudprober_prober_proto_service_proto_goTypes =
 	(*ListProbesRequest)(nil),        // 4: cloudprober.ListProbesRequest
 	(*Probe)(nil),                    // 5: cloudprober.Probe
 	(*ListProbesResponse)(nil),       // 6: cloudprober.ListProbesResponse
-	(*SaveConfigToDiskRequest)(nil),  // 7: cloudprober.SaveConfigToDiskRequest
-	(*SaveConfigToDiskResponse)(nil), // 8: cloudprober.SaveConfigToDiskResponse
+	(*SaveProbesConfigRequest)(nil),  // 7: cloudprober.SaveProbesConfigRequest
+	(*SaveProbesConfigResponse)(nil), // 8: cloudprober.SaveProbesConfigResponse
 	(*proto.ProbeDef)(nil),           // 9: cloudprober.probes.ProbeDef
 }
 var file_github_com_cloudprober_cloudprober_prober_proto_service_proto_depIdxs = []int32{
@@ -527,11 +527,11 @@ var file_github_com_cloudprober_cloudprober_prober_proto_service_proto_depIdxs =
 	0, // 3: cloudprober.Cloudprober.AddProbe:input_type -> cloudprober.AddProbeRequest
 	2, // 4: cloudprober.Cloudprober.RemoveProbe:input_type -> cloudprober.RemoveProbeRequest
 	4, // 5: cloudprober.Cloudprober.ListProbes:input_type -> cloudprober.ListProbesRequest
-	7, // 6: cloudprober.Cloudprober.SaveConfigToDisk:input_type -> cloudprober.SaveConfigToDiskRequest
+	7, // 6: cloudprober.Cloudprober.SaveProbesConfig:input_type -> cloudprober.SaveProbesConfigRequest
 	1, // 7: cloudprober.Cloudprober.AddProbe:output_type -> cloudprober.AddProbeResponse
 	3, // 8: cloudprober.Cloudprober.RemoveProbe:output_type -> cloudprober.RemoveProbeResponse
 	6, // 9: cloudprober.Cloudprober.ListProbes:output_type -> cloudprober.ListProbesResponse
-	8, // 10: cloudprober.Cloudprober.SaveConfigToDisk:output_type -> cloudprober.SaveConfigToDiskResponse
+	8, // 10: cloudprober.Cloudprober.SaveProbesConfig:output_type -> cloudprober.SaveProbesConfigResponse
 	7, // [7:11] is the sub-list for method output_type
 	3, // [3:7] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -630,7 +630,7 @@ func file_github_com_cloudprober_cloudprober_prober_proto_service_proto_init() {
 			}
 		}
 		file_github_com_cloudprober_cloudprober_prober_proto_service_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SaveConfigToDiskRequest); i {
+			switch v := v.(*SaveProbesConfigRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -642,7 +642,7 @@ func file_github_com_cloudprober_cloudprober_prober_proto_service_proto_init() {
 			}
 		}
 		file_github_com_cloudprober_cloudprober_prober_proto_service_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SaveConfigToDiskResponse); i {
+			switch v := v.(*SaveProbesConfigResponse); i {
 			case 0:
 				return &v.state
 			case 1:

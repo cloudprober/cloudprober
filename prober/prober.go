@@ -54,7 +54,7 @@ import (
 var randGenerator = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 var (
-	configSavePath = flag.String("config_save_path", "", "Path to save the config to on API triggered config changes. If empty, config saving is disabled.")
+	probesConfigSavePath = flag.String("probes_config_save_path", "", "Path to save the config to on API triggered config changes. If empty, config saving is disabled.")
 )
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
@@ -316,16 +316,10 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 	}
 }
 
-func (pr *Prober) saveConfigUnprotected(filePath string) error {
+func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
 	cfg := &configpb.ProberConfig{}
 	for _, p := range pr.Probes {
 		cfg.Probe = append(cfg.Probe, p.ProbeDef)
-	}
-	for _, s := range pr.Servers {
-		cfg.Server = append(cfg.Server, s.ServerDef)
-	}
-	for _, surfacer := range pr.Surfacers {
-		cfg.Surfacer = append(cfg.Surfacer, surfacer.SurfacerDef)
 	}
 
 	textCfg, err := prototext.Marshal(cfg)
@@ -334,7 +328,7 @@ func (pr *Prober) saveConfigUnprotected(filePath string) error {
 		return err
 	}
 
-	if err := os.WriteFile(*configSavePath, textCfg, 0644); err != nil {
+	if err := os.WriteFile(filePath, textCfg, 0644); err != nil {
 		pr.l.Errorf("Error saving config to disk: %v", err)
 		return err
 	}
