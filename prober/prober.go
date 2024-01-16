@@ -322,13 +322,15 @@ func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
 		cfg.Probe = append(cfg.Probe, p.ProbeDef)
 	}
 
-	textCfg, err := prototext.Marshal(cfg)
-	if err != nil {
-		pr.l.Errorf("Error converting config to textproto: %v", err)
-		return err
+	textCfg := prototext.MarshalOptions{
+		Indent: "  ",
+	}.Format(cfg)
+
+	if textCfg == "" {
+		pr.l.Warningf("Text marshaling of probes config returned an empty string. Config: %v", cfg)
 	}
 
-	if err := os.WriteFile(filePath, textCfg, 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(textCfg), 0644); err != nil {
 		pr.l.Errorf("Error saving config to disk: %v", err)
 		return err
 	}

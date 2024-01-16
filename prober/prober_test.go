@@ -16,10 +16,15 @@ package prober
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/probes"
+	probespb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRandomDuration(t *testing.T) {
@@ -69,6 +74,68 @@ func TestInterProbeWait(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s:%d", tt.interval, tt.numProbes), func(t *testing.T) {
 			assert.Equal(t, tt.want, interProbeWait(tt.interval, tt.numProbes))
+		})
+	}
+}
+
+func TestSaveProbesConfigUnprotected(t *testing.T) {
+	probes := map[string]*probes.ProbeInfo{
+		"test-probe-1": {
+			ProbeDef: &probespb.ProbeDef{
+				Name: proto.String("test-probe-1"),
+				Type: probespb.ProbeDef_DNS.Enum(),
+			},
+		},
+		"test-probe-2": {
+			ProbeDef: &probespb.ProbeDef{
+				Name: proto.String("test-probe-2"),
+				Type: probespb.ProbeDef_PING.Enum(),
+			},
+		},
+	}
+
+	tempDir := os.TempDir()
+
+	tests := []struct {
+		name       string
+		filePath   string
+		wantConfig string
+		wantErr    bool
+	}{
+		{
+			name:    "empty_file",
+			wantErr: true,
+		},
+		{
+			name:     "dir_path",
+			filePath: tempDir,
+			wantErr:  true,
+		},
+		{
+			name:     "normal",
+			filePath: filepath.Join(tempDir, "cp_probes.cfg"),
+			wantConfig: `probe: {
+  name: "test-probe-1"
+  type: DNS
+}
+probe: {
+  name: "test-probe-2"
+  type: PING
+}
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pr := &Prober{
+				Probes: probes,
+			}
+			if err := pr.saveProbesConfigUnprotected(tt.filePath); (err != nil) != tt.wantErr {
+				t.Errorf("Prober.saveProbesConfigUnprotected() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			b, _ := os.ReadFile(tt.filePath)
+			assert.Equal(t, tt.wantConfig, string(b))
 		})
 	}
 }
