@@ -40,6 +40,14 @@ message SurfacerConf {
     PROBE = 1;        // monitoring_url/probe/metric_name
     PTYPE_PROBE = 2;  // monitoring_url/ptype/probe/metric_name
   }
+
+  // Metric prefix to use for stackdriver metrics. If not specified, default
+  // is PTYPE_PROBE.
   optional MetricPrefix metrics_prefix = 6
-      [default = PTYPE_PROBE]; // using current behavior as default
+      [default = PTYPE_PROBE];
+
+  // If set to true, surfacer will not overwrite metrics data in memory. This
+  // will result in slightly higher memory usage and higher traffic to
+  // stackdriver.
+  optional bool disable_data_overwrite = 7 [default = false];
 }
