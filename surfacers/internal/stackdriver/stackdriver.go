@@ -58,7 +58,7 @@ type SDSurfacer struct {
 	allowedMetricsRegex *regexp.Regexp
 
 	// Internal cache for saving metric data until a batch is sent
-	cache        map[string]*monitoring.TimeSeries
+	cache        map[string][]*monitoring.TimeSeries
 	knownMetrics map[string]bool
 
 	// Channel for writing the data without blocking
@@ -89,7 +89,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
-		cache:        make(map[string]*monitoring.TimeSeries),
+		cache:        make(map[string][]*monitoring.TimeSeries),
 		knownMetrics: make(map[string]bool),
 		writeChan:    make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		c:            config,
@@ -190,13 +190,12 @@ func (s *SDSurfacer) createMetricDescriptor(ts *monitoring.TimeSeries) error {
 }
 
 // writeBatch polls the writeChan and the sendChan waiting for either a new
-// write packet or a new context. If data comes in on the writeChan, then
-// the data is pulled off and put into the cache (if there is already an
-// entry into the cache for the same metric, it updates the metric to the
-// new data). If ticker fires, then the metrics in the cache
-// are batched together. The Stackdriver API has a limit on the maximum number
-// of metrics that can be sent in a single request, so we may have to make
-// multiple requests to the Stackdriver API to send the full cache of metrics.
+// write packet or a new context. When data comes in on the writeChan, it is
+// pulled off and put into the cache. When ticker fires, metrics in the cache
+// are batched together and pushed to the Stackdriver (SD) API. SD API has a
+// limit on the maximum number of metrics that can be sent in a single request,
+// so we may have to make multiple requests to the SD API to send the entire
+// cache.
 //
 // writeBatch is set up to run as an infinite goroutine call in the New function
 // to allow it to write asynchronously to Stack Driver.
@@ -225,15 +224,23 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 			}
 
 			var ts []*monitoring.TimeSeries
-			for _, v := range s.cache {
-				if !s.knownMetrics[v.Metric.Type] && v.Unit != "" {
-					if err := s.createMetricDescriptor(v); err != nil {
-						s.l.Warningf("Error creating metric descriptor for: %s, err: %v", v.Metric.Type, err)
-						continue
-					}
-					s.knownMetrics[v.Metric.Type] = true
+			for _, vs := range s.cache {
+				if !s.c.GetDisableDataOverwrite() {
+					// Note: len(vs) will always be 1 if data overwrite is not
+					// disabled, because of how we store the information; the
+					// following is a no-op, but it clarifies the intent.
+					vs = vs[len(vs)-1:]
 				}
-				ts = append(ts, v)
+				for _, v := range vs {
+					if !s.knownMetrics[v.Metric.Type] && v.Unit != "" {
+						if err := s.createMetricDescriptor(v); err != nil {
+							s.l.Warningf("Error creating metric descriptor for: %s, err: %v", v.Metric.Type, err)
+							continue
+						}
+						s.knownMetrics[v.Metric.Type] = true
+					}
+					ts = append(ts, v)
+				}
 			}
 
 			// We batch the time series into appropriately-sized sets
@@ -335,10 +342,15 @@ func (s *SDSurfacer) recordTimeSeries(bm *baseMetric, tv *monitoring.TypedValue)
 	// We create a key that is a composite of both the name and the
 	// labels so we can make sure that the cache holds all distinct
 	// values and not just the ones with different names.
-	s.cache[bm.name+","+bm.cacheKey] = ts
+	k := bm.name + "," + bm.cacheKey
 
+	// If data overwrite is disabled, we append the timeseries to the cache.
+	if s.c.GetDisableDataOverwrite() {
+		s.cache[k] = append(s.cache[k], ts)
+		return ts
+	}
+	s.cache[k] = []*monitoring.TimeSeries{ts}
 	return ts
-
 }
 
 // sdKind converts EventMetrics kind to StackDriver kind string.
@@ -421,6 +433,7 @@ func recordMapValue[T int64 | float64](s *SDSurfacer, bm *baseMetric, m *metrics
 	for _, mapKey := range m.Keys() {
 		mbm := bm.Clone()
 		mbm.labels[m.MapName] = mapKey
+		mbm.cacheKey += "," + m.MapName + "=" + mapKey
 		f := float64(m.GetKey(mapKey))
 		ts = append(ts, s.recordTimeSeries(mbm, &monitoring.TypedValue{DoubleValue: &f}))
 	}

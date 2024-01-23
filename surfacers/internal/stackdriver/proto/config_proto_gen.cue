@@ -47,5 +47,12 @@ package proto
 		PTYPE_PROBE: 2
 	}
 
-	metricsPrefix?: #MetricPrefix @protobuf(6,MetricPrefix,name=metrics_prefix,"default=PTYPE_PROBE") // using current behavior as default
+	// Metric prefix to use for stackdriver metrics. If not specified, default
+	// is PTYPE_PROBE.
+	metricsPrefix?: #MetricPrefix @protobuf(6,MetricPrefix,name=metrics_prefix,"default=PTYPE_PROBE")
+
+	// If set to true, surfacer will not overwrite metrics data in memory. This
+	// will result in slightly higher memory usage and higher traffic to
+	// stackdriver.
+	disableDataOverwrite?: bool @protobuf(7,bool,name=disable_data_overwrite,"default=false")
 }
