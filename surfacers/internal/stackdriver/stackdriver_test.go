@@ -16,6 +16,7 @@ package stackdriver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ import (
 
 func newTestSurfacer() SDSurfacer {
 	return SDSurfacer{
-		cache:       make(map[string]*monitoring.TimeSeries),
+		cache:       make(map[string][]*monitoring.TimeSeries),
 		onGCE:       true,
 		projectName: "test-project",
 		resource: &monitoring.MonitoredResource{
@@ -110,8 +111,19 @@ func TestBaseMetric(t *testing.T) {
 	}
 }
 
-func TestTimeSeries(t *testing.T) {
+func testTimeSeries(t *testing.T, disableOverwrite bool) {
+	t.Helper()
+
 	testTimestamp := time.Now()
+
+	// Generate a time series and check that it is correct
+	s := newTestSurfacer()
+	s.opts = options.BuildOptionsForTest(&surfacerpb.SurfacerDef{
+		IgnoreMetricsWithName: proto.String(".*sysvars_ec2_name"),
+	})
+	s.c = &configpb.SurfacerConf{
+		DisableDataOverwrite: proto.Bool(disableOverwrite),
+	}
 
 	tests := []struct {
 		description   string
@@ -122,124 +134,153 @@ func TestTimeSeries(t *testing.T) {
 		tsValue       []float64
 		tsUnit        []string
 		tsExtraLabels [][2]string
+		wantCacheKeys []string
+		wantNumTS     int
 	}{
 		{
-			description: "timeseries creation with a non-default float64 value",
+			description: "int64-metric",
 			metricName:  "success",
 			metricValue: metrics.NewInt(123456),
 			tsValue:     []float64{123456},
+			wantNumTS:   1,
 		},
 		{
-			description: "timeseries creation with a non-default float64 value",
-			metricName:  "sysvars_ec2_name",
-			metricValue: metrics.NewString("xyz"),
-			tsValue:     []float64{},
+			description:   "ignore-metric",
+			metricName:    "sysvars_ec2_name",
+			metricValue:   metrics.NewString("xyz"),
+			tsValue:       []float64{},
+			wantCacheKeys: []string{"-"}, // want nothing
+			wantNumTS:     0,
 		},
 		{
-			description: "timeseries creation with a non-default float64 value",
+			description: "int64-metric-2",
 			metricName:  "success",
 			metricValue: metrics.NewInt(123456),
 			tsValue:     []float64{123456},
+			wantNumTS:   1,
 		},
 		{
-			description: "timeseries creation with a non-default float64 value with unit",
+			description: "float-metric",
 			metricName:  "latency",
 			metricValue: metrics.NewFloat(1.176),
 			latencyUnit: time.Millisecond,
 			tsValue:     []float64{1.176},
 			tsUnit:      []string{"ms"},
+			wantNumTS:   1,
 		},
 		{
-			description:   "timeseries creation with a non-default string value and labels",
+			description:   "string-value",
 			metricName:    "version",
 			metricValue:   metrics.NewString("versionXX"),
 			labels:        [][2]string{{"keyA", "valueA"}, {"keyB", "valueB"}},
 			tsValue:       []float64{1},
 			tsExtraLabels: [][2]string{{"val", "versionXX"}},
+			wantCacheKeys: []string{"version,keyA=valueA,keyB=valueB"},
+			wantNumTS:     1,
 		},
 		{
-			description:   "timeseries creation with a int64 map",
+			description:   "int64-map",
 			metricName:    "resp-code",
 			metricValue:   metrics.NewMap("code").IncKeyBy("200", 98).IncKeyBy("500", 2),
 			labels:        [][2]string{{"keyC", "valueC"}},
 			tsValue:       []float64{98, 2},
 			tsExtraLabels: [][2]string{{"code", "200"}, {"code", "500"}},
+			wantCacheKeys: []string{"resp-code,keyC=valueC,code=200", "resp-code,keyC=valueC,code=500"},
+			wantNumTS:     1,
 		},
 		{
-			description:   "timeseries creation with a float64 map",
+			description:   "float64-map",
 			metricName:    "app-latency",
 			metricValue:   metrics.NewMapFloat("percentile").IncKeyBy("p95", 0.05).IncKeyBy("p99", 0.9),
 			labels:        [][2]string{{"keyD", "valueD"}},
 			tsValue:       []float64{0.05, 0.9},
 			tsExtraLabels: [][2]string{{"percentile", "p95"}, {"percentile", "p99"}},
+			wantCacheKeys: []string{"app-latency,keyD=valueD,percentile=p95", "app-latency,keyD=valueD,percentile=p99"},
+			wantNumTS:     1,
 		},
 	}
 	for _, tt := range tests {
-		em := metrics.NewEventMetrics(testTimestamp).
-			AddMetric(tt.metricName, tt.metricValue)
-		for _, l := range tt.labels {
-			em.AddLabel(l[0], l[1])
-		}
-		if tt.latencyUnit != 0 {
-			em.LatencyUnit = tt.latencyUnit
-		}
-
-		var timeSeries []*monitoring.TimeSeries
-
-		for i, v := range tt.tsValue {
-			f := float64(v)
-			labelsMap := make(map[string]string)
-			for _, label := range tt.labels {
-				labelsMap[label[0]] = label[1]
+		t.Run(tt.description, func(t *testing.T) {
+			em := metrics.NewEventMetrics(testTimestamp).
+				AddMetric(tt.metricName, tt.metricValue)
+			for _, l := range tt.labels {
+				em.AddLabel(l[0], l[1])
 			}
-			if tt.tsExtraLabels != nil {
-				labelsMap[tt.tsExtraLabels[i][0]] = tt.tsExtraLabels[i][1]
+			if tt.latencyUnit != 0 {
+				em.LatencyUnit = tt.latencyUnit
 			}
 
-			unit := "1"
-			if tt.tsUnit != nil {
-				unit = tt.tsUnit[i]
-			}
+			var timeSeries []*monitoring.TimeSeries
 
-			timeSeries = append(timeSeries, &monitoring.TimeSeries{
-				Metric: &monitoring.Metric{
-					Type:   "custom.googleapis.com/cloudprober/" + tt.metricName,
-					Labels: labelsMap,
-				},
-				Resource: &monitoring.MonitoredResource{
-					Type: "gce_instance",
-					Labels: map[string]string{
-						"instance_id": "test-instance",
-						"zone":        "us-central1-a",
+			for i, v := range tt.tsValue {
+				f := float64(v)
+				labelsMap := make(map[string]string)
+				for _, label := range tt.labels {
+					labelsMap[label[0]] = label[1]
+				}
+				if tt.tsExtraLabels != nil {
+					labelsMap[tt.tsExtraLabels[i][0]] = tt.tsExtraLabels[i][1]
+				}
+
+				unit := "1"
+				if tt.tsUnit != nil {
+					unit = tt.tsUnit[i]
+				}
+
+				timeSeries = append(timeSeries, &monitoring.TimeSeries{
+					Metric: &monitoring.Metric{
+						Type:   "custom.googleapis.com/cloudprober/" + tt.metricName,
+						Labels: labelsMap,
 					},
-				},
-				MetricKind: "CUMULATIVE",
-				ValueType:  "DOUBLE",
-				Unit:       unit,
-				Points: []*monitoring.Point{
-					{
-						Interval: &monitoring.TimeInterval{
-							StartTime: "0001-01-01T00:00:00Z",
-							EndTime:   em.Timestamp.Format(time.RFC3339Nano),
-						},
-						Value: &monitoring.TypedValue{
-							DoubleValue: &f,
+					Resource: &monitoring.MonitoredResource{
+						Type: "gce_instance",
+						Labels: map[string]string{
+							"instance_id": "test-instance",
+							"zone":        "us-central1-a",
 						},
 					},
-				},
-			})
-		}
+					MetricKind: "CUMULATIVE",
+					ValueType:  "DOUBLE",
+					Unit:       unit,
+					Points: []*monitoring.Point{
+						{
+							Interval: &monitoring.TimeInterval{
+								StartTime: "0001-01-01T00:00:00Z",
+								EndTime:   em.Timestamp.Format(time.RFC3339Nano),
+							},
+							Value: &monitoring.TypedValue{
+								DoubleValue: &f,
+							},
+						},
+					},
+				})
+			}
 
-		// Generate a time series and check that it is correct
-		s := newTestSurfacer()
-		s.opts = options.BuildOptionsForTest(&surfacerpb.SurfacerDef{
-			IgnoreMetricsWithName: proto.String(".*sysvars_ec2_name"),
+			gotTimeSeries := s.recordEventMetrics(em)
+
+			if disableOverwrite && tt.description == "int64-metric-2" {
+				tt.wantNumTS = 2
+			}
+			if len(tt.wantCacheKeys) == 0 {
+				tt.wantCacheKeys = []string{tt.metricName + ","}
+			}
+			for _, wantCacheKey := range tt.wantCacheKeys {
+				assert.Equal(t, tt.wantNumTS, len(s.cache[wantCacheKey]))
+			}
+			t.Logf("cache: %v", s.cache)
+
+			if diff := pretty.Compare(timeSeries, gotTimeSeries); diff != "" {
+				t.Errorf("timeSeries() produced incorrect timeSeries (-want +got):\n%s\ntest description: %s", diff, tt.description)
+			}
 		})
+	}
+}
 
-		gotTimeSeries := s.recordEventMetrics(em)
-		if diff := pretty.Compare(timeSeries, gotTimeSeries); diff != "" {
-			t.Errorf("timeSeries() produced incorrect timeSeries (-want +got):\n%s\ntest description: %s", diff, tt.description)
-		}
+func TestTimeSeries(t *testing.T) {
+	for _, disableOverwrite := range []bool{false, true} {
+		t.Run(fmt.Sprintf("disableOverwrite=%v", disableOverwrite), func(t *testing.T) {
+			testTimeSeries(t, disableOverwrite)
+		})
 	}
 }
 
