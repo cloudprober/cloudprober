@@ -24,6 +24,7 @@ package prober
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"os"
@@ -326,8 +327,10 @@ func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
 		Indent: "  ",
 	}.Format(cfg)
 
-	if textCfg == "" {
-		pr.l.Warningf("Text marshaling of probes config returned an empty string. Config: %v", cfg)
+	if textCfg == "" && len(pr.Probes) != 0 {
+		err := fmt.Errorf("text marshaling of probes config returned an empty string. Config: %v", cfg)
+		pr.l.Warning(err.Error())
+		return err
 	}
 
 	if err := os.WriteFile(filePath, []byte(textCfg), 0644); err != nil {
