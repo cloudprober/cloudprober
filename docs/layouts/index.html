@@ -1,20 +1,18 @@
 {{ define "main" }}
-<section class="section container-fluid mt-n3 pb-3">
-  <div class="row justify-content-center">
-    <div class="col-lg-12 text-center">
-      <h1 class="mt-0">{{ .Title }}</h1>
-    </div>
-    <div class="col-lg-11 col-xl-10 text-center">
-      <p class="lead">{{ .Params.lead | safeHTML }}</p>
+<section class="section container-fluid mt-n3 pb-3" style="padding: 40px 50px;">
+  <div class="row justify-content-center mt-2">
+    <div class="col-lg-8 text-center">
+      <h1 class="mb-3">{{ .Title }}</h1>
+      <h3 class="mb-5">{{ .Params.lead | safeHTML }}</h3>
       <a
-        class="btn btn-primary btn-lg px-4 mb-2"
+        class="btn btn-lg btn-primary mb-2"
         href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/cloudprober"
         role="button"
         >Get Started</a
       >
-      <p class="meta" style="font-weight:500">
-        <a href="https://github.com/cloudprober/cloudprober">Open-source</a>
-      </p>
+    </div>
+    <div class="col-lg-8">
+      <img width=440 style="float:right; margin-bottom: 10px;" src="/homepage.svg">
     </div>
   </div>
 </section>
