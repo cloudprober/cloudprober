@@ -16,7 +16,6 @@ package stackdriver
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -25,7 +24,6 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/stackdriver/proto"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
-	"github.com/kylelemons/godebug/pretty"
 	"github.com/stretchr/testify/assert"
 	monitoring "google.golang.org/api/monitoring/v3"
 	"google.golang.org/protobuf/proto"
@@ -33,7 +31,7 @@ import (
 
 func newTestSurfacer() SDSurfacer {
 	return SDSurfacer{
-		cache:       make(map[string][]*monitoring.TimeSeries),
+		cache:       make(map[string]*monitoring.TimeSeries),
 		onGCE:       true,
 		projectName: "test-project",
 		resource: &monitoring.MonitoredResource{
@@ -111,7 +109,7 @@ func TestBaseMetric(t *testing.T) {
 	}
 }
 
-func testTimeSeries(t *testing.T, disableOverwrite bool) {
+func TestTimeSeries(t *testing.T) {
 	t.Helper()
 
 	testTimestamp := time.Now()
@@ -121,9 +119,6 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 	s.opts = options.BuildOptionsForTest(&surfacerpb.SurfacerDef{
 		IgnoreMetricsWithName: proto.String(".*sysvars_ec2_name"),
 	})
-	s.c = &configpb.SurfacerConf{
-		DisableDataOverwrite: proto.Bool(disableOverwrite),
-	}
 
 	tests := []struct {
 		description   string
@@ -135,14 +130,12 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 		tsUnit        []string
 		tsExtraLabels [][2]string
 		wantCacheKeys []string
-		wantNumTS     int
 	}{
 		{
 			description: "int64-metric",
 			metricName:  "success",
 			metricValue: metrics.NewInt(123456),
 			tsValue:     []float64{123456},
-			wantNumTS:   1,
 		},
 		{
 			description:   "ignore-metric",
@@ -150,14 +143,12 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 			metricValue:   metrics.NewString("xyz"),
 			tsValue:       []float64{},
 			wantCacheKeys: []string{"-"}, // want nothing
-			wantNumTS:     0,
 		},
 		{
 			description: "int64-metric-2",
 			metricName:  "success",
 			metricValue: metrics.NewInt(123456),
 			tsValue:     []float64{123456},
-			wantNumTS:   1,
 		},
 		{
 			description: "float-metric",
@@ -166,7 +157,6 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 			latencyUnit: time.Millisecond,
 			tsValue:     []float64{1.176},
 			tsUnit:      []string{"ms"},
-			wantNumTS:   1,
 		},
 		{
 			description:   "string-value",
@@ -176,7 +166,6 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 			tsValue:       []float64{1},
 			tsExtraLabels: [][2]string{{"val", "versionXX"}},
 			wantCacheKeys: []string{"version,keyA=valueA,keyB=valueB"},
-			wantNumTS:     1,
 		},
 		{
 			description:   "int64-map",
@@ -186,7 +175,6 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 			tsValue:       []float64{98, 2},
 			tsExtraLabels: [][2]string{{"code", "200"}, {"code", "500"}},
 			wantCacheKeys: []string{"resp-code,keyC=valueC,code=200", "resp-code,keyC=valueC,code=500"},
-			wantNumTS:     1,
 		},
 		{
 			description:   "float64-map",
@@ -196,7 +184,6 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 			tsValue:       []float64{0.05, 0.9},
 			tsExtraLabels: [][2]string{{"percentile", "p95"}, {"percentile", "p99"}},
 			wantCacheKeys: []string{"app-latency,keyD=valueD,percentile=p95", "app-latency,keyD=valueD,percentile=p99"},
-			wantNumTS:     1,
 		},
 	}
 	for _, tt := range tests {
@@ -210,7 +197,7 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 				em.LatencyUnit = tt.latencyUnit
 			}
 
-			var timeSeries []*monitoring.TimeSeries
+			var wantTimeSeries []*monitoring.TimeSeries
 
 			for i, v := range tt.tsValue {
 				f := float64(v)
@@ -227,7 +214,7 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 					unit = tt.tsUnit[i]
 				}
 
-				timeSeries = append(timeSeries, &monitoring.TimeSeries{
+				wantTimeSeries = append(wantTimeSeries, &monitoring.TimeSeries{
 					Metric: &monitoring.Metric{
 						Type:   "custom.googleapis.com/cloudprober/" + tt.metricName,
 						Labels: labelsMap,
@@ -258,28 +245,14 @@ func testTimeSeries(t *testing.T, disableOverwrite bool) {
 
 			gotTimeSeries := s.recordEventMetrics(em)
 
-			if disableOverwrite && tt.description == "int64-metric-2" {
-				tt.wantNumTS = 2
-			}
 			if len(tt.wantCacheKeys) == 0 {
 				tt.wantCacheKeys = []string{tt.metricName + ","}
 			}
-			for _, wantCacheKey := range tt.wantCacheKeys {
-				assert.Equal(t, tt.wantNumTS, len(s.cache[wantCacheKey]))
-			}
-			t.Logf("cache: %v", s.cache)
 
-			if diff := pretty.Compare(timeSeries, gotTimeSeries); diff != "" {
-				t.Errorf("timeSeries() produced incorrect timeSeries (-want +got):\n%s\ntest description: %s", diff, tt.description)
+			assert.Equal(t, wantTimeSeries, gotTimeSeries, "Got timeseries")
+			for i, wantTS := range wantTimeSeries {
+				assert.Equal(t, wantTS, s.cache[tt.wantCacheKeys[i]], "Cache timeseries")
 			}
-		})
-	}
-}
-
-func TestTimeSeries(t *testing.T) {
-	for _, disableOverwrite := range []bool{false, true} {
-		t.Run(fmt.Sprintf("disableOverwrite=%v", disableOverwrite), func(t *testing.T) {
-			testTimeSeries(t, disableOverwrite)
 		})
 	}
 }

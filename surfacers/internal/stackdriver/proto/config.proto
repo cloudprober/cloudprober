@@ -45,9 +45,4 @@ message SurfacerConf {
   // is PTYPE_PROBE.
   optional MetricPrefix metrics_prefix = 6
       [default = PTYPE_PROBE];
-
-  // If set to true, surfacer will not overwrite metrics data in memory. This
-  // will result in slightly higher memory usage and higher traffic to
-  // stackdriver.
-  optional bool disable_data_overwrite = 7 [default = false];
 }

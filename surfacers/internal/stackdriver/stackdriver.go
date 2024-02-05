@@ -58,7 +58,7 @@ type SDSurfacer struct {
 	allowedMetricsRegex *regexp.Regexp
 
 	// Internal cache for saving metric data until a batch is sent
-	cache        map[string][]*monitoring.TimeSeries
+	cache        map[string]*monitoring.TimeSeries
 	knownMetrics map[string]bool
 
 	// Channel for writing the data without blocking
@@ -89,7 +89,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
-		cache:        make(map[string][]*monitoring.TimeSeries),
+		cache:        make(map[string]*monitoring.TimeSeries),
 		knownMetrics: make(map[string]bool),
 		writeChan:    make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		c:            config,
@@ -224,23 +224,15 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 			}
 
 			var ts []*monitoring.TimeSeries
-			for _, vs := range s.cache {
-				if !s.c.GetDisableDataOverwrite() {
-					// Note: len(vs) will always be 1 if data overwrite is not
-					// disabled, because of how we store the information; the
-					// following is a no-op, but it clarifies the intent.
-					vs = vs[len(vs)-1:]
-				}
-				for _, v := range vs {
-					if !s.knownMetrics[v.Metric.Type] && v.Unit != "" {
-						if err := s.createMetricDescriptor(v); err != nil {
-							s.l.Warningf("Error creating metric descriptor for: %s, err: %v", v.Metric.Type, err)
-							continue
-						}
-						s.knownMetrics[v.Metric.Type] = true
+			for _, v := range s.cache {
+				if !s.knownMetrics[v.Metric.Type] && v.Unit != "" {
+					if err := s.createMetricDescriptor(v); err != nil {
+						s.l.Warningf("Error creating metric descriptor for: %s, err: %v", v.Metric.Type, err)
+						continue
 					}
-					ts = append(ts, v)
+					s.knownMetrics[v.Metric.Type] = true
 				}
+				ts = append(ts, v)
 			}
 
 			// We batch the time series into appropriately-sized sets
@@ -344,12 +336,7 @@ func (s *SDSurfacer) recordTimeSeries(bm *baseMetric, tv *monitoring.TypedValue)
 	// values and not just the ones with different names.
 	k := bm.name + "," + bm.cacheKey
 
-	// If data overwrite is disabled, we append the timeseries to the cache.
-	if s.c.GetDisableDataOverwrite() {
-		s.cache[k] = append(s.cache[k], ts)
-		return ts
-	}
-	s.cache[k] = []*monitoring.TimeSeries{ts}
+	s.cache[k] = ts
 	return ts
 }
 
