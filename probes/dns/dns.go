@@ -51,6 +51,7 @@ type Client interface {
 	Exchange(*dns.Msg, string) (*dns.Msg, time.Duration, error)
 	setReadTimeout(time.Duration)
 	setSourceIP(net.IP)
+	setDNSProto(string)
 }
 
 // ClientImpl is a concrete DNS client that can be instantiated.
@@ -70,6 +71,11 @@ func (c *clientImpl) setSourceIP(ip net.IP) {
 	}
 }
 
+// setDNSProto sets the DNS transport protocol to use.
+func (c *clientImpl) setDNSProto(proto string) {
+	c.Net = proto
+}
+
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name string
@@ -80,6 +86,7 @@ type Probe struct {
 	// book-keeping params
 	targets   []endpoint.Endpoint
 	queryType uint16
+	dnsProto  string
 	fqdn      string
 	client    Client
 }
@@ -148,6 +155,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.queryType = uint16(queryType)
 	p.fqdn = dns.Fqdn(p.c.GetResolvedDomain())
 
+	dnsProto := strings.TrimSpace(strings.ToLower(p.c.GetDnsProto()))
+	if dnsProto != "" && dnsProto != "udp" && dnsProto != "tcp" && dnsProto != "tcp-tls" {
+		return fmt.Errorf("dns_probe(%v): invalid dns protocol type %v", name, dnsProto)
+	}
+
 	// I believe the client is safe for concurrent use by multiple goroutines
 	// (although the documentation doesn't explicitly say so). It uses locks
 	// internally and the underlying net.Conn declares that multiple goroutines
@@ -158,6 +170,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
 	p.client.setReadTimeout(p.opts.Timeout)
+	// Set DNS Protocol to use
+	p.client.setDNSProto(dnsProto)
 
 	return nil
 }
