@@ -84,6 +84,13 @@ package proto
 	TA:         32768
 	DLV:        32769
 }
+#DNSProto: {"udp", #enumValue: 1} |
+	{"tcp", #enumValue: 2}
+
+#DNSProto_value: {
+	udp: 1
+	tcp: 2
+}
 
 #ProbeConf: {
 	// Domain to use when making DNS queries
@@ -102,6 +109,9 @@ package proto
 	// default we resolve first if it's a discovered resource, e.g., a k8s
 	// endpoint.
 	resolveFirst?: bool @protobuf(5,bool,name=resolve_first)
+
+	// Which DNS protocol is used for resolution
+	dnsProto?: #DNSProto @protobuf(97,DNSProto,name=dns_proto,"default=udp")
 
 	// Requests per probe.
 	// Number of DNS requests per probe. Requests are executed concurrently and
