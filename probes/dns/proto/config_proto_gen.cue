@@ -103,7 +103,7 @@ package proto
 	// endpoint.
 	resolveFirst?: bool @protobuf(5,bool,name=resolve_first)
 
-	// Which DNS protocol is used for resolution
+	// Which DNS protocol is used for resolution. Accepted values: udp, tcp and tcp-tls
 	dnsProto?: string @protobuf(97,string,name=dns_proto,#"default="""#)
 
 	// Requests per probe.

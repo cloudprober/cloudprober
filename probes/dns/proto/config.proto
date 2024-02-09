@@ -66,7 +66,7 @@ message ProbeConf {
   // endpoint.
   optional bool resolve_first = 5;
 
-  // Which DNS protocol is used for resolution
+  // Which DNS protocol is used for resolution. Accepted values: udp, tcp and tcp-tls
   optional string dns_proto = 97 [default = ""];
 
   // Requests per probe.

@@ -209,7 +209,7 @@ type ProbeConf struct {
 	// default we resolve first if it's a discovered resource, e.g., a k8s
 	// endpoint.
 	ResolveFirst *bool `protobuf:"varint,5,opt,name=resolve_first,json=resolveFirst" json:"resolve_first,omitempty"`
-	// Which DNS protocol is used for resolution
+	// Which DNS protocol is used for resolution. Accepted values: udp, tcp and tcp-tls
 	DnsProto *string `protobuf:"bytes,97,opt,name=dns_proto,json=dnsProto,def=" json:"dns_proto,omitempty"`
 	// Requests per probe.
 	// Number of DNS requests per probe. Requests are executed concurrently and
