@@ -48,11 +48,6 @@ enum QueryType {
   DLV = 32769;
 }
 
-enum DNSProto {
-  udp = 1;
-  tcp = 2;
-}
-
 message ProbeConf {
   // Domain to use when making DNS queries
   optional string resolved_domain = 1 [default = "www.google.com."];
@@ -72,7 +67,7 @@ message ProbeConf {
   optional bool resolve_first = 5;
 
   // Which DNS protocol is used for resolution
-  optional DNSProto dns_proto = 97 [default = udp];
+  optional string dns_proto = 97 [default = ""];
 
   // Requests per probe.
   // Number of DNS requests per probe. Requests are executed concurrently and
