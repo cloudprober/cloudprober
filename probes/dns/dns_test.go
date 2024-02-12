@@ -37,6 +37,7 @@ import (
 const (
 	questionBadDomain    = "nosuchname"
 	questionBadType      = configpb.QueryType_CAA
+	questionBadProto     = "tcp-bad"
 	answerContent        = " 3600 IN A 192.168.0.1"
 	answerMatchPattern   = "3600"
 	answerNoMatchPattern = "NAA"
@@ -71,6 +72,7 @@ func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Dura
 }
 func (*mockClient) setReadTimeout(time.Duration) {}
 func (*mockClient) setSourceIP(net.IP)           {}
+func (*mockClient) setDNSProto(string)           {}
 
 func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
 	p.client = new(mockClient)
@@ -196,6 +198,42 @@ func TestProbeType(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	runProbeAndVerify(t, "probetype", p, 1, 0)
+}
+
+func TestProbeProto(t *testing.T) {
+	p := &Probe{}
+	badProto := questionBadProto
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("8.8.8.8"),
+		Interval: 2 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			DnsProto: &badProto,
+		},
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err == nil {
+		t.Fatalf("Probe should have failed on creation: %v", err)
+	}
+
+	// Testing udp
+	opts.ProbeConf = &configpb.ProbeConf{
+		DnsProto: proto.String("udp"),
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect failure because only one answer returned and two wanted.
+	runProbeAndVerify(t, "probeprotoudptest", p, 1, 1)
+
+	// Testing tcp
+	opts.ProbeConf = &configpb.ProbeConf{
+		DnsProto: proto.String("tcp"),
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect failure because only one answer returned and two wanted.
+	runProbeAndVerify(t, "probeprototcptest", p, 1, 1)
 }
 
 func TestBadName(t *testing.T) {
