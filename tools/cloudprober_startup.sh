@@ -57,4 +57,5 @@ VARS="kernel=${KERNEL_VERSION},google_release=${GOOGLE_RELEASE}"
 VARS="${VARS},${JOB}_tag=${VERSION},${JOB}_version=${DIGEST:0:12}"
 
 docker run -e "SYSVARS=${VARS}" --env-file <(env | grep CLOUDPROBER_)  \
-  --net host --privileged -v /tmp:/tmp "${IMAGE}:${VERSION}"
+  --net host --privileged -v /tmp:/tmp --log-driver journald \
+  "${IMAGE}:${VERSION}"
