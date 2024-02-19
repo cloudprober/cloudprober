@@ -84,6 +84,15 @@ package proto
 	TA:         32768
 	DLV:        32769
 }
+#DNSProto: {"UDP", #enumValue: 0} |
+	{"TCP", #enumValue: 1} |
+	{"TCP_TLS", #enumValue: 2}
+
+#DNSProto_value: {
+	UDP:     0
+	TCP:     1
+	TCP_TLS: 2
+}
 
 #ProbeConf: {
 	// Domain to use when making DNS queries
@@ -103,8 +112,8 @@ package proto
 	// endpoint.
 	resolveFirst?: bool @protobuf(5,bool,name=resolve_first)
 
-	// Which DNS protocol is used for resolution. Accepted values: udp, tcp and tcp-tls
-	dnsProto?: string @protobuf(97,string,name=dns_proto,#"default="""#)
+	// Which DNS protocol is used for resolution.
+	dnsProto?: #DNSProto @protobuf(97,DNSProto,name=dns_proto,"default=UDP")
 
 	// Requests per probe.
 	// Number of DNS requests per probe. Requests are executed concurrently and

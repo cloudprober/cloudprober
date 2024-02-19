@@ -51,7 +51,7 @@ type Client interface {
 	Exchange(*dns.Msg, string) (*dns.Msg, time.Duration, error)
 	setReadTimeout(time.Duration)
 	setSourceIP(net.IP)
-	setDNSProto(string)
+	setDNSProto(configpb.DNSProto)
 }
 
 // ClientImpl is a concrete DNS client that can be instantiated.
@@ -72,8 +72,15 @@ func (c *clientImpl) setSourceIP(ip net.IP) {
 }
 
 // setDNSProto sets the DNS transport protocol to use.
-func (c *clientImpl) setDNSProto(proto string) {
-	c.Net = proto
+func (c *clientImpl) setDNSProto(proto configpb.DNSProto) {
+	switch proto {
+	case configpb.DNSProto_UDP:
+		c.Net = "udp"
+	case configpb.DNSProto_TCP:
+		c.Net = "tcp"
+	case configpb.DNSProto_TCP_TLS:
+		c.Net = "tcp-tls"
+	}
 }
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -155,10 +162,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.queryType = uint16(queryType)
 	p.fqdn = dns.Fqdn(p.c.GetResolvedDomain())
 
-	dnsProto := strings.TrimSpace(strings.ToLower(p.c.GetDnsProto()))
-	if dnsProto != "" && dnsProto != "udp" && dnsProto != "tcp" && dnsProto != "tcp-tls" {
-		return fmt.Errorf("dns_probe(%v): invalid dns protocol type %v", name, dnsProto)
-	}
+	dnsProto := p.c.GetDnsProto()
 
 	// I believe the client is safe for concurrent use by multiple goroutines
 	// (although the documentation doesn't explicitly say so). It uses locks

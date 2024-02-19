@@ -37,7 +37,6 @@ import (
 const (
 	questionBadDomain    = "nosuchname"
 	questionBadType      = configpb.QueryType_CAA
-	questionBadProto     = "tcp-bad"
 	answerContent        = " 3600 IN A 192.168.0.1"
 	answerMatchPattern   = "3600"
 	answerNoMatchPattern = "NAA"
@@ -70,9 +69,9 @@ func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Dura
 	}
 	return out, time.Millisecond, nil
 }
-func (*mockClient) setReadTimeout(time.Duration) {}
-func (*mockClient) setSourceIP(net.IP)           {}
-func (*mockClient) setDNSProto(string)           {}
+func (*mockClient) setReadTimeout(time.Duration)  {}
+func (*mockClient) setSourceIP(net.IP)            {}
+func (*mockClient) setDNSProto(configpb.DNSProto) {}
 
 func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
 	p.client = new(mockClient)
@@ -202,37 +201,37 @@ func TestProbeType(t *testing.T) {
 
 func TestProbeProto(t *testing.T) {
 	p := &Probe{}
-	badProto := questionBadProto
 	opts := &options.Options{
-		Targets:  targets.StaticTargets("8.8.8.8"),
-		Interval: 2 * time.Second,
-		Timeout:  time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			DnsProto: &badProto,
-		},
-	}
-	if err := p.Init("dns_probe_proto_test", opts); err == nil {
-		t.Fatalf("Probe should have failed on creation: %v", err)
-	}
-
-	// Testing udp
-	opts.ProbeConf = &configpb.ProbeConf{
-		DnsProto: proto.String("udp"),
+		Targets:   targets.StaticTargets("8.8.8.8"),
+		Interval:  2 * time.Second,
+		Timeout:   time.Second,
+		ProbeConf: &configpb.ProbeConf{},
 	}
 	if err := p.Init("dns_probe_proto_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	// expect failure because only one answer returned and two wanted.
+
+	// expect success using defaults
+	runProbeAndVerify(t, "probeprotoudpdefaulttest", p, 1, 1)
+
+	// Testing explicit udp
+	opts.ProbeConf = &configpb.ProbeConf{
+		DnsProto: configpb.DNSProto_UDP.Enum(),
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect success
 	runProbeAndVerify(t, "probeprotoudptest", p, 1, 1)
 
 	// Testing tcp
 	opts.ProbeConf = &configpb.ProbeConf{
-		DnsProto: proto.String("tcp"),
+		DnsProto: configpb.DNSProto_TCP.Enum(),
 	}
 	if err := p.Init("dns_probe_proto_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	// expect failure because only one answer returned and two wanted.
+	// expect success
 	runProbeAndVerify(t, "probeprototcptest", p, 1, 1)
 }
 
