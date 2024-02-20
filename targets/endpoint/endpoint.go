@@ -36,7 +36,6 @@ type Endpoint struct {
 	LastUpdated time.Time
 	Port        int
 	IP          net.IP
-	Info        string
 }
 
 // Key returns a string key that uniquely identifies that endpoint.
