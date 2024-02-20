@@ -37,7 +37,6 @@ type Endpoint struct {
 	LastUpdated time.Time
 	Port        int
 	IP          net.IP
-	Info        string
 }
 
 // Clone creates a deep copy of an Endpoint.
