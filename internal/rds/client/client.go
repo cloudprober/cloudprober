@@ -57,7 +57,6 @@ type cacheRecord struct {
 	ipStr       string
 	port        int
 	labels      map[string]string
-	info        string
 	lastUpdated time.Time
 }
 
@@ -140,7 +139,6 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 			ipStr:       res.GetIp(),
 			port:        int(res.GetPort()),
 			labels:      res.Labels,
-			info:        string(res.GetInfo()),
 			lastUpdated: time.Unix(res.GetLastUpdated(), 0),
 		}
 		client.names[i] = res.GetName()
@@ -162,7 +160,7 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 	result := make([]endpoint.Endpoint, len(client.names))
 	for i, name := range client.names {
 		cr := client.cache[name]
-		result[i] = endpoint.Endpoint{Name: name, IP: cr.ip, Port: cr.port, Labels: cr.labels, LastUpdated: cr.lastUpdated, Info: cr.info}
+		result[i] = endpoint.Endpoint{Name: name, IP: cr.ip, Port: cr.port, Labels: cr.labels, LastUpdated: cr.lastUpdated}
 	}
 	return result
 }
@@ -242,7 +240,7 @@ func (client *Client) initListResourcesFunc() error {
 	}
 
 	client.listResources = func(ctx context.Context, in *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
-		return pb.NewResourceDiscoveryClient(conn).ListResources(ctx, in)
+		return spb.NewResourceDiscoveryClient(conn).ListResources(ctx, in)
 	}
 
 	return nil
