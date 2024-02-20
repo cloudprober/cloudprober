@@ -79,7 +79,7 @@ message RDSInstances {
 
 // LoadBalancers discovery options.
 message LoadBalancers {
-  // Amazon Resource Name (ARN) of the load balancer
+  // Names of the load balancers,
   // if specified, only the corresponding load balancer information is returned.
   repeated string name = 1;
 }
@@ -109,6 +109,5 @@ message ProviderConfig {
 
   // RDS clusters discovery options.
   optional RDSClusters rds_clusters = 7;
-
 
 }
