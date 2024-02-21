@@ -83,19 +83,6 @@ func (c *clientImpl) setDNSProto(proto configpb.DNSProto) {
 	}
 }
 
-func (c *clientImpl) getDNSProto() configpb.DNSProto {
-	switch c.Net {
-	case "udp":
-		return configpb.DNSProto_UDP
-	case "tcp":
-		return configpb.DNSProto_TCP
-	case "tcp-tls":
-		return configpb.DNSProto_TCP_TLS
-	}
-	// Return defaults
-	return configpb.DNSProto_UDP
-}
-
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name string
