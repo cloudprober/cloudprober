@@ -70,7 +70,7 @@ func (s *Server) lameduckStatus() bool {
 
 func (s *Server) lameduckHandler(w http.ResponseWriter) {
 	if s.ldLister == nil {
-		w.Write([]byte("unknown"))
+		w.Write([]byte("unknown - lameduck lister not initialized"))
 		return
 	}
 	w.Write([]byte(strconv.FormatBool(s.lameduckStatus())))
@@ -78,7 +78,7 @@ func (s *Server) lameduckHandler(w http.ResponseWriter) {
 
 func (s *Server) healthcheckHandler(w http.ResponseWriter) {
 	if s.ldLister == nil {
-		w.Write([]byte("unknown"))
+		w.Write([]byte("unknown - lameduck lister not initialized. Note: Healthcheck at this port is NOT a good proxy for Cloudprober health."))
 		return
 	}
 	if s.lameduckStatus() {

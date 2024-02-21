@@ -171,7 +171,7 @@ func TestLameduckListerNil(t *testing.T) {
 	if resp, status := get(t, s.ln, "lameduck"); !strings.Contains(resp, unknown) || status != "200 OK" {
 		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, unknown, "200 OK")
 	}
-	if resp, status := get(t, s.ln, "healthcheck"); resp != unknown || status != "200 OK" {
+	if resp, status := get(t, s.ln, "healthcheck"); !strings.Contains(resp, unknown) || status != "200 OK" {
 		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, unknown, "200 OK")
 	}
 }
