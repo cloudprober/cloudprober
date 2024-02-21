@@ -57,37 +57,31 @@ func (s *Server) statsKeeper(name string) {
 }
 
 // lameduckStatus fetches the global list of lameduck targets and returns:
-// - (true, nil) if this machine is in that list
-// - (false, nil) if not
-// - (false, error) upon failure to fetch the list.
-func (s *Server) lameduckStatus() (bool, error) {
-	if s.ldLister == nil {
-		return false, errors.New("lameduck lister not initialized")
-	}
-
+// 'true' if this machine is in that list
+func (s *Server) lameduckStatus() bool {
 	lameducksList := s.ldLister.ListEndpoints()
 	for _, ep := range lameducksList {
 		if s.instanceName == ep.Name {
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
 }
 
 func (s *Server) lameduckHandler(w http.ResponseWriter) {
-	if lameduck, err := s.lameduckStatus(); err != nil {
-		fmt.Fprintf(w, "HTTP Server: Error getting lameduck status: %v", err)
-	} else {
-		w.Write([]byte(strconv.FormatBool(lameduck)))
+	if s.ldLister == nil {
+		w.Write([]byte("unknown"))
+		return
 	}
+	w.Write([]byte(strconv.FormatBool(s.lameduckStatus())))
 }
 
 func (s *Server) healthcheckHandler(w http.ResponseWriter) {
-	lameduck, err := s.lameduckStatus()
-	if err != nil {
-		s.l.Error(err.Error())
+	if s.ldLister == nil {
+		w.Write([]byte("unknown"))
+		return
 	}
-	if lameduck {
+	if s.lameduckStatus() {
 		http.Error(w, "lameduck", http.StatusServiceUnavailable)
 	} else {
 		w.Write([]byte(OK))
