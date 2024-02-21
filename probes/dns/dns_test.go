@@ -69,8 +69,9 @@ func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Dura
 	}
 	return out, time.Millisecond, nil
 }
-func (*mockClient) setReadTimeout(time.Duration) {}
-func (*mockClient) setSourceIP(net.IP)           {}
+func (*mockClient) setReadTimeout(time.Duration)  {}
+func (*mockClient) setSourceIP(net.IP)            {}
+func (*mockClient) setDNSProto(configpb.DNSProto) {}
 
 func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
 	p.client = new(mockClient)
@@ -91,6 +92,19 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success i
 			t.Errorf("test(%s): unexpected target in probe result. got: %s, want: %s",
 				testName, result.Target(), target.Name)
 		}
+	}
+}
+
+func testVerifyProto(t *testing.T, testName string, p *Probe) {
+	// DNSProto value is set in the non-mock client on Init and it is hidden by the mock on instantiation
+	dnsClient := p.client.(*clientImpl)
+	if dnsClient.Net != map[configpb.DNSProto]string{
+		configpb.DNSProto_UDP:     "udp",
+		configpb.DNSProto_TCP:     "tcp",
+		configpb.DNSProto_TCP_TLS: "tcp-tls",
+	}[p.c.GetDnsProto()] {
+		t.Errorf("test(%s): mismatch between probe client DNSProto (%s) and config (%s)",
+			testName, dnsClient.Net, p.c.GetDnsProto().String())
 	}
 }
 
@@ -196,6 +210,52 @@ func TestProbeType(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	runProbeAndVerify(t, "probetype", p, 1, 0)
+}
+
+func TestProbeProto(t *testing.T) {
+	p := &Probe{}
+	opts := &options.Options{
+		Targets:   targets.StaticTargets("8.8.8.8"),
+		Interval:  2 * time.Second,
+		Timeout:   time.Second,
+		ProbeConf: &configpb.ProbeConf{},
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+
+	// expect success using defaults
+	testVerifyProto(t, "probeprotoudpdefaulttest", p)
+
+	// Testing explicit udp
+	opts.ProbeConf = &configpb.ProbeConf{
+		DnsProto: configpb.DNSProto_UDP.Enum(),
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect success
+	testVerifyProto(t, "probeprotoudptest", p)
+
+	// Testing tcp
+	opts.ProbeConf = &configpb.ProbeConf{
+		DnsProto: configpb.DNSProto_TCP.Enum(),
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect success
+	testVerifyProto(t, "probeprototcptest", p)
+
+	// Testing tcp-tls
+	opts.ProbeConf = &configpb.ProbeConf{
+		DnsProto: configpb.DNSProto_TCP_TLS.Enum(),
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect success
+	testVerifyProto(t, "probeprototcptlstest", p)
 }
 
 func TestBadName(t *testing.T) {
