@@ -69,11 +69,18 @@ func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Dura
 	}
 	return out, time.Millisecond, nil
 }
-func (*mockClient) setReadTimeout(time.Duration)  {}
-func (*mockClient) setSourceIP(net.IP)            {}
-func (*mockClient) setDNSProto(configpb.DNSProto) {}
+func (*mockClient) setReadTimeout(time.Duration)   {}
+func (*mockClient) setSourceIP(net.IP)             {}
+func (*mockClient) setDNSProto(configpb.DNSProto)  {}
+func (*mockClient) getDNSProto() configpb.DNSProto { return configpb.DNSProto_UDP }
 
 func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
+	// DNSProto value is set in the non-mock client on Init and it is hidden by the mock on instantiation
+	if p.client.getDNSProto() != p.c.GetDnsProto() {
+		t.Errorf("test(%s): mismatch between probe client DNSProto (%s) and config (%s)",
+			testName, p.client.getDNSProto().String(), p.c.GetDnsProto().String())
+	}
+
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 

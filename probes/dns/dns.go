@@ -52,6 +52,7 @@ type Client interface {
 	setReadTimeout(time.Duration)
 	setSourceIP(net.IP)
 	setDNSProto(configpb.DNSProto)
+	getDNSProto() configpb.DNSProto
 }
 
 // ClientImpl is a concrete DNS client that can be instantiated.
@@ -81,6 +82,19 @@ func (c *clientImpl) setDNSProto(proto configpb.DNSProto) {
 	case configpb.DNSProto_TCP_TLS:
 		c.Net = "tcp-tls"
 	}
+}
+
+func (c *clientImpl) getDNSProto() configpb.DNSProto {
+	switch c.Net {
+	case "udp":
+		return configpb.DNSProto_UDP
+	case "tcp":
+		return configpb.DNSProto_TCP
+	case "tcp-tls":
+		return configpb.DNSProto_TCP_TLS
+	}
+	// Return defaults
+	return configpb.DNSProto_UDP
 }
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -162,8 +176,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.queryType = uint16(queryType)
 	p.fqdn = dns.Fqdn(p.c.GetResolvedDomain())
 
-	dnsProto := p.c.GetDnsProto()
-
 	// I believe the client is safe for concurrent use by multiple goroutines
 	// (although the documentation doesn't explicitly say so). It uses locks
 	// internally and the underlying net.Conn declares that multiple goroutines
@@ -175,7 +187,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
 	p.client.setReadTimeout(p.opts.Timeout)
 	// Set DNS Protocol to use
-	p.client.setDNSProto(dnsProto)
+	p.client.setDNSProto(p.c.GetDnsProto())
 
 	return nil
 }
