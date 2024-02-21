@@ -52,7 +52,6 @@ type Client interface {
 	setReadTimeout(time.Duration)
 	setSourceIP(net.IP)
 	setDNSProto(configpb.DNSProto)
-	getDNSProto() configpb.DNSProto
 }
 
 // ClientImpl is a concrete DNS client that can be instantiated.

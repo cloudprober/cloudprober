@@ -69,16 +69,20 @@ func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Dura
 	}
 	return out, time.Millisecond, nil
 }
-func (*mockClient) setReadTimeout(time.Duration)   {}
-func (*mockClient) setSourceIP(net.IP)             {}
-func (*mockClient) setDNSProto(configpb.DNSProto)  {}
-func (*mockClient) getDNSProto() configpb.DNSProto { return configpb.DNSProto_UDP }
+func (*mockClient) setReadTimeout(time.Duration)  {}
+func (*mockClient) setSourceIP(net.IP)            {}
+func (*mockClient) setDNSProto(configpb.DNSProto) {}
 
 func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
 	// DNSProto value is set in the non-mock client on Init and it is hidden by the mock on instantiation
-	if p.client.getDNSProto() != p.c.GetDnsProto() {
+	dnsClient := p.client.(*clientImpl)
+	if dnsClient.Net != map[configpb.DNSProto]string{
+		configpb.DNSProto_UDP:     "udp",
+		configpb.DNSProto_TCP:     "tcp",
+		configpb.DNSProto_TCP_TLS: "tcp-tls",
+	}[p.c.GetDnsProto()] {
 		t.Errorf("test(%s): mismatch between probe client DNSProto (%s) and config (%s)",
-			testName, p.client.getDNSProto().String(), p.c.GetDnsProto().String())
+			testName, dnsClient.Net, p.c.GetDnsProto().String())
 	}
 
 	p.client = new(mockClient)
@@ -240,6 +244,16 @@ func TestProbeProto(t *testing.T) {
 	}
 	// expect success
 	runProbeAndVerify(t, "probeprototcptest", p, 1, 1)
+
+	// Testing tcp-tls
+	opts.ProbeConf = &configpb.ProbeConf{
+		DnsProto: configpb.DNSProto_TCP_TLS.Enum(),
+	}
+	if err := p.Init("dns_probe_proto_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect success
+	runProbeAndVerify(t, "probeprototcptlstest", p, 1, 1)
 }
 
 func TestBadName(t *testing.T) {
