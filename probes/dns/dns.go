@@ -93,7 +93,6 @@ type Probe struct {
 	// book-keeping params
 	targets   []endpoint.Endpoint
 	queryType uint16
-	dnsProto  string
 	fqdn      string
 	client    Client
 }
