@@ -74,17 +74,6 @@ func (*mockClient) setSourceIP(net.IP)            {}
 func (*mockClient) setDNSProto(configpb.DNSProto) {}
 
 func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
-	// DNSProto value is set in the non-mock client on Init and it is hidden by the mock on instantiation
-	dnsClient := p.client.(*clientImpl)
-	if dnsClient.Net != map[configpb.DNSProto]string{
-		configpb.DNSProto_UDP:     "udp",
-		configpb.DNSProto_TCP:     "tcp",
-		configpb.DNSProto_TCP_TLS: "tcp-tls",
-	}[p.c.GetDnsProto()] {
-		t.Errorf("test(%s): mismatch between probe client DNSProto (%s) and config (%s)",
-			testName, dnsClient.Net, p.c.GetDnsProto().String())
-	}
-
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -103,6 +92,19 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success i
 			t.Errorf("test(%s): unexpected target in probe result. got: %s, want: %s",
 				testName, result.Target(), target.Name)
 		}
+	}
+}
+
+func testVerifyProto(t *testing.T, testName string, p *Probe) {
+	// DNSProto value is set in the non-mock client on Init and it is hidden by the mock on instantiation
+	dnsClient := p.client.(*clientImpl)
+	if dnsClient.Net != map[configpb.DNSProto]string{
+		configpb.DNSProto_UDP:     "udp",
+		configpb.DNSProto_TCP:     "tcp",
+		configpb.DNSProto_TCP_TLS: "tcp-tls",
+	}[p.c.GetDnsProto()] {
+		t.Errorf("test(%s): mismatch between probe client DNSProto (%s) and config (%s)",
+			testName, dnsClient.Net, p.c.GetDnsProto().String())
 	}
 }
 
@@ -223,7 +225,7 @@ func TestProbeProto(t *testing.T) {
 	}
 
 	// expect success using defaults
-	runProbeAndVerify(t, "probeprotoudpdefaulttest", p, 1, 1)
+	testVerifyProto(t, "probeprotoudpdefaulttest", p)
 
 	// Testing explicit udp
 	opts.ProbeConf = &configpb.ProbeConf{
@@ -233,7 +235,7 @@ func TestProbeProto(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect success
-	runProbeAndVerify(t, "probeprotoudptest", p, 1, 1)
+	testVerifyProto(t, "probeprotoudptest", p)
 
 	// Testing tcp
 	opts.ProbeConf = &configpb.ProbeConf{
@@ -243,7 +245,7 @@ func TestProbeProto(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect success
-	runProbeAndVerify(t, "probeprototcptest", p, 1, 1)
+	testVerifyProto(t, "probeprototcptest", p)
 
 	// Testing tcp-tls
 	opts.ProbeConf = &configpb.ProbeConf{
@@ -253,7 +255,7 @@ func TestProbeProto(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect success
-	runProbeAndVerify(t, "probeprototcptlstest", p, 1, 1)
+	testVerifyProto(t, "probeprototcptlstest", p)
 }
 
 func TestBadName(t *testing.T) {
