@@ -51,6 +51,7 @@ type Client interface {
 	Exchange(*dns.Msg, string) (*dns.Msg, time.Duration, error)
 	setReadTimeout(time.Duration)
 	setSourceIP(net.IP)
+	setDNSProto(configpb.DNSProto)
 }
 
 // ClientImpl is a concrete DNS client that can be instantiated.
@@ -67,6 +68,18 @@ func (c *clientImpl) setReadTimeout(d time.Duration) {
 func (c *clientImpl) setSourceIP(ip net.IP) {
 	c.Dialer = &net.Dialer{
 		LocalAddr: &net.UDPAddr{IP: ip},
+	}
+}
+
+// setDNSProto sets the DNS transport protocol to use.
+func (c *clientImpl) setDNSProto(proto configpb.DNSProto) {
+	switch proto {
+	case configpb.DNSProto_UDP:
+		c.Net = "udp"
+	case configpb.DNSProto_TCP:
+		c.Net = "tcp"
+	case configpb.DNSProto_TCP_TLS:
+		c.Net = "tcp-tls"
 	}
 }
 
@@ -158,6 +171,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
 	p.client.setReadTimeout(p.opts.Timeout)
+	// Set DNS Protocol to use
+	p.client.setDNSProto(p.c.GetDnsProto())
 
 	return nil
 }
