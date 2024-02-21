@@ -163,16 +163,15 @@ func TestLameduckingTestInstance(t *testing.T) {
 }
 
 func TestLameduckListerNil(t *testing.T) {
-	expectedErrMsg := "not initialized"
-
+	unknown := "unknown"
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	s, _ := testServer(ctx, t, "testInstance", nil)
 	defer cancelFunc()
 
-	if resp, status := get(t, s.ln, "lameduck"); !strings.Contains(resp, expectedErrMsg) || status != "200 OK" {
-		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, expectedErrMsg, "200 OK")
+	if resp, status := get(t, s.ln, "lameduck"); !strings.Contains(resp, unknown) || status != "200 OK" {
+		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, unknown, "200 OK")
 	}
-	if resp, status := get(t, s.ln, "healthcheck"); resp != OK || status != "200 OK" {
-		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
+	if resp, status := get(t, s.ln, "healthcheck"); !strings.Contains(resp, unknown) || status != "200 OK" {
+		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, unknown, "200 OK")
 	}
 }
