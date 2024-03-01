@@ -57,7 +57,7 @@ _www.google.com_, _www.yahoo.com_, and _cloudprober:9313_ (yes, you can specify
 ports here for port-aware probes).
 
 You can specify more detailed targets using the
-[`endpoints`](/docs/config/targets/#cloudprober_targets_TargetsDef) field. Using
+[`endpoint`](/docs/config/targets/#cloudprober_targets_TargetsDef) field. Using
 endpoints, you can even specify the URL directly in target definition; this
 method is particularly useful if you want to run an HTTP probe for multiple
 similar targets.
@@ -156,11 +156,12 @@ TODO: Add more details on GCP targets.
 
 ## Probe configuration through target fields
 
-| Field                | Probe Type                                   | Configuration                                                                                                                                                                |
-| -------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `port`               | Port aware probes (HTTP, DNS, TCP, UDP, etc) | If a target has an associated port, for example, a Kubernetes endpoint, it will automatically be used for probing unless a port has been explicitly configured in the probe. |
-| `label:relative_url` | HTTP                                         | If an explicit relative URL is not set, HTTP probe will use `relative_url` label's value if set.                                                                             |
-| `label:fqdn`         | HTTP                                         | HTTP probe will use target's `fqdn` label as the URL-host (host part of the URL) and Host header if available and if Host header has not been configured explicitly.         |
+| Field Or Label                  | Probe Type                                   | Configuration                                                                                                                                                                |
+| ------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port`                          | Port aware probes (HTTP, DNS, TCP, UDP, etc) | If a target has an associated port, for example, a Kubernetes endpoint, it will automatically be used for probing unless a port has been explicitly configured in the probe. |
+| `__cp_path__` or `relative_url` | HTTP                                         | If an explicit relative URL is not set in the config, HTTP probe will use target's `__cp_path__` and `realtive_url` labels if set.                                           |
+| `__cp_host__` or `fqdn`         | HTTP                                         | HTTP probe will use target's `__cp_host__` and `fqdn` labels as URL-host and Host header if set and if Host header has not been configured explicitly.                       |
+| `__cp_scheme__`                 | HTTP                                         | HTTP probe will use target's `__cp_scheme__` label as HTTP URL scheme (http or https) header if available and if scheme has not been configured explicitly.                  |
 
 ## Metrics
 
