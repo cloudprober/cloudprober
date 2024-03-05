@@ -84,6 +84,11 @@ func TestUnmarshalConfig(t *testing.T) {
 			configFile:     "testdata/cloudprober.json",
 			baseConfigFile: "testdata/cloudprober.cfg",
 		},
+		{
+			name:           "jsonnet",
+			configFile:     "testdata/cloudprober.jsonnet",
+			baseConfigFile: "testdata/cloudprober.cfg",
+		},
 	}
 
 	for _, tt := range tests {
