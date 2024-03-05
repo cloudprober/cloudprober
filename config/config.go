@@ -29,6 +29,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/google/go-jsonnet"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"sigs.k8s.io/yaml"
@@ -73,6 +74,8 @@ func formatFromFileName(fileName string) string {
 	switch filepath.Ext(fileName) {
 	case ".json":
 		return "json"
+	case ".jsonnet":
+		return "jsonnet"
 	case ".yaml", ".yml":
 		return "yaml"
 	default:
@@ -128,6 +131,14 @@ func unmarshalConfig(configStr, configFormat string) (*configpb.ProberConfig, er
 			return nil, fmt.Errorf("error converting YAML config to JSON: %v", err)
 		}
 		if err := protojson.Unmarshal(jsonCfg, cfg); err != nil {
+			return nil, fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
+		}
+	case "jsonnet":
+		jsonCfg, err := jsonnet.MakeVM().EvaluateAnonymousSnippet("config", configStr)
+		if err != nil {
+			return nil, fmt.Errorf("error evaluating jsonnet config: %v", err)
+		}
+		if err := protojson.Unmarshal([]byte(jsonCfg), cfg); err != nil {
 			return nil, fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
 		}
 	case "json":
