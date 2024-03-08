@@ -1,0 +1,13 @@
+[project]
+name = "cloudprober-serverutils"
+version = "0.13.2-16"
+description = "Package for Cloudprober's external probe's serverutils"
+dependencies = [ "protobuf" ]
+
+[build-system]
+requires = ["setuptools >= 61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://cloudprober.org"
+Repository = "https://github.com/cloudprober/cloudprober"

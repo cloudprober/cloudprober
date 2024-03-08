@@ -1,0 +1,45 @@
+name: Build and Publish cloudprober-serverutils
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "probes/external/serverutils/py/**"
+      - ".github/workflows/py_serverutils.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Build using pypa/build
+        run: make py_serverutils
+
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-pypi:
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v3
+        with:
+          name: python-package-distributions
+          path: dist/
