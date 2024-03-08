@@ -16,7 +16,6 @@
 
 import io
 import logging
-import os
 import sys
 import threading
 import queue
@@ -27,10 +26,7 @@ from google.protobuf.message import Message, DecodeError
 
 import cloudprober.external.server_pb2 as serverpb
 
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-
-def read_payload(r: io.BufferedReader) -> bytes:
+def _read_payload(r: io.BufferedReader) -> bytes:
     # header format is: "\nContent-Length: %d\n\n"
     prefix = b"Content-Length: "
     line = ""
@@ -59,8 +55,8 @@ def read_payload(r: io.BufferedReader) -> bytes:
     r.buffer.read(1)  # Read the newline after the header.
     return r.buffer.read(length)
     
-def read_probe_request(r: io.BufferedReader) -> serverpb.ProbeRequest:
-    payload = read_payload(r)
+def _read_probe_request(r: io.BufferedReader) -> serverpb.ProbeRequest:
+    payload = _read_payload(r)
     if not payload:
         return None
     req = serverpb.ProbeRequest()
@@ -71,7 +67,7 @@ def read_probe_request(r: io.BufferedReader) -> serverpb.ProbeRequest:
         return None
     return req
 
-def write_message(pb: Message, w):
+def _write_message(pb: Message, w):
     buf = pb.SerializeToString()
     try:
         w.buffer.write(b"Content-Length: %d\n\n" % len(buf))
@@ -89,14 +85,14 @@ def serve(probe_func: Callable, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.s
             reply = replies_queue.get(block=True)
             if reply is None:
                 continue
-            if write_message(reply, stdout) is not None:
+            if _write_message(reply, stdout) is not None:
                 sys.exit(1)
 
     threading.Thread(target=write_replies, daemon=True).start()
 
     # Read requests from stdin, and dispatch probes to service them.
     while True:
-        request = read_probe_request(stdin)
+        request = _read_probe_request(stdin)
         if request is None:
             sys.exit(1)
 
@@ -115,6 +111,6 @@ def serve(probe_func: Callable, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.s
             if done.wait(timeout - time.time()):
                 replies_queue.put(reply)
             else:
-                eprint(f"Timeout for request {reply.request_id}", file=stderr)
+                logging.error(f"Timeout for request {reply.request_id}", file=stderr)
 
         threading.Thread(target=handle_request, daemon=True).start()
