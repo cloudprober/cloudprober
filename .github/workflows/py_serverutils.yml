@@ -10,7 +10,7 @@ on:
       - ".github/workflows/py_serverutils.yml"
 
 jobs:
-  build:
+  test_and_build:
     name: Build serverutils python package
     runs-on: ubuntu-latest
 
@@ -25,6 +25,16 @@ jobs:
         with:
           python-version: 3.x
 
+      - name: Test using venv
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -e probes/external/serverutils/py/
+          pip install pytest
+          pytest probes/external/serverutils/py/tests
+          deactivate
+          rm -rf venv
+
       - name: Build using pypa/build
         run: make py_serverutils
 
@@ -37,7 +47,7 @@ jobs:
   publish-to-pypi:
     name: Publish to PyPI
     needs:
-      - build
+      - test_and_build
     runs-on: ubuntu-latest
     permissions:
       id-token: write
