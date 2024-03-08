@@ -64,7 +64,7 @@ dist: $(BINARIES)
 PYVERSION := $(subst v,,$(VERSION))
 PYVERSION := $(word 1,$(subst -, ,$(PYVERSION)))-$(word 2,$(subst -, ,$(PYVERSION)))
 py_serverutils:
-    echo $(VERSION)
+	echo $(VERSION)
 	echo $(PYVERSION)
 	cd probes/external/serverutils/py && \
 	sed -i "s/version = \"[^\"]*\"/version = \"$(PYVERSION)\"/" pyproject.toml && \
