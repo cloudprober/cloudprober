@@ -11,6 +11,7 @@ on:
 
 jobs:
   build:
+    name: Build serverutils python package
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +33,7 @@ jobs:
           path: dist/
 
   publish-to-pypi:
+    name: Publish to PyPI
     needs:
       - build
     runs-on: ubuntu-latest
