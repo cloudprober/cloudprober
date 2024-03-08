@@ -27,9 +27,12 @@ from google.protobuf.message import Message, DecodeError
 
 import cloudprober.external.server_pb2 as serverpb
 
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 def read_payload(r: io.BufferedReader) -> bytes:
     # header format is: "\nContent-Length: %d\n\n"
-    prefix = "Content-Length: "
+    prefix = b"Content-Length: "
     line = ""
     length = 0
     err = None
@@ -37,10 +40,9 @@ def read_payload(r: io.BufferedReader) -> bytes:
     # Read lines until header line is found
     while True:
         try:
-            line = r.readline().decode("utf-8").strip()
+            line = r.buffer.readline()
         except UnicodeDecodeError as e:
-            err = e
-            break
+            continue
         if line.startswith(prefix):
             try:
                 length = int(line[len(prefix):])
@@ -50,16 +52,13 @@ def read_payload(r: io.BufferedReader) -> bytes:
     if err:
         logging.error("Error reading payload length: %s", err)
         return b""
+    
     if length <= 0:
         return b""
-    payload = bytearray(length)
-    try:
-        r.readinto(payload)
-    except Exception as e:
-        logging.error("Error reading payload: %s", e)
-        return b""
-    return bytes(payload)
 
+    r.buffer.read(1)  # Read the newline after the header.
+    return r.buffer.read(length)
+    
 def read_probe_request(r: io.BufferedReader) -> serverpb.ProbeRequest:
     payload = read_payload(r)
     if not payload:
@@ -72,22 +71,12 @@ def read_probe_request(r: io.BufferedReader) -> serverpb.ProbeRequest:
         return None
     return req
 
-def write_probe_response(w: io.BufferedWriter, resp: serverpb.ProbeReply) -> None:
-    try:
-        s = resp.SerializeToString()
-        w.write(b"Content-Length: %d\n\n" % len(s))
-        w.write(s)
-        w.flush()
-    except Exception as e:
-        logging.error("Error writing probe response: %s", e)
-
 def write_message(pb: Message, w):
     buf = pb.SerializeToString()
-    length = len(buf)
-    header = f"\nContent-Length: {length}\n\n"
     try:
-        w.write(header)
-        w.write(buf)
+        w.buffer.write(b"Content-Length: %d\n\n" % len(buf))
+        w.buffer.write(buf)
+        w.flush()
     except Exception as e:
         raise Exception(f"Failed writing response: {str(e)}")
     
@@ -112,11 +101,10 @@ def serve(probe_func: Callable, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.s
             sys.exit(1)
 
         def handle_request():
-            reply = {
-                "request_id": request["request_id"],
-            }
+            reply = serverpb.ProbeReply()
+            reply.request_id = request.request_id
             done = threading.Event()
-            timeout = time.time() + request["time_limit"] / 1000
+            timeout = time.time() + request.time_limit / 1000
 
             def probe():
                 probe_func(request, reply)
@@ -127,6 +115,6 @@ def serve(probe_func: Callable, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.s
             if done.wait(timeout - time.time()):
                 replies_queue.put(reply)
             else:
-                print(f"Timeout for request {reply['request_id']}", file=stderr)
+                eprint(f"Timeout for request {reply.request_id}", file=stderr)
 
         threading.Thread(target=handle_request, daemon=True).start()
