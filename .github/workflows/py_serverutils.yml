@@ -32,14 +32,16 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: python-package-distributions
-          path: dist/
+          path: probes/external/serverutils/py/dist/
 
   publish-to-pypi:
     name: Publish to PyPI
     needs:
       - build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      id-token: write
+    if: github.repository == 'cloudprober/cloudprober' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
 
     steps:
       - name: Download all the dists
@@ -47,3 +49,5 @@ jobs:
         with:
           name: python-package-distributions
           path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

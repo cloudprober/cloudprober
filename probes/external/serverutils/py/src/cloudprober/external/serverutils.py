@@ -26,7 +26,23 @@ from google.protobuf.message import Message, DecodeError
 
 import cloudprober.external.server_pb2 as serverpb
 
-def _read_payload(r: io.BufferedReader) -> bytes:
+class StopThread(Exception):
+    pass
+
+class Context:
+    def __init__(self, stop_attr=None):
+        self.stop_attr = stop_attr
+
+    def __enter__(self):
+        if not self.stop_attr:
+            return
+        if getattr(threading.current_thread(), self.stop_attr, False):
+            raise StopThread("Stopping as per the thread attribute")
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+def _read_payload(r: io.BufferedReader, ctx: Context = Context()) -> bytes:
     # header format is: "\nContent-Length: %d\n\n"
     prefix = b"Content-Length: "
     line = ""
@@ -35,16 +51,17 @@ def _read_payload(r: io.BufferedReader) -> bytes:
 
     # Read lines until header line is found
     while True:
-        try:
-            line = r.buffer.readline()
-        except UnicodeDecodeError as e:
-            continue
-        if line.startswith(prefix):
+        with ctx:
             try:
-                length = int(line[len(prefix):])
-            except ValueError as e:
-                err = e
-            break
+                line = r.readline()
+            except UnicodeDecodeError as e:
+                continue
+            if line.startswith(prefix):
+                try:
+                    length = int(line[len(prefix):])
+                except ValueError as e:
+                    err = e
+                break
     if err:
         logging.error("Error reading payload length: %s", err)
         return b""
@@ -52,11 +69,11 @@ def _read_payload(r: io.BufferedReader) -> bytes:
     if length <= 0:
         return b""
 
-    r.buffer.read(1)  # Read the newline after the header.
-    return r.buffer.read(length)
+    r.read(1)  # Read the newline after the header.
+    return r.read(length)
     
-def _read_probe_request(r: io.BufferedReader) -> serverpb.ProbeRequest:
-    payload = _read_payload(r)
+def _read_probe_request(r: io.BufferedReader, ctx: Context = Context()) -> serverpb.ProbeRequest:
+    payload = _read_payload(r, ctx)
     if not payload:
         return None
     req = serverpb.ProbeRequest()
@@ -70,47 +87,51 @@ def _read_probe_request(r: io.BufferedReader) -> serverpb.ProbeRequest:
 def _write_message(pb: Message, w):
     buf = pb.SerializeToString()
     try:
-        w.buffer.write(b"Content-Length: %d\n\n" % len(buf))
-        w.buffer.write(buf)
+        w.write(b"Content-Length: %d\n\n" % len(buf))
+        w.write(buf)
         w.flush()
     except Exception as e:
         raise Exception(f"Failed writing response: {str(e)}")
+
     
-def serve(probe_func: Callable, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
+
+def serve(probe_func: Callable, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer, stderr=sys.stderr, ctx: Context = Context()):
     replies_queue = queue.Queue()
 
     # Write replies to stdout. These are not required to be in-order.
     def write_replies():
         while True:
-            reply = replies_queue.get(block=True)
-            if reply is None:
-                continue
-            if _write_message(reply, stdout) is not None:
-                sys.exit(1)
+            with ctx:
+                reply = replies_queue.get(block=True)
+                if reply is None:
+                    continue
+                if _write_message(reply, stdout) is not None:
+                    sys.exit(1)
 
     threading.Thread(target=write_replies, daemon=True).start()
 
     # Read requests from stdin, and dispatch probes to service them.
     while True:
-        request = _read_probe_request(stdin)
-        if request is None:
-            sys.exit(1)
+        with ctx:
+            request = _read_probe_request(stdin, ctx)
+            if request is None:
+                sys.exit(1)
+            
+            def handle_request():
+                reply = serverpb.ProbeReply()
+                reply.request_id = request.request_id
+                done = threading.Event()
+                timeout = time.time() + request.time_limit / 1000
 
-        def handle_request():
-            reply = serverpb.ProbeReply()
-            reply.request_id = request.request_id
-            done = threading.Event()
-            timeout = time.time() + request.time_limit / 1000
+                def probe():
+                    probe_func(request, reply)
+                    done.set()
 
-            def probe():
-                probe_func(request, reply)
-                done.set()
+                threading.Thread(target=probe, daemon=True).start()
 
-            threading.Thread(target=probe, daemon=True).start()
+                if done.wait(timeout - time.time()):
+                    replies_queue.put(reply)
+                else:
+                    logging.error(f"Timeout for request {reply.request_id}", file=stderr)
 
-            if done.wait(timeout - time.time()):
-                replies_queue.put(reply)
-            else:
-                logging.error(f"Timeout for request {reply.request_id}", file=stderr)
-
-        threading.Thread(target=handle_request, daemon=True).start()
+            threading.Thread(target=handle_request, daemon=True).start()
