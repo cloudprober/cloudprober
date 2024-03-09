@@ -1,4 +1,4 @@
-// Copyright 2017 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package serverutils
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -27,9 +28,10 @@ import (
 
 	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-func readPayload(r *bufio.Reader) ([]byte, error) {
+func readPayload(ctx context.Context, r *bufio.Reader) ([]byte, error) {
 	// header format is: "\nContent-Length: %d\n\n"
 	const prefix = "Content-Length: "
 	var line string
@@ -38,6 +40,9 @@ func readPayload(r *bufio.Reader) ([]byte, error) {
 
 	// Read lines until header line is found
 	for {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		line, err = r.ReadString('\n')
 		if err != nil {
 			return nil, err
@@ -65,26 +70,13 @@ func readPayload(r *bufio.Reader) ([]byte, error) {
 	return buf, nil
 }
 
-// ReadProbeReply reads ProbeReply from the supplied bufio.Reader and returns it to
-// the caller.
-func ReadProbeReply(r *bufio.Reader) (*serverpb.ProbeReply, error) {
-	buf, err := readPayload(r)
+// ReadMessage reads protocol buffers from the given bufio.Reader.
+func ReadMessage(ctx context.Context, msg protoreflect.ProtoMessage, r *bufio.Reader) error {
+	buf, err := readPayload(ctx, r)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	rep := new(serverpb.ProbeReply)
-	return rep, proto.Unmarshal(buf, rep)
-}
-
-// ReadProbeRequest reads and parses ProbeRequest protocol buffers from the given
-// bufio.Reader.
-func ReadProbeRequest(r *bufio.Reader) (*serverpb.ProbeRequest, error) {
-	buf, err := readPayload(r)
-	if err != nil {
-		return nil, err
-	}
-	req := new(serverpb.ProbeRequest)
-	return req, proto.Unmarshal(buf, req)
+	return proto.Unmarshal(buf, msg)
 }
 
 // WriteMessage marshals the a proto message and writes it to the writer "w"
@@ -92,12 +84,65 @@ func ReadProbeRequest(r *bufio.Reader) (*serverpb.ProbeRequest, error) {
 func WriteMessage(pb proto.Message, w io.Writer) error {
 	buf, err := proto.Marshal(pb)
 	if err != nil {
-		return fmt.Errorf("Failed marshalling proto message: %v", err)
+		return fmt.Errorf("failed marshalling proto message: %v", err)
 	}
 	if _, err := fmt.Fprintf(w, "\nContent-Length: %d\n\n%s", len(buf), buf); err != nil {
-		return fmt.Errorf("Failed writing response: %v", err)
+		return fmt.Errorf("failed writing response: %v", err)
 	}
 	return nil
+}
+
+func serve(ctx context.Context, probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply), stdin io.Reader, stdout, stderr io.Writer) {
+	repliesChan := make(chan *serverpb.ProbeReply)
+
+	// Write replies to stdout. These are not required to be in-order.
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case rep := <-repliesChan:
+				if err := WriteMessage(rep, stdout); err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+	}()
+
+	// Read requests from stdin, and dispatch probes to service them.
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		request := new(serverpb.ProbeRequest)
+		err := ReadMessage(ctx, request, bufio.NewReader(stdin))
+		if err != nil {
+			log.Fatalf("Failed reading request: %v", err)
+		}
+
+		go func() {
+			reply := &serverpb.ProbeReply{
+				RequestId: request.RequestId,
+			}
+
+			probeDone := make(chan bool, 1)
+			timeout := time.After(time.Duration(*request.TimeLimit) * time.Millisecond)
+
+			go func() {
+				probeFunc(request, reply)
+				probeDone <- true
+			}()
+
+			select {
+			case <-probeDone:
+				repliesChan <- reply
+			case <-timeout:
+				// drop the request on the floor.
+				fmt.Fprintf(stderr, "Timeout for request %v\n", *reply.RequestId)
+			}
+		}()
+	}
 }
 
 // Serve blocks indefinitely, servicing probe requests. Note that this function is
@@ -119,43 +164,27 @@ func WriteMessage(pb proto.Message, w io.Writer) error {
 //			}
 //		})
 func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
-	stdin := bufio.NewReader(os.Stdin)
+	serve(context.Background(), probeFunc, bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout), bufio.NewWriter(os.Stderr))
+}
 
-	repliesChan := make(chan *serverpb.ProbeReply)
-
-	// Write replies to stdout. These are not required to be in-order.
-	go func() {
-		for rep := range repliesChan {
-			if err := WriteMessage(rep, os.Stdout); err != nil {
-				log.Fatal(err)
-			}
-
-		}
-	}()
-
-	// Read requests from stdin, and dispatch probes to service them.
-	for {
-		request, err := ReadProbeRequest(stdin)
-		if err != nil {
-			log.Fatalf("Failed reading request: %v", err)
-		}
-		go func() {
-			reply := &serverpb.ProbeReply{
-				RequestId: request.RequestId,
-			}
-			done := make(chan bool, 1)
-			timeout := time.After(time.Duration(*request.TimeLimit) * time.Millisecond)
-			go func() {
-				probeFunc(request, reply)
-				done <- true
-			}()
-			select {
-			case <-done:
-				repliesChan <- reply
-			case <-timeout:
-				// drop the request on the floor.
-				fmt.Fprintf(os.Stderr, "Timeout for request %v\n", *reply.RequestId)
-			}
-		}()
-	}
+// ServeContext blocks indefinitely, servicing probe requests. Note that this function is
+// provided mainly to help external probe server implementations. Cloudprober doesn't
+// make use of it. Example usage:
+//
+//		import (
+//			serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
+//			"github.com/cloudprober/cloudprober/probes/external/serverutils"
+//		)
+//		func runProbe(opts []*cppb.ProbeRequest_Option) {
+//	 	...
+//		}
+//		serverutils.ServeContext(ctx, func(req *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
+//			payload, errMsg, _ := runProbe(req.GetOptions())
+//			reply.Payload = proto.String(payload)
+//			if errMsg != "" {
+//				reply.ErrorMessage = proto.String(errMsg)
+//			}
+//		})
+func ServeContext(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
+	serve(context.Background(), probeFunc, bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout), bufio.NewWriter(os.Stderr))
 }
