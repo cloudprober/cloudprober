@@ -3,6 +3,7 @@ name = "cloudprober-serverutils"
 version = "v0.0.0"
 description = "Package for Cloudprober's external probe's serverutils"
 dependencies = [ "protobuf" ]
+readme = "README.md"
 
 [build-system]
 requires = ["setuptools >= 61.0.0"]
