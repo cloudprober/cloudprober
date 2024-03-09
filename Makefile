@@ -61,6 +61,15 @@ dist: $(BINARIES)
 	  zip -r $${bindir}.zip $${bindir}/; rm -rf $${bindir}; \
 	done
 
+PYVERSION := $(subst v,,$(VERSION))
+PYVERSION := $(word 1,$(subst -, ,$(PYVERSION)))-$(word 2,$(subst -, ,$(PYVERSION)))
+py_serverutils:
+	cd probes/external/serverutils/py && \
+	sed -i "s/version = \"[^\"]*\"/version = \"$(PYVERSION)\"/" pyproject.toml && \
+	python3 -m pip install build --user && \
+	python3 -m build && \
+	git checkout pyproject.toml
+
 install:
 	GOBIN=$(GOBIN) CGO_ENABLED=0 go install -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
