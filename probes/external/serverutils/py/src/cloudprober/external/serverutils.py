@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# serverutils provides utilities to work with the cloudprober's external probe.
+"""
+This module provides utilities to work with the cloudprober's external probe.
+"""
 
 import io
 import logging
@@ -30,6 +32,10 @@ class StopThread(Exception):
     pass
 
 class Context:
+    """
+    Context class to handle stopping threads based on a given attribute.
+    """
+
     def __init__(self, stop_attr=None):
         self.stop_attr = stop_attr
 
@@ -43,6 +49,16 @@ class Context:
         pass
 
 def _read_payload(r: io.BufferedReader, ctx: Context = Context()) -> bytes:
+    """
+    Read the payload from the given BufferedReader.
+
+    Args:
+        r (io.BufferedReader): The BufferedReader to read from.
+        ctx (Context, optional): The context to handle stopping the thread. Defaults to Context().
+
+    Returns:
+        bytes: The payload read from the BufferedReader.
+    """
     # header format is: "\nContent-Length: %d\n\n"
     prefix = b"Content-Length: "
     line = ""
@@ -73,6 +89,16 @@ def _read_payload(r: io.BufferedReader, ctx: Context = Context()) -> bytes:
     return r.read(length)
     
 def _read_probe_request(r: io.BufferedReader, ctx: Context = Context()) -> serverpb.ProbeRequest:
+    """
+    Read the probe request from the given BufferedReader.
+
+    Args:
+        r (io.BufferedReader): The BufferedReader to read from.
+        ctx (Context, optional): The context to handle stopping the thread. Defaults to Context().
+
+    Returns:
+        serverpb.ProbeRequest: The parsed ProbeRequest object.
+    """
     payload = _read_payload(r, ctx)
     if not payload:
         return None
@@ -84,18 +110,33 @@ def _read_probe_request(r: io.BufferedReader, ctx: Context = Context()) -> serve
         return None
     return req
 
-def _write_message(pb: Message, w):
+def _write_message(pb: Message, w: io.BufferedWriter) -> None:
+    """
+    Write the given protobuf message to the given writer.
+
+    Args:
+        pb (Message): The protobuf message to write.
+        w: The writer to write to.
+    """
     buf = pb.SerializeToString()
     try:
         w.write(b"Content-Length: %d\n\n" % len(buf))
         w.write(buf)
         w.flush()
     except Exception as e:
-        raise Exception(f"Failed writing response: {str(e)}")
-
-    
+        logging.error(f"Error writing message: {str(e)}")
 
 def serve(probe_func: Callable, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer, stderr=sys.stderr, ctx: Context = Context()):
+    """
+    Serve the probe requests by reading from stdin and writing to stdout.
+
+    Args:
+        probe_func (Callable): The function to handle the probe requests.
+        stdin (io.BufferedIOBase, optional): The input stream to read the probe requests from. Defaults to sys.stdin.buffer.
+        stdout (io.BufferedIOBase, optional): The output stream to write the probe replies to. Defaults to sys.stdout.buffer.
+        stderr (io.BufferedIOBase, optional): The error stream to write the error logs to. Defaults to sys.stderr.
+        ctx (Context, optional): The context to handle stopping the thread. Defaults to Context().
+    """
     replies_queue = queue.Queue()
 
     # Write replies to stdout. These are not required to be in-order.
@@ -105,8 +146,8 @@ def serve(probe_func: Callable, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer
                 reply = replies_queue.get(block=True)
                 if reply is None:
                     continue
-                if _write_message(reply, stdout) is not None:
-                    sys.exit(1)
+                _write_message(reply, stdout)
+                    
 
     threading.Thread(target=write_replies, daemon=True).start()
 
