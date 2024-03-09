@@ -3,7 +3,7 @@ name: Build and Publish cloudprober-serverutils
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     paths:
       - "probes/external/serverutils/py/**"
@@ -54,10 +54,27 @@ jobs:
     if: github.repository == 'cloudprober/cloudprober' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
 
     steps:
+      - name: Check out repo hosting code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            py:
+              - '**/*.py'
+              - '!**/test_*.py'
+              - '**/py_serverutils.yml'
+
       - name: Download all the dists
         uses: actions/download-artifact@v3
+        if: steps.filter.outputs.py == 'true'
         with:
           name: python-package-distributions
           path: dist/
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.filter.outputs.py == 'true'
