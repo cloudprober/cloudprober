@@ -64,8 +64,9 @@ type Server interface {
 // ServerInfo encapsulates a Server and related info.
 type ServerInfo struct {
 	Server
-	Type string
-	Conf string
+	Type      string
+	ServerDef *configpb.ServerDef
+	Conf      string
 }
 
 // Init initializes cloudprober servers, based on the provided config.
@@ -73,31 +74,27 @@ func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []
 	for _, serverDef := range serverDefs {
 		l := logger.NewWithAttrs(slog.String("server_type", serverDef.GetType().String()))
 
-		var conf interface{}
 		var server Server
 
 		switch serverDef.GetType() {
 		case configpb.ServerDef_HTTP:
 			server, err = http.New(initCtx, serverDef.GetHttpServer(), l)
-			conf = serverDef.GetHttpServer()
 		case configpb.ServerDef_UDP:
 			server, err = udp.New(initCtx, serverDef.GetUdpServer(), l)
-			conf = serverDef.GetUdpServer()
 		case configpb.ServerDef_GRPC:
 			server, err = grpc.New(initCtx, serverDef.GetGrpcServer(), l)
-			conf = serverDef.GetGrpcServer()
 		case configpb.ServerDef_EXTERNAL:
 			server, err = external.New(initCtx, serverDef.GetExternalServer(), l)
-			conf = serverDef.GetExternalServer()
 		}
 		if err != nil {
 			return
 		}
 
 		servers = append(servers, &ServerInfo{
-			Server: server,
-			Type:   serverDef.GetType().String(),
-			Conf:   formatutils.ConfToString(conf),
+			Server:    server,
+			Type:      serverDef.GetType().String(),
+			ServerDef: serverDef,
+			Conf:      formatutils.ConfToString(serverDef),
 		})
 	}
 	return
