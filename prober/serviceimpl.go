@@ -26,6 +26,8 @@ import (
 
 // AddProbe adds the given probe to cloudprober.
 func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.AddProbeResponse, error) {
+	pr.l.Info("AddProbe called")
+
 	p := req.GetProbeConfig()
 
 	if p == nil {
@@ -50,6 +52,8 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 // RemoveProbe gRPC method cancels the given probe and removes its from the
 // prober's internal database.
 func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (*pb.RemoveProbeResponse, error) {
+	pr.l.Infof("RemoveProbe called with: %s", req.GetProbeName())
+
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
@@ -75,6 +79,7 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 
 // ListProbes gRPC method returns the list of probes from the in-memory database.
 func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*pb.ListProbesResponse, error) {
+	pr.l.Info("ListProbes called")
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
