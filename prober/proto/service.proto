@@ -16,6 +16,8 @@ service Cloudprober {
 
   // ListProbes lists active probes.
   rpc ListProbes(ListProbesRequest) returns (ListProbesResponse) {}
+
+  rpc SaveProbesConfig(SaveProbesConfigRequest) returns (SaveProbesConfigResponse) {}
 }
 
 message AddProbeRequest {
@@ -39,4 +41,14 @@ message Probe {
 
 message ListProbesResponse {
   repeated Probe probe = 1;
+}
+
+message SaveProbesConfigRequest {
+  // File path to save probes config to. Default is configured through the
+  // command-line flag: --probes_config_save_path
+  optional string file_path = 1;
+}
+
+message SaveProbesConfigResponse {
+  optional string file_path = 1;
 }

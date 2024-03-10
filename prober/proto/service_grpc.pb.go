@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Cloudprober_AddProbe_FullMethodName    = "/cloudprober.Cloudprober/AddProbe"
-	Cloudprober_RemoveProbe_FullMethodName = "/cloudprober.Cloudprober/RemoveProbe"
-	Cloudprober_ListProbes_FullMethodName  = "/cloudprober.Cloudprober/ListProbes"
+	Cloudprober_AddProbe_FullMethodName         = "/cloudprober.Cloudprober/AddProbe"
+	Cloudprober_RemoveProbe_FullMethodName      = "/cloudprober.Cloudprober/RemoveProbe"
+	Cloudprober_ListProbes_FullMethodName       = "/cloudprober.Cloudprober/ListProbes"
+	Cloudprober_SaveProbesConfig_FullMethodName = "/cloudprober.Cloudprober/SaveProbesConfig"
 )
 
 // CloudproberClient is the client API for Cloudprober service.
@@ -35,6 +36,7 @@ type CloudproberClient interface {
 	RemoveProbe(ctx context.Context, in *RemoveProbeRequest, opts ...grpc.CallOption) (*RemoveProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error)
+	SaveProbesConfig(ctx context.Context, in *SaveProbesConfigRequest, opts ...grpc.CallOption) (*SaveProbesConfigResponse, error)
 }
 
 type cloudproberClient struct {
@@ -72,6 +74,15 @@ func (c *cloudproberClient) ListProbes(ctx context.Context, in *ListProbesReques
 	return out, nil
 }
 
+func (c *cloudproberClient) SaveProbesConfig(ctx context.Context, in *SaveProbesConfigRequest, opts ...grpc.CallOption) (*SaveProbesConfigResponse, error) {
+	out := new(SaveProbesConfigResponse)
+	err := c.cc.Invoke(ctx, Cloudprober_SaveProbesConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CloudproberServer is the server API for Cloudprober service.
 // All implementations must embed UnimplementedCloudproberServer
 // for forward compatibility
@@ -83,6 +94,7 @@ type CloudproberServer interface {
 	RemoveProbe(context.Context, *RemoveProbeRequest) (*RemoveProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error)
+	SaveProbesConfig(context.Context, *SaveProbesConfigRequest) (*SaveProbesConfigResponse, error)
 	mustEmbedUnimplementedCloudproberServer()
 }
 
@@ -98,6 +110,9 @@ func (UnimplementedCloudproberServer) RemoveProbe(context.Context, *RemoveProbeR
 }
 func (UnimplementedCloudproberServer) ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListProbes not implemented")
+}
+func (UnimplementedCloudproberServer) SaveProbesConfig(context.Context, *SaveProbesConfigRequest) (*SaveProbesConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveProbesConfig not implemented")
 }
 func (UnimplementedCloudproberServer) mustEmbedUnimplementedCloudproberServer() {}
 
@@ -166,6 +181,24 @@ func _Cloudprober_ListProbes_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cloudprober_SaveProbesConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveProbesConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudproberServer).SaveProbesConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Cloudprober_SaveProbesConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudproberServer).SaveProbesConfig(ctx, req.(*SaveProbesConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Cloudprober_ServiceDesc is the grpc.ServiceDesc for Cloudprober service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -184,6 +217,10 @@ var Cloudprober_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListProbes",
 			Handler:    _Cloudprober_ListProbes_Handler,
+		},
+		{
+			MethodName: "SaveProbesConfig",
+			Handler:    _Cloudprober_SaveProbesConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
