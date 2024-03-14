@@ -85,7 +85,7 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig) error {
 		if c.GetReloadIntervalSec() > 0 {
 			key := [2]string{certF, keyF}
 
-			tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 				global.mu.RLock()
 				entry, ok := global.cache[key]
 				global.mu.RUnlock()
