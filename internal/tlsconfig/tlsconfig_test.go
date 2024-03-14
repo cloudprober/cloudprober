@@ -17,6 +17,8 @@ package tlsconfig
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -112,27 +114,46 @@ func TestUpdateTLSConfig(t *testing.T) {
 			assert.Equal(t, tt.serverName, tlsConfig.ServerName, "ServerName mismatch")
 
 			if !tt.dynamic {
-				assert.Nil(t, tlsConfig.GetCertificate, "GetCertificate should be nil")
+				assert.Nil(t, tlsConfig.GetClientCertificate, "GetClientCertificate should be nil")
 				assert.Len(t, tlsConfig.Certificates, 1, "Certificates should have one entry")
 				parseAndVerifyCert(t, tlsConfig.Certificates[0], tt.wantCN)
 			}
 
 			if tt.dynamic {
-				assert.NotNil(t, tlsConfig.GetCertificate, "GetCertificate should not be nil")
+				assert.NotNil(t, tlsConfig.GetClientCertificate, "GetClientCertificate should not be nil")
 				assert.Equal(t, 0, len(tlsConfig.Certificates), "Certificates should be empty")
 
-				cert, err := tlsConfig.GetCertificate(nil)
-				assert.NoError(t, err, "Error getting TLS certificate")
+				cert, err := tlsConfig.GetClientCertificate(nil)
+				assert.NoError(t, err, "Error getting client TLS certificate")
 				parseAndVerifyCert(t, *cert, tt.wantCN)
 
 				if tt.nextCert[0] != "" {
 					writeTestCert(tt.nextCert)
 					time.Sleep(1 * time.Second)
-					cert, err := tlsConfig.GetCertificate(nil)
-					assert.NoError(t, err, "Error getting TLS certificate")
+					cert, err := tlsConfig.GetClientCertificate(nil)
+					assert.NoError(t, err, "Error getting client TLS certificate")
 					parseAndVerifyCert(t, *cert, tt.wantNextCN)
 				}
 			}
+
+			ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			ts.TLS = &tls.Config{ClientAuth: tls.RequireAnyClientCert}
+			ts.StartTLS()
+			defer ts.Close()
+
+			tlsConfig = tlsConfig.Clone()
+			tlsConfig.InsecureSkipVerify = true
+			client := http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: tlsConfig,
+				},
+			}
+			res, err := client.Get(ts.URL)
+			assert.NoError(t, err)
+			res.Body.Close()
+			assert.Equal(t, http.StatusOK, res.StatusCode)
 		})
 	}
 }
