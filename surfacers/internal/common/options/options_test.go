@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -255,6 +256,10 @@ func TestBuildOptions(t *testing.T) {
 			}
 			if tt.want.HTTPServeMux == nil {
 				tt.want.HTTPServeMux = runconfig.DefaultHTTPServeMux()
+			}
+
+			if tt.want.LatencyMetricRe == nil {
+				tt.want.LatencyMetricRe = regexp.MustCompile("^(.+_|)latency$")
 			}
 
 			got, err := buildOptions(tt.sdef, true, nil)

@@ -17,6 +17,7 @@ package cloudwatch
 import (
 	"context"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +39,9 @@ func newTestCWSurfacer() CWSurfacer {
 		c: &configpb.SurfacerConf{
 			Namespace:  &namespace,
 			Resolution: &resolution,
+		},
+		opts: &options.Options{
+			LatencyMetricRe: regexp.MustCompile("^(.+_|)latency$"),
 		},
 	}
 }
@@ -313,17 +317,11 @@ func ErrorContains(out error, want string) bool {
 }
 
 func TestCWSurfacerRecordEventMetrics(t *testing.T) {
-	type fields struct {
-		c         *configpb.SurfacerConf
-		opts      *options.Options
-		writeChan chan *metrics.EventMetrics
-	}
 	tests := []struct {
 		name        string
 		metricName  string
 		metricValue metrics.Value
 		labels      [][2]string
-		fields      fields
 	}{
 		{
 			name:        "resp-code",
@@ -344,9 +342,9 @@ func TestCWSurfacerRecordEventMetrics(t *testing.T) {
 			publishTimer := time.NewTicker(1 * time.Hour)
 			defer publishTimer.Stop()
 			cw := &CWSurfacer{
-				c:         tt.fields.c,
-				opts:      tt.fields.opts,
-				writeChan: tt.fields.writeChan,
+				opts: &options.Options{
+					LatencyMetricRe: regexp.MustCompile("^(.+_|)latency$"),
+				},
 			}
 			cw.recordEventMetrics(context.TODO(), publishTimer, em)
 			assert.Equal(t, 2, len(cw.metricDatumCache), "cache length should be 2")

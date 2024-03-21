@@ -112,7 +112,7 @@ import (
 
 	// Latency metric name pattern, used to identify latency metrics, and add
 	// EventMetric's LatencyUnit to it.
-	latencyMetricPattern?: string @protobuf(51,string,name=latency_metric_pattern,#"default=".*_latency""#)
+	latencyMetricPattern?: string @protobuf(51,string,name=latency_metric_pattern,#"default="^(.+_|)latency$""#)
 	// Matching surfacer specific configuration (one for each type in the above
 	// enum)
 	{} | {

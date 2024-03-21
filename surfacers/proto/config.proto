@@ -99,7 +99,7 @@ message SurfacerDef {
 
   // Latency metric name pattern, used to identify latency metrics, and add
   // EventMetric's LatencyUnit to it.
-  optional string latency_metric_pattern = 51 [default = ".*_latency"];
+  optional string latency_metric_pattern = 51 [default = "^(.+_|)latency$"];
 
   // Matching surfacer specific configuration (one for each type in the above
   // enum)
