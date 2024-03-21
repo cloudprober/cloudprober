@@ -288,7 +288,7 @@ func (os *OtelSurfacer) convertMetric(em *metrics.EventMetrics, metricName strin
 	baseAttrs := otelAttributes(em)
 
 	unit := "1"
-	if os.opts.LatencyMetricRe.MatchString(metricName) {
+	if os.opts.IsLatencyMetric(metricName) {
 		unit = metrics.LatencyUnitToString(em.LatencyUnit)
 		os.l.Debugf("Latency metric (%s) unit: %s", metricName, unit)
 	}

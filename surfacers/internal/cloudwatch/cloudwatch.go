@@ -191,7 +191,7 @@ func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensi
 
 	// the cloudwatch api will throw warnings when a timeseries has multiple
 	// units, to avoid this always calculate the value as milliseconds.
-	if cw.opts.LatencyMetricRe.MatchString(metricname) {
+	if cw.opts.IsLatencyMetric(metricname) {
 		metricDatum.Unit = types.StandardUnitMilliseconds
 		metricDatum.Value = aws.Float64(value * float64(latencyUnit) / float64(time.Millisecond))
 	}

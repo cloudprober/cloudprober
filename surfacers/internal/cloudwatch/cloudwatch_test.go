@@ -17,7 +17,6 @@ package cloudwatch
 import (
 	"context"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +25,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/cloudwatch/proto"
-	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,9 +37,6 @@ func newTestCWSurfacer() CWSurfacer {
 		c: &configpb.SurfacerConf{
 			Namespace:  &namespace,
 			Resolution: &resolution,
-		},
-		opts: &options.Options{
-			LatencyMetricRe: regexp.MustCompile("^(.+_|)latency$"),
 		},
 	}
 }
@@ -341,11 +336,7 @@ func TestCWSurfacerRecordEventMetrics(t *testing.T) {
 			}
 			publishTimer := time.NewTicker(1 * time.Hour)
 			defer publishTimer.Stop()
-			cw := &CWSurfacer{
-				opts: &options.Options{
-					LatencyMetricRe: regexp.MustCompile("^(.+_|)latency$"),
-				},
-			}
+			cw := &CWSurfacer{}
 			cw.recordEventMetrics(context.TODO(), publishTimer, em)
 			assert.Equal(t, 2, len(cw.metricDatumCache), "cache length should be 2")
 		})

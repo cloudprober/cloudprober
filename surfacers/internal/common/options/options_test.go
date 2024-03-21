@@ -246,6 +246,14 @@ func TestBuildOptions(t *testing.T) {
 			},
 			want: &Options{AddFailureMetric: true},
 		},
+		{
+			name: "custom_latency_regex",
+			sdef: &surfacerpb.SurfacerDef{
+				Type:                 configpb.Type_DATADOG.Enum(),
+				LatencyMetricPattern: proto.String("latency_.*"),
+			},
+			want: &Options{AddFailureMetric: true, latencyMetricRe: regexp.MustCompile("latency_.*")},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -258,8 +266,8 @@ func TestBuildOptions(t *testing.T) {
 				tt.want.HTTPServeMux = runconfig.DefaultHTTPServeMux()
 			}
 
-			if tt.want.LatencyMetricRe == nil {
-				tt.want.LatencyMetricRe = regexp.MustCompile("^(.+_|)latency$")
+			if tt.want.latencyMetricRe == nil {
+				tt.want.latencyMetricRe = regexp.MustCompile("^(.+_|)latency$")
 			}
 
 			got, err := buildOptions(tt.sdef, true, nil)
