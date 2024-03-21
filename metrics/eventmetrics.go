@@ -267,8 +267,8 @@ func (em *EventMetrics) Key() string {
 
 // LatencyUnitToString returns the string representation of the latency unit.
 func LatencyUnitToString(latencyUnit time.Duration) string {
-	if latencyUnit == 0 {
-		return "us" // Default unit is microseconds
+	if latencyUnit == 0 || latencyUnit == time.Microsecond {
+		return "us"
 	}
 	return latencyUnit.String()[1:]
 }

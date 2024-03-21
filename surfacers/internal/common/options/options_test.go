@@ -279,3 +279,31 @@ func TestBuildOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestOptions_IsLatencyMetric(t *testing.T) {
+	tests := []struct {
+		name       string
+		opts       *Options
+		metricName []string
+		want       []bool
+	}{
+		{
+			name:       "nil",
+			metricName: []string{"latency", "dns_latency", "latency_read"},
+			want:       []bool{true, true, false},
+		},
+		{
+			name:       "non-default",
+			opts:       &Options{latencyMetricRe: regexp.MustCompile("latency_.*")},
+			metricName: []string{"latency", "dns_latency", "latency_read"},
+			want:       []bool{false, false, true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i, m := range tt.metricName {
+				assert.Equal(t, tt.want[i], tt.opts.IsLatencyMetric(m), "metricName: %s", m)
+			}
+		})
+	}
+}
