@@ -131,7 +131,16 @@ message ProbeConf {
   // Add latency breakdown to the probe results. This will add latency
   // breakdown by various stages of the request processing, e.g., DNS
   // resolution, connection setup, TLS handshake, etc.
-  optional bool add_latency_breakdown = 22 [default = false];
+  enum LatencyBreakdown {
+    NONE = 0;
+    ALL_LATENCIES = 1;
+    DNS_LATENCY = 2;           // Exported as dns_latency
+    CONNECT_LATENCY = 3;       // Exported as connect_latency
+    TLS_HANDSHAKE_LATENCY = 4; // Exported as tls_handshake_latency
+    REQ_WRITE_LATENCY = 5;     // Exported as req_write_latency
+    FIRST_BYTE_LATENCY = 6;    // Exported as first_byte_latency
+  }
+  repeated LatencyBreakdown latency_breakdown = 22;
 
   // Interval between targets.
   optional int32 interval_between_targets_msec = 97 [default = 10];

@@ -143,7 +143,34 @@ import (
 	// Add latency breakdown to the probe results. This will add latency
 	// breakdown by various stages of the request processing, e.g., DNS
 	// resolution, connection setup, TLS handshake, etc.
-	addLatencyBreakdown?: bool @protobuf(22,bool,name=add_latency_breakdown,"default=false")
+	#LatencyBreakdown: {"NONE", #enumValue: 0} |
+		{"ALL_LATENCIES", #enumValue: 1} | {
+			"DNS_LATENCY"// Exported as dns_latency
+			#enumValue: 2
+		} | {
+			"CONNECT_LATENCY"// Exported as connect_latency
+			#enumValue: 3
+		} | {
+			"TLS_HANDSHAKE_LATENCY"// Exported as tls_handshake_latency
+			#enumValue: 4
+		} | {
+			"REQ_WRITE_LATENCY"// Exported as req_write_latency
+			#enumValue: 5
+		} | {
+			"FIRST_BYTE_LATENCY"// Exported as first_byte_latency
+			#enumValue: 6
+		}
+
+	#LatencyBreakdown_value: {
+		NONE:                  0
+		ALL_LATENCIES:         1
+		DNS_LATENCY:           2
+		CONNECT_LATENCY:       3
+		TLS_HANDSHAKE_LATENCY: 4
+		REQ_WRITE_LATENCY:     5
+		FIRST_BYTE_LATENCY:    6
+	}
+	latencyBreakdown?: [...#LatencyBreakdown] @protobuf(22,LatencyBreakdown,name=latency_breakdown)
 
 	// Interval between targets.
 	intervalBetweenTargetsMsec?: int32 @protobuf(97,int32,name=interval_between_targets_msec,"default=10")
