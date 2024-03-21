@@ -87,6 +87,10 @@ type Probe struct {
 	requestBody *httpreq.RequestBody
 }
 
+type latencyDetails struct {
+	dnsLatency, connectLatency, tlsLatency, reqWriteLatency, firstByteLatency metrics.LatencyValue
+}
+
 type probeResult struct {
 	total, success, timeouts     int64
 	connEvent                    int64
@@ -94,6 +98,7 @@ type probeResult struct {
 	respCodes                    *metrics.Map[int64]
 	respBodies                   *metrics.Map[int64]
 	validationFailure            *metrics.Map[int64]
+	latencyBreakdown             *latencyDetails
 	sslEarliestExpirationSeconds int64
 }
 
@@ -247,26 +252,53 @@ func isClientTimeout(err error) bool {
 	return false
 }
 
+func (p *Probe) addLatency(latency metrics.LatencyValue, start time.Time) {
+	latency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
+}
+
 // httpRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName string, result *probeResult, resultMu *sync.Mutex) {
 	req = p.prepareRequest(req)
 
-	var connEvent atomic.Int32
-	if p.c.GetKeepAlive() {
-		trace := &httptrace.ClientTrace{
-			ConnectDone: func(_, addr string, err error) {
-				connEvent.Add(1)
-				if err != nil {
-					p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
-					return
-				}
-				p.l.Info("Established a new connection to: ", addr)
-			},
+	start := time.Now()
+
+	var trace *httptrace.ClientTrace
+
+	if p.c.GetAddLatencyBreakdown() {
+		lb := &result.latencyBreakdown
+		trace = &httptrace.ClientTrace{
+			DNSDone:              func(_ httptrace.DNSDoneInfo) { p.addLatency((*lb).dnsLatency, start) },
+			ConnectDone:          func(_, _ string, _ error) { p.addLatency((*lb).connectLatency, start) },
+			TLSHandshakeDone:     func(_ tls.ConnectionState, _ error) { p.addLatency((*lb).tlsLatency, start) },
+			WroteRequest:         func(_ httptrace.WroteRequestInfo) { p.addLatency((*lb).reqWriteLatency, start) },
+			GotFirstResponseByte: func() { p.addLatency((*lb).firstByteLatency, start) },
 		}
+	}
+
+	var connEvent atomic.Int32
+
+	if p.c.GetKeepAlive() {
+		if trace == nil {
+			trace = &httptrace.ClientTrace{}
+		}
+		oldConnectDone := trace.ConnectDone
+		trace.ConnectDone = func(network, addr string, err error) {
+			connEvent.Add(1)
+			if oldConnectDone != nil {
+				oldConnectDone(network, addr, err)
+			}
+			if err != nil {
+				p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
+				return
+			}
+			p.l.Info("Established a new connection to: ", addr)
+		}
+	}
+
+	if trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	}
 
-	start := time.Now()
 	resp, err := client.Do(req)
 	latency := time.Since(start)
 
@@ -376,6 +408,16 @@ func (p *Probe) newResult() *probeResult {
 		result.latency = metrics.NewFloat(0)
 	}
 
+	if p.c.GetAddLatencyBreakdown() {
+		result.latencyBreakdown = &latencyDetails{
+			dnsLatency:       result.latency.Clone().(metrics.LatencyValue),
+			connectLatency:   result.latency.Clone().(metrics.LatencyValue),
+			tlsLatency:       result.latency.Clone().(metrics.LatencyValue),
+			reqWriteLatency:  result.latency.Clone().(metrics.LatencyValue),
+			firstByteLatency: result.latency.Clone().(metrics.LatencyValue),
+		}
+	}
+
 	if p.c.GetExportResponseAsMetrics() {
 		result.respBodies = metrics.NewMap("resp")
 	}
@@ -401,6 +443,14 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 
 	if result.validationFailure != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
+	}
+
+	if p.c.GetAddLatencyBreakdown() {
+		em.AddMetric("dns_latency", result.latencyBreakdown.dnsLatency.Clone()).
+			AddMetric("connect_latency", result.latencyBreakdown.connectLatency.Clone()).
+			AddMetric("tls_latency", result.latencyBreakdown.tlsLatency.Clone()).
+			AddMetric("req_write_latency", result.latencyBreakdown.reqWriteLatency.Clone()).
+			AddMetric("first_byte_latency", result.latencyBreakdown.firstByteLatency.Clone())
 	}
 
 	em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)

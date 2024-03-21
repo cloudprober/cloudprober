@@ -73,10 +73,14 @@ type Options struct {
 	Logger            *logger.Logger
 	HTTPServeMux      *http.ServeMux
 
+	// Metrics filtering
 	allowLabelFilters  []*labelFilter
 	ignoreLabelFilters []*labelFilter
 	allowMetricName    *regexp.Regexp
 	ignoreMetricName   *regexp.Regexp
+
+	// LatencyMetricRe is a regular expression to match latency metrics.
+	LatencyMetricRe *regexp.Regexp
 
 	AddFailureMetric bool
 }
@@ -176,6 +180,12 @@ func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logge
 	if opts.Config.AddFailureMetric == nil && !defaultDisableFailureMetric[opts.Config.GetType()] {
 		opts.AddFailureMetric = true
 	}
+
+	re, err := regexp.Compile(opts.Config.GetLatencyMetricPattern())
+	if err != nil {
+		return nil, fmt.Errorf("invalid latency_metric_pattern: %s, err: %v", opts.Config.GetLatencyMetricPattern(), err)
+	}
+	opts.LatencyMetricRe = re
 
 	return opts, nil
 }

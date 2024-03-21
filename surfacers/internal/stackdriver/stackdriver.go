@@ -450,13 +450,8 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 		bm := baseM.Clone()
 		bm.name = name
 
-		if k == "latency" {
-			bm.unit = map[time.Duration]string{
-				time.Second:      "s",
-				time.Millisecond: "ms",
-				time.Microsecond: "us",
-				time.Nanosecond:  "ns",
-			}[em.LatencyUnit]
+		if s.opts.LatencyMetricRe.MatchString(k) {
+			bm.unit = metrics.LatencyUnitToString(em.LatencyUnit)
 		}
 
 		switch val := em.Metric(k).(type) {

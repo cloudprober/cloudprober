@@ -128,6 +128,11 @@ message ProbeConf {
   // To disable redirects, use max_redirects: 0.
   optional int32 max_redirects = 18;
 
+  // Add latency breakdown to the probe results. This will add latency
+  // breakdown by various stages of the request processing, e.g., DNS
+  // resolution, connection setup, TLS handshake, etc.
+  optional bool add_latency_breakdown = 22 [default = false];
+
   // Interval between targets.
   optional int32 interval_between_targets_msec = 97 [default = 10];
 
@@ -146,4 +151,5 @@ message ProbeConf {
   // timeout is 1s, and requests_per_probe is 10,  requests_interval_msec
   // should be less than 10ms.
   optional int32 requests_interval_msec = 99 [default = 0];
+
 }

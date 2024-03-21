@@ -140,6 +140,11 @@ import (
 	// To disable redirects, use max_redirects: 0.
 	maxRedirects?: int32 @protobuf(18,int32,name=max_redirects)
 
+	// Add latency breakdown to the probe results. This will add latency
+	// breakdown by various stages of the request processing, e.g., DNS
+	// resolution, connection setup, TLS handshake, etc.
+	addLatencyBreakdown?: bool @protobuf(22,bool,name=add_latency_breakdown,"default=false")
+
 	// Interval between targets.
 	intervalBetweenTargetsMsec?: int32 @protobuf(97,int32,name=interval_between_targets_msec,"default=10")
 

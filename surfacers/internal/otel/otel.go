@@ -288,13 +288,9 @@ func (os *OtelSurfacer) convertMetric(em *metrics.EventMetrics, metricName strin
 	baseAttrs := otelAttributes(em)
 
 	unit := "1"
-	if metricName == "latency" {
-		if em.LatencyUnit == 0 {
-			unit = "us"
-		} else {
-			unit = em.LatencyUnit.String()[1:]
-		}
-		os.l.Debugf("Latency metric unit: %s", unit)
+	if os.opts.LatencyMetricRe.MatchString(metricName) {
+		unit = metrics.LatencyUnitToString(em.LatencyUnit)
+		os.l.Debugf("Latency metric (%s) unit: %s", metricName, unit)
 	}
 
 	otelmetrics := func(data metricdata.Aggregation) metricdata.Metrics {
