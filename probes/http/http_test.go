@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -855,6 +856,59 @@ func TestClientsForTarget(t *testing.T) {
 			for _, c := range gotClients {
 				tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
 				assert.Equal(t, tt.tlsConfigServerName, tlsConfig.ServerName, "TLS config server name is not as expected")
+			}
+		})
+	}
+}
+
+func TestParseLatencyBreakdown(t *testing.T) {
+	tests := []struct {
+		name string
+		lb   []configpb.ProbeConf_LatencyBreakdown
+		base metrics.LatencyValue
+		want *latencyDetails
+	}{
+		{
+			name: "default",
+			want: nil,
+		},
+		{
+			name: "all",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_ALL_LATENCIES,
+			},
+			base: metrics.NewFloat(0),
+			want: &latencyDetails{
+				dnsLatency:       metrics.NewFloat(0),
+				connectLatency:   metrics.NewFloat(0),
+				tlsLatency:       metrics.NewFloat(0),
+				reqWriteLatency:  metrics.NewFloat(0),
+				firstByteLatency: metrics.NewFloat(0),
+			},
+		},
+		{
+			name: "dns_tls",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_DNS_LATENCY,
+				configpb.ProbeConf_TLS_HANDSHAKE_LATENCY,
+			},
+			base: metrics.NewDistribution([]float64{.01, .1, .5}),
+			want: &latencyDetails{
+				dnsLatency: metrics.NewDistribution([]float64{.01, .1, .5}),
+				tlsLatency: metrics.NewDistribution([]float64{.01, .1, .5}),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				c: &configpb.ProbeConf{
+					LatencyBreakdown: tt.lb,
+				},
+			}
+
+			if got := p.parseLatencyBreakdown(tt.base); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Probe.parseLatencyBreakdown() = %v, want %v", got, tt.want)
 			}
 		})
 	}
