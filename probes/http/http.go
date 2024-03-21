@@ -448,7 +448,7 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 	if p.c.GetAddLatencyBreakdown() {
 		em.AddMetric("dns_latency", result.latencyBreakdown.dnsLatency.Clone()).
 			AddMetric("connect_latency", result.latencyBreakdown.connectLatency.Clone()).
-			AddMetric("tls_latency", result.latencyBreakdown.tlsLatency.Clone()).
+			AddMetric("tls_handshake_latency", result.latencyBreakdown.tlsLatency.Clone()).
 			AddMetric("req_write_latency", result.latencyBreakdown.reqWriteLatency.Clone()).
 			AddMetric("first_byte_latency", result.latencyBreakdown.firstByteLatency.Clone())
 	}
