@@ -1,4 +1,4 @@
-// Copyright 2017-2023 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +15,10 @@
 package external
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"reflect"
@@ -35,7 +33,6 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
-	"github.com/cloudprober/cloudprober/probes/external/serverutils"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probeconfigpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets"
@@ -44,97 +41,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func isDone(doneChan chan struct{}) bool {
-	// If we are done, return immediately.
-	select {
-	case <-doneChan:
-		return true
-	default:
-	}
-	return false
-}
-
-// startProbeServer starts a test probe server to work with the TestProbeServer
-// test below.
-func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteCloser, doneChan chan struct{}) {
-	rd := bufio.NewReader(r)
-	for {
-		if isDone(doneChan) {
-			return
-		}
-
-		req, err := serverutils.ReadProbeRequest(rd)
-		if err != nil {
-			// Normal failure because we are finished.
-			if isDone(doneChan) {
-				return
-			}
-			t.Errorf("Error reading probe request. Err: %v", err)
-			return
-		}
-		var action, target string
-		opts := req.GetOptions()
-		for _, opt := range opts {
-			if opt.GetName() == "action" {
-				action = opt.GetValue()
-				continue
-			}
-			if opt.GetName() == "target" {
-				target = opt.GetValue()
-				continue
-			}
-		}
-		id := req.GetRequestId()
-
-		actionToResponse := map[string]*serverpb.ProbeReply{
-			"nopayload": {RequestId: proto.Int32(id)},
-			"payload": {
-				RequestId: proto.Int32(id),
-				Payload:   proto.String(testPayload),
-			},
-			"payload_with_error": {
-				RequestId:    proto.Int32(id),
-				Payload:      proto.String(testPayload),
-				ErrorMessage: proto.String("error"),
-			},
-		}
-		t.Logf("Request id: %d, action: %s, target: %s", id, action, target)
-		if action == "pipe_server_close" {
-			w.Close()
-			return
-		}
-		if res, ok := actionToResponse[action]; ok {
-			serverutils.WriteMessage(res, w)
-		}
-	}
-}
-
 func setProbeOptions(p *Probe, name, value string) {
 	for _, opt := range p.c.Options {
 		if opt.GetName() == name {
 			opt.Value = proto.String(value)
 			break
 		}
-	}
-}
-
-// runAndVerifyServerProbe executes a server probe and verifies the replies
-// received.
-func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int64, numEventMetrics int) {
-	setProbeOptions(p, "action", action)
-
-	runAndVerifyProbe(t, p, tgts, total, success)
-
-	// Verify that we got all the expected EventMetrics
-	ems, err := testutils.MetricsFromChannel(p.dataChan, numEventMetrics, 1*time.Second)
-	if err != nil {
-		t.Error(err)
-	}
-	mmap := testutils.MetricsMapByTarget(ems)
-
-	for _, tgt := range tgts {
-		assert.Equal(t, total[tgt], mmap.LastValueInt64(tgt, "total"))
-		assert.Equal(t, success[tgt], mmap.LastValueInt64(tgt, "success"))
 	}
 }
 
@@ -176,143 +88,6 @@ func createTestProbe(cmd string, envVar map[string]string) *Probe {
 	})
 
 	return p
-}
-
-func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string, chan struct{}) {
-	// We create two pairs of pipes to establish communication between this prober
-	// and the test probe server (defined above).
-	// Test probe server input pipe. We writes on w1 and external command reads
-	// from r1.
-	r1, w1, err := os.Pipe()
-	if err != nil {
-		t.Errorf("Error creating OS pipe. Err: %v", err)
-	}
-	// Test probe server output pipe. External command writes on w2 and we read
-	// from r2.
-	r2, w2, err := os.Pipe()
-	if err != nil {
-		t.Errorf("Error creating OS pipe. Err: %v", err)
-	}
-
-	testPayload := "p90 45\n"
-	// Start probe server in a goroutine
-	doneChan := make(chan struct{})
-	go startProbeServer(t, testPayload, r1, w2, doneChan)
-
-	p := createTestProbe("./testCommand", nil)
-	p.cmdRunning = true // don't try to start the probe server
-	p.cmdStdin = w1
-	p.cmdStdout = r2
-	p.mode = "server"
-
-	// Start the goroutine that reads probe replies.
-	go func() {
-		err := p.readProbeReplies(doneChan)
-		if readErrorCh != nil {
-			readErrorCh <- err
-			close(readErrorCh)
-		}
-	}()
-
-	return p, testPayload, doneChan
-}
-
-func TestProbeServerMode(t *testing.T) {
-	p, _, doneChan := testProbeServerSetup(t, nil)
-	defer close(doneChan)
-
-	total, success := make(map[string]int64), make(map[string]int64)
-
-	// No payload
-	tgts := []string{"target1", "target2"}
-	for _, tgt := range tgts {
-		total[tgt]++
-		success[tgt]++
-	}
-	t.Run("nopayload", func(t *testing.T) {
-		runAndVerifyServerProbe(t, p, "nopayload", tgts, total, success, 2)
-	})
-
-	// Payload
-	tgts = []string{"target3"}
-	for _, tgt := range tgts {
-		total[tgt]++
-		success[tgt]++
-	}
-	t.Run("payload", func(t *testing.T) {
-		// 2 metrics per target
-		runAndVerifyServerProbe(t, p, "payload", tgts, total, success, 1*2)
-	})
-
-	// Payload with error
-	tgts = []string{"target2", "target3"}
-	for _, tgt := range tgts {
-		total[tgt]++
-	}
-	t.Run("payload_with_error", func(t *testing.T) {
-		// 2 targets, 2 EMs per target
-		runAndVerifyServerProbe(t, p, "payload_with_error", tgts, total, success, 2*2)
-	})
-
-	// Timeout
-	tgts = []string{"target1", "target2", "target3"}
-	for _, tgt := range tgts {
-		total[tgt]++
-	}
-
-	// Reduce probe timeout to make this test pass quicker.
-	p.opts.Timeout = time.Second
-	t.Run("timeout", func(t *testing.T) {
-		// 3 targets, 1 EM per target
-		runAndVerifyServerProbe(t, p, "timeout", tgts, total, success, 3*1)
-	})
-}
-
-func TestProbeServerRemotePipeClose(t *testing.T) {
-	readErrorCh := make(chan error)
-	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
-	defer close(doneChan)
-
-	total, success := make(map[string]int64), make(map[string]int64)
-	// Remote pipe close
-	tgts := []string{"target"}
-	for _, tgt := range tgts {
-		total[tgt]++
-	}
-	// Reduce probe timeout to make this test pass quicker.
-	p.opts.Timeout = time.Second
-	runAndVerifyServerProbe(t, p, "pipe_server_close", tgts, total, success, 1)
-	readError := <-readErrorCh
-	if readError == nil {
-		t.Error("Didn't get error in reading pipe")
-	}
-	if readError != io.EOF {
-		t.Errorf("Didn't get correct error in reading pipe. Got: %v, wanted: %v", readError, io.EOF)
-	}
-}
-
-func TestProbeServerLocalPipeClose(t *testing.T) {
-	readErrorCh := make(chan error)
-	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
-	defer close(doneChan)
-
-	total, success := make(map[string]int64), make(map[string]int64)
-	// Local pipe close
-	tgts := []string{"target"}
-	for _, tgt := range tgts {
-		total[tgt]++
-	}
-	// Reduce probe timeout to make this test pass quicker.
-	p.opts.Timeout = time.Second
-	p.cmdStdout.(*os.File).Close()
-	runAndVerifyServerProbe(t, p, "pipe_local_close", tgts, total, success, 1)
-	readError := <-readErrorCh
-	if readError == nil {
-		t.Error("Didn't get error in reading pipe")
-	}
-	if _, ok := readError.(*os.PathError); !ok {
-		t.Errorf("Didn't get correct error in reading pipe. Got: %T, wanted: *os.PathError", readError)
-	}
 }
 
 func testProbeOnceMode(t *testing.T, cmd string, tgts []string, envVars map[string]string, wantCmd, wantEnv string, wantArgs []string) {
