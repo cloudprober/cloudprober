@@ -31,6 +31,11 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+// readPayload reads the payload from the given bufio.Reader. It expects the
+// payload to be preceded by a header line with the content length:
+// "\nContent-Length: %d\n\n"
+// Note: This function takes a context, but canceling the context doesn't
+// cancel the ongoing read call.
 func readPayload(ctx context.Context, r *bufio.Reader) ([]byte, error) {
 	// header format is: "\nContent-Length: %d\n\n"
 	const prefix = "Content-Length: "
@@ -145,28 +150,6 @@ func serve(ctx context.Context, probeFunc func(*serverpb.ProbeRequest, *serverpb
 	}
 }
 
-// Serve blocks indefinitely, servicing probe requests. Note that this function is
-// provided mainly to help external probe server implementations. Cloudprober doesn't
-// make use of it. Example usage:
-//
-//		import (
-//			serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
-//			"github.com/cloudprober/cloudprober/probes/external/serverutils"
-//		)
-//		func runProbe(opts []*cppb.ProbeRequest_Option) {
-//	 	...
-//		}
-//		serverutils.Serve(func(req *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
-//			payload, errMsg, _ := runProbe(req.GetOptions())
-//			reply.Payload = proto.String(payload)
-//			if errMsg != "" {
-//				reply.ErrorMessage = proto.String(errMsg)
-//			}
-//		})
-func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
-	serve(context.Background(), probeFunc, bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout), bufio.NewWriter(os.Stderr))
-}
-
 // ServeContext blocks indefinitely, servicing probe requests. Note that this function is
 // provided mainly to help external probe server implementations. Cloudprober doesn't
 // make use of it. Example usage:
@@ -186,5 +169,10 @@ func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
 //			}
 //		})
 func ServeContext(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
+	serve(context.Background(), probeFunc, bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout), bufio.NewWriter(os.Stderr))
+}
+
+// Serve is similar to ServeContext but uses the background context.
+func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
 	serve(context.Background(), probeFunc, bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout), bufio.NewWriter(os.Stderr))
 }

@@ -61,11 +61,9 @@ var (
 func (p *Probe) monitorCommand(startCtx context.Context, cmd command) error {
 	err := cmd.Wait()
 
-	// Spare logging error message if killed explicitly.
-	select {
-	case <-startCtx.Done():
+	// Dont'log error message if killed explicitly.
+	if startCtx.Err() != nil {
 		return nil
-	default:
 	}
 
 	if exitErr, ok := err.(*exec.ExitError); ok {
