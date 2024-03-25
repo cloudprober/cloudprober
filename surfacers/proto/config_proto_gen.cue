@@ -109,6 +109,10 @@ import (
 	// However, it should not be noticeable unless you're producing large number
 	// of metrics (say > 10000 metrics per second).
 	exportAsGauge?: bool @protobuf(9,bool,name=export_as_gauge)
+
+	// Latency metric name pattern, used to identify latency metrics, and add
+	// EventMetric's LatencyUnit to it.
+	latencyMetricPattern?: string @protobuf(51,string,name=latency_metric_pattern,#"default="^(.+_|)latency$""#)
 	// Matching surfacer specific configuration (one for each type in the above
 	// enum)
 	{} | {

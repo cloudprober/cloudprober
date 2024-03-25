@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func newEventMetrics(sent, rcvd, rtt int64, respCodes map[string]int64) *EventMetrics {
@@ -203,4 +205,19 @@ func TestAllocsPerRun(t *testing.T) {
 	})
 
 	t.Logf("Average allocations per run: ForNew=%v, ForString=%v", newAvg, stringAvg)
+}
+
+func TestLatencyUnitToString(t *testing.T) {
+	tests := map[time.Duration]string{
+		0:                "us",
+		time.Second:      "s",
+		time.Millisecond: "ms",
+		time.Microsecond: "us",
+		time.Nanosecond:  "ns",
+	}
+	for latencyUnit, want := range tests {
+		t.Run(want, func(t *testing.T) {
+			assert.Equal(t, want, LatencyUnitToString(latencyUnit), "LatencyUnitToString()")
+		})
+	}
 }
