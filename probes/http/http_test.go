@@ -17,13 +17,16 @@ package http
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,6 +78,31 @@ func (trc *testReadCloser) Close() error {
 }
 
 func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx := req.Context()
+	trace := httptrace.ContextClientTrace(ctx)
+	if trace != nil {
+		if trace.DNSDone != nil {
+			time.Sleep(time.Millisecond)
+			trace.DNSDone(httptrace.DNSDoneInfo{})
+		}
+		if trace.ConnectDone != nil {
+			time.Sleep(time.Millisecond)
+			trace.ConnectDone("", "", nil)
+		}
+		if trace.TLSHandshakeDone != nil && req.URL.Scheme == "https" {
+			time.Sleep(time.Millisecond)
+			trace.TLSHandshakeDone(tls.ConnectionState{}, nil)
+		}
+		if trace.WroteRequest != nil {
+			time.Sleep(time.Millisecond)
+			trace.WroteRequest(httptrace.WroteRequestInfo{})
+		}
+		if trace.GotFirstResponseByte != nil {
+			time.Sleep(time.Millisecond)
+			trace.GotFirstResponseByte()
+		}
+	}
+
 	authHeader := req.Header.Get("Authorization")
 	if tt.keepAuthHeader {
 		tt.mu.Lock()
@@ -856,6 +884,159 @@ func TestClientsForTarget(t *testing.T) {
 				tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
 				assert.Equal(t, tt.tlsConfigServerName, tlsConfig.ServerName, "TLS config server name is not as expected")
 			}
+		})
+	}
+}
+
+func TestParseLatencyBreakdown(t *testing.T) {
+	tests := []struct {
+		name string
+		lb   []configpb.ProbeConf_LatencyBreakdown
+		base metrics.LatencyValue
+		want *latencyDetails
+	}{
+		{
+			name: "default",
+			want: nil,
+		},
+		{
+			name: "all",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_ALL_LATENCIES,
+			},
+			base: metrics.NewFloat(0),
+			want: &latencyDetails{
+				dnsLatency:       metrics.NewFloat(0),
+				connectLatency:   metrics.NewFloat(0),
+				tlsLatency:       metrics.NewFloat(0),
+				reqWriteLatency:  metrics.NewFloat(0),
+				firstByteLatency: metrics.NewFloat(0),
+			},
+		},
+		{
+			name: "dns_tls",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_DNS_LATENCY,
+				configpb.ProbeConf_TLS_HANDSHAKE_LATENCY,
+			},
+			base: metrics.NewDistribution([]float64{.01, .1, .5}),
+			want: &latencyDetails{
+				dnsLatency: metrics.NewDistribution([]float64{.01, .1, .5}),
+				tlsLatency: metrics.NewDistribution([]float64{.01, .1, .5}),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				c: &configpb.ProbeConf{
+					LatencyBreakdown: tt.lb,
+				},
+			}
+
+			if got := p.parseLatencyBreakdown(tt.base); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Probe.parseLatencyBreakdown() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProbeWithLatencyBreakdown(t *testing.T) {
+	ts := time.Unix(1711090290, 0)
+
+	tests := []struct {
+		name        string
+		tls         bool
+		lb          []configpb.ProbeConf_LatencyBreakdown
+		wantNil     []string
+		wantNonNil  []string
+		wantZero    string
+		wantMetrics []string
+	}{
+		{
+			name: "all",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_ALL_LATENCIES,
+			},
+			wantNonNil:  []string{"dns", "connect", "tls_handshake", "req_write", "first_byte"},
+			wantZero:    "tls_handshake",
+			wantMetrics: []string{"dns_latency", "connect_latency", "tls_handshake_latency", "req_write_latency", "first_byte_latency"},
+		},
+		{
+			name: "dns_tls",
+			tls:  true,
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_DNS_LATENCY,
+				configpb.ProbeConf_TLS_HANDSHAKE_LATENCY,
+			},
+			wantNonNil:  []string{"dns", "tls_handshake"},
+			wantNil:     []string{"connect", "req_write", "first_byte"},
+			wantMetrics: []string{"dns_latency", "tls_handshake_latency"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &configpb.ProbeConf{
+				LatencyBreakdown: tt.lb,
+			}
+			if tt.tls {
+				cfg.SchemeType = &configpb.ProbeConf_Scheme_{
+					Scheme: configpb.ProbeConf_HTTPS,
+				}
+			}
+
+			opts := options.DefaultOptions()
+			opts.ProbeConf = cfg
+
+			p := &Probe{}
+			if err := p.Init("http_test", opts); err != nil {
+				t.Errorf("Error while initializing probe: %v", err)
+			}
+
+			patchWithTestTransport(p)
+
+			target := endpoint.Endpoint{Name: "test.com"}
+			result := p.newResult()
+			req := p.httpRequestForTarget(target)
+
+			p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
+
+			assert.NotNil(t, result.latencyBreakdown, "latencyDetails not populated")
+
+			lb := result.latencyBreakdown
+			latenciesMap := map[string]metrics.Value{
+				"dns":           lb.dnsLatency,
+				"connect":       lb.connectLatency,
+				"tls_handshake": lb.tlsLatency,
+				"req_write":     lb.reqWriteLatency,
+				"first_byte":    lb.firstByteLatency,
+			}
+
+			for _, k := range tt.wantNil {
+				assert.Nil(t, latenciesMap[k], fmt.Sprintf("%s: latency value not populated", k))
+			}
+			for _, k := range tt.wantNonNil {
+				assert.NotNil(t, latenciesMap[k], fmt.Sprintf("%s: latency value not populated", k))
+				if k != tt.wantZero {
+					assert.Greater(t, latenciesMap[k].(metrics.NumValue).Float64(), float64(0), fmt.Sprintf("%s: latency value is not non-zero", k))
+				} else {
+					assert.Zero(t, latenciesMap[k].(metrics.NumValue).Float64(), fmt.Sprintf("%s: latency value is zero", k))
+				}
+			}
+
+			dataChan := make(chan *metrics.EventMetrics, 1)
+			p.exportMetrics(ts, result, target, dataChan)
+			em := <-dataChan
+			for _, m := range tt.wantMetrics {
+				assert.NotNil(t, em.Metric(m), fmt.Sprintf("%s: metric not exported", m))
+				wantValue := latenciesMap[strings.TrimSuffix(m, "_latency")]
+				assert.Equal(t, wantValue.String(), em.Metric(m).String(), fmt.Sprintf("%s: metric value not as expected", m))
+			}
+
+			// 5 more metrics are exported for total, success, latency, timeouts, resp_code
+			wantNumMetrics := len(tt.wantMetrics) + 5
+			assert.Equal(t, wantNumMetrics, len(em.MetricsKeys()), "number of metrics exported")
 		})
 	}
 }

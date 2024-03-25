@@ -52,6 +52,7 @@ func testEMs(ts time.Time) []*metrics.EventMetrics {
 		metrics.NewEventMetrics(ts.Add(2*time.Second)).
 			AddMetric("failures", metrics.NewInt(25)).
 			AddMetric("latency", metrics.NewFloat(8.7)).
+			AddMetric("dns_latency", metrics.NewFloat(1.2)).
 			AddLabel("probe", "p1"),
 	}
 
@@ -150,6 +151,7 @@ func TestOtelSurfacerWrite(t *testing.T) {
 						testMetric("cloudprober_latency", "us", sumData(dataPoint[float64](9.2, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp))),
 						testMetric("cloudprober_failures", "1", sumData(dataPoint[int64](25, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp.Add(2*time.Second)))),
 						testMetric("cloudprober_latency", "us", sumData(dataPoint[float64](8.7, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp.Add(2*time.Second)))),
+						testMetric("cloudprober_dns_latency", "us", sumData(dataPoint[float64](1.2, [][2]string{{"probe", "p1"}}, startTime, ems[0].Timestamp.Add(2*time.Second)))),
 					},
 				},
 			},

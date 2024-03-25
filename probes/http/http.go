@@ -87,6 +87,10 @@ type Probe struct {
 	requestBody *httpreq.RequestBody
 }
 
+type latencyDetails struct {
+	dnsLatency, connectLatency, tlsLatency, reqWriteLatency, firstByteLatency metrics.LatencyValue
+}
+
 type probeResult struct {
 	total, success, timeouts     int64
 	connEvent                    int64
@@ -94,6 +98,7 @@ type probeResult struct {
 	respCodes                    *metrics.Map[int64]
 	respBodies                   *metrics.Map[int64]
 	validationFailure            *metrics.Map[int64]
+	latencyBreakdown             *latencyDetails
 	sslEarliestExpirationSeconds int64
 }
 
@@ -247,26 +252,57 @@ func isClientTimeout(err error) bool {
 	return false
 }
 
+func (p *Probe) addLatency(latency metrics.LatencyValue, start time.Time) {
+	latency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
+}
+
 // httpRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName string, result *probeResult, resultMu *sync.Mutex) {
 	req = p.prepareRequest(req)
 
-	var connEvent atomic.Int32
-	if p.c.GetKeepAlive() {
-		trace := &httptrace.ClientTrace{
-			ConnectDone: func(_, addr string, err error) {
-				connEvent.Add(1)
-				if err != nil {
-					p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
-					return
-				}
-				p.l.Info("Established a new connection to: ", addr)
-			},
+	start := time.Now()
+
+	trace := &httptrace.ClientTrace{}
+
+	if lb := result.latencyBreakdown; lb != nil {
+		if lb.dnsLatency != nil {
+			trace.DNSDone = func(_ httptrace.DNSDoneInfo) { p.addLatency(lb.dnsLatency, start) }
 		}
+		if lb.connectLatency != nil {
+			trace.ConnectDone = func(_, _ string, _ error) { p.addLatency(lb.connectLatency, start) }
+		}
+		if lb.tlsLatency != nil {
+			trace.TLSHandshakeDone = func(_ tls.ConnectionState, _ error) { p.addLatency(lb.tlsLatency, start) }
+		}
+		if lb.reqWriteLatency != nil {
+			trace.WroteRequest = func(_ httptrace.WroteRequestInfo) { p.addLatency(lb.reqWriteLatency, start) }
+		}
+		if lb.firstByteLatency != nil {
+			trace.GotFirstResponseByte = func() { p.addLatency(lb.firstByteLatency, start) }
+		}
+	}
+
+	var connEvent atomic.Int32
+
+	if p.c.GetKeepAlive() {
+		oldConnectDone := trace.ConnectDone
+		trace.ConnectDone = func(network, addr string, err error) {
+			connEvent.Add(1)
+			if oldConnectDone != nil {
+				oldConnectDone(network, addr, err)
+			}
+			if err != nil {
+				p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
+				return
+			}
+			p.l.Info("Established a new connection to: ", addr)
+		}
+	}
+
+	if trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	}
 
-	start := time.Now()
 	resp, err := client.Do(req)
 	latency := time.Since(start)
 
@@ -332,6 +368,36 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, targetName
 	}
 }
 
+func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *latencyDetails {
+	if len(p.c.GetLatencyBreakdown()) == 0 {
+		return nil
+	}
+	lbMap := make(map[configpb.ProbeConf_LatencyBreakdown]bool)
+	for _, l := range p.c.GetLatencyBreakdown() {
+		lbMap[l] = true
+	}
+
+	all := lbMap[configpb.ProbeConf_ALL_LATENCIES]
+
+	ld := &latencyDetails{}
+	if all || lbMap[configpb.ProbeConf_DNS_LATENCY] {
+		ld.dnsLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	if all || lbMap[configpb.ProbeConf_CONNECT_LATENCY] {
+		ld.connectLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	if all || lbMap[configpb.ProbeConf_TLS_HANDSHAKE_LATENCY] {
+		ld.tlsLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	if all || lbMap[configpb.ProbeConf_REQ_WRITE_LATENCY] {
+		ld.reqWriteLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	if all || lbMap[configpb.ProbeConf_FIRST_BYTE_LATENCY] {
+		ld.firstByteLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	return ld
+}
+
 func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, clients []*http.Client, req *http.Request, result *probeResult) {
 	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelReqCtx()
@@ -376,6 +442,8 @@ func (p *Probe) newResult() *probeResult {
 		result.latency = metrics.NewFloat(0)
 	}
 
+	result.latencyBreakdown = p.parseLatencyBreakdown(result.latency)
+
 	if p.c.GetExportResponseAsMetrics() {
 		result.respBodies = metrics.NewMap("resp")
 	}
@@ -401,6 +469,24 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 
 	if result.validationFailure != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
+	}
+
+	if result.latencyBreakdown != nil {
+		if dl := result.latencyBreakdown.dnsLatency; dl != nil {
+			em.AddMetric("dns_latency", dl.Clone())
+		}
+		if cl := result.latencyBreakdown.connectLatency; cl != nil {
+			em.AddMetric("connect_latency", cl.Clone())
+		}
+		if tl := result.latencyBreakdown.tlsLatency; tl != nil {
+			em.AddMetric("tls_handshake_latency", tl.Clone())
+		}
+		if rwl := result.latencyBreakdown.reqWriteLatency; rwl != nil {
+			em.AddMetric("req_write_latency", rwl.Clone())
+		}
+		if fbl := result.latencyBreakdown.firstByteLatency; fbl != nil {
+			em.AddMetric("first_byte_latency", fbl.Clone())
+		}
 	}
 
 	em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)

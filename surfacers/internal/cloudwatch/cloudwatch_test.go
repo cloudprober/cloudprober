@@ -25,7 +25,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/cloudwatch/proto"
-	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -313,17 +312,11 @@ func ErrorContains(out error, want string) bool {
 }
 
 func TestCWSurfacerRecordEventMetrics(t *testing.T) {
-	type fields struct {
-		c         *configpb.SurfacerConf
-		opts      *options.Options
-		writeChan chan *metrics.EventMetrics
-	}
 	tests := []struct {
 		name        string
 		metricName  string
 		metricValue metrics.Value
 		labels      [][2]string
-		fields      fields
 	}{
 		{
 			name:        "resp-code",
@@ -343,11 +336,7 @@ func TestCWSurfacerRecordEventMetrics(t *testing.T) {
 			}
 			publishTimer := time.NewTicker(1 * time.Hour)
 			defer publishTimer.Stop()
-			cw := &CWSurfacer{
-				c:         tt.fields.c,
-				opts:      tt.fields.opts,
-				writeChan: tt.fields.writeChan,
-			}
+			cw := &CWSurfacer{}
 			cw.recordEventMetrics(context.TODO(), publishTimer, em)
 			assert.Equal(t, 2, len(cw.metricDatumCache), "cache length should be 2")
 		})
