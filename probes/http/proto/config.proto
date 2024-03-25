@@ -128,9 +128,6 @@ message ProbeConf {
   // To disable redirects, use max_redirects: 0.
   optional int32 max_redirects = 18;
 
-  // Add latency breakdown to the probe results. This will add latency
-  // breakdown by various stages of the request processing, e.g., DNS
-  // resolution, connection setup, TLS handshake, etc.
   enum LatencyBreakdown {
     NO_BREAKDOWN = 0;
     ALL_STAGES = 1;
@@ -140,6 +137,14 @@ message ProbeConf {
     REQ_WRITE_LATENCY = 5;     // Exported as req_write_latency
     FIRST_BYTE_LATENCY = 6;    // Exported as first_byte_latency
   }
+  // Add latency breakdown to probe results. This will add latency breakdown
+  // by various stages of the request processing, e.g., DNS resolution, TCP
+  // connection, TLS handshake, etc. You can select stages individually or
+  // specify "ALL_STAGES" to get breakdown for all stages.
+  //
+  // Example:
+  //   latency_breakdown: [ ALL_STAGES ]
+  //   latency_breakdown: [ DNS_LATENCY, CONNECT_LATENCY, TLS_HANDSHAKE_LATENCY ]
   repeated LatencyBreakdown latency_breakdown = 22;
 
   // Interval between targets.
