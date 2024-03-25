@@ -67,6 +67,7 @@ func NewEventMetrics(ts time.Time) *EventMetrics {
 // metric with the same name exists already, new metric is ignored. AddMetric
 // returns the receiver EventMetrics to allow for the chaining of these calls,
 // for example:
+//
 //	em := metrics.NewEventMetrics(time.Now()).
 //		AddMetric("sent", &prr.sent).
 //		AddMetric("rcvd", &prr.rcvd).
@@ -104,6 +105,7 @@ func (em *EventMetrics) MetricsKeys() []string {
 // label with the same name exists already, new label is ignored. AddLabel
 // returns the receiver EventMetrics to allow for the chaining of these calls,
 // for example:
+//
 //	em := metrics.NewEventMetrics(time.Now()).
 //		AddMetric("sent", &prr.sent).
 //		AddLabel("ptype", "http").
@@ -261,4 +263,12 @@ func (em *EventMetrics) Key() string {
 		keys = append(keys, k+"="+em.labels[k])
 	}
 	return strings.Join(keys, ",")
+}
+
+// LatencyUnitToString returns the string representation of the latency unit.
+func LatencyUnitToString(latencyUnit time.Duration) string {
+	if latencyUnit == 0 || latencyUnit == time.Microsecond {
+		return "us"
+	}
+	return latencyUnit.String()[1:]
 }

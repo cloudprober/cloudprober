@@ -32,6 +32,8 @@ type labelFilter struct {
 	value string
 }
 
+var defaultLatencyMetricRe = regexp.MustCompile("^(.*_|)latency$")
+
 func (lf *labelFilter) matchEventMetrics(em *metrics.EventMetrics) bool {
 	if lf.key != "" {
 		for _, lKey := range em.LabelsKeys() {
@@ -73,10 +75,14 @@ type Options struct {
 	Logger            *logger.Logger
 	HTTPServeMux      *http.ServeMux
 
+	// Metrics filtering
 	allowLabelFilters  []*labelFilter
 	ignoreLabelFilters []*labelFilter
 	allowMetricName    *regexp.Regexp
 	ignoreMetricName   *regexp.Regexp
+
+	// latencyMetricRe is a regular expression to match latency metrics.
+	latencyMetricRe *regexp.Regexp
 
 	AddFailureMetric bool
 }
@@ -128,6 +134,13 @@ func (opts *Options) AllowMetric(metricName string) bool {
 	return opts.allowMetricName.MatchString(metricName)
 }
 
+func (opts *Options) IsLatencyMetric(metricName string) bool {
+	if opts == nil {
+		return defaultLatencyMetricRe.MatchString(metricName)
+	}
+	return opts.latencyMetricRe.MatchString(metricName)
+}
+
 // buildOptions builds surfacer options using config.
 func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logger) (*Options, error) {
 	opts := &Options{
@@ -176,6 +189,12 @@ func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logge
 	if opts.Config.AddFailureMetric == nil && !defaultDisableFailureMetric[opts.Config.GetType()] {
 		opts.AddFailureMetric = true
 	}
+
+	re, err := regexp.Compile(opts.Config.GetLatencyMetricPattern())
+	if err != nil {
+		return nil, fmt.Errorf("invalid latency_metric_pattern: %s, err: %v", opts.Config.GetLatencyMetricPattern(), err)
+	}
+	opts.latencyMetricRe = re
 
 	return opts, nil
 }
