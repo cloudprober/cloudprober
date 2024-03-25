@@ -132,8 +132,8 @@ message ProbeConf {
   // breakdown by various stages of the request processing, e.g., DNS
   // resolution, connection setup, TLS handshake, etc.
   enum LatencyBreakdown {
-    NONE = 0;
-    ALL_LATENCIES = 1;
+    NO_BREAKDOWN = 0;
+    ALL_STAGES = 1;
     DNS_LATENCY = 2;           // Exported as dns_latency
     CONNECT_LATENCY = 3;       // Exported as connect_latency
     TLS_HANDSHAKE_LATENCY = 4; // Exported as tls_handshake_latency

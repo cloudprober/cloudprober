@@ -143,8 +143,8 @@ import (
 	// Add latency breakdown to the probe results. This will add latency
 	// breakdown by various stages of the request processing, e.g., DNS
 	// resolution, connection setup, TLS handshake, etc.
-	#LatencyBreakdown: {"NONE", #enumValue: 0} |
-		{"ALL_LATENCIES", #enumValue: 1} | {
+	#LatencyBreakdown: {"NO_BREAKDOWN", #enumValue: 0} |
+		{"ALL_STAGES", #enumValue: 1} | {
 			"DNS_LATENCY"// Exported as dns_latency
 			#enumValue: 2
 		} | {
@@ -162,8 +162,8 @@ import (
 		}
 
 	#LatencyBreakdown_value: {
-		NONE:                  0
-		ALL_LATENCIES:         1
+		NO_BREAKDOWN:          0
+		ALL_STAGES:            1
 		DNS_LATENCY:           2
 		CONNECT_LATENCY:       3
 		TLS_HANDSHAKE_LATENCY: 4

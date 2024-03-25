@@ -902,7 +902,7 @@ func TestParseLatencyBreakdown(t *testing.T) {
 		{
 			name: "all",
 			lb: []configpb.ProbeConf_LatencyBreakdown{
-				configpb.ProbeConf_ALL_LATENCIES,
+				configpb.ProbeConf_ALL_STAGES,
 			},
 			base: metrics.NewFloat(0),
 			want: &latencyDetails{
@@ -956,7 +956,7 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 		{
 			name: "all",
 			lb: []configpb.ProbeConf_LatencyBreakdown{
-				configpb.ProbeConf_ALL_LATENCIES,
+				configpb.ProbeConf_ALL_STAGES,
 			},
 			wantNonNil:  []string{"dns", "connect", "tls_handshake", "req_write", "first_byte"},
 			wantZero:    "tls_handshake",

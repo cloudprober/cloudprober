@@ -377,7 +377,7 @@ func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *la
 		lbMap[l] = true
 	}
 
-	all := lbMap[configpb.ProbeConf_ALL_LATENCIES]
+	all := lbMap[configpb.ProbeConf_ALL_STAGES]
 
 	ld := &latencyDetails{}
 	if all || lbMap[configpb.ProbeConf_DNS_LATENCY] {
