@@ -149,9 +149,6 @@ func (ProbeConf_Method) EnumDescriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_rawDescGZIP(), []int{0, 1}
 }
 
-// Add latency breakdown to the probe results. This will add latency
-// breakdown by various stages of the request processing, e.g., DNS
-// resolution, connection setup, TLS handshake, etc.
 type ProbeConf_LatencyBreakdown int32
 
 const (
@@ -316,7 +313,16 @@ type ProbeConf struct {
 	MaxIdleConns *int32 `protobuf:"varint,17,opt,name=max_idle_conns,json=maxIdleConns,def=256" json:"max_idle_conns,omitempty"`
 	// The maximum amount of redirects the HTTP client will follow.
 	// To disable redirects, use max_redirects: 0.
-	MaxRedirects     *int32                       `protobuf:"varint,18,opt,name=max_redirects,json=maxRedirects" json:"max_redirects,omitempty"`
+	MaxRedirects *int32 `protobuf:"varint,18,opt,name=max_redirects,json=maxRedirects" json:"max_redirects,omitempty"`
+	// Add latency breakdown to probe results. This will add latency breakdown
+	// by various stages of the request processing, e.g., DNS resolution, TCP
+	// connection, TLS handshake, etc. You can select stages individually or
+	// specify "ALL_STAGES" to get breakdown for all stages.
+	//
+	// Example:
+	//
+	//	latency_breakdown: [ ALL_STAGES ]
+	//	latency_breakdown: [ DNS_LATENCY, CONNECT_LATENCY, TLS_HANDSHAKE_LATENCY ]
 	LatencyBreakdown []ProbeConf_LatencyBreakdown `protobuf:"varint,22,rep,name=latency_breakdown,json=latencyBreakdown,enum=cloudprober.probes.http.ProbeConf_LatencyBreakdown" json:"latency_breakdown,omitempty"`
 	// Interval between targets.
 	IntervalBetweenTargetsMsec *int32 `protobuf:"varint,97,opt,name=interval_between_targets_msec,json=intervalBetweenTargetsMsec,def=10" json:"interval_between_targets_msec,omitempty"`
