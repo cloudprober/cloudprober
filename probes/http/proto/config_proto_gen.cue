@@ -140,9 +140,6 @@ import (
 	// To disable redirects, use max_redirects: 0.
 	maxRedirects?: int32 @protobuf(18,int32,name=max_redirects)
 
-	// Add latency breakdown to the probe results. This will add latency
-	// breakdown by various stages of the request processing, e.g., DNS
-	// resolution, connection setup, TLS handshake, etc.
 	#LatencyBreakdown: {"NO_BREAKDOWN", #enumValue: 0} |
 		{"ALL_STAGES", #enumValue: 1} | {
 			"DNS_LATENCY"// Exported as dns_latency
@@ -170,6 +167,15 @@ import (
 		REQ_WRITE_LATENCY:     5
 		FIRST_BYTE_LATENCY:    6
 	}
+
+	// Add latency breakdown to probe results. This will add latency breakdown
+	// by various stages of the request processing, e.g., DNS resolution, TCP
+	// connection, TLS handshake, etc. You can select stages individually or
+	// specify "ALL_STAGES" to get breakdown for all stages.
+	//
+	// Example:
+	//   latency_breakdown: [ ALL_STAGES ]
+	//   latency_breakdown: [ DNS_LATENCY, CONNECT_LATENCY, TLS_HANDSHAKE_LATENCY ]
 	latencyBreakdown?: [...#LatencyBreakdown] @protobuf(22,LatencyBreakdown,name=latency_breakdown)
 
 	// Interval between targets.
