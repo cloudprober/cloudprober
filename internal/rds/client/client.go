@@ -39,6 +39,7 @@ import (
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/protobuf/proto"
 )
@@ -213,15 +214,15 @@ func (client *Client) initListResourcesFunc() error {
 	}
 
 	// Transport security options.
+	transportCred := insecure.NewCredentials()
 	if client.serverOpts.GetTlsConfig() != nil {
 		tlsConfig := &tls.Config{}
 		if err := tlsconfig.UpdateTLSConfig(tlsConfig, client.serverOpts.GetTlsConfig()); err != nil {
 			return fmt.Errorf("rds/client: error initializing TLS config (%+v): %v", client.serverOpts.GetTlsConfig(), err)
 		}
-		client.dialOpts = append(client.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-	} else {
-		client.dialOpts = append(client.dialOpts, grpc.WithInsecure())
+		transportCred = credentials.NewTLS(tlsConfig)
 	}
+	client.dialOpts = append(client.dialOpts, grpc.WithTransportCredentials(transportCred))
 
 	// OAuth related options.
 	if client.serverOpts.GetOauthConfig() != nil {
@@ -271,7 +272,6 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 		// refreshState loop. If there are multiple cloudprober instances, this will
 		// make sure that each instance calls RDS server at a different point of
 		// time.
-		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
 		for range time.Tick(reEvalInterval) {

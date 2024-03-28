@@ -22,6 +22,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -30,8 +31,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"flag"
 
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"

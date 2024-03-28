@@ -4,6 +4,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/rds/file/proto"
 	proto_1 "github.com/cloudprober/cloudprober/internal/rds/gcp/proto"
 	proto_5 "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
+	proto_A "github.com/cloudprober/cloudprober/internal/rds/aws/proto"
 )
 
 #ServerConf: {
@@ -21,5 +22,7 @@ import (
 		gcpConfig: proto_1.#ProviderConfig @protobuf(2,gcp.ProviderConfig,name=gcp_config)
 	} | {
 		kubernetesConfig: proto_5.#ProviderConfig @protobuf(3,kubernetes.ProviderConfig,name=kubernetes_config)
+	} | {
+		awsConfig: proto_A.#ProviderConfig @protobuf(5,aws.ProviderConfig,name=aws_config)
 	}
 }

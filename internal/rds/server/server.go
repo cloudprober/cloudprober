@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cloudprober/cloudprober/internal/rds/aws"
 	"github.com/cloudprober/cloudprober/internal/rds/file"
 	"github.com/cloudprober/cloudprober/internal/rds/gcp"
 	"github.com/cloudprober/cloudprober/internal/rds/kubernetes"
@@ -85,6 +86,14 @@ func (s *Server) initProviders(c *configpb.ServerConf) error {
 			}
 			s.l.Infof("rds.server: adding Kubernetes provider with id: %s", id)
 			if p, err = kubernetes.New(pc.GetKubernetesConfig(), s.l); err != nil {
+				return err
+			}
+		case *configpb.Provider_AwsConfig:
+			if id == "" {
+				id = aws.DefaultProviderID
+			}
+			s.l.Infof("rds.server: adding AWS provider with id: %s", id)
+			if p, err = aws.New(pc.GetAwsConfig(), s.l); err != nil {
 				return err
 			}
 		}
