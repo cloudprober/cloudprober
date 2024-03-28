@@ -49,7 +49,8 @@ import (
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
 var (
-	globalResolver *dnsRes.Resolver
+	globalResolver       *dnsRes.Resolver
+	dnsResolverOverrides = make(map[string]*dnsRes.Resolver)
 )
 
 // Targets must have refreshed this much time after the lameduck for them to
@@ -249,7 +250,7 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 // "hosts" string is not valid. It is mainly used by tests to quickly get a
 // targets.Targets object from a list of hosts.
 func StaticTargets(hosts string) Targets {
-	t, err := staticTargets(hosts)
+	t, err := staticTargets(hosts, globalResolver)
 	if err != nil {
 		panic(err)
 	}
@@ -316,7 +317,7 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 //
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
-func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
+func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger, dnsResolverOverride string) (Targets, error) {
 	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
@@ -325,7 +326,15 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
-		st, err := staticTargets(targetsDef.GetHostNames())
+		probeDNSResolver := globalResolver
+		if dnsResolverOverride != "" {
+			_, isDNSResolverPresent := dnsResolverOverrides[dnsResolverOverride]
+			if !isDNSResolverPresent {
+				dnsResolverOverrides[dnsResolverOverride] = dnsRes.NewOverrideResolver(dnsResolverOverride)
+			}
+			probeDNSResolver = dnsResolverOverrides[dnsResolverOverride]
+		}
+		st, err := staticTargets(targetsDef.GetHostNames(), probeDNSResolver)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating targets from host_names: %v", err)
 		}

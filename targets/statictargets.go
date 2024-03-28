@@ -16,6 +16,7 @@ package targets
 
 import (
 	"fmt"
+	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 	"net"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
-func staticTargets(hosts string) (Targets, error) {
+func staticTargets(hosts string, probeDNSResolver *dnsRes.Resolver) (Targets, error) {
 	t, _ := baseTargets(nil, nil, nil)
 	sl := &staticLister{}
 
@@ -78,6 +79,6 @@ func staticTargets(hosts string) (Targets, error) {
 	}
 
 	t.lister = sl
-	t.resolver = globalResolver
+	t.resolver = probeDNSResolver
 	return t, nil
 }
