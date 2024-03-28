@@ -152,6 +152,8 @@ message ProbeDef {
   // Note: This field is currently experimental, and may change in future.
   optional bool negative_test = 18;
 
+  optional string dns_resolver_override = 37 [default = ""];
+
   // Alerts configuration. If specified, cloudprober will generate alerts on
   // probe failures. You can specify multiple alerts.
   // Example:
