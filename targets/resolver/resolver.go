@@ -18,11 +18,17 @@
 package resolver
 
 import (
+	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"sync"
 	"time"
+)
+
+var (
+	dnsOverride = ""
 )
 
 // The max age and the timeout for resolving a target.
@@ -201,4 +207,28 @@ func NewWithResolve(resolveFunc func(string) ([]net.IP, error)) *Resolver {
 // New returns a new Resolver.
 func New() *Resolver {
 	return NewWithResolve(net.LookupIP)
+}
+
+func resolveFuncDNSOverride(host string) ([]net.IP, error) {
+	r := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: defaultMaxAge,
+			}
+			publicDNSIP := dnsOverride + ":53"
+			return d.DialContext(ctx, network, publicDNSIP)
+		},
+	}
+	return r.LookupIP(context.Background(), "ip", host)
+}
+
+func NewOverrideResolver(dnsResolverOverride string) *Resolver {
+	flag.Parse()
+	resolveFunc := net.LookupIP
+	if dnsResolverOverride != "" {
+		dnsOverride = dnsResolverOverride
+		resolveFunc = resolveFuncDNSOverride
+	}
+	return NewWithResolve(resolveFunc)
 }
