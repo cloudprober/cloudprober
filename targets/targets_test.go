@@ -340,3 +340,37 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+
+func TestNewResolver(t *testing.T) {
+	targetsDef := &targetspb.TargetsDef{
+		Type: &targetspb.TargetsDef_HostNames{
+			HostNames: "host2,host3",
+		},
+		Endpoint: []*targetspb.Endpoint{
+			{
+				Name: proto.String("host1"),
+			},
+		},
+	}
+	// Check that if no dnsResolverOverride is specified, nothing is present in the overrides map
+	New(targetsDef, nil, nil, nil, nil, "")
+	assert.Equal(t, len(dnsResolverOverrides), 0)
+
+	// Check that if a dnsResolverOverride is specified, we store the override in the map
+	New(targetsDef, nil, nil, nil, nil, "1.1.1.1")
+	assert.Equal(t, len(dnsResolverOverrides), 1)
+	_, containKey := dnsResolverOverrides["1.1.1.1"]
+	assert.True(t, containKey)
+
+	// Check that if the same dnsResolverOverride is specified, we do not add another entry
+	New(targetsDef, nil, nil, nil, nil, "1.1.1.1")
+	assert.Equal(t, len(dnsResolverOverrides), 1)
+	_, containKey = dnsResolverOverrides["1.1.1.1"]
+	assert.True(t, containKey)
+
+	// Check that if another dnsResolverOverride is specified, we add another entry
+	New(targetsDef, nil, nil, nil, nil, "8.8.8.8")
+	assert.Equal(t, len(dnsResolverOverrides), 2)
+	_, containKey = dnsResolverOverrides["8.8.8.8"]
+	assert.True(t, containKey)
+}
