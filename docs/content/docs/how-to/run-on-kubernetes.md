@@ -81,7 +81,7 @@ spec:
         - name: cloudprober
           image: cloudprober/cloudprober
           command: ["/cloudprober"]
-          args: ["--config_file", "/cfg/cloudprober.cfg", "--logtostderr"]
+          args: ["--config_file", "/cfg/cloudprober.cfg"]
           volumeMounts:
             - name: cloudprober-config
               mountPath: /cfg
