@@ -20,7 +20,6 @@ package resolver
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"sync"
@@ -93,6 +92,7 @@ func (r *Resolver) Resolve(name string, ipVer int) (net.IP, error) {
 		maxAge = defaultMaxAge
 	}
 	return r.resolveWithMaxAge(name, ipVer, maxAge, nil)
+
 }
 
 // getCacheRecord returns the cache record for the target.
@@ -224,7 +224,6 @@ func resolveFuncDNSOverride(host string) ([]net.IP, error) {
 }
 
 func NewOverrideResolver(dnsResolverOverride string) *Resolver {
-	flag.Parse()
 	resolveFunc := net.LookupIP
 	if dnsResolverOverride != "" {
 		dnsOverride = dnsResolverOverride

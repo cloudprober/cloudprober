@@ -328,11 +328,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 	case *targetspb.TargetsDef_HostNames:
 		probeDNSResolver := globalResolver
 		if dnsResolverOverride != "" {
-			_, isDNSResolverPresent := dnsResolverOverrides[dnsResolverOverride]
-			if !isDNSResolverPresent {
-				dnsResolverOverrides[dnsResolverOverride] = dnsRes.NewOverrideResolver(dnsResolverOverride)
-			}
-			probeDNSResolver = dnsResolverOverrides[dnsResolverOverride]
+			probeDNSResolver = createOverrideDNSResolver(dnsResolverOverride)
 		}
 		st, err := staticTargets(targetsDef.GetHostNames(), probeDNSResolver)
 		if err != nil {
@@ -437,6 +433,16 @@ func SetSharedTargets(name string, tgts Targets) {
 	sharedTargetsMu.Lock()
 	defer sharedTargetsMu.Unlock()
 	sharedTargets[name] = tgts
+}
+
+// Create an override dns resolver if provided
+func createOverrideDNSResolver(dnsResolverOverride string) *dnsRes.Resolver {
+	_, isDNSResolverPresent := dnsResolverOverrides[dnsResolverOverride]
+	if !isDNSResolverPresent {
+		dnsResolverOverrides[dnsResolverOverride] = dnsRes.NewOverrideResolver(dnsResolverOverride)
+	}
+	return dnsResolverOverrides[dnsResolverOverride]
+
 }
 
 // init initializes the package by creating a new global resolver.
