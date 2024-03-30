@@ -90,74 +90,140 @@ func createTestProbe(cmd string, envVar map[string]string) *Probe {
 	return p
 }
 
-func testProbeOnceMode(t *testing.T, cmd string, tgts []string, envVars map[string]string, wantCmd, wantEnv string, wantArgs []string) {
-	t.Helper()
-
-	p := createTestProbe(cmd, envVars)
-	p.mode = "once"
-
-	// Set runCommand to a function that runs successfully and returns a pyload.
-	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs, envVars []string) ([]byte, []byte, error) {
-		var resp []string
-		resp = append(resp, fmt.Sprintf("cmd \"%s\"", cmd))
-		resp = append(resp, fmt.Sprintf("args \"%s\"", strings.Join(cmdArgs, ",")))
-		resp = append(resp, fmt.Sprintf("env \"%s\"", strings.Join(envVars, " ")))
-		return []byte(strings.Join(resp, "\n")), nil, nil
+// TestShellProcessSuccess is just a helper function that we use to test the
+// actual command execution (from startCmdIfNotRunning, e.g.).
+func TestShellProcessSuccess(t *testing.T) {
+	// Ignore this test if it's not being run as a subprocess for another test.
+	if os.Getenv("GO_TEST_PROCESS") != "1" {
+		return
 	}
 
-	total, success := make(map[string]int64), make(map[string]int64)
+	if os.Getenv("GO_TEST_PROCESS_FAIL") != "" {
+		os.Exit(1)
+	}
 
+	pauseSec, err := strconv.Atoi(os.Getenv("GO_TEST_PAUSE"))
+	if err != nil {
+		pauseSec = 0
+	}
+
+	pauseTime := time.Duration(pauseSec) * time.Second
+
+	exportEnvList := []string{}
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "GO_TEST") {
+			exportEnvList = append(exportEnvList, env)
+		}
+	}
+
+	if len(os.Args) > 4 {
+		fmt.Printf("cmd \"%s\"\n", os.Args[3])
+		time.Sleep(10 * time.Millisecond)
+		fmt.Printf("args \"%s\"\n", strings.Join(os.Args[4:], ","))
+		fmt.Printf("env \"%s\"\n", strings.Join(exportEnvList, ","))
+	}
+	time.Sleep(pauseTime)
+	os.Exit(0)
+}
+
+func testProbeOnceMode(t *testing.T, cmd string, tgts []string, disableStreaming bool, wantCmd string, wantArgs []string) {
+	t.Helper()
+
+	p := createTestProbe(cmd, map[string]string{
+		"GO_TEST_PROCESS": "1",
+	})
+
+	p.cmdArgs = append([]string{"-test.run=TestShellProcessSuccess", "--", p.cmdName}, p.cmdArgs...)
+	p.cmdName = os.Args[0]
+	p.mode = "once"
+	p.c.DisableStreamingOutputMetrics = proto.Bool(disableStreaming)
+
+	total, success := make(map[string]int64), make(map[string]int64)
 	for _, tgt := range tgts {
 		total[tgt]++
 		success[tgt]++
 	}
 
-	runAndVerifyProbe(t, p, tgts, total, success)
+	var standardEMCount, outputEMCount int
+	numOutVars := 3
 
-	// Try with failing command now
-	p.runCommandFunc = func(ctx context.Context, cmd string, cmdArgs []string, envVars []string) ([]byte, []byte, error) {
-		return nil, nil, fmt.Errorf("error executing %s", cmd)
-	}
+	t.Run("first-run", func(t *testing.T) {
+		standardEMCount += len(tgts)            // 1 EM for each target
+		outputEMCount += numOutVars * len(tgts) // 3 EMs for each target
+		runAndVerifyProbe(t, p, tgts, total, success)
+	})
 
-	for _, tgt := range tgts {
-		total[tgt]++
-	}
-	runAndVerifyProbe(t, p, tgts, total, success)
+	t.Run("second-run", func(t *testing.T) {
+		// Cause our test command to fail immediately
+		os.Setenv("GO_TEST_PROCESS_FAIL", "1")
+		defer os.Unsetenv("GO_TEST_PROCESS_FAIL")
 
-	// Compute total numbder of event metrics:
-	runCnt := 2
-	totalEventMetrics := runCnt * len(tgts)
-	totalEventMetrics += 3 * len(tgts) // cmd, args, env from successful run
-	ems, err := testutils.MetricsFromChannel(p.dataChan, totalEventMetrics, time.Second)
+		standardEMCount += len(tgts) // 1 EM for each target
+		for _, tgt := range tgts {
+			total[tgt]++
+		}
+		runAndVerifyProbe(t, p, tgts, total, success)
+	})
+
+	t.Run("third-run", func(t *testing.T) {
+		// Cause our test command to fail with timeout
+		os.Setenv("GO_TEST_PAUSE", "2")
+		defer os.Unsetenv("GO_TEST_PAUSE")
+
+		standardEMCount += len(tgts)            // 1 EM for each target
+		outputEMCount += numOutVars * len(tgts) // 3 EMs for each target
+
+		for _, tgt := range tgts {
+			total[tgt]++
+		}
+		runAndVerifyProbe(t, p, tgts, total, success)
+	})
+
+	ems, err := testutils.MetricsFromChannel(p.dataChan, standardEMCount+outputEMCount, time.Second)
 	if err != nil {
 		t.Error(err)
 	}
+
 	mmap := testutils.MetricsMapByTarget(ems)
+	emMap := testutils.EventMetricsByTargetMetric(ems)
 
 	for i, tgt := range tgts {
 		// Verify number of values received for each metric
-		for cnt, names := range map[int][]string{
-			runCnt: {"total", "success", "latency"},
-			1:      {"cmd", "args", "env"},
+		for names, wantCount := range map[[3]string]int{
+			{"total", "success", "latency"}: standardEMCount / len(tgts),
+			{"cmd", "args", "env"}:          outputEMCount / (len(tgts) * numOutVars),
 		} {
 			for _, name := range names {
-				assert.Lenf(t, mmap[tgt][name], cnt, "Wrong number of values for metric (%s) for target (%s)", name, tgt)
+				assert.Lenf(t, mmap[tgt][name], wantCount, "Wrong number of values for metric (%s) for target (%s)", name, tgt)
 			}
 		}
 
+		wantEnv := []string{"GO_TEST_PROCESS=1", "GO_TEST_PAUSE=2,GO_TEST_PROCESS=1", "GO_TEST_PROCESS=1"}
+
 		// Verify values for each output metric
-		assert.Equal(t, "\""+wantArgs[i]+"\"", mmap[tgt]["args"][0].String(), "Wrong value for args metric")
-		assert.Equal(t, "\""+wantEnv+"\"", mmap[tgt]["env"][0].String(), "Wrong value for env metric")
-		assert.Equal(t, "\""+wantCmd+"\"", mmap[tgt]["cmd"][0].String(), "Wrong value for cmd metric")
+		for j := range mmap[tgt]["args"] {
+			assert.Equalf(t, "\""+wantArgs[i]+"\"", mmap[tgt]["args"][j].String(), "Wrong value for args[%d] metric for target (%s)", j, tgt)
+			assert.Equalf(t, "\""+wantCmd+"\"", mmap[tgt]["cmd"][j].String(), "Wrong value for cmd[%d] metric for target (%s)", j, tgt)
+			assert.Equalf(t, "\""+wantEnv[j]+"\"", mmap[tgt]["env"][j].String(), "Wrong value for env[%d] metric for target (%s)", j, tgt)
+		}
+
+		cmdTime := emMap[tgt]["cmd"][0].Timestamp
+		argsTime := emMap[tgt]["args"][0].Timestamp
+		if disableStreaming {
+			assert.Equal(t, cmdTime, argsTime, "cmd and args metrics should have same timestamp")
+		} else {
+			assert.True(t, cmdTime.Before(argsTime), "cmd metric should have earlier timestamp than args metric")
+		}
 	}
 }
 
 func TestProbeOnceMode(t *testing.T) {
 	var tests = []struct {
-		name     string
-		cmd      string
-		tgts     []string
-		wantArgs []string
+		name             string
+		cmd              string
+		tgts             []string
+		disableStreaming bool
+		wantArgs         []string
 	}{
 		{
 			name:     "no-substitutions",
@@ -171,14 +237,19 @@ func TestProbeOnceMode(t *testing.T) {
 			tgts:     []string{"target1", "target2"},
 			wantArgs: []string{"--address=target1,--arg2", "--address=target2,--arg2"},
 		},
+		{
+			name:             "streaming-disabled",
+			cmd:              "/test/cmd --address=a.com --arg2",
+			tgts:             []string{"target1", "target2"},
+			disableStreaming: true,
+			wantArgs:         []string{"--address=a.com,--arg2", "--address=a.com,--arg2"},
+		},
 	}
 
 	for _, tt := range tests {
-		envVars := map[string]string{"key": "secret", "client": "client2"}
 		wantCmd := "/test/cmd"
-		wantEnv := "client=client2 key=secret"
 		t.Run(tt.name, func(t *testing.T) {
-			testProbeOnceMode(t, tt.cmd, tt.tgts, envVars, wantCmd, wantEnv, tt.wantArgs)
+			testProbeOnceMode(t, tt.cmd, tt.tgts, tt.disableStreaming, wantCmd, tt.wantArgs)
 		})
 	}
 }
@@ -561,22 +632,6 @@ func TestMonitorCommand(t *testing.T) {
 	}
 }
 
-// TestShellProcessSuccess is just a helper function that we use to test the
-// actual command execution (from startCmdIfNotRunning, e.g.).
-func TestShellProcessSuccess(t *testing.T) {
-	// Ignore this test if it's not being run as a subprocess for another test.
-	if os.Getenv("GO_TEST_PROCESS") != "1" {
-		return
-	}
-	pauseSec, err := strconv.Atoi(os.Getenv("PAUSE"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	pauseTime := time.Duration(pauseSec) * time.Second
-	time.Sleep(pauseTime)
-	os.Exit(0)
-}
-
 func TestProbeStartCmdIfNotRunning(t *testing.T) {
 	isCmdRunning := func(p *Probe) bool {
 		p.cmdRunningMu.Lock()
@@ -617,7 +672,7 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			// cmdArgs after creating the probe.
 			p := createTestProbe("/testCommand", map[string]string{
 				"GO_TEST_PROCESS": "1",
-				"PAUSE":           strconv.Itoa(test.pauseSec),
+				"GO_TEST_PAUSE":   strconv.Itoa(test.pauseSec),
 			})
 
 			p.cmdName = os.Args[0]
