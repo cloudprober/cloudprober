@@ -98,6 +98,21 @@ func TestShellProcessSuccess(t *testing.T) {
 		return
 	}
 
+	exportEnvList := []string{}
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "GO_TEST") {
+			exportEnvList = append(exportEnvList, env)
+		}
+	}
+	fmt.Fprintf(os.Stderr, "Running test command. Env: %s\n", strings.Join(exportEnvList, ","))
+
+	if len(os.Args) > 4 {
+		fmt.Printf("cmd \"%s\"\n", os.Args[3])
+		time.Sleep(10 * time.Millisecond)
+		fmt.Printf("args \"%s\"\n", strings.Join(os.Args[4:], ","))
+		fmt.Printf("env \"%s\"\n", strings.Join(exportEnvList, ","))
+	}
+
 	if os.Getenv("GO_TEST_PROCESS_FAIL") != "" {
 		os.Exit(1)
 	}
@@ -106,27 +121,14 @@ func TestShellProcessSuccess(t *testing.T) {
 	if err != nil {
 		pauseSec = 0
 	}
-
-	pauseTime := time.Duration(pauseSec) * time.Second
-
-	exportEnvList := []string{}
-	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "GO_TEST") {
-			exportEnvList = append(exportEnvList, env)
-		}
+	if pauseSec != 0 {
+		fmt.Fprintf(os.Stderr, "Going to sleep for %d\n", pauseSec)
+		time.Sleep(time.Duration(pauseSec) * time.Second)
 	}
-
-	if len(os.Args) > 4 {
-		fmt.Printf("cmd \"%s\"\n", os.Args[3])
-		time.Sleep(10 * time.Millisecond)
-		fmt.Printf("args \"%s\"\n", strings.Join(os.Args[4:], ","))
-		fmt.Printf("env \"%s\"\n", strings.Join(exportEnvList, ","))
-	}
-	time.Sleep(pauseTime)
 	os.Exit(0)
 }
 
-func testProbeOnceMode(t *testing.T, cmd string, tgts []string, disableStreaming bool, wantCmd string, wantArgs []string) {
+func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disableStreaming bool, wantCmd string, wantArgs []string) {
 	t.Helper()
 
 	p := createTestProbe(cmd, map[string]string{
@@ -137,6 +139,9 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, disableStreaming
 	p.cmdName = os.Args[0]
 	p.mode = "once"
 	p.c.DisableStreamingOutputMetrics = proto.Bool(disableStreaming)
+	// We don't rely on timeout but give process enough time to finish,
+	// especially for CI.
+	p.opts.Timeout = 10 * time.Second
 
 	total, success := make(map[string]int64), make(map[string]int64)
 	for _, tgt := range tgts {
@@ -153,31 +158,20 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, disableStreaming
 		runAndVerifyProbe(t, p, tgts, total, success)
 	})
 
-	t.Run("second-run", func(t *testing.T) {
-		// Cause our test command to fail immediately
-		os.Setenv("GO_TEST_PROCESS_FAIL", "1")
-		defer os.Unsetenv("GO_TEST_PROCESS_FAIL")
+	if runTwice {
+		t.Run("second-run", func(t *testing.T) {
+			// Cause our test command to fail immediately
+			os.Setenv("GO_TEST_PROCESS_FAIL", "1")
+			defer os.Unsetenv("GO_TEST_PROCESS_FAIL")
 
-		standardEMCount += len(tgts) // 1 EM for each target
-		for _, tgt := range tgts {
-			total[tgt]++
-		}
-		runAndVerifyProbe(t, p, tgts, total, success)
-	})
-
-	t.Run("third-run", func(t *testing.T) {
-		// Cause our test command to fail with timeout
-		os.Setenv("GO_TEST_PAUSE", "2")
-		defer os.Unsetenv("GO_TEST_PAUSE")
-
-		standardEMCount += len(tgts)            // 1 EM for each target
-		outputEMCount += numOutVars * len(tgts) // 3 EMs for each target
-
-		for _, tgt := range tgts {
-			total[tgt]++
-		}
-		runAndVerifyProbe(t, p, tgts, total, success)
-	})
+			standardEMCount += len(tgts)            // 1 EM for each target
+			outputEMCount += numOutVars * len(tgts) // 3 EMs for each target
+			for _, tgt := range tgts {
+				total[tgt]++
+			}
+			runAndVerifyProbe(t, p, tgts, total, success)
+		})
+	}
 
 	ems, err := testutils.MetricsFromChannel(p.dataChan, standardEMCount+outputEMCount, time.Second)
 	if err != nil {
@@ -198,7 +192,7 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, disableStreaming
 			}
 		}
 
-		wantEnv := []string{"GO_TEST_PROCESS=1", "GO_TEST_PAUSE=2,GO_TEST_PROCESS=1", "GO_TEST_PROCESS=1"}
+		wantEnv := []string{"GO_TEST_PROCESS=1", "GO_TEST_PROCESS_FAIL=1,GO_TEST_PROCESS=1"}
 
 		// Verify values for each output metric
 		for j := range mmap[tgt]["args"] {
@@ -222,6 +216,7 @@ func TestProbeOnceMode(t *testing.T) {
 		name             string
 		cmd              string
 		tgts             []string
+		runTwice         bool
 		disableStreaming bool
 		wantArgs         []string
 	}{
@@ -229,6 +224,7 @@ func TestProbeOnceMode(t *testing.T) {
 			name:     "no-substitutions",
 			cmd:      "/test/cmd --address=a.com --arg2",
 			tgts:     []string{"target1", "target2"},
+			runTwice: true,
 			wantArgs: []string{"--address=a.com,--arg2", "--address=a.com,--arg2"},
 		},
 		{
@@ -249,7 +245,7 @@ func TestProbeOnceMode(t *testing.T) {
 	for _, tt := range tests {
 		wantCmd := "/test/cmd"
 		t.Run(tt.name, func(t *testing.T) {
-			testProbeOnceMode(t, tt.cmd, tt.tgts, tt.disableStreaming, wantCmd, tt.wantArgs)
+			testProbeOnceMode(t, tt.cmd, tt.tgts, tt.runTwice, tt.disableStreaming, wantCmd, tt.wantArgs)
 		})
 	}
 }

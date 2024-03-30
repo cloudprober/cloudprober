@@ -256,7 +256,7 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 }
 
 func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
-	stdout, stderr := make(chan []byte), make(chan []byte)
+	stdout := make(chan []byte)
 	stdoutR, err := c.StdoutPipe()
 	if err != nil {
 		return err
@@ -274,29 +274,17 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 		}
 	}()
 	go func() {
-		defer close(stderr)
 		defer stderrR.Close()
 		scanner := bufio.NewScanner(stderrR)
 		for scanner.Scan() {
-			stderr <- scanner.Bytes()
+			p.l.Warningf("Stderr: %s", scanner.Text())
 		}
 	}()
 
 	go func() {
-		var stdoutOpen, stderrOpen bool
-		var line []byte
-		for {
-			select {
-			case line, stdoutOpen = <-stdout:
-				for _, em := range p.payloadParser.PayloadMetrics(string(line), target.Name) {
-					p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
-				}
-			case line, stderrOpen = <-stderr:
-				p.l.Warningf("Stderr: %s", string(line))
-			}
-			if !stdoutOpen && !stderrOpen {
-				p.l.Debugf("Stdout and stderr channels closed.")
-				break
+		for line := range stdout {
+			for _, em := range p.payloadParser.PayloadMetrics(string(line), target.Name) {
+				p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
 			}
 		}
 	}()
