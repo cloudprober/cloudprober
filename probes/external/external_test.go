@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -694,13 +693,6 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			assert.Equal(t, changedOrNot, stdin != p.cmdStdin)
 			assert.Equal(t, changedOrNot, stdout != p.cmdStdout)
 			assert.Equal(t, changedOrNot, stderr != p.cmdStderr)
-
-			// Windows has trouble deleting executable that are still running.
-			// This result in an error on test cleanup. So on Windows, we make
-			// sure command finishes before we exit.
-			if runtime.GOOS != "windows" {
-				waitForCmdToEnd(p)
-			}
 		})
 	}
 }
