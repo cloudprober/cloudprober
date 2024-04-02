@@ -172,7 +172,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 
 	// Initialize shared targets
 	for _, st := range pr.c.GetSharedTargets() {
-		tgts, err := targets.New(st.GetTargets(), pr.ldLister, globalTargetsOpts, pr.l, pr.l, "")
+		tgts, err := targets.New(st.GetTargets(), pr.ldLister, globalTargetsOpts, pr.l, pr.l)
 		if err != nil {
 			return err
 		}

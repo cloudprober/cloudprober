@@ -114,7 +114,7 @@ func TestDummyTargets(t *testing.T) {
 		},
 	}
 	l := &logger.Logger{}
-	tgts, err := New(targetsDef, nil, nil, nil, l, "")
+	tgts, err := New(targetsDef, nil, nil, nil, l)
 	if err != nil {
 		t.Fatalf("New(...) Unexpected errors %v", err)
 	}
@@ -163,7 +163,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	//    }
 	// }
 	proto.SetExtension(targetsDef, testdatapb.E_FancyTargets, &testdatapb.FancyTargets{Name: proto.String("fancy")})
-	tgts, err := New(targetsDef, nil, nil, nil, nil, "")
+	tgts, err := New(targetsDef, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Expected error in building targets from extensions, got nil. targets: %v", tgts)
 	}
@@ -171,7 +171,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (Targets, error) {
 		return &testTargetsType{names: testTargets}, nil
 	})
-	tgts, err = New(targetsDef, nil, nil, nil, nil, "")
+	tgts, err = New(targetsDef, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Got error in building targets from extensions: %v.", err)
 	}
@@ -195,7 +195,7 @@ func TestSharedTargets(t *testing.T) {
 		}
 
 		var err error
-		tgts[i], err = New(targetsDef, nil, nil, nil, nil, "")
+		tgts[i], err = New(targetsDef, nil, nil, nil, nil)
 
 		if err != nil {
 			t.Errorf("got error while creating targets from shared targets: %v", err)
@@ -327,7 +327,7 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.targetsDef, nil, nil, nil, nil, "")
+			got, err := New(tt.targetsDef, nil, nil, nil, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -352,24 +352,28 @@ func TestNewResolver(t *testing.T) {
 			},
 		},
 	}
+
+	dnsResolverOverride := "1.1.1.1"
 	// Check that if no dnsResolverOverride is specified, nothing is present in the overrides map
-	New(targetsDef, nil, nil, nil, nil, "")
+	New(targetsDef, nil, nil, nil, nil)
 	assert.Equal(t, len(dnsResolverOverrides), 0)
 
+	targetsDef.DnsResolverOverride = &dnsResolverOverride
 	// Check that if a dnsResolverOverride is specified, we store the override in the map
-	New(targetsDef, nil, nil, nil, nil, "1.1.1.1")
+	New(targetsDef, nil, nil, nil, nil)
 	assert.Equal(t, len(dnsResolverOverrides), 1)
 	_, containKey := dnsResolverOverrides["1.1.1.1"]
 	assert.True(t, containKey)
 
 	// Check that if the same dnsResolverOverride is specified, we do not add another entry
-	New(targetsDef, nil, nil, nil, nil, "1.1.1.1")
+	New(targetsDef, nil, nil, nil, nil)
 	assert.Equal(t, len(dnsResolverOverrides), 1)
 	_, containKey = dnsResolverOverrides["1.1.1.1"]
 	assert.True(t, containKey)
 
+	dnsResolverOverride = "8.8.8.8"
 	// Check that if another dnsResolverOverride is specified, we add another entry
-	New(targetsDef, nil, nil, nil, nil, "8.8.8.8")
+	New(targetsDef, nil, nil, nil, nil)
 	assert.Equal(t, len(dnsResolverOverrides), 2)
 	_, containKey = dnsResolverOverrides["8.8.8.8"]
 	assert.True(t, containKey)

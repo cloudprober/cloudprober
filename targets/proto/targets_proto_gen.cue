@@ -159,6 +159,8 @@ import (
 		// Empty targets to meet the probe definition requirement where there are
 		// actually no targets, for example in case of some external probes.
 		dummyTargets: #DummyTargets @protobuf(20,DummyTargets,name=dummy_targets)
+
+		// Provide a dns resolver override instead of using the default dns resolver.
 	}
 
 	// Static endpoints. These endpoints are merged with the resources returned
@@ -185,7 +187,8 @@ import (
 	// Exclude lameducks. Lameduck targets can be set through RTC (realtime
 	// configurator) service. This functionality works only if lame_duck_options
 	// are specified.
-	excludeLameducks?: bool @protobuf(22,bool,name=exclude_lameducks,default)
+	excludeLameducks?:    bool   @protobuf(22,bool,name=exclude_lameducks,default)
+	dnsResolverOverride?: string @protobuf(37,string,name=dns_resolver_override)
 }
 
 // DummyTargets represent empty targets, which are useful for external

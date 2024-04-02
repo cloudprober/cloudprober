@@ -92,7 +92,6 @@ func (r *Resolver) Resolve(name string, ipVer int) (net.IP, error) {
 		maxAge = defaultMaxAge
 	}
 	return r.resolveWithMaxAge(name, ipVer, maxAge, nil)
-
 }
 
 // getCacheRecord returns the cache record for the target.
@@ -204,11 +203,6 @@ func NewWithResolve(resolveFunc func(string) ([]net.IP, error)) *Resolver {
 	}
 }
 
-// New returns a new Resolver.
-func New() *Resolver {
-	return NewWithResolve(net.LookupIP)
-}
-
 func resolveFuncDNSOverride(host string) ([]net.IP, error) {
 	r := &net.Resolver{
 		PreferGo: true,
@@ -230,4 +224,9 @@ func NewOverrideResolver(dnsResolverOverride string) *Resolver {
 		resolveFunc = resolveFuncDNSOverride
 	}
 	return NewWithResolve(resolveFunc)
+}
+
+// New returns a new Resolver.
+func New() *Resolver {
+	return NewWithResolve(net.LookupIP)
 }

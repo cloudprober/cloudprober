@@ -48,6 +48,8 @@ import (
 // globalResolver is a singleton DNS resolver that is used as the default
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
+
+// DNSResolverOverrides is a cache of the dns resolver overrides
 var (
 	globalResolver       *dnsRes.Resolver
 	dnsResolverOverrides = make(map[string]*dnsRes.Resolver)
@@ -221,7 +223,7 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 
 	tgts := &targets{
 		l:        l,
-		resolver: globalResolver,
+		resolver: createOverrideDNSResolver(targetsDef),
 		ldLister: ldLister,
 	}
 
@@ -249,6 +251,7 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 // interface) from a comma-separated list of hosts. This function panics if
 // "hosts" string is not valid. It is mainly used by tests to quickly get a
 // targets.Targets object from a list of hosts.
+
 func StaticTargets(hosts string) Targets {
 	t, err := staticTargets(hosts, globalResolver)
 	if err != nil {
@@ -317,20 +320,18 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 //
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
-func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger, dnsResolverOverride string) (Targets, error) {
+func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
 	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
 
+	targetDNSResolver := createOverrideDNSResolver(targetsDef)
+
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
-		probeDNSResolver := globalResolver
-		if dnsResolverOverride != "" {
-			probeDNSResolver = createOverrideDNSResolver(dnsResolverOverride)
-		}
-		st, err := staticTargets(targetsDef.GetHostNames(), probeDNSResolver)
+		st, err := staticTargets(targetsDef.GetHostNames(), targetDNSResolver)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating targets from host_names: %v", err)
 		}
@@ -346,7 +347,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_GceTargets:
-		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), targetDNSResolver, globalLogger)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating GCE targets: %v", err)
 		}
@@ -366,7 +367,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_FileTargets:
-		ft, err := file.New(targetsDef.GetFileTargets(), globalResolver, l)
+		ft, err := file.New(targetsDef.GetFileTargets(), targetDNSResolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}
@@ -435,14 +436,20 @@ func SetSharedTargets(name string, tgts Targets) {
 	sharedTargets[name] = tgts
 }
 
-// Create an override dns resolver if provided
-func createOverrideDNSResolver(dnsResolverOverride string) *dnsRes.Resolver {
+func createOverrideDNSResolver(targetsDef *targetspb.TargetsDef) *dnsRes.Resolver {
+	if targetsDef == nil {
+		return globalResolver
+	}
+	dnsResolverOverride := targetsDef.GetDnsResolverOverride()
+	if dnsResolverOverride == "" {
+		return globalResolver
+	}
+
 	_, isDNSResolverPresent := dnsResolverOverrides[dnsResolverOverride]
 	if !isDNSResolverPresent {
 		dnsResolverOverrides[dnsResolverOverride] = dnsRes.NewOverrideResolver(dnsResolverOverride)
 	}
 	return dnsResolverOverrides[dnsResolverOverride]
-
 }
 
 // init initializes the package by creating a new global resolver.

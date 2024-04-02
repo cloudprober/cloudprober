@@ -165,8 +165,7 @@ import (
 	//
 	// This is currently implemented only by PING and TCP probes.
 	// Note: This field is currently experimental, and may change in future.
-	negativeTest?:        bool   @protobuf(18,bool,name=negative_test)
-	dnsResolverOverride?: string @protobuf(37,string,name=dns_resolver_override,#"default="""#)
+	negativeTest?: bool @protobuf(18,bool,name=negative_test)
 
 	// Alerts configuration. If specified, cloudprober will generate alerts on
 	// probe failures. You can specify multiple alerts.
