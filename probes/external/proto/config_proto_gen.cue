@@ -47,4 +47,11 @@ import "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	// var1 value1 (for example: total_errors 589)
 	outputAsMetrics?:      bool                        @protobuf(4,bool,name=output_as_metrics,default)
 	outputMetricsOptions?: proto.#OutputMetricsOptions @protobuf(5,metrics.payload.OutputMetricsOptions,name=output_metrics_options)
+
+	// (Only applicable to ONCE mode). Disable streaming output metrics. By
+	// default, external probe will export output metrics as they are available
+	// on the stdout. If this option is set to true, output metrics will be
+	// exported only after the probe has completed.
+	// New in version 0.13.4. This was true by default in previous versions.
+	disableStreamingOutputMetrics?: bool @protobuf(7,bool,name=disable_streaming_output_metrics,"default=false")
 }
