@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,25 +23,17 @@
 package external
 
 import (
-	"bytes"
 	"context"
-	"os"
 	"os/exec"
 	"syscall"
 	"time"
 )
 
-func (p *Probe) runCommand(ctx context.Context, cmd string, args, envVars []string) ([]byte, []byte, error) {
-	c := exec.Command(cmd, args...)
+func (p *Probe) runCommand(ctx context.Context, c *exec.Cmd) error {
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	var stdout, stderr bytes.Buffer
-	c.Stdout, c.Stderr = &stdout, &stderr
-	if len(envVars) > 0 {
-		c.Env = append(c.Env, os.Environ()...)
-		c.Env = append(c.Env, envVars...)
-	}
+
 	if err := c.Start(); err != nil {
-		return stdout.Bytes(), stderr.Bytes(), err
+		return err
 	}
 
 	// This goroutine is similar to the one started by exec.Start if command is
@@ -77,5 +69,5 @@ func (p *Probe) runCommand(ctx context.Context, cmd string, args, envVars []stri
 		}
 	}()
 
-	return stdout.Bytes(), stderr.Bytes(), err
+	return err
 }

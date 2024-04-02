@@ -61,6 +61,20 @@ func LabelsMapByTarget(ems []*metrics.EventMetrics) map[string]map[string]string
 	return lmap
 }
 
+func EventMetricsByTargetMetric(ems []*metrics.EventMetrics) map[string]map[string][]*metrics.EventMetrics {
+	emMap := make(map[string]map[string][]*metrics.EventMetrics)
+	for _, em := range ems {
+		target := em.Label("dst")
+		if emMap[target] == nil {
+			emMap[target] = make(map[string][]*metrics.EventMetrics)
+		}
+		for _, k := range em.MetricsKeys() {
+			emMap[target][k] = append(emMap[target][k], em)
+		}
+	}
+	return emMap
+}
+
 type MetricsMap map[string]map[string][]metrics.Value
 
 // MetricsMapByTarget rearranges a list of metrics into a map of map.

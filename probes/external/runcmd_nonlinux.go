@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,20 +17,10 @@
 package external
 
 import (
-	"bytes"
 	"context"
-	"os"
 	"os/exec"
 )
 
-func (p *Probe) runCommand(ctx context.Context, cmd string, args, envVars []string) ([]byte, []byte, error) {
-	c := exec.CommandContext(ctx, cmd, args...)
-	var stdout, stderr bytes.Buffer
-	c.Stdout, c.Stderr = &stdout, &stderr
-	if len(envVars) > 0 {
-		c.Env = append(c.Env, os.Environ()...)
-		c.Env = append(c.Env, envVars...)
-	}
-	err := c.Run()
-	return stdout.Bytes(), stderr.Bytes(), err
+func (p *Probe) runCommand(_ context.Context, c *exec.Cmd) error {
+	return c.Run()
 }
