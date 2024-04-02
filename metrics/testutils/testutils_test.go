@@ -142,3 +142,32 @@ func TestMetricsMapFilterAndLastValueInt64(t *testing.T) {
 		})
 	}
 }
+
+func TestEventMetricsByTargetMetric(t *testing.T) {
+	ems := []*metrics.EventMetrics{
+		metrics.NewEventMetrics(time.Now()).
+			AddMetric("success", metrics.NewInt(99)).
+			AddMetric("total", metrics.NewInt(100)).
+			AddLabel("dst", "target1"),
+		metrics.NewEventMetrics(time.Now()).
+			AddMetric("success", metrics.NewInt(98)).
+			AddMetric("total", metrics.NewInt(100)).
+			AddLabel("dst", "target2"),
+		metrics.NewEventMetrics(time.Now()).
+			AddMetric("success", metrics.NewInt(99)).
+			AddMetric("total", metrics.NewInt(101)).
+			AddLabel("dst", "target1"),
+	}
+	emsMap := EventMetricsByTargetMetric(ems)
+
+	wantEMs := map[string][]*metrics.EventMetrics{
+		"target1": {ems[0], ems[2]},
+		"target2": {ems[1]},
+	}
+	for _, tgt := range []string{"target1", "target2"} {
+		for _, m := range []string{"success", "total"} {
+			assert.Len(t, emsMap[tgt][m], len(wantEMs[tgt]), "number of ems mismatch")
+			assert.Equal(t, wantEMs[tgt], emsMap[tgt][m], "eventmetrics mismatch")
+		}
+	}
+}

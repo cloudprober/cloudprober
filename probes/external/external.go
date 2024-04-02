@@ -1,4 +1,4 @@
-// Copyright 2017-2023 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,13 @@ over stdin/stdout for each probe cycle.
 package external
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -81,9 +84,6 @@ type Probe struct {
 	targets      []endpoint.Endpoint
 	results      map[string]*result // probe results keyed by targets
 	dataChan     chan *metrics.EventMetrics
-
-	// This is used for overriding run command logic for testing.
-	runCommandFunc func(ctx context.Context, cmd string, args, envVars []string) ([]byte, []byte, error)
 
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
@@ -255,6 +255,43 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	}
 }
 
+func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
+	stdout := make(chan []byte)
+	stdoutR, err := c.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderrR, err := c.StderrPipe()
+	if err != nil {
+		return err
+	}
+	go func() {
+		defer close(stdout)
+		defer stdoutR.Close()
+		scanner := bufio.NewScanner(stdoutR)
+		for scanner.Scan() {
+			stdout <- scanner.Bytes()
+		}
+	}()
+	go func() {
+		defer stderrR.Close()
+		scanner := bufio.NewScanner(stderrR)
+		for scanner.Scan() {
+			p.l.Warningf("Stderr: %s", scanner.Text())
+		}
+	}()
+
+	go func() {
+		for line := range stdout {
+			for _, em := range p.payloadParser.PayloadMetrics(string(line), target.Name) {
+				p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
+			}
+		}
+	}()
+
+	return nil
+}
+
 func (p *Probe) runOnceProbe(ctx context.Context) {
 	var wg sync.WaitGroup
 
@@ -278,33 +315,44 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			result.total++
 			startTime := time.Now()
 
-			var stdout, stderr []byte
-			var err error
-			if p.runCommandFunc != nil {
-				stdout, stderr, err = p.runCommandFunc(ctx, p.cmdName, args, p.envVars)
-			} else {
-				stdout, stderr, err = p.runCommand(ctx, p.cmdName, args, p.envVars)
+			c := exec.CommandContext(ctx, p.cmdName, args...)
+			if p.envVars != nil {
+				c.Env = append(append(c.Env, os.Environ()...), p.envVars...)
 			}
+
+			var stdoutBuf, stderrBuf bytes.Buffer
+
+			if p.c.GetOutputAsMetrics() && !p.c.GetDisableStreamingOutputMetrics() {
+				if err := p.setupStreaming(c, target); err != nil {
+					p.l.Errorf("Error setting up stdout/stderr pipe: %v", err)
+					return
+				}
+			} else {
+				c.Stdout, c.Stderr = &stdoutBuf, &stderrBuf
+			}
+
+			err := p.runCommand(ctx, c)
 
 			success := true
 			if err != nil {
 				success = false
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), stderr)
-				} else {
-					p.l.Errorf("Error executing the external program. Err: %v", err)
+				stdout, stderr := stdoutBuf.String(), stderrBuf.String()
+				stderrout := ""
+				if stdout != "" || stderr != "" {
+					stderrout = fmt.Sprintf(" Stdout: %s, Stderr: %s", stdout, stderr)
 				}
-			} else {
-				if len(stderr) != 0 {
-					p.l.Warningf("Stderr: %s", stderr)
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					p.l.Errorf("external probe process died with the status: %s.%s", exitErr.Error(), stderrout)
+				} else {
+					p.l.Errorf("Error executing the external program. Err: %v.%s", err, stderrout)
 				}
 			}
 
 			p.processProbeResult(&probeStatus{
 				target:  target,
 				success: success,
+				payload: stdoutBuf.String(),
 				latency: time.Since(startTime),
-				payload: string(stdout),
 			}, result)
 		}(target, p.results[target.Key()])
 	}
