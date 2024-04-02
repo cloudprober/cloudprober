@@ -159,8 +159,6 @@ message TargetsDef {
     // Empty targets to meet the probe definition requirement where there are
     // actually no targets, for example in case of some external probes.
     DummyTargets dummy_targets = 20;
-
-    // Provide a dns resolver override instead of using the default dns resolver.
   }
 
   // Static endpoints. These endpoints are merged with the resources returned
@@ -193,6 +191,7 @@ message TargetsDef {
   // type that utilizes a custom protocol) in a systematic manner.
   extensions 200 to max;
 
+  // Provide a dns resolver override instead of using the default dns resolver.
   optional string dns_resolver_override = 37;
 }
 

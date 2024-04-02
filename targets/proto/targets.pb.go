@@ -414,7 +414,8 @@ type TargetsDef struct {
 	// Exclude lameducks. Lameduck targets can be set through RTC (realtime
 	// configurator) service. This functionality works only if lame_duck_options
 	// are specified.
-	ExcludeLameducks    *bool   `protobuf:"varint,22,opt,name=exclude_lameducks,json=excludeLameducks,def=1" json:"exclude_lameducks,omitempty"`
+	ExcludeLameducks *bool `protobuf:"varint,22,opt,name=exclude_lameducks,json=excludeLameducks,def=1" json:"exclude_lameducks,omitempty"`
+	// Provide a dns resolver override instead of using the default dns resolver.
 	DnsResolverOverride *string `protobuf:"bytes,37,opt,name=dns_resolver_override,json=dnsResolverOverride" json:"dns_resolver_override,omitempty"`
 }
 
