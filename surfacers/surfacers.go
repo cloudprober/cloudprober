@@ -196,7 +196,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	case surfacerpb.Type_FILE:
 		surfacer, err = file.New(ctx, s.GetFileSurfacer(), opts, l)
 	case surfacerpb.Type_POSTGRES:
-		surfacer, err = postgres.New(ctx, s.GetPostgresSurfacer(), l)
+		surfacer, err = postgres.New(ctx, s.GetPostgresSurfacer(), opts, l)
 	case surfacerpb.Type_PUBSUB:
 		surfacer, err = pubsub.New(ctx, s.GetPubsubSurfacer(), opts, l)
 	case surfacerpb.Type_CLOUDWATCH:

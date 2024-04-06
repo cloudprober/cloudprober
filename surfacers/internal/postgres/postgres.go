@@ -185,10 +185,11 @@ type Surfacer struct {
 
 // New initializes a Postgres surfacer. Postgres surfacer inserts probe results
 // into a postgres database.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*Surfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	s := &Surfacer{
-		c: config,
-		l: l,
+		c:    config,
+		opts: opts,
+		l:    l,
 		openDB: func(cs string) (*sql.DB, error) {
 			return sql.Open("postgres", cs)
 		},
