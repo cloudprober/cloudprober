@@ -49,10 +49,8 @@ import (
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
 
-// DNSResolverOverrides is a cache of the dns resolver overrides
 var (
-	globalResolver       *dnsRes.Resolver
-	dnsResolverOverrides = make(map[string]*dnsRes.Resolver)
+	globalResolver *dnsRes.Resolver
 )
 
 // Targets must have refreshed this much time after the lameduck for them to
@@ -326,9 +324,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
-
 	targetDNSResolver := createOverrideDNSResolver(targetsDef)
-
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
 		st, err := staticTargets(targetsDef.GetHostNames(), targetDNSResolver)
@@ -437,19 +433,11 @@ func SetSharedTargets(name string, tgts Targets) {
 }
 
 func createOverrideDNSResolver(targetsDef *targetspb.TargetsDef) *dnsRes.Resolver {
-	if targetsDef == nil {
-		return globalResolver
-	}
 	dnsResolverOverride := targetsDef.GetDnsResolverOverride()
 	if dnsResolverOverride == "" {
 		return globalResolver
 	}
-
-	_, isDNSResolverPresent := dnsResolverOverrides[dnsResolverOverride]
-	if !isDNSResolverPresent {
-		dnsResolverOverrides[dnsResolverOverride] = dnsRes.NewOverrideResolver(dnsResolverOverride)
-	}
-	return dnsResolverOverrides[dnsResolverOverride]
+	return dnsRes.NewWithOverrideResolver(dnsResolverOverride)
 }
 
 // init initializes the package by creating a new global resolver.
