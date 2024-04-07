@@ -371,7 +371,7 @@ func TestNewResolver(t *testing.T) {
 	targetGlobalResolverCast := *targetGlobalResolver.(*targets)
 	assert.Equal(t, targetGlobalResolverCast.DnsIP, "")
 
-	// Check that when a dnsResolverOverride is specified (1.1.1.1 in this case), an empty string is present in the
+	// Check that when a dnsResolverOverride is specified (1.1.1.1 in this case), the dnsip string is present in the
 	// DnsResolverOverride field
 	targetOverrideResolver, _ := New(targetsDefOverrideResolver, nil, nil, nil, nil)
 	targetOverrideResolverCast := *targetOverrideResolver.(*targets)
