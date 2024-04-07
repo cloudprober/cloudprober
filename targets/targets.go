@@ -48,7 +48,6 @@ import (
 // globalResolver is a singleton DNS resolver that is used as the default
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
-
 var (
 	globalResolver *dnsRes.Resolver
 )
@@ -249,7 +248,6 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 // interface) from a comma-separated list of hosts. This function panics if
 // "hosts" string is not valid. It is mainly used by tests to quickly get a
 // targets.Targets object from a list of hosts.
-
 func StaticTargets(hosts string) Targets {
 	t, err := staticTargets(hosts, globalResolver)
 	if err != nil {
