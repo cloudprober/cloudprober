@@ -342,7 +342,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewResolver(t *testing.T) {
-	targetsDef := &targetspb.TargetsDef{
+	targetsDefGlobalResolver := &targetspb.TargetsDef{
 		Type: &targetspb.TargetsDef_HostNames{
 			HostNames: "host2,host3",
 		},
@@ -353,28 +353,27 @@ func TestNewResolver(t *testing.T) {
 		},
 	}
 
-	dnsResolverOverride := "1.1.1.1"
-	// Check that if no dnsResolverOverride is specified, nothing is present in the overrides map
-	New(targetsDef, nil, nil, nil, nil)
-	assert.Equal(t, len(dnsResolverOverrides), 0)
+	dnsIP := "1.1.1.1"
+	targetsDefOverrideResolver := &targetspb.TargetsDef{
+		DnsResolverOverride: &dnsIP,
+		Type: &targetspb.TargetsDef_HostNames{
+			HostNames: "host2,host3",
+		},
+		Endpoint: []*targetspb.Endpoint{
+			{
+				Name: proto.String("host1"),
+			},
+		},
+	}
 
-	targetsDef.DnsResolverOverride = &dnsResolverOverride
-	// Check that if a dnsResolverOverride is specified, we store the override in the map
-	New(targetsDef, nil, nil, nil, nil)
-	assert.Equal(t, len(dnsResolverOverrides), 1)
-	_, containKey := dnsResolverOverrides["1.1.1.1"]
-	assert.True(t, containKey)
+	// Check that when no dnsResolverOverride is specified, an empty string is present in the DnsResolverOverride field
+	targetGlobalResolver, _ := New(targetsDefGlobalResolver, nil, nil, nil, nil)
+	targetGlobalResolverCast := *targetGlobalResolver.(*targets)
+	assert.Equal(t, targetGlobalResolverCast.DnsIP, "")
 
-	// Check that if the same dnsResolverOverride is specified, we do not add another entry
-	New(targetsDef, nil, nil, nil, nil)
-	assert.Equal(t, len(dnsResolverOverrides), 1)
-	_, containKey = dnsResolverOverrides["1.1.1.1"]
-	assert.True(t, containKey)
-
-	dnsResolverOverride = "8.8.8.8"
-	// Check that if another dnsResolverOverride is specified, we add another entry
-	New(targetsDef, nil, nil, nil, nil)
-	assert.Equal(t, len(dnsResolverOverrides), 2)
-	_, containKey = dnsResolverOverrides["8.8.8.8"]
-	assert.True(t, containKey)
+	// Check that when a dnsResolverOverride is specified (1.1.1.1 in this case), an empty string is present in the
+	// DnsResolverOverride field
+	targetOverrideResolver, _ := New(targetsDefOverrideResolver, nil, nil, nil, nil)
+	targetOverrideResolverCast := *targetOverrideResolver.(*targets)
+	assert.Equal(t, targetOverrideResolverCast.DnsIP, "1.1.1.1")
 }

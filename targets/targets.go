@@ -125,6 +125,7 @@ type targets struct {
 	re              *regexp.Regexp
 	ldLister        endpoint.Lister
 	l               *logger.Logger
+	DnsIP           string // Used in testing to ensure we're using the correct DNSResolver
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -217,11 +218,12 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 	if l == nil {
 		l = &logger.Logger{}
 	}
-
+	dnsOverride, dnsIP := createOverrideDNSResolver(targetsDef)
 	tgts := &targets{
 		l:        l,
-		resolver: createOverrideDNSResolver(targetsDef),
+		resolver: dnsOverride,
 		ldLister: ldLister,
+		DnsIP:    dnsIP,
 	}
 
 	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoint())
@@ -322,7 +324,8 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
-	targetDNSResolver := createOverrideDNSResolver(targetsDef)
+	targetDNSResolver, dnsIP := createOverrideDNSResolver(targetsDef)
+	t.DnsIP = dnsIP
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
 		st, err := staticTargets(targetsDef.GetHostNames(), targetDNSResolver)
@@ -430,12 +433,12 @@ func SetSharedTargets(name string, tgts Targets) {
 	sharedTargets[name] = tgts
 }
 
-func createOverrideDNSResolver(targetsDef *targetspb.TargetsDef) *dnsRes.Resolver {
+func createOverrideDNSResolver(targetsDef *targetspb.TargetsDef) (*dnsRes.Resolver, string) {
 	dnsResolverOverride := targetsDef.GetDnsResolverOverride()
 	if dnsResolverOverride == "" {
-		return globalResolver
+		return globalResolver, ""
 	}
-	return dnsRes.NewWithOverrideResolver(dnsResolverOverride)
+	return dnsRes.NewWithOverrideResolver(dnsResolverOverride), dnsResolverOverride
 }
 
 // init initializes the package by creating a new global resolver.
