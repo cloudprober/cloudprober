@@ -16,6 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/elasticache v1.32.2
 	github.com/aws/aws-sdk-go-v2/service/rds v1.63.0
 	github.com/fullstorydev/grpcurl v1.8.7
+	github.com/google/go-jsonnet v0.20.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.3.1
 	github.com/hoisie/redis v0.0.0-20160730154456-b5c6e81454e0
@@ -35,7 +36,7 @@ require (
 	google.golang.org/api v0.139.0
 	google.golang.org/genproto v0.0.0-20231012201019-e917dd12ba7a
 	google.golang.org/grpc v1.59.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -69,7 +70,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v2.0.8+incompatible // indirect
-	github.com/google/go-jsonnet v0.20.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.5 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
