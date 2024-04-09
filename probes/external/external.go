@@ -256,7 +256,7 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 }
 
 func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
-	stdout := make(chan []byte)
+	stdout := make(chan string)
 	stdoutR, err := c.StdoutPipe()
 	if err != nil {
 		return err
@@ -270,7 +270,7 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 		defer stdoutR.Close()
 		scanner := bufio.NewScanner(stdoutR)
 		for scanner.Scan() {
-			stdout <- scanner.Bytes()
+			stdout <- scanner.Text()
 		}
 	}()
 	go func() {
@@ -283,7 +283,7 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 
 	go func() {
 		for line := range stdout {
-			for _, em := range p.payloadParser.PayloadMetrics(string(line), target.Name) {
+			for _, em := range p.payloadParser.PayloadMetrics(line, target.Name) {
 				p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
 			}
 		}
