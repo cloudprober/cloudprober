@@ -93,13 +93,13 @@ func createTestProbe(cmd string, envVar map[string]string) *Probe {
 // actual command execution (from startCmdIfNotRunning, e.g.).
 func TestShellProcessSuccess(t *testing.T) {
 	// Ignore this test if it's not being run as a subprocess for another test.
-	if os.Getenv("GO_TEST_PROCESS") != "1" {
+	if os.Getenv("GO_CP_TEST_PROCESS") != "1" {
 		return
 	}
 
 	exportEnvList := []string{}
 	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "GO_TEST") {
+		if strings.HasPrefix(env, "GO_CP_TEST") {
 			exportEnvList = append(exportEnvList, env)
 		}
 	}
@@ -112,11 +112,11 @@ func TestShellProcessSuccess(t *testing.T) {
 		fmt.Printf("env \"%s\"\n", strings.Join(exportEnvList, ","))
 	}
 
-	if os.Getenv("GO_TEST_PROCESS_FAIL") != "" {
+	if os.Getenv("GO_CP_TEST_PROCESS_FAIL") != "" {
 		os.Exit(1)
 	}
 
-	pauseSec, err := strconv.Atoi(os.Getenv("GO_TEST_PAUSE"))
+	pauseSec, err := strconv.Atoi(os.Getenv("GO_CP_TEST_PAUSE"))
 	if err != nil {
 		pauseSec = 0
 	}
@@ -131,7 +131,7 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 	t.Helper()
 
 	p := createTestProbe(cmd, map[string]string{
-		"GO_TEST_PROCESS": "1",
+		"GO_CP_TEST_PROCESS": "1",
 	})
 
 	p.cmdArgs = append([]string{"-test.run=TestShellProcessSuccess", "--", p.cmdName}, p.cmdArgs...)
@@ -160,8 +160,8 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 	if runTwice {
 		t.Run("second-run", func(t *testing.T) {
 			// Cause our test command to fail immediately
-			os.Setenv("GO_TEST_PROCESS_FAIL", "1")
-			defer os.Unsetenv("GO_TEST_PROCESS_FAIL")
+			os.Setenv("GO_CP_TEST_PROCESS_FAIL", "1")
+			defer os.Unsetenv("GO_CP_TEST_PROCESS_FAIL")
 
 			standardEMCount += len(tgts)            // 1 EM for each target
 			outputEMCount += numOutVars * len(tgts) // 3 EMs for each target
@@ -191,13 +191,16 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 			}
 		}
 
-		wantEnv := []string{"GO_TEST_PROCESS=1", "GO_TEST_PROCESS_FAIL=1,GO_TEST_PROCESS=1"}
+		wantEnv := [][]string{{"GO_CP_TEST_PROCESS=1"}, {"GO_CP_TEST_PROCESS_FAIL=1", "GO_CP_TEST_PROCESS=1"}}
 
 		// Verify values for each output metric
 		for j := range mmap[tgt]["args"] {
 			assert.Equalf(t, "\""+wantArgs[i]+"\"", mmap[tgt]["args"][j].String(), "Wrong value for args[%d] metric for target (%s)", j, tgt)
 			assert.Equalf(t, "\""+wantCmd+"\"", mmap[tgt]["cmd"][j].String(), "Wrong value for cmd[%d] metric for target (%s)", j, tgt)
-			assert.Equalf(t, "\""+wantEnv[j]+"\"", mmap[tgt]["env"][j].String(), "Wrong value for env[%d] metric for target (%s)", j, tgt)
+
+			for _, e := range wantEnv[j] {
+				assert.Contains(t, mmap[tgt]["env"][j].String(), e, "env[%d] metric for target (%s) doesn't contain expected value", j, tgt)
+			}
 		}
 
 		cmdTime := emMap[tgt]["cmd"][0].Timestamp
@@ -666,8 +669,8 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			// testCommand is just a placeholder here. We replace cmdName and
 			// cmdArgs after creating the probe.
 			p := createTestProbe("/testCommand", map[string]string{
-				"GO_TEST_PROCESS": "1",
-				"GO_TEST_PAUSE":   strconv.Itoa(test.pauseSec),
+				"GO_CP_TEST_PROCESS": "1",
+				"GO_CP_TEST_PAUSE":   strconv.Itoa(test.pauseSec),
 			})
 
 			p.cmdName = os.Args[0]
