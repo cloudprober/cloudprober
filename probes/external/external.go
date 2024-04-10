@@ -55,6 +55,8 @@ var (
 	validLabelRe = regexp.MustCompile(`@(target|address|port|probe|target\.label\.[^@]+)@`)
 )
 
+const maxScannerTokenSize = 256 * 1024
+
 type result struct {
 	total, success    int64
 	latency           metrics.LatencyValue
@@ -269,20 +271,28 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 		defer close(stdout)
 		defer stdoutR.Close()
 		scanner := bufio.NewScanner(stdoutR)
+
+		buf := make([]byte, 0, bufio.MaxScanTokenSize)
+		scanner.Buffer(buf, maxScannerTokenSize)
+
 		for scanner.Scan() {
 			stdout <- scanner.Text()
 		}
-		if err := scanner.Err(); err != nil {
+		if err := scanner.Err(); err != nil && err != io.ErrClosedPipe {
 			p.l.Errorf("Error reading from stdout: %v", err)
 		}
 	}()
 	go func() {
 		defer stderrR.Close()
 		scanner := bufio.NewScanner(stderrR)
+
+		buf := make([]byte, 0, bufio.MaxScanTokenSize)
+		scanner.Buffer(buf, maxScannerTokenSize)
+
 		for scanner.Scan() {
 			p.l.Warningf("Stderr: %s", scanner.Text())
 		}
-		if err := scanner.Err(); err != nil {
+		if err := scanner.Err(); err != nil && err != io.ErrClosedPipe {
 			p.l.Errorf("Error reading from stderr: %v", err)
 		}
 	}()
