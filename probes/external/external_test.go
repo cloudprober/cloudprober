@@ -733,10 +733,9 @@ func TestMain(m *testing.M) {
 	for _, pid := range strings.Fields(strings.TrimSpace(string(pidsBytes))) {
 		pid, err := strconv.Atoi(pid)
 		if err != nil {
-			fmt.Printf("Failed to convert pid (%v) to int, err: %v\n", pid, err)
-			os.Exit(1)
+			log.Fatalf("Failed to convert pid (%v) to int, err: %v", pid, err)
 		}
-		fmt.Println("Killing pid", pid)
+		log.Println("Killing pid", pid)
 		p, err := os.FindProcess(pid)
 		if err != nil {
 			continue
