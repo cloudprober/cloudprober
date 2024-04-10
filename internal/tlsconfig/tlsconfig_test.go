@@ -115,23 +115,34 @@ func TestUpdateTLSConfig(t *testing.T) {
 
 			if !tt.dynamic {
 				assert.Nil(t, tlsConfig.GetClientCertificate, "GetClientCertificate should be nil")
+				assert.Nil(t, tlsConfig.GetCertificate, "GetCertificate should be nil")
 				assert.Len(t, tlsConfig.Certificates, 1, "Certificates should have one entry")
 				parseAndVerifyCert(t, tlsConfig.Certificates[0], tt.wantCN)
 			}
 
 			if tt.dynamic {
 				assert.NotNil(t, tlsConfig.GetClientCertificate, "GetClientCertificate should not be nil")
+				assert.NotNil(t, tlsConfig.GetCertificate, "GetCertificate should not be nil")
 				assert.Equal(t, 0, len(tlsConfig.Certificates), "Certificates should be empty")
 
 				cert, err := tlsConfig.GetClientCertificate(nil)
 				assert.NoError(t, err, "Error getting client TLS certificate")
 				parseAndVerifyCert(t, *cert, tt.wantCN)
 
+				cert, err = tlsConfig.GetCertificate(nil)
+				assert.NoError(t, err, "Error getting server TLS certificate")
+				parseAndVerifyCert(t, *cert, tt.wantCN)
+
 				if tt.nextCert[0] != "" {
 					writeTestCert(tt.nextCert)
 					time.Sleep(1 * time.Second)
+
 					cert, err := tlsConfig.GetClientCertificate(nil)
 					assert.NoError(t, err, "Error getting client TLS certificate")
+					parseAndVerifyCert(t, *cert, tt.wantNextCN)
+
+					cert, err = tlsConfig.GetCertificate(nil)
+					assert.NoError(t, err, "Error getting server TLS certificate")
 					parseAndVerifyCert(t, *cert, tt.wantNextCN)
 				}
 			}
