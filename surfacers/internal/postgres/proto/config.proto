@@ -26,6 +26,15 @@ message SurfacerConf {
   repeated LabelToColumn label_to_column = 4;
 
   optional int64 metrics_buffer_size = 3 [default = 10000];
+
+  // Minimum number of event metric objects to flush in a single batch. Event metrics
+  // will be flushed when this number of event metric objects are available or when
+  // the flush interval is reached, whichever happens first. Default value is 1.
+  optional int64 metrics_batch_minimum_flush_size = 5;
+
+  // Maximum interval between flushes, in milliseconds. Every time batch is
+  // flushed, this timer is reset. Default value is 1000.
+  optional int64 metrics_batch_flush_interval_msec = 6;
 }
 
 message LabelToColumn {
