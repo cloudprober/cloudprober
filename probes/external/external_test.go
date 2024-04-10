@@ -715,13 +715,12 @@ func TestMain(m *testing.M) {
 		pidsFile = tempFile.Name()
 		tempFile.Close()
 	} else {
-		pidsF := os.Getenv("GO_CP_TEST_PIDS_FILE")
-		pidsFile, err := os.OpenFile(pidsF, os.O_RDWR, 0644)
+		pidsF, err := os.OpenFile(os.Getenv("GO_CP_TEST_PIDS_FILE"), os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open temp file for pids: %v", err)
 		}
-		pidsFile.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
-		pidsFile.Close()
+		pidsF.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
+		pidsF.Close()
 	}
 
 	status := m.Run()
