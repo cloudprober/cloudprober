@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"reflect"
@@ -40,7 +41,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var pids []int
+var pidsFile string
 
 func setProbeOptions(p *Probe, name, value string) {
 	for _, opt := range p.c.Options {
@@ -107,8 +108,6 @@ func TestShellProcessSuccess(t *testing.T) {
 	}
 	fmt.Fprintf(os.Stderr, "Running test command. Env: %s\n", strings.Join(exportEnvList, ","))
 
-	pids = append(pids, os.Getpid())
-
 	if len(os.Args) > 4 {
 		fmt.Printf("cmd \"%s\"\n", os.Args[3])
 		time.Sleep(10 * time.Millisecond)
@@ -135,7 +134,8 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 	t.Helper()
 
 	p := createTestProbe(cmd, map[string]string{
-		"GO_CP_TEST_PROCESS": "1",
+		"GO_CP_TEST_PROCESS":   "1",
+		"GO_CP_TEST_PIDS_FILE": pidsFile,
 	})
 
 	p.cmdArgs = append([]string{"-test.run=TestShellProcessSuccess", "--", p.cmdName}, p.cmdArgs...)
@@ -705,17 +705,45 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	// Kill all child processes when the test finishes.
-	defer func() {
-		for _, pid := range pids {
-			if pid > 0 {
-				p, err := os.FindProcess(pid)
-				if err != nil {
-					continue
-				}
-				p.Kill()
-			}
+	// In the main process, create temp file to store pids of the forked
+	// processes.
+	if os.Getenv("GO_CP_TEST_PROCESS") == "" {
+		tempFile, err := os.CreateTemp("", "cloudprober-external-test-pids")
+		if err != nil {
+			log.Fatalf("Failed to create temp file for pids: %v", err)
 		}
-	}()
-	os.Exit(m.Run())
+		pidsFile = tempFile.Name()
+		tempFile.Close()
+	} else {
+		pidsF := os.Getenv("GO_CP_TEST_PIDS_FILE")
+		pidsFile, err := os.OpenFile(pidsF, os.O_RDWR, 0644)
+		if err != nil {
+			log.Fatalf("Failed to open temp file for pids: %v", err)
+		}
+		pidsFile.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
+		pidsFile.Close()
+	}
+
+	status := m.Run()
+
+	// Read pid from pidsFile
+	pidsBytes, err := os.ReadFile(pidsFile)
+	if err != nil {
+		log.Fatalf("Failed to open temp file for pids: %v", err)
+	}
+	for _, pid := range strings.Fields(strings.TrimSpace(string(pidsBytes))) {
+		pid, err := strconv.Atoi(pid)
+		if err != nil {
+			fmt.Printf("Failed to convert pid (%v) to int, err: %v\n", pid, err)
+			os.Exit(1)
+		}
+		fmt.Println("Killing pid", pid)
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			continue
+		}
+		p.Kill()
+	}
+
+	os.Exit(status)
 }
