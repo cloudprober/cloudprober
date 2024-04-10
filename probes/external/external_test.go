@@ -40,6 +40,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var pids []int
+
 func setProbeOptions(p *Probe, name, value string) {
 	for _, opt := range p.c.Options {
 		if opt.GetName() == name {
@@ -104,6 +106,8 @@ func TestShellProcessSuccess(t *testing.T) {
 		}
 	}
 	fmt.Fprintf(os.Stderr, "Running test command. Env: %s\n", strings.Join(exportEnvList, ","))
+
+	pids = append(pids, os.Getpid())
 
 	if len(os.Args) > 4 {
 		fmt.Printf("cmd \"%s\"\n", os.Args[3])
@@ -698,4 +702,20 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			assert.Equal(t, changedOrNot, stderr != p.cmdStderr)
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	// Kill all child processes when the test finishes.
+	defer func() {
+		for _, pid := range pids {
+			if pid > 0 {
+				p, err := os.FindProcess(pid)
+				if err != nil {
+					continue
+				}
+				p.Kill()
+			}
+		}
+	}()
+	os.Exit(m.Run())
 }
