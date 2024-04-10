@@ -272,12 +272,18 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 		for scanner.Scan() {
 			stdout <- scanner.Text()
 		}
+		if err := scanner.Err(); err != nil {
+			p.l.Errorf("Error reading from stdout: %v", err)
+		}
 	}()
 	go func() {
 		defer stderrR.Close()
 		scanner := bufio.NewScanner(stderrR)
 		for scanner.Scan() {
 			p.l.Warningf("Stderr: %s", scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			p.l.Errorf("Error reading from stderr: %v", err)
 		}
 	}()
 
