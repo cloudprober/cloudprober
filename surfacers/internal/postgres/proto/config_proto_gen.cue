@@ -21,6 +21,15 @@ package proto
 	// don't have a mapping will be dropped.
 	labelToColumn?: [...#LabelToColumn] @protobuf(4,LabelToColumn,name=label_to_column)
 	metricsBufferSize?: int64 @protobuf(3,int64,name=metrics_buffer_size,"default=10000")
+
+	// Minimum number of event metric objects to flush in a single batch. Event metrics
+	// will be flushed when this number of event metric objects are available or when
+	// the flush interval is reached, whichever happens first. Default value is 1.
+	metricsBatchMinimumFlushSize?: int64 @protobuf(5,int64,name=metrics_batch_minimum_flush_size)
+
+	// Maximum interval between flushes, in milliseconds. Every time batch is
+	// flushed, this timer is reset. Default value is 1000.
+	metricsBatchFlushIntervalMsec?: int64 @protobuf(6,int64,name=metrics_batch_flush_interval_msec)
 }
 
 #LabelToColumn: {

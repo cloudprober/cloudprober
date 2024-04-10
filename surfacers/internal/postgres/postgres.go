@@ -44,6 +44,13 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/postgres/proto"
 )
 
+const (
+	// DefaultMetricsBatchMinimumFlushSize is the default minimum number of event metric objects to buffer before flushing
+	DefaultMetricsBatchMinimumFlushSize = 1
+	// DefaultMetricsBatchFlushIntervalMsec is the default interval for flushing the buffer
+	DefaultMetricsBatchFlushIntervalMsec = 1000
+)
+
 // pgMetric represents a single metric and corresponds to a single row in the
 // metrics table.
 type pgMetric struct {
@@ -199,7 +206,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 // writeMetrics parses events metrics into postgres rows, starts a transaction
 // and inserts all discreet metric rows represented by the EventMetrics
-func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
+func (s *Surfacer) writeMetrics(ems []*metrics.EventMetrics) error {
 	// Begin a transaction.
 	txn, err := s.db.Begin()
 	if err != nil {
@@ -212,25 +219,27 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 		return err
 	}
 
-	// Transaction for defined columns
-	if len(s.c.GetLabelToColumn()) > 0 {
-		for _, pgMetric := range s.emToPGMetrics(em) {
-			// args are the column values generated based on the chosen labels
-			args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
-			args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
+	for _, em := range ems {
+		// Transaction for defined columns
+		if len(s.c.GetLabelToColumn()) > 0 {
+			for _, pgMetric := range s.emToPGMetrics(em) {
+				// args are the column values generated based on the chosen labels
+				args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
+				args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
 
-			if _, err = stmt.Exec(args...); err != nil {
-				return err
+				if _, err = stmt.Exec(args...); err != nil {
+					return err
+				}
 			}
-		}
-	} else {
-		for _, pgMetric := range s.emToPGMetrics(em) {
-			var s string
-			if s, err = labelsJSON(pgMetric.labels); err != nil {
-				return err
-			}
-			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
-				return err
+		} else {
+			for _, pgMetric := range s.emToPGMetrics(em) {
+				var s string
+				if s, err = labelsJSON(pgMetric.labels); err != nil {
+					return err
+				}
+				if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -266,6 +275,14 @@ func (s *Surfacer) init(ctx context.Context) error {
 	go func() {
 		defer s.db.Close()
 
+		metricsBatchMinimumFlushSize := resolveMetricsBatchMinimumFlushSize(s.c.MetricsBatchMinimumFlushSize, DefaultMetricsBatchMinimumFlushSize)
+		metricsBatchFlushIntervalMsec := resolveMetricsBatchFlushInterval(s.c.MetricsBatchFlushIntervalMsec, DefaultMetricsBatchFlushIntervalMsec)
+
+		buffer := make([]*metrics.EventMetrics, 0, metricsBatchMinimumFlushSize)
+		flushInterval := time.Duration(metricsBatchFlushIntervalMsec) * time.Millisecond
+
+		var wait = time.After(flushInterval)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -275,16 +292,42 @@ func (s *Surfacer) init(ctx context.Context) error {
 				if em.Kind != metrics.CUMULATIVE && em.Kind != metrics.GAUGE {
 					continue
 				}
-				// Note: we may want to batch calls to writeMetrics, as each call results in
-				// a database transaction.
-				if err := s.writeMetrics(em); err != nil {
-					s.l.Warningf("Error while writing metrics: %v", err)
+				buffer = append(buffer, em)
+				if int64(len(buffer)) >= metricsBatchMinimumFlushSize {
+					if err := s.writeMetrics(buffer); err != nil {
+						s.l.Warningf("Error while writing metrics: %v", err)
+					}
+					buffer = buffer[:0]
+					wait = time.After(flushInterval)
 				}
+			case <-wait:
+				if len(buffer) > 0 {
+					if err := s.writeMetrics(buffer); err != nil {
+						s.l.Warningf("Error while writing metrics: %v", err)
+					}
+					buffer = buffer[:0]
+				}
+				wait = time.After(flushInterval)
 			}
 		}
 	}()
 
 	return nil
+}
+
+func resolveMetricsBatchMinimumFlushSize(metricsBufferSize *int64, defaultMetricsBufferSize int64) int64 {
+	if metricsBufferSize == nil {
+		return defaultMetricsBufferSize
+	}
+	return *metricsBufferSize
+
+}
+
+func resolveMetricsBatchFlushInterval(metricsBufferFlushIntervalMsec *int64, defaultBufferFlushIntervalMsec int64) int64 {
+	if metricsBufferFlushIntervalMsec == nil {
+		return defaultBufferFlushIntervalMsec
+	}
+	return *metricsBufferFlushIntervalMsec
 }
 
 // Write takes the data to be written
