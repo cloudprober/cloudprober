@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"reflect"
@@ -39,6 +40,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
+
+var pidsFile string
 
 func setProbeOptions(p *Probe, name, value string) {
 	for _, opt := range p.c.Options {
@@ -131,7 +134,8 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 	t.Helper()
 
 	p := createTestProbe(cmd, map[string]string{
-		"GO_CP_TEST_PROCESS": "1",
+		"GO_CP_TEST_PROCESS":   "1",
+		"GO_CP_TEST_PIDS_FILE": pidsFile,
 	})
 
 	p.cmdArgs = append([]string{"-test.run=TestShellProcessSuccess", "--", p.cmdName}, p.cmdArgs...)
@@ -698,4 +702,46 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			assert.Equal(t, changedOrNot, stderr != p.cmdStderr)
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	// In the main process, create temp file to store pids of the forked
+	// processes.
+	if os.Getenv("GO_CP_TEST_PROCESS") == "" {
+		tempFile, err := os.CreateTemp("", "cloudprober-external-test-pids")
+		if err != nil {
+			log.Fatalf("Failed to create temp file for pids: %v", err)
+		}
+		pidsFile = tempFile.Name()
+		tempFile.Close()
+	} else {
+		pidsF, err := os.OpenFile(os.Getenv("GO_CP_TEST_PIDS_FILE"), os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("Failed to open temp file for pids: %v", err)
+		}
+		pidsF.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
+		pidsF.Close()
+	}
+
+	status := m.Run()
+
+	// Read pid from pidsFile
+	pidsBytes, err := os.ReadFile(pidsFile)
+	if err != nil {
+		log.Fatalf("Failed to open temp file for pids: %v", err)
+	}
+	for _, pid := range strings.Fields(strings.TrimSpace(string(pidsBytes))) {
+		pid, err := strconv.Atoi(pid)
+		if err != nil {
+			log.Fatalf("Failed to convert pid (%v) to int, err: %v", pid, err)
+		}
+		log.Println("Killing pid", pid)
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			continue
+		}
+		p.Kill()
+	}
+
+	os.Exit(status)
 }
