@@ -29,6 +29,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"sort"
 	"sync"
 	"time"
 
@@ -318,9 +319,15 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 }
 
 func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
+	var keys []string
+	for k := range pr.Probes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	cfg := &configpb.ProberConfig{}
-	for _, p := range pr.Probes {
-		cfg.Probe = append(cfg.Probe, p.ProbeDef)
+	for _, k := range keys {
+		cfg.Probe = append(cfg.Probe, pr.Probes[k].ProbeDef)
 	}
 
 	textCfg := prototext.MarshalOptions{
