@@ -188,7 +188,7 @@ import (
 	excludeLameducks?: bool @protobuf(22,bool,name=exclude_lameducks,default)
 
 	// Provide a dns resolver override instead of using the default dns resolver.
-	dnsResolverOverride?: string @protobuf(37,string,name=dns_resolver_override)
+	dnsServer?: string @protobuf(37,string,name=dns_server)
 }
 
 // DummyTargets represent empty targets, which are useful for external

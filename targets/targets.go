@@ -434,7 +434,7 @@ func SetSharedTargets(name string, tgts Targets) {
 }
 
 func createOverrideDNSResolver(targetsDef *targetspb.TargetsDef) (*dnsRes.Resolver, string) {
-	dnsResolverOverride := targetsDef.GetDnsResolverOverride()
+	dnsResolverOverride := targetsDef.GetDnsServer()
 	if dnsResolverOverride == "" {
 		return globalResolver, ""
 	}

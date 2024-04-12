@@ -355,7 +355,7 @@ func TestNewResolver(t *testing.T) {
 
 	dnsIP := "1.1.1.1"
 	targetsDefOverrideResolver := &targetspb.TargetsDef{
-		DnsResolverOverride: &dnsIP,
+		DnsServer: &dnsIP,
 		Type: &targetspb.TargetsDef_HostNames{
 			HostNames: "host2,host3",
 		},

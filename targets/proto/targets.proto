@@ -188,7 +188,7 @@ message TargetsDef {
   optional bool exclude_lameducks = 22 [default = true];
 
   // Provide a dns resolver override instead of using the default dns resolver.
-  optional string dns_resolver_override = 37;
+  optional string dns_server = 37;
 
   // Extensions allow users to to add new targets types (for example, a targets
   // type that utilizes a custom protocol) in a systematic manner.
