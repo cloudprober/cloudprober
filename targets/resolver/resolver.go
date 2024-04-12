@@ -45,7 +45,6 @@ type Resolver struct {
 	mu            sync.Mutex
 	DefaultMaxAge time.Duration
 	resolve       func(string) ([]net.IP, error) // used for testing
-	DNSOverrideIP string                         // used for test
 }
 
 // ipVersion tells if an IP address is IPv4 or IPv6.
@@ -214,9 +213,7 @@ func NewWithOverrideResolver(dnsResolverOverride string) *Resolver {
 		}
 		return r.LookupIP(context.Background(), "ip", host)
 	}
-	resolver := NewWithResolve(resolveFunc)
-	resolver.DNSOverrideIP = dnsResolverOverride
-	return resolver
+	return NewWithResolve(resolveFunc)
 }
 
 // New returns a new Resolver.

@@ -125,6 +125,7 @@ type targets struct {
 	re              *regexp.Regexp
 	ldLister        endpoint.Lister
 	l               *logger.Logger
+	resolverIP      string // Used for testing
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -213,14 +214,16 @@ func (t *targets) ListEndpoints() []endpoint.Endpoint {
 
 // baseTargets constructs a targets instance with no lister or resolver. It
 // provides essentially everything that the targets type wraps over its lister.
-func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *logger.Logger, resolver *dnsRes.Resolver) (*targets, error) {
+func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *logger.Logger,
+	resolver *dnsRes.Resolver, resolverIP string) (*targets, error) {
 	if l == nil {
 		l = &logger.Logger{}
 	}
 	tgts := &targets{
-		l:        l,
-		resolver: resolver,
-		ldLister: ldLister,
+		l:          l,
+		resolver:   resolver,
+		ldLister:   ldLister,
+		resolverIP: resolverIP,
 	}
 
 	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoint())
@@ -248,7 +251,7 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 // "hosts" string is not valid. It is mainly used by tests to quickly get a
 // targets.Targets object from a list of hosts.
 func StaticTargets(hosts string) Targets {
-	t, err := staticTargets(hosts, globalResolver)
+	t, err := staticTargets(hosts, globalResolver, "")
 	if err != nil {
 		panic(err)
 	}
@@ -317,17 +320,18 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 // configurations of Targets.
 func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
 	resolver := globalResolver
-	if ip := targetsDef.GetDnsServer(); ip != "" {
+	ip := ""
+	if ip = targetsDef.GetDnsServer(); ip != "" {
 		resolver = dnsRes.NewWithOverrideResolver(ip)
 	}
-	t, err := baseTargets(targetsDef, ldLister, l, resolver)
+	t, err := baseTargets(targetsDef, ldLister, l, resolver, ip)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
-		st, err := staticTargets(targetsDef.GetHostNames(), resolver)
+		st, err := staticTargets(targetsDef.GetHostNames(), resolver, ip)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating targets from host_names: %v", err)
 		}

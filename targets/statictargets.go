@@ -24,8 +24,8 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
-func staticTargets(hosts string, resolver *dnsRes.Resolver) (Targets, error) {
-	t, _ := baseTargets(nil, nil, nil, resolver)
+func staticTargets(hosts string, resolver *dnsRes.Resolver, resolverIP string) (Targets, error) {
+	t, _ := baseTargets(nil, nil, nil, resolver, resolverIP)
 	sl := &staticLister{}
 
 	hostsSlice := strings.Split(hosts, ",")
