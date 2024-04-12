@@ -125,7 +125,6 @@ type targets struct {
 	re              *regexp.Regexp
 	ldLister        endpoint.Lister
 	l               *logger.Logger
-	DnsIP           string // Used in testing to ensure we're using the correct DNSResolver
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -214,16 +213,14 @@ func (t *targets) ListEndpoints() []endpoint.Endpoint {
 
 // baseTargets constructs a targets instance with no lister or resolver. It
 // provides essentially everything that the targets type wraps over its lister.
-func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *logger.Logger) (*targets, error) {
+func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *logger.Logger, resolver *dnsRes.Resolver) (*targets, error) {
 	if l == nil {
 		l = &logger.Logger{}
 	}
-	dnsOverride, dnsIP := createOverrideDNSResolver(targetsDef)
 	tgts := &targets{
 		l:        l,
-		resolver: dnsOverride,
+		resolver: resolver,
 		ldLister: ldLister,
-		DnsIP:    dnsIP,
 	}
 
 	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoint())
@@ -319,16 +316,18 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
 func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
-	t, err := baseTargets(targetsDef, ldLister, l)
+	resolver := globalResolver
+	if ip := targetsDef.GetDnsServer(); ip != "" {
+		resolver = dnsRes.NewWithOverrideResolver(ip)
+	}
+	t, err := baseTargets(targetsDef, ldLister, l, resolver)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
-	targetDNSResolver, dnsIP := createOverrideDNSResolver(targetsDef)
-	t.DnsIP = dnsIP
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
-		st, err := staticTargets(targetsDef.GetHostNames(), targetDNSResolver)
+		st, err := staticTargets(targetsDef.GetHostNames(), resolver)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating targets from host_names: %v", err)
 		}
@@ -344,7 +343,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_GceTargets:
-		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), targetDNSResolver, globalLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), resolver, globalLogger)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating GCE targets: %v", err)
 		}
@@ -364,7 +363,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_FileTargets:
-		ft, err := file.New(targetsDef.GetFileTargets(), targetDNSResolver, l)
+		ft, err := file.New(targetsDef.GetFileTargets(), resolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}
@@ -431,14 +430,6 @@ func SetSharedTargets(name string, tgts Targets) {
 	sharedTargetsMu.Lock()
 	defer sharedTargetsMu.Unlock()
 	sharedTargets[name] = tgts
-}
-
-func createOverrideDNSResolver(targetsDef *targetspb.TargetsDef) (*dnsRes.Resolver, string) {
-	dnsResolverOverride := targetsDef.GetDnsServer()
-	if dnsResolverOverride == "" {
-		return globalResolver, ""
-	}
-	return dnsRes.NewWithOverrideResolver(dnsResolverOverride), dnsResolverOverride
 }
 
 // init initializes the package by creating a new global resolver.

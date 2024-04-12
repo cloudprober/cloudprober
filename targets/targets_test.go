@@ -97,7 +97,7 @@ func TestList(t *testing.T) {
 				})
 			}
 
-			bt, err := baseTargets(targetsDef, &mockLister{tt.ldList}, nil)
+			bt, err := baseTargets(targetsDef, &mockLister{tt.ldList}, nil, globalResolver)
 			assert.NoError(t, err, "Unexpected error building targets")
 
 			bt.lister = &mockLister{listerEndpoint}
@@ -339,41 +339,4 @@ func TestNew(t *testing.T) {
 			assert.Equal(t, tt.wantNames, gotNames, "Unexpected targets")
 		})
 	}
-}
-
-func TestNewResolver(t *testing.T) {
-	targetsDefGlobalResolver := &targetspb.TargetsDef{
-		Type: &targetspb.TargetsDef_HostNames{
-			HostNames: "host2,host3",
-		},
-		Endpoint: []*targetspb.Endpoint{
-			{
-				Name: proto.String("host1"),
-			},
-		},
-	}
-
-	dnsIP := "1.1.1.1"
-	targetsDefOverrideResolver := &targetspb.TargetsDef{
-		DnsServer: &dnsIP,
-		Type: &targetspb.TargetsDef_HostNames{
-			HostNames: "host2,host3",
-		},
-		Endpoint: []*targetspb.Endpoint{
-			{
-				Name: proto.String("host1"),
-			},
-		},
-	}
-
-	// Check that when no dnsResolverOverride is specified, an empty string is present in the DnsResolverOverride field
-	targetGlobalResolver, _ := New(targetsDefGlobalResolver, nil, nil, nil, nil)
-	targetGlobalResolverCast := *targetGlobalResolver.(*targets)
-	assert.Equal(t, targetGlobalResolverCast.DnsIP, "")
-
-	// Check that when a dnsResolverOverride is specified (1.1.1.1 in this case), the dnsip string is present in the
-	// DnsResolverOverride field
-	targetOverrideResolver, _ := New(targetsDefOverrideResolver, nil, nil, nil, nil)
-	targetOverrideResolverCast := *targetOverrideResolver.(*targets)
-	assert.Equal(t, targetOverrideResolverCast.DnsIP, "1.1.1.1")
 }
