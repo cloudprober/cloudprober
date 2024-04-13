@@ -78,5 +78,6 @@ func staticTargets(hosts string) (Targets, error) {
 	}
 
 	t.lister = sl
+	t.resolver = globalResolver
 	return t, nil
 }
