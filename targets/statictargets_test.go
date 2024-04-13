@@ -59,7 +59,7 @@ func TestStaticTargets(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			tgts, err := staticTargets(test.hosts, globalResolver, "")
+			tgts, err := staticTargets(test.hosts)
 			if err != nil {
 				if !test.wantErr {
 					t.Errorf("Unexpected error: %v", err)

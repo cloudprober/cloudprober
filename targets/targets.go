@@ -214,16 +214,14 @@ func (t *targets) ListEndpoints() []endpoint.Endpoint {
 
 // baseTargets constructs a targets instance with no lister or resolver. It
 // provides essentially everything that the targets type wraps over its lister.
-func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *logger.Logger,
-	resolver *dnsRes.Resolver, resolverIP string) (*targets, error) {
+func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *logger.Logger) (*targets, error) {
 	if l == nil {
 		l = &logger.Logger{}
 	}
 	tgts := &targets{
-		l:          l,
-		resolver:   resolver,
-		ldLister:   ldLister,
-		resolverIP: resolverIP,
+		l:        l,
+		resolver: globalResolver,
+		ldLister: ldLister,
 	}
 
 	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoint())
@@ -251,7 +249,7 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 // "hosts" string is not valid. It is mainly used by tests to quickly get a
 // targets.Targets object from a list of hosts.
 func StaticTargets(hosts string) Targets {
-	t, err := staticTargets(hosts, globalResolver, "")
+	t, err := staticTargets(hosts)
 	if err != nil {
 		panic(err)
 	}
@@ -319,23 +317,24 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
 func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
-	resolver := globalResolver
-	ip := ""
-	if ip = targetsDef.GetDnsServer(); ip != "" {
-		resolver = dnsRes.NewWithOverrideResolver(ip)
-	}
-	t, err := baseTargets(targetsDef, ldLister, l, resolver, ip)
+	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
+	resolver := globalResolver
+	if ip := targetsDef.GetDnsServer(); ip != "" {
+		resolver = dnsRes.NewWithOverrideResolver(ip)
+		t.resolverIP = ip
+	}
+	t.resolver = resolver
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
-		st, err := staticTargets(targetsDef.GetHostNames(), resolver, ip)
+		st, err := staticTargets(targetsDef.GetHostNames())
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating targets from host_names: %v", err)
 		}
-		t.lister, t.resolver = st, st
+		t.lister = st
 
 	case *targetspb.TargetsDef_SharedTargets:
 		sharedTargetsMu.RLock()

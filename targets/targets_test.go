@@ -97,7 +97,7 @@ func TestList(t *testing.T) {
 				})
 			}
 
-			bt, err := baseTargets(targetsDef, &mockLister{tt.ldList}, nil, globalResolver, "")
+			bt, err := baseTargets(targetsDef, &mockLister{tt.ldList}, nil)
 			assert.NoError(t, err, "Unexpected error building targets")
 
 			bt.lister = &mockLister{listerEndpoint}
