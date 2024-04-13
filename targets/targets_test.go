@@ -340,3 +340,52 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+
+func TestNewResolver(t *testing.T) {
+	targetsDefGlobalResolver := &targetspb.TargetsDef{
+		Type: &targetspb.TargetsDef_HostNames{
+			HostNames: "host2,host3",
+		},
+		Endpoint: []*targetspb.Endpoint{
+			{
+				Name: proto.String("host1"),
+			},
+		},
+	}
+
+	dnsIP := "1.1.1.1"
+	targetsDefOverrideResolver := &targetspb.TargetsDef{
+		DnsServer: &dnsIP,
+		Type: &targetspb.TargetsDef_HostNames{
+			HostNames: "host2,host3",
+		},
+		Endpoint: []*targetspb.Endpoint{
+			{
+				Name: proto.String("host1"),
+			},
+		},
+	}
+
+	// Check that when no dnsResolverOverride is specified, an empty string is present in the DnsResolverOverride field
+	targetGlobalResolver, err := New(targetsDefGlobalResolver, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("New(...) Unexpected errors %v", err)
+	}
+	targetGlobalResolverCast, ok := targetGlobalResolver.(*targets)
+	if !ok {
+		t.Fatalf("Casting of targets object using global resolver failed")
+	}
+	assert.Equal(t, targetGlobalResolverCast.resolverIP, "")
+
+	// Check that when a dnsResolverOverride is specified (1.1.1.1 in this case), the dnsip string is present in the
+	// DnsResolverOverride field
+	targetOverrideResolver, err := New(targetsDefOverrideResolver, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("New(...) Unexpected errors %v", err)
+	}
+	targetOverrideResolverCast, ok := targetOverrideResolver.(*targets)
+	if !ok {
+		t.Fatalf("Casting of targets object using override resolver failed")
+	}
+	assert.Equal(t, targetOverrideResolverCast.resolverIP, "1.1.1.1")
+}
