@@ -125,6 +125,7 @@ type targets struct {
 	re              *regexp.Regexp
 	ldLister        endpoint.Lister
 	l               *logger.Logger
+	resolverIP      string // Used for testing
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -217,7 +218,6 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 	if l == nil {
 		l = &logger.Logger{}
 	}
-
 	tgts := &targets{
 		l:        l,
 		resolver: globalResolver,
@@ -322,14 +322,19 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
-
+	resolver := globalResolver
+	if ip := targetsDef.GetDnsServer(); ip != "" {
+		resolver = dnsRes.NewWithOverrideResolver(ip)
+		t.resolverIP = ip
+	}
+	t.resolver = resolver
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
 		st, err := staticTargets(targetsDef.GetHostNames())
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating targets from host_names: %v", err)
 		}
-		t.lister, t.resolver = st, st
+		t.lister = st
 
 	case *targetspb.TargetsDef_SharedTargets:
 		sharedTargetsMu.RLock()
@@ -341,7 +346,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_GceTargets:
-		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), resolver, globalLogger)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating GCE targets: %v", err)
 		}
@@ -361,7 +366,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_FileTargets:
-		ft, err := file.New(targetsDef.GetFileTargets(), globalResolver, l)
+		ft, err := file.New(targetsDef.GetFileTargets(), resolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}
