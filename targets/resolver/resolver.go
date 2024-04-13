@@ -18,6 +18,7 @@
 package resolver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -196,6 +197,23 @@ func NewWithResolve(resolveFunc func(string) ([]net.IP, error)) *Resolver {
 		resolve:       resolveFunc,
 		DefaultMaxAge: defaultMaxAge,
 	}
+}
+
+func NewWithOverrideResolver(dnsResolverOverride string) *Resolver {
+	resolveFunc := func(host string) ([]net.IP, error) {
+		r := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{
+					Timeout: defaultMaxAge,
+				}
+				dnsIP := dnsResolverOverride + ":53"
+				return d.DialContext(ctx, network, dnsIP)
+			},
+		}
+		return r.LookupIP(context.Background(), "ip", host)
+	}
+	return NewWithResolve(resolveFunc)
 }
 
 // New returns a new Resolver.
