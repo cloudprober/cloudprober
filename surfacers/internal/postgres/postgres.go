@@ -300,7 +300,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 						s.l.Warningf("Error while writing metrics: %v", err)
 					}
 					buffer = buffer[:0]
-					wait = time.After(flushInterval)
+					flushTicker.Reset()
 				}
 			case <-flushTicker.C:
 				if len(buffer) > 0 {
