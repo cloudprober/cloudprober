@@ -281,7 +281,9 @@ func (s *Surfacer) init(ctx context.Context) error {
 		buffer := make([]*metrics.EventMetrics, 0, metricsBatchMinimumFlushSize)
 		flushInterval := time.Duration(metricsBatchFlushIntervalMsec) * time.Millisecond
 
-		var wait = time.After(flushInterval)
+		flushTicker := time.Ticker(flushInterval)
+		defer flushTicker.Stop()
+
 
 		for {
 			select {
