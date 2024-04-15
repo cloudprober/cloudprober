@@ -281,9 +281,8 @@ func (s *Surfacer) init(ctx context.Context) error {
 		buffer := make([]*metrics.EventMetrics, 0, metricsBatchMinimumFlushSize)
 		flushInterval := time.Duration(metricsBatchFlushIntervalMsec) * time.Millisecond
 
-		flushTicker := time.Ticker(flushInterval)
+		flushTicker := time.NewTicker(flushInterval)
 		defer flushTicker.Stop()
-
 
 		for {
 			select {
@@ -300,7 +299,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 						s.l.Warningf("Error while writing metrics: %v", err)
 					}
 					buffer = buffer[:0]
-					flushTicker.Reset()
+					flushTicker.Reset(flushInterval)
 				}
 			case <-flushTicker.C:
 				if len(buffer) > 0 {
