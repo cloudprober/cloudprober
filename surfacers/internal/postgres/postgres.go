@@ -45,10 +45,10 @@ import (
 )
 
 const (
-	// DefaultMetricsBatchMinimumFlushSize is the default minimum number of event metric objects to buffer before flushing
-	DefaultMetricsBatchMinimumFlushSize = 1
-	// DefaultMetricsBatchFlushIntervalMsec is the default interval for flushing the buffer
-	DefaultMetricsBatchFlushIntervalMsec = 1000
+	// DefaultMetricsBatchSize is the default maximum number of event metric to send in one batch
+	DefaultMetricsBatchSize int32 = 1
+	// DefaultBatchTimerSec is the default interval for flushing the buffer
+	DefaultBatchTimerSec int32 = 1
 )
 
 // pgMetric represents a single metric and corresponds to a single row in the
@@ -275,11 +275,18 @@ func (s *Surfacer) init(ctx context.Context) error {
 	go func() {
 		defer s.db.Close()
 
-		metricsBatchMinimumFlushSize := resolveMetricsBatchMinimumFlushSize(s.c.MetricsBatchMinimumFlushSize, DefaultMetricsBatchMinimumFlushSize)
-		metricsBatchFlushIntervalMsec := resolveMetricsBatchFlushInterval(s.c.MetricsBatchFlushIntervalMsec, DefaultMetricsBatchFlushIntervalMsec)
+		metricsBatchSize := DefaultMetricsBatchSize
+		if s.c.MetricsBatchSize != nil {
+			metricsBatchSize = *s.c.MetricsBatchSize
+		}
 
-		buffer := make([]*metrics.EventMetrics, 0, metricsBatchMinimumFlushSize)
-		flushInterval := time.Duration(metricsBatchFlushIntervalMsec) * time.Millisecond
+		batchTimerSec := DefaultBatchTimerSec
+		if s.c.BatchTimerSec != nil {
+			batchTimerSec = *s.c.BatchTimerSec
+		}
+
+		buffer := make([]*metrics.EventMetrics, 0, metricsBatchSize)
+		flushInterval := time.Duration(batchTimerSec) * time.Second
 
 		flushTicker := time.NewTicker(flushInterval)
 		defer flushTicker.Stop()
@@ -294,7 +301,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 					continue
 				}
 				buffer = append(buffer, em)
-				if int64(len(buffer)) >= metricsBatchMinimumFlushSize {
+				if int32(len(buffer)) >= metricsBatchSize {
 					if err := s.writeMetrics(buffer); err != nil {
 						s.l.Warningf("Error while writing metrics: %v", err)
 					}
@@ -313,21 +320,6 @@ func (s *Surfacer) init(ctx context.Context) error {
 	}()
 
 	return nil
-}
-
-func resolveMetricsBatchMinimumFlushSize(metricsBufferSize *int64, defaultMetricsBufferSize int64) int64 {
-	if metricsBufferSize == nil {
-		return defaultMetricsBufferSize
-	}
-	return *metricsBufferSize
-
-}
-
-func resolveMetricsBatchFlushInterval(metricsBufferFlushIntervalMsec *int64, defaultBufferFlushIntervalMsec int64) int64 {
-	if metricsBufferFlushIntervalMsec == nil {
-		return defaultBufferFlushIntervalMsec
-	}
-	return *metricsBufferFlushIntervalMsec
 }
 
 // Write takes the data to be written
