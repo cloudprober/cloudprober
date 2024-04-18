@@ -44,13 +44,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/postgres/proto"
 )
 
-const (
-	// DefaultMetricsBatchSize is the default maximum number of event metric to send in one batch
-	DefaultMetricsBatchSize int32 = 1
-	// DefaultBatchTimerSec is the default interval for flushing the buffer
-	DefaultBatchTimerSec int32 = 1
-)
-
 // pgMetric represents a single metric and corresponds to a single row in the
 // metrics table.
 type pgMetric struct {
@@ -275,15 +268,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 	go func() {
 		defer s.db.Close()
 
-		metricsBatchSize := DefaultMetricsBatchSize
-		if s.c.MetricsBatchSize != nil {
-			metricsBatchSize = *s.c.MetricsBatchSize
-		}
-
-		batchTimerSec := DefaultBatchTimerSec
-		if s.c.BatchTimerSec != nil {
-			batchTimerSec = *s.c.BatchTimerSec
-		}
+		metricsBatchSize, batchTimerSec := s.c.GetMetricsBatchSize(), s.c.GetBatchTimerSec()
 
 		buffer := make([]*metrics.EventMetrics, 0, metricsBatchSize)
 		flushInterval := time.Duration(batchTimerSec) * time.Second
