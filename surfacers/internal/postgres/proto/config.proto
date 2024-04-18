@@ -26,6 +26,17 @@ message SurfacerConf {
   repeated LabelToColumn label_to_column = 4;
 
   optional int64 metrics_buffer_size = 3 [default = 10000];
+
+  // The maximum number of metric events will be commited in one transaction at one
+  // time. Metrics will be stored locally until this limit is reached. Metrics will
+  // be commited  to postgres when the timer expires, or the buffer is full, whichever
+  // happens first.
+  optional int32 metrics_batch_size = 5 [default = 1];
+
+  // The maximum amount of time to hold metrics in the buffer (above).
+  // Metrics will be commited  to postgres when the timer expires, or the buffer is full,
+  // whichever happens first.
+  optional int32 batch_timer_sec = 6 [default = 1];
 }
 
 message LabelToColumn {

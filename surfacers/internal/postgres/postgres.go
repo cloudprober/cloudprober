@@ -199,7 +199,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 // writeMetrics parses events metrics into postgres rows, starts a transaction
 // and inserts all discreet metric rows represented by the EventMetrics
-func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
+func (s *Surfacer) writeMetrics(ems []*metrics.EventMetrics) error {
 	// Begin a transaction.
 	txn, err := s.db.Begin()
 	if err != nil {
@@ -212,25 +212,27 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 		return err
 	}
 
-	// Transaction for defined columns
-	if len(s.c.GetLabelToColumn()) > 0 {
-		for _, pgMetric := range s.emToPGMetrics(em) {
-			// args are the column values generated based on the chosen labels
-			args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
-			args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
+	for _, em := range ems {
+		// Transaction for defined columns
+		if len(s.c.GetLabelToColumn()) > 0 {
+			for _, pgMetric := range s.emToPGMetrics(em) {
+				// args are the column values generated based on the chosen labels
+				args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
+				args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
 
-			if _, err = stmt.Exec(args...); err != nil {
-				return err
+				if _, err = stmt.Exec(args...); err != nil {
+					return err
+				}
 			}
-		}
-	} else {
-		for _, pgMetric := range s.emToPGMetrics(em) {
-			var s string
-			if s, err = labelsJSON(pgMetric.labels); err != nil {
-				return err
-			}
-			if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
-				return err
+		} else {
+			for _, pgMetric := range s.emToPGMetrics(em) {
+				var s string
+				if s, err = labelsJSON(pgMetric.labels); err != nil {
+					return err
+				}
+				if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -266,6 +268,14 @@ func (s *Surfacer) init(ctx context.Context) error {
 	go func() {
 		defer s.db.Close()
 
+		metricsBatchSize, batchTimerSec := s.c.GetMetricsBatchSize(), s.c.GetBatchTimerSec()
+
+		buffer := make([]*metrics.EventMetrics, 0, metricsBatchSize)
+		flushInterval := time.Duration(batchTimerSec) * time.Second
+
+		flushTicker := time.NewTicker(flushInterval)
+		defer flushTicker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -275,10 +285,20 @@ func (s *Surfacer) init(ctx context.Context) error {
 				if em.Kind != metrics.CUMULATIVE && em.Kind != metrics.GAUGE {
 					continue
 				}
-				// Note: we may want to batch calls to writeMetrics, as each call results in
-				// a database transaction.
-				if err := s.writeMetrics(em); err != nil {
-					s.l.Warningf("Error while writing metrics: %v", err)
+				buffer = append(buffer, em)
+				if int32(len(buffer)) >= metricsBatchSize {
+					if err := s.writeMetrics(buffer); err != nil {
+						s.l.Warningf("Error while writing metrics: %v", err)
+					}
+					buffer = buffer[:0]
+					flushTicker.Reset(flushInterval)
+				}
+			case <-flushTicker.C:
+				if len(buffer) > 0 {
+					if err := s.writeMetrics(buffer); err != nil {
+						s.l.Warningf("Error while writing metrics: %v", err)
+					}
+					buffer = buffer[:0]
 				}
 			}
 		}
