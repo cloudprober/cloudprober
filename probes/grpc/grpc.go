@@ -282,6 +282,13 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 		if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
 			addr = uriScheme + addr
 		}
+
+		// Note we use WithBlock dial option which is dicouraged by gRPC docs
+		// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md.
+		// In traditional gRPC client, it makes sense for connections to be
+		// fluid and come and go, but for prober it's important that connection
+		// is established before we start sending RPCs. We'll get a much better
+		// error message if connection fails.
 		conn, err = grpc.DialContext(connCtx, addr, append(p.dialOpts, grpc.WithBlock())...)
 
 		cancelFunc()
@@ -295,6 +302,9 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
+
+		// Sleep before retrying connection.
+		time.Sleep(p.opts.Interval)
 	}
 	return conn
 }
