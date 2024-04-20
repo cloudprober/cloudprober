@@ -282,7 +282,7 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 		if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
 			addr = uriScheme + addr
 		}
-		conn, err = grpc.DialContext(connCtx, addr, p.dialOpts...)
+		conn, err = grpc.DialContext(connCtx, addr, append(p.dialOpts, grpc.WithBlock())...)
 
 		cancelFunc()
 		if err != nil {
