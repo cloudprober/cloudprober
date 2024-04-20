@@ -283,12 +283,12 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 			addr = uriScheme + addr
 		}
 
-		// Note we use WithBlock dial option which is dicouraged by gRPC docs
+		// Note we use WithBlock dial option which is discouraged by gRPC docs
 		// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md.
-		// In traditional gRPC client, it makes sense for connections to be
-		// fluid and come and go, but for prober it's important that connection
-		// is established before we start sending RPCs. We'll get a much better
-		// error message if connection fails.
+		// In a traditional gRPC client, it makes sense for connections to be
+		// fluid, and come and go, but for  aprober it's important that
+		// connection is established before we start sending RPCs. We'll get a
+		// much better error message if connection fails.
 		conn, err = grpc.DialContext(connCtx, addr, append(p.dialOpts, grpc.WithBlock())...)
 
 		cancelFunc()
