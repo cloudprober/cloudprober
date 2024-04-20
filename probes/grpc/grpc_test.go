@@ -182,8 +182,9 @@ func TestGRPCSuccess(t *testing.T) {
 			}
 
 			cfg := &configpb.ProbeConf{
-				NumConns: proto.Int32(2),
-				Method:   tt.method,
+				NumConns:          proto.Int32(2),
+				Method:            tt.method,
+				InsecureTransport: proto.Bool(true),
 			}
 
 			if tt.method.String() == "GENERIC" {
@@ -252,10 +253,13 @@ func TestConnectFailures(t *testing.T) {
 	statsExportInterval := time.Duration(numIntervals) * interval
 
 	probeOpts := &options.Options{
-		Targets:             targets.StaticTargets(addr),
-		Interval:            interval,
-		Timeout:             timeout,
-		ProbeConf:           &configpb.ProbeConf{NumConns: proto.Int32(2)},
+		Targets:  targets.StaticTargets(addr),
+		Interval: interval,
+		Timeout:  timeout,
+		ProbeConf: &configpb.ProbeConf{
+			NumConns:          proto.Int32(2),
+			InsecureTransport: proto.Bool(true),
+		},
 		Logger:              &logger.Logger{},
 		StatsExportInterval: statsExportInterval,
 		LogMetrics:          func(em *metrics.EventMetrics) {},
@@ -303,10 +307,13 @@ func TestProbeTimeouts(t *testing.T) {
 	statsExportInterval := time.Duration(iters) * interval
 
 	probeOpts := &options.Options{
-		Targets:             targets.StaticTargets(addr),
-		Interval:            interval,
-		Timeout:             timeout,
-		ProbeConf:           &configpb.ProbeConf{NumConns: proto.Int32(1)},
+		Targets:  targets.StaticTargets(addr),
+		Interval: interval,
+		Timeout:  timeout,
+		ProbeConf: &configpb.ProbeConf{
+			NumConns:          proto.Int32(1),
+			InsecureTransport: proto.Bool(true),
+		},
 		Logger:              &logger.Logger{},
 		LatencyUnit:         time.Millisecond,
 		StatsExportInterval: statsExportInterval,

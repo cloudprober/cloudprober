@@ -54,7 +54,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/alts"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/credentials/local"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
@@ -154,8 +153,8 @@ func (p *Probe) setupDialOpts() error {
 	}
 
 	if oauthCfg == nil && transportCreds == nil {
-		// if no auth configured, use local auth by default
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
+		// if no auth configured, use client TLS with system certs
+		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 	}
 	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
 	return nil
