@@ -134,6 +134,7 @@ func (p *Probe) transportCredentials() (credentials.TransportCredentials, error)
 }
 
 func (p *Probe) setupDialOpts() error {
+	p.dialOpts = append(p.dialOpts, grpc.WithBlock())
 
 	oauthCfg := p.c.GetOauthConfig()
 	if oauthCfg != nil {
@@ -268,8 +269,6 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 	if p.c.GetConnectTimeoutMsec() > 0 {
 		connectTimeout = time.Duration(p.c.GetConnectTimeoutMsec()) * time.Millisecond
 	}
-	var conn *grpc.ClientConn
-	var err error
 	for {
 		select {
 		case <-ctx.Done():
@@ -282,21 +281,30 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 		if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
 			addr = uriScheme + addr
 		}
-		conn, err = grpc.DialContext(connCtx, addr, p.dialOpts...)
+
+		// Note we use WithBlock dial option which is discouraged by gRPC docs
+		// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md.
+		// In a traditional gRPC client, it makes sense for connections to be
+		// fluid, and come and go, but for  aprober it's important that
+		// connection is established before we start sending RPCs. We'll get a
+		// much better error message if connection fails.
+		conn, err := grpc.DialContext(connCtx, addr, p.dialOpts...)
 
 		cancelFunc()
 		if err != nil {
 			p.l.WarningAttrs("Connect error: "+err.Error(), logAttrs...)
 		} else {
 			p.l.InfoAttrs("Connection established", logAttrs...)
-			break
+			return conn
 		}
 		result.Lock()
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
+
+		// Sleep before retrying connection.
+		time.Sleep(p.opts.Interval)
 	}
-	return conn
 }
 
 func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, logAttrs ...slog.Attr) (*grpc_health_v1.HealthCheckResponse, error) {
