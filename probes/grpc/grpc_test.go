@@ -246,8 +246,10 @@ func TestConnectFailures(t *testing.T) {
 	interval, timeout := 100*time.Millisecond, 100*time.Millisecond
 	addr := "localhost:9"
 
-	iters := 6
-	statsExportInterval := time.Duration(6) * interval
+	numIntervals := 3
+	// we wait for numIntervals * interval before checking the results.
+	// there will be about numIntervals-1 attempts in this period.
+	statsExportInterval := time.Duration(numIntervals) * interval
 
 	probeOpts := &options.Options{
 		Targets:             targets.StaticTargets(addr),
@@ -276,7 +278,9 @@ func TestConnectFailures(t *testing.T) {
 	}
 
 	for i, em := range ems {
-		expectedMinCount := int64((i + 1) * (iters + 1))
+		// Since connect attempt is made every "interval", we expect at least
+		// numIntervals-1 attempts in first EM, 2*(numIntervals-1) in next.
+		expectedMinCount := int64((i+1)*numIntervals - 1)
 		assert.GreaterOrEqual(t, em.Metric("total").(*metrics.Int).Int64(), expectedMinCount, "message#: %d, total, em: %s", i, em.String())
 		assert.GreaterOrEqual(t, em.Metric("connecterrors").(*metrics.Int).Int64(), expectedMinCount, "message#: %d, connecterrors, em: %s", i, em.String())
 		// 0 success
