@@ -79,6 +79,7 @@ type Probe struct {
 	c        *configpb.ProbeConf
 	l        *logger.Logger
 	dialOpts []grpc.DialOption
+	creds    credentials.TransportCredentials
 	descSrc  grpcurl.DescriptorSource
 
 	// Targets and cancellation function for each target.
@@ -129,35 +130,9 @@ func (p *Probe) transportCredentials() (credentials.TransportCredentials, error)
 	if p.c.GetInsecureTransport() {
 		return insecure.NewCredentials(), nil
 	}
-	return nil, nil
-}
 
-func (p *Probe) setupDialOpts() error {
-	p.dialOpts = append(p.dialOpts, grpc.WithBlock())
-
-	oauthCfg := p.c.GetOauthConfig()
-	if oauthCfg != nil {
-		oauthTS, err := oauth.TokenSourceFromConfig(oauthCfg, p.l)
-		if err != nil {
-			return err
-		}
-		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
-	}
-
-	transportCreds, err := p.transportCredentials()
-	if err != nil {
-		return fmt.Errorf("error reading transport credentials: %v", err)
-	}
-	if transportCreds != nil {
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(transportCreds))
-	}
-
-	if oauthCfg == nil && transportCreds == nil {
-		// if no auth configured, use client TLS with system certs
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
-	}
-	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
-	return nil
+	// if no explicit transport creds configured, use system default.
+	return credentials.NewClientTLSFromCert(nil, ""), nil
 }
 
 // Init initializes the probe with the given params.
@@ -181,9 +156,24 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	p.cancelFuncs = make(map[string]context.CancelFunc)
 	p.src = sysvars.Vars()["hostname"]
-	if err := p.setupDialOpts(); err != nil {
-		return err
+
+	transportCreds, err := p.transportCredentials()
+	if err != nil {
+		return fmt.Errorf("error creating transport credentials: %v", err)
 	}
+	p.creds = transportCreds
+
+	// Initialize dial options.
+	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
+	oauthCfg := p.c.GetOauthConfig()
+	if oauthCfg != nil {
+		oauthTS, err := oauth.TokenSourceFromConfig(oauthCfg, p.l)
+		if err != nil {
+			return err
+		}
+		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
+	}
+
 	resolver.SetDefaultScheme("dns")
 
 	if p.c.GetMethod() == configpb.ProbeConf_GENERIC {
@@ -281,21 +271,23 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 			addr = uriScheme + addr
 		}
 
-		// Note we use WithBlock dial option which is discouraged by gRPC docs
+		// Note we use grpcurl.BlockingDial which uses WithBlock dial option which is
+		// discouraged by the gRPC docs:
 		// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md.
 		// In a traditional gRPC client, it makes sense for connections to be
 		// fluid, and come and go, but for  aprober it's important that
 		// connection is established before we start sending RPCs. We'll get a
 		// much better error message if connection fails.
-		conn, err := grpc.DialContext(connCtx, addr, p.dialOpts...)
-
+		conn, err := grpcurl.BlockingDial(connCtx, "tcp", addr, p.creds, p.dialOpts...)
 		cancelFunc()
+
 		if err != nil {
 			p.l.WarningAttrs("Connect error: "+err.Error(), logAttrs...)
 		} else {
 			p.l.InfoAttrs("Connection established", logAttrs...)
 			return conn
 		}
+
 		result.Lock()
 		result.total.Inc()
 		result.connectErrors.Inc()
