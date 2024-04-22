@@ -91,7 +91,10 @@ message ProbeConf {
   // Request definition for the GENERIC method.
   optional GenericRequest request = 14;
 
-  optional int32 num_conns = 5 [default = 2];
+  // Number of connections to use. Default is 2 for ECHO, READ and WRITE
+  // methods for backward compatibility. For HEALTH_CHECK and GENERIC, default
+  // is 1.
+  optional int32 num_conns = 5;
   optional bool keep_alive = 6 [default = true];
 
   // If connect_timeout is not specified, reuse probe timeout.
