@@ -26,6 +26,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 func (p *Probe) initDescriptorSource() error {
@@ -74,8 +75,17 @@ func (p *Probe) callServiceMethod(ctx context.Context, req *configpb.GenericRequ
 		return "", fmt.Errorf("error invoking gRPC: %v", err)
 	}
 
+	if h.Status.Code() != codes.OK {
+		return "", fmt.Errorf("gRPC call failed: %s", h.Status.Message())
+	}
+
+	respBytes := out.Bytes()
+	if len(respBytes) == 0 {
+		return "", nil
+	}
+
 	var buf bytes.Buffer
-	if err := json.Compact(&buf, out.Bytes()); err != nil {
+	if err := json.Compact(&buf, respBytes); err != nil {
 		return "", fmt.Errorf("error compacting response JSON (%s): %v", out.String(), err)
 	}
 	return response(buf.String()), nil
