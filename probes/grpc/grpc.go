@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -73,11 +74,15 @@ var (
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
-	name     string
-	src      string
-	opts     *options.Options
-	c        *configpb.ProbeConf
-	l        *logger.Logger
+	name string
+	src  string
+	opts *options.Options
+	c    *configpb.ProbeConf
+	l    *logger.Logger
+
+	// Number of connections as configured.
+	numConns int
+
 	dialOpts []grpc.DialOption
 	descSrc  grpcurl.DescriptorSource
 
@@ -186,6 +191,19 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	resolver.SetDefaultScheme("dns")
 
+	p.numConns = int(p.c.GetNumConns())
+	if p.numConns == 0 {
+		p.numConns = 1
+		backwardCompatMethods := []configpb.ProbeConf_MethodType{
+			configpb.ProbeConf_ECHO,
+			configpb.ProbeConf_READ,
+			configpb.ProbeConf_WRITE,
+		}
+		if slices.Contains(backwardCompatMethods, p.c.GetMethod()) {
+			p.numConns = 2
+		}
+	}
+
 	if p.c.GetMethod() == configpb.ProbeConf_GENERIC {
 		if err := p.initDescriptorSource(); err != nil {
 			return err
@@ -226,7 +244,7 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context) {
 		updatedTargets[key] = "ADD"
 		p.results[key] = p.newResult(key)
 		probeCtx, probeCancelFunc := context.WithCancel(ctx)
-		for i := 0; i < int(p.c.GetNumConns()); i++ {
+		for i := 0; i < int(p.numConns); i++ {
 			go p.oneTargetLoop(probeCtx, target, i, p.results[key])
 		}
 		p.cancelFuncs[key] = probeCancelFunc
