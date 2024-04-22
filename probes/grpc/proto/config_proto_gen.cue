@@ -97,9 +97,13 @@ import (
 	healthCheckIgnoreStatus?: bool @protobuf(11,bool,name=health_check_ignore_status)
 
 	// Request definition for the GENERIC method.
-	request?:   #GenericRequest @protobuf(14,GenericRequest)
-	numConns?:  int32           @protobuf(5,int32,name=num_conns,"default=2")
-	keepAlive?: bool            @protobuf(6,bool,name=keep_alive,default)
+	request?: #GenericRequest @protobuf(14,GenericRequest)
+
+	// Number of connections to use. Default is 2 for ECHO, READ and WRITE
+	// methods for backward compatibility. For HEALTH_CHECK and GENERIC, default
+	// is 1.
+	numConns?:  int32 @protobuf(5,int32,name=num_conns)
+	keepAlive?: bool  @protobuf(6,bool,name=keep_alive,default)
 
 	// If connect_timeout is not specified, reuse probe timeout.
 	connectTimeoutMsec?: int32 @protobuf(7,int32,name=connect_timeout_msec)
