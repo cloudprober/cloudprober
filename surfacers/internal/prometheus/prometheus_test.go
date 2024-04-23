@@ -27,6 +27,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -81,15 +82,20 @@ type testData struct {
 	value      string
 }
 
-func newPromSurfacer(t *testing.T, writeTimestamp bool) *PromSurfacer {
-	c := &configpb.SurfacerConf{
-		// Attach a random integer to metrics URL so that multiple
-		// tests can run in parallel without handlers clashing with
-		// each other.
-		MetricsUrl:       proto.String(fmt.Sprintf("/metrics_%d", rand.Int())),
-		IncludeTimestamp: proto.Bool(writeTimestamp),
+func testPromSurfacer(baseConf *configpb.SurfacerConf) (*PromSurfacer, error) {
+	c := &configpb.SurfacerConf{}
+	if baseConf != nil {
+		c = proto.Clone(baseConf).(*configpb.SurfacerConf)
 	}
-	ps, err := New(context.Background(), c, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
+	// Attach a random integer to metrics URL so that multiple
+	// tests can run in parallel without handlers clashing with
+	// each other.
+	c.MetricsUrl = proto.String(fmt.Sprintf("/metrics_%d", rand.Int()))
+	return New(context.Background(), c, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
+}
+
+func testPromSurfacerNoErr(t *testing.T, baseConf *configpb.SurfacerConf) *PromSurfacer {
+	ps, err := testPromSurfacer(baseConf)
 	if err != nil {
 		t.Fatal("Error while initializing prometheus surfacer", err)
 	}
@@ -97,7 +103,7 @@ func newPromSurfacer(t *testing.T, writeTimestamp bool) *PromSurfacer {
 }
 
 func TestRecord(t *testing.T) {
-	ps := newPromSurfacer(t, true)
+	ps := testPromSurfacerNoErr(t, nil)
 
 	// Record first EventMetrics
 	ps.record(newEventMetrics(32, 22, map[string]int64{
@@ -155,7 +161,7 @@ func TestRecord(t *testing.T) {
 }
 
 func TestInvalidNames(t *testing.T) {
-	ps := newPromSurfacer(t, true)
+	ps := testPromSurfacerNoErr(t, nil)
 
 	ps.record(metrics.NewEventMetrics(time.Now()).
 		AddMetric("sent", metrics.NewInt(32)).
@@ -176,7 +182,7 @@ func TestInvalidNames(t *testing.T) {
 }
 
 func TestScrapeOutput(t *testing.T) {
-	ps := newPromSurfacer(t, true)
+	ps := testPromSurfacerNoErr(t, nil)
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
@@ -212,7 +218,7 @@ func TestScrapeOutput(t *testing.T) {
 }
 
 func TestScrapeOutputNoTimestamp(t *testing.T) {
-	ps := newPromSurfacer(t, false)
+	ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false)})
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
@@ -246,7 +252,7 @@ func TestScrapeOutputNoTimestamp(t *testing.T) {
 }
 
 func TestScrapeOutputWithExpiredTimeMetrics(t *testing.T) {
-	ps := newPromSurfacer(t, true)
+	ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(true)})
 
 	nowTime := time.Now()
 	timeBeforeTenMin := nowTime.Add(-10 * time.Minute)
@@ -291,4 +297,77 @@ func TestScrapeOutputWithExpiredTimeMetrics(t *testing.T) {
 			t.Errorf("String \"%s\" contains expired data in output data: %s", d, data)
 		}
 	}
+}
+
+func TestMetricsPrefix(t *testing.T) {
+	tests := []struct {
+		name       string
+		confPrefix string
+		flagPrefix string
+		wantPrefix string
+		wantErr    bool
+	}{
+		{
+			name:       "No prefix",
+			wantPrefix: "",
+		},
+		{
+			name:       "conf prefix",
+			confPrefix: "cloudprober_c_",
+			wantPrefix: "cloudprober_c_",
+		},
+		{
+			name:       "flag prefix",
+			flagPrefix: "cloudprober_f_",
+			wantPrefix: "cloudprober_f_",
+		},
+		{
+			name:       "conf and flag prefix",
+			confPrefix: "cloudprober_c_",
+			flagPrefix: "cloudprober_f_",
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			*metricsPrefix = tt.flagPrefix
+			defer func() {
+				*metricsPrefix = ""
+			}()
+
+			c := &configpb.SurfacerConf{}
+			if tt.confPrefix != "" {
+				c.MetricsPrefix = proto.String(tt.confPrefix)
+			}
+			ps, err := testPromSurfacer(c)
+			if err != nil {
+				if !tt.wantErr {
+					t.Errorf("Error while initializing prometheus surfacer: %v", err)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Errorf("Expected error, got none")
+			}
+
+			assert.Equal(t, ps.prefix, tt.wantPrefix, "prefix mismatch")
+		})
+	}
+
+	// Make sure that the prefix is applied to the metrics.
+	ps := testPromSurfacerNoErr(t, nil)
+	ps.prefix = "cloudprober_"
+
+	// Record first EventMetrics
+	ps.record(newEventMetrics(32, 22, map[string]int64{
+		"200": 22,
+	}, "http", "vm-to-google"))
+
+	expectedMetrics := map[string]testData{
+		"cloudprober_sent{ptype=\"http\",probe=\"vm-to-google\"}":                   {"cloudprober_sent", "32"},
+		"cloudprober_rcvd{ptype=\"http\",probe=\"vm-to-google\"}":                   {"cloudprober_rcvd", "22"},
+		"cloudprober_resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"200\"}": {"cloudprober_resp_code", "22"},
+	}
+	verify(t, ps, expectedMetrics)
 }
