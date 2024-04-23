@@ -33,13 +33,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/postgres/proto"
 )
@@ -191,7 +193,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		opts: opts,
 		l:    l,
 		openDB: func(cs string) (*sql.DB, error) {
-			return sql.Open("postgres", cs)
+			return sql.Open("pgx", cs)
 		},
 	}
 	return s, s.init(ctx)
@@ -199,52 +201,39 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 // writeMetrics parses events metrics into postgres rows, starts a transaction
 // and inserts all discreet metric rows represented by the EventMetrics
-func (s *Surfacer) writeMetrics(ems []*metrics.EventMetrics) error {
-	// Begin a transaction.
-	txn, err := s.db.Begin()
+func (s *Surfacer) writeMetrics(ctx context.Context, ems []*metrics.EventMetrics) error {
+	conn, err := s.db.Conn(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("error acquiring conn from the DB pool: %v", err)
 	}
+	defer conn.Close()
 
-	// Prepare a statement to COPY table from the STDIN.
-	stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), s.columns...))
-	if err != nil {
-		return err
-	}
+	var rows [][]any
 
 	for _, em := range ems {
 		// Transaction for defined columns
 		if len(s.c.GetLabelToColumn()) > 0 {
 			for _, pgMetric := range s.emToPGMetrics(em) {
-				// args are the column values generated based on the chosen labels
-				args := []interface{}{pgMetric.time, pgMetric.metricName, pgMetric.value}
-				args = append(args, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
-
-				if _, err = stmt.Exec(args...); err != nil {
-					return err
-				}
+				row := []any{pgMetric.time, pgMetric.metricName, pgMetric.value}
+				row = append(row, generateValues(pgMetric.labels, s.c.GetLabelToColumn())...)
+				rows = append(rows, row)
 			}
 		} else {
 			for _, pgMetric := range s.emToPGMetrics(em) {
-				var s string
-				if s, err = labelsJSON(pgMetric.labels); err != nil {
+				s, err := labelsJSON(pgMetric.labels)
+				if err != nil {
 					return err
 				}
-				if _, err = stmt.Exec(pgMetric.time, pgMetric.metricName, pgMetric.value, s); err != nil {
-					return err
-				}
+				rows = append(rows, []any{pgMetric.time, pgMetric.metricName, pgMetric.value, s})
 			}
 		}
 	}
 
-	if _, err = stmt.Exec(); err != nil {
+	return conn.Raw(func(driverConn any) error {
+		conn := driverConn.(*stdlib.Conn).Conn()
+		_, err := conn.CopyFrom(ctx, pgx.Identifier{s.c.GetMetricsTableName()}, s.columns, pgx.CopyFromRows(rows))
 		return err
-	}
-	if err = stmt.Close(); err != nil {
-		return err
-	}
-
-	return txn.Commit()
+	})
 }
 
 // init connects to postgres
@@ -287,7 +276,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 				}
 				buffer = append(buffer, em)
 				if int32(len(buffer)) >= metricsBatchSize {
-					if err := s.writeMetrics(buffer); err != nil {
+					if err := s.writeMetrics(ctx, buffer); err != nil {
 						s.l.Warningf("Error while writing metrics: %v", err)
 					}
 					buffer = buffer[:0]
@@ -295,7 +284,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 				}
 			case <-flushTicker.C:
 				if len(buffer) > 0 {
-					if err := s.writeMetrics(buffer); err != nil {
+					if err := s.writeMetrics(ctx, buffer); err != nil {
 						s.l.Warningf("Error while writing metrics: %v", err)
 					}
 					buffer = buffer[:0]
@@ -318,8 +307,8 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 
 // generateValues generates column values or places NULL
 // in the event label/value does not exist
-func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []interface{} {
-	var args []interface{}
+func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []any {
+	var args []any
 
 	for _, v := range ltc {
 		if val, ok := labels[v.GetLabel()]; ok {
