@@ -63,6 +63,7 @@ dist: $(BINARIES)
 
 PYVERSION := $(subst v,,$(VERSION))
 PYVERSION := $(word 1,$(subst -, ,$(PYVERSION)))-$(word 2,$(subst -, ,$(PYVERSION)))
+PYVERSION := $(patsubst %-,%,$(PYVERSION))
 py_serverutils:
 	cp README.md probes/external/serverutils/py/README.md && \
 	cd probes/external/serverutils/py && \
