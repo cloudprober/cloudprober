@@ -42,6 +42,9 @@ type SurfacerConf struct {
 	// Prefix to add to all metric names. For example setting this field to
 	// "cloudprober_" will result in metrics with names:
 	// cloudprober_total, cloudprober_success, cloudprober_latency, ..
+	//
+	// As it's typically useful to set this across the deployment, this field can
+	// also be set through the command line flag --prometheus_metrics_prefix.
 	MetricsPrefix *string `protobuf:"bytes,4,opt,name=metrics_prefix,json=metricsPrefix" json:"metrics_prefix,omitempty"`
 }
 
