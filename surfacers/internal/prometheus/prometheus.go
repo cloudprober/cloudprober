@@ -34,6 +34,7 @@ package prometheus
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,6 +47,10 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto"
+)
+
+var (
+	metricsPrefix = flag.String("prometheus_metrics_prefix", "", "Metrics prefix")
 )
 
 // Prometheus metric and label names should match the following regular
@@ -137,10 +142,18 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		queryChan:    make(chan *httpWriter, queriesQueueSize),
 		metrics:      make(map[string]*promMetric),
-		prefix:       config.GetMetricsPrefix(),
 		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
 		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
 		l:            l,
+	}
+
+	if *metricsPrefix != "" && ps.c.MetricsPrefix != nil {
+		return nil, fmt.Errorf("both --prometheus_metrics_prefix and config metrics_prefix are set, you can set only one of them")
+	}
+	if *metricsPrefix != "" {
+		ps.prefix = *metricsPrefix
+	} else {
+		ps.prefix = ps.c.GetMetricsPrefix()
 	}
 
 	if ps.c.GetIncludeTimestamp() {

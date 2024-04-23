@@ -21,5 +21,8 @@ package proto
 	// Prefix to add to all metric names. For example setting this field to
 	// "cloudprober_" will result in metrics with names:
 	// cloudprober_total, cloudprober_success, cloudprober_latency, ..
+	//
+	// As it's typically useful to set this across the deployment, this field can
+	// also be set through the command line flag --prometheus_metrics_prefix.
 	metricsPrefix?: string @protobuf(4,string,name=metrics_prefix)
 }
