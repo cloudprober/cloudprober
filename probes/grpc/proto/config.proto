@@ -95,7 +95,6 @@ message ProbeConf {
   // methods for backward compatibility. For HEALTH_CHECK and GENERIC, default
   // is 1.
   optional int32 num_conns = 5;
-  optional bool keep_alive = 6 [default = true];
 
   // If connect_timeout is not specified, reuse probe timeout.
   optional int32 connect_timeout_msec = 7;
