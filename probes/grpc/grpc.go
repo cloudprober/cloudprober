@@ -426,7 +426,7 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt endpoint.Endpoint, index 
 			delta = time.Since(start)
 		}
 
-		if p.opts.Validators != nil {
+		if success && p.opts.Validators != nil {
 			failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: []byte(r.String())}, result.validationFailure, p.l)
 
 			if len(failedValidations) > 0 {
