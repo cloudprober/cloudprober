@@ -291,7 +291,7 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 			stdout <- scanner.Text()
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
-			p.l.Errorf("Error reading from stdout: %v %T", err, err)
+			p.l.Errorf("Error reading from stdout: %v", err)
 		}
 	}()
 	go func() {
