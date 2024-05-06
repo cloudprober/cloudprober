@@ -257,6 +257,18 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	}
 }
 
+func isPipeOrFileClosedError(err error) bool {
+	if err == io.ErrClosedPipe {
+		return true
+	}
+	if pe, ok := err.(*os.PathError); ok {
+		if pe.Err == os.ErrClosed {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 	stdout := make(chan string)
 	stdoutR, err := c.StdoutPipe()
@@ -278,7 +290,7 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 		for scanner.Scan() {
 			stdout <- scanner.Text()
 		}
-		if err := scanner.Err(); err != nil && err != io.ErrClosedPipe {
+		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			p.l.Errorf("Error reading from stdout: %v", err)
 		}
 	}()
@@ -292,7 +304,7 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 		for scanner.Scan() {
 			p.l.Warningf("Stderr: %s", scanner.Text())
 		}
-		if err := scanner.Err(); err != nil && err != io.ErrClosedPipe {
+		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			p.l.Errorf("Error reading from stderr: %v", err)
 		}
 	}()
