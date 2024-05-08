@@ -16,7 +16,6 @@ package file
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -25,7 +24,7 @@ import (
 )
 
 func createTempFile(t *testing.T, b []byte) string {
-	tmpfile, err := ioutil.TempFile("", "")
+	tmpfile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 		return ""
