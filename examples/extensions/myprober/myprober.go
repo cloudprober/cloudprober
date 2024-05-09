@@ -6,8 +6,8 @@ import (
 
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/examples/extensions/myprober/myprobe"
+	"github.com/cloudprober/cloudprober/examples/extensions/myprober/mytargets"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/web"
 )
 
@@ -16,9 +16,8 @@ func main() {
 
 	var log = logger.New()
 
-	// Register stubby probe type
-	probes.RegisterProbeType(int(myprobe.E_RedisProbe.TypeDescriptor().Number()),
-		func() probes.Probe { return &myprobe.Probe{} })
+	myprobe.Init()
+	mytargets.Init()
 
 	if err := cloudprober.Init(); err != nil {
 		log.Criticalf("Error initializing cloudprober. Err: %v", err)

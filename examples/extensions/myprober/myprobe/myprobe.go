@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/hoisie/redis"
@@ -132,4 +133,11 @@ func (p *Probe) runProbe(ctx context.Context) {
 	}
 
 	wg.Wait()
+}
+
+func Init() {
+	// Register stubby probe type
+	fmt.Println("Registering probe type")
+	extNumber := int(E_RedisProbe.TypeDescriptor().Number())
+	probes.RegisterProbeType(extNumber, func() probes.Probe { return &Probe{} })
 }
