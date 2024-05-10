@@ -17,6 +17,7 @@ package config
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -113,7 +114,7 @@ func handleIncludes(baseDir string, content []byte) (string, error) {
 }
 
 func readConfigFile(fileName string) (string, error) {
-	b, err := file.ReadFile(fileName)
+	b, err := file.ReadFile(context.Background(), fileName)
 	if err != nil {
 		return "", err
 	}
