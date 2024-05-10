@@ -15,7 +15,7 @@
 package file
 
 import (
-	"io/ioutil"
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -24,7 +24,7 @@ import (
 )
 
 func createTempFile(t *testing.T, b []byte) string {
-	tmpfile, err := ioutil.TempFile("", "")
+	tmpfile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 		return ""
@@ -38,7 +38,7 @@ func createTempFile(t *testing.T, b []byte) string {
 	return tmpfile.Name()
 }
 
-func testReadFile(path string) ([]byte, error) {
+func testReadFile(ctx context.Context, path string) ([]byte, error) {
 	return []byte("content-for-" + path), nil
 }
 
@@ -59,7 +59,7 @@ func TestReadFile(t *testing.T) {
 
 	for path, expectedContent := range testData {
 		t.Run("ReadFile("+path+")", func(t *testing.T) {
-			b, err := ReadFile(path)
+			b, err := ReadFile(context.Background(), path)
 			if err != nil {
 				t.Fatalf("Error while reading the file: %s", path)
 			}
@@ -85,7 +85,7 @@ func TestReadWithCache(t *testing.T) {
 	}
 
 	readAndVerify := func(expectedContent string, reloadInterval time.Duration) {
-		b, err := ReadWithCache(f.Name(), reloadInterval)
+		b, err := ReadWithCache(context.Background(), f.Name(), reloadInterval)
 		assert.NoError(t, err, "reading file")
 		assert.Equal(t, expectedContent, string(b))
 	}

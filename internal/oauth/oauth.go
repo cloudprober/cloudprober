@@ -64,7 +64,7 @@ func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSo
 			return creds.TokenSource, nil
 		}
 
-		jsonKey, err := file.ReadFile(f)
+		jsonKey, err := file.ReadFile(context.Background(), f)
 		if err != nil {
 			return nil, fmt.Errorf("error reading Google Credentials file (%s): %v", f, err)
 		}
