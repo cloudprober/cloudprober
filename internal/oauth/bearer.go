@@ -15,6 +15,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -55,7 +56,7 @@ var tokenFunctions = struct {
 	fromFile, fromCmd, fromGCEMetadata, fromK8sTokenFile func(c *configpb.BearerToken) (*oauth2.Token, error)
 }{
 	fromFile: func(c *configpb.BearerToken) (*oauth2.Token, error) {
-		b, err := file.ReadFile(c.GetFile())
+		b, err := file.ReadFile(context.Background(), c.GetFile())
 		if err != nil {
 			return nil, err
 		}

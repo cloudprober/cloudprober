@@ -18,6 +18,7 @@ Package file implements a file-based targets provider for cloudprober.
 package file
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -148,7 +149,7 @@ func (ls *lister) shouldReloadFile() bool {
 		return true
 	}
 
-	modTime, err := file.ModTime(ls.filePath)
+	modTime, err := file.ModTime(context.Background(), ls.filePath)
 	if err != nil {
 		ls.l.Warningf("file(%s): Error getting modified time: %v; Ignoring modified time check.", ls.filePath, err)
 		return true
@@ -165,7 +166,7 @@ func (ls *lister) refresh() error {
 		return nil
 	}
 
-	b, err := file.ReadFile(ls.filePath)
+	b, err := file.ReadFile(context.Background(), ls.filePath)
 	if err != nil {
 		return fmt.Errorf("file(%s): error while reading file: %v", ls.filePath, err)
 	}
