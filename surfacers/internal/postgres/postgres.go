@@ -32,6 +32,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strconv"
 	"time"
 
@@ -48,7 +49,7 @@ import (
 type pgMetric struct {
 	time       time.Time
 	metricName string
-	value      string
+	value      float64
 	labels     map[string]string
 }
 
@@ -77,7 +78,12 @@ func labelsJSON(labels map[string]string) (string, error) {
 	return string(bs), nil
 }
 
-func newPGMetric(t time.Time, metricName, val string, labels map[string]string) pgMetric {
+func newPGMetric(t time.Time, metricName string, val float64, labels map[string]string) pgMetric {
+	// Round the value to 3 decimal places. This is default for most of the
+	// surfacers.
+	ratio := math.Pow(10, float64(3))
+	val = math.Round(val*ratio) / ratio
+
 	return pgMetric{
 		time:       t,
 		metricName: metricName,
@@ -88,8 +94,8 @@ func newPGMetric(t time.Time, metricName, val string, labels map[string]string) 
 
 func distToPGMetrics(d *metrics.DistributionData, metricName string, labels map[string]string, t time.Time) []pgMetric {
 	pgMerics := []pgMetric{
-		newPGMetric(t, metricName+"_sum", strconv.FormatFloat(d.Sum, 'f', -1, 64), labels),
-		newPGMetric(t, metricName+"_count", strconv.FormatInt(d.Count, 10), labels),
+		newPGMetric(t, metricName+"_sum", d.Sum, labels),
+		newPGMetric(t, metricName+"_count", float64(d.Count), labels),
 	}
 
 	// Create and format all metrics for each bucket in this distribution. Each
@@ -105,7 +111,7 @@ func distToPGMetrics(d *metrics.DistributionData, metricName string, labels map[
 			lb = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
 		}
 		labelsWithBucket := updateLabelMap(labels, [2]string{"le", lb})
-		pgMerics = append(pgMerics, newPGMetric(t, metricName+"_bucket", strconv.FormatInt(val, 10), labelsWithBucket))
+		pgMerics = append(pgMerics, newPGMetric(t, metricName+"_bucket", float64(val), labelsWithBucket))
 	}
 
 	return pgMerics
@@ -115,7 +121,7 @@ func mapToPGMetrics[T int64 | float64](m *metrics.Map[T], em *metrics.EventMetri
 	pgMerics := []pgMetric{}
 	for _, k := range m.Keys() {
 		labels := updateLabelMap(baseLabels, [2]string{m.MapName, k})
-		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, metrics.MapValueToString[T](m.GetKey(k)), labels))
+		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, float64(m.GetKey(k)), labels))
 	}
 	return pgMerics
 }
@@ -156,18 +162,23 @@ func (s *Surfacer) emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 		// For example: version="1.11" becomes version{val="1.11"}=1
 		if _, ok := val.(metrics.String); ok {
 			labels := updateLabelMap(baseLabels, [2]string{"val", val.String()})
-			pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, "1", labels))
+			pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, 1, labels))
 			continue
 		}
 
-		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, val.String(), baseLabels))
+		numVal, ok := val.(metrics.NumValue)
+		if !ok {
+			s.l.Warningf("Unsupported value (%s) for mtetric (%s)", val.String(), metricName)
+		}
+
+		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, numVal.Float64(), baseLabels))
 	}
 	return pgMerics
 }
 
 // writeMetrics parses events metrics into postgres rows, starts a transaction
 // and inserts all discreet metric rows represented by the EventMetrics
-func (s *Surfacer) writeMetrics(ctx context.Context, ems []*metrics.EventMetrics) error {
+func (s *Surfacer) dbRows(ems []*metrics.EventMetrics) ([][]any, error) {
 	var rows [][]any
 
 	for _, em := range ems {
@@ -182,14 +193,25 @@ func (s *Surfacer) writeMetrics(ctx context.Context, ems []*metrics.EventMetrics
 			for _, pgMetric := range s.emToPGMetrics(em) {
 				s, err := labelsJSON(pgMetric.labels)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				rows = append(rows, []any{pgMetric.time, pgMetric.metricName, pgMetric.value, s})
 			}
 		}
 	}
 
-	_, err := s.dbconn.CopyFrom(ctx, pgx.Identifier{s.c.GetMetricsTableName()}, s.columns, pgx.CopyFromRows(rows))
+	return rows, nil
+}
+
+// writeMetrics parses events metrics into postgres rows, starts a transaction
+// and inserts all discreet metric rows represented by the EventMetrics
+func (s *Surfacer) writeMetrics(ctx context.Context, ems []*metrics.EventMetrics) error {
+	rows, err := s.dbRows(ems)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.dbconn.CopyFrom(ctx, pgx.Identifier{s.c.GetMetricsTableName()}, s.columns, pgx.CopyFromRows(rows))
 	return err
 }
 
@@ -207,7 +229,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 
 	// Generate the desired columns either with 'labels' by default
 	// or select 'labels' based on the label_to_column fields
-	s.columns = generateColumns(s.c.GetLabelToColumn())
+	s.columns = colName(s.c.GetLabelToColumn())
 
 	// Start a goroutine to run forever, polling on the writeChan. Allows
 	// for the surfacer to write asynchronously to the serial port.
@@ -278,9 +300,9 @@ func generateValues(labels map[string]string, ltc []*configpb.LabelToColumn) []a
 	return args
 }
 
-// generateValues generates column values or places NULL
-// in the event label/value does not exist
-func generateColumns(ltc []*configpb.LabelToColumn) []string {
+// colName figures out postgres table column names, based on the
+// label_to_column configuration.
+func colName(ltc []*configpb.LabelToColumn) []string {
 	var columns []string
 	if len(ltc) > 0 {
 		columns = append([]string{"time", "metric_name", "value"}, make([]string, len(ltc))...)
