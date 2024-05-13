@@ -29,19 +29,19 @@ func TestEMToPGMetricsNoDistribution(t *testing.T) {
 		t.Errorf("Expected %d rows, received: %d\n", 4, len(rows))
 	}
 
-	if !isRowExpected(rows[0], ts, "sent", 32, map[string]string{"ptype": "http"}) {
+	if !isRowExpected(rows[0], ts, "sent", "32", map[string]string{"ptype": "http"}) {
 		t.Errorf("Incorrect Row found %+v", rows[0])
 	}
 
-	if !isRowExpected(rows[1], ts, "rcvd", 22, map[string]string{"ptype": "http"}) {
+	if !isRowExpected(rows[1], ts, "rcvd", "22", map[string]string{"ptype": "http"}) {
 		t.Errorf("Incorrect Row found %+v", rows[1])
 	}
 
-	if !isRowExpected(rows[2], ts, "latency", 10.111, map[string]string{"ptype": "http"}) {
+	if !isRowExpected(rows[2], ts, "latency", "10.111", map[string]string{"ptype": "http"}) {
 		t.Errorf("Incorrect Row found %+v", rows[2])
 	}
 
-	if !isRowExpected(rows[3], ts, "resp_code", 19, map[string]string{"ptype": "http", "code": "200"}) {
+	if !isRowExpected(rows[3], ts, "resp_code", "19", map[string]string{"ptype": "http", "code": "200"}) {
 		t.Errorf("Incorrect Row found %+v", rows[3])
 	}
 }
@@ -64,29 +64,29 @@ func TestEMToPGMetricsWithDistribution(t *testing.T) {
 		t.Errorf("Expected %d rows, received: %d\n", 5, len(rows))
 	}
 
-	if !isRowExpected(rows[0], ts, "latency_sum", 5.5, map[string]string{"ptype": "http"}) {
+	if !isRowExpected(rows[0], ts, "latency_sum", "5.5", map[string]string{"ptype": "http"}) {
 		t.Errorf("Incorrect Row found %+v", rows[0])
 	}
 
-	if !isRowExpected(rows[1], ts, "latency_count", 2, map[string]string{"ptype": "http"}) {
+	if !isRowExpected(rows[1], ts, "latency_count", "2", map[string]string{"ptype": "http"}) {
 		t.Errorf("Incorrect Row found %+v", rows[1])
 	}
 
-	if !isRowExpected(rows[2], ts, "latency_bucket", 1, map[string]string{"ptype": "http", "le": "1"}) {
+	if !isRowExpected(rows[2], ts, "latency_bucket", "1", map[string]string{"ptype": "http", "le": "1"}) {
 		t.Errorf("Incorrect Row found %+v", rows[2])
 	}
 
-	if !isRowExpected(rows[3], ts, "latency_bucket", 1, map[string]string{"ptype": "http", "le": "4"}) {
+	if !isRowExpected(rows[3], ts, "latency_bucket", "1", map[string]string{"ptype": "http", "le": "4"}) {
 		t.Errorf("Incorrect Row found %+v", rows[3])
 	}
 
-	if !isRowExpected(rows[4], ts, "latency_bucket", 2, map[string]string{"ptype": "http", "le": "+Inf"}) {
+	if !isRowExpected(rows[4], ts, "latency_bucket", "2", map[string]string{"ptype": "http", "le": "+Inf"}) {
 		t.Errorf("Incorrect Row found %+v", rows[4])
 	}
 
 }
 
-func isRowExpected(row pgMetric, t time.Time, metricName string, value float64, labels map[string]string) bool {
+func isRowExpected(row pgMetric, t time.Time, metricName string, value string, labels map[string]string) bool {
 	if row.time != t {
 		return false
 	}
@@ -208,10 +208,10 @@ func TestDBRows(t *testing.T) {
 				Column: proto.String("dst"),
 			}},
 			want: [][]any{
-				{ts, "sent", float64(32), "dst1"},
-				{ts, "rcvd", float64(22), "dst1"},
-				{ts, "sent", float64(33), "dst2"},
-				{ts, "rcvd", float64(32), "dst2"},
+				{ts, "sent", "32", "dst1"},
+				{ts, "rcvd", "22", "dst1"},
+				{ts, "sent", "33", "dst2"},
+				{ts, "rcvd", "32", "dst2"},
 			},
 		},
 		{
@@ -219,10 +219,10 @@ func TestDBRows(t *testing.T) {
 			columns:       []string{"time", "metric_name", "value", "labels"},
 			labelToColumn: nil,
 			want: [][]any{
-				{ts, "sent", float64(32), "{\"dst\":\"dst1\"}"},
-				{ts, "rcvd", float64(22), "{\"dst\":\"dst1\"}"},
-				{ts, "sent", float64(33), "{\"dst\":\"dst2\"}"},
-				{ts, "rcvd", float64(32), "{\"dst\":\"dst2\"}"},
+				{ts, "sent", "32", "{\"dst\":\"dst1\"}"},
+				{ts, "rcvd", "22", "{\"dst\":\"dst1\"}"},
+				{ts, "sent", "33", "{\"dst\":\"dst2\"}"},
+				{ts, "rcvd", "32", "{\"dst\":\"dst2\"}"},
 			},
 		},
 	}

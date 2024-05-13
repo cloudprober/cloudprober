@@ -32,7 +32,6 @@ package postgres
 import (
 	"context"
 	"encoding/json"
-	"math"
 	"strconv"
 	"time"
 
@@ -49,7 +48,7 @@ import (
 type pgMetric struct {
 	time       time.Time
 	metricName string
-	value      float64
+	value      string
 	labels     map[string]string
 }
 
@@ -78,12 +77,7 @@ func labelsJSON(labels map[string]string) (string, error) {
 	return string(bs), nil
 }
 
-func newPGMetric(t time.Time, metricName string, val float64, labels map[string]string) pgMetric {
-	// Round the value to 3 decimal places. This is default for most of the
-	// surfacers.
-	ratio := math.Pow(10, float64(3))
-	val = math.Round(val*ratio) / ratio
-
+func newPGMetric(t time.Time, metricName, val string, labels map[string]string) pgMetric {
 	return pgMetric{
 		time:       t,
 		metricName: metricName,
@@ -94,8 +88,8 @@ func newPGMetric(t time.Time, metricName string, val float64, labels map[string]
 
 func distToPGMetrics(d *metrics.DistributionData, metricName string, labels map[string]string, t time.Time) []pgMetric {
 	pgMerics := []pgMetric{
-		newPGMetric(t, metricName+"_sum", d.Sum, labels),
-		newPGMetric(t, metricName+"_count", float64(d.Count), labels),
+		newPGMetric(t, metricName+"_sum", strconv.FormatFloat(d.Sum, 'f', -1, 64), labels),
+		newPGMetric(t, metricName+"_count", strconv.FormatInt(d.Count, 10), labels),
 	}
 
 	// Create and format all metrics for each bucket in this distribution. Each
@@ -111,7 +105,7 @@ func distToPGMetrics(d *metrics.DistributionData, metricName string, labels map[
 			lb = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
 		}
 		labelsWithBucket := updateLabelMap(labels, [2]string{"le", lb})
-		pgMerics = append(pgMerics, newPGMetric(t, metricName+"_bucket", float64(val), labelsWithBucket))
+		pgMerics = append(pgMerics, newPGMetric(t, metricName+"_bucket", strconv.FormatInt(val, 10), labelsWithBucket))
 	}
 
 	return pgMerics
@@ -121,7 +115,7 @@ func mapToPGMetrics[T int64 | float64](m *metrics.Map[T], em *metrics.EventMetri
 	pgMerics := []pgMetric{}
 	for _, k := range m.Keys() {
 		labels := updateLabelMap(baseLabels, [2]string{m.MapName, k})
-		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, float64(m.GetKey(k)), labels))
+		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, metrics.MapValueToString[T](m.GetKey(k)), labels))
 	}
 	return pgMerics
 }
@@ -162,16 +156,11 @@ func (s *Surfacer) emToPGMetrics(em *metrics.EventMetrics) []pgMetric {
 		// For example: version="1.11" becomes version{val="1.11"}=1
 		if _, ok := val.(metrics.String); ok {
 			labels := updateLabelMap(baseLabels, [2]string{"val", val.String()})
-			pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, 1, labels))
+			pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, "1", labels))
 			continue
 		}
 
-		numVal, ok := val.(metrics.NumValue)
-		if !ok {
-			s.l.Warningf("Unsupported value (%s) for mtetric (%s)", val.String(), metricName)
-		}
-
-		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, numVal.Float64(), baseLabels))
+		pgMerics = append(pgMerics, newPGMetric(em.Timestamp, metricName, val.String(), baseLabels))
 	}
 	return pgMerics
 }
