@@ -20,9 +20,9 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.3.1
 	github.com/hoisie/redis v0.0.0-20160730154456-b5c6e81454e0
+	github.com/jackc/pgx/v5 v5.5.5
 	github.com/jhump/protoreflect v1.15.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lib/pq v1.8.0
 	github.com/miekg/dns v1.1.33
 	go.opentelemetry.io/otel v1.21.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.44.0
@@ -80,6 +80,8 @@ require (
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/itchyny/timefmt-go v0.1.4 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/klauspost/asmfmt v1.3.2 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
