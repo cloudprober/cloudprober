@@ -28,6 +28,9 @@ import (
 // RunValidators runs the list of validators on the given response and
 // responseBody, updates the given validationFailure map and returns the list
 // of failures.
+//
+// validationFailure map is updated in place and should already be initialized,
+// ideally using ValidationFailureMap, before calling this function.
 func RunValidators(opts *options.Options, response []byte, validationFailure *metrics.Map[int64], l *logger.Logger) []string {
 	return validators.RunValidators(opts.Validators, &validators.Input{ResponseBody: response}, validationFailure, l)
 }
