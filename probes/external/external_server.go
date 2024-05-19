@@ -198,7 +198,6 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 
 	outstandingReqs := make(map[int32]requestInfo)
 	var outstandingReqsMu sync.RWMutex
-	sendDoneCh := make(chan struct{})
 
 	if err := p.startCmdIfNotRunning(startCtx); err != nil {
 		p.l.Error(err.Error())
@@ -212,6 +211,7 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 
 		// Read probe replies until we have no outstanding requests or context has
 		// run out.
+		expectedRepliesReceived := 0
 		for {
 			select {
 			case <-ctx.Done():
@@ -221,6 +221,7 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 				outstandingReqsMu.Lock()
 				reqInfo, ok := outstandingReqs[rep.GetRequestId()]
 				if ok {
+					expectedRepliesReceived++
 					delete(outstandingReqs, rep.GetRequestId())
 				}
 				outstandingReqsMu.Unlock()
@@ -243,14 +244,10 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 				p.processProbeResult(ps, p.results[reqInfo.target.Key()])
 			}
 
-			// If we are done sending requests, we can exit if we have no
-			// outstanding requests.
-			select {
-			case <-sendDoneCh:
-				if len(outstandingReqs) == 0 {
-					return
-				}
-			default:
+			// We send a total if len(p.targets) requests. We can exit if we've
+			// seen replies for all of them.
+			if expectedRepliesReceived == len(p.targets) {
+				return
 			}
 		}
 	}()
@@ -268,9 +265,6 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 		p.sendRequest(p.requestID, target)
 		time.Sleep(TimeBetweenRequests)
 	}
-
-	// Send signal to receiver loop that we are done sending requests.
-	close(sendDoneCh)
 
 	// Wait for receiver goroutine to exit.
 	wg.Wait()
