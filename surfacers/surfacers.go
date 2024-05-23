@@ -46,6 +46,7 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers/internal/pubsub"
 	"github.com/cloudprober/cloudprober/surfacers/internal/stackdriver"
 	"github.com/cloudprober/cloudprober/web/formatutils"
+	"google.golang.org/protobuf/proto"
 
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
@@ -88,6 +89,12 @@ var defaultSurfacers = []*surfacerpb.SurfacerDef{
 	},
 	{
 		Type: surfacerpb.Type_FILE.Enum(),
+		IgnoreMetricsWithLabel: []*surfacerpb.LabelFilter{
+			{
+				Key:   proto.String("probe"),
+				Value: proto.String("sysvars"),
+			},
+		},
 	},
 }
 
