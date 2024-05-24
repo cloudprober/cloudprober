@@ -132,3 +132,8 @@ message SharedTargets {
   required string name = 1;
   required targets.TargetsDef targets = 2;
 }
+
+// This is used to parse surfacers config from a separate file.
+message SurfacersConfig {
+  repeated surfacer.SurfacerDef surfacer = 1;
+}

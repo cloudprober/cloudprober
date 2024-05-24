@@ -37,10 +37,11 @@ type ConfigSource interface {
 }
 
 type defaultConfigSource struct {
-	FileName             string
-	BaseVars             map[string]string
-	GetGCECustomMetadata func(string) (string, error)
-	l                    *logger.Logger
+	FileName                string
+	SurfacersConfigFileName string
+	BaseVars                map[string]string
+	GetGCECustomMetadata    func(string) (string, error)
+	l                       *logger.Logger
 
 	parsedConfig string
 	rawConfig    string
@@ -97,9 +98,36 @@ func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
 	}
 
-	dcs.cfg, err = unmarshalConfig(substEnvVars(dcs.parsedConfig, dcs.l), configFormat)
-	if err != nil {
+	cfg := &configpb.ProberConfig{}
+	if err := unmarshalConfig(substEnvVars(dcs.parsedConfig, dcs.l), configFormat, cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config. Err: %v", err)
+	}
+	dcs.cfg = cfg
+
+	if dcs.SurfacersConfigFileName != "" {
+		var sConfigText string
+		var err error
+
+		sConfigText, err = readConfigFile(dcs.SurfacersConfigFileName)
+		if err != nil {
+			return nil, fmt.Errorf("error reading surfacers config file: %v", err)
+		}
+		dcs.rawConfig += "\n" + sConfigText
+
+		sConfigText, err = parseTemplate(sConfigText, dcs.BaseVars, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing surfacers config file as Go template. Err: %v", err)
+		}
+		dcs.parsedConfig += "\n" + sConfigText
+
+		sConfigText, format := substEnvVars(sConfigText, dcs.l), formatFromFileName(dcs.SurfacersConfigFileName)
+
+		sConfig := &configpb.SurfacersConfig{}
+		if err := unmarshalConfig(sConfigText, format, sConfig); err != nil {
+			return nil, fmt.Errorf("error unmarshaling surfacers config. Err: %v", err)
+		}
+
+		dcs.cfg.Surfacer = append(dcs.cfg.Surfacer, sConfig.GetSurfacer()...)
 	}
 
 	return dcs.cfg, nil

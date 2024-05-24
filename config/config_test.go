@@ -40,7 +40,9 @@ func testUnmarshalConfig(t *testing.T, fileName string) (*configpb.ProberConfig,
 	if err != nil {
 		t.Error(err)
 	}
-	return unmarshalConfig(configStr, formatFromFileName(fileName))
+
+	cfg := &configpb.ProberConfig{}
+	return cfg, unmarshalConfig(configStr, formatFromFileName(fileName), cfg)
 }
 
 func TestUnmarshalConfig(t *testing.T) {
