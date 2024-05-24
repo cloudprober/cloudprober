@@ -125,6 +125,15 @@ func readConfigFile(fileName string) (string, error) {
 	return final, err
 }
 
+func processConfigText(configStr, configFormat string, tmplData map[string]string, m protoreflect.ProtoMessage, l *logger.Logger) (string, error) {
+	parsedConfig, err := parseTemplate(configStr, tmplData, nil)
+	if err != nil {
+		return "", fmt.Errorf("error parsing surfacers config file as Go template. Err: %v", err)
+	}
+
+	return parsedConfig, unmarshalConfig(substEnvVars(parsedConfig, l), configFormat, m)
+}
+
 func unmarshalConfig(configStr, configFormat string, m protoreflect.ProtoMessage) error {
 	switch configFormat {
 	case "yaml":

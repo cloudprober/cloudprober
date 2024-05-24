@@ -93,16 +93,10 @@ func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 	}
 	dcs.rawConfig = configStr
 
-	dcs.parsedConfig, err = parseTemplate(dcs.rawConfig, dcs.BaseVars, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing config file as Go template. Err: %v", err)
+	dcs.cfg = &configpb.ProberConfig{}
+	if dcs.parsedConfig, err = processConfigText(dcs.rawConfig, configFormat, dcs.BaseVars, dcs.cfg, dcs.l); err != nil {
+		return nil, fmt.Errorf("error processing config. Err: %v", err)
 	}
-
-	cfg := &configpb.ProberConfig{}
-	if err := unmarshalConfig(substEnvVars(dcs.parsedConfig, dcs.l), configFormat, cfg); err != nil {
-		return nil, fmt.Errorf("error unmarshaling config. Err: %v", err)
-	}
-	dcs.cfg = cfg
 
 	if dcs.SurfacersConfigFileName != "" {
 		var sConfigText string
@@ -112,21 +106,14 @@ func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error reading surfacers config file: %v", err)
 		}
-		dcs.rawConfig += "\n" + sConfigText
+		dcs.rawConfig += "\n\n" + sConfigText
 
-		sConfigText, err = parseTemplate(sConfigText, dcs.BaseVars, nil)
+		sConfig, fileFmt := &configpb.SurfacersConfig{}, formatFromFileName(dcs.SurfacersConfigFileName)
+		parsedSConfig, err := processConfigText(sConfigText, fileFmt, dcs.BaseVars, sConfig, dcs.l)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing surfacers config file as Go template. Err: %v", err)
+			return nil, fmt.Errorf("error processing surfacers config. Err: %v", err)
 		}
-		dcs.parsedConfig += "\n" + sConfigText
-
-		sConfigText, format := substEnvVars(sConfigText, dcs.l), formatFromFileName(dcs.SurfacersConfigFileName)
-
-		sConfig := &configpb.SurfacersConfig{}
-		if err := unmarshalConfig(sConfigText, format, sConfig); err != nil {
-			return nil, fmt.Errorf("error unmarshaling surfacers config. Err: %v", err)
-		}
-
+		dcs.parsedConfig += "\n\n" + parsedSConfig
 		dcs.cfg.Surfacer = append(dcs.cfg.Surfacer, sConfig.GetSurfacer()...)
 	}
 

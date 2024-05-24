@@ -65,6 +65,7 @@ surfacer {
 	tests := []struct {
 		name              string
 		filename          string
+		surfacersCfgFile  string
 		configFile        string
 		defaultConfigFile string
 		want              *configpb.ProberConfig
@@ -73,22 +74,30 @@ surfacer {
 		wantErr           bool
 	}{
 		{
-			name:             "filename",
-			filename:         "testdata/cloudprober_base.cfg",
+			name:             "filename_provided",
+			filename:         "testdata/cloudprober.cfg",
 			want:             wantCfg,
 			wantRawConfig:    wantCfgStr,
 			wantParsedConfig: wantCfgStr,
 		},
 		{
 			name:             "config_file_flag",
-			configFile:       "testdata/cloudprober_base.cfg",
+			configFile:       "testdata/cloudprober.cfg",
+			want:             wantCfg,
+			wantRawConfig:    wantCfgStr,
+			wantParsedConfig: wantCfgStr,
+		},
+		{
+			name:             "config_and_surfacers_file",
+			configFile:       "testdata/surfacers_config/cloudprober_no_surfacers.cfg",
+			surfacersCfgFile: "testdata/surfacers_config/cloudprober_only_surfacers.cfg",
 			want:             wantCfg,
 			wantRawConfig:    wantCfgStr,
 			wantParsedConfig: wantCfgStr,
 		},
 		{
 			name:              "default_config_file",
-			defaultConfigFile: "testdata/cloudprober_base.cfg",
+			defaultConfigFile: "testdata/cloudprober.cfg",
 			want:              wantCfg,
 			wantRawConfig:     wantCfgStr,
 			wantParsedConfig:  wantCfgStr,
@@ -105,7 +114,8 @@ surfacer {
 		t.Run(tt.name, func(t *testing.T) {
 			*configFile = tt.configFile
 			dcs := &defaultConfigSource{
-				FileName: tt.filename,
+				FileName:                tt.filename,
+				SurfacersConfigFileName: tt.surfacersCfgFile,
 			}
 
 			if tt.defaultConfigFile != "" {
