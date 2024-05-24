@@ -129,9 +129,12 @@ surfacer {
 				t.Errorf("ConfigToProto() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			fixNewLines := func(s string) string {
+				return strings.ReplaceAll(s, "\r\n", "\n")
+			}
 			assert.Equal(t, tt.want.String(), got.String())
-			assert.Equal(t, tt.wantRawConfig, dcs.RawConfig())
-			assert.Equal(t, tt.wantParsedConfig, dcs.ParsedConfig())
+			assert.Equal(t, fixNewLines(tt.wantRawConfig), fixNewLines(dcs.RawConfig()))
+			assert.Equal(t, fixNewLines(tt.wantParsedConfig), fixNewLines(dcs.ParsedConfig()))
 		})
 	}
 }
