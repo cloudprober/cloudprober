@@ -202,7 +202,7 @@ func TestRestart(t *testing.T) {
 			defer os.Remove(tmpfile.Name())
 			os.WriteFile(tmpfile.Name(), []byte(prototext.Format(cfg)), 0644)
 
-			err = InitFromConfig(tmpfile.Name())
+			err = InitWithConfigSource(config.ConfigSourceWithFile(tmpfile.Name(), ""))
 			if err != nil {
 				t.Fatalf("Err: %v, Config: %s", err, prototext.Format(cfg))
 			}
