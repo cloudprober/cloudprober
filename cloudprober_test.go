@@ -247,7 +247,7 @@ func TestCloudproberConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configSrc := config.ConfigSourceWithFile(tt.fileName)
+			configSrc := config.ConfigSourceWithFile(tt.fileName, "")
 
 			cloudProber.Lock()
 			cloudProber.configSource = configSrc
