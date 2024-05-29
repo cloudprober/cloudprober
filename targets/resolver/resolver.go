@@ -155,8 +155,8 @@ func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, erro
 	}
 	cr.err = err
 	cr.updateInProgress = false
-	// If we have an error, we don't update the cache record or set
-	// lastUpdatedAt. This allows us to retry resolve on the next request.
+	// If we have an error, we don't update the cache record so that callers
+	// can use cached IP addresses if they want.
 	if err != nil {
 		return
 	}
