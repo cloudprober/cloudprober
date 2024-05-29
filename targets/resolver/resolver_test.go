@@ -244,9 +244,9 @@ func TestConcurrentInit(t *testing.T) {
 		},
 	}
 	// 5 because first resolve calls refresh twice.
-	refreshed := make(chan bool, 5)
+	refreshed := make(chan bool, 101)
 	var wg sync.WaitGroup
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
 			_, err := r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshed)
@@ -265,7 +265,7 @@ func TestConcurrentInit(t *testing.T) {
 	resolveWait <- true
 	resolvedCount := 0
 	// 5 because first resolve calls refresh twice.
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 101; i++ {
 		if waitForRefreshOrFail(t, refreshed, time.Second) {
 			resolvedCount++
 		}
