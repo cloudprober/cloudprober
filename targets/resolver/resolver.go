@@ -110,12 +110,12 @@ func (r *Resolver) getCacheRecord(name string) *cacheRecord {
 
 // resolveWithMaxAge returns IP address for a name, issuing an update call for
 // the cache record if it's older than the argument maxAge.
-// refreshed channel is primarily used for testing. Method pushes true to
-// refreshed channel once and if the value is refreshed, or false, if it
+// refreshedCh channel is primarily used for testing. Method pushes true to
+// refreshedCh channel once and if the value is refreshed, or false, if it
 // doesn't need refreshing.
-func (r *Resolver) resolveWithMaxAge(name string, ipVer int, maxAge time.Duration, refreshed chan<- bool) (net.IP, error) {
+func (r *Resolver) resolveWithMaxAge(name string, ipVer int, maxAge time.Duration, refreshedCh chan<- bool) (net.IP, error) {
 	cr := r.getCacheRecord(name)
-	cr.refreshIfRequired(name, r.resolveOrTimeout, maxAge, refreshed)
+	cr.refreshIfRequired(name, r.resolveOrTimeout, maxAge, refreshedCh)
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 
@@ -186,17 +186,17 @@ func (cr *cacheRecord) shouldUpdateNow(maxAge time.Duration) bool {
 // If cache record is new, blocks until it's resolved for the first time.
 // If cache record needs updating, kicks off refresh asynchronously.
 // If cache record is already being updated or fresh enough, returns immediately.
-func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]net.IP, error), maxAge time.Duration, refreshed chan<- bool) {
-	cr.callInit.Do(func() { cr.refresh(name, resolve, refreshed) })
+func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]net.IP, error), maxAge time.Duration, refreshedCh chan<- bool) {
+	cr.callInit.Do(func() { cr.refresh(name, resolve, refreshedCh) })
 
 	// Cache record is old and no update in progress, issue a request to update.
 	if cr.shouldUpdateNow(maxAge) {
 		cr.mu.Lock()
 		cr.updateInProgress = true
 		cr.mu.Unlock()
-		go cr.refresh(name, resolve, refreshed)
-	} else if refreshed != nil {
-		refreshed <- false
+		go cr.refresh(name, resolve, refreshedCh)
+	} else if refreshedCh != nil {
+		refreshedCh <- false
 	}
 }
 
