@@ -34,7 +34,7 @@ type cacheRecord struct {
 	ip6              net.IP
 	lastUpdatedAt    time.Time
 	err              error
-	mu               sync.Mutex
+	mu               sync.RWMutex
 	updateInProgress bool
 	callInit         sync.Once
 }
@@ -42,7 +42,7 @@ type cacheRecord struct {
 // Resolver provides an asynchronous caching DNS resolver.
 type Resolver struct {
 	cache         map[string]*cacheRecord
-	mu            sync.Mutex
+	mu            sync.RWMutex
 	DefaultMaxAge time.Duration
 	resolve       func(string) ([]net.IP, error) // used for testing
 }
@@ -93,14 +93,17 @@ func (r *Resolver) Resolve(name string, ipVer int) (net.IP, error) {
 // getCacheRecord returns the cache record for the target.
 // It must be kept light, as it blocks the main mutex of the map.
 func (r *Resolver) getCacheRecord(name string) *cacheRecord {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
 	cr := r.cache[name]
+	r.mu.RUnlock()
+	// This will happen only once for a given name.
 	if cr == nil {
 		cr = &cacheRecord{
 			err: errors.New("cache record not initialized yet"),
 		}
+		r.mu.Lock()
 		r.cache[name] = cr
+		r.mu.Unlock()
 	}
 	return cr
 }
@@ -113,8 +116,8 @@ func (r *Resolver) getCacheRecord(name string) *cacheRecord {
 func (r *Resolver) resolveWithMaxAge(name string, ipVer int, maxAge time.Duration, refreshed chan<- bool) (net.IP, error) {
 	cr := r.getCacheRecord(name)
 	cr.refreshIfRequired(name, r.resolveOrTimeout, maxAge, refreshed)
-	cr.mu.Lock()
-	defer cr.mu.Unlock()
+	cr.mu.RLock()
+	defer cr.mu.RUnlock()
 
 	var ip net.IP
 
@@ -151,11 +154,13 @@ func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, erro
 		refreshed <- true
 	}
 	cr.err = err
-	cr.lastUpdatedAt = time.Now()
 	cr.updateInProgress = false
+	// If we have an error, we don't update the cache record or set
+	// lastUpdatedAt. This allows us to retry resolve on the next request.
 	if err != nil {
 		return
 	}
+	cr.lastUpdatedAt = time.Now()
 	cr.ip4 = nil
 	cr.ip6 = nil
 	for _, ip := range ips {
@@ -168,6 +173,12 @@ func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, erro
 	}
 }
 
+func (cr *cacheRecord) updateNow(maxAge time.Duration) bool {
+	cr.mu.RLock()
+	defer cr.mu.RUnlock()
+	return !cr.updateInProgress && time.Since(cr.lastUpdatedAt) >= maxAge
+}
+
 // refreshIfRequired does most of the work. Overall goal is to minimize the
 // lock period of the cache record. To that end, if the cache record needs
 // updating, we do that with the mutex unlocked.
@@ -177,12 +188,12 @@ func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, erro
 // If cache record is already being updated or fresh enough, returns immediately.
 func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]net.IP, error), maxAge time.Duration, refreshed chan<- bool) {
 	cr.callInit.Do(func() { cr.refresh(name, resolve, refreshed) })
-	cr.mu.Lock()
-	defer cr.mu.Unlock()
 
 	// Cache record is old and no update in progress, issue a request to update.
-	if !cr.updateInProgress && time.Since(cr.lastUpdatedAt) >= maxAge {
+	if cr.updateNow(maxAge) {
+		cr.mu.Lock()
 		cr.updateInProgress = true
+		cr.mu.Unlock()
 		go cr.refresh(name, resolve, refreshed)
 	} else if refreshed != nil {
 		refreshed <- false

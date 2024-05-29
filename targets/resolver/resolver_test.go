@@ -22,6 +22,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type resolveBackendWithTracking struct {
@@ -57,7 +59,7 @@ func verify(testCase string, t *testing.T, ip, expectedIP net.IP, backendCalls, 
 
 // waitForChannelOrFail reads the result from the channel and fails if it
 // wasn't received within the timeout.
-func waitForChannelOrFail(t *testing.T, c <-chan bool, timeout time.Duration) bool {
+func waitForRefreshOrFail(t *testing.T, c <-chan bool, timeout time.Duration) bool {
 	select {
 	case b := <-c:
 		return b
@@ -65,6 +67,12 @@ func waitForChannelOrFail(t *testing.T, c <-chan bool, timeout time.Duration) bo
 		t.Error("Channel didn't close. Stack-trace: ", debug.Stack())
 		return false
 	}
+}
+
+// waitForRefreshAndVerify reads the result from the channel and fails if it
+// wasn't received within the timeout.
+func waitForRefreshAndVerify(t *testing.T, c <-chan bool, timeout time.Duration, expectRefresh bool) {
+	assert.Equal(t, expectRefresh, waitForRefreshOrFail(t, c, timeout), "refreshed")
 }
 
 func TestResolveWithMaxAge(t *testing.T) {
@@ -88,39 +96,33 @@ func TestResolveWithMaxAge(t *testing.T) {
 	// First Resolve calls refresh twice. Once for init (which succeeds), and
 	// then again for refreshing, which is not needed. Hence the results are true
 	// and then false.
-	if !waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned false, want true")
-	}
-	if waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned true, want false")
-	}
+	waitForRefreshAndVerify(t, refreshed, time.Second, true)
+	waitForRefreshAndVerify(t, refreshed, time.Second, false)
 
 	// Resolve same host again, it should come from cache, no backend call
 	newExpectedIP := net.ParseIP("1.2.3.6")
 	b.nameToIP[testHost] = []net.IP{newExpectedIP}
 	ip, err = r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
 	verify("second-run-from-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
-	if waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned true, want false")
-	}
+	waitForRefreshAndVerify(t, refreshed, time.Second, false)
 
 	// Resolve same host again with maxAge=0, it will issue an asynchronous (hence no increment
 	// in expectedBackenddCalls) backend call
 	ip, err = r.resolveWithMaxAge(testHost, 4, 0*time.Second, refreshed)
 	verify("third-run-expire-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
-	if !waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned false, want true")
-	}
+	waitForRefreshAndVerify(t, refreshed, time.Second, true)
+
 	// Now that refresh has happened, we should see a new IP.
 	expectedIP = newExpectedIP
 	expectedBackendCalls++
 	ip, err = r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
 	verify("fourth-run-new-result", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
-	if waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned true, want false")
-	}
+	waitForRefreshAndVerify(t, refreshed, time.Second, false)
 }
 
+// TestResolveErr tests the behavior of the resolver when the backend returns an
+// error. This test uses the refreshed channel and waits on it to make the
+// resolver behavior deterministic.
 func TestResolveErr(t *testing.T) {
 	cnt := 0
 	r := &Resolver{
@@ -133,51 +135,53 @@ func TestResolveErr(t *testing.T) {
 			return []net.IP{net.ParseIP("0.0.0.0")}, nil
 		},
 	}
-	refreshed := make(chan bool, 2)
+	refreshedCh := make(chan bool, 2)
 	// cnt=0; returning 0.0.0.0.
-	_, err := r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshed)
+	ip, err := r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshedCh)
 	if err != nil {
-		t.Logf("Err: %v\n", err)
-		t.Errorf("Expected no error, got error")
+		t.Errorf("Got unexpected error: %v", err)
 	}
+	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
 	// First Resolve calls refresh twice. Once for init (which succeeds), and
-	// then again for refreshing, which is not needed. Hence the results are true
-	// and then false.
-	if !waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned false, want true")
-	}
-	if waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned true, want false")
-	}
-	// cnt=1, returning 0.0.0.0, but updating the cache record asynchronously to contain the
-	// error returned for cnt=2.
-	_, err = r.resolveWithMaxAge("testHost", 4, 0*time.Second, refreshed)
+	// then again for refreshing, which is not needed. Hence the results are
+	// true and then false.
+	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
+	waitForRefreshAndVerify(t, refreshedCh, time.Second, false)
+
+	// cnt=1, returning 0.0.0.0, but updating the cache record asynchronously
+	// to contain the error returned for cnt=2.
+	// Note that refresh has happned by now since we waited on the refreshed
+	// channel above.
+	time.Sleep(10 * time.Millisecond)
+	ip, err = r.resolveWithMaxAge("testHost", 4, 10*time.Millisecond, refreshedCh)
 	if err != nil {
-		t.Logf("Err: %v\n", err)
-		t.Errorf("Expected no error, got error")
+		t.Errorf("Got unexpected error: %v", err)
 	}
-	if !waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned false, want true")
-	}
+	// refresh triggers because of maxAge < time since last update.
+	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
+	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
+
 	// cache record contains an error, and we should therefore expect an error.
-	// This call for resolve will have cnt=2, and the asynchronous call to update the cache will
-	// therefore update it to contain 0.0.0.0, which should be returned by the next call.
-	_, err = r.resolveWithMaxAge("testHost", 4, 0*time.Second, refreshed)
+	// This call for resolve will have cnt=2, and the asynchronous call to
+	// update the cache willtherefore update it to contain 0.0.0.0, which
+	// should be returned by the next call.
+	ip, err = r.resolveWithMaxAge("testHost", 4, 10*time.Millisecond, refreshedCh)
 	if err == nil {
 		t.Errorf("Expected error, got no error")
 	}
-	if !waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned false, want true")
-	}
+	// refresh triggers because cache reocrd's lastUpdated was not updated
+	// due to error last time.
+	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
+	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
+
 	// cache record now contains 0.0.0.0 again.
-	_, err = r.resolveWithMaxAge("testHost", 4, 0*time.Second, refreshed)
+	ip, err = r.resolveWithMaxAge("testHost", 4, 10*time.Millisecond, refreshedCh)
 	if err != nil {
-		t.Logf("Err: %v\n", err)
-		t.Errorf("Expected no error, got error")
+		t.Errorf("Got unexpected error: %v", err)
 	}
-	if !waitForChannelOrFail(t, refreshed, time.Second) {
-		t.Errorf("refreshed returned false, want true")
-	}
+	// no refesh needed this time, as we didnd't wait.
+	waitForRefreshAndVerify(t, refreshedCh, time.Second, false)
+	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
 }
 
 func TestResolveIPv6(t *testing.T) {
@@ -269,7 +273,7 @@ func TestConcurrentInit(t *testing.T) {
 	resolvedCount := 0
 	// 5 because first resolve calls refresh twice.
 	for i := 0; i < 5; i++ {
-		if waitForChannelOrFail(t, refreshed, time.Second) {
+		if waitForRefreshOrFail(t, refreshed, time.Second) {
 			resolvedCount++
 		}
 	}
@@ -285,8 +289,9 @@ func TestConcurrentInit(t *testing.T) {
 //
 // Use following command to run benchmark tests:
 // BMC=6 BMT=4 // 6 CPUs, 4 sec
-// blaze test --config=gotsan :resolver_test --test_arg=-test.bench=. \
-//   --test_arg=-test.benchtime=${BMT}s --test_arg=-test.cpu=$BMC
+//
+//	blaze test --config=gotsan :resolver_test --test_arg=-test.bench=. \
+//	  --test_arg=-test.benchtime=${BMT}s --test_arg=-test.cpu=$BMC
 type resolveBackendBenchmark struct {
 	delay   time.Duration // artificial delay in resolving
 	callCnt int64
