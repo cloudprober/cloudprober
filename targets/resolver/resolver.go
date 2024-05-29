@@ -173,7 +173,7 @@ func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, erro
 	}
 }
 
-func (cr *cacheRecord) updateNow(maxAge time.Duration) bool {
+func (cr *cacheRecord) shouldUpdateNow(maxAge time.Duration) bool {
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 	return !cr.updateInProgress && time.Since(cr.lastUpdatedAt) >= maxAge
@@ -190,7 +190,7 @@ func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]ne
 	cr.callInit.Do(func() { cr.refresh(name, resolve, refreshed) })
 
 	// Cache record is old and no update in progress, issue a request to update.
-	if cr.updateNow(maxAge) {
+	if cr.shouldUpdateNow(maxAge) {
 		cr.mu.Lock()
 		cr.updateInProgress = true
 		cr.mu.Unlock()
