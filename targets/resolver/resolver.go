@@ -176,7 +176,7 @@ func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, erro
 func (cr *cacheRecord) shouldUpdateNow(maxAge time.Duration) bool {
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
-	return !cr.updateInProgress && time.Since(cr.lastUpdatedAt) >= maxAge
+	return !cr.updateInProgress && (time.Since(cr.lastUpdatedAt) >= maxAge || cr.err != nil)
 }
 
 // refreshIfRequired does most of the work. Overall goal is to minimize the

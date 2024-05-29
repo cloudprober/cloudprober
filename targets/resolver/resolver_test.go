@@ -162,24 +162,20 @@ func TestResolveErr(t *testing.T) {
 	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
 
 	// cache record contains an error, and we should therefore expect an error.
-	// This call for resolve will have cnt=2, and the asynchronous call to
-	// update the cache willtherefore update it to contain 0.0.0.0, which
-	// should be returned by the next call.
-	ip, err = r.resolveWithMaxAge("testHost", 4, 10*time.Millisecond, refreshedCh)
+	// refresh triggers on this resolve call because cache reocrd has an error.
+	ip, err = r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshedCh)
 	if err == nil {
 		t.Errorf("Expected error, got no error")
 	}
-	// refresh triggers because cache reocrd's lastUpdated was not updated
-	// due to error last time.
 	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
 	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
 
-	// cache record now contains 0.0.0.0 again.
-	ip, err = r.resolveWithMaxAge("testHost", 4, 10*time.Millisecond, refreshedCh)
+	// No errors after the last refresh.
+	// No refresh triggered this time because of maxAge.
+	ip, err = r.resolveWithMaxAge("testHost", 4, 10*time.Second, refreshedCh)
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
-	// no refesh needed this time, as we didnd't wait.
 	waitForRefreshAndVerify(t, refreshedCh, time.Second, false)
 	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
 }
