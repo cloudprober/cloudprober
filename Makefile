@@ -9,7 +9,7 @@ BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
 SOURCES := $(shell find . -name '*.go')
 LDFLAGS ?= "-s -w -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) -X main.dirty=$(DIRTY) -extldflags -static"
-BINARY_SOURCE ?= "./cmd/cloudprober.go"
+BINARY_SOURCE ?= "./cmd/cloudprober/."
 
 LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
 BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)

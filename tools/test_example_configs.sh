@@ -10,5 +10,5 @@ set -euo pipefail
 
 for example in examples/**/*.cfg; do
     echo "Testing ${example}"
-    go run cmd/cloudprober.go -configtest -config_file "${example}"
+    go run ./cmd/cloudprober/. -configtest -config_file "${example}"
 done
