@@ -124,6 +124,7 @@ type targets struct {
 	staticEndpoints []endpoint.Endpoint
 	re              *regexp.Regexp
 	ldLister        endpoint.Lister
+	useCachedIP     bool
 	l               *logger.Logger
 	resolverIP      string // Used for testing
 }
@@ -135,7 +136,12 @@ func (t *targets) Resolve(name string, ipVer int) (net.IP, error) {
 	if t.resolver == nil {
 		return nil, errors.New("no Resolver provided by this target type")
 	}
-	return t.resolver.Resolve(name, ipVer)
+	ip, err := t.resolver.Resolve(name, ipVer)
+	if err != nil && t.useCachedIP && ip != nil {
+		t.l.Warningf("Error resolving %s, returning cached IP %v, err: %v", name, ip, err)
+
+	}
+	return ip, err
 }
 
 func (t *targets) lameduckMap() map[string]endpoint.Endpoint {
@@ -219,9 +225,10 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 		l = &logger.Logger{}
 	}
 	tgts := &targets{
-		l:        l,
-		resolver: globalResolver,
-		ldLister: ldLister,
+		l:           l,
+		resolver:    globalResolver,
+		ldLister:    ldLister,
+		useCachedIP: targetsDef.GetUseCachedIpOnResolveError(),
 	}
 
 	eps, err := endpoint.FromProtoMessage(targetsDef.GetEndpoint())

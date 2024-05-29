@@ -189,6 +189,12 @@ import (
 
 	// Provide a dns resolver override instead of using the default dns resolver.
 	dnsServer?: string @protobuf(37,string,name=dns_server)
+
+	// Use cached IP, if any, on resolve error. If set to true, we will use the
+	// cached IP address for a target, if any, if we fail to resolve it.
+	// Note that this works only in conjunction with probe's resolve_first
+	// setting, otherwise target's resolve is never called.
+	useCachedIpOnResolveError?: bool @protobuf(38,bool,name=use_cached_ip_on_resolve_error,"default=false")
 }
 
 // DummyTargets represent empty targets, which are useful for external
