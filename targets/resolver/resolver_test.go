@@ -1,4 +1,4 @@
-// Copyright 2017 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ func TestResolveWithMaxAge(t *testing.T) {
 	waitForRefreshAndVerify(t, refreshed, time.Second, false)
 }
 
-// TestResolveErr tests the behavior of the resolver when the backend returns an
+// TestResolveErr tests the behavior of the resolver when backend returns an
 // error. This test uses the refreshed channel and waits on it to make the
 // resolver behavior deterministic.
 func TestResolveErr(t *testing.T) {
@@ -148,10 +148,7 @@ func TestResolveErr(t *testing.T) {
 	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
 	waitForRefreshAndVerify(t, refreshedCh, time.Second, false)
 
-	// cnt=1, returning 0.0.0.0, but updating the cache record asynchronously
-	// to contain the error returned for cnt=2.
-	// Note that refresh has happned by now since we waited on the refreshed
-	// channel above.
+	// cnt=1, returning 0.0.0.0, but will trigger another refresh due to maxAge
 	time.Sleep(10 * time.Millisecond)
 	ip, err = r.resolveWithMaxAge("testHost", 4, 10*time.Millisecond, refreshedCh)
 	if err != nil {
