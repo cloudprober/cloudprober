@@ -42,7 +42,7 @@ type cacheRecord struct {
 // Resolver provides an asynchronous caching DNS resolver.
 type Resolver struct {
 	cache         map[string]*cacheRecord
-	mu            sync.RWMutex
+	mu            sync.Mutex
 	DefaultMaxAge time.Duration
 	resolve       func(string) ([]net.IP, error) // used for testing
 }
@@ -93,17 +93,16 @@ func (r *Resolver) Resolve(name string, ipVer int) (net.IP, error) {
 // getCacheRecord returns the cache record for the target.
 // It must be kept light, as it blocks the main mutex of the map.
 func (r *Resolver) getCacheRecord(name string) *cacheRecord {
-	r.mu.RLock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	cr := r.cache[name]
-	r.mu.RUnlock()
 	// This will happen only once for a given name.
 	if cr == nil {
 		cr = &cacheRecord{
 			err: errors.New("cache record not initialized yet"),
 		}
-		r.mu.Lock()
 		r.cache[name] = cr
-		r.mu.Unlock()
 	}
 	return cr
 }
