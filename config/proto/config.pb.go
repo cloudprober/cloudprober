@@ -326,6 +326,53 @@ func (x *SharedTargets) GetTargets() *proto5.TargetsDef {
 	return nil
 }
 
+type SurfacersConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Surfacer []*proto1.SurfacerDef `protobuf:"bytes,1,rep,name=surfacer" json:"surfacer,omitempty"`
+}
+
+func (x *SurfacersConfig) Reset() {
+	*x = SurfacersConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_config_proto_config_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SurfacersConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SurfacersConfig) ProtoMessage() {}
+
+func (x *SurfacersConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_config_proto_config_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SurfacersConfig.ProtoReflect.Descriptor instead.
+func (*SurfacersConfig) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SurfacersConfig) GetSurfacer() []*proto1.SurfacerDef {
+	if x != nil {
+		return x.Surfacer
+	}
+	return nil
+}
+
 var File_github_com_cloudprober_cloudprober_config_proto_config_proto protoreflect.FileDescriptor
 
 var file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDesc = []byte{
@@ -412,10 +459,15 @@ var file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDesc = 
 	0x65, 0x74, 0x73, 0x18, 0x02, 0x20, 0x02, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x63, 0x6c, 0x6f, 0x75,
 	0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x73, 0x2e,
 	0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x73, 0x44, 0x65, 0x66, 0x52, 0x07, 0x74, 0x61, 0x72, 0x67,
-	0x65, 0x74, 0x73, 0x42, 0x31, 0x5a, 0x2f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
-	0x6d, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x63, 0x6c,
-	0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x65, 0x74, 0x73, 0x22, 0x50, 0x0a, 0x0f, 0x53, 0x75, 0x72, 0x66, 0x61, 0x63, 0x65, 0x72, 0x73,
+	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x3d, 0x0a, 0x08, 0x73, 0x75, 0x72, 0x66, 0x61, 0x63,
+	0x65, 0x72, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64,
+	0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x73, 0x75, 0x72, 0x66, 0x61, 0x63, 0x65, 0x72, 0x2e,
+	0x53, 0x75, 0x72, 0x66, 0x61, 0x63, 0x65, 0x72, 0x44, 0x65, 0x66, 0x52, 0x08, 0x73, 0x75, 0x72,
+	0x66, 0x61, 0x63, 0x65, 0x72, 0x42, 0x31, 0x5a, 0x2f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
+	0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f,
+	0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x63, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 }
 
 var (
@@ -430,32 +482,34 @@ func file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDescGZ
 	return file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_config_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_github_com_cloudprober_cloudprober_config_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_github_com_cloudprober_cloudprober_config_proto_config_proto_goTypes = []interface{}{
 	(*ProberConfig)(nil),                // 0: cloudprober.ProberConfig
 	(*SharedTargets)(nil),               // 1: cloudprober.SharedTargets
-	(*proto.ProbeDef)(nil),              // 2: cloudprober.probes.ProbeDef
-	(*proto1.SurfacerDef)(nil),          // 3: cloudprober.surfacer.SurfacerDef
-	(*proto2.ServerDef)(nil),            // 4: cloudprober.servers.ServerDef
-	(*proto3.ServerConf)(nil),           // 5: cloudprober.rds.ServerConf
-	(*proto4.TLSConfig)(nil),            // 6: cloudprober.tlsconfig.TLSConfig
-	(*proto5.GlobalTargetsOptions)(nil), // 7: cloudprober.targets.GlobalTargetsOptions
-	(*proto5.TargetsDef)(nil),           // 8: cloudprober.targets.TargetsDef
+	(*SurfacersConfig)(nil),             // 2: cloudprober.SurfacersConfig
+	(*proto.ProbeDef)(nil),              // 3: cloudprober.probes.ProbeDef
+	(*proto1.SurfacerDef)(nil),          // 4: cloudprober.surfacer.SurfacerDef
+	(*proto2.ServerDef)(nil),            // 5: cloudprober.servers.ServerDef
+	(*proto3.ServerConf)(nil),           // 6: cloudprober.rds.ServerConf
+	(*proto4.TLSConfig)(nil),            // 7: cloudprober.tlsconfig.TLSConfig
+	(*proto5.GlobalTargetsOptions)(nil), // 8: cloudprober.targets.GlobalTargetsOptions
+	(*proto5.TargetsDef)(nil),           // 9: cloudprober.targets.TargetsDef
 }
 var file_github_com_cloudprober_cloudprober_config_proto_config_proto_depIdxs = []int32{
-	2, // 0: cloudprober.ProberConfig.probe:type_name -> cloudprober.probes.ProbeDef
-	3, // 1: cloudprober.ProberConfig.surfacer:type_name -> cloudprober.surfacer.SurfacerDef
-	4, // 2: cloudprober.ProberConfig.server:type_name -> cloudprober.servers.ServerDef
+	3, // 0: cloudprober.ProberConfig.probe:type_name -> cloudprober.probes.ProbeDef
+	4, // 1: cloudprober.ProberConfig.surfacer:type_name -> cloudprober.surfacer.SurfacerDef
+	5, // 2: cloudprober.ProberConfig.server:type_name -> cloudprober.servers.ServerDef
 	1, // 3: cloudprober.ProberConfig.shared_targets:type_name -> cloudprober.SharedTargets
-	5, // 4: cloudprober.ProberConfig.rds_server:type_name -> cloudprober.rds.ServerConf
-	6, // 5: cloudprober.ProberConfig.grpc_tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
-	7, // 6: cloudprober.ProberConfig.global_targets_options:type_name -> cloudprober.targets.GlobalTargetsOptions
-	8, // 7: cloudprober.SharedTargets.targets:type_name -> cloudprober.targets.TargetsDef
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	6, // 4: cloudprober.ProberConfig.rds_server:type_name -> cloudprober.rds.ServerConf
+	7, // 5: cloudprober.ProberConfig.grpc_tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	8, // 6: cloudprober.ProberConfig.global_targets_options:type_name -> cloudprober.targets.GlobalTargetsOptions
+	9, // 7: cloudprober.SharedTargets.targets:type_name -> cloudprober.targets.TargetsDef
+	4, // 8: cloudprober.SurfacersConfig.surfacer:type_name -> cloudprober.surfacer.SurfacerDef
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_config_proto_config_proto_init() }
@@ -488,6 +542,18 @@ func file_github_com_cloudprober_cloudprober_config_proto_config_proto_init() {
 				return nil
 			}
 		}
+		file_github_com_cloudprober_cloudprober_config_proto_config_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SurfacersConfig); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -495,7 +561,7 @@ func file_github_com_cloudprober_cloudprober_config_proto_config_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

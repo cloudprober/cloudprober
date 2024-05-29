@@ -27,18 +27,19 @@ import (
 	"runtime"
 	"strings"
 
-	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/google/go-jsonnet"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"sigs.k8s.io/yaml"
 )
 
 var (
-	configFile       = flag.String("config_file", "", "Config file")
-	testInstanceName = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
+	configFile          = flag.String("config_file", "", "Config file")
+	surfacersConfigFile = flag.String("surfacers_config_file", "", "Surfacers config file")
+	testInstanceName    = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
 )
 
 // EnvRegex is the regex used to find environment variable placeholders
@@ -62,12 +63,13 @@ var configTestVars = map[string]string{
 }
 
 func DefaultConfigSource() ConfigSource {
-	return ConfigSourceWithFile(*configFile)
+	return ConfigSourceWithFile(*configFile, *surfacersConfigFile)
 }
 
-func ConfigSourceWithFile(fileName string) ConfigSource {
+func ConfigSourceWithFile(fileName, surfacersConfigFileName string) ConfigSource {
 	return &defaultConfigSource{
-		FileName: fileName,
+		FileName:                fileName,
+		SurfacersConfigFileName: surfacersConfigFileName,
 	}
 }
 
@@ -123,36 +125,44 @@ func readConfigFile(fileName string) (string, error) {
 	return final, err
 }
 
-func unmarshalConfig(configStr, configFormat string) (*configpb.ProberConfig, error) {
-	cfg := &configpb.ProberConfig{}
+func processConfigText(configStr, configFormat string, tmplData map[string]string, m protoreflect.ProtoMessage, l *logger.Logger) (string, error) {
+	parsedConfig, err := parseTemplate(configStr, tmplData, nil)
+	if err != nil {
+		return "", fmt.Errorf("error parsing surfacers config file as Go template. Err: %v", err)
+	}
+
+	return parsedConfig, unmarshalConfig(substEnvVars(parsedConfig, l), configFormat, m)
+}
+
+func unmarshalConfig(configStr, configFormat string, m protoreflect.ProtoMessage) error {
 	switch configFormat {
 	case "yaml":
 		jsonCfg, err := yaml.YAMLToJSON([]byte(configStr))
 		if err != nil {
-			return nil, fmt.Errorf("error converting YAML config to JSON: %v", err)
+			return fmt.Errorf("error converting YAML config to JSON: %v", err)
 		}
-		if err := protojson.Unmarshal(jsonCfg, cfg); err != nil {
-			return nil, fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
+		if err := protojson.Unmarshal(jsonCfg, m); err != nil {
+			return fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
 		}
 	case "jsonnet":
 		jsonCfg, err := jsonnet.MakeVM().EvaluateAnonymousSnippet("config", configStr)
 		if err != nil {
-			return nil, fmt.Errorf("error evaluating jsonnet config: %v", err)
+			return fmt.Errorf("error evaluating jsonnet config: %v", err)
 		}
-		if err := protojson.Unmarshal([]byte(jsonCfg), cfg); err != nil {
-			return nil, fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
+		if err := protojson.Unmarshal([]byte(jsonCfg), m); err != nil {
+			return fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
 		}
 	case "json":
-		if err := protojson.Unmarshal([]byte(configStr), cfg); err != nil {
-			return nil, err
+		if err := protojson.Unmarshal([]byte(configStr), m); err != nil {
+			return err
 		}
 	default:
-		if err := prototext.Unmarshal([]byte(configStr), cfg); err != nil {
-			return nil, err
+		if err := prototext.Unmarshal([]byte(configStr), m); err != nil {
+			return err
 		}
 	}
 
-	return cfg, nil
+	return nil
 }
 
 // substEnvVars substitutes environment variables in the config string.

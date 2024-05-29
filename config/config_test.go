@@ -40,7 +40,9 @@ func testUnmarshalConfig(t *testing.T, fileName string) (*configpb.ProberConfig,
 	if err != nil {
 		t.Error(err)
 	}
-	return unmarshalConfig(configStr, formatFromFileName(fileName))
+
+	cfg := &configpb.ProberConfig{}
+	return cfg, unmarshalConfig(configStr, formatFromFileName(fileName), cfg)
 }
 
 func TestUnmarshalConfig(t *testing.T) {
@@ -71,23 +73,23 @@ func TestUnmarshalConfig(t *testing.T) {
 	}{
 		{
 			name:       "textpb",
-			configFile: "testdata/cloudprober_base.cfg",
+			configFile: "testdata/cloudprober.cfg",
 			want:       wantCfg,
 		},
 		{
 			name:           "yaml",
-			configFile:     "testdata/cloudprober.yaml",
-			baseConfigFile: "testdata/cloudprober.cfg",
+			configFile:     "testdata/unmarshal_test/cloudprober.yaml",
+			baseConfigFile: "testdata/unmarshal_test/cloudprober.cfg",
 		},
 		{
 			name:           "json",
-			configFile:     "testdata/cloudprober.json",
-			baseConfigFile: "testdata/cloudprober.cfg",
+			configFile:     "testdata/unmarshal_test/cloudprober.json",
+			baseConfigFile: "testdata/unmarshal_test/cloudprober.cfg",
 		},
 		{
 			name:           "jsonnet",
-			configFile:     "testdata/cloudprober.jsonnet",
-			baseConfigFile: "testdata/cloudprober.cfg",
+			configFile:     "testdata/unmarshal_test/cloudprober.jsonnet",
+			baseConfigFile: "testdata/unmarshal_test/cloudprober.cfg",
 		},
 	}
 
@@ -120,7 +122,7 @@ func TestConfigTest(t *testing.T) {
 	}{
 		{
 			name:       "valid_base",
-			configFile: "testdata/cloudprober_base.cfg",
+			configFile: "testdata/cloudprober.cfg",
 		},
 		{
 			name:       "invalid_without_vars",
@@ -159,7 +161,7 @@ func TestDumpConfig(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			configFile: "testdata/cloudprober_base.cfg",
+			configFile: "testdata/cloudprober.cfg",
 			format:     "yaml",
 			want: `
 probe:
@@ -173,7 +175,7 @@ surfacer:
 		},
 		{
 
-			configFile: "testdata/cloudprober_base.cfg",
+			configFile: "testdata/cloudprober.cfg",
 			format:     "json",
 			want: `
 {
@@ -189,7 +191,7 @@ surfacer:
 		},
 		{
 
-			configFile: "testdata/cloudprober_base.cfg",
+			configFile: "testdata/cloudprober.cfg",
 			format:     "textpb",
 			want: `
 probe: {
@@ -302,13 +304,13 @@ func TestReadConfigFile(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			fileName: "testdata/cloudprober_include.team.txtar",
+			fileName: "testdata/include_test/cloudprober_include.team.txtar",
 		},
 		{
-			fileName: "testdata/cloudprober_include.nested.txtar",
+			fileName: "testdata/include_test/cloudprober_include.nested.txtar",
 		},
 		{
-			fileName: "testdata/cloudprober_include.error.txtar",
+			fileName: "testdata/include_test/cloudprober_include.error.txtar",
 			wantErr:  true,
 		},
 	}

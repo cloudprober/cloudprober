@@ -206,6 +206,8 @@ func (s *Surfacer) writeMetrics(ctx context.Context, ems []*metrics.EventMetrics
 
 // init connects to postgres
 func (s *Surfacer) init(ctx context.Context) error {
+	s.l.Info("Initializing postgres surfacer")
+
 	var err error
 
 	if s.dbconn, err = s.openDB(s.c.GetConnectionString()); err != nil {
