@@ -129,3 +129,7 @@ import (
 	name?:    string              @protobuf(1,string)
 	targets?: proto_E.#TargetsDef @protobuf(2,targets.TargetsDef)
 }
+
+#SurfacersConfig: {
+	surfacer?: [...proto_1.#SurfacerDef] @protobuf(1,surfacer.SurfacerDef)
+}
