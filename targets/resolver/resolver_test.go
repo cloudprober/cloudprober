@@ -329,3 +329,54 @@ func BenchmarkResolve(b *testing.B) {
 	})
 	fmt.Printf("Called backend resolve %d times\n", rb.callCnt)
 }
+
+func Test_parseOverrideAddress(t *testing.T) {
+	tests := []struct {
+		dnsResolverOverride string
+		wantNetwork         string
+		wantAddr            string
+		wantErr             bool
+	}{
+		{
+			dnsResolverOverride: "1.1.1.1",
+			wantNetwork:         "",
+			wantAddr:            "1.1.1.1:53",
+		},
+		{
+			dnsResolverOverride: "tcp://1.1.1.1",
+			wantNetwork:         "tcp",
+			wantAddr:            "1.1.1.1:53",
+		},
+		{
+			dnsResolverOverride: "tcp://1.1.1.1:413",
+			wantNetwork:         "tcp",
+			wantAddr:            "1.1.1.1:413",
+		},
+		{
+			dnsResolverOverride: "udp://1.1.1.1",
+			wantNetwork:         "udp",
+			wantAddr:            "1.1.1.1:53",
+		},
+		{
+			dnsResolverOverride: "udp65://1.1.1.1",
+			wantErr:             true,
+		},
+		{
+			dnsResolverOverride: "udp://1.1.1.1:4a",
+			wantErr:             true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.dnsResolverOverride, func(t *testing.T) {
+			network, addr, err := parseOverrideAddress(tt.dnsResolverOverride)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseOverrideAddress() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tt.wantNetwork, network, "network")
+			assert.Equal(t, tt.wantAddr, addr, "addr")
+		})
+	}
+}
