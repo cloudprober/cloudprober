@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -328,4 +329,169 @@ func BenchmarkResolve(b *testing.B) {
 		}
 	})
 	fmt.Printf("Called backend resolve %d times\n", rb.callCnt)
+}
+
+func TestParseOverrideAddress(t *testing.T) {
+	tests := []struct {
+		dnsResolverOverride string
+		wantNetwork         string
+		wantAddr            string
+		wantErr             bool
+	}{
+		{
+			dnsResolverOverride: "1.1.1.1",
+			wantNetwork:         "",
+			wantAddr:            "1.1.1.1:53",
+		},
+		{
+			dnsResolverOverride: "tcp://1.1.1.1",
+			wantNetwork:         "tcp",
+			wantAddr:            "1.1.1.1:53",
+		},
+		{
+			dnsResolverOverride: "tcp://1.1.1.1:413",
+			wantNetwork:         "tcp",
+			wantAddr:            "1.1.1.1:413",
+		},
+		{
+			dnsResolverOverride: "udp://1.1.1.1",
+			wantNetwork:         "udp",
+			wantAddr:            "1.1.1.1:53",
+		},
+		{
+			dnsResolverOverride: "udp65://1.1.1.1",
+			wantErr:             true,
+		},
+		{
+			dnsResolverOverride: "udp://1.1.1.1:4a",
+			wantErr:             true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.dnsResolverOverride, func(t *testing.T) {
+			network, addr, err := parseOverrideAddress(tt.dnsResolverOverride)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseOverrideAddress() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tt.wantNetwork, network, "network")
+			assert.Equal(t, tt.wantAddr, addr, "addr")
+		})
+	}
+}
+
+func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP bool) *dns.Server {
+	t.Helper()
+
+	dnsServer := &dns.Server{}
+	if useTCP {
+		ln, err := net.Listen("tcp", "localhost:")
+		if err != nil {
+			t.Fatalf("Error creating tcp listener: %v", err)
+		}
+		dnsServer.Listener = ln
+	} else {
+		packetConn, err := net.ListenPacket("udp", "localhost:")
+		if err != nil {
+			t.Fatalf("Error creating packet conn: %v", err)
+		}
+		dnsServer.PacketConn = packetConn
+	}
+
+	dnsServer.Handler = dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
+		t.Logf("Received request: %v", r)
+		m := new(dns.Msg)
+		m.SetReply(r)
+
+		var answers []dns.RR
+		for _, q := range r.Question {
+			switch q.Qtype {
+			case dns.TypeA:
+				if ip := dataA[q.Name]; ip != "" {
+					answers = append(answers, &dns.A{
+						Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60},
+						A:   net.ParseIP(ip),
+					})
+				}
+			case dns.TypeAAAA:
+				if ip := dataAAAA[q.Name]; ip != "" {
+					answers = append(answers, &dns.AAAA{
+						Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: 60},
+						AAAA: net.ParseIP(ip),
+					})
+				}
+			}
+		}
+		if len(answers) == 0 {
+			m.SetRcode(r, dns.RcodeNameError)
+		}
+		m.Answer = answers
+		w.WriteMsg(m)
+	})
+	go dnsServer.ActivateAndServe()
+	return dnsServer
+}
+
+func TestNewWithOverrideResolver(t *testing.T) {
+	dataA := map[string]string{
+		"hostA.example.com.": "1.2.3.4",
+	}
+	dataAAAA := map[string]string{
+		"hostA.example.com.": "2001:db8::1",
+	}
+	dnsServer := createFakeDNSServer(t, dataA, dataAAAA, false)
+	udpAdrr := dnsServer.PacketConn.LocalAddr().String()
+	t.Logf("DNS UDP server started at: %s", udpAdrr)
+	defer dnsServer.Shutdown()
+
+	dnsTCPServer := createFakeDNSServer(t, dataA, dataAAAA, true)
+	tcpAddr := dnsTCPServer.Listener.Addr().String()
+	t.Logf("DNS TCP server started at: %s", tcpAddr)
+	defer dnsTCPServer.Shutdown()
+
+	tests := []struct {
+		name                string
+		dnsResolverOverride string
+		wantIP              string
+		wantIP6             string
+		wantErr             bool
+	}{
+		{
+			name:                "valid-udp",
+			dnsResolverOverride: udpAdrr,
+			wantIP:              "1.2.3.4",
+			wantIP6:             "2001:db8::1",
+		},
+		{
+			name:                "valid-tcp",
+			dnsResolverOverride: "tcp://" + tcpAddr,
+			wantIP:              "1.2.3.4",
+			wantIP6:             "2001:db8::1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := NewWithOverrideResolver(tt.dnsResolverOverride)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewWithOverrideResolver() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			got, err := r.Resolve("hostA.example.com.", 4)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.wantIP, got.String(), "ip")
+
+			got, err = r.Resolve("hostA.example.com.", 6)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.wantIP6, got.String(), "ip6")
+		})
+	}
 }
