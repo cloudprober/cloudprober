@@ -130,6 +130,7 @@ import (
 	targets?: proto_E.#TargetsDef @protobuf(2,targets.TargetsDef)
 }
 
+// This is used to parse surfacers config from a separate file.
 #SurfacersConfig: {
 	surfacer?: [...proto_1.#SurfacerDef] @protobuf(1,surfacer.SurfacerDef)
 }

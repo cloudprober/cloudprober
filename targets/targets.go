@@ -324,7 +324,11 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 	}
 	resolver := globalResolver
 	if ip := targetsDef.GetDnsServer(); ip != "" {
-		resolver = dnsRes.NewWithOverrideResolver(ip)
+		l.Infof("Overriding default resolver with: %s", ip)
+		resolver, err = dnsRes.NewWithOverrideResolver(ip)
+		if err != nil {
+			return nil, fmt.Errorf("targets.New(): error creating resolver with override: %v", err)
+		}
 		t.resolverIP = ip
 	}
 	t.resolver = resolver

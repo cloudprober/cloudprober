@@ -326,6 +326,7 @@ func (x *SharedTargets) GetTargets() *proto5.TargetsDef {
 	return nil
 }
 
+// This is used to parse surfacers config from a separate file.
 type SurfacersConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

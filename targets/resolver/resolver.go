@@ -22,6 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -209,7 +212,50 @@ func NewWithResolve(resolveFunc func(string) ([]net.IP, error)) *Resolver {
 	}
 }
 
-func NewWithOverrideResolver(dnsResolverOverride string) *Resolver {
+func parseOverrideAddress(dnsResolverOverride string) (string, string, error) {
+	// dnsResolverOverride can be in the format "network://ip:port" or "ip:port",
+	// or just "ip". If network is not specified, we use Go's default.
+	var networkOverride string
+	addrParts := strings.Split(dnsResolverOverride, "://")
+	if len(addrParts) == 2 {
+		networkOverride = addrParts[0]
+		dnsResolverOverride = addrParts[1]
+	}
+
+	validNetworks := []string{"", "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6"}
+	if !slices.Contains(validNetworks, networkOverride) {
+		return "", "", fmt.Errorf("invalid network: %s", networkOverride)
+	}
+
+	port := "53"
+	// Check if address includes a port number
+	ip := net.ParseIP(dnsResolverOverride)
+	if ip == nil {
+		idx := strings.LastIndex(dnsResolverOverride, ":")
+		if idx != -1 {
+			port = dnsResolverOverride[idx+1:]
+			dnsResolverOverride = dnsResolverOverride[:idx]
+		}
+	}
+
+	if net.ParseIP(dnsResolverOverride) == nil {
+		return "", "", fmt.Errorf("invalid IP address: %s", dnsResolverOverride)
+	}
+
+	if _, err := strconv.Atoi(port); err != nil {
+		return "", "", fmt.Errorf("invalid port number: %s", port)
+	}
+
+	dnsResolverOverride = net.JoinHostPort(dnsResolverOverride, port)
+	return networkOverride, dnsResolverOverride, nil
+}
+
+func NewWithOverrideResolver(dnsResolverOverride string) (*Resolver, error) {
+	networkOverride, dnsResolverOverride, err := parseOverrideAddress(dnsResolverOverride)
+	if err != nil {
+		return nil, err
+	}
+
 	resolveFunc := func(host string) ([]net.IP, error) {
 		r := &net.Resolver{
 			PreferGo: true,
@@ -217,13 +263,16 @@ func NewWithOverrideResolver(dnsResolverOverride string) *Resolver {
 				d := net.Dialer{
 					Timeout: defaultMaxAge,
 				}
-				dnsIP := dnsResolverOverride + ":53"
-				return d.DialContext(ctx, network, dnsIP)
+				if networkOverride != "" {
+					network = networkOverride
+				}
+				return d.DialContext(ctx, network, dnsResolverOverride)
 			},
 		}
 		return r.LookupIP(context.Background(), "ip", host)
 	}
-	return NewWithResolve(resolveFunc)
+
+	return NewWithResolve(resolveFunc), nil
 }
 
 // New returns a new Resolver.
