@@ -416,6 +416,13 @@ type TargetsDef struct {
 	// are specified.
 	ExcludeLameducks *bool `protobuf:"varint,22,opt,name=exclude_lameducks,json=excludeLameducks,def=1" json:"exclude_lameducks,omitempty"`
 	// Provide a dns resolver override instead of using the default dns resolver.
+	// dns_server can be specified in the following format: [network://]ip[:port]
+	// where network is one of udp, tcp, tcp4, tcp6, udp4, udp6.
+	// Example:
+	//   - "1.1.1.1"           // Use default network and port (53)
+	//
+	// - "tcp://1.1.1.1"      // Use tcp network and default port (53)
+	// - "tcp://1.1.1.1:513   // Use tcp network and port 513
 	DnsServer *string `protobuf:"bytes,37,opt,name=dns_server,json=dnsServer" json:"dns_server,omitempty"`
 }
 
