@@ -105,9 +105,10 @@ type DataFuncs struct {
 	GetInfo         func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo)
 }
 
-func Init() {
+func Init() error {
 	l := logger.Logger{}
 	l.Warningf("web.Init is a no-op now. Web interface is now initialized by cloudprober.Init(), you don't need to initialize it explicitly.")
+	return nil
 }
 
 // InitWithDataFuncs initializes cloudprober web interface handler.

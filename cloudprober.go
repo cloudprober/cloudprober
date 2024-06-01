@@ -153,7 +153,7 @@ func Init() error {
 }
 
 func InitWithConfigSource(configSrc config.ConfigSource) error {
-	if err := initWithConfigSource(config.DefaultConfigSource()); err != nil {
+	if err := initWithConfigSource(configSrc); err != nil {
 		return err
 	}
 	return web.InitWithDataFuncs(web.DataFuncs{
