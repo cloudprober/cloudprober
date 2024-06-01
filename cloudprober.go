@@ -156,7 +156,7 @@ func InitWithConfigSource(configSrc config.ConfigSource) error {
 	if err := initWithConfigSource(config.DefaultConfigSource()); err != nil {
 		return err
 	}
-	return web.Init(web.DataFuncs{
+	return web.InitWithDataFuncs(web.DataFuncs{
 		GetRawConfig:    GetRawConfig,
 		GetParsedConfig: GetParsedConfig,
 		GetInfo:         GetInfo,

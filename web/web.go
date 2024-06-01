@@ -26,6 +26,7 @@ import (
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	"github.com/cloudprober/cloudprober/internal/servers"
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
@@ -104,8 +105,13 @@ type DataFuncs struct {
 	GetInfo         func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo)
 }
 
-// Init initializes cloudprober web interface handler.
-func Init(fn DataFuncs) error {
+func Init() {
+	l := logger.Logger{}
+	l.Warningf("web.Init is a no-op now. Web interface is now initialized by cloudprober.Init(), you don't need to initialize it explicitly.")
+}
+
+// InitWithDataFuncs initializes cloudprober web interface handler.
+func InitWithDataFuncs(fn DataFuncs) error {
 	srvMux := runconfig.DefaultHTTPServeMux()
 	for _, url := range []string{"/config", "/config-running", "/static/"} {
 		if webutils.IsHandled(srvMux, url) {
