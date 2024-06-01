@@ -22,7 +22,6 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/alerting"
@@ -71,10 +70,10 @@ func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 }
 
 // runningConfig returns cloudprober's running config.
-func runningConfig() string {
+func runningConfig(fn DataFuncs) string {
 	var statusBuf bytes.Buffer
 
-	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
+	probeInfo, surfacerInfo, serverInfo := fn.GetInfo()
 
 	err := runningConfigTmpl.Execute(&statusBuf, struct {
 		ProbesStatus, ServersStatus, SurfacersStatus interface{}
@@ -99,8 +98,14 @@ func alertsState() string {
 	return fmt.Sprintf(htmlTmpl, resources.Header(), status)
 }
 
+type DataFuncs struct {
+	GetRawConfig    func() string
+	GetParsedConfig func() string
+	GetInfo         func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo)
+}
+
 // Init initializes cloudprober web interface handler.
-func Init() error {
+func Init(fn DataFuncs) error {
 	srvMux := runconfig.DefaultHTTPServeMux()
 	for _, url := range []string{"/config", "/config-running", "/static/"} {
 		if webutils.IsHandled(srvMux, url) {
@@ -109,17 +114,17 @@ func Init() error {
 	}
 
 	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, cloudprober.GetRawConfig())
+		fmt.Fprint(w, fn.GetRawConfig())
 	})
 
-	parsedConfig := cloudprober.GetParsedConfig()
 	srvMux.HandleFunc("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, cloudprober.GetParsedConfig())
+		fmt.Fprint(w, fn.GetParsedConfig())
 	})
 
+	parsedConfig := fn.GetParsedConfig()
 	var configRunning string
 	if !config.EnvRegex.MatchString(parsedConfig) {
-		configRunning = runningConfig()
+		configRunning = runningConfig(fn)
 	} else {
 		configRunning = `
 		<p>Config contains secrets. /config-running is not available.<br>

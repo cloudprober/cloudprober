@@ -44,6 +44,7 @@ import (
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/surfacers"
+	"github.com/cloudprober/cloudprober/web"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
@@ -139,6 +140,14 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 	srvMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }
 
+func initWeb() error {
+	return web.Init(web.DataFuncs{
+		GetRawConfig:    GetRawConfig,
+		GetParsedConfig: GetParsedConfig,
+		GetInfo:         GetInfo,
+	})
+}
+
 // InitFromConfig initializes Cloudprober using the provided config.
 // Deprecated: This function is kept only for compatibility reasons. It's
 // recommended to use Init() or InitWithConfigSource() instead.
@@ -152,6 +161,13 @@ func Init() error {
 }
 
 func InitWithConfigSource(configSrc config.ConfigSource) error {
+	if err := initWithConfigSource(config.DefaultConfigSource()); err != nil {
+		return err
+	}
+	return initWeb()
+}
+
+func initWithConfigSource(configSrc config.ConfigSource) error {
 	// Return immediately if prober is already initialized.
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
