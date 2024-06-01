@@ -128,17 +128,18 @@ func InitWithDataFuncs(fn DataFuncs) error {
 		fmt.Fprint(w, fn.GetParsedConfig())
 	})
 
-	parsedConfig := fn.GetParsedConfig()
-	var configRunning string
-	if !config.EnvRegex.MatchString(parsedConfig) {
-		configRunning = runningConfig(fn)
-	} else {
-		configRunning = `
-		<p>Config contains secrets. /config-running is not available.<br>
-		Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
-		`
-	}
 	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
+		parsedConfig := fn.GetParsedConfig()
+		var configRunning string
+		if !config.EnvRegex.MatchString(parsedConfig) {
+			configRunning = runningConfig(fn)
+		} else {
+			configRunning = `
+			<p>Config contains secrets. /config-running is not available.<br>
+			Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
+			`
+		}
+
 		fmt.Fprint(w, configRunning)
 	})
 
