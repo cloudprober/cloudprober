@@ -140,14 +140,6 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 	srvMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }
 
-func initWeb() error {
-	return web.Init(web.DataFuncs{
-		GetRawConfig:    GetRawConfig,
-		GetParsedConfig: GetParsedConfig,
-		GetInfo:         GetInfo,
-	})
-}
-
 // InitFromConfig initializes Cloudprober using the provided config.
 // Deprecated: This function is kept only for compatibility reasons. It's
 // recommended to use Init() or InitWithConfigSource() instead.
@@ -164,7 +156,11 @@ func InitWithConfigSource(configSrc config.ConfigSource) error {
 	if err := initWithConfigSource(config.DefaultConfigSource()); err != nil {
 		return err
 	}
-	return initWeb()
+	return web.Init(web.DataFuncs{
+		GetRawConfig:    GetRawConfig,
+		GetParsedConfig: GetParsedConfig,
+		GetInfo:         GetInfo,
+	})
 }
 
 func initWithConfigSource(configSrc config.ConfigSource) error {
