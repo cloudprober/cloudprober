@@ -1,4 +1,4 @@
-// Copyright 2018 The Cloudprober Authors.
+// Copyright 2018-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -111,6 +111,11 @@ func Init() error {
 	return nil
 }
 
+var secretConfigRunningMsg = `
+	<p>Config contains secrets. /config-running is not available.<br>
+	Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
+	`
+
 // InitWithDataFuncs initializes cloudprober web interface handler.
 func InitWithDataFuncs(fn DataFuncs) error {
 	srvMux := runconfig.DefaultHTTPServeMux()
@@ -134,10 +139,7 @@ func InitWithDataFuncs(fn DataFuncs) error {
 		if !config.EnvRegex.MatchString(parsedConfig) {
 			configRunning = runningConfig(fn)
 		} else {
-			configRunning = `
-			<p>Config contains secrets. /config-running is not available.<br>
-			Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
-			`
+			configRunning = secretConfigRunningMsg
 		}
 
 		fmt.Fprint(w, configRunning)
