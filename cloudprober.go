@@ -44,6 +44,7 @@ import (
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/surfacers"
+	"github.com/cloudprober/cloudprober/web"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
@@ -152,6 +153,17 @@ func Init() error {
 }
 
 func InitWithConfigSource(configSrc config.ConfigSource) error {
+	if err := initWithConfigSource(configSrc); err != nil {
+		return err
+	}
+	return web.InitWithDataFuncs(web.DataFuncs{
+		GetRawConfig:    GetRawConfig,
+		GetParsedConfig: GetParsedConfig,
+		GetInfo:         GetInfo,
+	})
+}
+
+func initWithConfigSource(configSrc config.ConfigSource) error {
 	// Return immediately if prober is already initialized.
 	cloudProber.Lock()
 	defer cloudProber.Unlock()

@@ -36,7 +36,6 @@ import (
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/web"
 )
 
 var (
@@ -149,11 +148,6 @@ func main() {
 
 	if err := cloudprober.Init(); err != nil {
 		l.Criticalf("Error initializing cloudprober. Err: %v", err)
-	}
-
-	// web.Init sets up web UI for cloudprober.
-	if err := web.Init(); err != nil {
-		l.Criticalf("Error initializing web interface. Err: %v", err)
 	}
 
 	startCtx := context.Background()
