@@ -1,4 +1,4 @@
-// Copyright 2018 The Cloudprober Authors.
+// Copyright 2018-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	"github.com/cloudprober/cloudprober/internal/servers"
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
@@ -71,10 +71,10 @@ func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 }
 
 // runningConfig returns cloudprober's running config.
-func runningConfig() string {
+func runningConfig(fn DataFuncs) string {
 	var statusBuf bytes.Buffer
 
-	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
+	probeInfo, surfacerInfo, serverInfo := fn.GetInfo()
 
 	err := runningConfigTmpl.Execute(&statusBuf, struct {
 		ProbesStatus, ServersStatus, SurfacersStatus interface{}
@@ -99,8 +99,25 @@ func alertsState() string {
 	return fmt.Sprintf(htmlTmpl, resources.Header(), status)
 }
 
-// Init initializes cloudprober web interface handler.
+type DataFuncs struct {
+	GetRawConfig    func() string
+	GetParsedConfig func() string
+	GetInfo         func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo)
+}
+
 func Init() error {
+	l := logger.Logger{}
+	l.Warningf("web.Init is a no-op now. Web interface is now initialized by cloudprober.Init(), you don't need to initialize it explicitly.")
+	return nil
+}
+
+var secretConfigRunningMsg = `
+	<p>Config contains secrets. /config-running is not available.<br>
+	Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
+	`
+
+// InitWithDataFuncs initializes cloudprober web interface handler.
+func InitWithDataFuncs(fn DataFuncs) error {
 	srvMux := runconfig.DefaultHTTPServeMux()
 	for _, url := range []string{"/config", "/config-running", "/static/"} {
 		if webutils.IsHandled(srvMux, url) {
@@ -109,24 +126,22 @@ func Init() error {
 	}
 
 	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, cloudprober.GetRawConfig())
+		fmt.Fprint(w, fn.GetRawConfig())
 	})
 
-	parsedConfig := cloudprober.GetParsedConfig()
 	srvMux.HandleFunc("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, cloudprober.GetParsedConfig())
+		fmt.Fprint(w, fn.GetParsedConfig())
 	})
 
-	var configRunning string
-	if !config.EnvRegex.MatchString(parsedConfig) {
-		configRunning = runningConfig()
-	} else {
-		configRunning = `
-		<p>Config contains secrets. /config-running is not available.<br>
-		Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
-		`
-	}
 	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
+		parsedConfig := fn.GetParsedConfig()
+		var configRunning string
+		if !config.EnvRegex.MatchString(parsedConfig) {
+			configRunning = runningConfig(fn)
+		} else {
+			configRunning = secretConfigRunningMsg
+		}
+
 		fmt.Fprint(w, configRunning)
 	})
 
