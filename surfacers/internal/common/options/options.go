@@ -220,7 +220,7 @@ func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logge
 	}
 	opts.latencyMetricRe = re
 
-	opts.AdditionalLabels = processAdditionalLabels(additionalLabelsEnvVar, l)
+	opts.AdditionalLabels = processAdditionalLabels(opts.Config.GetAdditionalLabelsEnvVar(), l)
 
 	return opts, nil
 }
