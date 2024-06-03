@@ -19,7 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
+	"strings"
 
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
@@ -85,6 +87,8 @@ type Options struct {
 	latencyMetricRe *regexp.Regexp
 
 	AddFailureMetric bool
+
+	AdditionalLabels [][2]string
 }
 
 // AllowEventMetrics returns whether a certain EventMetrics should be allowed
@@ -141,6 +145,27 @@ func (opts *Options) IsLatencyMetric(metricName string) bool {
 	return opts.latencyMetricRe.MatchString(metricName)
 }
 
+func processAdditionalLabels(envVar string, l *logger.Logger) [][2]string {
+	if envVar == "" {
+		return nil
+	}
+	labelsStr := strings.TrimSpace(os.Getenv(envVar))
+	if labelsStr == "" {
+		return nil
+	}
+	var labels [][2]string
+	for _, label := range strings.Split(labelsStr, ",") {
+		kv := strings.Split(label, "=")
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			l.Warningf("Invalid additional label format: %s", label)
+			continue
+		}
+		key, val := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+		labels = append(labels, [2]string{key, val})
+	}
+	return labels
+}
+
 // buildOptions builds surfacer options using config.
 func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logger) (*Options, error) {
 	opts := &Options{
@@ -195,6 +220,8 @@ func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logge
 		return nil, fmt.Errorf("invalid latency_metric_pattern: %s, err: %v", opts.Config.GetLatencyMetricPattern(), err)
 	}
 	opts.latencyMetricRe = re
+
+	opts.AdditionalLabels = processAdditionalLabels(opts.Config.GetAdditionalLabelsEnvVar(), l)
 
 	return opts, nil
 }
