@@ -29,8 +29,6 @@ import (
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
 
-var additionalLabelsEnvVar = "CLOUDPROBER_ADDITIONAL_LABELS"
-
 type labelFilter struct {
 	key   string
 	value string
