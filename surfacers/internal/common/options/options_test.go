@@ -307,3 +307,60 @@ func TestOptions_IsLatencyMetric(t *testing.T) {
 		})
 	}
 }
+
+func Test_processAdditionalLabels(t *testing.T) {
+	tests := []struct {
+		name        string
+		envVar      string
+		envVarValue string
+		want        [][2]string
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name:        "default_name",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: "env=prod,app=identity",
+			want: [][2]string{
+				{"env", "prod"},
+				{"app", "identity"},
+			},
+		},
+		{
+			name:        "kill_space",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: " env= prod, app=identity",
+			want: [][2]string{
+				{"env", "prod"},
+				{"app", "identity"},
+			},
+		},
+		{
+			name:        "invalid_label1",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: "env=prod,=identity",
+			want: [][2]string{
+				{"env", "prod"},
+			},
+		},
+		{
+			name:        "invalid_label2",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: "env=,app=identity",
+			want: [][2]string{
+				{"app", "identity"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv(tt.envVar, tt.envVarValue)
+			defer os.Unsetenv(tt.envVar)
+
+			if got := processAdditionalLabels(tt.envVar, nil); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("processAdditionalLabels() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

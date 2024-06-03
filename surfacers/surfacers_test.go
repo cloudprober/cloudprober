@@ -17,6 +17,7 @@ package surfacers
 import (
 	"context"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -218,6 +219,68 @@ func TestFailureMetric(t *testing.T) {
 			testEventMetrics[0].Clone().
 				AddMetric("failure", metrics.NewInt(2)),
 			testEventMetrics[1], // unchanged
+		}, // s2
+	}
+
+	for i, ts := range []*testSurfacer{ts1, ts2} {
+		wantEMs := wantEventMetrics[i]
+		assert.Equal(t, len(wantEMs), len(ts.received))
+		for i, em := range wantEMs {
+			assert.Equal(t, em.String(), ts.received[i].String())
+		}
+	}
+}
+
+func TestAdditionalLabel(t *testing.T) {
+	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
+
+	ts1, ts2 := &testSurfacer{}, &testSurfacer{}
+	Register("s1", ts1)
+	Register("s2", ts2)
+
+	var testEventMetrics = []*metrics.EventMetrics{
+		metrics.NewEventMetrics(time.Now()).
+			AddMetric("total", metrics.NewInt(20)).
+			AddMetric("success", metrics.NewInt(18)).
+			AddMetric("timeout", metrics.NewInt(2)).
+			AddLabel("ptype", "http"),
+		metrics.NewEventMetrics(time.Now()).
+			AddMetric("num_goroutines", metrics.NewInt(2)),
+	}
+
+	configs := []*surfacerpb.SurfacerDef{
+		{
+			Name:                   proto.String("s1"),
+			Type:                   surfacerpb.Type_USER_DEFINED.Enum(),
+			AdditionalLabelsEnvVar: proto.String(""),
+		},
+		{
+			Name: proto.String("s2"),
+			Type: surfacerpb.Type_USER_DEFINED.Enum(),
+		},
+	}
+
+	os.Setenv("CLOUDPROBER_ADDITIONAL_LABELS", "app=cloudprober")
+	defer os.Unsetenv("CLOUDPROBER_ADDITIONAL_LABELS")
+
+	si, err := Init(context.Background(), configs)
+	if err != nil {
+		t.Fatalf("Unexpected initialization error: %v", err)
+	}
+
+	for _, em := range testEventMetrics {
+		for _, s := range si {
+			s.Surfacer.Write(context.Background(), em)
+		}
+	}
+
+	wantEventMetrics := [][]*metrics.EventMetrics{
+		testEventMetrics, // s1
+		{
+			testEventMetrics[0].Clone().
+				AddLabel("app", "cloudprober"),
+			testEventMetrics[1].Clone().
+				AddLabel("app", "cloudprober"),
 		}, // s2
 	}
 

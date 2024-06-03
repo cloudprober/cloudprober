@@ -139,6 +139,11 @@ func (sw *surfacerWrapper) Write(ctx context.Context, em *metrics.EventMetrics) 
 		em = newEM
 	}
 
+	// Apply additional labels
+	for _, label := range sw.opts.AdditionalLabels {
+		em.AddLabel(label[0], label[1])
+	}
+
 	sw.Surfacer.Write(ctx, em)
 }
 
