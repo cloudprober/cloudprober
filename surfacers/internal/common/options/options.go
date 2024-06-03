@@ -160,7 +160,8 @@ func processAdditionalLabels(envVar string, l *logger.Logger) [][2]string {
 			l.Warningf("Invalid additional label format: %s", label)
 			continue
 		}
-		labels = append(labels, [2]string{kv[0], kv[1]})
+		key, val := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+		labels = append(labels, [2]string{key, val})
 	}
 	return labels
 }

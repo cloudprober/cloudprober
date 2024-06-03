@@ -328,7 +328,16 @@ func Test_processAdditionalLabels(t *testing.T) {
 			},
 		},
 		{
-			name:        "invalid_label",
+			name:        "kill_space",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: " env= prod, app=identity",
+			want: [][2]string{
+				{"env", "prod"},
+				{"app", "identity"},
+			},
+		},
+		{
+			name:        "invalid_label1",
 			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
 			envVarValue: "env=prod,=identity",
 			want: [][2]string{
@@ -336,7 +345,7 @@ func Test_processAdditionalLabels(t *testing.T) {
 			},
 		},
 		{
-			name:        "invalid_label",
+			name:        "invalid_label2",
 			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
 			envVarValue: "env=,app=identity",
 			want: [][2]string{
