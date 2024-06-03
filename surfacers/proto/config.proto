@@ -96,10 +96,17 @@ message SurfacerDef {
   // of metrics (say > 10000 metrics per second).
   optional bool export_as_gauge = 9;
 
-
   // Latency metric name pattern, used to identify latency metrics, and add
   // EventMetric's LatencyUnit to it.
   optional string latency_metric_pattern = 51 [default = "^(.+_|)latency$"];
+
+  // Environment variable containing additional labels to be added to all
+  // metrics exported by this surfacer.
+  // e.g. "CLOUDPROBER_ADDITIONAL_LABELS=env=prod,app=identity-service"
+  // You can disable this feature by setting this field to an empty string.
+  // Note: These additional labels have no effect if metrics already have the
+  // same label.
+  optional string additional_labels_env_var = 52 [default = "CLOUDPROBER_ADDITIONAL_LABELS"];
 
   // Matching surfacer specific configuration (one for each type in the above
   // enum)

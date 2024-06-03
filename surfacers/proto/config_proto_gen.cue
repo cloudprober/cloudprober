@@ -113,6 +113,14 @@ import (
 	// Latency metric name pattern, used to identify latency metrics, and add
 	// EventMetric's LatencyUnit to it.
 	latencyMetricPattern?: string @protobuf(51,string,name=latency_metric_pattern,#"default="^(.+_|)latency$""#)
+
+	// Environment variable containing additional labels to be added to all
+	// metrics exported by this surfacer.
+	// e.g. "CLOUDPROBER_ADDITIONAL_LABELS=env=prod,app=identity-service"
+	// You can disable this feature by setting this field to an empty string.
+	// Note: These additional labels have no effect if metrics already have the
+	// same label.
+	additionalLabelsEnvVar?: string @protobuf(52,string,name=additional_labels_env_var,#"default="CLOUDPROBER_ADDITIONAL_LABELS""#)
 	// Matching surfacer specific configuration (one for each type in the above
 	// enum)
 	{} | {
