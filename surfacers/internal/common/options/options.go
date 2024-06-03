@@ -158,7 +158,7 @@ func processAdditionalLabels(envVar string, l *logger.Logger) [][2]string {
 	var labels [][2]string
 	for _, label := range strings.Split(labelsStr, ",") {
 		kv := strings.Split(label, "=")
-		if len(kv) != 2 {
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
 			l.Warningf("Invalid additional label format: %s", label)
 			continue
 		}
