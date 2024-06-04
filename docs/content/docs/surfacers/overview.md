@@ -169,7 +169,7 @@ backend monitoring system:
    }
    ```
 
-### Adding labels
+### Additional labels
 
 See [additional labels](/docs/how-to/additional-labels/) for how you can add
 additional labels to cloudprober metrics.
