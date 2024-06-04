@@ -168,3 +168,15 @@ backend monitoring system:
       ..
    }
    ```
+
+### Adding labels
+
+See [additional labels](/docs/how-to/additional-labels/) for how you can add
+additional labels to cloudprober metrics.
+
+### Adding your own metrics
+
+For external probes, Cloudprober also allows external programs to provide
+additional metrics. See
+[External Probe](https://cloudprober.org/how-to/external-probe) for more
+details.
