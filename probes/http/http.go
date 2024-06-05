@@ -123,6 +123,10 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 			return nil, fmt.Errorf("error parsing proxy URL (%s): %v", p.c.GetProxyUrl(), err)
 		}
 		transport.Proxy = http.ProxyURL(url)
+
+		for k, v := range p.c.GetProxyConnectHeader() {
+			transport.ProxyConnectHeader.Add(k, v)
+		}
 	}
 
 	if p.c.GetDisableCertValidation() || p.c.GetTlsConfig() != nil {
