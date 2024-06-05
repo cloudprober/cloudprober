@@ -78,7 +78,7 @@ probe {
 (Listing source:
 [examples/additional_label/cloudprober.cfg](https://github.com/cloudprober/cloudprober/blob/master/examples/additional_label/cloudprober.cfg))
 
-## Environment Based Additional Labels
+## Global Additional Labels
 
 You can also add labels to all metrics exported by cloudprober using an
 environment variable: `CLOUDPROBER_ADDITIONAL_LABELS`. You can choose a
@@ -102,5 +102,5 @@ label through this method, it will be silently ignored.
 
 ## Related
 
-See [Exporting Metrics](/docs/how-to/additional-labels) to learn more about how
+See [Exporting Metrics](/docs/surfacers/overview/) to learn more about how
 metrics are exported from Cloudprober.
