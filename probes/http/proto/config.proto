@@ -74,7 +74,7 @@ message ProbeConf {
   // }   
   repeated Header headers = 8;
   map<string, string> header = 20;
-
+  
   // Request body. This field works similar to the curl's data flag. If there
   // are multiple "body" fields, we combine their values with a '&' in between.
   //
@@ -117,6 +117,11 @@ message ProbeConf {
 
   // Proxy URL, e.g. http://myproxy:3128
   optional string proxy_url = 16;
+
+  // HTTP proxy connect headers. These headers are passed on to the CONNECT
+  // requests to the HTTP proxies. Note that CONNECT method is used to fetch
+  // HTTPS URLs via HTTP proxies.
+  map<string, string> proxy_connect_header = 23;
 
   // User agent. Default user agent is Go's default user agent.
   optional string user_agent = 19;
