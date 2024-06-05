@@ -130,6 +130,13 @@ import (
 	// Proxy URL, e.g. http://myproxy:3128
 	proxyUrl?: string @protobuf(16,string,name=proxy_url)
 
+	// HTTP proxy connect headers. These headers are passed on to the CONNECT
+	// requests to the HTTP proxies. Note that CONNECT method is used to fetch
+	// HTTPS URLs via HTTP proxies.
+	proxyConnectHeader?: {
+		[string]: string
+	} @protobuf(23,map[string]string,proxy_connect_header)
+
 	// User agent. Default user agent is Go's default user agent.
 	userAgent?: string @protobuf(19,string,name=user_agent)
 
