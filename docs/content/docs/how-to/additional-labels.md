@@ -7,9 +7,22 @@ title: "Additional Labels"
 date: 2022-10-01T17:24:32-07:00
 ---
 
-You can add additional labels to probe metrics using a probe-level field: `additional_label`. An additional label's value can be static, or it can be determined at the run-time: from the environment that the probe is running in (e.g. GCE instance labels), or target's labels.
+You can add additional labels to Cloudprober metrics using two methods:
 
-Example config [here](https://github.com/cloudprober/cloudprober/blob/master/examples/additional_label/cloudprober.cfg) demonstrates adding various types of additional labels to probe metrics. For this config (also listed below for quick rerefence):
+- Probe level config field: `additional_label`
+- Through an environment variable: `CLOUDPROBER_ADDITIONAL_LABELS`.
+
+## Probe Level Additional Labels
+
+You can add additional labels to a specific probe's metrics using probe-level
+config field: `additional_label`. An additional label's value can be static, or
+it can be determined at the run-time: from the environment that the probe is
+running in (e.g. GCE instance labels, or location), or target's labels.
+
+Example config
+[here](https://github.com/cloudprober/cloudprober/blob/master/examples/additional_label/cloudprober.cfg)
+demonstrates adding various types of additional labels to probe metrics. For
+this config (also listed below for quick rerefence):
 
 - if ingress target has label "`fqdn:app.example.com`",
 - and prober is running in the GCE zone `us-east1-c`,
@@ -28,12 +41,9 @@ probe {
   type: HTTP
 
   targets {
-    rds_targets {
-      resource_path: "k8s://ingresses"
-      filter {
-        key: "namespace"
-        value: "default"
-      }
+    k8s {
+      ingresses: ""
+      namespace: "default"
     }
   }
 
@@ -65,9 +75,32 @@ probe {
 }
 ```
 
-(Listing source: [examples/additional_label/cloudprober.cfg](https://github.com/cloudprober/cloudprober/blob/master/examples/additional_label/cloudprober.cfg))
+(Listing source:
+[examples/additional_label/cloudprober.cfg](https://github.com/cloudprober/cloudprober/blob/master/examples/additional_label/cloudprober.cfg))
 
-## Adding your own metrics
+## Environment Based Additional Labels
 
-For external probes, Cloudprober also allows external programs to provide additional metrics.
-See [External Probe](https://cloudprober.org/how-to/external-probe) for more details.
+You can also add labels to all metrics exported by cloudprober using an
+environment variable: `CLOUDPROBER_ADDITIONAL_LABELS`. You can choose a
+different environemnt variable or disable this behavior completely by modifying
+the `additional_labels_env_var` config field in the
+[surfacers config](/docs/config/surfacer/#cloudprober_surfacer_SurfacerDef).
+
+Value of the environment variable should be a comma separated list of
+`key=value` pairs. For example if CLOUDPROBER_ADDITIONAL_LABELS is set to
+`app=ingester,env=prod`, cloudprober will add the following two labels to all
+the metrics: `{env=prod, app=ingester}`.
+
+This feature is particularly useful in a multi-single-tenant setup (where you
+run one instance per tenant) to filter out metrics by tenant. For example, you
+can add `tenant=team1` label to all cloudprober metrics by setting
+`CLOUDPROBER_ADDITIONAL_LABELS=tenant=team1` in team1's pod's environment.
+
+Note that existing probe labels have precedence over environment based labels.
+If probe metrics already have a label (e.g. `dst`), and you try to add the same
+label through this method, it will be silently ignored.
+
+## Related
+
+See [Exporting Metrics](/docs/how-to/additional-labels) to learn more about how
+metrics are exported from Cloudprober.
