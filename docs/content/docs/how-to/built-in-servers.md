@@ -2,7 +2,7 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 32
+    weight: 40
 title: "Built-in Servers"
 ---
 

@@ -5,6 +5,24 @@
   weight = 30
 
 [[main]]
+  name = "Overview"
+  weight = 31
+  url = "/docs/overview/cloudprober"
+  parent = "get-started"
+
+[[main]]
+  name = "Getting Started"
+  weight = 32
+  url = "/docs/overview/getting-started"
+  parent = "get-started"
+
+[[main]]
+  name = "What is a Probe"
+  weight = 33
+  url = "/docs/overview/probe"
+  parent = "get-started"
+
+[[main]]
   name = "Configuration"
   weight = 40
   identifier = "config"
@@ -14,7 +32,7 @@
   name = "How-To"
   weight = 60
   identifier = "how-to"
-  url = "/docs/how-to/external-probe"
+  url = "/docs/how-to/list/"
 
 [[main]]
   name = "Surfacers"
@@ -57,7 +75,7 @@
 [[docs]]
   name = "How-To"
   identifier = "how-to"
-  url = "/docs/how-to/external-probe"
+  url = "/docs/how-to/list/"
   weight = 30
 
 [[docs]]
