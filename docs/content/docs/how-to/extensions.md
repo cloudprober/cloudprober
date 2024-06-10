@@ -2,7 +2,7 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 40
+    weight: 32
 title: "Extending Cloudprober"
 ---
 
