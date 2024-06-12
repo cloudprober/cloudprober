@@ -6,6 +6,7 @@
       <h4 class="mb-5">{{ .Params.lead | safeHTML }}</h4>
       <a
         class="btn btn-lg btn-primary mb-2"
+        style="font-size: 1.16rem"
         href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/cloudprober"
         role="button"
         >Get Started</a
@@ -82,7 +83,10 @@
         <p>
           Reliable, automated
           <a href="docs/how-to/targets">targets discovery</a> for Kubernetes and
-          GCP resources.
+          GCP resources. Or, use
+          <a href="/docs/how-to/targets/#file-based-targets">file targets</a>
+          to define probes once and have probes be automatically updated when
+          targets file changes.
         </p>
       </div>
       <div class="col-lg-5">
