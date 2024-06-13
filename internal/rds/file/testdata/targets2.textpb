@@ -9,3 +9,9 @@ resource {
 	ip: "::aaa:1"
 	port: 8080
 }
+
+endpoint {
+	name: "web-1"
+	port: 80
+	url: "https://cloudprober.org"
+}

@@ -28,8 +28,9 @@ import (
 )
 
 var testResourcesFiles = map[string][]string{
-	"textpb": []string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
-	"json":   []string{"testdata/targets.json"},
+	"textpb": {"testdata/targets1.textpb", "testdata/targets2.textpb"},
+	"json":   {"testdata/targets.json"},
+	"yaml":   {"testdata/targets.yaml"},
 }
 
 var testExpectedResources = []*rdspb.Resource{
@@ -60,6 +61,15 @@ var testExpectedResources = []*rdspb.Resource{
 		Port: proto.Int32(8080),
 		Ip:   proto.String("::aaa:1"),
 	},
+	{
+		Name: proto.String("web-1"),
+		Port: proto.Int32(80),
+		Labels: map[string]string{
+			"__cp_host__":   "cloudprober.org",
+			"__cp_path__":   "/",
+			"__cp_scheme__": "https",
+		},
+	},
 }
 
 func compareResourceList(t *testing.T, got []*rdspb.Resource, want []*rdspb.Resource) {
@@ -76,7 +86,7 @@ func compareResourceList(t *testing.T, got []*rdspb.Resource, want []*rdspb.Reso
 }
 
 func TestListResources(t *testing.T) {
-	for _, filetype := range []string{"textpb", "json"} {
+	for _, filetype := range []string{"textpb", "json", "yaml"} {
 		t.Run(filetype, func(t *testing.T) {
 			p, err := New(&configpb.ProviderConfig{FilePath: testResourcesFiles[filetype]}, nil)
 			if err != nil {
