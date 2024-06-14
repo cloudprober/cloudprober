@@ -4,11 +4,11 @@ resource {
 	port: 8080
 	labels {
 	  key: "device_type"
-		value: "switch"
+	  value: "switch"
 	}
 	labels {
 	  key: "cluster"
-		value: "xx"
+	  value: "xx"
 	}
 }
 
@@ -18,6 +18,6 @@ resource {
 	port: 8081
 	labels {
 	  key: "cluster"
-		value: "xx"
+	  value: "xx"
 	}
 }
