@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
-	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	endpointpb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 )
 
 // Endpoint represents a targets and associated parameters.
@@ -151,7 +151,7 @@ func parseURL(s string) (scheme, host, path string, port int, err error) {
 	return scheme, host, path, port, nil
 }
 
-func FromProtoMessage(endpointspb []*targetspb.Endpoint) ([]Endpoint, error) {
+func FromProtoMessage(endpointspb []*endpointpb.Endpoint) ([]Endpoint, error) {
 	var endpoints []Endpoint
 	seen := make(map[string]bool)
 	timestamp := time.Now()

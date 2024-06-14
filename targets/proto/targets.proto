@@ -8,6 +8,8 @@ import "github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto";
 import "github.com/cloudprober/cloudprober/targets/file/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/gce/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/lameduck/proto/config.proto";
+import "github.com/cloudprober/cloudprober/targets/endpoint/proto/endpoint.proto";
+
 
 option go_package = "github.com/cloudprober/cloudprober/targets/proto";
 
@@ -74,27 +76,6 @@ message K8sTargets {
   optional int32 re_eval_sec = 19;
 
   optional rds.ClientConf.ServerOptions rds_server_options = 20;
-}
-
-message Endpoint {
-  // Endpoint name. Metrics for a target are identified by a combination of
-  // endpoint name and port name, if specified.
-  required string name = 1;
-
-  // Optional IP address. If not specified, endpoint name is DNS resolved.
-  optional string ip = 2;
-
-  // Endpoint port. If specified, this port will be used by the port-based
-  // probes (e.g.  TCP, HTTP), if probe's configuration doesn't specify a port.
-  optional int32 port = 3;
-
-  // HTTP probe URL. If provided, this field is used by the HTTP probe, if
-  // probe configuration itself doesn't specify URL fields.
-  optional string url = 4;
-
-  // Endpoint labels. These labels can be exported as metrics labels using the
-  // `additional_label` field in the probe configuration.
-  map<string, string> labels = 5;
 }
 
 message TargetsDef {
