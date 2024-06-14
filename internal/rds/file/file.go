@@ -30,9 +30,11 @@ import (
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	"sigs.k8s.io/yaml"
 )
 
 // DefaultProviderID is the povider id to use for this provider if a provider
@@ -123,7 +125,7 @@ func (ls *lister) listResources(req *pb.ListResourcesRequest) (*pb.ListResources
 	}, nil
 }
 
-func (ls *lister) parseFileContent(b []byte) ([]*pb.Resource, error) {
+func (ls *lister) parseFileContent(b []byte) (*configpb.FileResources, error) {
 	resources := &configpb.FileResources{}
 
 	switch ls.format {
@@ -132,13 +134,22 @@ func (ls *lister) parseFileContent(b []byte) ([]*pb.Resource, error) {
 		if err != nil {
 			return nil, fmt.Errorf("file_provider(%s): error unmarshaling as text proto: %v", ls.filePath, err)
 		}
-		return resources.GetResource(), nil
+		return resources, nil
 	case configpb.ProviderConfig_JSON:
 		err := protojson.Unmarshal(b, resources)
 		if err != nil {
 			return nil, fmt.Errorf("file_provider(%s): error unmarshaling as JSON: %v", ls.filePath, err)
 		}
-		return resources.GetResource(), nil
+		return resources, nil
+	case configpb.ProviderConfig_YAML:
+		jsonCfg, err := yaml.YAMLToJSON(b)
+		if err != nil {
+			return nil, fmt.Errorf("error converting YAML to JSON: %v", err)
+		}
+		if err := protojson.Unmarshal(jsonCfg, resources); err != nil {
+			return nil, fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
+		}
+		return resources, nil
 	}
 
 	return nil, fmt.Errorf("file_provider(%s): unknown format - %v", ls.filePath, ls.format)
@@ -171,7 +182,7 @@ func (ls *lister) refresh() error {
 		return fmt.Errorf("file(%s): error while reading file: %v", ls.filePath, err)
 	}
 
-	resources, err := ls.parseFileContent(b)
+	fileResources, err := ls.parseFileContent(b)
 	if err != nil {
 		return err
 	}
@@ -180,9 +191,29 @@ func (ls *lister) refresh() error {
 	defer ls.mu.Unlock()
 
 	ls.lastUpdated = time.Now()
-	ls.resources = resources
+	ls.resources = fileResources.GetResource()
 
-	ls.l.Infof("file_provider(%s): Read %d resources.", ls.filePath, len(ls.resources))
+	endpoints, err := endpoint.FromProtoMessage(fileResources.GetEndpoint())
+	if err != nil {
+		return fmt.Errorf("file_provider(%s): error parsing endpoints: %v", ls.filePath, err)
+	}
+
+	ls.l.Infof("file_provider(%s): Read %d resources and %d endpoint", ls.filePath, len(ls.resources), len(endpoints))
+
+	for _, e := range endpoints {
+		epRes := &pb.Resource{
+			Name:   proto.String(e.Name),
+			Labels: e.Labels,
+		}
+		if e.IP != nil {
+			epRes.Ip = proto.String(e.IP.String())
+		}
+		if e.Port != 0 {
+			epRes.Port = proto.Int32(int32(e.Port))
+		}
+		ls.resources = append(ls.resources, epRes)
+	}
+
 	return nil
 }
 
@@ -192,6 +223,8 @@ func formatFromPath(path string) configpb.ProviderConfig_Format {
 		return configpb.ProviderConfig_TEXTPB
 	case ".json":
 		return configpb.ProviderConfig_JSON
+	case ".yaml", ".yml":
+		return configpb.ProviderConfig_YAML
 	}
 	return configpb.ProviderConfig_TEXTPB
 }

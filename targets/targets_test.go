@@ -26,6 +26,7 @@ import (
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	eppb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	testdatapb "github.com/cloudprober/cloudprober/targets/testdata"
 	"github.com/stretchr/testify/assert"
@@ -92,7 +93,7 @@ func TestList(t *testing.T) {
 				Regex: proto.String(tt.re),
 			}
 			for _, ep := range staticHosts {
-				targetsDef.Endpoint = append(targetsDef.Endpoint, &targetspb.Endpoint{
+				targetsDef.Endpoint = append(targetsDef.Endpoint, &eppb.Endpoint{
 					Name: proto.String(ep),
 				})
 			}
@@ -302,7 +303,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "static endpoints",
 			targetsDef: &targetspb.TargetsDef{
-				Endpoint: []*targetspb.Endpoint{
+				Endpoint: []*eppb.Endpoint{
 					{
 						Name: proto.String("host1"),
 					},
@@ -316,7 +317,7 @@ func TestNew(t *testing.T) {
 				Type: &targetspb.TargetsDef_HostNames{
 					HostNames: "host2,host3",
 				},
-				Endpoint: []*targetspb.Endpoint{
+				Endpoint: []*eppb.Endpoint{
 					{
 						Name: proto.String("host1"),
 					},
@@ -346,7 +347,7 @@ func TestNewResolver(t *testing.T) {
 		Type: &targetspb.TargetsDef_HostNames{
 			HostNames: "host2,host3",
 		},
-		Endpoint: []*targetspb.Endpoint{
+		Endpoint: []*eppb.Endpoint{
 			{
 				Name: proto.String("host1"),
 			},
@@ -359,7 +360,7 @@ func TestNewResolver(t *testing.T) {
 		Type: &targetspb.TargetsDef_HostNames{
 			HostNames: "host2,host3",
 		},
-		Endpoint: []*targetspb.Endpoint{
+		Endpoint: []*eppb.Endpoint{
 			{
 				Name: proto.String("host1"),
 			},

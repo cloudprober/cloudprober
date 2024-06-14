@@ -18,44 +18,17 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cloudprober/cloudprober/internal/rds/file/testdata"
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
 	"google.golang.org/protobuf/proto"
 )
 
-var testExpectedEndpoints = []endpoint.Endpoint{
-	{
-		Name: "switch-xx-1",
-		Port: 8080,
-		Labels: map[string]string{
-			"device_type": "switch",
-			"cluster":     "xx",
-		},
-	},
-	{
-		Name: "switch-xx-2",
-		Port: 8081,
-		Labels: map[string]string{
-			"cluster": "xx",
-		},
-	},
-	{
-		Name: "switch-yy-1",
-		Port: 8080,
-	},
-	{
-		Name: "switch-zz-1",
-		Port: 8080,
-	},
-}
-
-var testExpectedIP = map[string]string{
-	"switch-xx-1": "10.1.1.1",
-	"switch-xx-2": "10.1.1.2",
-	"switch-yy-1": "10.1.2.1",
-	"switch-zz-1": "::aaa:1",
-}
+var (
+	testExpectedEndpoints = testdata.ExpectedEndpoints()
+	testExpectedIP        = testdata.ExpectedIPs()
+)
 
 func TestListEndpointsWithFilter(t *testing.T) {
 	for _, test := range []struct {
@@ -100,13 +73,15 @@ func TestListEndpointsWithFilter(t *testing.T) {
 			}
 
 			for _, ep := range got {
-				resolvedIP, err := ft.Resolve(ep.Name, 0)
-				if err != nil {
-					t.Errorf("unexpected error while resolving %s: %v", ep.Name, err)
-				}
-				ip := resolvedIP.String()
-				if ip != testExpectedIP[ep.Name] {
-					t.Errorf("ft.Resolve(%s): got=%s, expected=%s", ep.Name, ip, testExpectedIP[ep.Name])
+				if testExpectedIP[ep.Name] != "" {
+					resolvedIP, err := ft.Resolve(ep.Name, 0)
+					if err != nil {
+						t.Errorf("unexpected error while resolving %s: %v", ep.Name, err)
+					}
+					ip := resolvedIP.String()
+					if ip != testExpectedIP[ep.Name] {
+						t.Errorf("ft.Resolve(%s): got=%s, expected=%s", ep.Name, ip, testExpectedIP[ep.Name])
+					}
 				}
 			}
 		})

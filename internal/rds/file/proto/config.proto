@@ -26,6 +26,7 @@ syntax = "proto2";
 package cloudprober.rds.file;
 
 import "github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto";
+import "github.com/cloudprober/cloudprober/targets/endpoint/proto/endpoint.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/internal/rds/file/proto";
 
@@ -61,6 +62,7 @@ message ProviderConfig {
     UNSPECIFIED = 0;  // Determine format using file extension/
     TEXTPB = 1;       // Text proto format (.textpb).
     JSON = 2;         // JSON proto format (.json).
+    YAML = 3;         // YAML proto format (.yaml).
   }
   optional Format format = 2;
 
@@ -75,4 +77,5 @@ message ProviderConfig {
 
 message FileResources {
   repeated .cloudprober.rds.Resource resource = 1;
+  repeated .cloudprober.targets.Endpoint endpoint = 2;
 }

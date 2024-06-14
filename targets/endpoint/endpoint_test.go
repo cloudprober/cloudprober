@@ -20,7 +20,8 @@ import (
 	"testing"
 	"time"
 
-	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	endpointpb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -178,13 +179,13 @@ func TestParseURL(t *testing.T) {
 func TestFromProtoMessage(t *testing.T) {
 	tests := []struct {
 		name        string
-		endpointspb []*targetspb.Endpoint
+		endpointspb []*endpointpb.Endpoint
 		want        []Endpoint
 		wantErr     bool
 	}{
 		{
 			name: "static endpoints",
-			endpointspb: []*targetspb.Endpoint{
+			endpointspb: []*endpointpb.Endpoint{
 				{
 					Name: proto.String("host1_url1"),
 					Url:  proto.String("http://host1:8080/url1"),
@@ -218,7 +219,7 @@ func TestFromProtoMessage(t *testing.T) {
 		},
 		{
 			name: "same keys error",
-			endpointspb: []*targetspb.Endpoint{
+			endpointspb: []*endpointpb.Endpoint{
 				{
 					Name: proto.String("host1_url1"),
 					Url:  proto.String("http://host1:8080/url1"),
@@ -232,7 +233,7 @@ func TestFromProtoMessage(t *testing.T) {
 		},
 		{
 			name: "different keys",
-			endpointspb: []*targetspb.Endpoint{
+			endpointspb: []*endpointpb.Endpoint{
 				{
 					Name: proto.String("host1"),
 					Url:  proto.String("http://host1/url1"),

@@ -1,4 +1,4 @@
-// Copyright 2021 The Cloudprober Authors.
+// Copyright 2021-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,51 +16,24 @@ package file
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/internal/rds/file/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/file/testdata"
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"google.golang.org/protobuf/proto"
 )
 
 var testResourcesFiles = map[string][]string{
-	"textpb": []string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
-	"json":   []string{"testdata/targets.json"},
+	"textpb": {"testdata/targets1.textpb", "testdata/targets2.textpb"},
+	"json":   {"testdata/targets.json"},
+	"yaml":   {"testdata/targets.yaml"},
 }
 
-var testExpectedResources = []*rdspb.Resource{
-	{
-		Name: proto.String("switch-xx-1"),
-		Port: proto.Int32(8080),
-		Ip:   proto.String("10.1.1.1"),
-		Labels: map[string]string{
-			"device_type": "switch",
-			"cluster":     "xx",
-		},
-	},
-	{
-		Name: proto.String("switch-xx-2"),
-		Port: proto.Int32(8081),
-		Ip:   proto.String("10.1.1.2"),
-		Labels: map[string]string{
-			"cluster": "xx",
-		},
-	},
-	{
-		Name: proto.String("switch-yy-1"),
-		Port: proto.Int32(8080),
-		Ip:   proto.String("10.1.2.1"),
-	},
-	{
-		Name: proto.String("switch-zz-1"),
-		Port: proto.Int32(8080),
-		Ip:   proto.String("::aaa:1"),
-	},
-}
+var testExpectedResources = testdata.ExpectedResources
 
 func compareResourceList(t *testing.T, got []*rdspb.Resource, want []*rdspb.Resource) {
 	t.Helper()
@@ -76,7 +49,7 @@ func compareResourceList(t *testing.T, got []*rdspb.Resource, want []*rdspb.Reso
 }
 
 func TestListResources(t *testing.T) {
-	for _, filetype := range []string{"textpb", "json"} {
+	for _, filetype := range []string{"textpb", "json", "yaml"} {
 		t.Run(filetype, func(t *testing.T) {
 			p, err := New(&configpb.ProviderConfig{FilePath: testResourcesFiles[filetype]}, nil)
 			if err != nil {
@@ -170,7 +143,7 @@ func BenchmarkListResources(b *testing.B) {
 func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
 	t.Helper()
 	// Set up test file.
-	tf, err := ioutil.TempFile("", "cloudprober_rds_file.*.json")
+	tf, err := os.CreateTemp("", "cloudprober_rds_file.*.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +155,9 @@ func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ioutil.WriteFile(testFile, b, 0)
+	if err := os.WriteFile(testFile, b, 0); err != nil {
+		t.Fatal(err)
+	}
 
 	ls, err := newLister(testFile, &configpb.ProviderConfig{
 		DisableModifiedTimeCheck: proto.Bool(disableModTimeCheck),
