@@ -191,15 +191,15 @@ func (ls *lister) refresh() error {
 	defer ls.mu.Unlock()
 
 	ls.lastUpdated = time.Now()
-	ls.resources = fileResources.GetResource()
 
-	endpoints, err := endpoint.FromProtoMessage(fileResources.GetEndpoint())
+	endpoints, err := endpoint.FromProtoMessage(fileResources.GetResource())
 	if err != nil {
 		return fmt.Errorf("file_provider(%s): error parsing endpoints: %v", ls.filePath, err)
 	}
 
-	ls.l.Infof("file_provider(%s): Read %d resources and %d endpoint", ls.filePath, len(ls.resources), len(endpoints))
+	ls.l.Infof("file_provider(%s): Read %d endpoints", ls.filePath, len(endpoints))
 
+	ls.resources = make([]*pb.Resource, 0, len(endpoints))
 	for _, e := range endpoints {
 		epRes := &pb.Resource{
 			Name:   proto.String(e.Name),
