@@ -25,7 +25,6 @@ syntax = "proto2";
 
 package cloudprober.rds.file;
 
-import "github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto";
 import "github.com/cloudprober/cloudprober/targets/endpoint/proto/endpoint.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/internal/rds/file/proto";
@@ -76,6 +75,19 @@ message ProviderConfig {
 }
 
 message FileResources {
-  repeated .cloudprober.rds.Resource resource = 1;
-  repeated .cloudprober.targets.Endpoint endpoint = 2;
+  // resource format is based on the cloudprober.targets.Endpoint protobuf. You
+  // can specify endpoints in the following formats: TextPB, JSON, or YAML.
+  //
+  // Example in textproto format:
+  //
+  // resource {
+  //   name: "web-01"
+  //   url: "https://cloudprober.org"
+  // }
+  // resource {
+  //   name: "web-02"
+  //   ip: "10.1.2.3"
+  //   port: 8080
+  // }
+  repeated .cloudprober.targets.Endpoint resource = 1;
 }

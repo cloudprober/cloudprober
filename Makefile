@@ -39,9 +39,9 @@ $(BINARY): $(SOURCES)
 config_docs:
 	go install github.com/manugarg/protodoc/cmd/protodoc@latest
 	protodoc --proto_root_dir=. --package_prefix=github.com/cloudprober/cloudprober \
-		--format=yaml --out_dir=docs/_config_docs/yaml
+		--format=yaml --out_dir=docs/_config_docs/yaml --extra_msgs=cloudprober.rds.file.FileResources
 	protodoc --proto_root_dir=. --package_prefix=github.com/cloudprober/cloudprober \
-		--format=textpb --out_dir=docs/_config_docs/textpb
+		--format=textpb --out_dir=docs/_config_docs/textpb  --extra_msgs=cloudprober.rds.file.FileResources
 
 docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) Dockerfile
 	docker buildx build --push \
