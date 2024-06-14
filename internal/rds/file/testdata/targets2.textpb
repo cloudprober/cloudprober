@@ -10,7 +10,7 @@ resource {
 	port: 8080
 }
 
-endpoint {
+resource {
 	name: "web-1"
 	port: 80
 	url: "https://cloudprober.org"

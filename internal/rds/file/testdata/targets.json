@@ -26,9 +26,7 @@
 			"name": "switch-zz-1",
 			"ip": "::aaa:1",
 			"port": 8080
-		}
-	],
-	"endpoint": [
+		},
 		{
 			"name": "web-1",
 			"port": 80,
