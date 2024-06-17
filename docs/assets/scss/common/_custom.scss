@@ -81,6 +81,15 @@ a.docs-link {
 
 .nav .nav-item {
   text-transform: uppercase;
+  font-size: .95rem;
+}
+
+.dropdown-menu-main .dropdown-item {
+  color: inherit;
+  font-size: 0.92rem;
+  font-weight: 400;
+  text-decoration: none;
+  text-transform: none;
 }
 
 .footer li {
