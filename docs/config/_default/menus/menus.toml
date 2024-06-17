@@ -23,7 +23,7 @@
   parent = "get-started"
 
 [[main]]
-  name = "Configuration"
+  name = "Config"
   weight = 40
   identifier = "config"
   url = "/docs/config/overview"
@@ -41,8 +41,14 @@
   url = "/docs/surfacers/overview"
 
 [[main]]
-  name = "About"
+  name = "Blog"
   weight = 80
+  identifier = "blog"
+  url = "https://blog.manugarg.com/tags/cloudprober/"
+
+[[main]]
+  name = "About"
+  weight = 85
   identifier = "about"
   url = "/docs/about/"
 
