@@ -168,8 +168,8 @@ func serve(ctx context.Context, probeFunc func(*serverpb.ProbeRequest, *serverpb
 //				reply.ErrorMessage = proto.String(errMsg)
 //			}
 //		})
-func ServeContext(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
-	serve(context.Background(), probeFunc, bufio.NewReader(os.Stdin), os.Stdout, os.Stderr)
+func ServeContext(ctx context.Context, probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
+	serve(ctx, probeFunc, bufio.NewReader(os.Stdin), os.Stdout, os.Stderr)
 }
 
 // Serve is similar to ServeContext but uses the background context.
