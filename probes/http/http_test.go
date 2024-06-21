@@ -320,6 +320,56 @@ func TestProbeWithBody(t *testing.T) {
 	}
 }
 
+func TestProbeWithBodyFile(t *testing.T) {
+	testBody := strings.Repeat("a", 1024)
+	f, err := os.CreateTemp("", "test-body-file")
+	if err != nil {
+		t.Fatalf("Error creating temp file: %v", err)
+	}
+	defer os.Remove(f.Name())
+
+	if _, err := f.WriteString(testBody); err != nil {
+		t.Fatalf("Error writing to temp file: %v", err)
+	}
+
+	testTarget := "test.com"
+
+	p := &Probe{}
+	err = p.Init("http_test", &options.Options{
+		Targets:  targets.StaticTargets(testTarget),
+		Interval: 2 * time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			BodyFile: proto.String(f.Name()),
+			// Can't use ExportResponseAsMetrics for large bodies,
+			// since maxResponseSizeForMetrics is small
+			ExportResponseAsMetrics: proto.Bool(false),
+		},
+	})
+	if err != nil {
+		t.Errorf("Error while initializing probe: %v", err)
+	}
+	tt := &testTransport{}
+	p.baseTransport = tt
+	target := endpoint.Endpoint{Name: testTarget}
+
+	// Probe 1st run
+	result := p.newResult()
+	req := p.httpRequestForTarget(target)
+	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
+
+	got := string(tt.lastRequestBody)
+	if got != testBody {
+		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
+	}
+
+	// Probe 2nd run (we should get the same request body).
+	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
+	got = string(tt.lastRequestBody)
+	if got != testBody {
+		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
+	}
+}
+
 type testServer struct {
 	addr *net.TCPAddr
 	srv  *http.Server
