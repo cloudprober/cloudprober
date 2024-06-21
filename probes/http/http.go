@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -199,7 +200,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.url)
 	}
 
-	p.requestBody = httpreq.NewRequestBody(p.c.GetBody()...)
+	body := p.c.GetBody()
+	if len(body) == 0 && p.c.GetBodyFile() != "" {
+		b, err := os.ReadFile(p.c.GetBodyFile())
+		if err != nil {
+			return fmt.Errorf("error reading body file: %v", err)
+		}
+		body = []string{string(b)}
+	}
+	p.requestBody = httpreq.NewRequestBody(body...)
 
 	if p.c.GetOauthConfig() != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(p.c.GetOauthConfig(), p.l)
