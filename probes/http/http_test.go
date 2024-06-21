@@ -272,20 +272,18 @@ func TestProbeVariousMethods(t *testing.T) {
 	}
 }
 
-func testProbeWithLargeBody(t *testing.T, bodySize int) {
-	testBody := strings.Repeat("a", bodySize)
+func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody string) {
 	testTarget := "test.com"
+
+	// Can't use ExportResponseAsMetrics for large bodies since
+	// maxResponseSizeForMetrics is small
+	probeConf.ExportResponseAsMetrics = proto.Bool(false)
 
 	p := &Probe{}
 	err := p.Init("http_test", &options.Options{
-		Targets:  targets.StaticTargets(testTarget),
-		Interval: 2 * time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			Body: []string{testBody},
-			// Can't use ExportResponseAsMetrics for large bodies,
-			// since maxResponseSizeForMetrics is small
-			ExportResponseAsMetrics: proto.Bool(false),
-		},
+		Targets:   targets.StaticTargets(testTarget),
+		Interval:  2 * time.Second,
+		ProbeConf: probeConf,
 	})
 	if err != nil {
 		t.Errorf("Error while initializing probe: %v", err)
@@ -300,22 +298,23 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 
 	got := string(tt.lastRequestBody)
-	if got != testBody {
-		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
+	if got != wantBody {
+		t.Errorf("response body length: got=%d, expected=%d", len(got), len(wantBody))
 	}
 
 	// Probe 2nd run (we should get the same request body).
 	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
 	got = string(tt.lastRequestBody)
-	if got != testBody {
-		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
+	if got != wantBody {
+		t.Errorf("response body length: got=%d, expected=%d", len(got), len(wantBody))
 	}
 }
 
 func TestProbeWithBody(t *testing.T) {
 	for _, size := range []int{12, largeBodyThreshold - 1, largeBodyThreshold, largeBodyThreshold + 1, largeBodyThreshold * 2} {
 		t.Run(fmt.Sprintf("size:%d", size), func(t *testing.T) {
-			testProbeWithLargeBody(t, size)
+			testBody := strings.Repeat("a", size)
+			testProbeWithBody(t, &configpb.ProbeConf{Body: []string{testBody}}, testBody)
 		})
 	}
 }
@@ -332,42 +331,7 @@ func TestProbeWithBodyFile(t *testing.T) {
 		t.Fatalf("Error writing to temp file: %v", err)
 	}
 
-	testTarget := "test.com"
-
-	p := &Probe{}
-	err = p.Init("http_test", &options.Options{
-		Targets:  targets.StaticTargets(testTarget),
-		Interval: 2 * time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			BodyFile: proto.String(f.Name()),
-			// Can't use ExportResponseAsMetrics for large bodies,
-			// since maxResponseSizeForMetrics is small
-			ExportResponseAsMetrics: proto.Bool(false),
-		},
-	})
-	if err != nil {
-		t.Errorf("Error while initializing probe: %v", err)
-	}
-	tt := &testTransport{}
-	p.baseTransport = tt
-	target := endpoint.Endpoint{Name: testTarget}
-
-	// Probe 1st run
-	result := p.newResult()
-	req := p.httpRequestForTarget(target)
-	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
-
-	got := string(tt.lastRequestBody)
-	if got != testBody {
-		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
-	}
-
-	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
-	got = string(tt.lastRequestBody)
-	if got != testBody {
-		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
-	}
+	testProbeWithBody(t, &configpb.ProbeConf{BodyFile: proto.String(f.Name())}, testBody)
 }
 
 type testServer struct {
