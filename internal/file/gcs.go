@@ -33,7 +33,11 @@ func gcsRequest(ctx context.Context, method, objectPath string) (*http.Response,
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, path.Join(gcsHTTPBaseURL, objectPath), nil)
+	u, _ := url.Parse(gcsHTTPBaseURL)
+	u.Path = path.Join(u.Path, objectPath)
+
+
+	req, err := http.NewRequestWithContext(ctx, method, u, nil)
 	if err != nil {
 		return nil, err
 	}
