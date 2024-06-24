@@ -33,7 +33,11 @@ func gcsRequest(ctx context.Context, method, objectPath string) (*http.Response,
 		return nil, err
 	}
 
-	u, _ := url.Parse(gcsHTTPBaseURL)
+	u, err := url.Parse(gcsHTTPBaseURL)
+	if err != nil {
+	  // This should never happen as base URL is defined by us.
+	  panic("invalid GCS base URL: " + err.Error())
+	}  
 	u.Path = path.Join(u.Path, objectPath)
 
 
