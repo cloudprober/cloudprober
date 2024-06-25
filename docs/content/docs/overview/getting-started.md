@@ -8,31 +8,25 @@ title: Getting Started
 
 ## Installation
 
-- **From Source**  
-  If you have Go 1.9 or higher installed and GOPATH environment variable
-  properly set up, you can download and install `cloudprober` using the
-  following commands:
+If you've Go installed, you can install cloudprober from source using the
+following command:
 
-  ```bash
-  go get github.com/cloudprober/cloudprober
-  GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/cloudprober/cloudprober/cmd/cloudprober.go
-  ```
+```bash
+go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest
+```
 
-- **Pre-built Binaries**  
-  You can download pre-built binaries for Linux, MacOS and Windows from the
-  project's
-  [releases page](http://github.com/cloudprober/cloudprober/releases).  
-  (_See
-  [this page](https://github.com/cloudprober/cloudprober/wiki/Download-unreleased-binaries)
-  for how to download the unreleased binaries._)
+###### Other Methods:
 
-- **Docker Image** You can download and run the
-  [latest](https://github.com/cloudprober/cloudprober/wiki/Docker-versions)
-  docker image using the following command:
+| Method             | Instructions                                                                                                                            | Platform              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Brew               | `brew install cloudprober`                                                                                                              | MacOS, Linux          |
+| Docker Image       | `docker run ghcr.io/cloudprober/cloudprober` ([other docker versions](https://github.com/cloudprober/cloudprober/wiki/Docker-versions)) | Docker                |
+| Helm chart         | [See here for instructions](https://github.com/cloudprober/helm-charts)                                                                 | Kubernetes            |
+| Pre-built binaries | Download from the [releases page](http://github.com/cloudprober/cloudprober/releases).                                                  | MacOS, Linux, Windows |
 
-  ```bash
-  docker run ghcr.io/cloudprober/cloudprober
-  ```
+See
+[this page](https://github.com/cloudprober/cloudprober/wiki/Unreleased-Binaries)
+for how to access unreleased binaries.
 
 ## Configuration
 
