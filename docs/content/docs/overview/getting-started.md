@@ -8,6 +8,15 @@ title: Getting Started
 
 ## Installation
 
+If you've Go installed, you can install cloudprober from source using the
+following command:
+
+```bash
+go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest
+```
+
+###### Other Methods:
+
 | Method             | Instructions                                                                                                                            | Platform              |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | Brew               | `brew install cloudprober`                                                                                                              | MacOS, Linux          |
