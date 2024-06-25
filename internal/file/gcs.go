@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"time"
 
@@ -33,7 +34,15 @@ func gcsRequest(ctx context.Context, method, objectPath string) (*http.Response,
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, path.Join(gcsHTTPBaseURL, objectPath), nil)
+	u, err := url.Parse(gcsHTTPBaseURL)
+	if err != nil {
+	  // This should never happen as base URL is defined by us.
+	  panic("invalid GCS base URL: " + err.Error())
+	}  
+	u.Path = path.Join(u.Path, objectPath)
+
+
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
