@@ -42,7 +42,7 @@ func gcsRequest(ctx context.Context, method, objectPath string) (*http.Response,
 	u.Path = path.Join(u.Path, objectPath)
 
 
-	req, err := http.NewRequestWithContext(ctx, method, u, nil)
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
