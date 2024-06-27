@@ -15,7 +15,7 @@ a probe to verify that your frontends can reach your backends. Similarly it can
 run a probe to verify that your in-Cloud VMs can actually reach your on-premise
 systems. This kind of monitoring makes it possible to monitor your systems'
 interfaces regardless of the implementation and helps you quickly pin down
-what's broken in your system.
+what's broken in your system (see [why probers](https://blog.manugarg.com/posts/why-you-need-probers/)).
 
 ![Cloudprober Use Case](http://cloudprober.org/diagrams/cloudprober_use_case.svg)
 
