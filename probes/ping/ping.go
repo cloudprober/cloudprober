@@ -533,6 +533,14 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		p.l.Debugf("Probe started, runcount %d", p.runCnt)
 		p.runProbe()
 		p.l.Debugf("Probe finished, runcount %d", p.runCnt)
+
+		// exit without exporting stats if the probe run was interrupted.
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		if (p.runCnt % uint64(p.statsExportFreq)) != 0 {
 			continue
 		}
