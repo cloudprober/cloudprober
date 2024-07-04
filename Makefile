@@ -16,8 +16,10 @@ BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64
 
 ifeq "$(GIT_TAG)" ""
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):master -t $(DOCKER_IMAGE):main
+	DOCKER_FIPS_TAGS := -t $(DOCKER_IMAGE):master-fips -t $(DOCKER_IMAGE):main-fips
 else
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG) -t $(DOCKER_IMAGE):latest
+	DOCKER_FIPS_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG)-fips -t $(DOCKER_IMAGE):latest-fips
 endif
 
 define make-binary-target
@@ -50,6 +52,14 @@ docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) Dockerfile
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		$(DOCKER_TAGS) .
+
+docker_multiarch_fips: Dockerfile.fips
+	docker buildx build --push \
+		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg VCS_REF=$(GIT_COMMIT) \
+		--platform linux/amd64,linux/arm64 \
+		$(DOCKER_FIPS_TAGS) -f Dockerfile.fips .
 
 dist: $(BINARIES)
 	for bin in $(BINARIES) ; do \
