@@ -4,16 +4,16 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'docs/**'
-      - '.github/workflows/hugo.yml'
+      - "docs/**"
+      - ".github/workflows/hugo.yml"
   pull_request:
     paths-ignore:
-      - 'docs/**'
-      - '.github/workflows/hugo.yml'
+      - "docs/**"
+      - ".github/workflows/hugo.yml"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to run workflow for'
+        description: "Tag to run workflow for"
         required: true
   release:
     types: [published]
@@ -77,7 +77,10 @@ jobs:
           gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
 
       - name: SonarCloud Scan
-        if: matrix.os == 'ubuntu-latest' &&  github.repository == 'cloudprober/cloudprober' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        if: |
+          matrix.os == 'ubuntu-latest' &&
+          github.repository == 'cloudprober/cloudprober' &&
+          (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -180,9 +183,14 @@ jobs:
 
   build_and_push_docker_multiarch:
     name: Build and push multiarch docker image
-    if: github.repository == 'cloudprober/cloudprober' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    if: |
+      github.repository == 'cloudprober/cloudprober' &&
+      (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     needs: [build-and-test, build-binaries]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        binary_type: [regular, fips]
 
     steps:
       - name: Check out code into the Go module directory
@@ -227,17 +235,23 @@ jobs:
           ls -R cloudprober*
           chmod a+rx cloudprober cloudprober-*
 
-      - name: Build and push release Docker Image (main-dockerhub)
-        run: make docker_multiarch
-
-      - name: Build and push release Docker Image (main-ghcr)
-        run: make docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
+      - name: Build and push release Docker Image (main)
+        if: ${{ matrix.binary_type == 'regular' }}
+        run: |
+          make docker_multiarch
+          make docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
 
       - name: Build and push release Docker Image (contrib)
-        run: make -C contrib docker_multiarch
+        if: ${{ matrix.binary_type == 'regular' }}
+        run: |
+          make -C contrib docker_multiarch
+          make -C contrib docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober-contrib
 
-      - name: Build and push release Docker Image (contrib-ghcr)
-        run: make -C contrib docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober-contrib
+      - name: Build and push release Docker Image (main)
+        if: ${{ matrix.binary_type == 'fips' }}
+        run: |
+          make docker_multiarch_fips
+          make docker_multiarch_fips DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
 
   pre-release:
     name: Upload pre-release binaries
