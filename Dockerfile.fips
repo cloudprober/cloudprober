@@ -7,7 +7,7 @@
 FROM golang:latest as builder
 
 WORKDIR /go
-ADD . .
+COPY . .
 RUN CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -ldflags "-linkmode external -extldflags -static"  -o cloudprober ./cmd/cloudprober
 RUN go tool nm ./cloudprober | grep crypto/internal/boring/sig.BoringCrypto.abi0 > /dev/null
 
