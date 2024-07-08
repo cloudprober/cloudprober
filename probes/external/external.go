@@ -430,7 +430,7 @@ func (p *Probe) runProbe(startCtx context.Context) {
 	if p.mode == "server" {
 		p.runServerProbe(probeCtx, startCtx)
 	} else {
-		p.runOnceProbe(probeCtx)
+		p.runOnceProbe(probeCtx, startCtx)
 	}
 }
 
