@@ -436,3 +436,49 @@ func TestGCPLogEntry(t *testing.T) {
 		})
 	}
 }
+
+func TestSkipLog(t *testing.T) {
+	tests := []struct {
+		minLogLevelFlag string
+		levels          []slog.Level
+		want            []bool
+	}{
+		{
+			minLogLevelFlag: "INFO",
+			levels:          []slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn},
+			want:            []bool{true, false, false},
+		},
+		{
+			minLogLevelFlag: "WARNING",
+			levels:          []slog.Level{slog.LevelInfo, slog.LevelWarn, slog.LevelError},
+			want:            []bool{true, false, false},
+		},
+		{
+			minLogLevelFlag: "ERROR",
+			levels:          []slog.Level{slog.LevelWarn, slog.LevelError, criticalLevel},
+			want:            []bool{true, false, false},
+		},
+		{
+			minLogLevelFlag: "CRITICAL",
+			levels:          []slog.Level{slog.LevelError, criticalLevel},
+			want:            []bool{true, false},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.minLogLevelFlag, func(t *testing.T) {
+			*minLogLevel = tt.minLogLevelFlag
+
+			for i, level := range tt.levels {
+				var l *Logger
+				if got := l.skipLog(level); got != tt.want[i] {
+					t.Errorf("nil Logger.skipLog() = %v, want %v", got, tt.want)
+				}
+				l = newLogger()
+				if got := l.skipLog(level); got != tt.want[i] {
+					t.Errorf("non-nil Logger.skipLog() = %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}

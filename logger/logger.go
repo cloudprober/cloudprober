@@ -43,6 +43,7 @@ var (
 	logFmt = flag.String("logfmt", "text", "Log format. Valid values: text, json")
 	_      = flag.Bool("logtostderr", true, "(deprecated) this option doesn't do anything anymore. All logs to stderr by default.")
 
+	minLogLevel  = flag.String("min_log_level", "INFO", "Minimum log level to log. Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL")
 	debugLog     = flag.Bool("debug_log", false, "Whether to output debug logs or not")
 	debugLogList = flag.String("debug_logname_regex", "", "Enable debug logs for only for log names that match this regex (e.g. --debug_logname_regex=.*probe1.*")
 
@@ -101,6 +102,22 @@ func replaceAttrs(_ []string, a slog.Attr) slog.Attr {
 		source.Function = strings.TrimPrefix(source.Function, basePackage)
 	}
 	return a
+}
+
+func parseMinLogLevel() slog.Level {
+	switch strings.ToUpper(*minLogLevel) {
+	case "DEBUG":
+		return slog.LevelDebug
+	case "INFO":
+		return slog.LevelInfo
+	case "WARN", "WARNING":
+		return slog.LevelWarn
+	case "ERROR":
+		return slog.LevelError
+	case "CRITICAL":
+		return criticalLevel
+	}
+	panic("invalid log level: " + *minLogLevel)
 }
 
 func slogHandler(w io.Writer) slog.Handler {
@@ -166,7 +183,7 @@ type Logger struct {
 	shandler            slog.Handler
 	gcpLogc             *logging.Client
 	gcpLogger           *logging.Logger
-	debugLog            bool
+	minLogLevel         slog.Level
 	disableCloudLogging bool
 	gcpLoggingEndpoint  string
 	attrs               []slog.Attr
@@ -198,6 +215,7 @@ func newLogger(opts ...Option) *Logger {
 		disableCloudLogging: *disableCloudLogging,
 		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
 		systemAttr:          defaultSystemName,
+		minLogLevel:         parseMinLogLevel(),
 	}
 	for _, opt := range opts {
 		opt(l)
@@ -208,7 +226,9 @@ func newLogger(opts ...Option) *Logger {
 	// Initialize the traditional logger.
 	l.shandler = slogHandler(l.writer).WithAttrs(l.attrs)
 
-	l.debugLog = enableDebugLog(*debugLog, *debugLogList, l.attrs...)
+	if enableDebugLog(*debugLog, *debugLogList, l.attrs...) {
+		l.minLogLevel = slog.LevelDebug
+	}
 
 	if metadata.OnGCE() && !l.disableCloudLogging {
 		l.EnableStackdriverLogging()
@@ -340,9 +360,20 @@ func (l *Logger) gcpLogEntry(r *slog.Record) logging.Entry {
 	}
 }
 
+func (l *Logger) skipLog(level slog.Level) bool {
+	if l != nil {
+		return l.minLogLevel > level
+	}
+	return parseMinLogLevel() > level
+}
+
 // logAttrs logs the message to stderr with the given attributes. If
 // running on GCE, logs are also sent to GCE or cloud logging.
 func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog.Attr) {
+	if l.skipLog(level) {
+		return
+	}
+
 	depth++
 
 	if len(msg) > MaxLogEntrySize {
@@ -376,7 +407,7 @@ func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog
 
 func (l *Logger) logDebug() bool {
 	if l != nil {
-		return l.debugLog
+		return l.minLogLevel == slog.LevelDebug
 	}
 	return enableDebugLog(*debugLog, *debugLogList)
 }
@@ -388,7 +419,7 @@ func (l *Logger) Debug(payload ...string) {
 	}
 }
 
-// Debug logs messages with logging level set to "Debug".
+// DebugAttrs logs messages with logging level set to "Debug".
 func (l *Logger) DebugAttrs(msg string, attrs ...slog.Attr) {
 	if l.logDebug() {
 		l.logAttrs(slog.LevelDebug, 2, msg, attrs...)
@@ -400,7 +431,7 @@ func (l *Logger) Info(payload ...string) {
 	l.logAttrs(slog.LevelInfo, 2, strings.Join(payload, ""))
 }
 
-// InfoWithAttrs logs messages with logging level set to "Info".
+// InfoAttrs logs messages with logging level set to "Info".
 func (l *Logger) InfoAttrs(msg string, attrs ...slog.Attr) {
 	l.logAttrs(slog.LevelInfo, 2, msg, attrs...)
 }
@@ -431,7 +462,7 @@ func (l *Logger) Critical(payload ...string) {
 	l.logAttrs(criticalLevel, 2, strings.Join(payload, ""))
 }
 
-// Critical logs messages with logging level set to "Critical" and
+// CriticalAttrs logs messages with logging level set to "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) CriticalAttrs(msg string, attrs ...slog.Attr) {
 	l.logAttrs(criticalLevel, 2, msg, attrs...)
