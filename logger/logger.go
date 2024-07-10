@@ -1,4 +1,4 @@
-// Copyright 2017-2023 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ var (
 	_      = flag.Bool("logtostderr", true, "(deprecated) this option doesn't do anything anymore. All logs to stderr by default.")
 
 	minLogLevel  = flag.String("min_log_level", "INFO", "Minimum log level to log. Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL")
-	debugLog     = flag.Bool("debug_log", false, "Whether to output debug logs or not")
+	debugLog     = flag.Bool("debug_log", false, "Whether to output debug logs or not. Deprecated: use --min_log_level=DEBUG instead.")
 	debugLogList = flag.String("debug_logname_regex", "", "Enable debug logs for only for log names that match this regex (e.g. --debug_logname_regex=.*probe1.*")
 
 	// Enable/Disable cloud logging
