@@ -370,7 +370,7 @@ func (l *Logger) skipLog(level slog.Level) bool {
 // logAttrs logs the message to stderr with the given attributes. If
 // running on GCE, logs are also sent to GCE or cloud logging.
 func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog.Attr) {
-	if l.skipLog(level) {
+	if level != slog.LevelDebug && l.skipLog(level) {
 		return
 	}
 
@@ -409,7 +409,7 @@ func (l *Logger) logDebug() bool {
 	if l != nil {
 		return l.minLogLevel == slog.LevelDebug
 	}
-	return enableDebugLog(*debugLog, *debugLogList)
+	return enableDebugLog(*debugLog, *debugLogList) || parseMinLogLevel() == slog.LevelDebug
 }
 
 // Debug logs messages with logging level set to "Debug".
