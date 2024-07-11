@@ -30,6 +30,43 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestGCPLogEntry(t *testing.T) {
+	l := New(WithAttr(slog.String("dst", "gcp")))
+	msg := "test message"
+	tests := []struct {
+		name  string
+		level slog.Level
+		want  logging.Entry
+	}{
+		{
+			name:  "info",
+			level: slog.LevelInfo,
+			want: logging.Entry{
+				Severity: logging.Info,
+				Payload:  "level=INFO source=logger/logger_test.go:62 msg=\"test message\" system=cloudprober dst=gcp\n",
+			},
+		},
+		{
+			name:  "warning",
+			level: slog.LevelWarn,
+			want: logging.Entry{
+				Severity: logging.Warning,
+				Payload:  "level=WARN source=logger/logger_test.go:62 msg=\"test message\" system=cloudprober dst=gcp\n",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pcs [1]uintptr
+			runtime.Callers(1, pcs[:])
+			r := slog.NewRecord(time.Time{}, tt.level, msg, pcs[0])
+			r.AddAttrs(l.attrs...)
+			assert.Equal(t, tt.want, l.gcpLogEntry(&r))
+		})
+	}
+}
+
 func TestEnvVarSet(t *testing.T) {
 	varName := "TEST_VAR"
 
@@ -302,6 +339,12 @@ func TestLog(t *testing.T) {
 				if tt.logFmtFlag == "" {
 					tt.logFmtFlag = "text"
 				}
+
+				defer func() {
+					*logFmt = "text"
+					*debugLog = false
+					*debugLogList = ""
+				}()
 				*logFmt = tt.logFmtFlag
 				*debugLog = tt.debugLogFlag
 				*debugLogList = tt.debugReFlag
@@ -400,39 +443,53 @@ func TestSDLogName(t *testing.T) {
 	}
 }
 
-func TestGCPLogEntry(t *testing.T) {
-	l := New(WithAttr(slog.String("dst", "gcp")))
-	msg := "test message"
+func TestSkipLog(t *testing.T) {
 	tests := []struct {
-		name  string
-		level slog.Level
-		want  logging.Entry
+		minLogLevelFlag string
+		levels          []slog.Level
+		want            []bool
 	}{
 		{
-			name:  "info",
-			level: slog.LevelInfo,
-			want: logging.Entry{
-				Severity: logging.Info,
-				Payload:  "level=INFO source=logger/logger_test.go:432 msg=\"test message\" system=cloudprober dst=gcp\n",
-			},
+			minLogLevelFlag: "INFO",
+			levels:          []slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn},
+			want:            []bool{true, false, false},
 		},
 		{
-			name:  "warning",
-			level: slog.LevelWarn,
-			want: logging.Entry{
-				Severity: logging.Warning,
-				Payload:  "level=WARN source=logger/logger_test.go:432 msg=\"test message\" system=cloudprober dst=gcp\n",
-			},
+			minLogLevelFlag: "WARNING",
+			levels:          []slog.Level{slog.LevelInfo, slog.LevelWarn, slog.LevelError},
+			want:            []bool{true, false, false},
+		},
+		{
+			minLogLevelFlag: "ERROR",
+			levels:          []slog.Level{slog.LevelWarn, slog.LevelError, criticalLevel},
+			want:            []bool{true, false, false},
+		},
+		{
+			minLogLevelFlag: "CRITICAL",
+			levels:          []slog.Level{slog.LevelError, criticalLevel},
+			want:            []bool{true, false},
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var pcs [1]uintptr
-			runtime.Callers(1, pcs[:])
-			r := slog.NewRecord(time.Time{}, tt.level, msg, pcs[0])
-			r.AddAttrs(l.attrs...)
-			assert.Equal(t, tt.want, l.gcpLogEntry(&r))
+		t.Run(tt.minLogLevelFlag, func(t *testing.T) {
+			defer func() {
+				*minLogLevel = "INFO"
+			}()
+			*minLogLevel = tt.minLogLevelFlag
+
+			for i, level := range tt.levels {
+				t.Run(level.String(), func(t *testing.T) {
+					var l *Logger
+					if got := l.skipLog(level); got != tt.want[i] {
+						t.Errorf("nil Logger.skipLog() = %v, want %v", got, tt.want)
+					}
+					l = newLogger()
+					if got := l.skipLog(level); got != tt.want[i] {
+						t.Errorf("non-nil Logger.skipLog() = %v, want %v", got, tt.want)
+					}
+				})
+			}
 		})
 	}
 }
