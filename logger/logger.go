@@ -370,6 +370,8 @@ func (l *Logger) skipLog(level slog.Level) bool {
 // logAttrs logs the message to stderr with the given attributes. If
 // running on GCE, logs are also sent to GCE or cloud logging.
 func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog.Attr) {
+	// Debug logs' skip behavior is handled outside of this function so don't
+	// decide on them here.
 	if level != slog.LevelDebug && l.skipLog(level) {
 		return
 	}
