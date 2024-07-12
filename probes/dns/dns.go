@@ -36,7 +36,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -102,28 +102,42 @@ type Probe struct {
 // (see documentation with statsKeeper below). That's the reason we use metrics.Int
 // types instead of metrics.AtomicInt.
 type probeRunResult struct {
-	target            string
 	total             metrics.Int
 	success           metrics.Int
 	latency           metrics.LatencyValue
 	timeouts          metrics.Int
 	validationFailure *metrics.Map[int64]
-	latencyMetricName string
+}
+
+func (p *Probe) newResult() sched.ProbeResult {
+	result := &probeRunResult{}
+
+	if p.opts.Validators != nil {
+		result.validationFailure = validators.ValidationFailureMap(p.opts.Validators)
+	}
+
+	if p.opts.LatencyDist != nil {
+		result.latency = p.opts.LatencyDist.CloneDist()
+	} else {
+		result.latency = metrics.NewFloat(0)
+	}
+
+	return result
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics() *metrics.EventMetrics {
-	return metrics.NewEventMetrics(time.Now()).
+func (prr probeRunResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
+	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric(prr.latencyMetricName, prr.latency.Clone()).
-		AddMetric("timeouts", &prr.timeouts).
-		AddMetric("validation_failure", prr.validationFailure)
-}
+		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
+		AddMetric("timeouts", &prr.timeouts)
 
-// Target returns the p.target.
-func (prr probeRunResult) Target() string {
-	return prr.target
+	if prr.validationFailure != nil {
+		em.AddMetric("validation_failure", prr.validationFailure)
+	}
+
+	return em
 }
 
 // Init initializes the probe with the given params.
@@ -246,120 +260,77 @@ func (p *Probe) doDNSRequest(target string, result *probeRunResult, resultMu *sy
 	}
 }
 
-func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
-	// Refresh the list of targets to probe.
-	p.targets = p.opts.Targets.ListEndpoints()
+func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
+	// Convert interface to struct type
+	result := res.(*probeRunResult)
 
-	wg := sync.WaitGroup{}
-	for _, target := range p.targets {
-		wg.Add(1)
-
-		// Launch a separate goroutine for each target.
-		// Write probe results to the "resultsChan" channel.
-		go func(target endpoint.Endpoint, resultsChan chan<- statskeeper.ProbeResult) {
-			defer wg.Done()
-
-			result := probeRunResult{
-				target:            target.Name,
-				latencyMetricName: p.opts.LatencyMetricName,
-				validationFailure: validators.ValidationFailureMap(p.opts.Validators),
-			}
-
-			if p.opts.LatencyDist != nil {
-				result.latency = p.opts.LatencyDist.CloneDist()
-			} else {
-				result.latency = metrics.NewFloat(0)
-			}
-
-			port := defaultPort
-			if target.Port != 0 {
-				port = target.Port
-			}
-			result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
-
-			ipLabel := ""
-			fullTarget := net.JoinHostPort(target.Name, strconv.Itoa(port))
-
-			resolveFirst := false
-			if p.c.ResolveFirst != nil {
-				resolveFirst = p.c.GetResolveFirst()
-			} else {
-				resolveFirst = target.IP != nil
-			}
-			if resolveFirst {
-				ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
-				if err != nil {
-					p.l.Warningf("Target(%s): Resolve error: %v", target.Name, err)
-					resultsChan <- result
-					return
-				}
-				ipLabel = ip.String()
-				fullTarget = net.JoinHostPort(ip.String(), strconv.Itoa(port))
-			}
-
-			for _, al := range p.opts.AdditionalLabels {
-				al.UpdateForTarget(target, ipLabel, port)
-			}
-
-			if p.c.GetRequestsPerProbe() == 1 {
-				p.doDNSRequest(fullTarget, &result, nil)
-				resultsChan <- result
-				return
-			}
-
-			// For multiple requests per probe, we launch a separate goroutine for each
-			// DNS request. We use a mutex to protect access to per-target result object
-			// in doDNSRequest. Note that result object is not accessed concurrently
-			// anywhere else -- export of metrics happens when probe is not running.
-			var resultMu sync.Mutex
-			var wg sync.WaitGroup
-			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
-				wg.Add(1)
-				go func(reqNum int, result *probeRunResult) {
-					defer wg.Done()
-
-					time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-					p.doDNSRequest(fullTarget, result, &resultMu)
-				}(i, &result)
-			}
-			p.l.Debug("Waiting for DNS requests to finish")
-			wg.Wait()
-
-			resultsChan <- result
-		}(target, resultsChan)
+	if p.opts.LatencyDist != nil {
+		result.latency = p.opts.LatencyDist.CloneDist()
+	} else {
+		result.latency = metrics.NewFloat(0)
 	}
 
-	// Wait until all probes are done.
+	port := defaultPort
+	if target.Port != 0 {
+		port = target.Port
+	}
+	result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
+
+	ipLabel := ""
+	fullTarget := net.JoinHostPort(target.Name, strconv.Itoa(port))
+
+	resolveFirst := false
+	if p.c.ResolveFirst != nil {
+		resolveFirst = p.c.GetResolveFirst()
+	} else {
+		resolveFirst = target.IP != nil
+	}
+	if resolveFirst {
+		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
+		if err != nil {
+			p.l.Warningf("Target(%s): Resolve error: %v", target.Name, err)
+			return
+		}
+		ipLabel = ip.String()
+		fullTarget = net.JoinHostPort(ip.String(), strconv.Itoa(port))
+	}
+
+	for _, al := range p.opts.AdditionalLabels {
+		al.UpdateForTarget(target, ipLabel, port)
+	}
+
+	if p.c.GetRequestsPerProbe() == 1 {
+		p.doDNSRequest(fullTarget, result, nil)
+		return
+	}
+
+	// For multiple requests per probe, we launch a separate goroutine for each
+	// DNS request. We use a mutex to protect access to per-target result object
+	// in doDNSRequest. Note that result object is not accessed concurrently
+	// anywhere else -- export of metrics happens when probe is not running.
+	var resultMu sync.Mutex
+	var wg sync.WaitGroup
+	for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
+		wg.Add(1)
+		go func(reqNum int, result *probeRunResult) {
+			defer wg.Done()
+
+			time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
+			p.doDNSRequest(fullTarget, result, &resultMu)
+		}(i, result)
+	}
+	p.l.Debug("Waiting for DNS requests to finish")
 	wg.Wait()
 }
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan statskeeper.ProbeResult, len(p.targets))
-
-	// This function is used by StatsKeeper to get the latest list of targets.
-	// TODO(manugarg): Make p.targets mutex protected as it's read and written by concurrent goroutines.
-	targetsFunc := func() []endpoint.Endpoint {
-		return p.targets
+	s := &sched.Scheduler{
+		ProbeName:         p.name,
+		DataChan:          dataChan,
+		Opts:              p.opts,
+		NewResult:         p.newResult,
+		RunProbeForTarget: p.runProbe,
 	}
-
-	go statskeeper.StatsKeeper(ctx, "dns", p.name, p.opts, targetsFunc, resultsChan, dataChan)
-
-	ticker := time.NewTicker(p.opts.Interval)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		// Don't run another probe if context is canceled already.
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		if !p.opts.IsScheduled() {
-			continue
-		}
-
-		p.runProbe(resultsChan)
-	}
+	s.UpdateTargetsAndStartProbes(ctx)
 }
