@@ -48,7 +48,7 @@ const defaultPort = 53
 // Client provides a DNS client interface for required functionality.
 // This makes it possible to mock.
 type Client interface {
-	Exchange(*dns.Msg, string) (*dns.Msg, time.Duration, error)
+	ExchangeContext(context.Context, *dns.Msg, string) (*dns.Msg, time.Duration, error)
 	setReadTimeout(time.Duration)
 	setSourceIP(net.IP)
 	setDNSProto(configpb.DNSProto)
@@ -235,12 +235,12 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	return true
 }
 
-func (p *Probe) doDNSRequest(target string, result *probeRunResult, resultMu *sync.Mutex) {
+func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRunResult, resultMu *sync.Mutex) {
 	// Generate a new question for each probe so transaction IDs aren't repeated.
 	msg := new(dns.Msg)
 	msg.SetQuestion(p.fqdn, p.queryType)
 
-	resp, latency, err := p.client.Exchange(msg, target)
+	resp, latency, err := p.client.ExchangeContext(ctx, msg, target)
 
 	if resultMu != nil {
 		resultMu.Lock()
@@ -300,7 +300,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	}
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doDNSRequest(fullTarget, result, nil)
+		p.doDNSRequest(ctx, fullTarget, result, nil)
 		return
 	}
 
@@ -316,7 +316,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 			defer wg.Done()
 
 			time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doDNSRequest(fullTarget, result, &resultMu)
+			p.doDNSRequest(ctx, fullTarget, result, &resultMu)
 		}(i, result)
 	}
 	p.l.Debug("Waiting for DNS requests to finish")
