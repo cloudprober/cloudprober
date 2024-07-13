@@ -52,7 +52,6 @@ import (
 	"github.com/cloudprober/cloudprober/internal/udpmessage"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 
@@ -248,7 +247,7 @@ func (p *Probe) processMessage(buf []byte, rxTS time.Time, srcAddr *net.UDPAddr)
 }
 
 // outputResults writes results to the output channel.
-func (p *Probe) outputResults(expectedCt int64, stats chan<- statskeeper.ProbeResult) {
+func (p *Probe) outputResults(expectedCt int64, stats chan<- *probeRunResult) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, r := range p.res {
@@ -256,12 +255,12 @@ func (p *Probe) outputResults(expectedCt int64, stats chan<- statskeeper.ProbeRe
 		if delta > 0 {
 			r.total.IncBy(delta)
 		}
-		stats <- *r
+		stats <- r
 	}
 	p.initProbeRunResults()
 }
 
-func (p *Probe) outputLoop(ctx context.Context, stats chan<- statskeeper.ProbeResult) {
+func (p *Probe) outputLoop(ctx context.Context, stats chan<- *probeRunResult) {
 	// Use a ticker to control stats output and error logging.
 	// ticker should be a multiple of interval between pkts (i.e., p.opts.Interval).
 	pktsPerExportInterval := int64(p.opts.StatsExportInterval / p.opts.Interval)
@@ -348,7 +347,7 @@ func (p *Probe) recvLoop(ctx context.Context, echoChan chan<- *echoMsg) {
 }
 
 // probeLoop starts the necessary threads and waits for them to exit.
-func (p *Probe) probeLoop(ctx context.Context, resultsChan chan<- statskeeper.ProbeResult) {
+func (p *Probe) probeLoop(ctx context.Context, resultsChan chan<- *probeRunResult) {
 	var wg sync.WaitGroup
 
 	// Output Loop for metrics
@@ -373,6 +372,45 @@ func (p *Probe) probeLoop(ctx context.Context, resultsChan chan<- statskeeper.Pr
 	wg.Wait()
 }
 
+// statsKeeper manages and outputs probe results.
+// TODO: We should get rid of this function. For now, I've copied it from
+// common/statskeeper so that we can delete the common package.
+func (p *Probe) statsKeeper(ctx context.Context, ptype, name string, opts *options.Options, resultsChan <-chan *probeRunResult, dataChan chan<- *metrics.EventMetrics) {
+	targetMetrics := make(map[string]*metrics.EventMetrics)
+	exportTicker := time.NewTicker(opts.StatsExportInterval)
+	defer exportTicker.Stop()
+
+	for {
+		select {
+		case result := <-resultsChan:
+			// result is a ProbeResult
+			t := result.Target()
+			if targetMetrics[t] == nil {
+				targetMetrics[t] = result.Metrics()
+				continue
+			}
+			err := targetMetrics[t].Update(result.Metrics())
+			if err != nil {
+				opts.Logger.Errorf("Error adding metrics from the probe result for the target: %s. Err: %v", t, err)
+			}
+		case ts := <-exportTicker.C:
+			for _, t := range p.targets {
+				em := targetMetrics[t.Name]
+				if em != nil {
+					em.AddLabel("ptype", ptype)
+					em.AddLabel("probe", name)
+					em.AddLabel("dst", t.Name)
+					em.Timestamp = ts
+
+					opts.RecordMetrics(t, em.Clone(), dataChan)
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.updateTargets()
@@ -383,12 +421,9 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	if resultsChLen < minResultsChLen {
 		resultsChLen = minResultsChLen
 	}
-	resultsChan := make(chan statskeeper.ProbeResult, resultsChLen)
-	targetsFunc := func() []endpoint.Endpoint {
-		return p.targets
-	}
+	resultsChan := make(chan *probeRunResult, resultsChLen)
 
-	go statskeeper.StatsKeeper(ctx, "udp", p.name, p.opts, targetsFunc, resultsChan, dataChan)
+	go p.statsKeeper(ctx, "udp", p.name, p.opts, resultsChan, dataChan)
 
 	// probeLoop runs forever and returns only when the probe has to exit.
 	// So, it is safe to cleanup (in the "Start" function) once probeLoop returns.
