@@ -27,9 +27,9 @@ import (
 	"github.com/cloudprober/cloudprober/internal/udpmessage"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/probes/common/statskeeper"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
 
 	configpb "github.com/cloudprober/cloudprober/probes/udplistener/proto"
@@ -144,7 +144,7 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 	return rxSeq
 }
 
-func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan statskeeper.ProbeResult, *probeRunResult, *probeErr) {
+func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan *probeRunResult, *probeRunResult, *probeErr) {
 	ctx, cancelCtx := context.WithCancel(ctx)
 
 	sysvars.Init(&logger.Logger{}, nil)
@@ -177,7 +177,7 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan s
 	port := p.conn.LocalAddr().(*net.UDPAddr).Port
 
 	p.updateTargets()
-	resultsChan := make(chan statskeeper.ProbeResult, 10)
+	resultsChan := make(chan *probeRunResult, 10)
 
 	var wg sync.WaitGroup
 
@@ -328,7 +328,7 @@ func TestResultsChan(t *testing.T) {
 	}
 	_, resChan, _, _ := runProbe(ctx, t, inp)
 
-	var res []statskeeper.ProbeResult
+	var res []*probeRunResult
 readResChan:
 	for {
 		select {
@@ -393,5 +393,62 @@ readResChan:
 	wantDel := []int64{1}
 	if !reflect.DeepEqual(wantDel, delVals) {
 		t.Errorf("Lost count mismatch: got %v want %v", delVals, wantDel)
+	}
+}
+
+func TestStatsKeeper(t *testing.T) {
+	targets := []endpoint.Endpoint{
+		{Name: "target1"},
+		{Name: "target2"},
+	}
+	pType := "test"
+	pName := "testProbe"
+	exportInterval := 2 * time.Second
+
+	resultsChan := make(chan *probeRunResult, len(targets))
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	dataChan := make(chan *metrics.EventMetrics, len(targets))
+
+	opts := options.DefaultOptions()
+	opts.StatsExportInterval = exportInterval
+	p := &Probe{
+		targets: targets,
+	}
+	go p.statsKeeper(ctx, pType, pName, opts, resultsChan, dataChan)
+
+	for _, target := range targets {
+		prr := &probeRunResult{
+			target: target.Name,
+		}
+		prr.total.Inc()
+		prr.success.Inc()
+		resultsChan <- prr
+	}
+	time.Sleep(3 * time.Second)
+
+	for i := 0; i < len(dataChan); i++ {
+		em := <-dataChan
+		var foundTarget bool
+		for _, target := range targets {
+			if em.Label("dst") == target.Name {
+				foundTarget = true
+				break
+			}
+		}
+		if !foundTarget {
+			t.Error("didn't get expected target label in the event metric")
+		}
+		expectedValues := map[string]int64{
+			"total":   1,
+			"success": 1,
+		}
+		for key, eVal := range expectedValues {
+			val := em.Metric(key).(metrics.NumValue).Int64()
+			if val != eVal {
+				t.Errorf("%s metric is not set correctly. Got: %d, Expected: %d", key, val, eVal)
+			}
+		}
 	}
 }
