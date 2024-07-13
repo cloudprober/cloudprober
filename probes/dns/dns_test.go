@@ -51,7 +51,7 @@ type mockClient struct{}
 // Exchange implementation that returns an error status if the query is for
 // questionBad[Domain|Type]. This allows us to check if query parameters are
 // populated correctly.
-func (*mockClient) Exchange(in *dns.Msg, fullTarget string) (*dns.Msg, time.Duration, error) {
+func (*mockClient) ExchangeContext(ctx context.Context, in *dns.Msg, fullTarget string) (*dns.Msg, time.Duration, error) {
 	if fullTarget != "8.8.8.8:53" {
 		return nil, 0, fmt.Errorf("unexpected target: %v", fullTarget)
 	}
