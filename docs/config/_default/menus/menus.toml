@@ -41,15 +41,27 @@
   url = "/docs/surfacers/overview"
 
 [[main]]
-  name = "Connect"
+  name = "About"
   weight = 80
   identifier = "connect"
+
+[[main]]
+  name = "Origin"
+  weight = 5
+  parent = "connect"
+  url = "/docs/about/"
 
 [[main]]
   name = "Blog"
   weight = 10
   parent = "connect"
   url = "https://blog.manugarg.com/tags/cloudprober/"
+
+[[main]]
+  name = "Github Discussions"
+  weight = 15
+  parent = "connect"
+  url = "https://github.com/cloudprober/cloudprober/discussions"
 
 [[main]]
   name = "Slack"
@@ -62,18 +74,6 @@
   weight = 30
   parent = "connect"
   url = "https://x.com/cloudprober"
-
-[[main]]
-  name = "Github Discussions"
-  weight = 40
-  parent = "connect"
-  url = "https://github.com/cloudprober/cloudprober/discussions"
-
-[[main]]
-  name = "About"
-  weight = 85
-  identifier = "about"
-  url = "/docs/about/"
 
 [[social]]
   name = "GitHub"

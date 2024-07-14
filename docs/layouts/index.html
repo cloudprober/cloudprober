@@ -3,7 +3,7 @@
   <div class="row justify-content-center mt-2">
     <div class="col-lg-8 text-center">
       <h1 class="mb-3">{{ .Title }}</h1>
-      <h3 class="mb-5">{{ .Params.lead | safeHTML }}</h3>
+      <h4 class="mb-5">{{ .Params.lead | safeHTML }}</h4>
       <a
         class="btn btn-lg btn-primary mb-2"
         href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/cloudprober"
@@ -26,9 +26,9 @@
 {{ end }} {{ define "sidebar-prefooter" }}
 <section class="section section-sm">
   <div class="container">
-    <div class="row justify-content-center">
+    <div class="row justify-content-center py-3">
       <div class="col-lg-12 text-center">
-        <p style="font-weight: 400; font-size: 18px">
+        <p style="font-weight: 400; font-size: 17px">
           <i>
             An open-source active monitoring tool trusted by large and small
             organizations alike.
