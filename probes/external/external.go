@@ -243,7 +243,7 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	defaultEM := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric("total", metrics.NewInt(result.total)).
-		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
+		AddMetric(p.opts.LatencyMetricName, result.latency).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", ps.target.Name)

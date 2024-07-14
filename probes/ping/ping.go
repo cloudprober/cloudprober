@@ -545,7 +545,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", metrics.NewInt(result.sent)).
 				AddMetric("success", metrics.NewInt(success)).
-				AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
+				AddMetric(p.opts.LatencyMetricName, result.latency).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", target.Name)

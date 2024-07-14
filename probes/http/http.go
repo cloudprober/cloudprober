@@ -468,12 +468,12 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
-		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
+		AddMetric(p.opts.LatencyMetricName, result.latency).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
-		AddMetric("resp-code", result.respCodes.Clone())
+		AddMetric("resp-code", result.respCodes)
 
 	if result.respBodies != nil {
-		em.AddMetric("resp-body", result.respBodies.Clone())
+		em.AddMetric("resp-body", result.respBodies)
 	}
 
 	if p.c.GetKeepAlive() {
@@ -486,19 +486,19 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 
 	if result.latencyBreakdown != nil {
 		if dl := result.latencyBreakdown.dnsLatency; dl != nil {
-			em.AddMetric("dns_latency", dl.Clone())
+			em.AddMetric("dns_latency", dl)
 		}
 		if cl := result.latencyBreakdown.connectLatency; cl != nil {
-			em.AddMetric("connect_latency", cl.Clone())
+			em.AddMetric("connect_latency", cl)
 		}
 		if tl := result.latencyBreakdown.tlsLatency; tl != nil {
-			em.AddMetric("tls_handshake_latency", tl.Clone())
+			em.AddMetric("tls_handshake_latency", tl)
 		}
 		if rwl := result.latencyBreakdown.reqWriteLatency; rwl != nil {
-			em.AddMetric("req_write_latency", rwl.Clone())
+			em.AddMetric("req_write_latency", rwl)
 		}
 		if fbl := result.latencyBreakdown.firstByteLatency; fbl != nil {
-			em.AddMetric("first_byte_latency", fbl.Clone())
+			em.AddMetric("first_byte_latency", fbl)
 		}
 	}
 

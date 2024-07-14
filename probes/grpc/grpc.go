@@ -507,20 +507,18 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 			result.Lock()
 			em := metrics.NewEventMetrics(ts).
-				AddMetric("total", result.total.Clone()).
-				AddMetric("success", result.success.Clone()).
-				AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
-				AddMetric("connecterrors", result.connectErrors.Clone()).
+				AddMetric("total", &result.total).
+				AddMetric("success", &result.success).
+				AddMetric(p.opts.LatencyMetricName, result.latency).
+				AddMetric("connecterrors", &result.connectErrors).
 				AddLabel("ptype", "grpc").
 				AddLabel("probe", p.name).
 				AddLabel("dst", target.Dst())
-			result.Unlock()
-
 			if result.validationFailure != nil {
 				em.AddMetric("validation_failure", result.validationFailure)
 			}
-
 			p.opts.RecordMetrics(target, em, dataChan)
+			result.Unlock()
 		}
 
 		// Finally, update targets and start new probe loops if necessary.

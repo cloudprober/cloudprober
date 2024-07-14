@@ -130,7 +130,7 @@ func (prr probeRunResult) Metrics(ts time.Time, opts *options.Options) *metrics.
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
+		AddMetric(opts.LatencyMetricName, prr.latency).
 		AddMetric("timeouts", &prr.timeouts)
 
 	if prr.validationFailure != nil {

@@ -99,7 +99,7 @@ func (prr probeResult) eventMetrics(probeName string, opts *options.Options, f f
 	m := metrics.NewEventMetrics(time.Now()).
 		AddMetric("total"+suffix, metrics.NewInt(prr.total)).
 		AddMetric("success"+suffix, metrics.NewInt(prr.success)).
-		AddMetric(opts.LatencyMetricName+suffix, prr.latency.Clone()).
+		AddMetric(opts.LatencyMetricName+suffix, prr.latency).
 		AddMetric("delayed"+suffix, metrics.NewInt(prr.delayed)).
 		AddLabel("ptype", "udp").
 		AddLabel("probe", probeName).
