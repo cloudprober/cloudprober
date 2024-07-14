@@ -86,8 +86,8 @@ probe {
 ### File based targets
 
 You can define your targets in a file and refer to them in Cloudprober through
-that file. This file can be modified independently, and whenever that happens
-cloudprober will reload it automatically.
+that file. You can configure cloudprober to reload the targets file at a regular
+interval to incorporate any changes to the targets file.
 
 Example configuration:
 
@@ -95,6 +95,7 @@ Example configuration:
 targets {
   file_targets {
     file_path: "/var/run/cloudprober/vips.json"
+    re_eval_sec: 30   # check file for changes every 30s.
   }
 }
 ```
