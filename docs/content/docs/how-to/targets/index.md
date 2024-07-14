@@ -87,7 +87,7 @@ probe {
 
 You can define your targets in a file and refer to them in Cloudprober through
 that file. You can configure cloudprober to reload the targets file at a regular
-interval to incorporate any changes to the targets file.
+interval to incorporate any changes to the targets.
 
 Example configuration:
 
