@@ -24,16 +24,25 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-const (
-	sysvarsModuleName = "sysvars"
-)
-
 var defaultConfigFile = "/etc/cloudprober.cfg"
 
 type ConfigSource interface {
 	GetConfig() (*configpb.ProberConfig, error)
 	RawConfig() string
 	ParsedConfig() string
+}
+
+type Option func(ConfigSource) ConfigSource
+
+func WithBaseVars(vars map[string]string) Option {
+	return func(cs ConfigSource) ConfigSource {
+		dcs, ok := cs.(*defaultConfigSource)
+		if !ok {
+			return cs
+		}
+		dcs.BaseVars = vars
+		return dcs
+	}
 }
 
 type defaultConfigSource struct {
