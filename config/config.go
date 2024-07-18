@@ -62,15 +62,20 @@ var configTestVars = map[string]string{
 	"machine_type":      "e2-small",
 }
 
-func DefaultConfigSource() ConfigSource {
-	return ConfigSourceWithFile(*configFile, *surfacersConfigFile)
+func DefaultConfigSource(opts ...Option) ConfigSource {
+	return ConfigSourceWithFile(*configFile, *surfacersConfigFile, opts...)
 }
 
-func ConfigSourceWithFile(fileName, surfacersConfigFileName string) ConfigSource {
-	return &defaultConfigSource{
+func ConfigSourceWithFile(fileName, surfacersConfigFileName string, opts ...Option) ConfigSource {
+	dcs := &defaultConfigSource{
 		FileName:                fileName,
 		SurfacersConfigFileName: surfacersConfigFileName,
 	}
+	cs := ConfigSource(dcs)
+	for _, opt := range opts {
+		cs = opt(cs)
+	}
+	return cs
 }
 
 func formatFromFileName(fileName string) string {
