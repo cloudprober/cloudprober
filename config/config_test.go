@@ -161,7 +161,7 @@ func TestConfigTest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			*configFile = tt.configFileFlag
 			if tt.cs == nil && tt.configFile != "" {
-				tt.cs = ConfigSourceWithFile(tt.configFile, "", WithBaseVars(tt.withBaseVars))
+				tt.cs = ConfigSourceWithFile(tt.configFile, WithBaseVars(tt.withBaseVars))
 			}
 			*configFile = tt.configFileFlag
 			if err := ConfigTest(tt.cs); (err != nil) != tt.wantErr {
@@ -172,15 +172,15 @@ func TestConfigTest(t *testing.T) {
 }
 
 func TestDumpConfig(t *testing.T) {
+	configFile := "testdata/surfacers_config/cloudprober_no_surfacers.cfg"
+	surfacerConfigFile := "testdata/surfacers_config/cloudprober_only_surfacers.cfg"
 	tests := []struct {
-		configFile string
-		format     string
-		want       string
-		wantErr    bool
+		format  string
+		want    string
+		wantErr bool
 	}{
 		{
-			configFile: "testdata/cloudprober.cfg",
-			format:     "yaml",
+			format: "yaml",
 			want: `
 probe:
 - name: dns_k8s
@@ -193,8 +193,7 @@ surfacer:
 		},
 		{
 
-			configFile: "testdata/cloudprober.cfg",
-			format:     "json",
+			format: "json",
 			want: `
 {
 	"probe": [{
@@ -209,8 +208,7 @@ surfacer:
 		},
 		{
 
-			configFile: "testdata/cloudprober.cfg",
-			format:     "textpb",
+			format: "textpb",
 			want: `
 probe: {
   name: "dns_k8s"
@@ -227,7 +225,8 @@ surfacer: {
 	}
 	for _, tt := range tests {
 		t.Run(tt.format, func(t *testing.T) {
-			got, err := DumpConfig(tt.format, &defaultConfigSource{FileName: tt.configFile})
+			cs := ConfigSourceWithFile(configFile, WithSurfacerConfig(surfacerConfigFile))
+			got, err := DumpConfig(tt.format, cs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DumpConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return

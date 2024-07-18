@@ -63,13 +63,13 @@ var configTestVars = map[string]string{
 }
 
 func DefaultConfigSource(opts ...Option) ConfigSource {
-	return ConfigSourceWithFile(*configFile, *surfacersConfigFile, opts...)
+	opts = append(opts, WithSurfacerConfig(*surfacersConfigFile))
+	return ConfigSourceWithFile(*configFile, opts...)
 }
 
-func ConfigSourceWithFile(fileName, surfacersConfigFileName string, opts ...Option) ConfigSource {
+func ConfigSourceWithFile(fileName string, opts ...Option) ConfigSource {
 	dcs := &defaultConfigSource{
-		FileName:                fileName,
-		SurfacersConfigFileName: surfacersConfigFileName,
+		FileName: fileName,
 	}
 	cs := ConfigSource(dcs)
 	for _, opt := range opts {

@@ -45,6 +45,17 @@ func WithBaseVars(vars map[string]string) Option {
 	}
 }
 
+func WithSurfacerConfig(sconfig string) Option {
+	return func(cs ConfigSource) ConfigSource {
+		dcs, ok := cs.(*defaultConfigSource)
+		if !ok {
+			return cs
+		}
+		dcs.SurfacersConfigFileName = sconfig
+		return dcs
+	}
+}
+
 type defaultConfigSource struct {
 	FileName                string
 	SurfacersConfigFileName string
