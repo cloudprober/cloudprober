@@ -115,14 +115,25 @@ func TestUnmarshalConfig(t *testing.T) {
 
 func TestConfigTest(t *testing.T) {
 	tests := []struct {
-		name       string
-		configFile string
-		cs         ConfigSource
-		wantErr    bool
+		name           string
+		configFileFlag string
+		configFile     string
+		cs             ConfigSource
+		withBaseVars   map[string]string
+		wantErr        bool
 	}{
+		{
+			name:    "no_config_error",
+			wantErr: true,
+		},
 		{
 			name:       "valid_base",
 			configFile: "testdata/cloudprober.cfg",
+		},
+		{
+			name:           "invalid_without_vars_flag",
+			configFileFlag: "testdata/cloudprober_invalid.cfg",
+			wantErr:        true,
 		},
 		{
 			name:       "invalid_without_vars",
@@ -130,8 +141,11 @@ func TestConfigTest(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:    "no_config_error",
-			wantErr: true,
+			name:       "valid_with_explicit_vars",
+			configFile: "testdata/cloudprober_invalid.cfg",
+			withBaseVars: map[string]string{
+				"probetype": "HTTP",
+			},
 		},
 		{
 			name: "valid_with_vars",
@@ -145,7 +159,11 @@ func TestConfigTest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			*configFile = tt.configFile
+			*configFile = tt.configFileFlag
+			if tt.cs == nil && tt.configFile != "" {
+				tt.cs = ConfigSourceWithFile(tt.configFile, "", WithBaseVars(tt.withBaseVars))
+			}
+			*configFile = tt.configFileFlag
 			if err := ConfigTest(tt.cs); (err != nil) != tt.wantErr {
 				t.Errorf("ConfigTest() error = %v, wantErr %v", err, tt.wantErr)
 			}
