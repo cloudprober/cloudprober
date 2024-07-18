@@ -224,10 +224,5 @@ func getRegion(config *configpb.SurfacerConf) string {
 		return config.GetRegion()
 	}
 
-	vars := sysvars.Vars()
-	if v, exists := vars["EC2_Region"]; exists {
-		return v
-	}
-
-	return ""
+	return sysvars.GetVar("EC2_Region")
 }

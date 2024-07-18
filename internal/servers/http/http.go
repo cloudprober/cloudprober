@@ -160,20 +160,18 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		ln.Close()
 	}()
 
-	sysVars := sysvars.Vars()
-
 	return &Server{
 		c:             c,
 		l:             l,
 		ln:            ln,
 		ldLister:      ldLister,
-		sysVars:       sysVars,
+		sysVars:       sysvars.Vars(),
 		reqMetric:     metrics.NewMap("url"),
 		statsInterval: statsExportInterval,
-		instanceName:  sysvars.Vars()["instance"],
+		instanceName:  sysvars.GetVar("instance"),
 		staticURLResTable: map[string][]byte{
 			"/":         []byte(OK),
-			"/instance": []byte(sysVars["instance"]),
+			"/instance": []byte(sysvars.GetVar("instance")),
 		},
 	}, nil
 }
