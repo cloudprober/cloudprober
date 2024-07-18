@@ -183,7 +183,7 @@ func TestGetVarAndVars(t *testing.T) {
 	sysVarsMu.Unlock()
 }
 
-func Test_parseEnvVars(t *testing.T) {
+func TestParseEnvVars(t *testing.T) {
 	envVarName := "TEST_SYSVARS"
 	tests := []struct {
 		name        string

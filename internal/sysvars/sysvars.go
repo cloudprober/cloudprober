@@ -57,7 +57,7 @@ func GetVar(k string) string {
 		return ""
 	}
 	if sysVars[k] == "" {
-		l.Error("sysVars " + k + " is not set.")
+		l.Error("sysvar " + k + " is not set.")
 		return ""
 	}
 	return sysVars[k]
