@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestProvidersToCheck(t *testing.T) {
@@ -63,6 +64,7 @@ func testSetVars(vars, inVars map[string]string, onPlatform bool) (bool, error) 
 
 func TestInitCloudMetadata(t *testing.T) {
 	sysVars = map[string]string{}
+	defer func() { sysVars = nil }()
 
 	tests := []struct {
 		mode         string
@@ -157,6 +159,70 @@ func TestLoadAWSConfig(t *testing.T) {
 					t.Errorf("retry test: %s, retry count expected: %d, got: %d", name, tc.retryCount, cfg.Retryer().MaxAttempts())
 				}
 			}
+		})
+	}
+}
+
+func TestGetVarAndVars(t *testing.T) {
+	assert.Equal(t, "", GetVar("hostname"), "before init")
+	assert.Equal(t, map[string]string{}, Vars(), "before init")
+
+	sysVarsMu.Lock()
+	oldSysVars := sysVars
+	sysVars = map[string]string{
+		"hostname": "foo",
+	}
+	sysVarsMu.Unlock()
+
+	assert.Equal(t, "foo", GetVar("hostname"), "after init")
+	assert.Equal(t, "", GetVar("instance"), "unknown var")
+	assert.Equal(t, map[string]string{"hostname": "foo"}, Vars(), "Vars()after init")
+
+	sysVarsMu.Lock()
+	sysVars = oldSysVars
+	sysVarsMu.Unlock()
+}
+
+func Test_parseEnvVars(t *testing.T) {
+	envVarName := "TEST_SYSVARS"
+	tests := []struct {
+		name        string
+		envVarValue string
+		want        map[string]string
+	}{
+		{
+			name:        "empty",
+			envVarValue: "",
+			want:        map[string]string{},
+		},
+		{
+			name:        "one",
+			envVarValue: "key=value",
+			want: map[string]string{
+				"key": "value",
+			},
+		},
+		{
+			name:        "multiple",
+			envVarValue: "key1=value1,key2=value2",
+			want: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			name:        "bad_key_ignored",
+			envVarValue: "key1=value1,key2,key3=value3",
+			want: map[string]string{
+				"key1": "value1",
+				"key3": "value3",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(envVarName, tt.envVarValue)
+			assert.Equal(t, tt.want, parseEnvVars(envVarName))
 		})
 	}
 }

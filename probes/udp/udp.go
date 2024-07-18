@@ -137,7 +137,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
-	p.src = sysvars.Vars()["hostname"]
+	p.src = sysvars.GetVar("hostname")
 	p.c = c
 	p.fsm = udpmessage.NewFlowStateMap()
 	p.res = make(map[flow]*probeResult)
