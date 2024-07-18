@@ -144,7 +144,7 @@ func setDebugHandlers(srvMux *http.ServeMux) {
 // Deprecated: This function is kept only for compatibility reasons. It's
 // recommended to use Init() or InitWithConfigSource() instead.
 func InitFromConfig(configFile string) error {
-	return InitWithConfigSource(config.ConfigSourceWithFile(configFile, ""))
+	return InitWithConfigSource(config.ConfigSourceWithFile(configFile))
 }
 
 // Init initializes Cloudprober using the default config source.
