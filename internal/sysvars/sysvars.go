@@ -74,7 +74,6 @@ func Vars() map[string]string {
 	defer sysVarsMu.RUnlock()
 	if sysVars == nil {
 		// Return an empty map if sysVars is not initialized yet.
-		l.Debug("Sysvars map is un-initialized. sysvars.Vars() was called before sysvars.Init().")
 		return vars
 	}
 	for k, v := range sysVars {
