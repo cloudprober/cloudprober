@@ -122,7 +122,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 	s.starttime = strconv.FormatInt(time.Now().UnixNano()/(1000*1000), 10)
 
 	if s.topicName == "" {
-		s.topicName = "cloudprober-" + sysvars.Vars()["hostname"]
+		s.topicName = "cloudprober-" + sysvars.GetVar("hostname")
 	}
 
 	if s.gcpProject == "" {

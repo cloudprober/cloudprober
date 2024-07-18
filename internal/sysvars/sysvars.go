@@ -49,6 +49,20 @@ var cloudProviders = struct {
 	ec2:  "ec2",
 }
 
+func GetVar(k string) string {
+	sysVarsMu.RLock()
+	defer sysVarsMu.RUnlock()
+	if sysVars == nil {
+		l.Error("sysVars is nil. sysvars.GetVar was called before sysvars.Init.")
+		return ""
+	}
+	if sysVars[k] == "" {
+		l.Error("sysvar " + k + " is not set.")
+		return ""
+	}
+	return sysVars[k]
+}
+
 // Vars returns a copy of the system variables map, if already initialized.
 // Otherwise an empty map is returned.
 func Vars() map[string]string {
@@ -59,8 +73,7 @@ func Vars() map[string]string {
 	sysVarsMu.RLock()
 	defer sysVarsMu.RUnlock()
 	if sysVars == nil {
-		// Log an error and return an empty map if sysVars is not initialized yet.
-		l.Error("Sysvars map is un-initialized. sysvars.Vars() was called before sysvars.Init().")
+		// Return an empty map if sysVars is not initialized yet.
 		return vars
 	}
 	for k, v := range sysVars {

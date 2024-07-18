@@ -98,7 +98,7 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 	defer pr.mu.Unlock()
 
 	// Check if this probe is supposed to run here.
-	runHere, err := runOnThisHost(p.GetRunOn(), sysvars.Vars()["hostname"])
+	runHere, err := runOnThisHost(p.GetRunOn(), sysvars.GetVar("hostname"))
 	if err != nil {
 		return err
 	}

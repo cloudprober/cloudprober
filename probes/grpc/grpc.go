@@ -160,7 +160,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	p.cancelFuncs = make(map[string]context.CancelFunc)
-	p.src = sysvars.Vars()["hostname"]
+	p.src = sysvars.GetVar("hostname")
 
 	transportCreds, err := p.transportCredentials()
 	if err != nil {
