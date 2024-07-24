@@ -88,9 +88,15 @@ type ProbeConf struct {
 	Mode *ProbeConf_Mode `protobuf:"varint,1,opt,name=mode,enum=cloudprober.probes.external.ProbeConf_Mode,def=0" json:"mode,omitempty"`
 	// Command.  For ONCE probes, arguments are processed for the following field
 	// substitutions:
-	// @probe@    Name of the probe
-	// @target@   Hostname of the target
-	// @address@  IP address of the target
+	// @probe@                    Name of the probe
+	// @target.name@ or @target@  Hostname of the target
+	// @target.port@ or @port@    Port of the target
+	// @target.ip@                IP address associated with target
+	// @address@                  Resolved IP address of the target, in case of
+	//
+	//	discovered targets, same as @target.ip@.
+	//
+	// @target.label.<x>@         Label x of the target
 	//
 	// For example, for target ig-us-central1-a, /tools/recreate_vm -vm @target@
 	// will get converted to: /tools/recreate_vm -vm ig-us-central1-a
@@ -204,7 +210,7 @@ func (x *ProbeConf) GetDisableStreamingOutputMetrics() bool {
 
 // Options for the SERVER mode probe requests. These options are passed on to
 // the external probe server as part of the ProbeRequest. Values are
-// substituted similar to command arguments for the ONCE mode probes.
+// substituted similar to command arguments for the ONCE mode probes above.
 type ProbeConf_Option struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
