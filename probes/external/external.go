@@ -185,20 +185,17 @@ type command interface {
 func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
 	labels := make(map[string]string)
 
-	for k, v := range map[string]string{
-		"target":      ep.Name,
-		"target.name": ep.Name,
-		"port":        strconv.Itoa(ep.Port),
-		"target.port": strconv.Itoa(ep.Port),
-		"target.ip":   ep.IP.String(),
-	} {
-		if p.labelKeys[k] {
+	for k := range p.labelKeys {
+		if v, ok := map[string]string{
+			"target":      ep.Name,
+			"target.name": ep.Name,
+			"port":        strconv.Itoa(ep.Port),
+			"target.port": strconv.Itoa(ep.Port),
+			"target.ip":   ep.IP.String(),
+			"probe":       p.name,
+		}[k]; ok {
 			labels[k] = v
 		}
-	}
-
-	if p.labelKeys["probe"] {
-		labels["probe"] = p.name
 	}
 
 	if p.labelKeys["address"] {
