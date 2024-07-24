@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"reflect"
@@ -264,8 +265,20 @@ func TestUpdateLabelKeys(t *testing.T) {
 				Value: proto.String("@target@"),
 			},
 			{
+				Name:  proto.String("target_name"),
+				Value: proto.String("@target.name@"),
+			},
+			{
 				Name:  proto.String("probe"),
 				Value: proto.String("@probe@"),
+			},
+			{
+				Name:  proto.String("target_ip"),
+				Value: proto.String("@target.ip@"),
+			},
+			{
+				Name:  proto.String("target_port"),
+				Value: proto.String("@target.port@"),
 			},
 		},
 	}
@@ -279,6 +292,9 @@ func TestUpdateLabelKeys(t *testing.T) {
 
 	expected := map[string]bool{
 		"target":            true,
+		"target.name":       true,
+		"target.ip":         true,
+		"target.port":       true,
 		"port":              true,
 		"probe":             true,
 		"target.label.fqdn": true,
@@ -291,6 +307,7 @@ func TestUpdateLabelKeys(t *testing.T) {
 	gotLabels := p.labels(endpoint.Endpoint{
 		Name: "targetA",
 		Port: 8080,
+		IP:   net.ParseIP("127.0.0.1"),
 		Labels: map[string]string{
 			"fqdn": "targetA.svc.local",
 		},
@@ -300,10 +317,11 @@ func TestUpdateLabelKeys(t *testing.T) {
 		"port":              "8080",
 		"probe":             "probeP",
 		"target":            "targetA",
+		"target.name":       "targetA",
+		"target.ip":         "127.0.0.1",
+		"target.port":       "8080",
 	}
-	if !reflect.DeepEqual(gotLabels, wantLabels) {
-		t.Errorf("p.labels got: %v, want: %v", gotLabels, wantLabels)
-	}
+	assert.Equal(t, wantLabels, gotLabels, "p.labels")
 }
 
 // TestSendRequest verifies that sendRequest sends appropriately populated
