@@ -52,7 +52,7 @@ import (
 )
 
 var (
-	validLabelRe = regexp.MustCompile(`@(target|address|port|probe|target\.label\.[^@]+)@`)
+	validLabelRe = regexp.MustCompile(`@(target|address|port|probe|target.(name|ip|port)|target\.label\.[^@]+)@`)
 )
 
 const maxScannerTokenSize = 256 * 1024
@@ -184,15 +184,20 @@ type command interface {
 
 func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
 	labels := make(map[string]string)
-	if p.labelKeys["probe"] {
-		labels["probe"] = p.name
+
+	for k := range p.labelKeys {
+		if v, ok := map[string]string{
+			"target":      ep.Name,
+			"target.name": ep.Name,
+			"port":        strconv.Itoa(ep.Port),
+			"target.port": strconv.Itoa(ep.Port),
+			"target.ip":   ep.IP.String(),
+			"probe":       p.name,
+		}[k]; ok {
+			labels[k] = v
+		}
 	}
-	if p.labelKeys["target"] {
-		labels["target"] = ep.Name
-	}
-	if p.labelKeys["port"] {
-		labels["port"] = strconv.Itoa(ep.Port)
-	}
+
 	if p.labelKeys["address"] {
 		addr, err := p.opts.Targets.Resolve(ep.Name, p.opts.IPVersion)
 		if err != nil {
