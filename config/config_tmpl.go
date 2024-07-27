@@ -1,4 +1,4 @@
-// Copyright 2017-2023 The Cloudprober Authors.
+// Copyright 2017-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,26 +24,9 @@ variable map (usually GCP metadata variables) and some predefined macros.
 
 # Macros
 
-Cloudprober configs support some macros to make configs construction easier:
-
-	env
-		Get the value of an environment variable.
-
-		Example:
-
-		probe {
-		  name: "dns_google_jp"
-		  type: DNS
-		  targets {
-		    host_names: "1.1.1.1"
-		  }
-		  dns_probe {
-		    resolved_domain: "{{env "TEST_DOM"}}"
-		  }
-		}
-
-		# Then run cloudprober as:
-		TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
+Cloudprober configs support Go text templates with sprig functions
+(https://masterminds.github.io/sprig/) and the following macros to make configs
+construction easier:
 
 	gceCustomMetadata
 	 	Get value of a GCE custom metadata key. It first looks for the given key in
@@ -77,9 +60,10 @@ Cloudprober configs support some macros to make configs construction easier:
 		  run_on: "{{$run_on}}"
 		}
 
-	mkMap
-		Returns a map built from the arguments. It's useful as Go templates take only
-		one argument. With this function, we can create a map of multiple values and
+	mkMap or dict
+		Same as dict: https://masterminds.github.io/sprig/dicts.html. Returns a
+		map built from the arguments. It's useful as Go templates take only one
+		argument. With this function, we can create a map of multiple values and
 		pass it to a template. Example use in config:
 
 		{{define "probeTmpl"}}
@@ -92,16 +76,16 @@ Cloudprober configs support some macros to make configs construction easier:
 		}
 		{{end}}
 
-		{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google"}}
-		{{template "probeTmpl" mkMap "typ" "HTTP" "name" "http_google"}}
+		{{template "probeTmpl" dict "typ" "PING" "name" "ping_google"}}
+		{{template "probeTmpl" dict "typ" "HTTP" "name" "http_google"}}
 
 
-	mkSlice
-		Returns a slice consisting of the arguments. It can be used with the built-in
-		'range' function to replicate text.
+	mkSlice or list
+		Same as list: https://masterminds.github.io/sprig/lists.html. It can be
+		used with the built-in'range' function to replicate text.
 
 
-		{{with $regions := mkSlice "us=central1" "us-east1"}}
+		{{with $regions := list "us=central1" "us-east1"}}
 		{{range $_, $region := $regions}}
 
 		probe {
