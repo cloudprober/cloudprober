@@ -325,7 +325,7 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 	return nil
 }
 
-func (p *Probe) runOnceProbe(ctx context.Context) {
+func (p *Probe) runOnceProbe(ctx context.Context, startCtx context.Context) {
 	var wg sync.WaitGroup
 
 	for _, target := range p.targets {
@@ -365,6 +365,14 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			}
 
 			err := p.runCommand(ctx, c)
+
+			// exit without saving metrics if the probe was interrupted by context closure
+			// while running the command
+			select {
+			case <-startCtx.Done():
+				return
+			default:
+			}
 
 			success := true
 			if err != nil {
@@ -427,7 +435,7 @@ func (p *Probe) runProbe(startCtx context.Context) {
 	if p.mode == "server" {
 		p.runServerProbe(probeCtx, startCtx)
 	} else {
-		p.runOnceProbe(probeCtx)
+		p.runOnceProbe(probeCtx, startCtx)
 	}
 }
 
