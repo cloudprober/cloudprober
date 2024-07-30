@@ -276,7 +276,11 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 	if p.c.GetConnectTimeoutMsec() > 0 {
 		connectTimeout = time.Duration(p.c.GetConnectTimeoutMsec()) * time.Millisecond
 	}
-	for {
+
+	ticker := time.NewTicker(p.opts.Interval)
+	defer ticker.Stop()
+
+	for ; true; <-ticker.C {
 		select {
 		case <-ctx.Done():
 			p.l.WarningAttrs("context cancelled in connect loop.", logAttrs...)
@@ -310,10 +314,8 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
-
-		// Sleep before retrying connection.
-		time.Sleep(p.opts.Interval)
 	}
+	return nil
 }
 
 func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, logAttrs ...slog.Attr) (*grpc_health_v1.HealthCheckResponse, error) {
