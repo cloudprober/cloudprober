@@ -47,11 +47,17 @@ type Options struct {
 	SourceIP            net.IP
 	IPVersion           int
 	StatsExportInterval time.Duration
-	LogMetrics          func(*metrics.EventMetrics)
 	AdditionalLabels    []*AdditionalLabel
 	Schedule            *Schedule
 	NegativeTest        bool
 	AlertHandlers       []*alerting.AlertHandler
+	LogMetricsOverride  func(*metrics.EventMetrics)
+}
+
+func (opts *Options) LogMetrics(em *metrics.EventMetrics) {
+	if opts.LogMetricsOverride != nil {
+		opts.LogMetricsOverride(em)
+	}
 }
 
 const defaultStatsExtportIntv = 10 * time.Second
@@ -239,13 +245,9 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		}
 	}
 
-	if !p.GetDebugOptions().GetLogMetrics() {
-		opts.LogMetrics = func(em *metrics.EventMetrics) {}
-	} else {
-		opts.LogMetrics = func(em *metrics.EventMetrics) {
-			if opts.Logger != nil {
-				opts.Logger.Info(em.String())
-			}
+	if p.GetDebugOptions().GetLogMetrics() {
+		opts.LogMetricsOverride = func(em *metrics.EventMetrics) {
+			opts.Logger.Info(em.String())
 		}
 	}
 

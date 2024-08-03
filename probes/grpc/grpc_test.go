@@ -166,7 +166,6 @@ func TestGRPCSuccess(t *testing.T) {
 				Timeout:             timeout,
 				Logger:              &logger.Logger{},
 				StatsExportInterval: statsExportInterval,
-				LogMetrics:          func(em *metrics.EventMetrics) {},
 			}
 
 			if tt.validationRegex != "" {
@@ -262,7 +261,6 @@ func TestConnectFailures(t *testing.T) {
 		},
 		Logger:              &logger.Logger{},
 		StatsExportInterval: statsExportInterval,
-		LogMetrics:          func(em *metrics.EventMetrics) {},
 	}
 	p := &Probe{}
 	p.Init("grpc-connectfail", probeOpts)
@@ -316,7 +314,6 @@ func TestProbeTimeouts(t *testing.T) {
 		Logger:              &logger.Logger{},
 		LatencyUnit:         time.Millisecond,
 		StatsExportInterval: statsExportInterval,
-		LogMetrics:          func(em *metrics.EventMetrics) {},
 	}
 
 	p := &Probe{}
@@ -398,7 +395,6 @@ func TestTargets(t *testing.T) {
 		ProbeConf:           &configpb.ProbeConf{NumConns: proto.Int32(2)},
 		LatencyUnit:         time.Millisecond,
 		StatsExportInterval: statsExportInterval,
-		LogMetrics:          func(em *metrics.EventMetrics) {},
 	}
 
 	p := &Probe{}
