@@ -485,3 +485,34 @@ func TestNilTargets(t *testing.T) {
 		})
 	}
 }
+
+func TestOptionsLogMetrics(t *testing.T) {
+	var called int
+	tests := []struct {
+		name       string
+		overrideFn func(*metrics.EventMetrics)
+		wantInc    int
+	}{
+		{
+			name:    "default",
+			wantInc: 0,
+		},
+		{
+			name: "inc",
+			overrideFn: func(em *metrics.EventMetrics) {
+				called++
+			},
+			wantInc: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &Options{
+				logMetricsOverride: tt.overrideFn,
+			}
+			oldCalled := called
+			opts.LogMetrics(metrics.NewEventMetrics(time.Now()))
+			assert.Equal(t, tt.wantInc, called-oldCalled)
+		})
+	}
+}
