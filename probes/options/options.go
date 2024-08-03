@@ -51,12 +51,12 @@ type Options struct {
 	Schedule            *Schedule
 	NegativeTest        bool
 	AlertHandlers       []*alerting.AlertHandler
-	LogMetricsOverride  func(*metrics.EventMetrics)
+	logMetricsOverride  func(*metrics.EventMetrics)
 }
 
 func (opts *Options) LogMetrics(em *metrics.EventMetrics) {
-	if opts.LogMetricsOverride != nil {
-		opts.LogMetricsOverride(em)
+	if opts.logMetricsOverride != nil {
+		opts.logMetricsOverride(em)
 	}
 }
 
@@ -246,7 +246,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	}
 
 	if p.GetDebugOptions().GetLogMetrics() {
-		opts.LogMetricsOverride = func(em *metrics.EventMetrics) {
+		opts.logMetricsOverride = func(em *metrics.EventMetrics) {
 			opts.Logger.Info(em.String())
 		}
 	}
