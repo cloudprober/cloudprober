@@ -488,27 +488,47 @@ func TestNilTargets(t *testing.T) {
 
 func TestOptionsLogMetrics(t *testing.T) {
 	var called int
+	overrideFn := func(em *metrics.EventMetrics) {
+		called++
+	}
+
 	tests := []struct {
-		name       string
-		overrideFn func(*metrics.EventMetrics)
-		wantInc    int
+		name              string
+		pConf             *configpb.ProbeDef
+		wantNilLogMetrics bool
+		wantInc           int
 	}{
 		{
-			name:    "default",
-			wantInc: 0,
+			name: "default",
+			pConf: &configpb.ProbeDef{
+				Targets: testTargets,
+			},
+			wantNilLogMetrics: true,
+			wantInc:           0,
 		},
 		{
 			name: "inc",
-			overrideFn: func(em *metrics.EventMetrics) {
-				called++
+			pConf: &configpb.ProbeDef{
+				Targets:      testTargets,
+				DebugOptions: &configpb.DebugOptions{LogMetrics: proto.Bool(true)},
 			},
-			wantInc: 1,
+			wantNilLogMetrics: false,
+			wantInc:           1,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := &Options{
-				logMetricsOverride: tt.overrideFn,
+			opts, err := BuildProbeOptions(tt.pConf, nil, nil, nil)
+			if err != nil {
+				t.Errorf("Unexpected BuildProbeOptions() error = %v", err)
+				return
+			}
+
+			assert.Equal(t, tt.wantNilLogMetrics, opts.logMetricsOverride == nil)
+
+			// Try calling LogMetrics()
+			if opts.logMetricsOverride != nil {
+				opts.logMetricsOverride = overrideFn
 			}
 			oldCalled := called
 			opts.LogMetrics(metrics.NewEventMetrics(time.Now()))
