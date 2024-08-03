@@ -16,6 +16,10 @@ package kubernetes
 
 import (
 	"testing"
+
+	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestHTTPRequest(t *testing.T) {
@@ -42,5 +46,38 @@ func TestHTTPRequest(t *testing.T) {
 
 	if req.Header.Get("Authorization") != c.bearer {
 		t.Errorf("Got Authorization Header = %s, expected = %s", req.Header.Get("Authorization"), c.bearer)
+	}
+}
+
+func Test_sanitizeRequest(t *testing.T) {
+	tests := []struct {
+		name string
+		req  *pb.ListResourcesRequest
+		want *pb.ListResourcesRequest
+	}{
+		{
+			name: "regex filter",
+			req: &pb.ListResourcesRequest{
+				Filter: []*pb.Filter{
+					{
+						Key:   proto.String("name"),
+						Value: proto.String("cloudprober.*"),
+					},
+				},
+			},
+			want: &pb.ListResourcesRequest{
+				Filter: []*pb.Filter{
+					{
+						Key:   proto.String("name"),
+						Value: proto.String("^cloudprober.*$"),
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, fixRegexFiltersInRequest(tt.req), "sanitizeRequest()")
+		})
 	}
 }

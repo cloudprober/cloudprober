@@ -88,7 +88,7 @@ func Test_parseConfig(t *testing.T) {
 	}
 }
 
-func Test_rdsRequest(t *testing.T) {
+func TestRDSRequest(t *testing.T) {
 	tests := []struct {
 		resources  string
 		nameF      string
@@ -108,28 +108,19 @@ func Test_rdsRequest(t *testing.T) {
 			want: &rdspb.ListResourcesRequest{
 				Provider:     proto.String("k8s"),
 				ResourcePath: proto.String("test-resources"),
-				Filter:       []*rdspb.Filter{{Key: proto.String("name"), Value: proto.String("^service$")}},
-			},
-		},
-		{
-			resources: "test-resources",
-			nameF:     "^.*-service",
-			want: &rdspb.ListResourcesRequest{
-				Provider:     proto.String("k8s"),
-				ResourcePath: proto.String("test-resources"),
-				Filter:       []*rdspb.Filter{{Key: proto.String("name"), Value: proto.String("^.*-service$")}},
+				Filter:       []*rdspb.Filter{{Key: proto.String("name"), Value: proto.String("service")}},
 			},
 		},
 		{
 			resources:  "test-resources",
 			nameF:      ".*-service",
-			portFilter: ".*dns.*",
+			portFilter: "^.*dns.*",
 			want: &rdspb.ListResourcesRequest{
 				Provider:     proto.String("k8s"),
 				ResourcePath: proto.String("test-resources"),
 				Filter: []*rdspb.Filter{
-					{Key: proto.String("name"), Value: proto.String("^.*-service$")},
-					{Key: proto.String("port"), Value: proto.String(".*dns.*")},
+					{Key: proto.String("name"), Value: proto.String(".*-service")},
+					{Key: proto.String("port"), Value: proto.String("^.*dns.*")},
 				},
 			},
 		},

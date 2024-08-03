@@ -32,6 +32,7 @@ package kubernetes
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -105,6 +106,22 @@ type resourceKey struct {
 	namespace, name string
 }
 
+func fixRegexFiltersInRequest(req *pb.ListResourcesRequest) *pb.ListResourcesRequest {
+	for _, filter := range req.GetFilter() {
+		if slices.Contains(SupportedFilters.RegexFilterKeys, filter.GetKey()) {
+			v := filter.GetValue()
+			if v[0] != '^' {
+				v = "^" + v
+			}
+			if v[len(v)-1] != '$' {
+				v = v + "$"
+			}
+			filter.Value = &v
+		}
+	}
+	return req
+}
+
 // ListResources returns the list of resources from the cache.
 func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
 	tok := strings.SplitN(req.GetResourcePath(), "/", 2)
@@ -115,7 +132,8 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 	if lr == nil {
 		return nil, fmt.Errorf("kubernetes: unsupported resource type: %s", resType)
 	}
-	resources, err := lr.listResources(req)
+
+	resources, err := lr.listResources(fixRegexFiltersInRequest(req))
 	return &pb.ListResourcesResponse{Resources: resources}, err
 }
 
