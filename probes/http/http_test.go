@@ -442,8 +442,7 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 			KeepAlive:        proto.Bool(probeOpts.keepAlive),
 			Body:             []string{probeOpts.body},
 		},
-		IPVersion:  probeOpts.ipVer,
-		LogMetrics: func(_ *metrics.EventMetrics) {},
+		IPVersion: probeOpts.ipVer,
 	}
 
 	p := &Probe{}
@@ -583,7 +582,6 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 		Interval:            10 * time.Millisecond,
 		StatsExportInterval: 20 * time.Millisecond,
 		ProbeConf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
-		LogMetrics:          func(_ *metrics.EventMetrics) {},
 	}
 	p := &Probe{}
 	p.Init("http_test", opts)

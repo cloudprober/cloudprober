@@ -74,7 +74,6 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 		Targets:             targets.StaticTargets(fmt.Sprintf("%s,%s", testTargets[0], testTargets[1])),
 		Interval:            10 * time.Millisecond,
 		StatsExportInterval: 20 * time.Millisecond,
-		LogMetrics:          func(_ *metrics.EventMetrics) {},
 		Logger:              &logger.Logger{},
 	}
 
