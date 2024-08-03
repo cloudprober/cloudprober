@@ -60,7 +60,6 @@ func main() {
 		Timeout:     time.Second,
 		LatencyUnit: 1 * time.Millisecond,
 		ProbeConf:   probeConfig,
-		LogMetrics:  func(*metrics.EventMetrics) {},
 		IPVersion:   *ipVer,
 	}
 	p := &ping.Probe{}
