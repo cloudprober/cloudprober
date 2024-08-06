@@ -289,6 +289,11 @@ func WithNoAlert() RecordOptions {
 	}
 }
 
+// RecordMetrics updates EventMetrics with additional labels and pushes it to
+// the data channel and alert handlers. It also logs EventMetrics if configured
+// to do so in the options.
+// Note: RecordMetrics doesn't clone the provided EventMetrics. It expects the
+// caller to not modify it after calling this function.
 func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics, ropts ...RecordOptions) {
 	ro := &recordOptions{}
 	for _, ropt := range ropts {
