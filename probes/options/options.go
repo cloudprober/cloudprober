@@ -273,8 +273,13 @@ func DefaultOptions() *Options {
 	return opts
 }
 
+func (opts *Options) IsScheduled() bool {
+	return opts.Schedule.isIn(time.Now())
+}
+
 type recordOptions struct {
-	NoAlert bool
+	NoAlert         bool
+	CloneBeforePush bool
 }
 
 type RecordOptions func(*recordOptions)
@@ -285,23 +290,31 @@ func WithNoAlert() RecordOptions {
 	}
 }
 
-func (opts *Options) IsScheduled() bool {
-	return opts.Schedule.isIn(time.Now())
+func WithCloneBeforePush() RecordOptions {
+	return func(ro *recordOptions) {
+		ro.CloneBeforePush = true
+	}
 }
 
 func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics, ropts ...RecordOptions) {
+	ro := &recordOptions{}
+	for _, ropt := range ropts {
+		ropt(ro)
+	}
+
 	em.LatencyUnit = opts.LatencyUnit
 	for _, al := range opts.AdditionalLabels {
 		em.AddLabel(al.KeyValueForTarget(ep))
 	}
 
 	opts.LogMetrics(em)
-	dataChan <- em.Clone()
 
-	ro := &recordOptions{}
-	for _, ropt := range ropts {
-		ropt(ro)
+	if ro.CloneBeforePush {
+		dataChan <- em.Clone()
+	} else {
+		dataChan <- em
 	}
+
 	if !ro.NoAlert {
 		for _, ah := range opts.AlertHandlers {
 			ah.Record(ep, em)
