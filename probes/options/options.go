@@ -273,6 +273,10 @@ func DefaultOptions() *Options {
 	return opts
 }
 
+func (opts *Options) IsScheduled() bool {
+	return opts.Schedule.isIn(time.Now())
+}
+
 type recordOptions struct {
 	NoAlert bool
 }
@@ -285,23 +289,25 @@ func WithNoAlert() RecordOptions {
 	}
 }
 
-func (opts *Options) IsScheduled() bool {
-	return opts.Schedule.isIn(time.Now())
-}
-
+// RecordMetrics updates EventMetrics with additional labels and pushes it to
+// the data channel and alert handlers. It also logs EventMetrics if configured
+// to do so in the options.
+// Note: RecordMetrics doesn't clone the provided EventMetrics. It expects the
+// caller to not modify it after calling this function.
 func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics, ropts ...RecordOptions) {
+	ro := &recordOptions{}
+	for _, ropt := range ropts {
+		ropt(ro)
+	}
+
 	em.LatencyUnit = opts.LatencyUnit
 	for _, al := range opts.AdditionalLabels {
 		em.AddLabel(al.KeyValueForTarget(ep))
 	}
 
 	opts.LogMetrics(em)
-	dataChan <- em.Clone()
+	dataChan <- em
 
-	ro := &recordOptions{}
-	for _, ropt := range ropts {
-		ropt(ro)
-	}
 	if !ro.NoAlert {
 		for _, ah := range opts.AlertHandlers {
 			ah.Record(ep, em)
