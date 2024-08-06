@@ -278,8 +278,7 @@ func (opts *Options) IsScheduled() bool {
 }
 
 type recordOptions struct {
-	NoAlert         bool
-	CloneBeforePush bool
+	NoAlert bool
 }
 
 type RecordOptions func(*recordOptions)
@@ -290,20 +289,10 @@ func WithNoAlert() RecordOptions {
 	}
 }
 
-func WithCloneBeforePush() RecordOptions {
-	return func(ro *recordOptions) {
-		ro.CloneBeforePush = true
-	}
-}
-
 func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics, ropts ...RecordOptions) {
 	ro := &recordOptions{}
 	for _, ropt := range ropts {
 		ropt(ro)
-	}
-
-	if ro.CloneBeforePush {
-		em = em.Clone()
 	}
 
 	em.LatencyUnit = opts.LatencyUnit
