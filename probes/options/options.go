@@ -302,18 +302,17 @@ func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetric
 		ropt(ro)
 	}
 
+	if ro.CloneBeforePush {
+		em = em.Clone()
+	}
+
 	em.LatencyUnit = opts.LatencyUnit
 	for _, al := range opts.AdditionalLabels {
 		em.AddLabel(al.KeyValueForTarget(ep))
 	}
 
 	opts.LogMetrics(em)
-
-	if ro.CloneBeforePush {
-		dataChan <- em.Clone()
-	} else {
-		dataChan <- em
-	}
+	dataChan <- em
 
 	if !ro.NoAlert {
 		for _, ah := range opts.AlertHandlers {
