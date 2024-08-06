@@ -43,6 +43,9 @@ func ctxDone(ctx context.Context) bool {
 // ProbeResult represents results of a probe run.
 type ProbeResult interface {
 	// Metrics returns ProbeResult metrics as a metrics.EventMetrics object.
+	// This EventMetrics object should not be reused for further accounting
+	// because it's modified by the scheduler and later on when it's pushed
+	// to the data channel.
 	Metrics(time.Time, *options.Options) *metrics.EventMetrics
 }
 
