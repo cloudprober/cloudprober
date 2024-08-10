@@ -283,7 +283,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 }
 
 // connect attempts to connect to a target.
-func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
+func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.ClientConn, error) {
 	addr := target.Name
 	if target.IP != nil {
 		if p.opts.IPVersion == 0 || iputils.IPVersion(target.IP) == p.opts.IPVersion {
@@ -318,7 +318,7 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint, logAttrs 
 	return grpcurl.BlockingDial(connCtx, "tcp", addr, p.creds, p.dialOpts...)
 }
 
-func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint) (*grpc.ClientConn, error) {
+func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
 	key := target.Key()
 
 	p.connsMu.Lock()
@@ -330,8 +330,10 @@ func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 
 	conn, err := p.connect(ctx, target)
 	if err != nil {
+		p.l.WarningAttrs("Connect error: "+err.Error(), logAttrs...)
 		return nil, err
 	}
+	p.l.InfoAttrs("Connection established", logAttrs...)
 	p.conns[key] = conn
 	return conn, nil
 }
@@ -362,7 +364,7 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, log
 
 // runProbeForTargetAndConn runs a single probe for a target + connection index.
 func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpoint, probeResult sched.ProbeResult) {
-	msgPattern := fmt.Sprintf("%s,%s%s,%s", p.src, p.c.GetUriScheme(), tgt.Name, tgt.Labels[connIndexLabel])
+	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), tgt.Name, tgt.Labels[connIndexLabel])
 	logAttrs := []slog.Attr{
 		slog.String("probeId", msgPattern),
 		slog.String("request_type", p.c.GetMethod().String()),
@@ -375,16 +377,14 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpo
 	result := probeResult.(*probeRunResult)
 
 	// On connection failure, this is where probe will end.
-	conn, err := p.getConn(ctx, tgt)
+	conn, err := p.getConn(ctx, tgt, logAttrs...)
 	if err != nil {
-		p.l.WarningAttrs("Connect error: "+err.Error(), logAttrs...)
 		result.Lock()
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
 		return
 	}
-	p.l.InfoAttrs("Connection established", logAttrs...)
 
 	client := spb.NewProberClient(conn)
 	timeout := p.opts.Timeout
