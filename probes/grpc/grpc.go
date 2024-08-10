@@ -286,12 +286,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-// connectWithRetry attempts to connect to a target. On failure, it retries in
-// an infinite loop until successful, incrementing connectErrors for every
-// connection error. On success, it returns a client immediately.
-// Interval between connects is controlled by connect_timeout_msec, defaulting
-// to probe timeout.
-func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, logAttrs ...slog.Attr) *grpc.ClientConn {
+// connect attempts to connect to a target.
+func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
 	addr := target.Name
 	if target.IP != nil {
 		if p.opts.IPVersion == 0 || iputils.IPVersion(target.IP) == p.opts.IPVersion {
@@ -310,60 +306,38 @@ func (p *Probe) connectWithRetry(ctx context.Context, target endpoint.Endpoint, 
 		connectTimeout = time.Duration(p.c.GetConnectTimeoutMsec()) * time.Millisecond
 	}
 
-	ticker := time.NewTicker(p.opts.Interval)
-	defer ticker.Stop()
-
-	for ; true; <-ticker.C {
-		select {
-		case <-ctx.Done():
-			p.l.WarningAttrs("context cancelled in connect loop.", logAttrs...)
-			return nil
-		default:
-		}
-		connCtx, cancelFunc := context.WithTimeout(ctx, connectTimeout)
-
-		if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
-			addr = uriScheme + addr
-		}
-
-		// Note we use grpcurl.BlockingDial which uses WithBlock dial option which is
-		// discouraged by the gRPC docs:
-		// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md.
-		// In a traditional gRPC client, it makes sense for connections to be
-		// fluid, and come and go, but for  aprober it's important that
-		// connection is established before we start sending RPCs. We'll get a
-		// much better error message if connection fails.
-		conn, err := grpcurl.BlockingDial(connCtx, "tcp", addr, p.creds, p.dialOpts...)
-		cancelFunc()
-
-		if err != nil {
-			p.l.WarningAttrs("Connect error: "+err.Error(), logAttrs...)
-		} else {
-			p.l.InfoAttrs("Connection established", logAttrs...)
-			return conn
-		}
-
-		result.Lock()
-		result.total.Inc()
-		result.connectErrors.Inc()
-		result.Unlock()
+	if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
+		addr = uriScheme + addr
 	}
-	return nil
+
+	// Note we use grpcurl.BlockingDial which uses WithBlock dial option which is
+	// discouraged by the gRPC docs:
+	// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md.
+	// In a traditional gRPC client, it makes sense for connections to be
+	// fluid, and come and go, but for  aprober it's important that
+	// connection is established before we start sending RPCs. We'll get a
+	// much better error message if connection fails.
+	connCtx, cancelFunc := context.WithTimeout(ctx, connectTimeout)
+	defer cancelFunc()
+	return grpcurl.BlockingDial(connCtx, "tcp", addr, p.creds, p.dialOpts...)
 }
 
-func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, logAttrs ...slog.Attr) *grpc.ClientConn {
+func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint) (*grpc.ClientConn, error) {
 	key := target.Key()
 
 	p.connsMu.Lock()
 	defer p.connsMu.Unlock()
 
-	if conn, ok := p.conns[key]; ok {
-		return conn
+	if conn := p.conns[key]; conn != nil {
+		return conn, nil
 	}
 
-	conn := p.connectWithRetry(ctx, target, result, logAttrs...)
+	conn, err := p.connect(ctx, target)
+	if err != nil {
+		return nil, err
+	}
 	p.conns[key] = conn
-	return conn
+	return conn, nil
 }
 
 func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, logAttrs ...slog.Attr) (*grpc_health_v1.HealthCheckResponse, error) {
@@ -403,10 +377,18 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpo
 	}
 
 	result := probeResult.(*probeRunResult)
-	conn := p.getConn(ctx, tgt, result, logAttrs...)
-	if conn == nil {
+
+	// On connection failure, this is where probe will end.
+	conn, err := p.getConn(ctx, tgt)
+	if err != nil {
+		p.l.WarningAttrs("Connect error: "+err.Error(), logAttrs...)
+		result.Lock()
+		result.total.Inc()
+		result.connectErrors.Inc()
+		result.Unlock()
 		return
 	}
+	p.l.InfoAttrs("Connection established", logAttrs...)
 
 	client := spb.NewProberClient(conn)
 	timeout := p.opts.Timeout
@@ -426,7 +408,6 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpo
 	}
 
 	var success bool
-	var err error
 	var r fmt.Stringer
 
 	getPaylod := func() []byte {
