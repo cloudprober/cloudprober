@@ -32,7 +32,7 @@ type testProbeResult struct {
 	total int
 }
 
-func (tpr *testProbeResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
+func (tpr *testProbeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
 	return metrics.NewEventMetrics(ts).AddMetric("total", metrics.NewInt(int64(tpr.total)))
 }
 

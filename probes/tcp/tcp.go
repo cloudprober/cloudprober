@@ -65,7 +65,7 @@ func (p *Probe) newResult(_ *endpoint.Endpoint) sched.ProbeResult {
 	return result
 }
 
-func (result *probeResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
+func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).

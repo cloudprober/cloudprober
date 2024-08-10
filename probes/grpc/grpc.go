@@ -116,7 +116,7 @@ type probeRunResult struct {
 	latency           metrics.LatencyValue
 	connectErrors     metrics.Int
 	validationFailure *metrics.Map[int64]
-	lastExport        time.Time
+	lastRunID         int64
 }
 
 func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
@@ -146,19 +146,18 @@ func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
 	return result
 }
 
-func (prr *probeRunResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
+func (prr *probeRunResult) Metrics(ts time.Time, runCnt int64, opts *options.Options) *metrics.EventMetrics {
 	prr.Lock()
 	defer prr.Unlock()
 
 	// Note, we've to do this as we handle multiple connections per target as
 	// multiple targets for scheduling probes through 'sched', but we want to
-	// export metrics only once per target. Doing this check is sufficient
-	// because 'sched' all targets within the interval period.
-	if time.Since(prr.lastExport) < opts.Interval {
+	// export metrics only once per target.
+	if prr.lastRunID == runCnt {
 		return nil
 	}
 
-	prr.lastExport = ts
+	prr.lastRunID = runCnt
 	opts.Logger.Infof("writing metrics for %s", prr.target)
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", prr.total.Clone()).

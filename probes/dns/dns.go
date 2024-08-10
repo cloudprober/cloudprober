@@ -126,7 +126,7 @@ func (p *Probe) newResult(_ *endpoint.Endpoint) sched.ProbeResult {
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
+func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
