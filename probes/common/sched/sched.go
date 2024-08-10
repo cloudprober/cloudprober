@@ -54,9 +54,9 @@ type Scheduler struct {
 	DataChan  chan *metrics.EventMetrics
 	Opts      *options.Options
 
-	// NewResult may or may not make use of the target. It's useful when users
-	// of this package want to for example cache result objects and reuse them
-	// or something else, e.g. gRPC probe does that.
+	// NewResult may or may not make use of the provided target. It's useful
+	// you want to handle result objects yourself, for example to share them
+	// across targets. See grpc probe for an example.
 	NewResult func(target *endpoint.Endpoint) ProbeResult
 
 	// ListEndpoints is optional. If not provided, we just call the default

@@ -13,7 +13,7 @@
 !Makefile
 !LICENSE
 
-node_modules
+node_modules/
 docs/public
 docs/resources
 vendor/
