@@ -93,7 +93,7 @@ func TestRunProbe(t *testing.T) {
 			ds := &dialState{}
 			p.dialContext = testDialContext(ds)
 
-			res := p.newResult()
+			res := p.newResult(nil)
 			p.runProbe(context.Background(), endpoint.Endpoint{Name: host, Port: port}, res)
 
 			if ds.network != test.wantNetwork {

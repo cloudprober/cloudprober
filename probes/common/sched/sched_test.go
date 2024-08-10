@@ -80,7 +80,7 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 	s := &Scheduler{
 		Opts:              opts,
 		DataChan:          make(chan *metrics.EventMetrics, 100),
-		NewResult:         func() ProbeResult { return &testProbeResult{} },
+		NewResult:         func(_ *endpoint.Endpoint) ProbeResult { return &testProbeResult{} },
 		RunProbeForTarget: func(ctx context.Context, ep endpoint.Endpoint, r ProbeResult) { r.(*testProbeResult).total++ },
 	}
 	s.init()

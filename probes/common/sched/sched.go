@@ -50,11 +50,24 @@ type ProbeResult interface {
 }
 
 type Scheduler struct {
-	ProbeName              string
-	DataChan               chan *metrics.EventMetrics
-	Opts                   *options.Options
-	NewResult              func() ProbeResult
-	RunProbeForTarget      func(context.Context, endpoint.Endpoint, ProbeResult)
+	ProbeName string
+	DataChan  chan *metrics.EventMetrics
+	Opts      *options.Options
+
+	// NewResult may or may not make use of the target. It's useful when users
+	// of this package want to for example cache result objects and reuse them
+	// or something else, e.g. gRPC probe does that.
+	NewResult func(target *endpoint.Endpoint) ProbeResult
+
+	// ListEndpoints is optional. If not provided, we just call the default
+	// lister: opts.Tagets.ListEndpoints(). See grpc probe for an example of
+	// how to use this field.
+	ListEndpoints func() []endpoint.Endpoint
+
+	// RunProbeForTarget is called per probe cycle for each target.
+	RunProbeForTarget func(context.Context, endpoint.Endpoint, ProbeResult)
+
+	// IntervalBetweenTargets defines the time between target updates.
 	IntervalBetweenTargets time.Duration
 
 	statsExportFrequency  int64
@@ -101,7 +114,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	// We use this counter to decide when to export stats.
 	var runCnt int64
 
-	result := s.NewResult()
+	result := s.NewResult(&target)
 
 	ticker := time.NewTicker(s.Opts.Interval)
 	defer ticker.Stop()
@@ -137,9 +150,24 @@ func (s *Scheduler) Wait() {
 // Note that this function is not concurrency safe. It is never called
 // concurrently by Start().
 func (s *Scheduler) refreshTargets(ctx context.Context) {
-	s.targets = s.Opts.Targets.ListEndpoints()
+	var newTargets []endpoint.Endpoint
+	if s.ListEndpoints != nil {
+		newTargets = s.ListEndpoints()
+	} else {
+		newTargets = s.Opts.Targets.ListEndpoints()
+	}
 
 	s.Opts.Logger.Debugf("Probe(%s) got %d targets", s.ProbeName, len(s.targets))
+
+	// TODO(manugarg): See if we want to protect against too few targets.
+	// We may not need to do this, because our targets listers are quite
+	// safe -- we return from cache in case of failures.
+	//
+	//	if len(newTargets) == 0 || len(newTargets) < (len(s.targets)/2) {
+	//		s.Opts.Logger.Errorf("Too few new targets, retaining old targets. New targets: %v, old count: %d", newTargets, len(s.targets))
+	//		return
+	//	}
+	s.targets = newTargets
 
 	// updatedTargets is used only for logging.
 	updatedTargets := make(map[string]string)

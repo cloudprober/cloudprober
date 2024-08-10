@@ -49,7 +49,7 @@ type probeResult struct {
 	validationFailure *metrics.Map[int64]
 }
 
-func (p *Probe) newResult() sched.ProbeResult {
+func (p *Probe) newResult(_ *endpoint.Endpoint) sched.ProbeResult {
 	result := &probeResult{}
 
 	if p.opts.Validators != nil {

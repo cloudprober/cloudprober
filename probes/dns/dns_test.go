@@ -77,7 +77,7 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success i
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 
-	result := p.newResult()
+	result := p.newResult(nil)
 
 	for _, target := range p.targets {
 		p.runProbe(context.Background(), target, result)

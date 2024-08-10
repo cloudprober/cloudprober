@@ -21,7 +21,6 @@ import (
 	"time"
 
 	endpointpb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
-
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -47,11 +46,12 @@ func TestEndpointsFromNames(t *testing.T) {
 
 func TestKey(t *testing.T) {
 	for _, test := range []struct {
-		name   string
-		port   int
-		labels map[string]string
-		ip     net.IP
-		key    string
+		name         string
+		port         int
+		labels       map[string]string
+		ip           net.IP
+		ignoreLabels []string
+		key          string
 	}{
 		{
 			name: "t1",
@@ -67,6 +67,14 @@ func TestKey(t *testing.T) {
 			key:    "t1_1234:5678::72_80_app:cloudprober_dc:xx",
 		},
 		{
+			name:         "t1",
+			port:         80,
+			ip:           net.ParseIP("1234:5678::72"),
+			labels:       map[string]string{"app": "cloudprober", "dc": "xx"},
+			ignoreLabels: []string{"dc"},
+			key:          "t1_1234:5678::72_80_app:cloudprober",
+		},
+		{
 			name:   "t1",
 			port:   80,
 			labels: map[string]string{"dc": "xx", "app": "cloudprober"},
@@ -80,7 +88,11 @@ func TestKey(t *testing.T) {
 			Labels: test.labels,
 		}
 		t.Run(fmt.Sprintf("%v", ep), func(t *testing.T) {
-			key := ep.Key()
+			var opts []KeyOption
+			if test.ignoreLabels != nil {
+				opts = append(opts, WithIgnoreLabels(test.ignoreLabels...))
+			}
+			key := ep.Key(opts...)
 			if key != test.key {
 				t.Errorf("Got key: %s, want: %s", key, test.key)
 			}
@@ -351,4 +363,19 @@ func TestEndpointResolve(t *testing.T) {
 			assert.Equal(t, tt.wantIP, got.String(), "resolved IP")
 		})
 	}
+}
+
+func TestEndpointClone(t *testing.T) {
+	src := &Endpoint{
+		Name: "ep-1",
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 80,
+		Labels: map[string]string{
+			"app": "cloudprober",
+		},
+	}
+	cloned := src.Clone()
+	assert.Equal(t, src, cloned, "cloned endpoint")
+	cloned.Labels["app"] = "cloudprober2"
+	assert.NotEqual(t, src, cloned, "cloned endpoint")
 }
