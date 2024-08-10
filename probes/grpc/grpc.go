@@ -150,6 +150,10 @@ func (prr *probeRunResult) Metrics(ts time.Time, opts *options.Options) *metrics
 	prr.Lock()
 	defer prr.Unlock()
 
+	// Note, we've to do this as we handle multiple connections per target as
+	// multiple targets for scheduling probes through 'sched', but we want to
+	// export metrics only once per target. Doing this check is sufficient
+	// because 'sched' all targets within the interval period.
 	if time.Since(prr.lastExport) < opts.Interval {
 		return nil
 	}
