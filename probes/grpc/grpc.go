@@ -1,4 +1,4 @@
-// Copyright 2020-2023 The Cloudprober Authors.
+// Copyright 2020-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,10 +92,7 @@ type Probe struct {
 	creds    credentials.TransportCredentials
 	descSrc  grpcurl.DescriptorSource
 
-	// Targets and cancellation function for each target.
-	targets     []endpoint.Endpoint
-	cancelFuncs map[string]context.CancelFunc
-	targetsMu   sync.Mutex
+	targets []endpoint.Endpoint
 
 	// Results by target.
 	results   map[string]*probeRunResult
@@ -238,7 +235,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.targets = p.opts.Targets.ListEndpoints()
 
-	p.cancelFuncs = make(map[string]context.CancelFunc)
 	p.src = sysvars.GetVar("hostname")
 
 	transportCreds, err := p.transportCredentials()
