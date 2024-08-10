@@ -132,10 +132,13 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		// Export stats if it's the time to do so.
 		runCnt++
 		if (runCnt % s.statsExportFrequency) == 0 {
-			em := result.Metrics(ts, s.Opts).
-				AddLabel("probe", s.ProbeName).
+			em := result.Metrics(ts, s.Opts)
+			// Returning nil is a way to skip this target. Used by grpc probe.
+			if em == nil {
+				continue
+			}
+			em.AddLabel("probe", s.ProbeName).
 				AddLabel("dst", target.Dst())
-
 			s.Opts.RecordMetrics(target, em, s.DataChan)
 		}
 	}

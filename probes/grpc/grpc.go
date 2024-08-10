@@ -116,6 +116,7 @@ type probeRunResult struct {
 	latency           metrics.LatencyValue
 	connectErrors     metrics.Int
 	validationFailure *metrics.Map[int64]
+	lastExport        time.Time
 }
 
 func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
@@ -149,6 +150,11 @@ func (prr *probeRunResult) Metrics(ts time.Time, opts *options.Options) *metrics
 	prr.Lock()
 	defer prr.Unlock()
 
+	if time.Since(prr.lastExport) < opts.Interval {
+		return nil
+	}
+
+	prr.lastExport = ts
 	opts.Logger.Infof("writing metrics for %s", prr.target)
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", prr.total.Clone()).
