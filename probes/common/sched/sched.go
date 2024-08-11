@@ -162,14 +162,6 @@ func (s *Scheduler) refreshTargets(ctx context.Context) {
 
 	s.Opts.Logger.Debugf("Probe(%s) got %d targets", s.ProbeName, len(s.targets))
 
-	// TODO(manugarg): See if we want to protect against too few targets.
-	// We may not need to do this, because our targets listers are quite
-	// safe -- we return from cache in case of failures.
-	//
-	//	if len(newTargets) == 0 || len(newTargets) < (len(s.targets)/2) {
-	//		s.Opts.Logger.Errorf("Too few new targets, retaining old targets. New targets: %v, old count: %d", newTargets, len(s.targets))
-	//		return
-	//	}
 	s.targets = newTargets
 
 	// updatedTargets is used only for logging.
