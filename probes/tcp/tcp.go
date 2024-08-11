@@ -49,7 +49,7 @@ type probeResult struct {
 	validationFailure *metrics.Map[int64]
 }
 
-func (p *Probe) newResult(_ *endpoint.Endpoint) sched.ProbeResult {
+func (p *Probe) newResult() sched.ProbeResult {
 	result := &probeResult{}
 
 	if p.opts.Validators != nil {
@@ -188,7 +188,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:              p.name,
 		DataChan:               dataChan,
 		Opts:                   p.opts,
-		NewResult:              p.newResult,
+		NewResult:              func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget:      p.runProbe,
 		IntervalBetweenTargets: time.Duration(p.c.GetIntervalBetweenTargetsMsec()) * time.Millisecond,
 	}
