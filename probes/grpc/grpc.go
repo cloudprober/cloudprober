@@ -416,7 +416,7 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpo
 	case configpb.ProbeConf_ECHO:
 		r, err = client.Echo(reqCtx, &pb.EchoMessage{Blob: []byte(getPaylod())}, opts...)
 	case configpb.ProbeConf_READ:
-		r, err = client.BlobRead(reqCtx, &pb.BlobReadRequest{Size: proto.Int32(int32(len(getPaylod())))}, opts...)
+		r, err = client.BlobRead(reqCtx, &pb.BlobReadRequest{Size: proto.Int32(p.c.GetBlobSize())}, opts...)
 	case configpb.ProbeConf_WRITE:
 		r, err = client.BlobWrite(reqCtx, &pb.BlobWriteRequest{Blob: []byte(getPaylod())}, opts...)
 	case configpb.ProbeConf_HEALTH_CHECK:
