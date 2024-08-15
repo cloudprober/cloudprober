@@ -132,10 +132,9 @@ func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
 			latencyValue = metrics.NewFloat(0)
 		}
 
-		validationFailure := validators.ValidationFailureMap(p.opts.Validators)
 		result = &probeRunResult{
 			latency:           latencyValue,
-			validationFailure: validationFailure,
+			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 		}
 
 		p.results[key] = result
@@ -143,19 +142,18 @@ func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
 	return result
 }
 
-func (prr *probeRunResult) Metrics(ts time.Time, runCnt int64, opts *options.Options) *metrics.EventMetrics {
+func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) *metrics.EventMetrics {
 	prr.Lock()
 	defer prr.Unlock()
 
 	// Note, we've to do this as we handle multiple connections per target as
 	// multiple targets for scheduling probes through 'sched', but we want to
 	// export metrics only once per target.
-	if prr.lastRunID == runCnt {
+	if prr.lastRunID == runID {
 		return nil
 	}
 
-	prr.lastRunID = runCnt
-	opts.Logger.Infof("writing metrics for %s", prr.target)
+	prr.lastRunID = runID
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", prr.total.Clone()).
 		AddMetric("success", prr.success.Clone()).
