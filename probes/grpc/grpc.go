@@ -196,6 +196,9 @@ func (p *Probe) transportCredentials() (credentials.TransportCredentials, error)
 	return credentials.NewClientTLSFromCert(nil, ""), nil
 }
 
+// ListEndpoints denoramlizes the targets list by connection index before
+// returning it. This is required because 'sched' schedules one probe loop per
+// target and we want to have one probe loop per target per connection.
 func (p *Probe) ListEndpoints() []endpoint.Endpoint {
 	targets := p.opts.Targets.ListEndpoints()
 
@@ -204,6 +207,8 @@ func (p *Probe) ListEndpoints() []endpoint.Endpoint {
 	}
 
 	var out []endpoint.Endpoint
+	// For each target, create 'numConns' clones, and add connection index as
+	// a label so that they are distinguished from each other.
 	for _, target := range targets {
 		for i := 0; i < p.numConns; i++ {
 			tgt := target.Clone()
