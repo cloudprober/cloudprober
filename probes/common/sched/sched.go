@@ -46,15 +46,28 @@ type ProbeResult interface {
 	// This EventMetrics object should not be reused for further accounting
 	// because it's modified by the scheduler and later on when it's pushed
 	// to the data channel.
-	Metrics(time.Time, *options.Options) *metrics.EventMetrics
+	Metrics(timeStamp time.Time, runId int64, opts *options.Options) *metrics.EventMetrics
 }
 
 type Scheduler struct {
-	ProbeName              string
-	DataChan               chan *metrics.EventMetrics
-	Opts                   *options.Options
-	NewResult              func() ProbeResult
-	RunProbeForTarget      func(context.Context, endpoint.Endpoint, ProbeResult)
+	ProbeName string
+	DataChan  chan *metrics.EventMetrics
+	Opts      *options.Options
+
+	// NewResult may or may not make use of the provided target. It's useful
+	// you want to handle result objects yourself, for example to share them
+	// across targets. See grpc probe for an example.
+	NewResult func(target *endpoint.Endpoint) ProbeResult
+
+	// ListEndpoints is optional. If not provided, we just call the default
+	// lister: opts.Tagets.ListEndpoints(). See grpc probe for an example of
+	// how to use this field.
+	ListEndpoints func() []endpoint.Endpoint
+
+	// RunProbeForTarget is called per probe cycle for each target.
+	RunProbeForTarget func(context.Context, endpoint.Endpoint, ProbeResult)
+
+	// IntervalBetweenTargets defines the time between target updates.
 	IntervalBetweenTargets time.Duration
 
 	statsExportFrequency  int64
@@ -101,7 +114,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	// We use this counter to decide when to export stats.
 	var runCnt int64
 
-	result := s.NewResult()
+	result := s.NewResult(&target)
 
 	ticker := time.NewTicker(s.Opts.Interval)
 	defer ticker.Stop()
@@ -119,10 +132,13 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		// Export stats if it's the time to do so.
 		runCnt++
 		if (runCnt % s.statsExportFrequency) == 0 {
-			em := result.Metrics(ts, s.Opts).
-				AddLabel("probe", s.ProbeName).
+			em := result.Metrics(ts, runCnt, s.Opts)
+			// Returning nil is a way to skip this target. Used by grpc probe.
+			if em == nil {
+				continue
+			}
+			em.AddLabel("probe", s.ProbeName).
 				AddLabel("dst", target.Dst())
-
 			s.Opts.RecordMetrics(target, em, s.DataChan)
 		}
 	}
@@ -137,9 +153,16 @@ func (s *Scheduler) Wait() {
 // Note that this function is not concurrency safe. It is never called
 // concurrently by Start().
 func (s *Scheduler) refreshTargets(ctx context.Context) {
-	s.targets = s.Opts.Targets.ListEndpoints()
+	var newTargets []endpoint.Endpoint
+	if s.ListEndpoints != nil {
+		newTargets = s.ListEndpoints()
+	} else {
+		newTargets = s.Opts.Targets.ListEndpoints()
+	}
 
 	s.Opts.Logger.Debugf("Probe(%s) got %d targets", s.ProbeName, len(s.targets))
+
+	s.targets = newTargets
 
 	// updatedTargets is used only for logging.
 	updatedTargets := make(map[string]string)
