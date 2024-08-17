@@ -46,7 +46,7 @@ type ProbeResult interface {
 	// This EventMetrics object should not be reused for further accounting
 	// because it's modified by the scheduler and later on when it's pushed
 	// to the data channel.
-	Metrics(timeStamp time.Time, runId int64, opts *options.Options) *metrics.EventMetrics
+	Metrics(timeStamp time.Time, runId int64, opts *options.Options) []*metrics.EventMetrics
 }
 
 type Scheduler struct {
@@ -132,14 +132,13 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		// Export stats if it's the time to do so.
 		runCnt++
 		if (runCnt % s.statsExportFrequency) == 0 {
-			em := result.Metrics(ts, runCnt, s.Opts)
-			// Returning nil is a way to skip this target. Used by grpc probe.
-			if em == nil {
-				continue
+			for _, em := range result.Metrics(ts, runCnt, s.Opts) {
+				// Returning nil is a way to skip this target. Used by grpc probe.
+				if em != nil {
+					em.AddLabel("probe", s.ProbeName).AddLabel("dst", target.Dst())
+					s.Opts.RecordMetrics(target, em, s.DataChan)
+				}
 			}
-			em.AddLabel("probe", s.ProbeName).
-				AddLabel("dst", target.Dst())
-			s.Opts.RecordMetrics(target, em, s.DataChan)
 		}
 	}
 }

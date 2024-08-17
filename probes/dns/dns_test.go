@@ -83,9 +83,11 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success i
 		p.runProbe(context.Background(), target, result)
 
 		result := result.(*probeRunResult)
-		if result.total.Int64() != total || result.success.Int64() != success {
-			t.Errorf("test(%s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
-				testName, result.total.Int64(), result.success.Int64(), total, success)
+		for _, domain := range p.domains {
+			if result.total[domain].Int64() != total || result.success[domain].Int64() != success {
+				t.Errorf("test(%s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
+					testName, result.total[domain].Int64(), result.success[domain].Int64(), total, success)
+			}
 		}
 	}
 }
@@ -260,7 +262,7 @@ func TestBadName(t *testing.T) {
 		Interval: 2 * time.Second,
 		Timeout:  time.Second,
 		ProbeConf: &configpb.ProbeConf{
-			ResolvedDomain: proto.String(questionBadDomain),
+			ResolvedDomain: []string{questionBadDomain},
 		},
 	}
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {

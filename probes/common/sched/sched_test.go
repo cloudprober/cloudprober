@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@ type testProbeResult struct {
 	total int
 }
 
-func (tpr *testProbeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
-	return metrics.NewEventMetrics(ts).AddMetric("total", metrics.NewInt(int64(tpr.total)))
+func (tpr *testProbeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
+	return []*metrics.EventMetrics{metrics.NewEventMetrics(ts).AddMetric("total", metrics.NewInt(int64(tpr.total)))}
 }
 
 func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, metricName string, targets [2]string, wantCloseRange bool) {
