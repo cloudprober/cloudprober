@@ -107,7 +107,6 @@ type Probe struct {
 // outputs the values in this struct.
 type probeRunResult struct {
 	sync.Mutex
-	target            string
 	total             metrics.Int
 	success           metrics.Int
 	latency           metrics.LatencyValue
@@ -146,9 +145,9 @@ func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 	prr.Lock()
 	defer prr.Unlock()
 
-	// Note, we've to do this as we handle multiple connections per target as
-	// multiple targets for scheduling probes through 'sched', but we want to
-	// export metrics only once per target.
+	// This is sort of a de-duplication exercise. Metrics() will be called by
+	// the scheduler 'numConns' times per run. We use runID check to ensure we
+	// output metrics only once per run.
 	if prr.lastRunID == runID {
 		return nil
 	}
@@ -488,7 +487,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 	s.UpdateTargetsAndStartProbes(ctx)
 
-	// We'll go come here when context is cancelled, clean up connections.
+	// We'll come here when context is cancelled, clean up connections.
 	for _, conn := range p.conns {
 		if conn != nil {
 			conn.Close()
