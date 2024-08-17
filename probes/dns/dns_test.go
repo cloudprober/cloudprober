@@ -85,8 +85,8 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success i
 		result := result.(*probeRunResult)
 		for _, domain := range p.domains {
 			if result.total[domain].Int64() != total || result.success[domain].Int64() != success {
-				t.Errorf("test(%s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
-					testName, result.total[domain].Int64(), result.success[domain].Int64(), total, success)
+				t.Errorf("test(%s, %s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
+					testName, domain, result.total[domain].Int64(), result.success[domain].Int64(), total, success)
 			}
 		}
 	}
@@ -262,7 +262,7 @@ func TestBadName(t *testing.T) {
 		Interval: 2 * time.Second,
 		Timeout:  time.Second,
 		ProbeConf: &configpb.ProbeConf{
-			ResolvedDomain: []string{questionBadDomain},
+			ResolvedDomain: proto.String(questionBadDomain),
 		},
 	}
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
@@ -290,6 +290,7 @@ func TestAnswerCheck(t *testing.T) {
 	opts.ProbeConf = &configpb.ProbeConf{
 		MinAnswers: proto.Uint32(2),
 	}
+	p = &Probe{}
 	if err := p.Init("dns_probe_answer_check_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
@@ -298,7 +299,6 @@ func TestAnswerCheck(t *testing.T) {
 }
 
 func TestValidator(t *testing.T) {
-	p := &Probe{}
 	for _, tst := range []struct {
 		name      string
 		pattern   string
@@ -324,6 +324,7 @@ func TestValidator(t *testing.T) {
 			ProbeConf:  &configpb.ProbeConf{},
 			Validators: validator,
 		}
+		p := &Probe{}
 		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
 			t.Fatalf("Error creating probe: %v", err)
 		}

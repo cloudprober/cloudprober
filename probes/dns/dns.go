@@ -196,11 +196,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.queryType = uint16(queryType)
 
-	for _, domain := range p.c.GetResolvedDomain() {
-		p.domains = append(p.domains, dns.Fqdn(domain))
-	}
-	if len(p.domains) == 0 {
-		p.domains = []string{dns.Fqdn("www.google.com")}
+	for _, domain := range strings.Split(p.c.GetResolvedDomain(), ",") {
+		p.domains = append(p.domains, dns.Fqdn(strings.TrimSpace(domain)))
 	}
 
 	// I believe the client is safe for concurrent use by multiple goroutines
