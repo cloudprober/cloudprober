@@ -132,7 +132,9 @@ func RunValidators(vs []*Validator, input *Input, validationFailure *metrics.Map
 			continue
 		}
 		if !success {
-			validationFailure.IncKey(v.Name)
+			if validationFailure == nil {
+				validationFailure.IncKey(v.Name)
+			}
 			failures = append(failures, v.Name)
 		}
 	}
