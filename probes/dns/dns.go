@@ -126,7 +126,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
+func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
@@ -329,7 +329,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		NewResult:         p.newResult,
+		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)

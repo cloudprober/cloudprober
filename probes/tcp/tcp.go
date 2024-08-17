@@ -65,7 +65,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 	return result
 }
 
-func (result *probeResult) Metrics(ts time.Time, opts *options.Options) *metrics.EventMetrics {
+func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
@@ -188,7 +188,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:              p.name,
 		DataChan:               dataChan,
 		Opts:                   p.opts,
-		NewResult:              p.newResult,
+		NewResult:              func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget:      p.runProbe,
 		IntervalBetweenTargets: time.Duration(p.c.GetIntervalBetweenTargetsMsec()) * time.Millisecond,
 	}
