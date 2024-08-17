@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,14 +39,45 @@ type Endpoint struct {
 	IP          net.IP
 }
 
+// Clone creates a deep copy of an Endpoint.
+func (ep *Endpoint) Clone() *Endpoint {
+	epCopy := *ep
+	epCopy.Labels = make(map[string]string, len(ep.Labels))
+	for k, v := range ep.Labels {
+		epCopy.Labels[k] = v
+	}
+	return &epCopy
+}
+
+type keyOptions struct {
+	ignoreLabels []string
+}
+
+type KeyOption func(*keyOptions) *keyOptions
+
+// WithIgnoreLabels specifies a list of labels that should not be included in
+// the key computation.
+func WithIgnoreLabels(ignoreLabels ...string) KeyOption {
+	return func(ro *keyOptions) *keyOptions {
+		ro.ignoreLabels = ignoreLabels
+		return ro
+	}
+}
+
 // Key returns a string key that uniquely identifies that endpoint.
 // Endpoint key consists of endpoint name, port and labels.
-func (ep *Endpoint) Key() string {
-	labelSlice := make([]string, len(ep.Labels))
-	i := 0
+func (ep *Endpoint) Key(opts ...KeyOption) string {
+	ro := &keyOptions{}
+	for _, opt := range opts {
+		ro = opt(ro)
+	}
+
+	labelSlice := make([]string, 0, len(ep.Labels))
 	for k, v := range ep.Labels {
-		labelSlice[i] = k + ":" + v
-		i++
+		if ro.ignoreLabels != nil && slices.Contains(ro.ignoreLabels, k) {
+			continue
+		}
+		labelSlice = append(labelSlice, k+":"+v)
 	}
 	sort.Strings(labelSlice)
 
