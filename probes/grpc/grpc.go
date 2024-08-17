@@ -487,4 +487,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	}
 
 	s.UpdateTargetsAndStartProbes(ctx)
+
+	// We'll go come here when context is cancelled, clean up connections.
+	for _, conn := range p.conns {
+		if conn != nil {
+			conn.Close()
+		}
+	}
 }
