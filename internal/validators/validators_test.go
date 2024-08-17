@@ -35,8 +35,12 @@ var testValidators = []*Validator{
 }
 
 func TestRunValidators(t *testing.T) {
+	// Try with no metrics map
+	assert.Equal(t, []string{"test-v2"}, RunValidators(testValidators, &Input{}, nil, nil))
+
+	// Try with metrics map
 	vfMap := ValidationFailureMap(testValidators)
-	failures := RunValidators(testValidators, &Input{}, vfMap, nil)
+	assert.Equal(t, []string{"test-v2"}, RunValidators(testValidators, &Input{}, vfMap, nil))
 
 	if vfMap.GetKey("test-v1") != 0 {
 		t.Error("Got unexpected test-v1 validation failure.")
@@ -44,10 +48,6 @@ func TestRunValidators(t *testing.T) {
 
 	if vfMap.GetKey("test-v2") != 1 {
 		t.Errorf("Didn't get expected test-v2 validation failure.")
-	}
-
-	if !reflect.DeepEqual(failures, []string{"test-v2"}) {
-		t.Errorf("Didn't get expected validation failures. Expected: {\"test-v2\"}, Got: %v", failures)
 	}
 }
 
