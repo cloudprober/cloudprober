@@ -29,6 +29,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/miekg/dns"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -85,11 +86,18 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success m
 
 		result := result.(*probeRunResult)
 
+		var wantEMs []string
 		for _, domain := range p.domains {
 			if result.total[domain].Int64() != total[domain] || result.success[domain].Int64() != success[domain] {
 				t.Errorf("test(%s, %s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
 					testName, domain, result.total[domain].Int64(), result.success[domain].Int64(), total[domain], success[domain])
 			}
+			wantEMs = append(wantEMs, fmt.Sprintf("labels=resolved_domain=%s total=%d success=%d", domain, total[domain], success[domain]))
+		}
+
+		ems := result.Metrics(time.Now(), 0, p.opts)
+		for i, em := range ems {
+			assert.Contains(t, em.String(), wantEMs[i], "metric mismatch")
 		}
 	}
 }
@@ -150,12 +158,9 @@ func TestRun(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			p := &Probe{}
-			opts := &options.Options{
-				Targets:   targets.StaticTargets("8.8.8.8"),
-				Interval:  2 * time.Second,
-				Timeout:   time.Second,
-				ProbeConf: test.probeConf,
-			}
+			opts := options.DefaultOptions()
+			opts.ProbeConf = test.probeConf
+			opts.Targets = targets.StaticTargets("8.8.8.8")
 			err := p.Init("dns_test", opts)
 			if (err != nil) != test.wantErr {
 				t.Errorf("got err: %v, want err: %v", err, test.wantErr)
@@ -203,16 +208,15 @@ func TestResolveFirst(t *testing.T) {
 }
 
 func TestProbeType(t *testing.T) {
-	p := &Probe{}
 	badType := questionBadType
-	opts := &options.Options{
-		Targets:  targets.StaticTargets("8.8.8.8"),
-		Interval: 2 * time.Second,
-		Timeout:  time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			QueryType: &badType,
-		},
+
+	p := &Probe{}
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		QueryType: &badType,
 	}
+	opts.Targets = targets.StaticTargets("8.8.8.8")
+
 	if err := p.Init("dns_probe_type_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
@@ -221,12 +225,10 @@ func TestProbeType(t *testing.T) {
 
 func TestProbeProto(t *testing.T) {
 	p := &Probe{}
-	opts := &options.Options{
-		Targets:   targets.StaticTargets("8.8.8.8"),
-		Interval:  2 * time.Second,
-		Timeout:   time.Second,
-		ProbeConf: &configpb.ProbeConf{},
-	}
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{}
+	opts.Targets = targets.StaticTargets("8.8.8.8")
+
 	if err := p.Init("dns_probe_proto_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
@@ -267,13 +269,9 @@ func TestProbeProto(t *testing.T) {
 
 func TestBadName(t *testing.T) {
 	p := &Probe{}
-	opts := &options.Options{
-		Targets:  targets.StaticTargets("8.8.8.8"),
-		Interval: 2 * time.Second,
-		Timeout:  time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			ResolvedDomain: proto.String(questionBadDomain),
-		},
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		ResolvedDomain: proto.String(questionBadDomain),
 	}
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
@@ -284,14 +282,11 @@ func TestBadName(t *testing.T) {
 
 func TestAnswerCheck(t *testing.T) {
 	p := &Probe{}
-	opts := &options.Options{
-		Targets:  targets.StaticTargets("8.8.8.8"),
-		Interval: 2 * time.Second,
-		Timeout:  time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			MinAnswers: proto.Uint32(1),
-		},
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		MinAnswers: proto.Uint32(1),
 	}
+	opts.Targets = targets.StaticTargets("8.8.8.8")
 	if err := p.Init("dns_probe_answer_check_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
@@ -328,14 +323,13 @@ func TestValidator(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error initializing validator for pattern %v: %v", tst.pattern, err)
 		}
-		opts := &options.Options{
-			Targets:    targets.StaticTargets("8.8.8.8"),
-			Interval:   2 * time.Second,
-			Timeout:    time.Second,
-			ProbeConf:  &configpb.ProbeConf{},
-			Validators: validator,
-		}
+
 		p := &Probe{}
+		opts := options.DefaultOptions()
+		opts.ProbeConf = &configpb.ProbeConf{}
+		opts.Targets = targets.StaticTargets("8.8.8.8")
+		opts.Validators = validator
+
 		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
 			t.Fatalf("Error creating probe: %v", err)
 		}
