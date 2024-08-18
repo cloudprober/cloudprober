@@ -40,6 +40,7 @@ const (
 	answerContent        = " 3600 IN A 192.168.0.1"
 	answerMatchPattern   = "3600"
 	answerNoMatchPattern = "NAA"
+	defaultDomain        = "www.google.com."
 )
 
 var (
@@ -73,7 +74,7 @@ func (*mockClient) setReadTimeout(time.Duration)  {}
 func (*mockClient) setSourceIP(net.IP)            {}
 func (*mockClient) setDNSProto(configpb.DNSProto) {}
 
-func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success int64) {
+func runProbeAndVerify(t *testing.T, testName string, p *Probe, domain string, total, success int64) {
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -83,11 +84,9 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success i
 		p.runProbe(context.Background(), target, result)
 
 		result := result.(*probeRunResult)
-		for _, domain := range p.domains {
-			if result.total[domain].Int64() != total || result.success[domain].Int64() != success {
-				t.Errorf("test(%s, %s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
-					testName, domain, result.total[domain].Int64(), result.success[domain].Int64(), total, success)
-			}
+		if result.total[domain].Int64() != total || result.success[domain].Int64() != success {
+			t.Errorf("test(%s, %s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
+				testName, domain, result.total[domain].Int64(), result.success[domain].Int64(), total, success)
 		}
 	}
 }
@@ -109,15 +108,15 @@ func TestRun(t *testing.T) {
 	tests := []struct {
 		description string
 		probeConf   *configpb.ProbeConf
-		wantTotal   int64
-		wantSuccess int64
+		wantTotal   map[string]int64
+		wantSuccess map[string]int64
 		wantErr     bool
 	}{
 		{
 			description: "basic",
 			probeConf:   &configpb.ProbeConf{},
-			wantTotal:   1,
-			wantSuccess: 1,
+			wantTotal:   map[string]int64{defaultDomain: 1},
+			wantSuccess: map[string]int64{defaultDomain: 1},
 		},
 		{
 			description: "error_in_config",
@@ -132,8 +131,16 @@ func TestRun(t *testing.T) {
 			probeConf: &configpb.ProbeConf{
 				RequestsPerProbe: proto.Int32(2),
 			},
-			wantTotal:   2,
-			wantSuccess: 2,
+			wantTotal:   map[string]int64{defaultDomain: 2},
+			wantSuccess: map[string]int64{defaultDomain: 2},
+		},
+		{
+			description: "multipleDomains",
+			probeConf: &configpb.ProbeConf{
+				ResolvedDomain: proto.String(defaultDomain + "," + questionBadDomain),
+			},
+			wantTotal:   map[string]int64{defaultDomain: 1, questionBadDomain + ".": 1},
+			wantSuccess: map[string]int64{defaultDomain: 1, questionBadDomain + ".": 0},
 		},
 	}
 
@@ -153,7 +160,9 @@ func TestRun(t *testing.T) {
 			if err != nil {
 				return
 			}
-			runProbeAndVerify(t, "basic", p, test.wantTotal, test.wantSuccess)
+			for _, domain := range p.domains {
+				runProbeAndVerify(t, "basic", p, domain, test.wantTotal[domain], test.wantSuccess[domain])
+			}
 		})
 	}
 }
@@ -183,12 +192,12 @@ func TestResolveFirst(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		runProbeAndVerify(t, "resolve_first_success", p, 1, 1)
+		runProbeAndVerify(t, "resolve_first_success", p, defaultDomain, 1, 1)
 	})
 
 	tt.IP = nil
 	t.Run("error", func(t *testing.T) {
-		runProbeAndVerify(t, "resolve_first_error", p, 1, 0)
+		runProbeAndVerify(t, "resolve_first_error", p, defaultDomain, 1, 0)
 	})
 }
 
@@ -206,7 +215,7 @@ func TestProbeType(t *testing.T) {
 	if err := p.Init("dns_probe_type_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbeAndVerify(t, "probetype", p, 1, 0)
+	runProbeAndVerify(t, "probetype", p, defaultDomain, 1, 0)
 }
 
 func TestProbeProto(t *testing.T) {
@@ -268,7 +277,7 @@ func TestBadName(t *testing.T) {
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbeAndVerify(t, "baddomain", p, 1, 0)
+	runProbeAndVerify(t, "baddomain", p, questionBadDomain+".", 1, 0)
 }
 
 func TestAnswerCheck(t *testing.T) {
@@ -285,7 +294,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect success minAnswers == num answers returned == 1.
-	runProbeAndVerify(t, "matchminanswers", p, 1, 1)
+	runProbeAndVerify(t, "matchminanswers", p, defaultDomain, 1, 1)
 
 	opts.ProbeConf = &configpb.ProbeConf{
 		MinAnswers: proto.Uint32(2),
@@ -295,7 +304,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect failure because only one answer returned and two wanted.
-	runProbeAndVerify(t, "toofewanswers", p, 1, 0)
+	runProbeAndVerify(t, "toofewanswers", p, defaultDomain, 1, 0)
 }
 
 func TestValidator(t *testing.T) {
@@ -328,6 +337,6 @@ func TestValidator(t *testing.T) {
 		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
 			t.Fatalf("Error creating probe: %v", err)
 		}
-		runProbeAndVerify(t, tst.name, p, 1, tst.successCt)
+		runProbeAndVerify(t, tst.name, p, defaultDomain, 1, tst.successCt)
 	}
 }
