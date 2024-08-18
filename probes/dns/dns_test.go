@@ -74,7 +74,7 @@ func (*mockClient) setReadTimeout(time.Duration)  {}
 func (*mockClient) setSourceIP(net.IP)            {}
 func (*mockClient) setDNSProto(configpb.DNSProto) {}
 
-func runProbeAndVerify(t *testing.T, testName string, p *Probe, domain string, total, success int64) {
+func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success map[string]int64) {
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -84,9 +84,12 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, domain string, t
 		p.runProbe(context.Background(), target, result)
 
 		result := result.(*probeRunResult)
-		if result.total[domain].Int64() != total || result.success[domain].Int64() != success {
-			t.Errorf("test(%s, %s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
-				testName, domain, result.total[domain].Int64(), result.success[domain].Int64(), total, success)
+
+		for _, domain := range p.domains {
+			if result.total[domain].Int64() != total[domain] || result.success[domain].Int64() != success[domain] {
+				t.Errorf("test(%s, %s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
+					testName, domain, result.total[domain].Int64(), result.success[domain].Int64(), total[domain], success[domain])
+			}
 		}
 	}
 }
@@ -160,9 +163,7 @@ func TestRun(t *testing.T) {
 			if err != nil {
 				return
 			}
-			for _, domain := range p.domains {
-				runProbeAndVerify(t, "basic", p, domain, test.wantTotal[domain], test.wantSuccess[domain])
-			}
+			runProbeAndVerify(t, "basic", p, test.wantTotal, test.wantSuccess)
 		})
 	}
 }
@@ -192,12 +193,12 @@ func TestResolveFirst(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		runProbeAndVerify(t, "resolve_first_success", p, defaultDomain, 1, 1)
+		runProbeAndVerify(t, "resolve_first_success", p, map[string]int64{defaultDomain: 1}, map[string]int64{defaultDomain: 1})
 	})
 
 	tt.IP = nil
 	t.Run("error", func(t *testing.T) {
-		runProbeAndVerify(t, "resolve_first_error", p, defaultDomain, 1, 0)
+		runProbeAndVerify(t, "resolve_first_error", p, map[string]int64{defaultDomain: 1}, map[string]int64{defaultDomain: 0})
 	})
 }
 
@@ -215,7 +216,7 @@ func TestProbeType(t *testing.T) {
 	if err := p.Init("dns_probe_type_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbeAndVerify(t, "probetype", p, defaultDomain, 1, 0)
+	runProbeAndVerify(t, "probetype", p, map[string]int64{defaultDomain: 1}, map[string]int64{defaultDomain: 0})
 }
 
 func TestProbeProto(t *testing.T) {
@@ -277,7 +278,8 @@ func TestBadName(t *testing.T) {
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbeAndVerify(t, "baddomain", p, questionBadDomain+".", 1, 0)
+	d := questionBadDomain + "."
+	runProbeAndVerify(t, "baddomain", p, map[string]int64{d: 1}, map[string]int64{d: 0})
 }
 
 func TestAnswerCheck(t *testing.T) {
@@ -294,7 +296,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect success minAnswers == num answers returned == 1.
-	runProbeAndVerify(t, "matchminanswers", p, defaultDomain, 1, 1)
+	runProbeAndVerify(t, "matchminanswers", p, map[string]int64{defaultDomain: 1}, map[string]int64{defaultDomain: 1})
 
 	opts.ProbeConf = &configpb.ProbeConf{
 		MinAnswers: proto.Uint32(2),
@@ -304,7 +306,7 @@ func TestAnswerCheck(t *testing.T) {
 		t.Fatalf("Error creating probe: %v", err)
 	}
 	// expect failure because only one answer returned and two wanted.
-	runProbeAndVerify(t, "toofewanswers", p, defaultDomain, 1, 0)
+	runProbeAndVerify(t, "toofewanswers", p, map[string]int64{defaultDomain: 1}, map[string]int64{defaultDomain: 0})
 }
 
 func TestValidator(t *testing.T) {
@@ -337,6 +339,6 @@ func TestValidator(t *testing.T) {
 		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
 			t.Fatalf("Error creating probe: %v", err)
 		}
-		runProbeAndVerify(t, tst.name, p, defaultDomain, 1, tst.successCt)
+		runProbeAndVerify(t, tst.name, p, map[string]int64{defaultDomain: 1}, map[string]int64{defaultDomain: tst.successCt})
 	}
 }
