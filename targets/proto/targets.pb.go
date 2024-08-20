@@ -337,9 +337,9 @@ type TargetsDef struct {
 	// - "tcp://1.1.1.1"      // Use tcp network and default port (53)
 	// - "tcp://1.1.1.1:513   // Use tcp network and port 513
 	DnsServer *string `protobuf:"bytes,37,opt,name=dns_server,json=dnsServer" json:"dns_server,omitempty"`
-	// Use cached IP on resolve error. If set to true, we will use the cached IP
+	// Use cached IP on resolve error. If set to true, we will use cached IP
 	// address for a target on resolve error. This option works only in
-	// conjunction with probe's resolve_firstsetting, otherwise target's resolve
+	// conjunction with probe's resolve_first setting, otherwise target's resolve
 	// is never called.
 	//
 	// Note: In most cases, you should not use this option. It's only useful when
