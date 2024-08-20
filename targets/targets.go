@@ -137,6 +137,7 @@ func (t *targets) Resolve(name string, ipVer int) (net.IP, error) {
 		return nil, errors.New("no Resolver provided by this target type")
 	}
 	ip, err := t.resolver.Resolve(name, ipVer)
+	// This works because our DNS resolver returns cached IP in case of error.
 	if err != nil && t.useCachedIP && ip != nil {
 		t.l.Warningf("Error resolving %s, returning cached IP %v, err: %v", name, ip, err)
 
