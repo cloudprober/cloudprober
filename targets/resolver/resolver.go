@@ -273,7 +273,7 @@ func WithMaxTTL(ttl time.Duration) Option {
 func WithServerOverride(networkOverride, addr string) Option {
 	return func(r *resolverImpl) {
 		r.resolve = func(host string) ([]net.IP, error) {
-			r := &net.Resolver{
+			netResolver := &net.Resolver{
 				PreferGo: true,
 				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 					d := net.Dialer{
@@ -282,10 +282,11 @@ func WithServerOverride(networkOverride, addr string) Option {
 					if networkOverride != "" {
 						network = networkOverride
 					}
+					// Note: we ignore the address in the argument
 					return d.DialContext(ctx, network, addr)
 				},
 			}
-			return r.LookupIP(context.Background(), "ip", host)
+			return netResolver.LookupIP(context.Background(), "ip", host)
 		}
 	}
 }
