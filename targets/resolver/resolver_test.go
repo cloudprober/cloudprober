@@ -479,12 +479,20 @@ func TestNewWithOverrideResolver(t *testing.T) {
 			wantIP:              "1.2.3.4",
 			wantIP6:             "2001:db8::1",
 		},
+		{
+			name:                "error",
+			dnsResolverOverride: "mars://" + tcpAddr,
+			wantErr:             true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			network, address, err := ParseOverrideAddress(tt.dnsResolverOverride)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseOverrideAddress() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
 				return
 			}
 
@@ -503,6 +511,57 @@ func TestNewWithOverrideResolver(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.wantIP6, got.String(), "ip6")
+		})
+	}
+}
+
+func TestNew(t *testing.T) {
+	tests := []struct {
+		name       string
+		ttl        time.Duration
+		maxTTL     time.Duration
+		wantTTL    time.Duration
+		wantMaxTTL time.Duration
+	}{
+		{
+			name:       "default",
+			wantTTL:    defaultMaxAge,
+			wantMaxTTL: defaultMaxAge,
+		},
+		{
+			name:       "set ttl",
+			ttl:        600 * time.Second,
+			wantTTL:    600 * time.Second,
+			wantMaxTTL: 600 * time.Second,
+		},
+		{
+			name:       "max ttl < ttl",
+			ttl:        600 * time.Second,
+			maxTTL:     200 * time.Second,
+			wantTTL:    600 * time.Second,
+			wantMaxTTL: 600 * time.Second,
+		},
+		{
+			name:       "max ttl > ttl",
+			ttl:        600 * time.Second,
+			maxTTL:     3600 * time.Second,
+			wantTTL:    600 * time.Second,
+			wantMaxTTL: 3600 * time.Second,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var opts []Option
+			if tt.ttl != 0 {
+				opts = append(opts, WithTTL(tt.ttl))
+			}
+			if tt.maxTTL != 0 {
+				opts = append(opts, WithMaxTTL(tt.maxTTL))
+			}
+
+			r := New(opts...)
+			assert.Equal(t, tt.wantTTL, r.ttl, "ttl")
+			assert.Equal(t, tt.wantMaxTTL, r.maxTTL, "maxTTL")
 		})
 	}
 }
