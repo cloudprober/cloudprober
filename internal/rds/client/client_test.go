@@ -234,9 +234,9 @@ func TestListAndResolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.NewWithResolve(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
-	})
+	}))
 
 	client.refreshState(time.Second)
 
@@ -292,9 +292,9 @@ func TestCacheBehaviorWithServerSupport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.NewWithResolve(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
-	})
+	}))
 
 	// Since New calls refreshState, there should already be a request.
 	runCount := 1
@@ -351,9 +351,9 @@ func TestCacheBehaviorWithoutServerSupport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.NewWithResolve(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
-	})
+	}))
 
 	// Since New calls refreshState, there should already be a request.
 	runCount := 1
@@ -391,9 +391,9 @@ func TestOnDemandRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.NewWithResolve(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
-	})
+	}))
 
 	// Verify cache is empty right now
 	assert.Empty(t, client.cache, "Client cache")
