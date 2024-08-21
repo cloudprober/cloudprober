@@ -516,12 +516,17 @@ func TestNewWithOverrideResolver(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
+	b := &resolveBackendWithTracking{
+		nameToIP: make(map[string][]net.IP),
+	}
 	tests := []struct {
-		name       string
-		ttl        time.Duration
-		maxTTL     time.Duration
-		wantTTL    time.Duration
-		wantMaxTTL time.Duration
+		name            string
+		ttl             time.Duration
+		maxTTL          time.Duration
+		resolveFunc     func(string) ([]net.IP, error)
+		wantTTL         time.Duration
+		wantMaxTTL      time.Duration
+		wantResolveFunc func(string) ([]net.IP, error)
 	}{
 		{
 			name:       "default",
@@ -547,6 +552,13 @@ func TestNew(t *testing.T) {
 			maxTTL:     3600 * time.Second,
 			wantTTL:    600 * time.Second,
 			wantMaxTTL: 3600 * time.Second,
+		},
+		{
+			name:            "set resolve func",
+			resolveFunc:     b.resolve,
+			wantResolveFunc: b.resolve,
+			wantTTL:         defaultMaxAge,
+			wantMaxTTL:      defaultMaxAge,
 		},
 	}
 	for _, tt := range tests {
