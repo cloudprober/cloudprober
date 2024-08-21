@@ -270,7 +270,7 @@ func WithMaxTTL(ttl time.Duration) Option {
 	}
 }
 
-func WithServerOverride(networkOverride, addr string) Option {
+func WithDNSServer(serverNetwork, serverAddress string) Option {
 	return func(r *resolverImpl) {
 		r.resolve = func(host string) ([]net.IP, error) {
 			netResolver := &net.Resolver{
@@ -279,11 +279,11 @@ func WithServerOverride(networkOverride, addr string) Option {
 					d := net.Dialer{
 						Timeout: defaultMaxAge,
 					}
-					if networkOverride != "" {
-						network = networkOverride
+					if serverNetwork != "" {
+						network = serverNetwork
 					}
 					// Note: we ignore the address in the argument
-					return d.DialContext(ctx, network, addr)
+					return d.DialContext(ctx, network, serverAddress)
 				},
 			}
 			return netResolver.LookupIP(context.Background(), "ip", host)

@@ -321,7 +321,7 @@ func getResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]d
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, dnsRes.WithServerOverride(network, address))
+		opts = append(opts, dnsRes.WithDNSServer(network, address))
 	}
 
 	return opts, nil

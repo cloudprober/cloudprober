@@ -496,7 +496,7 @@ func TestNewWithOverrideResolver(t *testing.T) {
 				return
 			}
 
-			r := New(WithServerOverride(network, address))
+			r := New(WithDNSServer(network, address))
 
 			got, err := r.Resolve("hostA.example.com.", 4)
 			if (err != nil) != tt.wantErr {
