@@ -102,7 +102,7 @@ type gceResources struct {
 	clients      map[string]*client.Client
 
 	// DNS config
-	r      *dnsRes.Resolver
+	r      dnsRes.Resolver
 	useDNS bool
 }
 
@@ -198,7 +198,7 @@ func (gr *gceResources) Resolve(name string, ipVer int) (net.IP, error) {
 }
 
 // New is a helper function to unpack a Targets proto into a Targets interface.
-func New(conf *configpb.TargetsConf, globalOpts *configpb.GlobalOptions, res *dnsRes.Resolver, l *logger.Logger) (Targets, error) {
+func New(conf *configpb.TargetsConf, globalOpts *configpb.GlobalOptions, res dnsRes.Resolver, l *logger.Logger) (Targets, error) {
 	projects := conf.GetProject()
 	if projects == nil {
 		if !metadata.OnGCE() {

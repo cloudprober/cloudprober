@@ -32,7 +32,7 @@ import (
 )
 
 // New returns new file targets.
-func New(opts *configpb.TargetsConf, res *dnsRes.Resolver, l *logger.Logger) (*client.Client, error) {
+func New(opts *configpb.TargetsConf, res dnsRes.Resolver, l *logger.Logger) (*client.Client, error) {
 	lister, err := file.New(&file_configpb.ProviderConfig{
 		FilePath:  []string{opts.GetFilePath()},
 		ReEvalSec: proto.Int32(opts.GetReEvalSec()),

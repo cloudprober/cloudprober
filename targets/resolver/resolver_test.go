@@ -33,6 +33,12 @@ type resolveBackendWithTracking struct {
 	mu       sync.Mutex
 }
 
+func (b *resolveBackendWithTracking) setNameToIP(name string, ip []net.IP) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.nameToIP[name] = ip
+}
+
 func (b *resolveBackendWithTracking) resolve(name string) ([]net.IP, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -47,6 +53,7 @@ func (b *resolveBackendWithTracking) calls() int {
 }
 
 func verify(testCase string, t *testing.T, ip, expectedIP net.IP, backendCalls, expectedBackendCalls int, err error) {
+	t.Helper()
 	if err != nil {
 		t.Errorf("%s: Error while resolving. Err: %v", testCase, err)
 	}
@@ -80,14 +87,11 @@ func TestResolveWithMaxAge(t *testing.T) {
 	b := &resolveBackendWithTracking{
 		nameToIP: make(map[string][]net.IP),
 	}
-	r := &Resolver{
-		cache:   make(map[string]*cacheRecord),
-		resolve: b.resolve,
-	}
+	r := New(WithResolveFunc(b.resolve))
 
 	testHost := "hostA"
 	expectedIP := net.ParseIP("1.2.3.4")
-	b.nameToIP[testHost] = []net.IP{expectedIP}
+	b.setNameToIP(testHost, []net.IP{expectedIP})
 
 	// Resolve a host, there is no cache, a backend call should be made
 	expectedBackendCalls := 1
@@ -102,7 +106,7 @@ func TestResolveWithMaxAge(t *testing.T) {
 
 	// Resolve same host again, it should come from cache, no backend call
 	newExpectedIP := net.ParseIP("1.2.3.6")
-	b.nameToIP[testHost] = []net.IP{newExpectedIP}
+	b.setNameToIP(testHost, []net.IP{newExpectedIP})
 	ip, err = r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
 	verify("second-run-from-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
 	waitForRefreshAndVerify(t, refreshed, time.Second, false)
@@ -126,11 +130,11 @@ func TestResolveWithMaxAge(t *testing.T) {
 // resolver behavior deterministic.
 func TestResolveErr(t *testing.T) {
 	cnt := 0
-	r := &Resolver{
+	r := &resolverImpl{
 		cache: make(map[string]*cacheRecord),
 		resolve: func(name string) ([]net.IP, error) {
 			cnt++
-			if cnt == 2 {
+			if cnt == 2 || cnt == 3 {
 				return nil, fmt.Errorf("time to return error, cnt: %d", cnt)
 			}
 			return []net.IP{net.ParseIP("0.0.0.0")}, nil
@@ -159,11 +163,24 @@ func TestResolveErr(t *testing.T) {
 	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
 	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
 
-	// cache record contains an error, and we should therefore expect an error.
-	// refresh triggers on this resolve call because cache reocrd has an error.
+	// cnt=2, last backend refresh failed and cache record contains an error,
+	// but maxTTL is 60 seconds, so we'll not get an error.
+	// refresh will still be triggered on this call because of error.
+	r.maxTTL = 60 * time.Second
+	ip, err = r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshedCh)
+	if err != nil {
+		t.Errorf("Unexpected error: %v, while maxTTL is 60s", err)
+	}
+	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
+	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
+
+	// cnt=3, last backend refresh failed again, CR still has error. This time
+	// we get error because we reduce maxTTL to 10 milliseconds.
+	// refresh will still be triggered on this call because of error.
+	r.maxTTL = 10 * time.Millisecond
 	ip, err = r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshedCh)
 	if err == nil {
-		t.Errorf("Expected error, got no error")
+		t.Error("Expected error for maxTTL=10ms, but got none")
 	}
 	waitForRefreshAndVerify(t, refreshedCh, time.Second, true)
 	assert.Equal(t, net.ParseIP("0.0.0.0"), ip)
@@ -182,15 +199,12 @@ func TestResolveIPv6(t *testing.T) {
 	b := &resolveBackendWithTracking{
 		nameToIP: make(map[string][]net.IP),
 	}
-	r := &Resolver{
-		cache:   make(map[string]*cacheRecord),
-		resolve: b.resolve,
-	}
+	r := New(WithResolveFunc(b.resolve))
 
 	testHost := "hostA"
 	expectedIPv4 := net.ParseIP("1.2.3.4")
 	expectedIPv6 := net.ParseIP("::1")
-	b.nameToIP[testHost] = []net.IP{expectedIPv4, expectedIPv6}
+	b.setNameToIP(testHost, []net.IP{expectedIPv4, expectedIPv6})
 
 	ip, err := r.Resolve(testHost, 4)
 	expectedBackendCalls := 1
@@ -208,7 +222,7 @@ func TestResolveIPv6(t *testing.T) {
 	// New host, with no IPv4 address
 	testHost = "hostB"
 	expectedIPv6 = net.ParseIP("::2")
-	b.nameToIP[testHost] = []net.IP{expectedIPv6}
+	b.setNameToIP(testHost, []net.IP{expectedIPv6})
 
 	ip, err = r.Resolve(testHost, 4)
 	expectedBackendCalls++
@@ -231,19 +245,17 @@ func TestResolveIPv6(t *testing.T) {
 func TestConcurrentInit(t *testing.T) {
 	cnt := 0
 	resolveWait := make(chan bool)
-	r := &Resolver{
-		cache: make(map[string]*cacheRecord),
-		resolve: func(name string) ([]net.IP, error) {
-			cnt++
-			// The first call should be blocked on resolveWait.
-			if cnt == 1 {
-				<-resolveWait
-				return []net.IP{net.ParseIP("0.0.0.0")}, nil
-			}
-			// The 2nd call should never happen.
-			return nil, fmt.Errorf("resolve should be called just once, cnt: %d", cnt)
-		},
-	}
+	r := New(WithResolveFunc(func(name string) ([]net.IP, error) {
+		cnt++
+		// The first call should be blocked on resolveWait.
+		if cnt == 1 {
+			<-resolveWait
+			return []net.IP{net.ParseIP("0.0.0.0")}, nil
+		}
+		// The 2nd call should never happen.
+		return nil, fmt.Errorf("resolve should be called just once, cnt: %d", cnt)
+	}))
+
 	// 5 because first resolve calls refresh twice.
 	refreshed := make(chan bool, 101)
 	var wg sync.WaitGroup
@@ -306,10 +318,7 @@ func BenchmarkResolve(b *testing.B) {
 		delay: 10 * time.Millisecond,
 		t:     time.Now(),
 	}
-	r := &Resolver{
-		cache:   make(map[string]*cacheRecord),
-		resolve: rb.resolve,
-	}
+	r := New(WithResolveFunc(rb.resolve))
 	// RunParallel executes its body in parallel, in multiple goroutines. Parallelism is controlled by
 	// the test -cpu (test.cpu) flag (default is GOMAXPROCS). So if benchmarks runs N times, that N
 	// is spread over these goroutines.
@@ -369,7 +378,7 @@ func TestParseOverrideAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.dnsResolverOverride, func(t *testing.T) {
-			network, addr, err := parseOverrideAddress(tt.dnsResolverOverride)
+			network, addr, err := ParseOverrideAddress(tt.dnsResolverOverride)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseOverrideAddress() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -473,11 +482,13 @@ func TestNewWithOverrideResolver(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r, err := NewWithOverrideResolver(tt.dnsResolverOverride)
+			network, address, err := ParseOverrideAddress(tt.dnsResolverOverride)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewWithOverrideResolver() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseOverrideAddress() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
+			r := New(WithServerOverride(network, address))
 
 			got, err := r.Resolve("hostA.example.com.", 4)
 			if (err != nil) != tt.wantErr {

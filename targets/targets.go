@@ -49,7 +49,7 @@ import (
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
 var (
-	globalResolver *dnsRes.Resolver
+	globalResolver dnsRes.Resolver
 )
 
 // Targets must have refreshed this much time after the lameduck for them to
@@ -125,7 +125,6 @@ type targets struct {
 	re              *regexp.Regexp
 	ldLister        endpoint.Lister
 	l               *logger.Logger
-	resolverIP      string // Used for testing
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -305,6 +304,29 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 	}, nil
 }
 
+func getResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]dnsRes.Option, error) {
+	var opts []dnsRes.Option
+
+	if targetsDef.GetDnsTtlSec() != targetspb.Default_TargetsDef_DnsTtlSec {
+		opts = append(opts, dnsRes.WithTTL(time.Duration(targetsDef.GetDnsTtlSec())*time.Second))
+	}
+
+	if targetsDef.GetDnsMaxTtlSec() != 0 {
+		opts = append(opts, dnsRes.WithMaxTTL(time.Duration(targetsDef.GetDnsMaxTtlSec())*time.Second))
+	}
+
+	if dnsServer := targetsDef.GetDnsServer(); dnsServer != "" {
+		l.Infof("Overriding default resolver with: %s", dnsServer)
+		network, address, err := dnsRes.ParseOverrideAddress(dnsServer)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, dnsRes.WithServerOverride(network, address))
+	}
+
+	return opts, nil
+}
+
 // New returns an instance of Targets as defined by a Targets protobuf (and a
 // GlobalTargetsOptions protobuf). The Targets instance returned will filter a
 // core target lister (i.e. static host-list, GCE instances, GCE forwarding
@@ -322,16 +344,17 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
+
+	opts, err := getResolverOptions(targetsDef, l)
+	if err != nil {
+		return nil, fmt.Errorf("targets.New(): error creating resolver: %v", err)
+	}
 	resolver := globalResolver
-	if ip := targetsDef.GetDnsServer(); ip != "" {
-		l.Infof("Overriding default resolver with: %s", ip)
-		resolver, err = dnsRes.NewWithOverrideResolver(ip)
-		if err != nil {
-			return nil, fmt.Errorf("targets.New(): error creating resolver with override: %v", err)
-		}
-		t.resolverIP = ip
+	if len(opts) > 0 {
+		resolver = dnsRes.New(opts...)
 	}
 	t.resolver = resolver
+
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
 		st, err := staticTargets(targetsDef.GetHostNames())
