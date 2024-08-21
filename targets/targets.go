@@ -345,15 +345,14 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
 
+	t.resolver = globalResolver
 	opts, err := getResolverOptions(targetsDef, l)
 	if err != nil {
 		return nil, fmt.Errorf("targets.New(): error creating resolver: %v", err)
 	}
-	resolver := globalResolver
 	if len(opts) > 0 {
-		resolver = dnsRes.New(opts...)
+		t.resolver = dnsRes.New(opts...)
 	}
-	t.resolver = resolver
 
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
@@ -373,7 +372,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_GceTargets:
-		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), resolver, globalLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), t.resolver, globalLogger)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating GCE targets: %v", err)
 		}
@@ -393,7 +392,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_FileTargets:
-		ft, err := file.New(targetsDef.GetFileTargets(), resolver, l)
+		ft, err := file.New(targetsDef.GetFileTargets(), t.resolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}
