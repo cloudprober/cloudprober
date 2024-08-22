@@ -228,12 +228,10 @@ func ParseOverrideAddress(dnsResolverOverride string) (string, string, error) {
 	}
 
 	port := "53"
-	// Check if address includes a port number
-	ip := net.ParseIP(addr)
-	if ip == nil {
-		// Not an IP address, so if it has :, that should be for a port number
-		idx := strings.LastIndex(addr, ":")
-		if idx != -1 {
+	// Check if address includes a port number. If it doesn't parse as an IP
+	// address, but includes a :, then it might contain a port number
+	if ip := net.ParseIP(addr); ip == nil {
+		if idx := strings.LastIndex(addr, ":"); idx != -1 {
 			addr, port = addr[:idx], addr[idx+1:]
 		}
 	}
