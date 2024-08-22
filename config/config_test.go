@@ -327,6 +327,9 @@ func TestReadConfigFile(t *testing.T) {
 			fileName: "testdata/include_test/cloudprober_include.nested.txtar",
 		},
 		{
+			fileName: "testdata/include_test/cloudprober_include.glob.txtar",
+		},
+		{
 			fileName: "testdata/include_test/cloudprober_include.error.txtar",
 			wantErr:  true,
 		},

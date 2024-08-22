@@ -106,11 +106,23 @@ func handleIncludes(baseDir string, content []byte) (string, error) {
 			final = append(final, line)
 			continue
 		}
-		includedCfg, err := readConfigFile(filepath.Join(baseDir, m[1]))
+
+		includePath := filepath.Join(baseDir, m[1])
+		files, err := filepath.Glob(includePath)
 		if err != nil {
 			return "", err
 		}
-		final = append(final, includedCfg)
+		if len(files) == 0 {
+			return "", fmt.Errorf("config include error: %s didn't match any files", includePath)
+		}
+
+		for _, file := range files {
+			includedCfg, err := readConfigFile(file)
+			if err != nil {
+				return "", err
+			}
+			final = append(final, includedCfg)
+		}
 	}
 
 	newline := "\n"
