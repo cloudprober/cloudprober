@@ -227,7 +227,7 @@ func TestResolveIPv6(t *testing.T) {
 	ip, err = r.Resolve(testHost, 4)
 	expectedBackendCalls++
 	if err == nil {
-		t.Errorf("resolved IPv4 address for an IPv6 only host")
+		t.Errorf("resolved IPv4 address for an IPv6 only host: %s", ip.String())
 	}
 
 	// This will come from cache this time, so no new backend calls.

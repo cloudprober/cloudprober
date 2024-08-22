@@ -311,7 +311,10 @@ func getResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]d
 		opts = append(opts, dnsRes.WithTTL(time.Duration(targetsDef.GetDnsTtlSec())*time.Second))
 	}
 
-	if targetsDef.GetDnsMaxTtlSec() != 0 {
+	if dnsMaxTTL := targetsDef.GetDnsMaxTtlSec(); dnsMaxTTL != 0 {
+		if dnsMaxTTL < targetsDef.GetDnsTtlSec() {
+			return nil, fmt.Errorf("dns_max_ttl_sec (%d) must be >= dns_ttl_sec (%d)", dnsMaxTTL, targetsDef.GetDnsTtlSec())
+		}
 		opts = append(opts, dnsRes.WithMaxTTL(time.Duration(targetsDef.GetDnsMaxTtlSec())*time.Second))
 	}
 
