@@ -130,16 +130,13 @@ func TestResolveWithMaxAge(t *testing.T) {
 // resolver behavior deterministic.
 func TestResolveErr(t *testing.T) {
 	cnt := 0
-	r := &resolverImpl{
-		cache: make(map[string]*cacheRecord),
-		resolve: func(name string) ([]net.IP, error) {
-			cnt++
-			if cnt == 2 || cnt == 3 {
-				return nil, fmt.Errorf("time to return error, cnt: %d", cnt)
-			}
-			return []net.IP{net.ParseIP("0.0.0.0")}, nil
-		},
-	}
+	r := New(WithResolveFunc(func(name string) ([]net.IP, error) {
+		cnt++
+		if cnt == 2 || cnt == 3 {
+			return nil, fmt.Errorf("time to return error, cnt: %d", cnt)
+		}
+		return []net.IP{net.ParseIP("0.0.0.0")}, nil
+	}))
 	refreshedCh := make(chan bool, 2)
 	// cnt=0; returning 0.0.0.0.
 	ip, err := r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshedCh)
