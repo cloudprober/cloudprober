@@ -1,5 +1,5 @@
 # This file lists targets in the RDS resource format:
-# https://github.com/cloudprober/cloudprober/blob/master/rds/proto/rds.proto#L77
+# https://github.com/cloudprober/cloudprober/blob/master/internal/rds/proto/rds.proto#L77
 # See cloudprober.cfg in the same directory for more details on how this file
 # is used.
 resource {
