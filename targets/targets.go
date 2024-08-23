@@ -327,6 +327,10 @@ func getResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]d
 		opts = append(opts, dnsRes.WithDNSServer(network, address))
 	}
 
+	if d := targetsDef.GetDnsResolveTimeoutSec(); d != targetspb.Default_TargetsDef_DnsResolveTimeoutSec {
+		opts = append(opts, dnsRes.WithResolveTimeout(time.Duration(d)*time.Second))
+	}
+
 	return opts, nil
 }
 

@@ -379,6 +379,16 @@ func TestGetResolverOptions(t *testing.T) {
 			wantOptsLen: 3,
 		},
 		{
+			name: "dns TTL & max TTL & dns server & resolve timeout",
+			targetsDef: &targetspb.TargetsDef{
+				DnsTtlSec:            proto.Int32(600),
+				DnsMaxTtlSec:         proto.Int32(1200),
+				DnsServer:            proto.String("8.8.8.8"),
+				DnsResolveTimeoutSec: proto.Int32(5),
+			},
+			wantOptsLen: 4,
+		},
+		{
 			name: "error",
 			targetsDef: &targetspb.TargetsDef{
 				DnsServer: proto.String("mars://8.8.8.8"),

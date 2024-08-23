@@ -175,19 +175,31 @@ message TargetsDef {
   //  - "1.1.1.1"           // Use default network and port (53)
   // - "tcp://1.1.1.1"      // Use tcp network and default port (53)
   // - "tcp://1.1.1.1:513   // Use tcp network and port 513
+  // Note: all dns_* options are only applicable if you're using Cloudprober's
+  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
   optional string dns_server = 37;
 
   // DNS time to live. This controls how often backend DNS server will be
   // queried. If you set it to a non-default value, these targets will get a
   // dedicated DNS resolver instead of using a global one.
-  // Note: this option is only applicable if you're using Cloudprober's DNS
-  // resolver, i.e. you're setting resolve_first probe setting to true.
+  // Note: all dns_* options are only applicable if you're using Cloudprober's
+  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
   optional int32 dns_ttl_sec = 36 [default = 300];
 
   // DNS maximum ttl. This option controls for long cached IP can be used in
   // case of resolve errors. Default value is set to dns_ttl_sec. It should
   // never be lower than dns_ttl_sec.
+  // Note: all dns_* options are only applicable if you're using Cloudprober's
+  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
   optional int32 dns_max_ttl_sec = 38;
+
+  // DNS resolve timeout. This option controls how long we'll wait for the
+  // backend DNS server to respond. Note that DNS resolution happens
+  // asynchronously, so DNS resolve time should never really affect the probe.
+  // This timeout affects how soon DNS resolution is retried, if it's hanging.
+  // Note: all dns_* options are only applicable if you're using Cloudprober's
+  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
+  optional int32 dns_resolve_timeout_sec = 39 [default = 30];
 
   // Extensions allow users to to add new targets types (for example, a targets
   // type that utilizes a custom protocol) in a systematic manner.

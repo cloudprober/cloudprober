@@ -32,7 +32,10 @@ import (
 )
 
 // The max age and the timeout for resolving a target.
-const defaultMaxAge = 5 * time.Minute
+const (
+	defaultMaxAge         = 5 * time.Minute
+	defaultResolveTimeout = 30 * time.Second
+)
 
 type cacheRecord struct {
 	ip4              net.IP
@@ -50,12 +53,13 @@ type Resolver interface {
 
 // resolverImpl provides an asynchronous caching DNS resolver.
 type resolverImpl struct {
-	cache   map[string]*cacheRecord
-	mu      sync.Mutex
-	ttl     time.Duration
-	maxTTL  time.Duration
-	resolve func(string) ([]net.IP, error) // used for testing
-	l       *logger.Logger
+	cache          map[string]*cacheRecord
+	mu             sync.Mutex
+	ttl            time.Duration
+	maxTTL         time.Duration
+	resolve        func(string) ([]net.IP, error) // used for testing
+	resolveTimeout time.Duration
+	l              *logger.Logger
 }
 
 // ipVersion tells if an IP address is IPv4 or IPv6.
@@ -86,8 +90,8 @@ func (r *resolverImpl) resolveOrTimeout(name string) ([]net.IP, error) {
 	select {
 	case <-doneChan:
 		return ips, err
-	case <-time.After(defaultMaxAge):
-		return nil, fmt.Errorf("timed out after %v", defaultMaxAge)
+	case <-time.After(r.resolveTimeout):
+		return nil, fmt.Errorf("timed out after %v", r.resolveTimeout)
 	}
 }
 
@@ -256,6 +260,12 @@ func WithResolveFunc(resolveFunc func(string) ([]net.IP, error)) Option {
 	}
 }
 
+func WithResolveTimeout(resolveTimeout time.Duration) Option {
+	return func(r *resolverImpl) {
+		r.resolveTimeout = resolveTimeout
+	}
+}
+
 func WithTTL(ttl time.Duration) Option {
 	return func(r *resolverImpl) {
 		r.ttl = ttl
@@ -292,9 +302,10 @@ func WithDNSServer(serverNetwork, serverAddress string) Option {
 // New returns a new Resolver.
 func New(opts ...Option) *resolverImpl {
 	r := &resolverImpl{
-		cache:   make(map[string]*cacheRecord),
-		resolve: net.LookupIP,
-		ttl:     defaultMaxAge,
+		cache:          make(map[string]*cacheRecord),
+		resolve:        net.LookupIP,
+		ttl:            defaultMaxAge,
+		resolveTimeout: defaultResolveTimeout,
 	}
 
 	for _, opt := range opts {
