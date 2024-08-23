@@ -524,31 +524,44 @@ func TestNew(t *testing.T) {
 		wantTTL         time.Duration
 		wantMaxTTL      time.Duration
 		wantResolveFunc func(string) ([]net.IP, error)
+		wantTimeout     time.Duration
 	}{
 		{
-			name:       "default",
-			wantTTL:    defaultMaxAge,
-			wantMaxTTL: defaultMaxAge,
+			name:        "default",
+			wantTTL:     defaultMaxAge,
+			wantMaxTTL:  defaultMaxAge,
+			wantTimeout: defaultResolveTimeout,
 		},
 		{
-			name:       "set ttl",
-			ttl:        600 * time.Second,
-			wantTTL:    600 * time.Second,
-			wantMaxTTL: 600 * time.Second,
+			name:        "set ttl",
+			ttl:         600 * time.Second,
+			wantTTL:     600 * time.Second,
+			wantMaxTTL:  600 * time.Second,
+			wantTimeout: defaultResolveTimeout,
 		},
 		{
-			name:       "max ttl < ttl",
-			ttl:        600 * time.Second,
-			maxTTL:     200 * time.Second,
-			wantTTL:    600 * time.Second,
-			wantMaxTTL: 600 * time.Second,
+			name:        "max ttl < ttl",
+			ttl:         600 * time.Second,
+			maxTTL:      200 * time.Second,
+			wantTTL:     600 * time.Second,
+			wantMaxTTL:  600 * time.Second,
+			wantTimeout: defaultResolveTimeout,
 		},
 		{
-			name:       "max ttl > ttl",
-			ttl:        600 * time.Second,
-			maxTTL:     3600 * time.Second,
-			wantTTL:    600 * time.Second,
-			wantMaxTTL: 3600 * time.Second,
+			name:        "max ttl > ttl",
+			ttl:         600 * time.Second,
+			maxTTL:      3600 * time.Second,
+			wantTTL:     600 * time.Second,
+			wantMaxTTL:  3600 * time.Second,
+			wantTimeout: defaultResolveTimeout,
+		},
+		{
+			name:        "timeout 10",
+			ttl:         600 * time.Second,
+			maxTTL:      3600 * time.Second,
+			wantTTL:     600 * time.Second,
+			wantMaxTTL:  3600 * time.Second,
+			wantTimeout: 10 * time.Second,
 		},
 		{
 			name:            "set resolve func",
@@ -556,6 +569,7 @@ func TestNew(t *testing.T) {
 			wantResolveFunc: b.resolve,
 			wantTTL:         defaultMaxAge,
 			wantMaxTTL:      defaultMaxAge,
+			wantTimeout:     defaultResolveTimeout,
 		},
 	}
 	for _, tt := range tests {
