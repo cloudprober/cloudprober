@@ -584,6 +584,13 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 			result.total += int64(p.c.GetRequestsPerProbe())
 		}
 
+		if ctxDone(ctx) {
+			// Probe or target context was canceled during the probe run.
+			// The probe was interrupted mid-run before the timeout happened,
+			// so we should discard any metrics collected during this run.
+			return
+		}
+
 		// Export stats if it's the time to do so.
 		runCnt++
 		if (runCnt % p.statsExportFrequency) == 0 {
