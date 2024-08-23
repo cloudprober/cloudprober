@@ -45,8 +45,8 @@ what's broken in your system (see [why probers](https://blog.manugarg.com/posts/
 - Automated targets discovery to make Cloud deployments as painless as possible:
 
   - _[Kubernetes](https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets)_ resources.
-  - _[GCP](https://github.com/cloudprober/cloudprober/blob/master/rds/gcp/proto/config.proto)_ instances, forwarding rules, and pub/sub messages.
-  - _[File](https://github.com/cloudprober/cloudprober/blob/master/rds/file/proto/config.proto#L34)_ based targets.
+  - _[GCP](https://github.com/cloudprober/cloudprober/blob/master/internal/rds/gcp/proto/config.proto)_ instances, forwarding rules, and pub/sub messages.
+  - _[File](https://github.com/cloudprober/cloudprober/blob/master/internal/rds/file/proto/config.proto#L34)_ based targets.
 
 - Deployment friendly:
 
