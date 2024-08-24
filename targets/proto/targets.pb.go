@@ -293,8 +293,8 @@ type DNSOptions struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Provide a dns resolver override instead of using the default dns resolver.
-	// dns_server can be specified in the following format: [network://]ip[:port]
+	// DNS server to use for DNS resolution, instead of system's default. Server
+	// can be specified in the following format: [network://]ip[:port]
 	// where network is one of udp, tcp, tcp4, tcp6, udp4, udp6.
 	// Example:
 	//   - "1.1.1.1"           // Use default network and port (53)
@@ -306,7 +306,7 @@ type DNSOptions struct {
 	// queried. If you set it to a non-default value, these targets will get a
 	// dedicated DNS resolver instead of using a global one.
 	TtlSec *int32 `protobuf:"varint,2,opt,name=ttl_sec,json=ttlSec,def=300" json:"ttl_sec,omitempty"`
-	// This option controls for long cached IP can be used in case of resolve
+	// This option controls for how long cached IP can be used in case of resolve
 	// errors. Default value for this is set to ttl_sec. It should never be
 	// lower than dns_ttl_sec.
 	MaxCacheAgeSec *int32 `protobuf:"varint,3,opt,name=max_cache_age_sec,json=maxCacheAgeSec" json:"max_cache_age_sec,omitempty"`
