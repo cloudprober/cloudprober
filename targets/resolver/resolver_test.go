@@ -163,7 +163,7 @@ func TestResolveErr(t *testing.T) {
 	// cnt=2, last backend refresh failed and cache record contains an error,
 	// but maxTTL is 60 seconds, so we'll not get an error.
 	// refresh will still be triggered on this call because of error.
-	r.maxTTL = 60 * time.Second
+	r.maxCacheAge = 60 * time.Second
 	ip, err = r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshedCh)
 	if err != nil {
 		t.Errorf("Unexpected error: %v, while maxTTL is 60s", err)
@@ -174,7 +174,7 @@ func TestResolveErr(t *testing.T) {
 	// cnt=3, last backend refresh failed again, CR still has error. This time
 	// we get error because we reduce maxTTL to 10 milliseconds.
 	// refresh will still be triggered on this call because of error.
-	r.maxTTL = 10 * time.Millisecond
+	r.maxCacheAge = 10 * time.Millisecond
 	ip, err = r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshedCh)
 	if err == nil {
 		t.Error("Expected error for maxTTL=10ms, but got none")
@@ -584,7 +584,7 @@ func TestNew(t *testing.T) {
 
 			r := New(opts...)
 			assert.Equal(t, tt.wantTTL, r.ttl, "ttl")
-			assert.Equal(t, tt.wantMaxTTL, r.maxTTL, "maxTTL")
+			assert.Equal(t, tt.wantMaxTTL, r.maxCacheAge, "maxTTL")
 		})
 	}
 }

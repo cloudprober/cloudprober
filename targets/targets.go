@@ -305,30 +305,43 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 }
 
 func getResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]dnsRes.Option, error) {
+	dopts := targetsDef.GetDnsOptions()
+
+	server, ttlSec, maxCacheAge, timeout := dopts.GetServer(), dopts.GetTtlSec(), dopts.GetMaxCacheAgeSec(), dopts.GetBackendTimeoutMsec()
+	if targetsDef.GetDnsServer() != "" {
+		l.Warningf("dns_server is now deprecated. please use dns_options.server instead")
+
+		if server != "" {
+			return nil, fmt.Errorf("dns_server and dns_options.server are mutually exclusive")
+		} else {
+			server = targetsDef.GetDnsServer()
+		}
+	}
+
 	var opts []dnsRes.Option
 
-	if targetsDef.GetDnsTtlSec() != targetspb.Default_TargetsDef_DnsTtlSec {
-		opts = append(opts, dnsRes.WithTTL(time.Duration(targetsDef.GetDnsTtlSec())*time.Second))
+	if ttlSec != targetspb.Default_DNSOptions_TtlSec {
+		opts = append(opts, dnsRes.WithTTL(time.Duration(ttlSec)*time.Second))
 	}
 
-	if dnsMaxTTL := targetsDef.GetDnsMaxTtlSec(); dnsMaxTTL != 0 {
-		if dnsMaxTTL < targetsDef.GetDnsTtlSec() {
-			return nil, fmt.Errorf("dns_max_ttl_sec (%d) must be >= dns_ttl_sec (%d)", dnsMaxTTL, targetsDef.GetDnsTtlSec())
+	if maxCacheAge != 0 {
+		if maxCacheAge < ttlSec {
+			return nil, fmt.Errorf("max_cache_age (%d) must be >= ttl_sec (%d)", maxCacheAge, ttlSec)
 		}
-		opts = append(opts, dnsRes.WithMaxTTL(time.Duration(targetsDef.GetDnsMaxTtlSec())*time.Second))
+		opts = append(opts, dnsRes.WithMaxTTL(time.Duration(maxCacheAge)*time.Second))
 	}
 
-	if dnsServer := targetsDef.GetDnsServer(); dnsServer != "" {
-		l.Infof("Overriding default resolver with: %s", dnsServer)
-		network, address, err := dnsRes.ParseOverrideAddress(dnsServer)
+	if server != "" {
+		l.Infof("Overriding default resolver with: %s", server)
+		network, address, err := dnsRes.ParseOverrideAddress(server)
 		if err != nil {
 			return nil, err
 		}
 		opts = append(opts, dnsRes.WithDNSServer(network, address))
 	}
 
-	if d := targetsDef.GetDnsResolveTimeoutSec(); d != targetspb.Default_TargetsDef_DnsResolveTimeoutSec {
-		opts = append(opts, dnsRes.WithResolveTimeout(time.Duration(d)*time.Second))
+	if timeout != targetspb.Default_DNSOptions_BackendTimeoutMsec {
+		opts = append(opts, dnsRes.WithResolveTimeout(time.Duration(timeout)*time.Second))
 	}
 
 	return opts, nil

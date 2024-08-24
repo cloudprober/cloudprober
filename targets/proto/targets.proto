@@ -78,6 +78,32 @@ message K8sTargets {
   optional rds.ClientConf.ServerOptions rds_server_options = 20;
 }
 
+message DNSOptions {
+  // Provide a dns resolver override instead of using the default dns resolver.
+  // dns_server can be specified in the following format: [network://]ip[:port]
+  // where network is one of udp, tcp, tcp4, tcp6, udp4, udp6.
+  // Example:
+  //  - "1.1.1.1"           // Use default network and port (53)
+  // - "tcp://1.1.1.1"      // Use tcp network and default port (53)
+  // - "tcp://1.1.1.1:513   // Use tcp network and port 513
+  optional string server = 1;
+
+  // DNS time to live. This controls how often backend DNS server will be
+  // queried. If you set it to a non-default value, these targets will get a
+  // dedicated DNS resolver instead of using a global one.
+  optional int32 ttl_sec = 2 [default = 300];
+
+  // This option controls for long cached IP can be used in case of resolve
+  // errors. Default value for this is set to ttl_sec. It should never be
+  // lower than dns_ttl_sec.
+  optional int32 max_cache_age_sec = 3;
+
+  // Backend timeout in milliseconds. This option controls how long we'll wait
+  // for the backend DNS server to respond. Note that DNS resolution happens
+  // asynchronously, so DNS resolve time should never really affect the probe.
+  // This timeout affects how soon DNS resolution is retried, if it's hanging.
+  optional int32 backend_timeout_msec = 4 [default = 30000];
+}
 message TargetsDef {
   oneof type {
     // Static host names, for example:
@@ -168,38 +194,14 @@ message TargetsDef {
   // are specified.
   optional bool exclude_lameducks = 22 [default = true];
 
+  // Options to control DNS resolution behavior if using Cloudprober's DNS
+  // resolver, which get triggered only if you're setting `resolve_first` probe
+  // setting to true.
+  optional DNSOptions dns_options = 30;
+  
   // Provide a dns resolver override instead of using the default dns resolver.
-  // dns_server can be specified in the following format: [network://]ip[:port]
-  // where network is one of udp, tcp, tcp4, tcp6, udp4, udp6.
-  // Example:
-  //  - "1.1.1.1"           // Use default network and port (53)
-  // - "tcp://1.1.1.1"      // Use tcp network and default port (53)
-  // - "tcp://1.1.1.1:513   // Use tcp network and port 513
-  // Note: all dns_* options are only applicable if you're using Cloudprober's
-  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
-  optional string dns_server = 37;
-
-  // DNS time to live. This controls how often backend DNS server will be
-  // queried. If you set it to a non-default value, these targets will get a
-  // dedicated DNS resolver instead of using a global one.
-  // Note: all dns_* options are only applicable if you're using Cloudprober's
-  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
-  optional int32 dns_ttl_sec = 36 [default = 300];
-
-  // DNS maximum ttl. This option controls for long cached IP can be used in
-  // case of resolve errors. Default value is set to dns_ttl_sec. It should
-  // never be lower than dns_ttl_sec.
-  // Note: all dns_* options are only applicable if you're using Cloudprober's
-  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
-  optional int32 dns_max_ttl_sec = 38;
-
-  // DNS resolve timeout. This option controls how long we'll wait for the
-  // backend DNS server to respond. Note that DNS resolution happens
-  // asynchronously, so DNS resolve time should never really affect the probe.
-  // This timeout affects how soon DNS resolution is retried, if it's hanging.
-  // Note: all dns_* options are only applicable if you're using Cloudprober's
-  // DNS resolver, i.e. you're setting resolve_first probe setting to true.
-  optional int32 dns_resolve_timeout_sec = 39 [default = 30];
+  // Deprecated: This option is now deprecated, please use dns_options instead.
+  optional string dns_server = 31;
 
   // Extensions allow users to to add new targets types (for example, a targets
   // type that utilizes a custom protocol) in a systematic manner.

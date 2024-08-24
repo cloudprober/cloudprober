@@ -56,7 +56,7 @@ type resolverImpl struct {
 	cache          map[string]*cacheRecord
 	mu             sync.Mutex
 	ttl            time.Duration
-	maxTTL         time.Duration
+	maxCacheAge    time.Duration
 	resolve        func(string) ([]net.IP, error) // used for testing
 	resolveTimeout time.Duration
 	l              *logger.Logger
@@ -150,7 +150,7 @@ func (r *resolverImpl) resolveWithMaxAge(name string, ipVer int, maxAge time.Dur
 		return nil, fmt.Errorf("found no IP%d IP for %s", ipVer, name)
 	}
 
-	if cr.err != nil && ip != nil && time.Since(cr.lastUpdatedAt) < r.maxTTL {
+	if cr.err != nil && ip != nil && time.Since(cr.lastUpdatedAt) < r.maxCacheAge {
 		r.l.Warningf("failed to resolve %s: %v, returning cached IP: %s", name, cr.err, ip.String())
 		return ip, nil
 	}
@@ -274,7 +274,7 @@ func WithTTL(ttl time.Duration) Option {
 
 func WithMaxTTL(ttl time.Duration) Option {
 	return func(r *resolverImpl) {
-		r.maxTTL = ttl
+		r.maxCacheAge = ttl
 	}
 }
 
@@ -313,8 +313,8 @@ func New(opts ...Option) *resolverImpl {
 	}
 
 	// maxTTL cannot be less than ttl
-	if r.maxTTL < r.ttl {
-		r.maxTTL = r.ttl
+	if r.maxCacheAge < r.ttl {
+		r.maxCacheAge = r.ttl
 	}
 
 	return r
