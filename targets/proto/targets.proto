@@ -88,9 +88,8 @@ message DNSOptions {
   // - "tcp://1.1.1.1:513   // Use tcp network and port 513
   optional string server = 1;
 
-  // DNS time to live. This controls how often backend DNS server will be
-  // queried. If you set it to a non-default value, these targets will get a
-  // dedicated DNS resolver instead of using a global one.
+  // DNS TTL (time to live). This controls how often backend DNS server will be
+  // queried.
   optional int32 ttl_sec = 2 [default = 300];
 
   // This option controls for how long cached IP can be used in case of resolve

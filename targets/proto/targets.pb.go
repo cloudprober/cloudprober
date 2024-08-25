@@ -302,9 +302,8 @@ type DNSOptions struct {
 	// - "tcp://1.1.1.1"      // Use tcp network and default port (53)
 	// - "tcp://1.1.1.1:513   // Use tcp network and port 513
 	Server *string `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
-	// DNS time to live. This controls how often backend DNS server will be
-	// queried. If you set it to a non-default value, these targets will get a
-	// dedicated DNS resolver instead of using a global one.
+	// DNS TTL (time to live). This controls how often backend DNS server will be
+	// queried.
 	TtlSec *int32 `protobuf:"varint,2,opt,name=ttl_sec,json=ttlSec,def=300" json:"ttl_sec,omitempty"`
 	// This option controls for how long cached IP can be used in case of resolve
 	// errors. Default value for this is set to ttl_sec. It should never be
