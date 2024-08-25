@@ -264,12 +264,6 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	// Convert interface to struct type
 	result := res.(*probeRunResult)
 
-	if p.opts.LatencyDist != nil {
-		result.latency = p.opts.LatencyDist.CloneDist()
-	} else {
-		result.latency = metrics.NewFloat(0)
-	}
-
 	port := defaultPort
 	if target.Port != 0 {
 		port = target.Port
