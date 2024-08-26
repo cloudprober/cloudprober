@@ -93,7 +93,7 @@ type Probe struct {
 	// book-keeping params
 	targets   []endpoint.Endpoint
 	queryType uint16
-	fqdn      string
+	domains   []string
 	client    Client
 }
 
@@ -102,42 +102,64 @@ type Probe struct {
 // (see documentation with statsKeeper below). That's the reason we use metrics.Int
 // types instead of metrics.AtomicInt.
 type probeRunResult struct {
-	total             metrics.Int
-	success           metrics.Int
-	latency           metrics.LatencyValue
-	timeouts          metrics.Int
-	validationFailure *metrics.Map[int64]
+	total             map[string]*metrics.Int
+	success           map[string]*metrics.Int
+	latency           map[string]metrics.LatencyValue
+	timeouts          map[string]*metrics.Int
+	validationFailure map[string]*metrics.Map[int64]
+	domains           []string
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
-	result := &probeRunResult{}
-
-	if p.opts.Validators != nil {
-		result.validationFailure = validators.ValidationFailureMap(p.opts.Validators)
+	result := &probeRunResult{
+		total:    make(map[string]*metrics.Int, len(p.domains)),
+		success:  make(map[string]*metrics.Int, len(p.domains)),
+		timeouts: make(map[string]*metrics.Int, len(p.domains)),
+		latency:  make(map[string]metrics.LatencyValue, len(p.domains)),
+		domains:  p.domains,
 	}
 
-	if p.opts.LatencyDist != nil {
-		result.latency = p.opts.LatencyDist.CloneDist()
-	} else {
-		result.latency = metrics.NewFloat(0)
+	for _, domain := range p.domains {
+		result.total[domain] = metrics.NewInt(0)
+		result.success[domain] = metrics.NewInt(0)
+		result.timeouts[domain] = metrics.NewInt(0)
+
+		if p.opts.LatencyDist != nil {
+			result.latency[domain] = p.opts.LatencyDist.CloneDist()
+		} else {
+			result.latency[domain] = metrics.NewFloat(0)
+		}
+
+		if p.opts.Validators != nil {
+			result.validationFailure = make(map[string]*metrics.Map[int64], len(p.domains))
+			result.validationFailure[domain] = validators.ValidationFailureMap(p.opts.Validators)
+		}
 	}
 
 	return result
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
-	em := metrics.NewEventMetrics(ts).
-		AddMetric("total", &prr.total).
-		AddMetric("success", &prr.success).
-		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
-		AddMetric("timeouts", &prr.timeouts)
+func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
+	var ems []*metrics.EventMetrics
 
-	if prr.validationFailure != nil {
-		em.AddMetric("validation_failure", prr.validationFailure)
+	for _, domain := range prr.domains {
+		em := metrics.NewEventMetrics(ts).
+			AddMetric("total", prr.total[domain]).
+			AddMetric("success", prr.success[domain]).
+			AddMetric(opts.LatencyMetricName, prr.latency[domain].Clone()).
+			AddMetric("timeouts", prr.timeouts[domain])
+
+		if prr.validationFailure != nil {
+			em.AddMetric("validation_failure", prr.validationFailure[domain])
+		}
+
+		em.AddLabel("resolved_domain", domain)
+
+		ems = append(ems, em)
 	}
 
-	return em
+	return ems
 }
 
 // Init initializes the probe with the given params.
@@ -173,7 +195,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("dns_probe(%v): invalid query type %v", name, queryType)
 	}
 	p.queryType = uint16(queryType)
-	p.fqdn = dns.Fqdn(p.c.GetResolvedDomain())
+
+	for _, domain := range strings.Split(p.c.GetResolvedDomain(), ",") {
+		p.domains = append(p.domains, dns.Fqdn(strings.TrimSpace(domain)))
+	}
 
 	// I believe the client is safe for concurrent use by multiple goroutines
 	// (although the documentation doesn't explicitly say so). It uses locks
@@ -201,7 +226,7 @@ func isClientTimeout(err error) bool {
 // validateResponse checks status code and answer section for correctness and
 // returns true if the response is valid. In case of validation failures, it
 // also updates the result structure.
-func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunResult) bool {
+func (p *Probe) validateResponse(resp *dns.Msg, target, domain string, result *probeRunResult) bool {
 	if resp == nil || resp.Rcode != dns.RcodeSuccess {
 		p.l.Warningf("Target(%s): error in response %v", target, resp)
 		return false
@@ -225,7 +250,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 		}
 		respBytes := []byte(strings.Join(answers, "\n"))
 
-		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: respBytes}, result.validationFailure, p.l)
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: respBytes}, result.validationFailure[domain], p.l)
 		if len(failedValidations) > 0 {
 			p.l.Debugf("Target(%s): validators %v failed. Resp: %v", target, failedValidations, answers)
 			return false
@@ -235,10 +260,10 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	return true
 }
 
-func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRunResult, resultMu *sync.Mutex) {
+func (p *Probe) doSingleDNSRequest(ctx context.Context, target, domain string, result *probeRunResult, resultMu *sync.Mutex) {
 	// Generate a new question for each probe so transaction IDs aren't repeated.
 	msg := new(dns.Msg)
-	msg.SetQuestion(p.fqdn, p.queryType)
+	msg.SetQuestion(domain, p.queryType)
 
 	resp, latency, err := p.client.ExchangeContext(ctx, msg, target)
 
@@ -250,14 +275,35 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 	if err != nil {
 		if isClientTimeout(err) {
 			p.l.Warningf("Target(%s): client.Exchange: Timeout error: %v", target, err)
-			result.timeouts.Inc()
+			result.timeouts[domain].Inc()
 		} else {
 			p.l.Warningf("Target(%s): client.Exchange: %v", target, err)
 		}
-	} else if p.validateResponse(resp, target, result) {
-		result.success.Inc()
-		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	} else if p.validateResponse(resp, target, domain, result) {
+		result.success[domain].Inc()
+		result.latency[domain].AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
+}
+
+func (p *Probe) runProbeForTarget(ctx context.Context, target string, result *probeRunResult, resultMu *sync.Mutex) {
+	if len(p.domains) == 1 {
+		p.doSingleDNSRequest(ctx, target, p.domains[0], result, resultMu)
+		return
+	}
+
+	// For multiple domains, we launch a separate goroutine for each domain.
+	if resultMu == nil {
+		resultMu = new(sync.Mutex)
+	}
+	var wg sync.WaitGroup
+	for _, domain := range p.domains {
+		wg.Add(1)
+		go func(domain string) {
+			defer wg.Done()
+			p.doSingleDNSRequest(ctx, target, domain, result, resultMu)
+		}(domain)
+	}
+	wg.Wait()
 }
 
 func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
@@ -268,7 +314,10 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	if target.Port != 0 {
 		port = target.Port
 	}
-	result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
+
+	for _, domain := range p.domains {
+		result.total[domain].IncBy(int64(p.c.GetRequestsPerProbe()))
+	}
 
 	ipLabel := ""
 	fullTarget := net.JoinHostPort(target.Name, strconv.Itoa(port))
@@ -294,13 +343,13 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	}
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doDNSRequest(ctx, fullTarget, result, nil)
+		p.runProbeForTarget(ctx, fullTarget, result, nil)
 		return
 	}
 
 	// For multiple requests per probe, we launch a separate goroutine for each
 	// DNS request. We use a mutex to protect access to per-target result object
-	// in doDNSRequest. Note that result object is not accessed concurrently
+	// in runProbeForTarget. Note that result object is not accessed concurrently
 	// anywhere else -- export of metrics happens when probe is not running.
 	var resultMu sync.Mutex
 	var wg sync.WaitGroup
@@ -310,7 +359,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 			defer wg.Done()
 
 			time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doDNSRequest(ctx, fullTarget, result, &resultMu)
+			p.runProbeForTarget(ctx, fullTarget, result, &resultMu)
 		}(i, result)
 	}
 	p.l.Debug("Waiting for DNS requests to finish")

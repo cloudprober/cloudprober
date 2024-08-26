@@ -141,7 +141,7 @@ func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
 	return result
 }
 
-func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) *metrics.EventMetrics {
+func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics {
 	prr.Lock()
 	defer prr.Unlock()
 
@@ -164,7 +164,7 @@ func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 func (p *Probe) transportCredentials() (credentials.TransportCredentials, error) {

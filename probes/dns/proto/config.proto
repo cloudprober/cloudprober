@@ -55,8 +55,9 @@ enum DNSProto {
 }
 
 message ProbeConf {
-  // Domain to use when making DNS queries
-  optional string resolved_domain = 1 [default = "www.google.com."];
+  // Domain to use when making DNS queries. You can provide multiple domains
+  // separated by comma; they will all be tried and reported independently.
+  optional string resolved_domain = 1 [default = "www.google.com"];
 
   // DNS Query Type
   optional QueryType query_type = 3 [default = MX];

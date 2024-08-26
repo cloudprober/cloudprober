@@ -65,7 +65,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 	return result
 }
 
-func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
@@ -76,7 +76,7 @@ func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options)
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 // Init initializes the probe with the given params.
