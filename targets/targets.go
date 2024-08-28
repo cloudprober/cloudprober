@@ -49,7 +49,7 @@ import (
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
 var (
-	globalResolver *dnsRes.Resolver
+	globalResolver dnsRes.Resolver
 )
 
 // Targets must have refreshed this much time after the lameduck for them to
@@ -125,7 +125,6 @@ type targets struct {
 	re              *regexp.Regexp
 	ldLister        endpoint.Lister
 	l               *logger.Logger
-	resolverIP      string // Used for testing
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -305,6 +304,49 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 	}, nil
 }
 
+func getResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]dnsRes.Option, error) {
+	dopts := targetsDef.GetDnsOptions()
+
+	server, ttlSec, maxCacheAge, timeout := dopts.GetServer(), dopts.GetTtlSec(), dopts.GetMaxCacheAgeSec(), dopts.GetBackendTimeoutMsec()
+	if targetsDef.GetDnsServer() != "" {
+		l.Warningf("dns_server is now deprecated. please use dns_options.server instead")
+
+		if server != "" {
+			return nil, fmt.Errorf("dns_server and dns_options.server are mutually exclusive")
+		} else {
+			server = targetsDef.GetDnsServer()
+		}
+	}
+
+	var opts []dnsRes.Option
+
+	if ttlSec != targetspb.Default_DNSOptions_TtlSec {
+		opts = append(opts, dnsRes.WithTTL(time.Duration(ttlSec)*time.Second))
+	}
+
+	if maxCacheAge != 0 {
+		if maxCacheAge < ttlSec {
+			return nil, fmt.Errorf("max_cache_age (%d) must be >= ttl_sec (%d)", maxCacheAge, ttlSec)
+		}
+		opts = append(opts, dnsRes.WithMaxTTL(time.Duration(maxCacheAge)*time.Second))
+	}
+
+	if server != "" {
+		l.Infof("Overriding default resolver with: %s", server)
+		network, address, err := dnsRes.ParseOverrideAddress(server)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, dnsRes.WithDNSServer(network, address))
+	}
+
+	if timeout != targetspb.Default_DNSOptions_BackendTimeoutMsec {
+		opts = append(opts, dnsRes.WithResolveTimeout(time.Duration(timeout)*time.Second))
+	}
+
+	return opts, nil
+}
+
 // New returns an instance of Targets as defined by a Targets protobuf (and a
 // GlobalTargetsOptions protobuf). The Targets instance returned will filter a
 // core target lister (i.e. static host-list, GCE instances, GCE forwarding
@@ -322,16 +364,16 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
-	resolver := globalResolver
-	if ip := targetsDef.GetDnsServer(); ip != "" {
-		l.Infof("Overriding default resolver with: %s", ip)
-		resolver, err = dnsRes.NewWithOverrideResolver(ip)
-		if err != nil {
-			return nil, fmt.Errorf("targets.New(): error creating resolver with override: %v", err)
-		}
-		t.resolverIP = ip
+
+	t.resolver = globalResolver
+	opts, err := getResolverOptions(targetsDef, l)
+	if err != nil {
+		return nil, fmt.Errorf("targets.New(): error creating resolver: %v", err)
 	}
-	t.resolver = resolver
+	if len(opts) > 0 {
+		t.resolver = dnsRes.New(opts...)
+	}
+
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
 		st, err := staticTargets(targetsDef.GetHostNames())
@@ -350,7 +392,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_GceTargets:
-		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), resolver, globalLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), t.resolver, globalLogger)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): error creating GCE targets: %v", err)
 		}
@@ -370,7 +412,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_FileTargets:
-		ft, err := file.New(targetsDef.GetFileTargets(), resolver, l)
+		ft, err := file.New(targetsDef.GetFileTargets(), t.resolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}
