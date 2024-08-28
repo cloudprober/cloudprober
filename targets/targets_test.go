@@ -342,51 +342,86 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestNewResolver(t *testing.T) {
-	targetsDefGlobalResolver := &targetspb.TargetsDef{
-		Type: &targetspb.TargetsDef_HostNames{
-			HostNames: "host2,host3",
+func TestGetResolverOptions(t *testing.T) {
+	tests := []struct {
+		name        string
+		dnsServer   string
+		dnsOptions  *targetspb.DNSOptions
+		wantOptsLen int
+		wantErr     bool
+	}{
+		{
+			name:        "no options",
+			dnsOptions:  &targetspb.DNSOptions{},
+			wantOptsLen: 0,
 		},
-		Endpoint: []*eppb.Endpoint{
-			{
-				Name: proto.String("host1"),
+		{
+			name: "dns TTL",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec: proto.Int32(600),
 			},
+			wantOptsLen: 1,
 		},
-	}
-
-	dnsIP := "1.1.1.1"
-	targetsDefOverrideResolver := &targetspb.TargetsDef{
-		DnsServer: &dnsIP,
-		Type: &targetspb.TargetsDef_HostNames{
-			HostNames: "host2,host3",
-		},
-		Endpoint: []*eppb.Endpoint{
-			{
-				Name: proto.String("host1"),
+		{
+			name: "dns TTL & max TTL",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec:         proto.Int32(600),
+				MaxCacheAgeSec: proto.Int32(1200),
 			},
+			wantOptsLen: 2,
+		},
+		{
+			name: "dns TTL & max TTL & dns server",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec:         proto.Int32(600),
+				MaxCacheAgeSec: proto.Int32(1200),
+				Server:         proto.String("8.8.8.8"),
+			},
+			wantOptsLen: 3,
+		},
+		{
+			name: "dns TTL & max TTL & dns server & resolve timeout",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec:             proto.Int32(600),
+				MaxCacheAgeSec:     proto.Int32(1200),
+				Server:             proto.String("8.8.8.8"),
+				BackendTimeoutMsec: proto.Int32(5000),
+			},
+			wantOptsLen: 4,
+		},
+		{
+			name:        "server-address-from-targets-proto",
+			dnsServer:   "udp://1.1.1.1",
+			wantOptsLen: 1,
+		},
+		{
+			name:      "error-server-address-multiple",
+			dnsServer: "udp://1.1.1.1",
+			dnsOptions: &targetspb.DNSOptions{
+				Server: proto.String("udp://1.1.1.1"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "error-server-address-bad",
+			dnsOptions: &targetspb.DNSOptions{
+				Server: proto.String("mars://1.1.1.1"),
+			},
+			wantErr: true,
 		},
 	}
-
-	// Check that when no dnsResolverOverride is specified, an empty string is present in the DnsResolverOverride field
-	targetGlobalResolver, err := New(targetsDefGlobalResolver, nil, nil, nil, nil)
-	if err != nil {
-		t.Fatalf("New(...) Unexpected errors %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			targetsDef := &targetspb.TargetsDef{
+				DnsServer:  &tt.dnsServer,
+				DnsOptions: tt.dnsOptions,
+			}
+			got, err := getResolverOptions(targetsDef, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getResolverOptions() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Len(t, got, tt.wantOptsLen)
+		})
 	}
-	targetGlobalResolverCast, ok := targetGlobalResolver.(*targets)
-	if !ok {
-		t.Fatalf("Casting of targets object using global resolver failed")
-	}
-	assert.Equal(t, targetGlobalResolverCast.resolverIP, "")
-
-	// Check that when a dnsResolverOverride is specified (1.1.1.1 in this case), the dnsip string is present in the
-	// DnsResolverOverride field
-	targetOverrideResolver, err := New(targetsDefOverrideResolver, nil, nil, nil, nil)
-	if err != nil {
-		t.Fatalf("New(...) Unexpected errors %v", err)
-	}
-	targetOverrideResolverCast, ok := targetOverrideResolver.(*targets)
-	if !ok {
-		t.Fatalf("Casting of targets object using override resolver failed")
-	}
-	assert.Equal(t, targetOverrideResolverCast.resolverIP, "1.1.1.1")
 }

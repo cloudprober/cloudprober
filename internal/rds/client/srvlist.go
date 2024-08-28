@@ -32,7 +32,7 @@ import (
 type srvListResolver struct {
 	hostList    []string
 	portList    []string
-	r           *cpRes.Resolver
+	r           cpRes.Resolver
 	cc          resolver.ClientConn
 	defaultPort string
 }

@@ -345,7 +345,7 @@ func TestProbeTimeouts(t *testing.T) {
 }
 
 type testTargets struct {
-	r *resolver.Resolver
+	r resolver.Resolver
 
 	start        time.Time
 	startTargets []endpoint.Endpoint

@@ -76,7 +76,7 @@ func instancesIPConfig(ipb *configpb.Instances) *rdspb.IPConfig {
 	}
 }
 
-func verifyInstancesConfig(ipb *configpb.Instances, globalResolver *dnsRes.Resolver) error {
+func verifyInstancesConfig(ipb *configpb.Instances, globalResolver dnsRes.Resolver) error {
 	if ipb.GetUseDnsToResolve() {
 		if ipb.GetNetworkInterface() != nil {
 			return errors.New("network_intf and use_dns_to_resolve are mutually exclusive")
