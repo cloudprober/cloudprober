@@ -15,6 +15,7 @@
 package resolver
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"runtime"
@@ -39,7 +40,7 @@ func (b *resolveBackendWithTracking) setNameToIP(name string, ip []net.IP) {
 	b.nameToIP[name] = ip
 }
 
-func (b *resolveBackendWithTracking) resolve(name string) ([]net.IP, error) {
+func (b *resolveBackendWithTracking) resolve(_ context.Context, name string) ([]net.IP, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.called++
@@ -130,7 +131,7 @@ func TestResolveWithMaxAge(t *testing.T) {
 // resolver behavior deterministic.
 func TestResolveErr(t *testing.T) {
 	cnt := 0
-	r := New(WithResolveFunc(func(name string) ([]net.IP, error) {
+	r := New(WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
 		cnt++
 		if cnt == 2 || cnt == 3 {
 			return nil, fmt.Errorf("time to return error, cnt: %d", cnt)
@@ -242,7 +243,7 @@ func TestResolveIPv6(t *testing.T) {
 func TestConcurrentInit(t *testing.T) {
 	cnt := 0
 	resolveWait := make(chan bool)
-	r := New(WithResolveFunc(func(name string) ([]net.IP, error) {
+	r := New(WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
 		cnt++
 		// The first call should be blocked on resolveWait.
 		if cnt == 1 {
@@ -301,7 +302,7 @@ type resolveBackendBenchmark struct {
 	t       time.Time
 }
 
-func (rb *resolveBackendBenchmark) resolve(name string) ([]net.IP, error) {
+func (rb *resolveBackendBenchmark) resolve(_ context.Context, name string) ([]net.IP, error) {
 	rb.callCnt++
 	fmt.Printf("Time since initiation: %s\n", time.Since(rb.t))
 	if rb.delay != 0 {
@@ -520,10 +521,10 @@ func TestNew(t *testing.T) {
 		name            string
 		ttl             time.Duration
 		maxTTL          time.Duration
-		resolveFunc     func(string) ([]net.IP, error)
+		resolveFunc     func(context.Context, string) ([]net.IP, error)
 		wantTTL         time.Duration
 		wantMaxTTL      time.Duration
-		wantResolveFunc func(string) ([]net.IP, error)
+		wantResolveFunc func(context.Context, string) ([]net.IP, error)
 		wantTimeout     time.Duration
 	}{
 		{

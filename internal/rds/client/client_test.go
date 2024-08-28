@@ -234,7 +234,7 @@ func TestListAndResolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
 	}))
 
@@ -292,7 +292,7 @@ func TestCacheBehaviorWithServerSupport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
 	}))
 
@@ -351,7 +351,7 @@ func TestCacheBehaviorWithoutServerSupport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
 	}))
 
@@ -391,7 +391,7 @@ func TestOnDemandRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error initializing RDS client: %v", err)
 	}
-	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(name string) ([]net.IP, error) {
+	client.resolver = dnsRes.New(dnsRes.WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
 		return testNameToIP[name], nil
 	}))
 
