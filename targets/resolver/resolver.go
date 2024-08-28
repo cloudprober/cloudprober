@@ -37,6 +37,10 @@ const (
 	defaultResolveTimeout = 30 * time.Second
 )
 
+var defaultResolverFunc = func(ctx context.Context, host string) ([]net.IP, error) {
+	return net.DefaultResolver.LookupIP(ctx, "ip", host)
+}
+
 type cacheRecord struct {
 	ip4              net.IP
 	ip6              net.IP
@@ -57,7 +61,7 @@ type resolverImpl struct {
 	mu             sync.Mutex
 	ttl            time.Duration
 	maxCacheAge    time.Duration
-	resolve        func(string) ([]net.IP, error) // used for testing
+	resolve        func(context.Context, string) ([]net.IP, error) // used for testing
 	resolveTimeout time.Duration
 	l              *logger.Logger
 }
@@ -73,26 +77,12 @@ func ipVersion(ip net.IP) int {
 	return 0
 }
 
-// resolveOrTimeout tries to resolve, but times out and returns an error if it
-// takes more than defaultMaxAge.
-// Has the potential of creating a bunch of pending goroutines if backend
-// resolve call has a tendency of indefinitely hanging.
+// resolveOrTimeout is simply a context less wrapper around resolve.
 func (r *resolverImpl) resolveOrTimeout(name string) ([]net.IP, error) {
-	var ips []net.IP
-	var err error
-	doneChan := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.Background(), r.resolveTimeout)
+	defer cancel()
 
-	go func() {
-		ips, err = r.resolve(name)
-		close(doneChan)
-	}()
-
-	select {
-	case <-doneChan:
-		return ips, err
-	case <-time.After(r.resolveTimeout):
-		return nil, fmt.Errorf("timed out after %v", r.resolveTimeout)
-	}
+	return r.resolve(ctx, name)
 }
 
 // Resolve returns IP address for a name.
@@ -254,7 +244,7 @@ func ParseOverrideAddress(dnsResolverOverride string) (string, string, error) {
 
 type Option func(*resolverImpl)
 
-func WithResolveFunc(resolveFunc func(string) ([]net.IP, error)) Option {
+func WithResolveFunc(resolveFunc func(context.Context, string) ([]net.IP, error)) Option {
 	return func(r *resolverImpl) {
 		r.resolve = resolveFunc
 	}
@@ -278,23 +268,22 @@ func WithMaxTTL(ttl time.Duration) Option {
 	}
 }
 
-func WithDNSServer(serverNetwork, serverAddress string) Option {
-	return func(r *resolverImpl) {
-		r.resolve = func(host string) ([]net.IP, error) {
-			netResolver := &net.Resolver{
-				PreferGo: true,
-				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-					d := net.Dialer{
-						Timeout: defaultMaxAge,
-					}
-					if serverNetwork != "" {
-						network = serverNetwork
-					}
-					// Note: we ignore the address in the argument
-					return d.DialContext(ctx, network, serverAddress)
-				},
+func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
+	netResolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{}
+			if serverNetworkOverride != "" {
+				network = serverNetworkOverride
 			}
-			return netResolver.LookupIP(context.Background(), "ip", host)
+			// Note: we ignore the address in the argument
+			return d.DialContext(ctx, network, serverAddressOverride)
+		},
+	}
+
+	return func(r *resolverImpl) {
+		r.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
+			return netResolver.LookupIP(ctx, "ip", host)
 		}
 	}
 }
@@ -303,7 +292,7 @@ func WithDNSServer(serverNetwork, serverAddress string) Option {
 func New(opts ...Option) *resolverImpl {
 	r := &resolverImpl{
 		cache:          make(map[string]*cacheRecord),
-		resolve:        net.LookupIP,
+		resolve:        defaultResolverFunc,
 		ttl:            defaultMaxAge,
 		resolveTimeout: defaultResolveTimeout,
 	}
