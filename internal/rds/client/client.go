@@ -48,7 +48,7 @@ import (
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
 var (
-	globalResolver *dnsRes.Resolver
+	globalResolver dnsRes.Resolver
 )
 
 type cacheRecord struct {
@@ -72,7 +72,7 @@ type Client struct {
 	names         []string
 	listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
 	lastModified  int64
-	resolver      *dnsRes.Resolver
+	resolver      dnsRes.Resolver
 	l             *logger.Logger
 }
 
