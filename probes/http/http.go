@@ -562,7 +562,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	clients := p.clientsForTarget(target)
 	for ts := time.Now(); true; ts = <-ticker.C {
 		// Don't run another probe if context is canceled already.
-		if ctxDone(ctx) {
+		if sched.CtxDone(ctx) {
 			return
 		}
 
@@ -590,15 +590,6 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 				req = p.httpRequestForTarget(target)
 			}
 		}
-	}
-}
-
-func ctxDone(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return true
-	default:
-		return false
 	}
 }
 
