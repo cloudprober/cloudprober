@@ -64,6 +64,8 @@ type Scheduler struct {
 	// how to use this field.
 	ListEndpoints func() []endpoint.Endpoint
 
+	StartForTarget func(ctx context.Context, target endpoint.Endpoint)
+
 	// RunProbeForTarget is called per probe cycle for each target.
 	RunProbeForTarget func(context.Context, endpoint.Endpoint, ProbeResult)
 
@@ -110,6 +112,11 @@ func (s *Scheduler) gapBetweenTargets() time.Duration {
 
 func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint) {
 	s.Opts.Logger.Debug("Starting probing for the target ", target.Name)
+
+	if s.StartForTarget != nil {
+		s.StartForTarget(ctx, target)
+		return
+	}
 
 	// We use this counter to decide when to export stats.
 	var runCnt int64
