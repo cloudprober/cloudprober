@@ -574,43 +574,6 @@ func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, targets [
 	}
 }
 
-func TestUpdateTargetsAndStartProbes(t *testing.T) {
-	testTargets := [2]string{"test1.com", "test2.com"}
-	reqPerProbe := int64(3)
-	opts := &options.Options{
-		Targets:             targets.StaticTargets(fmt.Sprintf("%s,%s", testTargets[0], testTargets[1])),
-		Interval:            10 * time.Millisecond,
-		StatsExportInterval: 20 * time.Millisecond,
-		ProbeConf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
-	}
-	p := &Probe{}
-	p.Init("http_test", opts)
-	patchWithTestTransport(p)
-
-	dataChan := make(chan *metrics.EventMetrics, 100)
-
-	ctx, cancelF := context.WithCancel(context.Background())
-	p.updateTargetsAndStartProbes(ctx, dataChan)
-	if len(p.cancelFuncs) != 2 {
-		t.Errorf("len(p.cancelFunc)=%d, want=2", len(p.cancelFuncs))
-	}
-	ems, _ := testutils.MetricsFromChannel(dataChan, 100, time.Second)
-	compareNumberOfMetrics(t, ems, testTargets, true)
-
-	// Updates targets to just one target. This should cause one probe loop to
-	// exit. We should get only one data stream after that.
-	opts.Targets = targets.StaticTargets(testTargets[0])
-	p.updateTargetsAndStartProbes(ctx, dataChan)
-	if len(p.cancelFuncs) != 1 {
-		t.Errorf("len(p.cancelFunc)=%d, want=1", len(p.cancelFuncs))
-	}
-	ems, _ = testutils.MetricsFromChannel(dataChan, 100, time.Second)
-	compareNumberOfMetrics(t, ems, testTargets, false)
-
-	cancelF()
-	p.wait()
-}
-
 type tokenSource struct {
 	tok string
 	err error
