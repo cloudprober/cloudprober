@@ -31,7 +31,7 @@ import (
 // max(DefaultTargetsUpdateInterval, probe_interval)
 var DefaultTargetsUpdateInterval = 1 * time.Minute
 
-func ctxDone(ctx context.Context) bool {
+func CtxDone(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():
 		return true
@@ -46,7 +46,7 @@ type ProbeResult interface {
 	// This EventMetrics object should not be reused for further accounting
 	// because it's modified by the scheduler and later on when it's pushed
 	// to the data channel.
-	Metrics(timeStamp time.Time, runId int64, opts *options.Options) *metrics.EventMetrics
+	Metrics(timeStamp time.Time, runID int64, opts *options.Options) *metrics.EventMetrics
 }
 
 type Scheduler struct {
@@ -63,6 +63,8 @@ type Scheduler struct {
 	// lister: opts.Tagets.ListEndpoints(). See grpc probe for an example of
 	// how to use this field.
 	ListEndpoints func() []endpoint.Endpoint
+
+	StartForTarget func(ctx context.Context, target endpoint.Endpoint)
 
 	// RunProbeForTarget is called per probe cycle for each target.
 	RunProbeForTarget func(context.Context, endpoint.Endpoint, ProbeResult)
@@ -111,6 +113,11 @@ func (s *Scheduler) gapBetweenTargets() time.Duration {
 func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint) {
 	s.Opts.Logger.Debug("Starting probing for the target ", target.Name)
 
+	if s.StartForTarget != nil {
+		s.StartForTarget(ctx, target)
+		return
+	}
+
 	// We use this counter to decide when to export stats.
 	var runCnt int64
 
@@ -121,7 +128,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 
 	for ts := time.Now(); true; ts = <-ticker.C {
 		// Don't run another probe if context is canceled already.
-		if ctxDone(ctx) {
+		if CtxDone(ctx) {
 			return
 		}
 		if !s.Opts.IsScheduled() {
@@ -240,7 +247,7 @@ func (s *Scheduler) UpdateTargetsAndStartProbes(ctx context.Context) {
 	}
 
 	for {
-		if ctxDone(ctx) {
+		if CtxDone(ctx) {
 			return
 		}
 		if len(s.targets) != 0 {
