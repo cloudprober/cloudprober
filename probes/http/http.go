@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptrace"
@@ -40,6 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -80,10 +80,6 @@ type Probe struct {
 	// statsExportInterval / p.opts.Interval. Metrics are exported when
 	// (runCnt % statsExportFrequency) == 0
 	statsExportFrequency int64
-
-	// Cancel functions for per-target probe loop
-	cancelFuncs map[string]context.CancelFunc
-	waitGroup   sync.WaitGroup
 
 	requestBody *httpreq.RequestBody
 }
@@ -241,7 +237,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	p.targets = p.opts.Targets.ListEndpoints()
-	p.cancelFuncs = make(map[string]context.CancelFunc, len(p.targets))
 
 	p.targetsUpdateInterval = DefaultTargetsUpdateInterval
 	// There is no point refreshing targets before probe interval.
@@ -567,7 +562,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	clients := p.clientsForTarget(target)
 	for ts := time.Now(); true; ts = <-ticker.C {
 		// Don't run another probe if context is canceled already.
-		if ctxDone(ctx) {
+		if sched.CtxDone(ctx) {
 			return
 		}
 
@@ -598,138 +593,14 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	}
 }
 
-func (p *Probe) gapBetweenTargets() time.Duration {
-	interTargetGap := time.Duration(p.c.GetIntervalBetweenTargetsMsec()) * time.Millisecond
-
-	// If not configured by user, determine based on probe interval and number of
-	// targets.
-	if interTargetGap == 0 && len(p.targets) != 0 {
-		// Use 1/10th of the probe interval to spread out target groroutines.
-		interTargetGap = p.opts.Interval / time.Duration(10*len(p.targets))
-	}
-
-	return interTargetGap
-}
-
-// updateTargetsAndStartProbes refreshes targets and starts probe loop for
-// new targets and cancels probe loops for targets that are no longer active.
-// Note that this function is not concurrency safe. It is never called
-// concurrently by Start().
-func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	p.targets = p.opts.Targets.ListEndpoints()
-
-	p.l.Debugf("Probe(%s) got %d targets", p.name, len(p.targets))
-
-	// updatedTargets is used only for logging.
-	updatedTargets := make(map[string]string)
-	defer func() {
-		if len(updatedTargets) > 0 {
-			p.l.Infof("Probe(%s) targets updated: %v", p.name, updatedTargets)
-		}
-	}()
-
-	activeTargets := make(map[string]endpoint.Endpoint)
-	for _, target := range p.targets {
-		key := target.Key()
-		activeTargets[key] = target
-	}
-
-	// Stop probing for deleted targets by invoking cancelFunc.
-	for targetKey, cancelF := range p.cancelFuncs {
-		if _, ok := activeTargets[targetKey]; ok {
-			continue
-		}
-		cancelF()
-		updatedTargets[targetKey] = "DELETE"
-		delete(p.cancelFuncs, targetKey)
-	}
-
-	gapBetweenTargets := p.gapBetweenTargets()
-	var startWaitTime time.Duration
-
-	// Start probe loop for new targets.
-	for key, target := range activeTargets {
-		// This target is already initialized.
-		if _, ok := p.cancelFuncs[key]; ok {
-			continue
-		}
-		updatedTargets[key] = "ADD"
-
-		probeCtx, cancelF := context.WithCancel(ctx)
-		p.waitGroup.Add(1)
-
-		go func(target endpoint.Endpoint, waitTime time.Duration) {
-			defer p.waitGroup.Done()
-
-			// To evenly spread out target probes, wait for a randomized
-			// duration before starting the target go-routine.
-			if waitTime > 0 {
-				// For random padding using 1/10th of the gap.
-				jitterMaxUsec := gapBetweenTargets.Microseconds() / 10
-				// Make sure we don't pass 0 to rand.Int63n.
-				if jitterMaxUsec <= 0 {
-					jitterMaxUsec = 1
-				}
-				time.Sleep(waitTime + time.Duration(rand.Int63n(jitterMaxUsec))*time.Microsecond)
-			}
-
-			p.startForTarget(probeCtx, target, dataChan)
-		}(target, startWaitTime)
-
-		startWaitTime += gapBetweenTargets
-
-		p.cancelFuncs[key] = cancelF
-	}
-}
-
-func ctxDone(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return true
-	default:
-		return false
-	}
-}
-
-// wait waits for child go-routines (one per target) to clean up.
-func (p *Probe) wait() {
-	p.waitGroup.Wait()
-}
-
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	defer p.wait()
-
-	p.updateTargetsAndStartProbes(ctx, dataChan)
-
-	// Do more frequent listing of targets until we get a non-zero list of
-	// targets.
-	initialRefreshInterval := p.opts.Interval
-	// Don't wait too long if p.opts.Interval is large.
-	if initialRefreshInterval > time.Second {
-		initialRefreshInterval = time.Second
+	s := &sched.Scheduler{
+		ProbeName:      p.name,
+		DataChan:       dataChan,
+		Opts:           p.opts,
+		StartForTarget: func(ctx context.Context, target endpoint.Endpoint) { p.startForTarget(ctx, target, dataChan) },
 	}
 
-	for {
-		if ctxDone(ctx) {
-			return
-		}
-		if len(p.targets) != 0 {
-			break
-		}
-		p.updateTargetsAndStartProbes(ctx, dataChan)
-		time.Sleep(initialRefreshInterval)
-	}
-
-	targetsUpdateTicker := time.NewTicker(p.targetsUpdateInterval)
-	defer targetsUpdateTicker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-targetsUpdateTicker.C:
-			p.updateTargetsAndStartProbes(ctx, dataChan)
-		}
-	}
+	s.UpdateTargetsAndStartProbes(ctx)
 }
