@@ -52,6 +52,7 @@ func parseLine(line string) (metricName, value string, labels [][2]string, err e
 		}
 	}()
 
+	line = strings.TrimSpace(line)
 	ob := strings.Index(line, "{")
 
 	// If "{" was not found or was the last element, assume label-less metric.
@@ -120,18 +121,6 @@ func metricKey(name, target string, labels [][2]string) string {
 	return strings.Join(parts, ",")
 }
 
-func (p *Parser) parseMetricValue(metricName, value string) (metrics.Value, error) {
-	// If it's a pre-configured, distribution metric.
-	if dv, ok := p.distMetrics[metricName]; ok {
-		d := dv.Clone().(*metrics.Distribution)
-		if err := processLineDistValue(d, value); err != nil {
-			return nil, err
-		}
-		return d, nil
-	}
-	return metrics.ParseValueFromString(value)
-}
-
 func (p *Parser) processLine(line, target string) *metrics.EventMetrics {
 	metricName, valueStr, labels, err := parseLine(line)
 	if err != nil {
@@ -139,10 +128,21 @@ func (p *Parser) processLine(line, target string) *metrics.EventMetrics {
 		return nil
 	}
 
-	value, err := p.parseMetricValue(metricName, valueStr)
-	if err != nil {
-		p.l.Warning(err.Error())
-		return nil
+	var value metrics.Value
+	// If it's a pre-configured, distribution metric.
+	if dv, ok := p.distMetrics[metricName]; ok {
+		d := dv.Clone().(*metrics.Distribution)
+		if err := processLineDistValue(d, valueStr); err != nil {
+			p.l.Warning(err.Error())
+			return nil
+		}
+		value = d
+	} else {
+		value, err = metrics.ParseValueFromString(valueStr)
+		if err != nil {
+			p.l.Warning(err.Error())
+			return nil
+		}
 	}
 
 	// If not aggregating, create a new EM, add the metric and return.

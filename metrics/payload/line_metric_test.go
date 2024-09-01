@@ -301,6 +301,11 @@ func TestParseLine(t *testing.T) {
 			value: "\"version 1.5\"",
 		},
 		{
+			desc:    "invalid line",
+			line:    "op_total ",
+			wantErr: true,
+		},
+		{
 			desc:    "only one brace, invalid line",
 			line:    "total{service=\"service A\",dc=\"xx\" 56",
 			wantErr: true,
