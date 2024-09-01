@@ -29,7 +29,7 @@ func TestParserProcessHeaderMetrics(t *testing.T) {
 		Header: http.Header{
 			"X-Server-Latency": []string{"30585.915"},
 			"Content-Type":     []string{"application/json"},
-			"Date":             []string{"Thu, 01 Sep 2022 00:00:00 UTC"},
+			"Date":             []string{"Thu, 01 Sep 2022 00:00:00 PDT"},
 			"Content-Length":   []string{"101"},
 		},
 	}
@@ -72,7 +72,7 @@ func TestParserProcessHeaderMetrics(t *testing.T) {
 			name:       "main",
 			resp:       resp,
 			wantKeys:   []string{"content_type", "server_time", "content_length", "server_latency"},
-			wantValues: []metrics.Value{metrics.NewString("application/json"), metrics.NewInt(1661990400), metrics.NewInt(101), metrics.NewFloat(30585.915)},
+			wantValues: []metrics.Value{metrics.NewString("application/json"), metrics.NewInt(1662015600), metrics.NewInt(101), metrics.NewFloat(30585.915)},
 		},
 		{
 			name:      "empty",

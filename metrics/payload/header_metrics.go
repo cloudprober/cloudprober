@@ -63,7 +63,7 @@ func (p *Parser) processHeaderMetrics(resp interface{}) *metrics.EventMetrics {
 			if err != nil {
 				p.l.Warningf("processHeaderMetric: error parsing header %s as date: %v", hm.GetHeaderName(), err)
 			}
-			em.AddMetric(metricName, metrics.NewInt(t.Unix()))
+			em.AddMetric(metricName, metrics.NewInt(t.UTC().Unix()))
 		default:
 			em.AddMetric(metricName, metrics.NewString(val))
 		}
