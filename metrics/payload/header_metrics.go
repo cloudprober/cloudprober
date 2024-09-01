@@ -59,11 +59,11 @@ func (p *Parser) processHeaderMetrics(resp interface{}) *metrics.EventMetrics {
 			}
 			em.AddMetric(metricName, metrics.NewFloat(f))
 		case configpb.HeaderMetric_HTTP_DATE:
-			t, err := time.Parse(time.RFC1123, val)
+			t, err := http.ParseTime(val)
 			if err != nil {
 				p.l.Warningf("processHeaderMetric: error parsing header %s as date: %v", hm.GetHeaderName(), err)
 			}
-			em.AddMetric(metricName, metrics.NewInt(t.UTC().Unix()))
+			em.AddMetric(metricName, metrics.NewInt(t.Unix()))
 		default:
 			em.AddMetric(metricName, metrics.NewString(val))
 		}
