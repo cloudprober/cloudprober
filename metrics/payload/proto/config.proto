@@ -18,8 +18,7 @@ message HeaderMetric {
     INT = 1;
     FLOAT = 2;
     STRING = 3;
-    // Parsed with Go's http.ParseDate()
-    HTTP_DATE = 4;
+    HTTP_TIME = 4; // Parsed with Go's http.ParseTime()
   }
   optional ValueType type = 3;
 }
@@ -96,5 +95,9 @@ message OutputMetricsOptions {
   // JSON metrics to create from a JSON output.
   // Note when json_metric is configured, line parsing for metric is
   // disabled.
+  // json_metric {
+  //   metric_name: "backend_latency"
+  //   value_jq_filter: ".backend.latency"
+  //}
   repeated JSONMetric json_metric = 6;
 }

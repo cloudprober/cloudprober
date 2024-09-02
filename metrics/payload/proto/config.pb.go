@@ -28,8 +28,7 @@ const (
 	HeaderMetric_INT       HeaderMetric_ValueType = 1
 	HeaderMetric_FLOAT     HeaderMetric_ValueType = 2
 	HeaderMetric_STRING    HeaderMetric_ValueType = 3
-	// Parsed with Go's http.ParseDate()
-	HeaderMetric_HTTP_DATE HeaderMetric_ValueType = 4
+	HeaderMetric_HTTP_TIME HeaderMetric_ValueType = 4 // Parsed with Go's http.ParseTime()
 )
 
 // Enum value maps for HeaderMetric_ValueType.
@@ -39,14 +38,14 @@ var (
 		1: "INT",
 		2: "FLOAT",
 		3: "STRING",
-		4: "HTTP_DATE",
+		4: "HTTP_TIME",
 	}
 	HeaderMetric_ValueType_value = map[string]int32{
 		"UNDEFINED": 0,
 		"INT":       1,
 		"FLOAT":     2,
 		"STRING":    3,
-		"HTTP_DATE": 4,
+		"HTTP_TIME": 4,
 	}
 )
 
@@ -228,7 +227,7 @@ type JSONMetric struct {
 	//	*JSONMetric_NameJqFilter
 	Name isJSONMetric_Name `protobuf_oneof:"name"`
 	// JQ filter to extract metric value from JSON. JQ filter should extract a
-	// either a string or a numeric value.
+	// either a string, bool (converted to int), or a number.
 	ValueJqFilter *string `protobuf:"bytes,3,req,name=value_jq_filter,json=valueJqFilter" json:"value_jq_filter,omitempty"`
 }
 
@@ -325,6 +324,7 @@ type OutputMetricsOptions struct {
 	// probe process should return metrics only since the last probe run.
 	// Note that this option is mutually exclusive with GAUGE metrics and
 	// cloudprober will fail during initialization if both options are enabled.
+	// This option doesn't work on header_metric and json_metric.
 	AggregateInCloudprober *bool `protobuf:"varint,3,opt,name=aggregate_in_cloudprober,json=aggregateInCloudprober,def=0" json:"aggregate_in_cloudprober,omitempty"`
 	// Metrics that should be treated as distributions. These metrics are exported
 	// by the external probe program as comma-separated list of values, for
@@ -338,6 +338,8 @@ type OutputMetricsOptions struct {
 	//	    explicit_buckets: "1,2,4,8,16,32,64,128,256"
 	//	  }
 	//	}
+	//
+	// This option doesn't work on header_metric and json_metric.
 	DistMetric map[string]*proto.Dist `protobuf:"bytes,4,rep,name=dist_metric,json=distMetric" json:"dist_metric,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Header to metric mapping. If this mapping is defined and probe's response
 	// is an HTTP response, we will extract the header value and create a metric
@@ -355,7 +357,7 @@ type OutputMetricsOptions struct {
 	// disabled.
 	HeaderMetric []*HeaderMetric `protobuf:"bytes,5,rep,name=header_metric,json=headerMetric" json:"header_metric,omitempty"`
 	// JSON metrics to create from a JSON output.
-	// Note when header_metric is configured, line parsing for metric is
+	// Note when json_metric is configured, line parsing for metric is
 	// disabled.
 	JsonMetric []*JSONMetric `protobuf:"bytes,6,rep,name=json_metric,json=jsonMetric" json:"json_metric,omitempty"`
 }
@@ -466,7 +468,7 @@ var file_github_com_cloudprober_cloudprober_metrics_payload_proto_config_proto_r
 	0x44, 0x45, 0x46, 0x49, 0x4e, 0x45, 0x44, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x49, 0x4e, 0x54,
 	0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x46, 0x4c, 0x4f, 0x41, 0x54, 0x10, 0x02, 0x12, 0x0a, 0x0a,
 	0x06, 0x53, 0x54, 0x52, 0x49, 0x4e, 0x47, 0x10, 0x03, 0x12, 0x0d, 0x0a, 0x09, 0x48, 0x54, 0x54,
-	0x50, 0x5f, 0x44, 0x41, 0x54, 0x45, 0x10, 0x04, 0x22, 0x87, 0x01, 0x0a, 0x0a, 0x4a, 0x53, 0x4f,
+	0x50, 0x5f, 0x54, 0x49, 0x4d, 0x45, 0x10, 0x04, 0x22, 0x87, 0x01, 0x0a, 0x0a, 0x4a, 0x53, 0x4f,
 	0x4e, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x12, 0x21, 0x0a, 0x0b, 0x6d, 0x65, 0x74, 0x72, 0x69,
 	0x63, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x0a,
 	0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x26, 0x0a, 0x0e, 0x6e, 0x61,

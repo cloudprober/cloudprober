@@ -41,7 +41,7 @@ func TestParserProcessHeaderMetrics(t *testing.T) {
 			{
 				MetricName: proto.String("server_time"),
 				HeaderName: proto.String("Date"),
-				Type:       configpb.HeaderMetric_HTTP_DATE.Enum(),
+				Type:       configpb.HeaderMetric_HTTP_TIME.Enum(),
 			},
 			{
 				HeaderName: proto.String("Content-Length"),
