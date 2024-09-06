@@ -26,8 +26,8 @@ import (
 )
 
 type jsonMetric struct {
+	metricsJQ  *gojq.Query // JQ filter to extract metrics map from JSON.
 	metricName string
-	nameJQ     *gojq.Query
 	valueJQ    *gojq.Query
 }
 
@@ -36,21 +36,25 @@ type jsonMetricGroup struct {
 	labelsJQ *gojq.Query
 }
 
+func sortedKeys[T any](m map[string]T) []string {
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func parseJSONMetricConfig(configs []*configpb.JSONMetric) ([]*jsonMetricGroup, error) {
 	// Group configs by labelsJQFilter. Each group is exported as a separate
 	// EventMetrics.
-	var keys []string
 	cfgGroups := make(map[string][]*configpb.JSONMetric)
 	for _, cfg := range configs {
 		cfgGroups[cfg.GetLabelsJqFilter()] = append(cfgGroups[cfg.GetLabelsJqFilter()], cfg)
 	}
-	for k := range cfgGroups {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
 
 	var out []*jsonMetricGroup
-	for _, labelJQFilter := range keys {
+	for _, labelJQFilter := range sortedKeys(cfgGroups) {
 		configs := cfgGroups[labelJQFilter]
 		jmGroup := &jsonMetricGroup{}
 
@@ -75,26 +79,27 @@ func parseJSONMetricConfig(configs []*configpb.JSONMetric) ([]*jsonMetricGroup, 
 }
 
 func parseJSONMetric(cfg *configpb.JSONMetric) (*jsonMetric, error) {
-	jm := &jsonMetric{metricName: cfg.GetMetricName()}
-	if cfg.GetNameJqFilter() != "" {
-		nameJQ, err := gojq.Parse(cfg.GetNameJqFilter())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing name_jq_filter: %v", err)
+	jm := &jsonMetric{}
+	if cfg.GetMetricsJqFilter() != "" {
+		if cfg.GetMetricName() != "" || cfg.GetValueJqFilter() != "" {
+			return nil, fmt.Errorf("metrics_jq_filter is incompatible with metric_name and value_jq_filter")
 		}
-		jm.nameJQ = nameJQ
+		metricsJQ, err := gojq.Parse(cfg.GetMetricsJqFilter())
+		if err != nil {
+			return nil, fmt.Errorf("error parsing metrics_jq_filter: %v", err)
+		}
+		jm.metricsJQ = metricsJQ
+	} else {
+		if cfg.GetMetricName() == "" || cfg.GetValueJqFilter() == "" {
+			return nil, fmt.Errorf("either metrics_jq_filter or metric_name and value_jq_filter must be specified")
+		}
+		jm.metricName = cfg.GetMetricName()
+		valueJQ, err := gojq.Parse(cfg.GetValueJqFilter())
+		if err != nil {
+			return nil, fmt.Errorf("error parsing value_jq_filter: %v", err)
+		}
+		jm.valueJQ = valueJQ
 	}
-	if jm.metricName == "" && jm.nameJQ == nil {
-		return nil, fmt.Errorf("either name or name_jq_filter must be specified")
-	}
-
-	if cfg.GetValueJqFilter() == "" {
-		return nil, fmt.Errorf("value_jq_filter must be specified")
-	}
-	valueJQ, err := gojq.Parse(cfg.GetValueJqFilter())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing name_jq_filter: %v", err)
-	}
-	jm.valueJQ = valueJQ
 	return jm, nil
 }
 
@@ -114,20 +119,48 @@ func runJQFilter(jq *gojq.Query, input any) (any, error) {
 	return ret, nil
 }
 
-func (jm *jsonMetric) getName(input any) (string, error) {
-	if jm.metricName != "" {
-		return jm.metricName, nil
+func jqValToMetricValue(v any) (metrics.Value, error) {
+	switch v := v.(type) {
+	case string:
+		return metrics.NewString(v), nil
+	case float64:
+		return metrics.NewFloat(v), nil
+	case bool:
+		return metrics.NewInt(map[bool]int64{true: 1, false: 0}[v]), nil
+	default:
+		return nil, fmt.Errorf("jqValToMetricValue: unexpected type %T", v)
 	}
+}
 
-	name, err := runJQFilter(jm.nameJQ, input)
+func (jm *jsonMetric) process(input any, em *metrics.EventMetrics) error {
+	if jm.metricsJQ != nil {
+		metrics, err := runJQFilter(jm.metricsJQ, input)
+		if err != nil {
+			return err
+		}
+		metricsMap, ok := metrics.(map[string]any)
+		if !ok {
+			return fmt.Errorf("metrics_jq_filter didn't return a map[string]any: %v", metrics)
+		}
+		for _, k := range sortedKeys(metricsMap) {
+			v, err := jqValToMetricValue(metricsMap[k])
+			if err != nil {
+				return err
+			}
+			em.AddMetric(k, v)
+		}
+		return nil
+	}
+	val, err := runJQFilter(jm.valueJQ, input)
 	if err != nil {
-		return "", err
+		return err
 	}
-	s, ok := name.(string)
-	if !ok {
-		return "", fmt.Errorf("name_jq_filter didn't return a string: %T", name)
+	v, err := jqValToMetricValue(val)
+	if err != nil {
+		return err
 	}
-	return s, nil
+	em.AddMetric(jm.metricName, v)
+	return nil
 }
 
 func (jmGroup *jsonMetricGroup) process(input any) (*metrics.EventMetrics, error) {
@@ -148,25 +181,9 @@ func (jmGroup *jsonMetricGroup) process(input any) (*metrics.EventMetrics, error
 	}
 
 	for _, jm := range jmGroup.metrics {
-		metricName, err := jm.getName(input)
+		err := jm.process(input, em)
 		if err != nil {
 			return nil, err
-		}
-
-		val, err := runJQFilter(jm.valueJQ, input)
-		if err != nil {
-			return nil, err
-		}
-
-		switch v := val.(type) {
-		case string:
-			em.AddMetric(metricName, metrics.NewString(v))
-		case float64:
-			em.AddMetric(metricName, metrics.NewFloat(v))
-		case bool:
-			em.AddMetric(metricName, metrics.NewInt(map[bool]int64{true: 1, false: 0}[v]))
-		default:
-			return nil, fmt.Errorf("processJSONMetric: unexpected type %T", val)
 		}
 	}
 	return em, nil

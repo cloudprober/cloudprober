@@ -1,4 +1,4 @@
-// Copyright 2017-2024 The Cloudprober Authors.
+// Copyright 2024 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,22 +33,22 @@ func testMustJQParse(s string) *gojq.Query {
 }
 
 func TestJSONMetrics(t *testing.T) {
-	testJSON := `{
-	  "tokenId": 143,
-	  "tokenType": "Bearer",
-	  "expiresInSec": 1736.56,
-	  "valid": true
-	}`
 	tests := []struct {
 		name    string
 		config  string
-		cfg     []*configpb.JSONMetric
+		input   string
 		wantJM  []*jsonMetricGroup
 		wantEMs []string
 		wantErr bool
 	}{
 		{
 			name: "valid metrics",
+			input: `{
+				"tokenId": 143,
+				"tokenType": "Bearer",
+				"expiresInSec": 1736.56,
+				"valid": true
+			}`,
 			config: `
 				json_metric: [{
 					metric_name: "foo",
@@ -56,8 +56,7 @@ func TestJSONMetrics(t *testing.T) {
 					labels_jq_filter: "{\"token_type\":.tokenType}",
 				},
 				{
-					name_jq_filter: ".tokenType+\"-token-valid\" | ascii_downcase",
-					value_jq_filter: ".valid",
+					metrics_jq_filter: "[{key: (.tokenType|ascii_downcase+\"-token-valid\"), value: .valid}] | from_entries",
 					labels_jq_filter: "{\"token_type\":.tokenType}",
 				},
 				{
@@ -81,8 +80,7 @@ func TestJSONMetrics(t *testing.T) {
 							valueJQ:    testMustJQParse(".tokenId"),
 						},
 						{
-							nameJQ:  testMustJQParse(".tokenType+\"-token-valid\" | ascii_downcase"),
-							valueJQ: testMustJQParse(".valid"),
+							metricsJQ: testMustJQParse("[{key: (.tokenType|ascii_downcase+\"-token-valid\"), value: .valid}] | from_entries"),
 						},
 					},
 					labelsJQ: testMustJQParse("{\"token_type\":.tokenType}"),
@@ -91,6 +89,33 @@ func TestJSONMetrics(t *testing.T) {
 			wantEMs: []string{
 				"labels= token-expires-in-sec=1736.560",
 				"labels=token_type=Bearer foo=143.000 bearer-token-valid=1",
+			},
+		},
+		{
+			name: "valid metrics - 2",
+			input: `{
+				"deployment": "dep1",
+				"dequeue_deplay_p50": 1733,
+				"dequeue_deplay_p95": 16899.399
+			}`,
+			config: `
+				json_metric: [{
+					metrics_jq_filter: "del(.deployment)",
+					labels_jq_filter: "{\"deployment\":.deployment}",
+				}]
+			`,
+			wantJM: []*jsonMetricGroup{
+				{
+					metrics: []*jsonMetric{
+						{
+							metricsJQ: testMustJQParse("del(.deployment)"),
+						},
+					},
+					labelsJQ: testMustJQParse("{\"deployment\":.deployment}"),
+				},
+			},
+			wantEMs: []string{
+				"labels=deployment=dep1 dequeue_deplay_p50=1733.000 dequeue_deplay_p95=16899.399",
 			},
 		},
 		{
@@ -127,9 +152,10 @@ func TestJSONMetrics(t *testing.T) {
 			if err != nil {
 				return
 			}
+
 			assert.Equal(t, tt.wantJM, p.jmGroups, "json metric groups")
 
-			ems := p.processJSONMetric([]byte(testJSON))
+			ems := p.processJSONMetric([]byte(tt.input))
 			assert.Equal(t, len(tt.wantEMs), len(ems), "number of event metrics")
 
 			for i, em := range ems {

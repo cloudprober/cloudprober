@@ -24,19 +24,18 @@ message HeaderMetric {
 }
 
 message JSONMetric {
-  // Metric name that we should create from the JSON. To define a metric name
-  // from JSON, specify name_jq_filter.
-  oneof name {
-    string metric_name = 1;
+  // JQ filter to extract metrics from JSON. JQ filter should extract a map of
+  // type map[string]any and each entry in the map is converted to a metric.
+  // Map values can be a string, number, or a bool.
+  optional string metrics_jq_filter = 1;
 
-    // JQ filter to extract the metric name from JSON. JQ filter should extract
-    // a string.
-    string name_jq_filter = 2;
-  }
+  // Metric name. Note: this option is valid only if metrics_jq_filter is not
+  // specified. Also, for this to work, value_jq_filter must be specified.
+  optional string metric_name = 2;
 
-  // JQ filter to extract metric value from JSON. JQ filter should extract a
-  // either a string, bool (converted to int), or a number.
-  required string value_jq_filter = 3;
+  // JQ filter to extract metric value from JSON. Note: this option is valid
+  // only if `metric_name` is specified and `metrics_jq_filter` is not.
+  optional string value_jq_filter = 3;
 
   // JQ filter to extract labels from JSON. JQ filter should extract a map of
   // type map[string]any and each entry in the map is converted to a label.
