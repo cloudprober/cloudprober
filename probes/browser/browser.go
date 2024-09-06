@@ -236,15 +236,19 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 
 	p.l.Infof("Target(%s): running command %v, in dir %s", target.Name, cmd.String(), cmd.Dir)
 
+	success := true
 	out, err := cmd.Output()
 	p.l.Debugf("Target(%s): command output: %s", target.Name, string(out))
 	if err != nil {
+		success = false
 		attrs := []slog.Attr{slog.String("target", target.Name), slog.String("err", err.Error()), slog.String("stdout", string(out))}
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			attrs = append(attrs, slog.String("stderr", string(exitErr.Stderr)))
 		}
-		p.l.WarningAttrs("failed to run playwright test", attrs...)
-		return
+		p.l.WarningAttrs("playwright test failed", attrs...)
+		if len(out) == 0 {
+			return
+		}
 	}
 	latency := time.Since(start)
 
@@ -253,8 +257,10 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		defer resultMu.Unlock()
 	}
 
-	result.success.Inc()
-	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	if success {
+		result.success.Inc()
+		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	}
 
 	for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: out}, target.Dst()) {
 		em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst()).AddLabel("run_id", strconv.FormatInt(runID, 10))
