@@ -37,6 +37,10 @@ message JSONMetric {
   // JQ filter to extract metric value from JSON. JQ filter should extract a
   // either a string, bool (converted to int), or a number.
   required string value_jq_filter = 3;
+
+  // JQ filter to extract labels from JSON. JQ filter should extract a map of
+  // type map[string]any and each entry in the map is converted to a label.
+  optional string labels_jq_filter = 4;
 }
 
 message OutputMetricsOptions {

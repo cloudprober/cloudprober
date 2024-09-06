@@ -17,6 +17,7 @@ package payload
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
@@ -30,7 +31,50 @@ type jsonMetric struct {
 	valueJQ    *gojq.Query
 }
 
-func parseJSONMetricConfig(cfg *configpb.JSONMetric) (*jsonMetric, error) {
+type jsonMetricGroup struct {
+	metrics  []*jsonMetric
+	labelsJQ *gojq.Query
+}
+
+func parseJSONMetricConfig(configs []*configpb.JSONMetric) ([]*jsonMetricGroup, error) {
+	// Group configs by labelsJQFilter. Each group is exported as a separate
+	// EventMetrics.
+	var keys []string
+	cfgGroups := make(map[string][]*configpb.JSONMetric)
+	for _, cfg := range configs {
+		cfgGroups[cfg.GetLabelsJqFilter()] = append(cfgGroups[cfg.GetLabelsJqFilter()], cfg)
+	}
+	for k := range cfgGroups {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var out []*jsonMetricGroup
+	for _, labelJQFilter := range keys {
+		configs := cfgGroups[labelJQFilter]
+		jmGroup := &jsonMetricGroup{}
+
+		if labelJQFilter != "" {
+			labelJQ, err := gojq.Parse(labelJQFilter)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing labels_jq_filter: %v", err)
+			}
+			jmGroup.labelsJQ = labelJQ
+		}
+
+		for _, cfg := range configs {
+			jm, err := parseJSONMetric(cfg)
+			if err != nil {
+				return nil, err
+			}
+			jmGroup.metrics = append(jmGroup.metrics, jm)
+		}
+		out = append(out, jmGroup)
+	}
+	return out, nil
+}
+
+func parseJSONMetric(cfg *configpb.JSONMetric) (*jsonMetric, error) {
 	jm := &jsonMetric{metricName: cfg.GetMetricName()}
 	if cfg.GetNameJqFilter() != "" {
 		nameJQ, err := gojq.Parse(cfg.GetNameJqFilter())
@@ -86,26 +130,32 @@ func (jm *jsonMetric) getName(input any) (string, error) {
 	return s, nil
 }
 
-func (p *Parser) processJSONMetric(text []byte) *metrics.EventMetrics {
-	var input any
-	err := json.Unmarshal(text, &input)
-	if err != nil {
-		p.l.Warningf("JSON validation failure: response %s is not a valid JSON", string(text))
-		return nil
+func (jmGroup *jsonMetricGroup) process(input any) (*metrics.EventMetrics, error) {
+	em := metrics.NewEventMetrics(time.Now())
+
+	if jmGroup.labelsJQ != nil {
+		labels, err := runJQFilter(jmGroup.labelsJQ, input)
+		if err != nil {
+			return nil, err
+		}
+		labelsMap, ok := labels.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("labels_jq_filter didn't return a map[string]any: %T", labels)
+		}
+		for k, v := range labelsMap {
+			em.AddLabel(k, fmt.Sprintf("%v", v))
+		}
 	}
 
-	em := metrics.NewEventMetrics(time.Now())
-	for _, jm := range p.jsonMetrics {
+	for _, jm := range jmGroup.metrics {
 		metricName, err := jm.getName(input)
 		if err != nil {
-			p.l.Warning(err.Error())
-			continue
+			return nil, err
 		}
 
 		val, err := runJQFilter(jm.valueJQ, input)
 		if err != nil {
-			p.l.Warning(err.Error())
-			continue
+			return nil, err
 		}
 
 		switch v := val.(type) {
@@ -116,10 +166,30 @@ func (p *Parser) processJSONMetric(text []byte) *metrics.EventMetrics {
 		case bool:
 			em.AddMetric(metricName, metrics.NewInt(map[bool]int64{true: 1, false: 0}[v]))
 		default:
-			p.l.Warningf("processJSONMetric: unexpected type %T", val)
-			continue
+			return nil, fmt.Errorf("processJSONMetric: unexpected type %T", val)
 		}
 	}
+	return em, nil
+}
 
-	return em
+func (p *Parser) processJSONMetric(text []byte) []*metrics.EventMetrics {
+	var input any
+	err := json.Unmarshal(text, &input)
+	if err != nil {
+		p.l.Warningf("JSON validation failure: response %s is not a valid JSON", string(text))
+		return nil
+	}
+
+	var ems []*metrics.EventMetrics
+
+	for _, jmGroup := range p.jmGroups {
+		em, err := jmGroup.process(input)
+		if err != nil {
+			p.l.Warning(err.Error())
+			continue
+		}
+		ems = append(ems, em)
+	}
+
+	return ems
 }

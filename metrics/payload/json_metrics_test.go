@@ -15,13 +15,13 @@
 package payload
 
 import (
+	"strings"
 	"testing"
 
-	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/itchyny/gojq"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 func testMustJQParse(s string) *gojq.Query {
@@ -40,79 +40,86 @@ func TestJSONMetrics(t *testing.T) {
 	  "valid": true
 	}`
 	tests := []struct {
-		name        string
-		cfg         []*configpb.JSONMetric
-		wantJM      []*jsonMetric
-		wantMetrics []string
-		wantValues  []metrics.Value
-		wantErr     bool
+		name    string
+		config  string
+		cfg     []*configpb.JSONMetric
+		wantJM  []*jsonMetricGroup
+		wantEMs []string
+		wantErr bool
 	}{
 		{
-			name: "2 metrics",
-			cfg: []*configpb.JSONMetric{
-				{
-					Name:          &configpb.JSONMetric_MetricName{MetricName: "foo"},
-					ValueJqFilter: proto.String(".tokenId"),
+			name: "valid metrics",
+			config: `
+				json_metric: [{
+					metric_name: "foo",
+					value_jq_filter: ".tokenId",
+					labels_jq_filter: "{\"token_type\":.tokenType}",
 				},
 				{
-					Name:          &configpb.JSONMetric_NameJqFilter{NameJqFilter: ".tokenType+\"-token-valid\" | ascii_downcase"},
-					ValueJqFilter: proto.String(".valid"),
+					name_jq_filter: ".tokenType+\"-token-valid\" | ascii_downcase",
+					value_jq_filter: ".valid",
+					labels_jq_filter: "{\"token_type\":.tokenType}",
 				},
 				{
-					Name:          &configpb.JSONMetric_MetricName{MetricName: "token-type"},
-					ValueJqFilter: proto.String(".tokenType"),
+					metric_name: "token-expires-in-sec",
+					value_jq_filter: ".expiresInSec",
+				}]
+			`,
+			wantJM: []*jsonMetricGroup{
+				{
+					metrics: []*jsonMetric{
+						{
+							metricName: "token-expires-in-sec",
+							valueJQ:    testMustJQParse(".expiresInSec"),
+						},
+					},
 				},
 				{
-					Name:          &configpb.JSONMetric_MetricName{MetricName: "token-expires-in-sec"},
-					ValueJqFilter: proto.String(".expiresInSec"),
+					metrics: []*jsonMetric{
+						{
+							metricName: "foo",
+							valueJQ:    testMustJQParse(".tokenId"),
+						},
+						{
+							nameJQ:  testMustJQParse(".tokenType+\"-token-valid\" | ascii_downcase"),
+							valueJQ: testMustJQParse(".valid"),
+						},
+					},
+					labelsJQ: testMustJQParse("{\"token_type\":.tokenType}"),
 				},
 			},
-			wantJM: []*jsonMetric{
-				{
-					metricName: "foo",
-					valueJQ:    testMustJQParse(".tokenId"),
-				},
-				{
-					nameJQ:  testMustJQParse(".tokenType+\"-token-valid\" | ascii_downcase"),
-					valueJQ: testMustJQParse(".valid"),
-				},
-				{
-					metricName: "token-type",
-					valueJQ:    testMustJQParse(".tokenType"),
-				},
-				{
-					metricName: "token-expires-in-sec",
-					valueJQ:    testMustJQParse(".expiresInSec"),
-				},
+			wantEMs: []string{
+				"labels= token-expires-in-sec=1736.560",
+				"labels=token_type=Bearer foo=143.000 bearer-token-valid=1",
 			},
-			wantMetrics: []string{"foo", "bearer-token-valid", "token-type", "token-expires-in-sec"},
-			wantValues:  []metrics.Value{metrics.NewFloat(143), metrics.NewInt(1), metrics.NewString("Bearer"), metrics.NewFloat(1736.56)},
 		},
 		{
 			name: "bad config",
-			cfg: []*configpb.JSONMetric{
-				{
-					ValueJqFilter: proto.String(".tokenId"),
-				},
-			},
+			config: `
+			json_metric: [{
+				value_jq_filter: ".tokenId",
+			}]
+			`,
 			wantErr: true,
 		},
 		{
 			name: "bad filter",
-			cfg: []*configpb.JSONMetric{
-				{
-					Name:          &configpb.JSONMetric_MetricName{MetricName: "foo"},
-					ValueJqFilter: proto.String("{{tokenId"),
-				},
-			},
+			config: `
+			json_metric: [{
+				metric_name: "foo",
+				value_jq_filter: "{{tokenId",
+			}]
+			`,
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := NewParser(&configpb.OutputMetricsOptions{
-				JsonMetric: tt.cfg,
-			}, nil)
+			cfg := &configpb.OutputMetricsOptions{}
+			if err := prototext.Unmarshal([]byte(tt.config), cfg); err != nil {
+				t.Fatalf("Failed to unmarshal config: %v", err)
+			}
+			p, err := NewParser(cfg, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewParser() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -120,12 +127,14 @@ func TestJSONMetrics(t *testing.T) {
 			if err != nil {
 				return
 			}
-			assert.Equal(t, tt.wantJM, p.jsonMetrics)
+			assert.Equal(t, tt.wantJM, p.jmGroups, "json metric groups")
 
-			em := p.processJSONMetric([]byte(testJSON))
-			assert.Equal(t, tt.wantMetrics, em.MetricsKeys(), "metric keys")
-			for i, v := range tt.wantValues {
-				assert.Equal(t, v, em.Metric(tt.wantMetrics[i]), "metric values")
+			ems := p.processJSONMetric([]byte(testJSON))
+			assert.Equal(t, len(tt.wantEMs), len(ems), "number of event metrics")
+
+			for i, em := range ems {
+				got := strings.Join(strings.Split(em.String(), " ")[1:], " ")
+				assert.Equal(t, tt.wantEMs[i], got, "metrics for %d", i)
 			}
 		})
 	}

@@ -44,8 +44,8 @@ type Parser struct {
 	aggregatedMetrics map[string]*metrics.EventMetrics
 	aggregate         bool
 
-	jsonMetrics []*jsonMetric
-	l           *logger.Logger
+	jmGroups []*jsonMetricGroup
+	l        *logger.Logger
 }
 
 type Input struct {
@@ -71,13 +71,11 @@ func NewParser(opts *configpb.OutputMetricsOptions, l *logger.Logger) (*Parser, 
 		l:                 l,
 	}
 
-	for _, jm := range opts.GetJsonMetric() {
-		j, err := parseJSONMetricConfig(jm)
-		if err != nil {
-			return nil, err
-		}
-		parser.jsonMetrics = append(parser.jsonMetrics, j)
+	jsonMetricGroups, err := parseJSONMetricConfig(opts.GetJsonMetric())
+	if err != nil {
+		return nil, err
 	}
+	parser.jmGroups = jsonMetricGroups
 
 	// If there are any distribution metrics, build them now itself.
 	for name, distMetric := range opts.GetDistMetric() {
@@ -128,7 +126,7 @@ func (p *Parser) PayloadMetrics(input *Input, target string) []*metrics.EventMet
 	}
 
 	if p.opts.GetJsonMetric() != nil {
-		results = append(results, p.processJSONMetric(input.Text))
+		results = append(results, p.processJSONMetric(input.Text)...)
 	}
 
 	return withTimestamp(results, ts)
