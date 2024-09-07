@@ -87,8 +87,7 @@ func (HeaderMetric_ValueType) EnumDescriptor() ([]byte, []int) {
 }
 
 // MetricsKind specifies whether to treat output metrics as GAUGE or
-// CUMULATIVE. If left unspecified, metrics from ONCE mode probes are treated
-// as GAUGE and metrics from SERVER mode probes are treated as CUMULATIVE.
+// CUMULATIVE. Default is GAUGE.
 type OutputMetricsOptions_MetricsKind int32
 
 const (
@@ -282,20 +281,18 @@ type OutputMetricsOptions struct {
 	MetricsKind *OutputMetricsOptions_MetricsKind `protobuf:"varint,1,opt,name=metrics_kind,json=metricsKind,enum=cloudprober.metrics.payload.OutputMetricsOptions_MetricsKind" json:"metrics_kind,omitempty"`
 	// Additional labels (comma-separated) to attach to the output metrics, e.g.
 	// "region=us-east1,zone=us-east1-d".
-	// are attached automatically.
 	AdditionalLabels *string `protobuf:"bytes,2,opt,name=additional_labels,json=additionalLabels" json:"additional_labels,omitempty"`
 	// Whether to aggregate metrics in Cloudprober. If enabled, Cloudprober
-	// aggregates the metrics returned by the external probe process -- external
-	// probe process should return metrics only since the last probe run.
+	// will aggregate parsed metrics.
 	// Note that this option is mutually exclusive with GAUGE metrics and
 	// cloudprober will fail during initialization if both options are enabled.
-	// This option doesn't work on header_metric and json_metric.
+	// This option doesn't work for header_metric and json_metric.
 	AggregateInCloudprober *bool `protobuf:"varint,3,opt,name=aggregate_in_cloudprober,json=aggregateInCloudprober,def=0" json:"aggregate_in_cloudprober,omitempty"`
-	// Metrics that should be treated as distributions. These metrics are exported
-	// by the external probe program as comma-separated list of values, for
-	// example: "op_latency 4.7,5.6,5.9,6.1,4.9". To be able to build distribution
-	// from these values, these metrics should be pre-configured in external
-	// probe:
+	// Metrics that should be treated as distributions. These metrics are present
+	// in the output as comma-separated list of values. For example:
+	// "op_latency 4.7,5.6,5.9,6.1,4.9".
+	// To be able to build distribution from these values, these metrics should
+	// be pre-configured:
 	//
 	//	dist_metric {
 	//	  key: "op_latency"
@@ -304,7 +301,7 @@ type OutputMetricsOptions struct {
 	//	  }
 	//	}
 	//
-	// This option doesn't work on header_metric and json_metric.
+	// Note: This option doesn't work on header_metric and json_metric.
 	DistMetric map[string]*proto.Dist `protobuf:"bytes,4,rep,name=dist_metric,json=distMetric" json:"dist_metric,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Header to metric mapping. If this mapping is defined and probe's response
 	// is an HTTP response, we will extract the header value and create a metric
