@@ -37,7 +37,7 @@ func TestJSONMetrics(t *testing.T) {
 		name    string
 		config  string
 		input   string
-		wantJM  []*jsonMetricGroup
+		wantJM  []*jsonMetric
 		wantEMs []string
 		wantErr bool
 	}{
@@ -50,45 +50,27 @@ func TestJSONMetrics(t *testing.T) {
 				"valid": true
 			}`,
 			config: `
-				json_metric: [{
-					metric_name: "foo",
-					value_jq_filter: ".tokenId",
+				json_metric: [
+				{
+					jq_filter: "[{key: (.tokenType|ascii_downcase+\"-token-valid\"), value: .valid}, {key: \"foo\", value: (.tokenId + 1)}] | from_entries",
 					labels_jq_filter: "{\"token_type\":.tokenType}",
 				},
 				{
-					metrics_jq_filter: "[{key: (.tokenType|ascii_downcase+\"-token-valid\"), value: .valid}] | from_entries",
-					labels_jq_filter: "{\"token_type\":.tokenType}",
-				},
-				{
-					metric_name: "token-expires-in-sec",
-					value_jq_filter: ".expiresInSec",
+					jq_filter: "{\"token-expires-in-msec\": (.expiresInSec * 1000)}",
 				}]
 			`,
-			wantJM: []*jsonMetricGroup{
+			wantJM: []*jsonMetric{
 				{
-					metrics: []*jsonMetric{
-						{
-							metricName: "token-expires-in-sec",
-							valueJQ:    testMustJQParse(".expiresInSec"),
-						},
-					},
+					metricsJQ: testMustJQParse("[{key: (.tokenType|ascii_downcase+\"-token-valid\"), value: .valid}, {key: \"foo\", value: (.tokenId + 1)}] | from_entries"),
+					labelsJQ:  testMustJQParse("{\"token_type\":.tokenType}"),
 				},
 				{
-					metrics: []*jsonMetric{
-						{
-							metricName: "foo",
-							valueJQ:    testMustJQParse(".tokenId"),
-						},
-						{
-							metricsJQ: testMustJQParse("[{key: (.tokenType|ascii_downcase+\"-token-valid\"), value: .valid}] | from_entries"),
-						},
-					},
-					labelsJQ: testMustJQParse("{\"token_type\":.tokenType}"),
+					metricsJQ: testMustJQParse("{\"token-expires-in-msec\": (.expiresInSec * 1000)}"),
 				},
 			},
 			wantEMs: []string{
-				"labels= token-expires-in-sec=1736.560",
-				"labels=token_type=Bearer foo=143.000 bearer-token-valid=1",
+				"labels=token_type=Bearer bearer-token-valid=1 foo=144.000",
+				"labels= token-expires-in-msec=1736560.000",
 			},
 		},
 		{
@@ -100,18 +82,14 @@ func TestJSONMetrics(t *testing.T) {
 			}`,
 			config: `
 				json_metric: [{
-					metrics_jq_filter: "del(.deployment)",
+					jq_filter: "del(.deployment)",
 					labels_jq_filter: "{\"deployment\":.deployment}",
 				}]
 			`,
-			wantJM: []*jsonMetricGroup{
+			wantJM: []*jsonMetric{
 				{
-					metrics: []*jsonMetric{
-						{
-							metricsJQ: testMustJQParse("del(.deployment)"),
-						},
-					},
-					labelsJQ: testMustJQParse("{\"deployment\":.deployment}"),
+					metricsJQ: testMustJQParse("del(.deployment)"),
+					labelsJQ:  testMustJQParse("{\"deployment\":.deployment}"),
 				},
 			},
 			wantEMs: []string{
@@ -119,20 +97,10 @@ func TestJSONMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "bad config",
-			config: `
-			json_metric: [{
-				value_jq_filter: ".tokenId",
-			}]
-			`,
-			wantErr: true,
-		},
-		{
 			name: "bad filter",
 			config: `
 			json_metric: [{
-				metric_name: "foo",
-				value_jq_filter: "{{tokenId",
+				jq_filter: "{{tokenId",
 			}]
 			`,
 			wantErr: true,
@@ -144,6 +112,7 @@ func TestJSONMetrics(t *testing.T) {
 			if err := prototext.Unmarshal([]byte(tt.config), cfg); err != nil {
 				t.Fatalf("Failed to unmarshal config: %v", err)
 			}
+
 			p, err := NewParser(cfg, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewParser() error = %v, wantErr %v", err, tt.wantErr)
@@ -153,9 +122,10 @@ func TestJSONMetrics(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tt.wantJM, p.jmGroups, "json metric groups")
+			assert.Equal(t, tt.wantJM, p.jsonMetrics, "json metric groups")
 
 			ems := p.processJSONMetric([]byte(tt.input))
+
 			assert.Equal(t, len(tt.wantEMs), len(ems), "number of event metrics")
 
 			for i, em := range ems {

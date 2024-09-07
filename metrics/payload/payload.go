@@ -44,8 +44,8 @@ type Parser struct {
 	aggregatedMetrics map[string]*metrics.EventMetrics
 	aggregate         bool
 
-	jmGroups []*jsonMetricGroup
-	l        *logger.Logger
+	jsonMetrics []*jsonMetric
+	l           *logger.Logger
 }
 
 type Input struct {
@@ -75,7 +75,7 @@ func NewParser(opts *configpb.OutputMetricsOptions, l *logger.Logger) (*Parser, 
 	if err != nil {
 		return nil, err
 	}
-	parser.jmGroups = jsonMetricGroups
+	parser.jsonMetrics = jsonMetricGroups
 
 	// If there are any distribution metrics, build them now itself.
 	for name, distMetric := range opts.GetDistMetric() {

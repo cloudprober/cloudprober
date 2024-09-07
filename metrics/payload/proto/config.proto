@@ -20,22 +20,15 @@ message HeaderMetric {
     STRING = 3;
     HTTP_TIME = 4; // Parsed with Go's http.ParseTime()
   }
+  // If type is not specified, it's recorded as a string.
   optional ValueType type = 3;
 }
 
 message JSONMetric {
-  // JQ filter to extract metrics from JSON. JQ filter should extract a map of
-  // type map[string]any and each entry in the map is converted to a metric.
-  // Map values can be a string, number, or a bool.
-  optional string metrics_jq_filter = 1;
-
-  // Metric name. Note: this option is valid only if metrics_jq_filter is not
-  // specified. Also, for this to work, value_jq_filter must be specified.
-  optional string metric_name = 2;
-
-  // JQ filter to extract metric value from JSON. Note: this option is valid
-  // only if `metric_name` is specified and `metrics_jq_filter` is not.
-  optional string value_jq_filter = 3;
+  // JQ filter to extract metrics from JSON. JQ filter should extract a
+  // key-value object where the key is the metric name and the value is the
+  // metric value. The value can be a string, number, or a bool.
+  optional string jq_filter = 1;
 
   // JQ filter to extract labels from JSON. JQ filter should extract a map of
   // type map[string]any and each entry in the map is converted to a label.
@@ -98,9 +91,18 @@ message OutputMetricsOptions {
   // JSON metrics to create from a JSON output.
   // Note when json_metric is configured, line parsing for metric is
   // disabled.
-  // json_metric {
-  //   metric_name: "backend_latency"
-  //   value_jq_filter: ".backend.latency"
-  //}
+  // e.g. for JSON output:
+  // {"status": "ok", "data": {"latency": 1.23, "count": 10}}
+  //
+  // {
+  //   jq_filter: ".data"
+  // }
+  //   will create metrics: "latency=1.23 count=10".
+  //
+  // {
+  //   jq_filter: "{\"latency\":.data.latency, \"total\": (.data.count+1)}"
+  //   labels_jq_filter: "{\"status\": .status}"
+  // }
+  //   will create metrics: "labels=status=ok latency=1.23 total=11.
   repeated JSONMetric json_metric = 6;
 }
