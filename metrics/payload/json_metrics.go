@@ -46,7 +46,7 @@ func parseJSONMetricConfig(configs []*configpb.JSONMetric) ([]*jsonMetric, error
 
 		metricsJQ, err := gojq.Parse(cfg.GetJqFilter())
 		if err != nil {
-			return nil, fmt.Errorf("error parsing metrics_jq_filter: %v", err)
+			return nil, fmt.Errorf("error parsing jq_filter: %v", err)
 		}
 		jm.metricsJQ = metricsJQ
 
@@ -87,7 +87,7 @@ func jqValToMetricValue(v any) (metrics.Value, error) {
 	case bool:
 		return metrics.NewInt(map[bool]int64{true: 1, false: 0}[v]), nil
 	default:
-		return nil, fmt.Errorf("jqValToMetricValue: unexpected type %T", v)
+		return nil, fmt.Errorf("unexpected value (%v) type %T", v, v)
 	}
 }
 
@@ -101,7 +101,7 @@ func (jm *jsonMetric) process(input any) (*metrics.EventMetrics, error) {
 
 	metricsMap, ok := metrics.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("metrics_jq_filter didn't return a map[string]any: %v", metrics)
+		return nil, fmt.Errorf("jq_filter didn't return a map[string]any: %v", metrics)
 	}
 	for _, k := range sortedKeys(metricsMap) {
 		v, err := jqValToMetricValue(metricsMap[k])
