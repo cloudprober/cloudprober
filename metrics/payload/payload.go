@@ -114,10 +114,11 @@ func withTimestamp(ems []*metrics.EventMetrics, ts time.Time) []*metrics.EventMe
 
 // PayloadMetrics parses the given payload and creates one EventMetrics per
 // line. Each metric line can have its own labels, e.g. num_rows{db=dbA}.
-func (p *Parser) PayloadMetrics(input *Input, target string) []*metrics.EventMetrics {
+// Note: target is used to uniquely identify metrics for aggregation.
+func (p *Parser) PayloadMetrics(input *Input, targetKey string) []*metrics.EventMetrics {
 	ts := time.Now()
 	if p.opts.GetHeaderMetric() == nil && p.opts.GetJsonMetric() == nil {
-		return withTimestamp(p.lineBasedMetrics(input.Text, target), ts)
+		return withTimestamp(p.lineBasedMetrics(input.Text, targetKey), ts)
 	}
 
 	var results []*metrics.EventMetrics

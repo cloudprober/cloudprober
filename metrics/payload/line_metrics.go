@@ -121,7 +121,7 @@ func metricKey(name, target string, labels [][2]string) string {
 	return strings.Join(parts, ",")
 }
 
-func (p *Parser) processLine(line, target string) *metrics.EventMetrics {
+func (p *Parser) processLine(line, targetKey string) *metrics.EventMetrics {
 	metricName, valueStr, labels, err := parseLine(line)
 	if err != nil {
 		p.l.Warningf("error while parsing line (%s): %v", line, err)
@@ -152,7 +152,7 @@ func (p *Parser) processLine(line, target string) *metrics.EventMetrics {
 
 	// If aggregating, create a key, find if we already have an EM with that key
 	// if yes, update that metric, or create a new metric.
-	key := metricKey(metricName, target, labels)
+	key := metricKey(metricName, targetKey, labels)
 	if em := p.aggregatedMetrics[key]; em != nil {
 		if err := em.Metric(metricName).Add(value); err != nil {
 			p.l.Warningf("error updating metric %s with val %s: %v", metricName, value, err)
@@ -168,7 +168,7 @@ func (p *Parser) processLine(line, target string) *metrics.EventMetrics {
 
 // payloadLineMetrics parses a payload lines as metrics, and for each line in
 // correct format, either updates an existing EM, or create a new one.
-func (p *Parser) lineBasedMetrics(text []byte, target string) []*metrics.EventMetrics {
+func (p *Parser) lineBasedMetrics(text []byte, targetKey string) []*metrics.EventMetrics {
 	var results []*metrics.EventMetrics
 	for _, line := range strings.Split(string(text), "\n") {
 		line = strings.TrimSpace(line)
@@ -176,7 +176,7 @@ func (p *Parser) lineBasedMetrics(text []byte, target string) []*metrics.EventMe
 			continue
 		}
 
-		em := p.processLine(line, target)
+		em := p.processLine(line, targetKey)
 		if em == nil {
 			continue
 		}

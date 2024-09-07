@@ -256,8 +256,8 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(ps.payload)}, ps.target.Name) {
-			em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", ps.target.Name)
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(ps.payload)}, ps.target.Dst()) {
+			em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", ps.target.Dst())
 			p.opts.RecordMetrics(ps.target, em, p.dataChan, options.WithNoAlert())
 		}
 	}
@@ -317,8 +317,8 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 
 	go func() {
 		for line := range stdout {
-			for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(line)}, target.Name) {
-				em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", target.Name)
+			for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(line)}, target.Dst()) {
+				em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
 				p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
 			}
 		}

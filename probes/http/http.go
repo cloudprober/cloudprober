@@ -386,8 +386,8 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 	}
 
 	if p.c.GetResponseMetricsOptions() != nil {
-		for _, em := range p.responseParser.PayloadMetrics(&payload.Input{Response: resp, Text: respBody}, target.Name) {
-			em.AddLabel("ptype", "http").AddLabel("probe", p.name)
+		for _, em := range p.responseParser.PayloadMetrics(&payload.Input{Response: resp, Text: respBody}, target.Dst()) {
+			em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
 			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
 		}
 	}
