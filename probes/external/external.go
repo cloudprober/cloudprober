@@ -44,6 +44,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
+	payloadpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -165,12 +166,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return nil
 	}
 
-	defaultKind := metrics.CUMULATIVE
-	if p.c.GetMode() == configpb.ProbeConf_ONCE {
-		defaultKind = metrics.GAUGE
+	omo := p.c.GetOutputMetricsOptions()
+	if omo.GetMetricsKind() == payloadpb.OutputMetricsOptions_UNDEFINED && p.c.GetMode() == configpb.ProbeConf_SERVER {
+		omo.MetricsKind = payloadpb.OutputMetricsOptions_CUMULATIVE.Enum()
 	}
-
-	p.payloadParser, err = payload.NewParser(p.c.GetOutputMetricsOptions(), "external", p.name, metrics.Kind(defaultKind), p.l)
+	p.payloadParser, err = payload.NewParser(omo, p.l)
 	if err != nil {
 		return fmt.Errorf("error initializing payload metrics: %v", err)
 	}
@@ -256,7 +256,8 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target.Name) {
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(ps.payload)}, ps.target.Dst()) {
+			em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", ps.target.Dst())
 			p.opts.RecordMetrics(ps.target, em, p.dataChan, options.WithNoAlert())
 		}
 	}
@@ -316,7 +317,8 @@ func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
 
 	go func() {
 		for line := range stdout {
-			for _, em := range p.payloadParser.PayloadMetrics(line, target.Name) {
+			for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(line)}, target.Dst()) {
+				em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
 				p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
 			}
 		}
