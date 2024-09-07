@@ -4,6 +4,7 @@ package cloudprober.probes.http;
 
 import "github.com/cloudprober/cloudprober/internal/oauth/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/tlsconfig/proto/config.proto";
+import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/http/proto";
 
@@ -157,6 +158,11 @@ message ProbeConf {
   //   latency_breakdown: [ ALL_STAGES ]
   //   latency_breakdown: [ DNS_LATENCY, CONNECT_LATENCY, TLS_HANDSHAKE_LATENCY ]
   repeated LatencyBreakdown latency_breakdown = 22;
+
+  // Parse HTTP response as additional metrics. If configured, Cloudprober
+  // will try to extract metrics from HTTP response and export them along with
+  // the default success/total/latency metrics.
+  optional metrics.payload.OutputMetricsOptions response_metrics_options = 96;
 
   // Interval between targets.
   optional int32 interval_between_targets_msec = 97 [default = 10];

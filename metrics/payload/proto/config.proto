@@ -6,10 +6,38 @@ import "github.com/cloudprober/cloudprober/metrics/proto/dist.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/metrics/payload/proto";
 
+message HeaderMetric {
+  required string header_name = 1;
+
+  // By default, metric is name is the snakecase (all lowercase) version of the
+  // of header_name.
+  optional string metric_name = 2;
+
+  enum ValueType {
+    UNDEFINED = 0;
+    INT = 1;
+    FLOAT = 2;
+    STRING = 3;
+    HTTP_TIME = 4; // Parsed with Go's http.ParseTime()
+  }
+  // If type is not specified, it's recorded as a string.
+  optional ValueType type = 3;
+}
+
+message JSONMetric {
+  // JQ filter to extract metrics from JSON. JQ filter should extract a
+  // key-value object where the key is the metric name and the value is the
+  // metric value. The value can be a string, number, or a bool.
+  optional string jq_filter = 1;
+
+  // JQ filter to extract labels from JSON. JQ filter should extract a map of
+  // type map[string]any and each entry in the map is converted to a label.
+  optional string labels_jq_filter = 4;
+}
+
 message OutputMetricsOptions {
   // MetricsKind specifies whether to treat output metrics as GAUGE or
-  // CUMULATIVE. If left unspecified, metrics from ONCE mode probes are treated
-  // as GAUGE and metrics from SERVER mode probes are treated as CUMULATIVE.
+  // CUMULATIVE. Default is GAUGE.
   enum MetricsKind {
     UNDEFINED = 0;
     GAUGE = 1;
@@ -18,27 +46,60 @@ message OutputMetricsOptions {
   optional MetricsKind metrics_kind = 1;
 
   // Additional labels (comma-separated) to attach to the output metrics, e.g.
-  // "region=us-east1,zone=us-east1-d". ptype="external" and probe="<probeName>"
-  // are attached automatically.
+  // "region=us-east1,zone=us-east1-d".
   optional string additional_labels = 2;
 
   // Whether to aggregate metrics in Cloudprober. If enabled, Cloudprober
-  // aggregates the metrics returned by the external probe process -- external
-  // probe process should return metrics only since the last probe run.
+  // will aggregate parsed metrics.
   // Note that this option is mutually exclusive with GAUGE metrics and
   // cloudprober will fail during initialization if both options are enabled.
+  // This option doesn't work for header_metric and json_metric.
   optional bool aggregate_in_cloudprober = 3 [default = false];
 
-  // Metrics that should be treated as distributions. These metrics are exported
-  // by the external probe program as comma-separated list of values, for
-  // example: "op_latency 4.7,5.6,5.9,6.1,4.9". To be able to build distribution
-  // from these values, these metrics should be pre-configured in external
-  // probe:
+  // Metrics that should be treated as distributions. These metrics are present
+  // in the output as comma-separated list of values. For example:
+  // "op_latency 4.7,5.6,5.9,6.1,4.9".
+  // To be able to build distribution from these values, these metrics should
+  // be pre-configured:
   // dist_metric {
   //   key: "op_latency"
   //   value {
   //     explicit_buckets: "1,2,4,8,16,32,64,128,256"
   //   }
   // }
+  // Note: This option doesn't work on header_metric and json_metric.
   map<string, metrics.Dist> dist_metric = 4;
+
+  // Header to metric mapping. If this mapping is defined and probe's response
+  // is an HTTP response, we will extract the header value and create a metric
+  // from it.
+  //
+  // For example, to track server date:
+  // header_metric {
+  //   header_name: "date"
+  //   metric_name: "server_date"  
+  //   type: HTTP_DATE
+  // }
+  //
+  // Note when header_metric is configured, line parsing for metric is
+  // disabled.
+  repeated HeaderMetric header_metric = 5;
+
+  // JSON metrics to create from a JSON output.
+  // Note when json_metric is configured, line parsing for metric is
+  // disabled.
+  // e.g. for JSON output:
+  // {"status": "ok", "data": {"latency": 1.23, "count": 10}}
+  //
+  // {
+  //   jq_filter: ".data"
+  // }
+  //   will create metrics: "latency=1.23 count=10".
+  //
+  // {
+  //   jq_filter: "{\"latency\":.data.latency, \"total\": (.data.count+1)}"
+  //   labels_jq_filter: "{\"status\": .status}"
+  // }
+  //   will create metrics: "labels=status=ok latency=1.23 total=11.
+  repeated JSONMetric json_metric = 6;
 }
