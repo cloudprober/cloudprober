@@ -42,7 +42,7 @@ func TestMetricsFromChannel(t *testing.T) {
 
 	for i := range ems {
 		if ems[i].Timestamp != ts[i] {
-			t.Errorf("First EventMetrics has unexpected timestamp. Got=%s, Expected=%s", ems[i], ts[i])
+			t.Errorf("First EventMetrics has unexpected timestamp. Got=%s, Expected=%s", ems[i].String(), ts[i].String())
 		}
 	}
 
@@ -57,7 +57,7 @@ func TestMetricsFromChannel(t *testing.T) {
 
 	for i := range ems {
 		if ems[i].Timestamp != ts[i] {
-			t.Errorf("First EventMetrics has unexpected timestamp. Got=%s, Expected=%s", ems[i], ts[i])
+			t.Errorf("First EventMetrics has unexpected timestamp. Got=%s, Expected=%s", ems[i].String(), ts[i].String())
 		}
 	}
 }

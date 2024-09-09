@@ -220,20 +220,48 @@ func (em *EventMetrics) SubtractLast(lastEM *EventMetrics) (*EventMetrics, error
 	return gaugeEM, nil
 }
 
+type stringerOptions struct {
+	ignoreMetricFn func(string) bool
+	noTimestamp    bool
+}
+
+type StringerOption func(opts *stringerOptions)
+
+func StringerIgnoreMetric(fn func(metricName string) bool) StringerOption {
+	return func(o *stringerOptions) {
+		o.ignoreMetricFn = fn
+	}
+}
+
+func StringerNoTimestamp() StringerOption {
+	return func(o *stringerOptions) {
+		o.noTimestamp = true
+	}
+}
+
 // String returns the string representation of the EventMetrics.
 // Note that this is compatible with what vmwatcher understands.
 // Example output string:
 // 1519084040 labels=ptype=http sent=62 rcvd=52 resp-code=map:code,200:44,204:8
-func (em *EventMetrics) String() string {
+func (em *EventMetrics) String(opts ...StringerOption) string {
+	sopts := &stringerOptions{}
+	for _, o := range opts {
+		o(sopts)
+	}
+
 	em.mu.RLock()
 	defer em.mu.RUnlock()
 
 	var b strings.Builder
 	b.Grow(128)
 
-	b.WriteString(strconv.FormatInt(em.Timestamp.Unix(), 10))
+	if !sopts.noTimestamp {
+		b.WriteString(strconv.FormatInt(em.Timestamp.Unix(), 10))
+		b.WriteString(" ")
+	}
+
 	// Labels section: labels=ptype=http,probe=homepage
-	b.WriteString(" labels=")
+	b.WriteString("labels=")
 	for i, key := range em.labelsKeys {
 		if i != 0 {
 			b.WriteByte(',')
@@ -244,6 +272,9 @@ func (em *EventMetrics) String() string {
 	}
 	// Values section: " sent=62 rcvd=52 resp-code=map:code,200:44,204:8"
 	for _, name := range em.metricsKeys {
+		if sopts.ignoreMetricFn != nil && sopts.ignoreMetricFn(name) {
+			continue
+		}
 		b.WriteByte(' ')
 		b.WriteString(name)
 		b.WriteByte('=')

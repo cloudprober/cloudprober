@@ -15,9 +15,9 @@
 package payload
 
 import (
-	"strings"
 	"testing"
 
+	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/itchyny/gojq"
 	"github.com/stretchr/testify/assert"
@@ -129,8 +129,7 @@ func TestJSONMetrics(t *testing.T) {
 			assert.Equal(t, len(tt.wantEMs), len(ems), "number of event metrics")
 
 			for i, em := range ems {
-				got := strings.Join(strings.Split(em.String(), " ")[1:], " ")
-				assert.Equal(t, tt.wantEMs[i], got, "metrics for %d", i)
+				assert.Equal(t, tt.wantEMs[i], em.String(metrics.StringerNoTimestamp()), "metrics for %d", i)
 			}
 		})
 	}

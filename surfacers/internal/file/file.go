@@ -72,7 +72,7 @@ func (s *Surfacer) processInput(ctx context.Context) {
 			emStr.WriteByte(' ')
 			emStr.WriteString(strconv.FormatInt(s.id, 10))
 			emStr.WriteByte(' ')
-			emStr.WriteString(em.String())
+			emStr.WriteString(em.String(metrics.StringerIgnoreMetric(s.opts.IgnoreMetric)))
 			s.id++
 
 			// If compression is not enabled, write line to file and continue.
