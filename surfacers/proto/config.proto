@@ -83,9 +83,8 @@ message SurfacerDef {
   optional string allow_metrics_with_name = 6;
   optional string ignore_metrics_with_name = 7;
 
-  // Whether to add failure metric or not. This option is enabled by default
-  // for all surfacers except FILE and PUBSUB.
-  optional bool add_failure_metric = 8;
+  // Whether to add failure metric or not. This option is enabled by default.
+  optional bool add_failure_metric = 8 [default = true];
 
   // If set to true, cloudprober will export all metrics as gauge metrics. Note
   // that cloudprober inherently generates only cumulative metrics. To create

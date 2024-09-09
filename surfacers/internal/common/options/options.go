@@ -127,6 +127,10 @@ func (opts *Options) AllowMetric(metricName string) bool {
 		return true
 	}
 
+	if opts.disableFailureMetric && metricName == "failure" {
+		return false
+	}
+
 	if opts.ignoreMetricName != nil && opts.ignoreMetricName.MatchString(metricName) {
 		return false
 	}
@@ -173,6 +177,7 @@ func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logge
 		Logger:            l,
 		HTTPServeMux:      runconfig.DefaultHTTPServeMux(),
 		MetricsBufferSize: int(sdef.GetMetricsBufferSize()),
+		AddFailureMetric:  sdef.GetAddFailureMetric(),
 	}
 
 	serveMux := runconfig.DefaultHTTPServeMux()
@@ -204,15 +209,6 @@ func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logge
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	opts.AddFailureMetric = opts.Config.GetAddFailureMetric()
-	defaultDisableFailureMetric := map[surfacerpb.Type]bool{
-		surfacerpb.Type_FILE:   true,
-		surfacerpb.Type_PUBSUB: true,
-	}
-	if opts.Config.AddFailureMetric == nil && !defaultDisableFailureMetric[opts.Config.GetType()] {
-		opts.AddFailureMetric = true
 	}
 
 	re, err := regexp.Compile(opts.Config.GetLatencyMetricPattern())
