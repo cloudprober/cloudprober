@@ -75,11 +75,6 @@ message SurfacerDef {
   // Examples:
   //  ignore_metrics_with_name: "validation_failure"
   //  allow_metrics_with_name: "(total|success|latency)"
-  //
-  // For efficiency reasons, filtering by metric name has to be implemented by
-  // individual surfacers (while going through metrics within an EventMetrics).
-  // As FILE and PUBSUB surfacers export eventmetrics as is, they don't support
-  // this option.
   optional string allow_metrics_with_name = 6;
   optional string ignore_metrics_with_name = 7;
 

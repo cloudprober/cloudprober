@@ -213,11 +213,6 @@ type SurfacerDef struct {
 	//
 	//	ignore_metrics_with_name: "validation_failure"
 	//	allow_metrics_with_name: "(total|success|latency)"
-	//
-	// For efficiency reasons, filtering by metric name has to be implemented by
-	// individual surfacers (while going through metrics within an EventMetrics).
-	// As FILE and PUBSUB surfacers export eventmetrics as is, they don't support
-	// this option.
 	AllowMetricsWithName  *string `protobuf:"bytes,6,opt,name=allow_metrics_with_name,json=allowMetricsWithName" json:"allow_metrics_with_name,omitempty"`
 	IgnoreMetricsWithName *string `protobuf:"bytes,7,opt,name=ignore_metrics_with_name,json=ignoreMetricsWithName" json:"ignore_metrics_with_name,omitempty"`
 	// Whether to add failure metric or not. This option is enabled by default.

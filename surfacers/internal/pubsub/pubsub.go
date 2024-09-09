@@ -106,10 +106,12 @@ func (s *Surfacer) processInput(ctx context.Context) {
 			if !ok {
 				return
 			}
+			emStr := em.String(metrics.StringerIgnoreMetric(s.opts.IgnoreMetric))
+
 			if s.c.GetCompressionEnabled() {
-				s.compressionBuffer.WriteLineToBuffer(em.String())
+				s.compressionBuffer.WriteLineToBuffer(emStr)
 			} else {
-				s.publishMessage(ctx, []byte(em.String()))
+				s.publishMessage(ctx, []byte(emStr))
 			}
 		}
 	}
