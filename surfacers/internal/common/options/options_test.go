@@ -131,12 +131,13 @@ func TestAllowEventMetrics(t *testing.T) {
 
 func TestAllowMetric(t *testing.T) {
 	tests := []struct {
-		desc        string
-		metricName  []string
-		allow       string
-		ignore      string
-		wantMetrics []string
-		wantErr     bool
+		desc           string
+		metricName     []string
+		allow          string
+		ignore         string
+		disableFailure bool
+		wantMetrics    []string
+		wantErr        bool
 	}{
 		{
 			desc:        "all",
@@ -157,15 +158,21 @@ func TestAllowMetric(t *testing.T) {
 		},
 		{
 			desc:        "ignore-total",
-			metricName:  []string{"total", "success"},
+			metricName:  []string{"total", "success", "failure"},
 			ignore:      "tot.*",
-			wantMetrics: []string{"success"},
+			wantMetrics: []string{"success", "failure"},
 		},
 		{
 			desc:        "allow-total",
-			metricName:  []string{"total", "success"},
+			metricName:  []string{"total", "success", "failure"},
 			allow:       "tot.*",
 			wantMetrics: []string{"total"},
+		},
+		{
+			desc:           "disable failure metric",
+			metricName:     []string{"total", "success", "failure"},
+			disableFailure: true,
+			wantMetrics:    []string{"total", "success"},
 		},
 	}
 
@@ -174,6 +181,9 @@ func TestAllowMetric(t *testing.T) {
 			config := &configpb.SurfacerDef{
 				IgnoreMetricsWithName: proto.String(test.ignore),
 				AllowMetricsWithName:  proto.String(test.allow),
+			}
+			if test.disableFailure {
+				config.AddFailureMetric = proto.Bool(false)
 			}
 
 			opts, err := BuildOptionsFromConfig(config, nil)
@@ -228,7 +238,7 @@ func TestBuildOptions(t *testing.T) {
 			sdef: &surfacerpb.SurfacerDef{
 				Type: configpb.Type_FILE.Enum(),
 			},
-			want: &Options{AddFailureMetric: false},
+			want: &Options{AddFailureMetric: true},
 		},
 		{
 			name: "disable_failure_metric_dd",
@@ -236,7 +246,9 @@ func TestBuildOptions(t *testing.T) {
 				Type:             configpb.Type_DATADOG.Enum(),
 				AddFailureMetric: proto.Bool(false),
 			},
-			want: &Options{AddFailureMetric: false},
+			want: &Options{
+				AddFailureMetric: false,
+			},
 		},
 		{
 			name: "enable_failure_metric_file",
@@ -280,7 +292,7 @@ func TestBuildOptions(t *testing.T) {
 	}
 }
 
-func TestOptions_IsLatencyMetric(t *testing.T) {
+func TestOptionsIsLatencyMetric(t *testing.T) {
 	tests := []struct {
 		name       string
 		opts       *Options
@@ -308,7 +320,7 @@ func TestOptions_IsLatencyMetric(t *testing.T) {
 	}
 }
 
-func Test_processAdditionalLabels(t *testing.T) {
+func TestProcessAdditionalLabels(t *testing.T) {
 	tests := []struct {
 		name        string
 		envVar      string
