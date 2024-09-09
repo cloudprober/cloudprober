@@ -127,7 +127,7 @@ func (opts *Options) AllowMetric(metricName string) bool {
 		return true
 	}
 
-	if opts.disableFailureMetric && metricName == "failure" {
+	if !opts.AddFailureMetric && metricName == "failure" {
 		return false
 	}
 
@@ -140,6 +140,10 @@ func (opts *Options) AllowMetric(metricName string) bool {
 	}
 
 	return opts.allowMetricName.MatchString(metricName)
+}
+
+func (opts *Options) IgnoreMetric(metricName string) bool {
+	return !opts.AllowMetric(metricName)
 }
 
 func (opts *Options) IsLatencyMetric(metricName string) bool {
