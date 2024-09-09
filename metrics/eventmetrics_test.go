@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -218,6 +219,41 @@ func TestLatencyUnitToString(t *testing.T) {
 	for latencyUnit, want := range tests {
 		t.Run(want, func(t *testing.T) {
 			assert.Equal(t, want, LatencyUnitToString(latencyUnit), "LatencyUnitToString()")
+		})
+	}
+}
+
+func TestEventMetricsString(t *testing.T) {
+	em := newEventMetrics(20, 18, 1400, map[string]int64{"200": 18})
+	em.AddLabel("dst", "cloudprober.org")
+
+	tsString := strconv.FormatInt(em.Timestamp.Unix(), 10)
+
+	tests := []struct {
+		name string
+		opts []StringerOption
+		want string
+	}{
+		{
+			name: "default",
+			want: fmt.Sprintf("%s labels=dst=cloudprober.org sent=20 rcvd=18 rtt=1400 resp-code=map:code,200:18", tsString),
+		},
+		{
+			name: "no timstamp",
+			opts: []StringerOption{StringerNoTimestamp()},
+			want: "labels=dst=cloudprober.org sent=20 rcvd=18 rtt=1400 resp-code=map:code,200:18",
+		},
+		{
+			name: "ignore metric rcvd",
+			opts: []StringerOption{StringerIgnoreMetric(func(m string) bool {
+				return m == "rcvd"
+			})},
+			want: fmt.Sprintf("%s labels=dst=cloudprober.org sent=20 rtt=1400 resp-code=map:code,200:18", tsString),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, em.String(tt.opts...))
 		})
 	}
 }
