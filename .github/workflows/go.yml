@@ -98,7 +98,7 @@ jobs:
 
       - name: Upload test and coverage reports
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: |
@@ -139,7 +139,7 @@ jobs:
         if: ${{ matrix.os == 'macos-latest' }}
 
       - name: Upload cloudprober dist
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: cloudprober-${{ matrix.os }}-dist
           path: cloudprober-*
@@ -176,7 +176,7 @@ jobs:
       - run: make dist
 
       - name: Upload cloudprober release
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: cloudprober-release-binaries
           path: cloudprober-*.zip
