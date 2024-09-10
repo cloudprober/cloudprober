@@ -164,12 +164,12 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Download ubuntu cloudprober binaries
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: cloudprober-ubuntu-latest-dist
 
       - name: Download macos cloudprober binaries
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: cloudprober-macos-latest-dist
 
@@ -207,7 +207,7 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Download cloudprober binary
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: cloudprober-ubuntu-latest-dist
 
@@ -261,7 +261,7 @@ jobs:
 
     steps:
       - name: Download cloudprober release
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: cloudprober-release-binaries
       - run: ls -R *
