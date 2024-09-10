@@ -4,7 +4,11 @@ package cloudprober.probes.browser;
 
 option go_package = "github.com/cloudprober/cloudprober/probes/browser/proto";
 
-import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
+message TestMetricsOptions {
+    optional bool disable_test_metrics = 1;
+    optional bool disable_aggregation = 2;
+    optional bool enable_step_metrics = 3;
+}
 
 message ProbeConf {
     // Path to the playwright test spec file. We'll search for it in the the
@@ -34,8 +38,10 @@ message ProbeConf {
     // this only when needed.
     optional bool enable_traces = 6 [default = false];
 
-    optional metrics.payload.OutputMetricsOptions output_metrics_options = 97;
-
+    // By default, we export all test metrica as counters. You can change how
+    // metrics are exported by setting the following options.
+    optional TestMetricsOptions test_metrics_options = 7;
+    
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and
     // each DNS request contributes to probe results. For example, if you run two

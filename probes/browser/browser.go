@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"text/template"
 	"time"
@@ -35,10 +34,12 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
+	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"google.golang.org/protobuf/proto"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -107,6 +108,19 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	return em
 }
 
+func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) (string, error) {
+	fileTmpl := template.Must(template.ParseFS(templates, "*/"+fileName+".tmpl"))
+	var buf bytes.Buffer
+	if err := fileTmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to generate file (%s) from template: %v", fileName, err)
+	}
+	filePath := filepath.Join(p.workdir, fileName)
+	if err := os.WriteFile(filePath, buf.Bytes(), 0644); err != nil {
+		return "", fmt.Errorf("failed to write file (%s): %v", filePath, err)
+	}
+	return filePath, nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -144,11 +158,18 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.workdir = d
 	}
 
-	payloadParser, err := payload.NewParser(p.c.GetOutputMetricsOptions(), p.l)
-	if err != nil {
-		return fmt.Errorf("failed to create payload parser: %v", err)
+	if !p.c.GetTestMetricsOptions().GetDisableTestMetrics() {
+		omo := &payload_configpb.OutputMetricsOptions{}
+		if !p.c.GetTestMetricsOptions().GetDisableAggregation() {
+			omo.MetricsKind = payload_configpb.OutputMetricsOptions_CUMULATIVE.Enum()
+			omo.AggregateInCloudprober = proto.Bool(true)
+		}
+		payloadParser, err := payload.NewParser(omo, p.l)
+		if err != nil {
+			return fmt.Errorf("failed to create payload parser: %v", err)
+		}
+		p.payloadParser = payloadParser
 	}
-	p.payloadParser = payloadParser
 
 	// Set up test spec
 	p.testSpec = p.c.GetTestSpec()
@@ -169,11 +190,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	// Set up playwright config in workdir
 	data := struct {
-		Screenshot string
-		Trace      string
+		Screenshot         string
+		Trace              string
+		EnableStepMetrics  bool
+		DisableTestMetrics bool
 	}{
-		Screenshot: "only-on-failure",
-		Trace:      "off",
+		Screenshot:         "only-on-failure",
+		Trace:              "off",
+		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
+		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
 	}
 	if p.c.GetEnableScreenshotsForSuccess() {
 		data.Screenshot = "on"
@@ -182,26 +207,18 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		data.Trace = "on"
 	}
 
-	configTmpl := template.Must(template.ParseFS(templates, "*/playwright.config.ts.tmpl"))
-	var buf bytes.Buffer
-	if err := configTmpl.Execute(&buf, data); err != nil {
-		return fmt.Errorf("failed to generate playwright config: %v", err)
-	}
-	configPath := filepath.Join(p.workdir, "playwright.config.ts")
-	if err := os.WriteFile(configPath, buf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("failed to write playwright config: %v", err)
+	configPath, err := p.initTemplateFile(templates, "playwright.config.ts", data)
+	if err != nil {
+		return fmt.Errorf("failed to create playwright config: %v", err)
 	}
 	p.playwrightConfigPath = configPath
 
 	// Set up reporter in workdir
-	reporter, err := templates.ReadFile("templates/cloudprober-reporter.ts")
+	reporterPath, err := p.initTemplateFile(templates, "cloudprober-reporter.ts", data)
 	if err != nil {
-		panic(fmt.Sprintf("failed to read reporter from the templates: %v", err))
+		return fmt.Errorf("failed to create cloudprober-reporter: %v", err)
 	}
-	p.reporterPath = filepath.Join(p.workdir, "cloudprober-reporter.ts")
-	if err := os.WriteFile(p.reporterPath, reporter, 0644); err != nil {
-		return fmt.Errorf("failed to write reporter to workdir: %v", err)
-	}
+	p.reporterPath = reporterPath
 
 	return nil
 }
@@ -234,22 +251,26 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	cmd.Dir = p.c.GetPlaywrightDir()
 	cmd.Env = append(os.Environ(), fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules")))
 
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdoutBuf, &stderrBuf
+
 	p.l.Infof("Target(%s): running command %v, in dir %s", target.Name, cmd.String(), cmd.Dir)
 
 	success := true
-	out, err := cmd.Output()
-	p.l.Debugf("Target(%s): command output: %s", target.Name, string(out))
+
+	err := cmd.Run()
+	stdout, stderr := stdoutBuf.String(), stderrBuf.String()
 	if err != nil {
 		success = false
-		attrs := []slog.Attr{slog.String("target", target.Name), slog.String("err", err.Error()), slog.String("stdout", string(out))}
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			attrs = append(attrs, slog.String("stderr", string(exitErr.Stderr)))
-		}
+		attrs := []slog.Attr{slog.String("target", target.Name), slog.String("err", err.Error()), slog.String("stdout", stdout), slog.String("stderr", stderr)}
 		p.l.WarningAttrs("playwright test failed", attrs...)
-		if len(out) == 0 {
+		if stdout == "" {
 			return
 		}
 	}
+	p.l.Debugf("Command output: %s", stdout)
+	p.l.Infof("Command stderr: %s", stderr)
+
 	latency := time.Since(start)
 
 	if resultMu != nil {
@@ -262,9 +283,15 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
 
-	for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: out}, target.Dst()) {
-		em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst()).AddLabel("run_id", strconv.FormatInt(runID, 10))
-		p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
+	if p.payloadParser != nil {
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(stdout)}, target.Dst()) {
+			em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
+			// If we are not aggregating metrics, add run_id label.
+			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
+				em.AddLabel("run_id", fmt.Sprintf("%d", runID))
+			}
+			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
+		}
 	}
 }
 
