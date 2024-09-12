@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/probes/browser"
 	"github.com/cloudprober/cloudprober/probes/dns"
 	"github.com/cloudprober/cloudprober/probes/external"
 	grpcprobe "github.com/cloudprober/cloudprober/probes/grpc"
@@ -153,6 +154,9 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 	case configpb.ProbeDef_GRPC:
 		probe = &grpcprobe.Probe{}
 		probeConf = p.GetGrpcProbe()
+	case configpb.ProbeDef_BROWSER:
+		probe = &browser.Probe{}
+		probeConf = p.GetBrowserProbe()
 	case configpb.ProbeDef_EXTENSION:
 		probe, probeConf, err = getExtensionProbe(p)
 		if err != nil {
