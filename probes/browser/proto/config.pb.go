@@ -99,8 +99,7 @@ type ProbeConf struct {
 	// If you need to be able access the output files, you should set this
 	// field to a persistent location, e.g. a persistent volume.
 	Workdir *string `protobuf:"bytes,3,opt,name=workdir" json:"workdir,omitempty"`
-	// Path to the playwright installation location. P
-	// run from this location.
+	// Path to the playwright installation. We execute tests from this location.
 	PlaywrightDir *string `protobuf:"bytes,4,opt,name=playwright_dir,json=playwrightDir,def=/playwright" json:"playwright_dir,omitempty"`
 	// Whether to enable screenshots for successful tests as well.
 	// Note that screenshots are always enabled for failed tests, and you can

@@ -25,8 +25,7 @@ message ProbeConf {
     // field to a persistent location, e.g. a persistent volume.
     optional string workdir = 3;
 
-    // Path to the playwright installation location. P
-    // run from this location.
+    // Path to the playwright installation. We execute tests from this location.
     optional string playwright_dir = 4 [default = "/playwright"];
 
     // Whether to enable screenshots for successful tests as well.
