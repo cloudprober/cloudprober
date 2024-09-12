@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
@@ -175,7 +176,13 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	}
 
 	if p.GetTargets() == nil {
-		if p.GetType() != configpb.ProbeDef_USER_DEFINED && p.GetType() != configpb.ProbeDef_EXTERNAL && p.GetType() != configpb.ProbeDef_EXTENSION {
+		targetsNotRequired := []configpb.ProbeDef_Type{
+			configpb.ProbeDef_USER_DEFINED,
+			configpb.ProbeDef_EXTERNAL,
+			configpb.ProbeDef_EXTENSION,
+			configpb.ProbeDef_BROWSER,
+		}
+		if !slices.Contains(targetsNotRequired, p.GetType()) {
 			return nil, fmt.Errorf("targets requied for probe type: %s", p.GetType().String())
 		} else {
 			p.Targets = &targetspb.TargetsDef{

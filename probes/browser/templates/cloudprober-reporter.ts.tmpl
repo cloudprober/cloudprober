@@ -1,0 +1,59 @@
+import type {
+  Reporter, FullConfig, Suite, TestCase, TestStep, TestResult
+} from '@playwright/test/reporter';
+
+const info = (string: string) => process.stderr.write("INFO "+string+'\n');
+const warning = (string: string) => process.stderr.write("WARNING "+string+'\n');
+
+const print = (string: string) => process.stdout.write(string+'\n');
+
+const testLabels= (test: TestCase) => {
+    var titleLabel = `test="${test.title.replace(/ /g,"_")}"`;
+
+    var suiteLabel = "";
+    if (test.parent.title != "") {
+        suiteLabel = `,suite="${test.parent.title.replace(/ /g,"_")}"`;
+    }
+
+    var tagsLabel = "";
+    if (test.tags.length != 0) {
+      tagsLabel = `,tags="${test.tags.join(",")}"`;
+    }
+
+    return `${titleLabel}${suiteLabel}${tagsLabel}`;
+}
+
+class CloudproberReporter implements Reporter {
+  onBegin(config: FullConfig, suite: Suite) {
+    info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
+  }
+
+  onTestBegin(test: TestCase) {
+    info(`Starting test "${test.title}"`);
+  }
+
+  onStepEnd(test: TestCase, result: TestResult, step: TestStep) {
+    if (step.category === 'test.step') {
+      if (step.error !== null) {
+        warning(`Test step "${step.title}" of test "${test.title}" failed with error: ${JSON.stringify(step.error)}`);
+      }
+      {{- if .EnableStepMetrics }}
+      var stepTitle = step.title.replace(/ /g,"_");
+
+      print(`test_step_status{step="${stepTitle}",${testLabels(test)},status="${result.status}"} 1`);
+      print(`test_step_latency{step="${stepTitle}",${testLabels(test)},status="${result.status}"} ${step.duration*1000}`);
+      {{- end }}
+    }
+  }
+  
+  onTestEnd(test: TestCase, result: TestResult) {
+    if (result.status !== "passed") {
+      warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
+    }
+    {{ if not .DisableTestMetrics }}
+    print(`test_status{${testLabels(test)},status="${result.status}"} 1`);
+    print(`test_latency{${testLabels(test)},status="${result.status}"} ${result.duration*1000}`);
+    {{ end }}
+  }
+}
+export default CloudproberReporter;
