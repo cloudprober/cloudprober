@@ -304,49 +304,6 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 	}, nil
 }
 
-func getResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]dnsRes.Option, error) {
-	dopts := targetsDef.GetDnsOptions()
-
-	server, ttlSec, maxCacheAge, timeout := dopts.GetServer(), dopts.GetTtlSec(), dopts.GetMaxCacheAgeSec(), dopts.GetBackendTimeoutMsec()
-	if targetsDef.GetDnsServer() != "" {
-		l.Warningf("dns_server is now deprecated. please use dns_options.server instead")
-
-		if server != "" {
-			return nil, fmt.Errorf("dns_server and dns_options.server are mutually exclusive")
-		} else {
-			server = targetsDef.GetDnsServer()
-		}
-	}
-
-	var opts []dnsRes.Option
-
-	if ttlSec != targetspb.Default_DNSOptions_TtlSec {
-		opts = append(opts, dnsRes.WithTTL(time.Duration(ttlSec)*time.Second))
-	}
-
-	if maxCacheAge != 0 {
-		if maxCacheAge < ttlSec {
-			return nil, fmt.Errorf("max_cache_age (%d) must be >= ttl_sec (%d)", maxCacheAge, ttlSec)
-		}
-		opts = append(opts, dnsRes.WithMaxTTL(time.Duration(maxCacheAge)*time.Second))
-	}
-
-	if server != "" {
-		l.Infof("Overriding default resolver with: %s", server)
-		network, address, err := dnsRes.ParseOverrideAddress(server)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, dnsRes.WithDNSServer(network, address))
-	}
-
-	if timeout != targetspb.Default_DNSOptions_BackendTimeoutMsec {
-		opts = append(opts, dnsRes.WithResolveTimeout(time.Duration(timeout)*time.Second))
-	}
-
-	return opts, nil
-}
-
 // New returns an instance of Targets as defined by a Targets protobuf (and a
 // GlobalTargetsOptions protobuf). The Targets instance returned will filter a
 // core target lister (i.e. static host-list, GCE instances, GCE forwarding
@@ -366,7 +323,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 	}
 
 	t.resolver = globalResolver
-	opts, err := getResolverOptions(targetsDef, l)
+	opts, err := dnsRes.GetResolverOptions(targetsDef, l)
 	if err != nil {
 		return nil, fmt.Errorf("targets.New(): error creating resolver: %v", err)
 	}
