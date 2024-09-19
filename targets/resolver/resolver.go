@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"slices"
 	"strconv"
@@ -87,7 +88,19 @@ func (r *resolverImpl) resolveOrTimeout(name string) ([]net.IP, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), r.resolveTimeout)
 	defer cancel()
 
-	return r.resolve(ctx, name)
+	startTime := time.Now()
+	ips, err := r.resolve(ctx, name)
+	if err != nil {
+		attrs := []slog.Attr{
+			slog.String("name", name),
+			slog.Duration("time_elapsed", time.Since(startTime)),
+			slog.Duration("timeout", r.resolveTimeout),
+			slog.String("backend_server", r.backendServer),
+			slog.String("backend_network", r.backendNetwork),
+		}
+		r.l.WarningAttrs("Resolve Error", attrs...)
+	}
+	return ips, err
 }
 
 // Resolve returns IP address for a name.
