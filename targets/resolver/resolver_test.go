@@ -24,8 +24,10 @@ import (
 	"testing"
 	"time"
 
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 type resolveBackendWithTracking struct {
@@ -389,7 +391,7 @@ func TestParseOverrideAddress(t *testing.T) {
 	}
 }
 
-func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP bool) *dns.Server {
+func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP bool, pause time.Duration) *dns.Server {
 	t.Helper()
 
 	dnsServer := &dns.Server{}
@@ -435,6 +437,8 @@ func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP
 			m.SetRcode(r, dns.RcodeNameError)
 		}
 		m.Answer = answers
+		// Pause to simulate a real DNS server.
+		time.Sleep(pause)
 		w.WriteMsg(m)
 	})
 	go dnsServer.ActivateAndServe()
@@ -448,64 +452,81 @@ func TestNewWithOverrideResolver(t *testing.T) {
 	dataAAAA := map[string]string{
 		"hostA.example.com.": "2001:db8::1",
 	}
-	dnsServer := createFakeDNSServer(t, dataA, dataAAAA, false)
+	dnsServer := createFakeDNSServer(t, dataA, dataAAAA, false, 50*time.Millisecond)
 	udpAdrr := dnsServer.PacketConn.LocalAddr().String()
 	t.Logf("DNS UDP server started at: %s", udpAdrr)
 	defer dnsServer.Shutdown()
 
-	dnsTCPServer := createFakeDNSServer(t, dataA, dataAAAA, true)
+	dnsTCPServer := createFakeDNSServer(t, dataA, dataAAAA, true, 50*time.Millisecond)
 	tcpAddr := dnsTCPServer.Listener.Addr().String()
 	t.Logf("DNS TCP server started at: %s", tcpAddr)
 	defer dnsTCPServer.Shutdown()
 
+	dnsTCPServerTimeout := createFakeDNSServer(t, dataA, dataAAAA, true, 500*time.Millisecond)
+	tcpAddrTimeout := dnsTCPServerTimeout.Listener.Addr().String()
+	t.Logf("DNS TCP server with timeout started at: %s", tcpAddrTimeout)
+	defer dnsTCPServerTimeout.Shutdown()
+
 	tests := []struct {
 		name                string
 		dnsResolverOverride string
+		resolveTimeout      time.Duration
 		wantIP              string
 		wantIP6             string
-		wantErr             bool
+		wantParseErr        bool
+		wantResolveErr      bool
 	}{
 		{
 			name:                "valid-udp",
+			resolveTimeout:      100 * time.Millisecond,
 			dnsResolverOverride: udpAdrr,
 			wantIP:              "1.2.3.4",
 			wantIP6:             "2001:db8::1",
 		},
 		{
 			name:                "valid-tcp",
+			resolveTimeout:      100 * time.Millisecond,
 			dnsResolverOverride: "tcp://" + tcpAddr,
 			wantIP:              "1.2.3.4",
 			wantIP6:             "2001:db8::1",
 		},
 		{
+			name:                "timeout",
+			resolveTimeout:      100 * time.Millisecond,
+			dnsResolverOverride: "tcp://" + tcpAddrTimeout,
+			wantResolveErr:      true,
+			wantIP:              "<nil>",
+			wantIP6:             "<nil>",
+		},
+		{
 			name:                "error",
 			dnsResolverOverride: "mars://" + tcpAddr,
-			wantErr:             true,
+			wantParseErr:        true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			network, address, err := ParseOverrideAddress(tt.dnsResolverOverride)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseOverrideAddress() error = %v, wantErr %v", err, tt.wantErr)
+			if (err != nil) != tt.wantParseErr {
+				t.Errorf("ParseOverrideAddress() error = %v, wantErr %v", err, tt.wantParseErr)
 				return
 			}
 			if err != nil {
 				return
 			}
 
-			r := New(WithDNSServer(network, address))
+			r := New(WithDNSServer(network, address), WithResolveTimeout(tt.resolveTimeout))
 
 			got, err := r.Resolve("hostA.example.com.", 4)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantErr)
+			if (err != nil) != tt.wantResolveErr {
+				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantParseErr)
 				return
 			}
 			assert.Equal(t, tt.wantIP, got.String(), "ip")
 
 			got, err = r.Resolve("hostA.example.com.", 6)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantErr)
+			if (err != nil) != tt.wantResolveErr {
+				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantParseErr)
 				return
 			}
 			assert.Equal(t, tt.wantIP6, got.String(), "ip6")
@@ -586,6 +607,137 @@ func TestNew(t *testing.T) {
 			r := New(opts...)
 			assert.Equal(t, tt.wantTTL, r.ttl, "ttl")
 			assert.Equal(t, tt.wantMaxTTL, r.maxCacheAge, "maxTTL")
+		})
+	}
+}
+
+func TestGetResolverOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		dnsServer    string
+		dnsOptions   *targetspb.DNSOptions
+		wantResolver *resolverImpl
+		wantErr      bool
+	}{
+		{
+			name:       "no options",
+			dnsOptions: &targetspb.DNSOptions{},
+			wantResolver: &resolverImpl{
+				ttl:            defaultMaxAge,
+				maxCacheAge:    defaultMaxAge,
+				resolveTimeout: defaultResolveTimeout,
+			},
+		},
+		{
+			name: "dns TTL",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec: proto.Int32(600),
+			},
+			wantResolver: &resolverImpl{
+				ttl:            600 * time.Second,
+				maxCacheAge:    600 * time.Second,
+				resolveTimeout: defaultResolveTimeout,
+			},
+		},
+		{
+			name: "dns TTL & max TTL",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec:         proto.Int32(600),
+				MaxCacheAgeSec: proto.Int32(1200),
+			},
+			wantResolver: &resolverImpl{
+				ttl:            600 * time.Second,
+				maxCacheAge:    1200 * time.Second,
+				resolveTimeout: defaultResolveTimeout,
+			},
+		},
+		{
+			name: "0 timeout fixed",
+			dnsOptions: &targetspb.DNSOptions{
+				BackendTimeoutMsec: proto.Int32(0),
+			},
+			wantResolver: &resolverImpl{
+				ttl:            defaultMaxAge,
+				maxCacheAge:    defaultMaxAge,
+				resolveTimeout: defaultResolveTimeout,
+			},
+		},
+		{
+			name: "dns TTL & max TTL & dns server",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec:         proto.Int32(600),
+				MaxCacheAgeSec: proto.Int32(1200),
+				Server:         proto.String("8.8.8.8"),
+			},
+			wantResolver: &resolverImpl{
+				ttl:            600 * time.Second,
+				maxCacheAge:    1200 * time.Second,
+				resolveTimeout: defaultResolveTimeout,
+				backendServer:  "8.8.8.8:53",
+			},
+		},
+		{
+			name: "dns TTL & max TTL & dns server & resolve timeout",
+			dnsOptions: &targetspb.DNSOptions{
+				TtlSec:             proto.Int32(600),
+				MaxCacheAgeSec:     proto.Int32(1200),
+				Server:             proto.String("8.8.8.8"),
+				BackendTimeoutMsec: proto.Int32(5000),
+			},
+			wantResolver: &resolverImpl{
+				ttl:            600 * time.Second,
+				maxCacheAge:    1200 * time.Second,
+				resolveTimeout: 5 * time.Second,
+				backendServer:  "8.8.8.8:53",
+			},
+		},
+		{
+			name:      "server-address-from-targets-proto",
+			dnsServer: "tcp://1.1.1.1",
+			wantResolver: &resolverImpl{
+				ttl:            defaultMaxAge,
+				maxCacheAge:    defaultMaxAge,
+				resolveTimeout: defaultResolveTimeout,
+				backendServer:  "1.1.1.1:53",
+				backendNetwork: "tcp",
+			},
+		},
+		{
+			name:      "error-server-address-multiple",
+			dnsServer: "udp://1.1.1.1",
+			dnsOptions: &targetspb.DNSOptions{
+				Server: proto.String("udp://1.1.1.1"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "error-server-address-bad",
+			dnsOptions: &targetspb.DNSOptions{
+				Server: proto.String("mars://1.1.1.1"),
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			targetsDef := &targetspb.TargetsDef{
+				DnsServer:  &tt.dnsServer,
+				DnsOptions: tt.dnsOptions,
+			}
+			got, err := GetResolverOptions(targetsDef, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getResolverOptions() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			res := New(got...)
+			assert.Equal(t, tt.wantResolver.ttl, res.ttl, "ttl")
+			assert.Equal(t, tt.wantResolver.maxCacheAge, res.maxCacheAge, "maxCacheAge")
+			assert.Equal(t, tt.wantResolver.resolveTimeout, res.resolveTimeout, "resolveTimeout")
+			assert.Equal(t, tt.wantResolver.backendServer, res.backendServer, "backendServer")
+			assert.Equal(t, tt.wantResolver.backendNetwork, res.backendNetwork, "backendNetwork")
 		})
 	}
 }
