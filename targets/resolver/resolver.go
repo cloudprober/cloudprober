@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 )
 
 // The max age and the timeout for resolving a target.
@@ -64,6 +65,10 @@ type resolverImpl struct {
 	resolve        func(context.Context, string) ([]net.IP, error) // used for testing
 	resolveTimeout time.Duration
 	l              *logger.Logger
+
+	// Backend server and networkl; these variables are used only for testing.
+	backendServer  string
+	backendNetwork string
 }
 
 // ipVersion tells if an IP address is IPv4 or IPv6.
@@ -282,10 +287,55 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 	}
 
 	return func(r *resolverImpl) {
+		r.backendServer = serverAddressOverride
+		r.backendNetwork = serverNetworkOverride
 		r.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
 			return netResolver.LookupIP(ctx, "ip", host)
 		}
 	}
+}
+
+func GetResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]Option, error) {
+	dopts := targetsDef.GetDnsOptions()
+
+	server, ttlSec, maxCacheAge, timeout := dopts.GetServer(), dopts.GetTtlSec(), dopts.GetMaxCacheAgeSec(), dopts.GetBackendTimeoutMsec()
+	if targetsDef.GetDnsServer() != "" {
+		l.Warningf("dns_server is now deprecated. please use dns_options.server instead")
+
+		if server != "" {
+			return nil, fmt.Errorf("dns_server and dns_options.server are mutually exclusive")
+		} else {
+			server = targetsDef.GetDnsServer()
+		}
+	}
+
+	var opts []Option
+
+	if ttlSec != targetspb.Default_DNSOptions_TtlSec {
+		opts = append(opts, WithTTL(time.Duration(ttlSec)*time.Second))
+	}
+
+	if maxCacheAge != 0 {
+		if maxCacheAge < ttlSec {
+			return nil, fmt.Errorf("max_cache_age (%d) must be >= ttl_sec (%d)", maxCacheAge, ttlSec)
+		}
+		opts = append(opts, WithMaxTTL(time.Duration(maxCacheAge)*time.Second))
+	}
+
+	if server != "" {
+		l.Infof("Overriding default resolver with: %s", server)
+		network, address, err := ParseOverrideAddress(server)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, WithDNSServer(network, address))
+	}
+
+	if timeout != targetspb.Default_DNSOptions_BackendTimeoutMsec {
+		opts = append(opts, WithResolveTimeout(time.Duration(timeout)*time.Millisecond))
+	}
+
+	return opts, nil
 }
 
 // New returns a new Resolver.
@@ -304,6 +354,11 @@ func New(opts ...Option) *resolverImpl {
 	// maxTTL cannot be less than ttl
 	if r.maxCacheAge < r.ttl {
 		r.maxCacheAge = r.ttl
+	}
+
+	// Make sure that resolveTimeout is never set to 0.
+	if r.resolveTimeout == 0 {
+		r.resolveTimeout = defaultResolveTimeout
 	}
 
 	return r
