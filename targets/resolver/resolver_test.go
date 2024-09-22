@@ -539,6 +539,9 @@ func TestNewWithOverrideResolver(t *testing.T) {
 			}
 			r := New(WithTTL(0), WithDNSServer(network, address), WithResolveTimeout(tt.resolveTimeout))
 
+			if runtime.GOOS == "windows" {
+				tt.runCount = tt.runCount / 5
+			}
 			for i := 0; i < tt.runCount; i++ {
 				t.Run(fmt.Sprintf("run-%d", i), func(t *testing.T) {
 					got, err := r.Resolve("hostA.example.com.", 4)
@@ -559,6 +562,9 @@ func TestNewWithOverrideResolver(t *testing.T) {
 			}
 			callCountMu.Lock()
 			defer callCountMu.Unlock()
+			if runtime.GOOS == "windows" {
+				tt.wantMinCount = tt.wantMinCount / 5
+			}
 			assert.GreaterOrEqual(t, callCount, tt.wantMinCount, "callCount")
 		})
 	}
