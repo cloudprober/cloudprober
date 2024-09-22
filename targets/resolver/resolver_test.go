@@ -410,11 +410,12 @@ func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP
 	}
 
 	dnsServer.Handler = dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
-		// t.Logf("Received request: %v", r)
+		start := time.Now()
+		t.Logf("FakeDNSServer: (request id=%d) Received request", r.Id)
 
 		callCountMu.Lock()
-		defer callCountMu.Unlock()
 		(*callCount)++
+		callCountMu.Unlock()
 
 		m := new(dns.Msg)
 		m.SetReply(r)
@@ -442,9 +443,11 @@ func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP
 			m.SetRcode(r, dns.RcodeNameError)
 		}
 		m.Answer = answers
+		t.Logf("FakeDNSServer: (request id=%d) Ready with response after: %v", r.Id, time.Since(start))
 		// Pause to simulate a real DNS server.
 		time.Sleep(pause)
 		w.WriteMsg(m)
+		t.Logf("FakeDNSServer: (request id=%d) Sent response after: %v", r.Id, time.Since(start))
 	})
 	go dnsServer.ActivateAndServe()
 	return dnsServer
@@ -507,6 +510,7 @@ func TestNewWithOverrideResolver(t *testing.T) {
 		{
 			name:                "timeout",
 			dnsResolverOverride: "tcp://" + tcpAddrTimeout,
+			resolveTimeout:      20 * time.Millisecond,
 			runCount:            10,
 			wantMinCount:        30,
 			wantResolveErr:      true,
@@ -530,7 +534,10 @@ func TestNewWithOverrideResolver(t *testing.T) {
 				return
 			}
 
-			r := New(WithTTL(0), WithDNSServer(network, address), WithResolveTimeout(10*defaultPause))
+			if tt.resolveTimeout == 0 {
+				tt.resolveTimeout = 100 * defaultPause
+			}
+			r := New(WithTTL(0), WithDNSServer(network, address), WithResolveTimeout(tt.resolveTimeout))
 
 			for i := 0; i < tt.runCount; i++ {
 				t.Run(fmt.Sprintf("run-%d", i), func(t *testing.T) {
@@ -547,8 +554,8 @@ func TestNewWithOverrideResolver(t *testing.T) {
 						return
 					}
 					assert.Equal(t, tt.wantIP6, got.String(), "ip6")
-					time.Sleep(defaultPause + 3*time.Millisecond)
 				})
+				time.Sleep(defaultPause + 3*time.Millisecond)
 			}
 			callCountMu.Lock()
 			defer callCountMu.Unlock()
