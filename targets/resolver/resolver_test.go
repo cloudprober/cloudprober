@@ -391,7 +391,7 @@ func TestParseOverrideAddress(t *testing.T) {
 	}
 }
 
-func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP bool, pause time.Duration) *dns.Server {
+func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP bool, pause time.Duration, callCount *int, callCountMu *sync.Mutex) *dns.Server {
 	t.Helper()
 
 	dnsServer := &dns.Server{}
@@ -410,7 +410,12 @@ func createFakeDNSServer(t *testing.T, dataA, dataAAAA map[string]string, useTCP
 	}
 
 	dnsServer.Handler = dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
-		t.Logf("Received request: %v", r)
+		// t.Logf("Received request: %v", r)
+
+		callCountMu.Lock()
+		defer callCountMu.Unlock()
+		(*callCount)++
+
 		m := new(dns.Msg)
 		m.SetReply(r)
 
@@ -452,17 +457,22 @@ func TestNewWithOverrideResolver(t *testing.T) {
 	dataAAAA := map[string]string{
 		"hostA.example.com.": "2001:db8::1",
 	}
-	dnsServer := createFakeDNSServer(t, dataA, dataAAAA, false, 50*time.Millisecond)
+
+	callCount := 0
+	callCountMu := sync.Mutex{}
+	defaultPause := 2 * time.Millisecond
+
+	dnsServer := createFakeDNSServer(t, dataA, dataAAAA, false, defaultPause, &callCount, &callCountMu)
 	udpAdrr := dnsServer.PacketConn.LocalAddr().String()
 	t.Logf("DNS UDP server started at: %s", udpAdrr)
 	defer dnsServer.Shutdown()
 
-	dnsTCPServer := createFakeDNSServer(t, dataA, dataAAAA, true, 50*time.Millisecond)
+	dnsTCPServer := createFakeDNSServer(t, dataA, dataAAAA, true, defaultPause, &callCount, &callCountMu)
 	tcpAddr := dnsTCPServer.Listener.Addr().String()
 	t.Logf("DNS TCP server started at: %s", tcpAddr)
 	defer dnsTCPServer.Shutdown()
 
-	dnsTCPServerTimeout := createFakeDNSServer(t, dataA, dataAAAA, true, 500*time.Millisecond)
+	dnsTCPServerTimeout := createFakeDNSServer(t, dataA, dataAAAA, true, 100*time.Millisecond, &callCount, &callCountMu)
 	tcpAddrTimeout := dnsTCPServerTimeout.Listener.Addr().String()
 	t.Logf("DNS TCP server with timeout started at: %s", tcpAddrTimeout)
 	defer dnsTCPServerTimeout.Shutdown()
@@ -471,6 +481,8 @@ func TestNewWithOverrideResolver(t *testing.T) {
 		name                string
 		dnsResolverOverride string
 		resolveTimeout      time.Duration
+		runCount            int
+		wantMinCount        int
 		wantIP              string
 		wantIP6             string
 		wantParseErr        bool
@@ -478,22 +490,25 @@ func TestNewWithOverrideResolver(t *testing.T) {
 	}{
 		{
 			name:                "valid-udp",
-			resolveTimeout:      100 * time.Millisecond,
 			dnsResolverOverride: udpAdrr,
+			runCount:            10,
+			wantMinCount:        10,
 			wantIP:              "1.2.3.4",
 			wantIP6:             "2001:db8::1",
 		},
 		{
 			name:                "valid-tcp",
-			resolveTimeout:      100 * time.Millisecond,
 			dnsResolverOverride: "tcp://" + tcpAddr,
+			runCount:            10,
+			wantMinCount:        20,
 			wantIP:              "1.2.3.4",
 			wantIP6:             "2001:db8::1",
 		},
 		{
 			name:                "timeout",
-			resolveTimeout:      100 * time.Millisecond,
 			dnsResolverOverride: "tcp://" + tcpAddrTimeout,
+			runCount:            10,
+			wantMinCount:        30,
 			wantResolveErr:      true,
 			wantIP:              "<nil>",
 			wantIP6:             "<nil>",
@@ -515,21 +530,29 @@ func TestNewWithOverrideResolver(t *testing.T) {
 				return
 			}
 
-			r := New(WithDNSServer(network, address), WithResolveTimeout(tt.resolveTimeout))
+			r := New(WithTTL(0), WithDNSServer(network, address), WithResolveTimeout(10*defaultPause))
 
-			got, err := r.Resolve("hostA.example.com.", 4)
-			if (err != nil) != tt.wantResolveErr {
-				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantParseErr)
-				return
-			}
-			assert.Equal(t, tt.wantIP, got.String(), "ip")
+			for i := 0; i < tt.runCount; i++ {
+				t.Run(fmt.Sprintf("run-%d", i), func(t *testing.T) {
+					got, err := r.Resolve("hostA.example.com.", 4)
+					if (err != nil) != tt.wantResolveErr {
+						t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantParseErr)
+						return
+					}
+					assert.Equal(t, tt.wantIP, got.String(), "ip")
 
-			got, err = r.Resolve("hostA.example.com.", 6)
-			if (err != nil) != tt.wantResolveErr {
-				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantParseErr)
-				return
+					got, err = r.Resolve("hostA.example.com.", 6)
+					if (err != nil) != tt.wantResolveErr {
+						t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantParseErr)
+						return
+					}
+					assert.Equal(t, tt.wantIP6, got.String(), "ip6")
+					time.Sleep(defaultPause + 3*time.Millisecond)
+				})
 			}
-			assert.Equal(t, tt.wantIP6, got.String(), "ip6")
+			callCountMu.Lock()
+			defer callCountMu.Unlock()
+			assert.GreaterOrEqual(t, callCount, tt.wantMinCount, "callCount")
 		})
 	}
 }
