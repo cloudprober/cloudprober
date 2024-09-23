@@ -58,7 +58,7 @@ var (
 
 // monitorCommand waits for the process to terminate and sets cmdRunning to
 // false when that happens.
-func (p *Probe) monitorCommand(startCtx context.Context, cmd command) error {
+func (p *Probe) monitorCommand(startCtx context.Context, cmd commandIntf) error {
 	err := cmd.Wait()
 
 	// Dont'log error message if killed explicitly.
@@ -236,12 +236,11 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 					success = false
 				}
 				ps := &probeStatus{
-					target:  reqInfo.target,
 					success: success,
 					latency: time.Since(reqInfo.timestamp),
 					payload: rep.GetPayload(),
 				}
-				p.processProbeResult(ps, p.results[reqInfo.target.Key()])
+				p.processProbeResult(ps, reqInfo.target, p.results[reqInfo.target.Key()])
 			}
 
 			// We send a total if len(p.targets) requests. We can exit if we've
@@ -274,6 +273,6 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 	outstandingReqsMu.Lock()
 	defer outstandingReqsMu.Unlock()
 	for _, req := range outstandingReqs {
-		p.processProbeResult(&probeStatus{target: req.target, success: false}, p.results[req.target.Key()])
+		p.processProbeResult(&probeStatus{success: false}, req.target, p.results[req.target.Key()])
 	}
 }

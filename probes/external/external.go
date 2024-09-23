@@ -24,14 +24,10 @@ over stdin/stdout for each probe cycle.
 package external
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
@@ -45,6 +41,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payloadpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/probes/common/command"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -178,7 +175,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-type command interface {
+type commandIntf interface {
 	Wait() error
 }
 
@@ -215,22 +212,23 @@ func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
 	return labels
 }
 
-// probeStatus captures the single probe status. It's only used by runProbe
-// functions to pass a probe's status to processProbeResult method.
+func (p *Probe) withStdLabels(em *metrics.EventMetrics, target endpoint.Endpoint) *metrics.EventMetrics {
+	return em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
+}
+
 type probeStatus struct {
-	target  endpoint.Endpoint
 	success bool
 	latency time.Duration
 	payload string
 }
 
-func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
+func (p *Probe) processProbeResult(ps *probeStatus, target endpoint.Endpoint, result *result) {
 	if ps.success && p.opts.Validators != nil {
 		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: []byte(ps.payload)}, result.validationFailure, p.l)
 
 		// If any validation failed, log and set success to false.
 		if len(failedValidations) > 0 {
-			p.l.Debug("Target:", ps.target.Name, " failed validations: ", strings.Join(failedValidations, ","), ".")
+			p.l.Debug("Target:", target.Name, " failed validations: ", strings.Join(failedValidations, ","), ".")
 			ps.success = false
 		}
 	}
@@ -243,88 +241,21 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	defaultEM := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric("total", metrics.NewInt(result.total)).
-		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
-		AddLabel("ptype", "external").
-		AddLabel("probe", p.name).
-		AddLabel("dst", ps.target.Name)
+		AddMetric(p.opts.LatencyMetricName, result.latency.Clone())
 
 	if p.opts.Validators != nil {
 		defaultEM.AddMetric("validation_failure", result.validationFailure)
 	}
-	p.opts.RecordMetrics(ps.target, defaultEM, p.dataChan)
+
+	p.opts.RecordMetrics(target, p.withStdLabels(defaultEM, target), p.dataChan)
 
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(ps.payload)}, ps.target.Dst()) {
-			em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", ps.target.Dst())
-			p.opts.RecordMetrics(ps.target, em, p.dataChan, options.WithNoAlert())
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(ps.payload)}, target.Dst()) {
+			p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan, options.WithNoAlert())
 		}
 	}
-}
-
-func isPipeOrFileClosedError(err error) bool {
-	if err == io.ErrClosedPipe {
-		return true
-	}
-	if pe, ok := err.(*os.PathError); ok {
-		if pe.Err == os.ErrClosed {
-			return true
-		}
-	}
-	return false
-}
-
-func (p *Probe) setupStreaming(c *exec.Cmd, target endpoint.Endpoint) error {
-	stdout := make(chan string)
-	stdoutR, err := c.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderrR, err := c.StderrPipe()
-	if err != nil {
-		return err
-	}
-	go func() {
-		defer close(stdout)
-		defer stdoutR.Close()
-		scanner := bufio.NewScanner(stdoutR)
-
-		buf := make([]byte, 0, bufio.MaxScanTokenSize)
-		scanner.Buffer(buf, maxScannerTokenSize)
-
-		for scanner.Scan() {
-			stdout <- scanner.Text()
-		}
-		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
-			p.l.Errorf("Error reading from stdout: %v", err)
-		}
-	}()
-	go func() {
-		defer stderrR.Close()
-		scanner := bufio.NewScanner(stderrR)
-
-		buf := make([]byte, 0, bufio.MaxScanTokenSize)
-		scanner.Buffer(buf, maxScannerTokenSize)
-
-		for scanner.Scan() {
-			p.l.Warningf("Stderr: %s", scanner.Text())
-		}
-		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
-			p.l.Errorf("Error reading from stderr: %v", err)
-		}
-	}()
-
-	go func() {
-		for line := range stdout {
-			for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(line)}, target.Dst()) {
-				em.AddLabel("ptype", "external").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
-				p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
-			}
-		}
-	}()
-
-	return nil
 }
 
 func (p *Probe) runOnceProbe(ctx context.Context) {
@@ -348,47 +279,26 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 
 			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
 			result.total++
-			startTime := time.Now()
 
-			c := exec.CommandContext(ctx, p.cmdName, args...)
-			if p.envVars != nil {
-				c.Env = append(append(c.Env, os.Environ()...), p.envVars...)
+			cmd := &command.Command{
+				CmdLine: append([]string{p.cmdName}, args...),
+				EnvVars: p.envVars,
 			}
-
-			var stdoutBuf, stderrBuf bytes.Buffer
-
 			if p.c.GetOutputAsMetrics() && !p.c.GetDisableStreamingOutputMetrics() {
-				if err := p.setupStreaming(c, target); err != nil {
-					p.l.Errorf("Error setting up stdout/stderr pipe: %v", err)
-					return
+				cmd.ProcessStreamingOutput = func(line []byte) {
+					for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
+						p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan, options.WithNoAlert())
+					}
 				}
-			} else {
-				c.Stdout, c.Stderr = &stdoutBuf, &stderrBuf
 			}
 
-			err := p.runCommand(ctx, c)
-
-			success := true
+			startTime := time.Now()
+			stdout, err := cmd.Execute(ctx, p.l)
+			latency := time.Since(startTime)
 			if err != nil {
-				success = false
-				stdout, stderr := stdoutBuf.String(), stderrBuf.String()
-				stderrout := ""
-				if stdout != "" || stderr != "" {
-					stderrout = fmt.Sprintf(" Stdout: %s, Stderr: %s", stdout, stderr)
-				}
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					p.l.Errorf("external probe process died with the status: %s.%s", exitErr.Error(), stderrout)
-				} else {
-					p.l.Errorf("Error executing the external program. Err: %v.%s", err, stderrout)
-				}
+				p.l.Errorf("Error running external probe: %v", err)
 			}
-
-			p.processProbeResult(&probeStatus{
-				target:  target,
-				success: success,
-				payload: stdoutBuf.String(),
-				latency: time.Since(startTime),
-			}, result)
+			p.processProbeResult(&probeStatus{success: err == nil, latency: latency, payload: stdout}, target, result)
 		}(target, p.results[target.Key()])
 	}
 	wg.Wait()

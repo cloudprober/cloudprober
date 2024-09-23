@@ -20,7 +20,7 @@
 // in a new process group, and kill the whole process group on time out.
 // Background: https://github.com/cloudprober/cloudprober/issues/165.
 
-package external
+package command
 
 import (
 	"context"
@@ -29,10 +29,10 @@ import (
 	"time"
 )
 
-func (p *Probe) runCommand(ctx context.Context, c *exec.Cmd) error {
-	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+func runCommand(ctx context.Context, cmd *exec.Cmd) error {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	if err := c.Start(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 
@@ -44,12 +44,12 @@ func (p *Probe) runCommand(ctx context.Context, c *exec.Cmd) error {
 	go func() {
 		select {
 		case <-ctx.Done():
-			syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		case <-waitDone:
 			return
 		}
 	}()
-	err := c.Wait()
+	err := cmd.Wait()
 
 	// Start a goroutine to wait on the processes in the process group, to
 	// avoid zombies. We use a timer to make sure we don't create an
@@ -65,7 +65,7 @@ func (p *Probe) runCommand(ctx context.Context, c *exec.Cmd) error {
 				return
 			default:
 			}
-			_, err = syscall.Wait4(-c.Process.Pid, nil, syscall.WNOHANG, nil)
+			_, err = syscall.Wait4(-cmd.Process.Pid, nil, syscall.WNOHANG, nil)
 		}
 	}()
 
