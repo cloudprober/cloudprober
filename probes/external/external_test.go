@@ -525,22 +525,20 @@ func TestProcessProbeResult(t *testing.T) {
 
 			// First run
 			p.processProbeResult(&probeStatus{
-				target:  endpoint.Endpoint{Name: "test-target"},
 				success: true,
 				latency: time.Millisecond,
 				payload: test.payloads[0],
-			}, r)
+			}, endpoint.Endpoint{Name: "test-target"}, r)
 
 			wantSuccess := int64(1)
 			verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[0], test.wantExtraLabels)
 
 			// Second run
 			p.processProbeResult(&probeStatus{
-				target:  endpoint.Endpoint{Name: "test-target"},
 				success: true,
 				latency: time.Millisecond,
 				payload: test.payloads[1],
-			}, r)
+			}, endpoint.Endpoint{Name: "test-target"}, r)
 			wantSuccess++
 
 			verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[1], test.wantExtraLabels)
