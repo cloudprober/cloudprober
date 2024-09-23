@@ -297,6 +297,9 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 			var ips []net.IP
 			dnsClient := &dns.Client{Net: r.backendNetwork}
 
+			// TODO: We should probably limit cache record to a specify IP
+			// version, but that will be a bigger change as cache records are
+			// currently indexed by the hostname only.
 			for _, qType := range []uint16{dns.TypeA, dns.TypeAAAA} {
 				msg := new(dns.Msg).SetQuestion(fqdn, qType)
 				resp, _, err := dnsClient.ExchangeContext(ctx, msg, r.backendServer)
