@@ -31,6 +31,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	"github.com/miekg/dns"
 )
 
 // The max age and the timeout for resolving a target.
@@ -287,23 +288,38 @@ func WithMaxTTL(ttl time.Duration) Option {
 }
 
 func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
-	netResolver := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{}
-			if serverNetworkOverride != "" {
-				network = serverNetworkOverride
-			}
-			// Note: we ignore the address in the argument
-			return d.DialContext(ctx, network, serverAddressOverride)
-		},
-	}
-
 	return func(r *resolverImpl) {
 		r.backendServer = serverAddressOverride
 		r.backendNetwork = serverNetworkOverride
+
 		r.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
-			return netResolver.LookupIP(ctx, "ip", host)
+			fqdn := dns.Fqdn(host)
+			var ips []net.IP
+			dnsClient := &dns.Client{Net: r.backendNetwork}
+
+			// TODO: We should probably limit cache record to a specify IP
+			// version, but that will be a bigger change as cache records are
+			// currently indexed by the hostname only.
+			for _, qType := range []uint16{dns.TypeA, dns.TypeAAAA} {
+				msg := new(dns.Msg).SetQuestion(fqdn, qType)
+				resp, _, err := dnsClient.ExchangeContext(ctx, msg, r.backendServer)
+				if err != nil {
+					return nil, err
+				}
+				for _, ans := range resp.Answer {
+					switch qType {
+					case dns.TypeA:
+						if a, ok := ans.(*dns.A); ok {
+							ips = append(ips, a.A)
+						}
+					case dns.TypeAAAA:
+						if aaaa, ok := ans.(*dns.AAAA); ok {
+							ips = append(ips, aaaa.AAAA)
+						}
+					}
+				}
+			}
+			return ips, nil
 		}
 	}
 }
