@@ -55,7 +55,7 @@
   name = "Blog"
   weight = 10
   parent = "connect"
-  url = "https://blog.manugarg.com/tags/cloudprober/"
+  url = "https://medium.com/cloudprober/"
 
 [[main]]
   name = "Github Discussions"
