@@ -293,12 +293,12 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			}
 
 			startTime := time.Now()
-			status, err := cmd.Execute(ctx, p.l)
+			stdout, err := cmd.Execute(ctx, p.l)
 			latency := time.Since(startTime)
 			if err != nil {
 				p.l.Errorf("Error running external probe: %v", err)
 			}
-			p.processProbeResult(&probeStatus{success: err == nil, latency: latency, payload: status}, target, result)
+			p.processProbeResult(&probeStatus{success: err == nil, latency: latency, payload: stdout}, target, result)
 		}(target, p.results[target.Key()])
 	}
 	wg.Wait()
