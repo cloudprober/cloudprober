@@ -22,9 +22,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
 	"text/template"
@@ -36,6 +34,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -99,7 +98,8 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric(opts.LatencyMetricName, prr.latency.Clone())
+		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
+		AddLabel("ptype", "browser")
 
 	if prr.validationFailure != nil {
 		em.AddMetric("validation_failure", prr.validationFailure)
@@ -233,12 +233,11 @@ func (p *Probe) generateRunID(target endpoint.Endpoint) int64 {
 }
 
 func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
-	start := time.Now()
 	runID := p.generateRunID(target)
 
 	outputDir := filepath.Join(p.workdir, target.Name, fmt.Sprintf("%d_%d", runID, time.Now().Unix()))
 
-	command := []string{
+	cmdLine := []string{
 		"npx",
 		"playwright",
 		"test",
@@ -246,53 +245,35 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		"--output=" + outputDir,
 		"--reporter=" + p.reporterPath,
 	}
-
-	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	cmd.Dir = p.c.GetPlaywrightDir()
-	cmd.Env = append(os.Environ(), fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules")))
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &stdoutBuf, &stderrBuf
-
-	p.l.Infof("Target(%s): running command %v, in dir %s", target.Name, cmd.String(), cmd.Dir)
-
-	success := true
-
-	err := cmd.Run()
-	stdout, stderr := stdoutBuf.String(), stderrBuf.String()
-	if err != nil {
-		success = false
-		attrs := []slog.Attr{slog.String("target", target.Name), slog.String("err", err.Error()), slog.String("stdout", stdout), slog.String("stderr", stderr)}
-		p.l.WarningAttrs("playwright test failed", attrs...)
-		if stdout == "" {
-			return
-		}
+	cmd := command.Command{
+		CmdLine: cmdLine,
+		WorkDir: p.c.GetPlaywrightDir(),
+		EnvVars: []string{fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules"))},
 	}
-	p.l.Debugf("Command output: %s", stdout)
-	p.l.Infof("Command stderr: %s", stderr)
-
-	latency := time.Since(start)
-
-	if resultMu != nil {
-		resultMu.Lock()
-		defer resultMu.Unlock()
-	}
-
-	if success {
-		result.success.Inc()
-		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
-	}
-
-	if p.payloadParser != nil {
-		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(stdout)}, target.Dst()) {
+	cmd.ProcessStreamingOutput = func(line []byte) {
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
 			em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
-			// If we are not aggregating metrics, add run_id label.
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
 				em.AddLabel("run_id", fmt.Sprintf("%d", runID))
 			}
 			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
 		}
 	}
+
+	startTime := time.Now()
+	_, err := cmd.Execute(ctx, p.l)
+	if err != nil {
+		p.l.Errorf("error running playwright test: %v", err)
+		return
+	}
+
+	if resultMu != nil {
+		resultMu.Lock()
+		defer resultMu.Unlock()
+	}
+
+	result.success.Inc()
+	result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
 func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
