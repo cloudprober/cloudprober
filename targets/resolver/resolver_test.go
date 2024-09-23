@@ -30,23 +30,51 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// ipVersion tells if an IP address is IPv4 or IPv6.
+func testIPVersion(ip net.IP) int {
+	if len(ip.To4()) == net.IPv4len {
+		return 4
+	}
+	if len(ip) == net.IPv6len {
+		return 6
+	}
+	return 0
+}
+
 type resolveBackendWithTracking struct {
-	nameToIP map[string][]net.IP
+	nameToIP map[cacheRecordKey][]net.IP
 	called   int
+	callLog  []string
 	mu       sync.Mutex
 }
 
-func (b *resolveBackendWithTracking) setNameToIP(name string, ip []net.IP) {
+func (b *resolveBackendWithTracking) setNameToIP(name string, ips ...net.IP) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.nameToIP[name] = ip
+	if b.nameToIP == nil {
+		b.nameToIP = make(map[cacheRecordKey][]net.IP)
+	}
+	// Reset cache for this name
+	for _, network := range []ipVersion{IP, IP4, IP6} {
+		b.nameToIP[cacheRecordKey{name, network}] = nil
+	}
+	for _, ip := range ips {
+		network := ipVersion(testIPVersion(ip))
+		b.nameToIP[cacheRecordKey{name, network}] = append(b.nameToIP[cacheRecordKey{name, network}], ip)
+		b.nameToIP[cacheRecordKey{name, IP}] = append(b.nameToIP[cacheRecordKey{name, IP}], ip)
+	}
 }
 
-func (b *resolveBackendWithTracking) resolve(_ context.Context, name string) ([]net.IP, error) {
+func (b *resolveBackendWithTracking) resolve(_ context.Context, network, name string) ([]net.IP, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.called++
-	return b.nameToIP[name], nil
+	b.callLog = append(b.callLog, fmt.Sprintf("resolve(%s, %s)", network, name))
+	if b.nameToIP == nil {
+		b.nameToIP = make(map[cacheRecordKey][]net.IP)
+	}
+	networkT := map[string]ipVersion{"": IP, "ip": IP, "ip4": IP4, "ip6": IP6}[network]
+	return b.nameToIP[cacheRecordKey{name, ipVersion(networkT)}], nil
 }
 
 func (b *resolveBackendWithTracking) calls() int {
@@ -55,7 +83,13 @@ func (b *resolveBackendWithTracking) calls() int {
 	return b.called
 }
 
-func verify(testCase string, t *testing.T, ip, expectedIP net.IP, backendCalls, expectedBackendCalls int, err error) {
+func (b *resolveBackendWithTracking) callsLog() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string{}, b.callLog...)
+}
+
+func verify(testCase string, t *testing.T, ip, expectedIP net.IP, b *resolveBackendWithTracking, expectedBackendCalls int, err error) {
 	t.Helper()
 	if err != nil {
 		t.Errorf("%s: Error while resolving. Err: %v", testCase, err)
@@ -63,9 +97,7 @@ func verify(testCase string, t *testing.T, ip, expectedIP net.IP, backendCalls, 
 	if !ip.Equal(expectedIP) {
 		t.Errorf("%s: Got wrong IP address. Got: %s, Expected: %s", testCase, ip, expectedIP)
 	}
-	if backendCalls != expectedBackendCalls {
-		t.Errorf("%s: Backend calls: %d, Expected: %d", testCase, backendCalls, expectedBackendCalls)
-	}
+	assert.Equal(t, expectedBackendCalls, b.calls(), "backend calls mismatch. Calllog: \n%v", b.callsLog())
 }
 
 // waitForChannelOrFail reads the result from the channel and fails if it
@@ -87,20 +119,18 @@ func waitForRefreshAndVerify(t *testing.T, c <-chan bool, timeout time.Duration,
 }
 
 func TestResolveWithMaxAge(t *testing.T) {
-	b := &resolveBackendWithTracking{
-		nameToIP: make(map[string][]net.IP),
-	}
+	b := &resolveBackendWithTracking{}
 	r := New(WithResolveFunc(b.resolve))
 
 	testHost := "hostA"
 	expectedIP := net.ParseIP("1.2.3.4")
-	b.setNameToIP(testHost, []net.IP{expectedIP})
+	b.setNameToIP(testHost, expectedIP)
 
 	// Resolve a host, there is no cache, a backend call should be made
 	expectedBackendCalls := 1
 	refreshed := make(chan bool, 2)
 	ip, err := r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
-	verify("first-run-no-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
+	verify("first-run-no-cache", t, ip, expectedIP, b, expectedBackendCalls, err)
 	// First Resolve calls refresh twice. Once for init (which succeeds), and
 	// then again for refreshing, which is not needed. Hence the results are true
 	// and then false.
@@ -109,22 +139,22 @@ func TestResolveWithMaxAge(t *testing.T) {
 
 	// Resolve same host again, it should come from cache, no backend call
 	newExpectedIP := net.ParseIP("1.2.3.6")
-	b.setNameToIP(testHost, []net.IP{newExpectedIP})
+	b.setNameToIP(testHost, newExpectedIP)
 	ip, err = r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
-	verify("second-run-from-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
+	verify("second-run-from-cache", t, ip, expectedIP, b, expectedBackendCalls, err)
 	waitForRefreshAndVerify(t, refreshed, time.Second, false)
 
 	// Resolve same host again with maxAge=0, it will issue an asynchronous (hence no increment
 	// in expectedBackenddCalls) backend call
 	ip, err = r.resolveWithMaxAge(testHost, 4, 0*time.Second, refreshed)
-	verify("third-run-expire-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
+	verify("third-run-expire-cache", t, ip, expectedIP, b, expectedBackendCalls, err)
 	waitForRefreshAndVerify(t, refreshed, time.Second, true)
 
 	// Now that refresh has happened, we should see a new IP.
 	expectedIP = newExpectedIP
 	expectedBackendCalls++
 	ip, err = r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
-	verify("fourth-run-new-result", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
+	verify("fourth-run-new-result", t, ip, expectedIP, b, expectedBackendCalls, err)
 	waitForRefreshAndVerify(t, refreshed, time.Second, false)
 }
 
@@ -133,7 +163,7 @@ func TestResolveWithMaxAge(t *testing.T) {
 // resolver behavior deterministic.
 func TestResolveErr(t *testing.T) {
 	cnt := 0
-	r := New(WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
+	r := New(WithResolveFunc(func(_ context.Context, network, name string) ([]net.IP, error) {
 		cnt++
 		if cnt == 2 || cnt == 3 {
 			return nil, fmt.Errorf("time to return error, cnt: %d", cnt)
@@ -196,33 +226,33 @@ func TestResolveErr(t *testing.T) {
 }
 
 func TestResolveIPv6(t *testing.T) {
-	b := &resolveBackendWithTracking{
-		nameToIP: make(map[string][]net.IP),
-	}
+	b := &resolveBackendWithTracking{}
 	r := New(WithResolveFunc(b.resolve))
 
 	testHost := "hostA"
 	expectedIPv4 := net.ParseIP("1.2.3.4")
 	expectedIPv6 := net.ParseIP("::1")
-	b.setNameToIP(testHost, []net.IP{expectedIPv4, expectedIPv6})
+	b.setNameToIP(testHost, expectedIPv4, expectedIPv6)
 
 	ip, err := r.Resolve(testHost, 4)
 	expectedBackendCalls := 1
-	verify("ipv4-address-not-as-expected", t, ip, expectedIPv4, b.calls(), expectedBackendCalls, err)
+	verify("ipv4-address-not-as-expected", t, ip, expectedIPv4, b, expectedBackendCalls, err)
 
-	// This will come from cache this time, so no new backend calls.
+	// IPv6 address will cause a new backend call.
 	ip, err = r.Resolve(testHost, 6)
-	verify("ipv6-address-not-as-expected", t, ip, expectedIPv6, b.calls(), expectedBackendCalls, err)
+	expectedBackendCalls++
+	verify("ipv6-address-not-as-expected", t, ip, expectedIPv6, b, expectedBackendCalls, err)
 
 	// No IP version specified, should return IPv4 as IPv4 gets preference.
-	// This will come from cache this time, so no new backend calls.
+	// This will create a new cache record, so a new backend call.
 	ip, err = r.Resolve(testHost, 0)
-	verify("ipv0-address-not-as-expected", t, ip, expectedIPv4, b.calls(), expectedBackendCalls, err)
+	expectedBackendCalls++
+	verify("ipv0-address-not-as-expected", t, ip, expectedIPv4, b, expectedBackendCalls, err)
 
 	// New host, with no IPv4 address
 	testHost = "hostB"
 	expectedIPv6 = net.ParseIP("::2")
-	b.setNameToIP(testHost, []net.IP{expectedIPv6})
+	b.setNameToIP(testHost, expectedIPv6)
 
 	ip, err = r.Resolve(testHost, 4)
 	expectedBackendCalls++
@@ -230,14 +260,13 @@ func TestResolveIPv6(t *testing.T) {
 		t.Errorf("resolved IPv4 address for an IPv6 only host: %s", ip.String())
 	}
 
-	// This will come from cache this time, so no new backend calls.
 	ip, err = r.Resolve(testHost, 6)
-	verify("ipv6-address-not-as-expected", t, ip, expectedIPv6, b.calls(), expectedBackendCalls, err)
+	expectedBackendCalls++
+	verify("ipv6-address-not-as-expected", t, ip, expectedIPv6, b, expectedBackendCalls, err)
 
-	// No IP version specified, should return IPv6 as there is no IPv4 address for this host.
-	// This will come from cache this time, so no new backend calls.
 	ip, err = r.Resolve(testHost, 0)
-	verify("ipv0-address-not-as-expected", t, ip, expectedIPv6, b.calls(), expectedBackendCalls, err)
+	expectedBackendCalls++
+	verify("ipv0-address-not-as-expected", t, ip, expectedIPv6, b, expectedBackendCalls, err)
 }
 
 // TestConcurrentInit tests that multiple Resolves in parallel on the same
@@ -245,7 +274,7 @@ func TestResolveIPv6(t *testing.T) {
 func TestConcurrentInit(t *testing.T) {
 	cnt := 0
 	resolveWait := make(chan bool)
-	r := New(WithResolveFunc(func(_ context.Context, name string) ([]net.IP, error) {
+	r := New(WithResolveFunc(func(_ context.Context, network, name string) ([]net.IP, error) {
 		cnt++
 		// The first call should be blocked on resolveWait.
 		if cnt == 1 {
@@ -304,7 +333,7 @@ type resolveBackendBenchmark struct {
 	t       time.Time
 }
 
-func (rb *resolveBackendBenchmark) resolve(_ context.Context, name string) ([]net.IP, error) {
+func (rb *resolveBackendBenchmark) resolve(_ context.Context, network, name string) ([]net.IP, error) {
 	rb.callCnt++
 	fmt.Printf("Time since initiation: %s\n", time.Since(rb.t))
 	if rb.delay != 0 {
@@ -571,17 +600,15 @@ func TestNewWithOverrideResolver(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	b := &resolveBackendWithTracking{
-		nameToIP: make(map[string][]net.IP),
-	}
+	b := &resolveBackendWithTracking{}
 	tests := []struct {
 		name            string
 		ttl             time.Duration
 		maxTTL          time.Duration
-		resolveFunc     func(context.Context, string) ([]net.IP, error)
+		resolveFunc     func(context.Context, string, string) ([]net.IP, error)
 		wantTTL         time.Duration
 		wantMaxTTL      time.Duration
-		wantResolveFunc func(context.Context, string) ([]net.IP, error)
+		wantResolveFunc func(context.Context, string, string) ([]net.IP, error)
 		wantTimeout     time.Duration
 	}{
 		{

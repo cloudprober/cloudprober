@@ -19,7 +19,6 @@ package resolver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -40,19 +39,19 @@ const (
 	defaultResolveTimeout = 30 * time.Second
 )
 
-var defaultResolverFunc = func(ctx context.Context, host string) ([]net.IP, error) {
-	return net.DefaultResolver.LookupIP(ctx, "ip", host)
+type ipVersion uint8
+
+const (
+	IP  ipVersion = 0
+	IP4 ipVersion = 4
+	IP6 ipVersion = 6
+)
+
+func (n ipVersion) Network() string {
+	return map[ipVersion]string{IP: "ip", IP4: "ip4", IP6: "ip6"}[n]
 }
 
-type cacheRecord struct {
-	ip4              net.IP
-	ip6              net.IP
-	lastUpdatedAt    time.Time
-	err              error
-	mu               sync.RWMutex
-	updateInProgress bool
-	callInit         sync.Once
-}
+var defaultResolverFunc = net.DefaultResolver.LookupIP
 
 type Resolver interface {
 	Resolve(name string, ipVer int) (net.IP, error)
@@ -60,11 +59,11 @@ type Resolver interface {
 
 // resolverImpl provides an asynchronous caching DNS resolver.
 type resolverImpl struct {
-	cache          map[string]*cacheRecord
+	cache          map[cacheRecordKey]*cacheRecord
 	mu             sync.Mutex
 	ttl            time.Duration
 	maxCacheAge    time.Duration
-	resolve        func(context.Context, string) ([]net.IP, error) // used for testing
+	resolveFunc    func(context.Context, string, string) ([]net.IP, error)
 	resolveTimeout time.Duration
 	l              *logger.Logger
 
@@ -73,24 +72,13 @@ type resolverImpl struct {
 	backendNetwork string
 }
 
-// ipVersion tells if an IP address is IPv4 or IPv6.
-func ipVersion(ip net.IP) int {
-	if len(ip.To4()) == net.IPv4len {
-		return 4
-	}
-	if len(ip) == net.IPv6len {
-		return 6
-	}
-	return 0
-}
-
 // resolveOrTimeout is simply a context less wrapper around resolve.
-func (r *resolverImpl) resolveOrTimeout(name string) ([]net.IP, error) {
+func (r *resolverImpl) resolveOrTimeout(name string, version ipVersion) ([]net.IP, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), r.resolveTimeout)
 	defer cancel()
 
 	startTime := time.Now()
-	ips, err := r.resolve(ctx, name)
+	ips, err := r.resolveFunc(ctx, version.Network(), name)
 	if err != nil {
 		attrs := []slog.Attr{
 			slog.String("name", name),
@@ -104,124 +92,29 @@ func (r *resolverImpl) resolveOrTimeout(name string) ([]net.IP, error) {
 	return ips, err
 }
 
-// Resolve returns IP address for a name.
-// Issues an update call for the cache record if it's older than defaultMaxAge.
-func (r *resolverImpl) Resolve(name string, ipVer int) (net.IP, error) {
-	return r.resolveWithMaxAge(name, ipVer, r.ttl, nil)
-}
-
-// getCacheRecord returns the cache record for the target.
-// It must be kept light, as it blocks the main mutex of the map.
-func (r *resolverImpl) getCacheRecord(name string) *cacheRecord {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	cr := r.cache[name]
-	// This will happen only once for a given name.
-	if cr == nil {
-		cr = &cacheRecord{
-			err: errors.New("cache record not initialized yet"),
-		}
-		r.cache[name] = cr
-	}
-	return cr
-}
-
 // resolveWithMaxAge returns IP address for a name, issuing an update call for
 // the cache record if it's older than the argument maxAge.
 // refreshedCh channel is primarily used for testing. Method pushes true to
 // refreshedCh channel once and if the value is refreshed, or false, if it
 // doesn't need refreshing.
 func (r *resolverImpl) resolveWithMaxAge(name string, ipVer int, maxAge time.Duration, refreshedCh chan<- bool) (net.IP, error) {
-	cr := r.getCacheRecord(name)
-	cr.refreshIfRequired(name, r.resolveOrTimeout, maxAge, refreshedCh)
+	cr := r.getCacheRecord(name, ipVersion(ipVer))
+	cr.refreshIfRequired(r.resolveOrTimeout, maxAge, refreshedCh)
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 
-	var ip net.IP
-
-	switch ipVer {
-	case 0:
-		if cr.ip4 != nil {
-			ip = cr.ip4
-		} else if cr.ip6 != nil {
-			ip = cr.ip6
-		}
-	case 4:
-		ip = cr.ip4
-	case 6:
-		ip = cr.ip6
-	default:
-		return nil, fmt.Errorf("unknown IP version: %d", ipVer)
+	if cr.err != nil && cr.ip != nil && time.Since(cr.lastUpdatedAt) < r.maxCacheAge {
+		r.l.Warningf("failed to resolve %s: %v, returning cached IP: %s", name, cr.err, cr.ip.String())
+		return cr.ip, nil
 	}
 
-	if ip == nil && cr.err == nil {
-		return nil, fmt.Errorf("found no IP%d IP for %s", ipVer, name)
-	}
-
-	if cr.err != nil && ip != nil && time.Since(cr.lastUpdatedAt) < r.maxCacheAge {
-		r.l.Warningf("failed to resolve %s: %v, returning cached IP: %s", name, cr.err, ip.String())
-		return ip, nil
-	}
-	return ip, cr.err
+	return cr.ip, cr.err
 }
 
-// refresh refreshes the cacheRecord by making a call to the provided "resolve" function.
-func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, error), refreshed chan<- bool) {
-	// Note that we call backend's resolve outside of the mutex locks and take the lock again
-	// to update the cache record once we have the results from the backend.
-	ips, err := resolve(name)
-
-	cr.mu.Lock()
-	defer cr.mu.Unlock()
-	if refreshed != nil {
-		refreshed <- true
-	}
-	cr.err = err
-	cr.updateInProgress = false
-	// If we have an error, we don't update the cache record so that callers
-	// can use cached IP addresses if they want.
-	if err != nil {
-		return
-	}
-	cr.lastUpdatedAt = time.Now()
-	cr.ip4 = nil
-	cr.ip6 = nil
-	for _, ip := range ips {
-		switch ipVersion(ip) {
-		case 4:
-			cr.ip4 = ip
-		case 6:
-			cr.ip6 = ip
-		}
-	}
-}
-
-func (cr *cacheRecord) shouldUpdateNow(maxAge time.Duration) bool {
-	cr.mu.RLock()
-	defer cr.mu.RUnlock()
-	return !cr.updateInProgress && (time.Since(cr.lastUpdatedAt) >= maxAge || cr.err != nil)
-}
-
-// refreshIfRequired does most of the work. Overall goal is to minimize the
-// lock period of the cache record. To that end, if the cache record needs
-// updating, we do that with the mutex unlocked.
-//
-// If cache record is new, blocks until it's resolved for the first time.
-// If cache record needs updating, kicks off refresh asynchronously.
-// If cache record is already being updated or fresh enough, returns immediately.
-func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]net.IP, error), maxAge time.Duration, refreshedCh chan<- bool) {
-	cr.callInit.Do(func() { cr.refresh(name, resolve, refreshedCh) })
-
-	// Cache record is old and no update in progress, issue a request to update.
-	if cr.shouldUpdateNow(maxAge) {
-		cr.mu.Lock()
-		cr.updateInProgress = true
-		cr.mu.Unlock()
-		go cr.refresh(name, resolve, refreshedCh)
-	} else if refreshedCh != nil {
-		refreshedCh <- false
-	}
+// Resolve returns IP address for a name.
+// Issues an update call for the cache record if it's older than defaultMaxAge.
+func (r *resolverImpl) Resolve(name string, ipVer int) (net.IP, error) {
+	return r.resolveWithMaxAge(name, ipVer, r.ttl, nil)
 }
 
 func ParseOverrideAddress(dnsResolverOverride string) (string, string, error) {
@@ -263,9 +156,9 @@ func ParseOverrideAddress(dnsResolverOverride string) (string, string, error) {
 
 type Option func(*resolverImpl)
 
-func WithResolveFunc(resolveFunc func(context.Context, string) ([]net.IP, error)) Option {
+func WithResolveFunc(resolveFunc func(context.Context, string, string) ([]net.IP, error)) Option {
 	return func(r *resolverImpl) {
-		r.resolve = resolveFunc
+		r.resolveFunc = resolveFunc
 	}
 }
 
@@ -292,15 +185,24 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 		r.backendServer = serverAddressOverride
 		r.backendNetwork = serverNetworkOverride
 
-		r.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
+		r.resolveFunc = func(ctx context.Context, network, host string) ([]net.IP, error) {
 			fqdn := dns.Fqdn(host)
-			var ips []net.IP
 			dnsClient := &dns.Client{Net: r.backendNetwork}
 
-			// TODO: We should probably limit cache record to a specify IP
-			// version, but that will be a bigger change as cache records are
-			// currently indexed by the hostname only.
-			for _, qType := range []uint16{dns.TypeA, dns.TypeAAAA} {
+			// This immitates the behavior of net.DefaultResolver.LookupIP,
+			// which queries both A and AAAA records for a given host if network
+			// is set to "ip" (no IP version is given).
+			qTypes := []uint16{dns.TypeA, dns.TypeAAAA}
+			if network == IP4.Network() {
+				qTypes = []uint16{dns.TypeA}
+			} else if network == IP6.Network() {
+				qTypes = []uint16{dns.TypeAAAA}
+			}
+
+			// Following is more efficient than LookupIP, as we return as soon as we
+			// find an IP address.
+			var ip net.IP
+			for _, qType := range qTypes {
 				msg := new(dns.Msg).SetQuestion(fqdn, qType)
 				resp, _, err := dnsClient.ExchangeContext(ctx, msg, r.backendServer)
 				if err != nil {
@@ -310,16 +212,19 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 					switch qType {
 					case dns.TypeA:
 						if a, ok := ans.(*dns.A); ok {
-							ips = append(ips, a.A)
+							ip = a.A
 						}
 					case dns.TypeAAAA:
 						if aaaa, ok := ans.(*dns.AAAA); ok {
-							ips = append(ips, aaaa.AAAA)
+							ip = aaaa.AAAA
 						}
+					}
+					if ip != nil {
+						return []net.IP{ip}, nil
 					}
 				}
 			}
-			return ips, nil
+			return nil, fmt.Errorf("no IPs found for %s", host)
 		}
 	}
 }
@@ -370,8 +275,8 @@ func GetResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]O
 // New returns a new Resolver.
 func New(opts ...Option) *resolverImpl {
 	r := &resolverImpl{
-		cache:          make(map[string]*cacheRecord),
-		resolve:        defaultResolverFunc,
+		cache:          make(map[cacheRecordKey]*cacheRecord),
+		resolveFunc:    defaultResolverFunc,
 		ttl:            defaultMaxAge,
 		resolveTimeout: defaultResolveTimeout,
 	}
