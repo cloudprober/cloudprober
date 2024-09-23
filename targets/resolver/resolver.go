@@ -304,11 +304,15 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 					return nil, err
 				}
 				for _, ans := range resp.Answer {
-					switch a := ans.(type) {
-					case *dns.A:
-						ips = append(ips, a.A)
-					case *dns.AAAA:
-						ips = append(ips, a.AAAA)
+					switch qType {
+					case dns.TypeA:
+						if a, ok := ans.(*dns.A); ok {
+							ips = append(ips, a.A)
+						}
+					case dns.TypeAAAA:
+						if aaaa, ok := ans.(*dns.AAAA); ok {
+							ips = append(ips, aaaa.AAAA)
+						}
 					}
 				}
 			}
