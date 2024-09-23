@@ -14,13 +14,13 @@
 
 //go:build !linux
 
-package external
+package command
 
 import (
 	"context"
 	"os/exec"
 )
 
-func (p *Probe) runCommand(_ context.Context, c *exec.Cmd) error {
-	return c.Run()
+func runCommand(_ context.Context, cmd *exec.Cmd) error {
+	return cmd.Run()
 }
