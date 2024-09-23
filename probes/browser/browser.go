@@ -98,7 +98,8 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric(opts.LatencyMetricName, prr.latency.Clone())
+		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
+		AddLabel("ptype", "browser")
 
 	if prr.validationFailure != nil {
 		em.AddMetric("validation_failure", prr.validationFailure)
@@ -236,7 +237,7 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 
 	outputDir := filepath.Join(p.workdir, target.Name, fmt.Sprintf("%d_%d", runID, time.Now().Unix()))
 
-	cmdParts := []string{
+	cmdLine := []string{
 		"npx",
 		"playwright",
 		"test",
@@ -245,7 +246,7 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		"--reporter=" + p.reporterPath,
 	}
 	cmd := command.Command{
-		CmdLine: cmdParts,
+		CmdLine: cmdLine,
 		WorkDir: p.c.GetPlaywrightDir(),
 		EnvVars: []string{fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules"))},
 	}
