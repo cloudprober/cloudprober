@@ -30,12 +30,12 @@ type retryableError struct {
 }
 
 type cacheRecord struct {
+	mu               sync.RWMutex
 	name             string
 	version          ipVersion
 	ip               net.IP
-	lastUpdatedAt    time.Time
 	err              error
-	mu               sync.RWMutex
+	lastUpdatedAt    time.Time
 	updateInProgress bool
 	callInit         sync.Once
 }

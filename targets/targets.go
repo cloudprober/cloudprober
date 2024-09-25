@@ -328,7 +328,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		return nil, fmt.Errorf("targets.New(): error creating resolver: %v", err)
 	}
 	if len(opts) > 0 {
-		t.resolver = dnsRes.New(opts...)
+		t.resolver = dnsRes.New(append(opts, dnsRes.WithLogger(l))...)
 	}
 
 	switch targetsDef.Type.(type) {
