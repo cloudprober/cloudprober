@@ -35,8 +35,8 @@ import (
 
 // The max age and the timeout for resolving a target.
 const (
-	defaultMaxAge         = 5 * time.Minute
-	defaultResolveTimeout = 30 * time.Second
+	defaultMaxAge         = time.Duration(targetspb.Default_DNSOptions_TtlSec) * time.Second
+	defaultResolveTimeout = time.Duration(targetspb.Default_DNSOptions_BackendTimeoutMsec) * time.Millisecond
 )
 
 type ipVersion uint8
@@ -87,7 +87,7 @@ func (r *resolverImpl) resolveOrTimeout(name string, version ipVersion) ([]net.I
 			slog.String("backend_server", r.backendServer),
 			slog.String("backend_network", r.backendNetwork),
 		}
-		r.l.WarningAttrs("Resolve Error", attrs...)
+		r.l.WarningAttrs("Resolve Error: "+err.Error(), attrs...)
 	}
 	return ips, err
 }
@@ -188,6 +188,11 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 		r.resolveFunc = func(ctx context.Context, network, host string) ([]net.IP, error) {
 			fqdn := dns.Fqdn(host)
 			dnsClient := &dns.Client{Net: r.backendNetwork}
+			conn, err := dnsClient.DialContext(ctx, r.backendServer)
+			if err != nil {
+				return nil, err
+			}
+			defer conn.Close()
 
 			// This immitates the behavior of net.DefaultResolver.LookupIP,
 			// which queries both A and AAAA records for a given host if network
@@ -204,7 +209,7 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 			var ip net.IP
 			for _, qType := range qTypes {
 				msg := new(dns.Msg).SetQuestion(fqdn, qType)
-				resp, _, err := dnsClient.ExchangeContext(ctx, msg, r.backendServer)
+				resp, _, err := dnsClient.ExchangeWithConnContext(ctx, msg, conn)
 				if err != nil {
 					return nil, err
 				}
@@ -229,10 +234,16 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 	}
 }
 
+func WithLogger(l *logger.Logger) Option {
+	return func(r *resolverImpl) {
+		r.l = l
+	}
+}
+
 func GetResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]Option, error) {
 	dopts := targetsDef.GetDnsOptions()
 
-	server, ttlSec, maxCacheAge, timeout := dopts.GetServer(), dopts.GetTtlSec(), dopts.GetMaxCacheAgeSec(), dopts.GetBackendTimeoutMsec()
+	server := dopts.GetServer()
 	if targetsDef.GetDnsServer() != "" {
 		l.Warningf("dns_server is now deprecated. please use dns_options.server instead")
 
@@ -245,10 +256,12 @@ func GetResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]O
 
 	var opts []Option
 
-	if ttlSec != targetspb.Default_DNSOptions_TtlSec {
+	ttlSec := dopts.GetTtlSec()
+	if ttlSec != int32(defaultMaxAge.Seconds()) {
 		opts = append(opts, WithTTL(time.Duration(ttlSec)*time.Second))
 	}
 
+	maxCacheAge := dopts.GetMaxCacheAgeSec()
 	if maxCacheAge != 0 {
 		if maxCacheAge < ttlSec {
 			return nil, fmt.Errorf("max_cache_age (%d) must be >= ttl_sec (%d)", maxCacheAge, ttlSec)
@@ -265,8 +278,8 @@ func GetResolverOptions(targetsDef *targetspb.TargetsDef, l *logger.Logger) ([]O
 		opts = append(opts, WithDNSServer(network, address))
 	}
 
-	if timeout != targetspb.Default_DNSOptions_BackendTimeoutMsec {
-		opts = append(opts, WithResolveTimeout(time.Duration(timeout)*time.Millisecond))
+	if dopts.GetBackendTimeoutMsec() != int32(defaultResolveTimeout.Milliseconds()) {
+		opts = append(opts, WithResolveTimeout(time.Duration(dopts.GetBackendTimeoutMsec())*time.Millisecond))
 	}
 
 	return opts, nil
@@ -279,6 +292,7 @@ func New(opts ...Option) *resolverImpl {
 		resolveFunc:    defaultResolverFunc,
 		ttl:            defaultMaxAge,
 		resolveTimeout: defaultResolveTimeout,
+		l:              logger.NewWithAttrs(slog.String("component", "global-resolver")),
 	}
 
 	for _, opt := range opts {
