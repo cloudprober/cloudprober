@@ -53,8 +53,6 @@ var (
 	validLabelRe = regexp.MustCompile(`@(target|address|port|probe|target.(name|ip|port)|target\.label\.[^@]+)@`)
 )
 
-const maxScannerTokenSize = 256 * 1024
-
 type result struct {
 	total, success    int64
 	latency           metrics.LatencyValue
@@ -64,7 +62,6 @@ type result struct {
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name    string
-	mode    string
 	cmdName string
 	cmdArgs []string
 	envVars []string
@@ -148,15 +145,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// Figure out labels we are interested in
 	p.updateLabelKeys()
 
-	switch p.c.GetMode() {
-	case configpb.ProbeConf_ONCE:
-		p.mode = "once"
-	case configpb.ProbeConf_SERVER:
-		p.mode = "server"
-	default:
-		return fmt.Errorf("invalid mode: %s", p.c.GetMode())
-	}
-
 	p.results = make(map[string]*result)
 
 	if !p.c.GetOutputAsMetrics() {
@@ -165,6 +153,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	omo := p.c.GetOutputMetricsOptions()
 	if omo.GetMetricsKind() == payloadpb.OutputMetricsOptions_UNDEFINED && p.c.GetMode() == configpb.ProbeConf_SERVER {
+		if omo == nil {
+			omo = &payloadpb.OutputMetricsOptions{}
+		}
 		omo.MetricsKind = payloadpb.OutputMetricsOptions_CUMULATIVE.Enum()
 	}
 	p.payloadParser, err = payload.NewParser(omo, p.l)
@@ -336,7 +327,7 @@ func (p *Probe) runProbe(startCtx context.Context) {
 
 	p.updateTargets()
 
-	if p.mode == "server" {
+	if p.c.GetMode() == configpb.ProbeConf_SERVER {
 		p.runServerProbe(probeCtx, startCtx)
 	} else {
 		p.runOnceProbe(probeCtx)
