@@ -140,7 +140,7 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 
 	p.cmdArgs = append([]string{"-test.run=TestShellProcessSuccess", "--", p.cmdName}, p.cmdArgs...)
 	p.cmdName = os.Args[0]
-	p.mode = "once"
+	p.c.Mode = configpb.ProbeConf_ONCE.Enum()
 	p.c.DisableStreamingOutputMetrics = proto.Bool(disableStreaming)
 	// We don't rely on timeout but give process enough time to finish,
 	// especially for CI.
@@ -759,4 +759,92 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(status)
+}
+
+func TestProbeInit(t *testing.T) {
+	var tests = []struct {
+		name      string
+		opts      *options.Options
+		wantErr   bool
+		wantProbe *Probe
+	}{
+		{
+			name: "no-command",
+			opts: &options.Options{
+				Targets: targets.StaticTargets("localhost"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid-command",
+			opts: &options.Options{
+				ProbeConf: &configpb.ProbeConf{
+					Command: proto.String("./testCommand --flag1 one --flag23 \"two three\""),
+				},
+			},
+			wantErr: false,
+			wantProbe: &Probe{
+				cmdName: "./testCommand",
+				cmdArgs: []string{"--flag1", "one", "--flag23", "two three"},
+			},
+		},
+		{
+			name: "valid-command-server-mode",
+			opts: &options.Options{
+				ProbeConf: &configpb.ProbeConf{
+					Command: proto.String("./testCommand --flag1 one --flag23 \"two three\""),
+					Mode:    configpb.ProbeConf_SERVER.Enum(),
+				},
+			},
+			wantErr: false,
+			wantProbe: &Probe{
+				cmdName: "./testCommand",
+				cmdArgs: []string{"--flag1", "one", "--flag23", "two three"},
+			},
+		},
+		{
+			name: "bad-command",
+			opts: &options.Options{
+				ProbeConf: &configpb.ProbeConf{
+					Command: proto.String("./testCommand --flag1 one --flag23 \"two three"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "output-metrics-disabled",
+			opts: &options.Options{
+				ProbeConf: &configpb.ProbeConf{
+					Command:         proto.String("./testCommand --flag1 one --flag23 \"two three\""),
+					OutputAsMetrics: proto.Bool(false),
+				},
+			},
+			wantErr: false,
+			wantProbe: &Probe{
+				cmdName: "./testCommand",
+				cmdArgs: []string{"--flag1", "one", "--flag23", "two three"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{}
+			err := p.Init("testprobe", tt.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Init() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if tt.wantProbe == nil {
+				return
+			}
+			wantPayloadParser := tt.opts.ProbeConf.(*configpb.ProbeConf).GetOutputAsMetrics()
+			assert.Equal(t, tt.wantProbe.cmdName, p.cmdName)
+			assert.Equal(t, tt.wantProbe.cmdArgs, p.cmdArgs)
+			assert.Equal(t, wantPayloadParser, p.payloadParser != nil)
+		})
+	}
+
 }

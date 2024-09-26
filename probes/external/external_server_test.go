@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics/testutils"
+	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
 	"github.com/stretchr/testify/assert"
@@ -127,7 +128,7 @@ func testProbeServerSetup(t *testing.T, ctx context.Context, readErrorCh chan er
 	p.cmdRunning = true // don't try to start the probe server
 	p.cmdStdin = w1
 	p.cmdStdout = r2
-	p.mode = "server"
+	p.c.Mode = configpb.ProbeConf_SERVER.Enum()
 
 	// Start the goroutine that reads probe replies.
 	go func() {
