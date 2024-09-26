@@ -67,8 +67,9 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 	}
 }
 
-func createTestProbe(cmd string, envVar map[string]string) *Probe {
+func createTestProbe(cmd string, envVar map[string]string, mode configpb.ProbeConf_Mode) *Probe {
 	probeConf := &configpb.ProbeConf{
+		Mode: mode.Enum(),
 		Options: []*configpb.ProbeConf_Option{
 			{
 				Name:  proto.String("action"),
@@ -136,7 +137,7 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 	p := createTestProbe(cmd, map[string]string{
 		"GO_CP_TEST_PROCESS":   "1",
 		"GO_CP_TEST_PIDS_FILE": pidsFile,
-	})
+	}, configpb.ProbeConf_ONCE)
 
 	p.cmdArgs = append([]string{"-test.run=TestShellProcessSuccess", "--", p.cmdName}, p.cmdArgs...)
 	p.cmdName = os.Args[0]
@@ -547,7 +548,7 @@ func TestProcessProbeResult(t *testing.T) {
 }
 
 func TestCommandParsing(t *testing.T) {
-	p := createTestProbe("./test-command --flag1 one --flag23 \"two three\"", nil)
+	p := createTestProbe("./test-command --flag1 one --flag23 \"two three\"", nil, configpb.ProbeConf_ONCE)
 
 	wantCmdName := "./test-command"
 	if p.cmdName != wantCmdName {
@@ -690,7 +691,7 @@ func TestProbeStartCmdIfNotRunning(t *testing.T) {
 			p := createTestProbe("/testCommand", map[string]string{
 				"GO_CP_TEST_PROCESS": "1",
 				"GO_CP_TEST_PAUSE":   strconv.Itoa(test.pauseSec),
-			})
+			}, configpb.ProbeConf_ONCE)
 
 			p.cmdName = os.Args[0]
 			p.cmdArgs = []string{"-test.run=TestShellProcessSuccess"}

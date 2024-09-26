@@ -53,8 +53,6 @@ var (
 	validLabelRe = regexp.MustCompile(`@(target|address|port|probe|target.(name|ip|port)|target\.label\.[^@]+)@`)
 )
 
-const maxScannerTokenSize = 256 * 1024
-
 type result struct {
 	total, success    int64
 	latency           metrics.LatencyValue
