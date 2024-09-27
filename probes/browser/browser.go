@@ -22,12 +22,15 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"text/template"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -52,6 +55,7 @@ type Probe struct {
 	// book-keeping params
 	targets              []endpoint.Endpoint
 	workdir              string
+	outputDir            string
 	playwrightConfigPath string
 	reporterPath         string
 	payloadParser        *payload.Parser
@@ -157,6 +161,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 		p.workdir = d
 	}
+	p.outputDir = filepath.Join(p.workdir, "output")
 
 	if !p.c.GetTestMetricsOptions().GetDisableTestMetrics() {
 		omo := &payload_configpb.OutputMetricsOptions{}
@@ -220,6 +225,19 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.reporterPath = reporterPath
 
+	if p.c.GetArtifactsOptions().GetServeOnWeb() {
+		httpServerMux := runconfig.DefaultHTTPServeMux()
+		if httpServerMux == nil {
+			return fmt.Errorf("default http server mux is not initialized")
+		}
+		webServerPath := p.c.GetArtifactsOptions().GetWebServerPath()
+		if webServerPath == "" {
+			webServerPath = "/artifacts/" + p.name
+		}
+		fileServer := http.FileServer(http.Dir(p.outputDir))
+		httpServerMux.Handle(webServerPath+"/", http.StripPrefix(webServerPath, fileServer))
+	}
+
 	return nil
 }
 
@@ -235,16 +253,22 @@ func (p *Probe) generateRunID(target endpoint.Endpoint) int64 {
 func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
 	runID := p.generateRunID(target)
 
-	outputDir := filepath.Join(p.workdir, target.Name, fmt.Sprintf("%d_%d", runID, time.Now().Unix()))
+	nowUTC := time.Now().UTC()
+	outputDirPath := []string{p.outputDir, nowUTC.Format("2006-01-02")}
+	if target.Name != "" {
+		outputDirPath = append(outputDirPath, target.Name)
+	}
+	outputDirPath = append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))
 
 	cmdLine := []string{
 		"npx",
 		"playwright",
 		"test",
 		"--config=" + p.playwrightConfigPath,
-		"--output=" + outputDir,
+		"--output=" + filepath.Join(outputDirPath...),
 		"--reporter=" + p.reporterPath,
 	}
+	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := command.Command{
 		CmdLine: cmdLine,
 		WorkDir: p.c.GetPlaywrightDir(),
