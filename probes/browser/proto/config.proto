@@ -10,6 +10,39 @@ message TestMetricsOptions {
     optional bool enable_step_metrics = 3;
 }
 
+// S3 storage backend configuration.
+message S3 {
+    optional string bucket = 1;
+    optional string path = 2;
+    optional string region = 3;
+    optional string access_key_id = 4;
+    optional string secret_access_key = 5;
+    optional string endpoint = 6;
+}
+
+message Storage {
+    oneof storage {
+        string local_dir = 1;
+        S3 s3 = 2;
+    }
+}
+
+message ArtifactsOptions {
+    // Serve test artifacts on Cloudprober's default webserver. This is
+    // disabled by default for security reasons.
+    optional bool serve_on_web = 1;
+
+    // Specify web server path to serve test artifacts on.
+    // Default is "/artifacts/<probename>".
+    optional string web_server_path = 2;
+
+    // Storage for test artifacts. Note that test artifacts are always
+    // written to the workdir first, and uploaded to the storage backend in a
+    // parallel goroutine. This is to make sure that uploads don't block the
+    // main probe execution.
+    repeated Storage storage = 3;
+}
+
 message ProbeConf {
     // Path to the playwright test spec file. We'll search for it in the the
     // current working directory and the workdir directory.
@@ -20,7 +53,7 @@ message ProbeConf {
 
     // Workdir is path to the working directory. It should be writable. If not
     // specified, we try to create a temporary directory. All the output files
-    // and reports are stored under <workdir>/output/<runid_timestamp>.
+    // and reports are stored under <workdir>/output/.
     // If you need to be able access the output files, you should set this 
     // field to a persistent location, e.g. a persistent volume.
     optional string workdir = 3;
@@ -40,6 +73,9 @@ message ProbeConf {
     // By default, we export all test metrica as counters. You can change how
     // metrics are exported by setting the following options.
     optional TestMetricsOptions test_metrics_options = 7;
+
+    // Artifacts options.
+    optional ArtifactsOptions artifacts_options = 8;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and
