@@ -204,10 +204,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
 		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
 	}
-	if p.c.GetEnableScreenshotsForSuccess() {
+	if p.c.GetSaveScreenshotsForSuccess() {
 		data.Screenshot = "on"
 	}
-	if p.c.GetEnableTraces() {
+	if p.c.GetSaveTraces() {
 		data.Trace = "on"
 	}
 
@@ -250,22 +250,28 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	if target.Name != "" {
 		outputDirPath = append(outputDirPath, target.Name)
 	}
-	outputDirPath = append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))
-	outputFlag := filepath.Join(outputDirPath...)
+	outputDir := filepath.Join(append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))...)
+	reportDir := filepath.Join(outputDir, "report")
+
+	envVars := []string{
+		fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules")),
+		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
+		"PLAYWRIGHT_HTML_OPEN=never",
+	}
 
 	cmdLine := []string{
 		"npx",
 		"playwright",
 		"test",
 		"--config=" + p.playwrightConfigPath,
-		"--output=" + outputFlag,
-		"--reporter=" + p.reporterPath,
+		"--output=" + filepath.Join(outputDir, "results"),
+		"--reporter=html," + p.reporterPath,
 	}
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := command.Command{
 		CmdLine: cmdLine,
 		WorkDir: p.c.GetPlaywrightDir(),
-		EnvVars: []string{fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules"))},
+		EnvVars: envVars,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
 		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
@@ -280,7 +286,7 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	startTime := time.Now()
 	_, err := cmd.Execute(ctx, p.l)
 
-	p.artifactsHandler.handle(outputFlag)
+	p.artifactsHandler.handle(reportDir)
 
 	if err != nil {
 		p.l.Errorf("error running playwright test: %v", err)
