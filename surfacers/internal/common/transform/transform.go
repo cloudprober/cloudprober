@@ -57,6 +57,7 @@ func CumulativeToGauge(em *metrics.EventMetrics, lvCache map[string]*metrics.Eve
 
 	// If it is the first time for this EventMetrics, return it as it is.
 	if !ok {
+		em.Kind = metrics.GAUGE
 		return em, nil
 	}
 
@@ -65,5 +66,6 @@ func CumulativeToGauge(em *metrics.EventMetrics, lvCache map[string]*metrics.Eve
 		return nil, fmt.Errorf("error subtracting cached metrics from current metrics: %v", err)
 	}
 
+	gaugeEM.Kind = metrics.GAUGE
 	return gaugeEM, nil
 }
