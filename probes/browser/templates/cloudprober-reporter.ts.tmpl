@@ -34,7 +34,7 @@ class CloudproberReporter implements Reporter {
 
   onStepEnd(test: TestCase, result: TestResult, step: TestStep) {
     if (step.category === 'test.step') {
-      if (step.error !== null) {
+      if (result.status !== "passed" && result.status !== "skipped") {
         warning(`Test step "${step.title}" of test "${test.title}" failed with error: ${JSON.stringify(step.error)}`);
       }
       {{- if .EnableStepMetrics }}
@@ -47,7 +47,7 @@ class CloudproberReporter implements Reporter {
   }
   
   onTestEnd(test: TestCase, result: TestResult) {
-    if (result.status !== "passed") {
+    if (result.status !== "passed" && result.status !== "skipped") {
       warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
     }
     {{ if not .DisableTestMetrics }}

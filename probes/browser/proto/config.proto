@@ -64,11 +64,11 @@ message ProbeConf {
     // Whether to enable screenshots for successful tests as well.
     // Note that screenshots are always enabled for failed tests, and you can
     // always save screenshots explicitly in the test spec.
-    optional bool enable_screenshots_for_success = 5 [default = false];
+    optional bool save_screenshots_for_success = 5 [default = false];
 
     // Traces are expensive and can slow down the test. We recommend to enable
     // this only when needed.
-    optional bool enable_traces = 6 [default = false];
+    optional bool save_traces = 6 [default = false];
 
     // By default, we export all test metrica as counters. You can change how
     // metrics are exported by setting the following options.
