@@ -22,7 +22,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -30,7 +29,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -60,6 +58,7 @@ type Probe struct {
 	reporterPath         string
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
+	artifactsHandler     *artifactsHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
@@ -205,10 +204,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
 		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
 	}
-	if p.c.GetEnableScreenshotsForSuccess() {
+	if p.c.GetSaveScreenshotsForSuccess() {
 		data.Screenshot = "on"
 	}
-	if p.c.GetEnableTraces() {
+	if p.c.GetSaveTraces() {
 		data.Trace = "on"
 	}
 
@@ -225,18 +224,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.reporterPath = reporterPath
 
-	if p.c.GetArtifactsOptions().GetServeOnWeb() {
-		httpServerMux := runconfig.DefaultHTTPServeMux()
-		if httpServerMux == nil {
-			return fmt.Errorf("default http server mux is not initialized")
-		}
-		webServerPath := p.c.GetArtifactsOptions().GetWebServerPath()
-		if webServerPath == "" {
-			webServerPath = "/artifacts/" + p.name
-		}
-		fileServer := http.FileServer(http.Dir(p.outputDir))
-		httpServerMux.Handle(webServerPath+"/", http.StripPrefix(webServerPath, fileServer))
+	ah, err := initArtifactsHandler(p.c.GetArtifactsOptions(), p.name, p.outputDir, p.l)
+	if err != nil {
+		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
 	}
+	p.artifactsHandler = ah
 
 	return nil
 }
@@ -258,21 +250,28 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	if target.Name != "" {
 		outputDirPath = append(outputDirPath, target.Name)
 	}
-	outputDirPath = append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))
+	outputDir := filepath.Join(append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))...)
+	reportDir := filepath.Join(outputDir, "report")
+
+	envVars := []string{
+		fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules")),
+		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
+		"PLAYWRIGHT_HTML_OPEN=never",
+	}
 
 	cmdLine := []string{
 		"npx",
 		"playwright",
 		"test",
 		"--config=" + p.playwrightConfigPath,
-		"--output=" + filepath.Join(outputDirPath...),
-		"--reporter=" + p.reporterPath,
+		"--output=" + filepath.Join(outputDir, "results"),
+		"--reporter=html," + p.reporterPath,
 	}
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := command.Command{
 		CmdLine: cmdLine,
 		WorkDir: p.c.GetPlaywrightDir(),
-		EnvVars: []string{fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules"))},
+		EnvVars: envVars,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
 		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
@@ -286,6 +285,9 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 
 	startTime := time.Now()
 	_, err := cmd.Execute(ctx, p.l)
+
+	p.artifactsHandler.handle(reportDir)
+
 	if err != nil {
 		p.l.Errorf("error running playwright test: %v", err)
 		return
