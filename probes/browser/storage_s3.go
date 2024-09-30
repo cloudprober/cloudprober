@@ -35,8 +35,17 @@ type s3Storage struct {
 }
 
 func initS3(ctx context.Context, s3config *configpb.S3, l *logger.Logger) (*s3Storage, error) {
+	region := s3config.GetRegion()
+	if region == "" && os.Getenv("AWS_REGION") != "" {
+		region = os.Getenv("AWS_REGION")
+	}
+
+	if region == "" {
+		return nil, fmt.Errorf("region is required for S3 storage, either set it in the config or in the environment variable AWS_REGION")
+	}
+
 	opts := []func(*config.LoadOptions) error{
-		config.WithRegion(s3config.GetRegion()),
+		config.WithRegion(region),
 	}
 
 	if s3config.GetAccessKeyId() != "" && s3config.GetSecretAccessKey() != "" {
