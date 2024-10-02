@@ -698,6 +698,9 @@ func TestGetTransport(t *testing.T) {
 			assert.Equal(t, !test.disableHTTP2, transport.ForceAttemptHTTP2)
 
 			if test.disableHTTP2 {
+				if transport.TLSClientConfig != nil {
+					assert.Empty(t, transport.TLSClientConfig.NextProtos)
+				}
 				assert.NotNil(t, transport.TLSNextProto)
 				assert.Empty(t, transport.TLSNextProto)
 			} else {
