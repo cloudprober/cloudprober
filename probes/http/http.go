@@ -106,6 +106,7 @@ type probeResult struct {
 func (p *Probe) getTransport() (*http.Transport, error) {
 	transport := &http.Transport{
 		Proxy:             http.ProxyFromEnvironment,
+		TLSClientConfig:   &tls.Config{},
 		ForceAttemptHTTP2: true,
 	}
 	dialer := &net.Dialer{
