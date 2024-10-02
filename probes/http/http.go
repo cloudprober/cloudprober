@@ -165,7 +165,8 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 	if p.c.GetDisableHttp2() {
 		// HTTP/2 is enabled by default if server supports it. Setting
 		// TLSNextProto to an empty dict is the only way to disable it.
-		// This only works if transport hasn't been previously cloned. See https://github.com/cloudprober/cloudprober/issues/872
+		// This only works if transport hasn't been previously cloned.
+		// See https://github.com/cloudprober/cloudprober/issues/872
 		transport.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
 		transport.ForceAttemptHTTP2 = false
 	}
