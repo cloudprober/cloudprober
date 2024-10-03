@@ -59,6 +59,7 @@ type Probe struct {
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
 	artifactsHandler     *artifactsHandler
+	cleanupHandler       *cleanupHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
@@ -230,6 +231,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.artifactsHandler = ah
 
+	if p.c.GetWorkdirCleanupOptions() != nil {
+		ch, err := newCleanupHandler(p.c.GetWorkdirCleanupOptions(), p.l)
+		if err != nil {
+			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
+		}
+		p.cleanupHandler = ch
+	}
+
 	return nil
 }
 
@@ -341,6 +350,11 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+
+	if p.cleanupHandler != nil {
+		go p.cleanupHandler.start(ctx, p.outputDir)
+	}
+
 	p.dataChan = dataChan
 
 	s := &sched.Scheduler{
