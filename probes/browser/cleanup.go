@@ -55,6 +55,33 @@ func newCleanupHandler(opts *configpb.CleanupOptions, l *logger.Logger) (*cleanu
 	return ch, nil
 }
 
+func (ch *cleanupHandler) cleanupCycle(dir string) {
+	oldestTime := time.Now().Add(-ch.maxAge)
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			// We ignore errors as we may delete parent directory before
+			// deleting its children, which will cause errors.
+			return nil
+		}
+		if path == dir {
+			return nil
+		}
+		if info.ModTime().Before(oldestTime) {
+			if info.IsDir() {
+				if err := os.RemoveAll(path); err != nil {
+					ch.l.Warningf("cleanupHandler: error cleaning up directory %s: %v", path, err)
+				}
+				return nil
+			}
+			if err := os.Remove(path); err != nil {
+				ch.l.Warningf("cleanupHandler: error cleaning up file %s: %v", path, err)
+			}
+			return nil
+		}
+		return nil
+	})
+}
+
 func (ch *cleanupHandler) start(ctx context.Context, dir string) {
 	ticker := time.NewTicker(ch.interval)
 	for ; true; <-ticker.C {
@@ -66,28 +93,6 @@ func (ch *cleanupHandler) start(ctx context.Context, dir string) {
 		}
 
 		ch.l.Infof("cleanupHandler: starting cleanup for %s", dir)
-
-		oldestTime := time.Now().Add(-ch.maxAge)
-		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return nil
-			}
-			if path == dir {
-				return nil
-			}
-			if info.ModTime().Before(oldestTime) {
-				if info.IsDir() {
-					if err := os.RemoveAll(path); err != nil {
-						ch.l.Warningf("cleanupHandler: error cleaning up directory %s: %v", path, err)
-					}
-					return nil
-				}
-				if err := os.Remove(path); err != nil {
-					ch.l.Warningf("cleanupHandler: error cleaning up file %s: %v", path, err)
-				}
-				return nil
-			}
-			return nil
-		})
+		ch.cleanupCycle(dir)
 	}
 }
