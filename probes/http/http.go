@@ -288,20 +288,28 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 	trace := &httptrace.ClientTrace{}
 
 	if lb := result.latencyBreakdown; lb != nil {
+
+		var dnsStart, connectStart, tlsStart, writeStart, firstbyteStart time.Time
+
 		if lb.dnsLatency != nil {
-			trace.DNSDone = func(_ httptrace.DNSDoneInfo) { p.addLatency(lb.dnsLatency, start) }
+			trace.DNSStart = func(_ httptrace.DNSStartInfo) { dnsStart = time.Now() }
+			trace.DNSDone = func(_ httptrace.DNSDoneInfo) { p.addLatency(lb.dnsLatency, dnsStart) }
 		}
 		if lb.connectLatency != nil {
-			trace.ConnectDone = func(_, _ string, _ error) { p.addLatency(lb.connectLatency, start) }
+			trace.ConnectStart = func(_, _ string) { connectStart = time.Now() }
+			trace.ConnectDone = func(_, _ string, _ error) { p.addLatency(lb.connectLatency, connectStart) }
 		}
 		if lb.tlsLatency != nil {
-			trace.TLSHandshakeDone = func(_ tls.ConnectionState, _ error) { p.addLatency(lb.tlsLatency, start) }
+			trace.TLSHandshakeStart = func() { tlsStart = time.Now() }
+			trace.TLSHandshakeDone = func(_ tls.ConnectionState, _ error) { p.addLatency(lb.tlsLatency, tlsStart) }
 		}
 		if lb.reqWriteLatency != nil {
-			trace.WroteRequest = func(_ httptrace.WroteRequestInfo) { p.addLatency(lb.reqWriteLatency, start) }
+			trace.WroteHeaders = func() { writeStart = time.Now() }
+			trace.WroteRequest = func(_ httptrace.WroteRequestInfo) { p.addLatency(lb.reqWriteLatency, writeStart) }
 		}
 		if lb.firstByteLatency != nil {
-			trace.GotFirstResponseByte = func() { p.addLatency(lb.firstByteLatency, start) }
+			trace.GotConn = func(_ httptrace.GotConnInfo) { firstbyteStart = time.Now() }
+			trace.GotFirstResponseByte = func() { p.addLatency(lb.firstByteLatency, firstbyteStart) }
 		}
 	}
 
