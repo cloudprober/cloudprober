@@ -1,0 +1,38 @@
+# Docker image built using this can executed in the following manner:
+#   docker run --net host -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
+#                         cloudprober/cloudprober
+
+FROM busybox as temp
+
+COPY cloudprober-linux-* ./
+
+ARG TARGETPLATFORM
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+  mv cloudprober-linux-amd64 cloudprober && rm cloudprober-linux-*; fi
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+  mv cloudprober-linux-arm64 cloudprober && rm cloudprober-linux-*; fi
+RUN rm -f cloudprober-linux-*
+
+FROM node:22-bookworm-slim
+
+# Build playwright
+COPY probes/browser/package*.json .
+RUN npm i && rm -rf /root/.npm
+ENV PLAYWRIGHT_BROWSERS_PATH=0
+RUN npx -y playwright install --with-deps chromium
+
+COPY --from=temp /cloudprober /cloudprober
+RUN chmod +x /cloudprober
+
+# Metadata params
+ARG BUILD_DATE
+ARG VCS_REF
+# Metadata
+LABEL org.label-schema.build-date=$BUILD_DATE \
+  org.label-schema.name="Cloudprober" \
+  org.label-schema.vcs-url="https://github.com/cloudprober/cloudprober" \
+  org.label-schema.vcs-ref=$VCS_REF \
+  org.label-schema.version=$VERSION \
+  com.microscaling.license="Apache-2.0"
+
+ENTRYPOINT ["/cloudprober"]
