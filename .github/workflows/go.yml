@@ -190,7 +190,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        binary_type: [regular, fips]
+        image_type: [regular, fips, playwright]
 
     steps:
       - name: Check out code into the Go module directory
@@ -236,22 +236,28 @@ jobs:
           chmod a+rx cloudprober cloudprober-*
 
       - name: Build and push release Docker Image (main)
-        if: ${{ matrix.binary_type == 'regular' }}
+        if: ${{ matrix.image_type == 'regular' }}
         run: |
           make docker_multiarch
           make docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
 
       - name: Build and push release Docker Image (contrib)
-        if: ${{ matrix.binary_type == 'regular' }}
+        if: ${{ matrix.image_type == 'regular' }}
         run: |
           make -C contrib docker_multiarch
           make -C contrib docker_multiarch DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober-contrib
 
       - name: Build and push release Docker Image (main)
-        if: ${{ matrix.binary_type == 'fips' }}
+        if: ${{ matrix.image_type == 'fips' }}
         run: |
           make docker_multiarch_fips
           make docker_multiarch_fips DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
+
+      - name: Build and push release Docker Image
+        if: ${{ matrix.image_type == 'playwright' }}
+        run: |
+          make docker_multiarch_pw
+          make docker_multiarch_pw DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
 
   pre-release:
     name: Upload pre-release binaries
