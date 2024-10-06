@@ -7,6 +7,7 @@ GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
 BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
+DOCKER_BUILD_ARGS ?= --build-arg BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") --build-arg VERSION=$(VERSION) --build-arg VCS_REF=$(GIT_COMMIT)
 SOURCES := $(shell find . -name '*.go')
 LDFLAGS ?= "-s -w -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) -X main.dirty=$(DIRTY) -extldflags -static"
 BINARY_SOURCE ?= "./cmd/cloudprober/."
@@ -17,9 +18,11 @@ BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64
 ifeq "$(GIT_TAG)" ""
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):master -t $(DOCKER_IMAGE):main
 	DOCKER_FIPS_TAGS := -t $(DOCKER_IMAGE):master-fips -t $(DOCKER_IMAGE):main-fips
+	DOCKER_PW_TAGS := -t $(DOCKER_IMAGE):master-pw -t $(DOCKER_IMAGE):main-pw
 else
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG) -t $(DOCKER_IMAGE):latest
 	DOCKER_FIPS_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG)-fips -t $(DOCKER_IMAGE):latest-fips
+	DOCKER_PW_TAGS := -t $(DOCKER_IMAGE):$(GIT_TAG)-pw -t $(DOCKER_IMAGE):latest-pw
 endif
 
 define make-binary-target
@@ -39,20 +42,19 @@ $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) Dockerfile
-	docker buildx build --push \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
+	docker buildx build --push $(DOCKER_BUILD_ARGS) \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		$(DOCKER_TAGS) .
 
 docker_multiarch_fips: Dockerfile.fips
-	docker buildx build --push \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
+	docker buildx build --push $(DOCKER_BUILD_ARGS) \
 		--platform linux/amd64,linux/arm64 \
 		$(DOCKER_FIPS_TAGS) -f Dockerfile.fips .
+
+docker_multiarch_pw: Dockerfile.pw
+	docker buildx build --push $(DOCKER_BUILD_ARGS) \
+		--platform linux/amd64,linux/arm64 \
+		$(DOCKER_PW_TAGS) -f Dockerfile.pw .
 
 dist: $(BINARIES)
 	for bin in $(BINARIES) ; do \

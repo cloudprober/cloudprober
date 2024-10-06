@@ -1,0 +1,84 @@
+name: Go Build and Test for Browser
+on:
+  push:
+    branches:
+      - browser_dev
+jobs:
+  build-and-test:
+    name: Test and Build binaries
+    runs-on: ubuntu-latest
+    env:
+      PING_HOSTS_V4: 127.0.1.1,localhost
+      PING_HOSTS_V6: localhost
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+          cache: true
+        id: go
+
+      - name: Get dependencies
+        run: |
+          go get -v -t -d ./... && go build -v .
+
+      - name: Test
+        run: |
+          sudo sudo sysctl -w net.ipv4.ping_group_range="0 500000"
+          go install gotest.tools/gotestsum@latest
+          gotestsum --jsonfile=report.json --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic -coverprofile=cover.out
+
+      - run: make cloudprober-linux-{amd64,arm64}
+
+      - name: Upload cloudprober dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudprober-ubuntu-latest-dist
+          path: cloudprober-*
+
+  build_and_push_docker_multiarch_playwright:
+    name: Build and push docker image with playwright
+    if: |
+      github.repository == 'cloudprober/cloudprober' && github.ref == 'refs/heads/browser_dev'
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Download cloudprober binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudprober-ubuntu-latest-dist
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.docker_login }}
+          password: ${{ secrets.docker_pass }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push release Docker Image
+        run: |
+          make docker_multiarch_pw
+          make docker_multiarch_pw DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
