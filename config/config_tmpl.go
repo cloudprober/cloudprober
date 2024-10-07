@@ -139,7 +139,7 @@ func DefaultConfig() string {
 }
 
 // parseTemplate processes a config file as a Go text template.
-func parseTemplate(config string, sysVars map[string]string, getGCECustomMetadata func(string) (string, error)) (string, error) {
+func parseTemplate(config string, tmplVars map[string]any, getGCECustomMetadata func(string) (string, error)) (string, error) {
 	if getGCECustomMetadata == nil {
 		getGCECustomMetadata = readFromGCEMetadata
 	}
@@ -186,7 +186,7 @@ func parseTemplate(config string, sysVars map[string]string, getGCECustomMetadat
 		return "", err
 	}
 	var b bytes.Buffer
-	if err := configTmpl.Execute(&b, sysVars); err != nil {
+	if err := configTmpl.Execute(&b, tmplVars); err != nil {
 		return "", err
 	}
 	return b.String(), nil
