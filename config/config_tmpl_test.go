@@ -24,8 +24,8 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
-func testParse(config string, sysVars map[string]string) (*configpb.ProberConfig, error) {
-	textConfig, err := parseTemplate(config, sysVars, nil)
+func testParse(config string, tmplVars map[string]any) (*configpb.ProberConfig, error) {
+	textConfig, err := parseTemplate(config, tmplVars, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func TestParseTemplate(t *testing.T) {
 	tests := []struct {
 		desc        string
 		config      string
-		sysVars     map[string]string
+		tmplVars    map[string]any
 		wantProbes  []string
 		wantTargets []string
 		wantErrStr  string
@@ -58,7 +58,22 @@ func TestParseTemplate(t *testing.T) {
 				}
 				}
 			`,
-			sysVars:     map[string]string{"region": "testRegion"},
+			tmplVars:    map[string]any{"region": "testRegion"},
+			wantProbes:  []string{"vm-to-google-02-testRegion"},
+			wantTargets: []string{"host_names:\"www.google.com\""},
+		},
+		{
+			desc: "config-with-nested-tmpl-vars",
+			config: `
+				probe {
+				type: PING
+				name: "vm-to-google-{{.shard}}-{{.config.region}}"
+				targets {
+					host_names: "{{.config.targets}}"
+				}
+				}
+			`,
+			tmplVars:    map[string]any{"shard": "02", "config": map[string]string{"region": "testRegion", "targets": "www.google.com"}},
 			wantProbes:  []string{"vm-to-google-02-testRegion"},
 			wantTargets: []string{"host_names:\"www.google.com\""},
 		},
@@ -124,11 +139,11 @@ func TestParseTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if tt.sysVars == nil {
-				tt.sysVars = map[string]string{}
+			if tt.tmplVars == nil {
+				tt.tmplVars = map[string]any{}
 			}
 
-			cfg, err := testParse(tt.config, tt.sysVars)
+			cfg, err := testParse(tt.config, tt.tmplVars)
 			if err != nil {
 				if tt.wantErrStr == "" {
 					t.Errorf("Got unexpected error: %v", err)
@@ -161,7 +176,7 @@ probe {
   }
 }
 `
-	textConfig, err := parseTemplate(testConfig, map[string]string{}, func(key string) (string, error) {
+	textConfig, err := parseTemplate(testConfig, map[string]any{}, func(key string) (string, error) {
 		if key == "google-probe-name" {
 			return "google_dot_com_from", nil
 		}

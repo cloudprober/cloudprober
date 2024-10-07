@@ -51,7 +51,7 @@ const (
 	configMetadataKeyName = "cloudprober_config"
 )
 
-var configTestVars = map[string]string{
+var configTestVars = map[string]any{
 	"zone":              "us-central1-a",
 	"project":           "fake-domain.com:fake-project",
 	"project_id":        "12345678",
@@ -142,7 +142,7 @@ func readConfigFile(fileName string) (string, error) {
 	return final, err
 }
 
-func processConfigText(configStr, configFormat string, tmplData map[string]string, m protoreflect.ProtoMessage, l *logger.Logger) (string, error) {
+func processConfigText(configStr, configFormat string, tmplData map[string]any, m protoreflect.ProtoMessage, l *logger.Logger) (string, error) {
 	parsedConfig, err := parseTemplate(configStr, tmplData, nil)
 	if err != nil {
 		return "", fmt.Errorf("error parsing surfacers config file as Go template. Err: %v", err)

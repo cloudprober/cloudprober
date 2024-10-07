@@ -34,7 +34,7 @@ type ConfigSource interface {
 
 type Option func(ConfigSource) ConfigSource
 
-func WithBaseVars(vars map[string]string) Option {
+func WithBaseVars(vars map[string]any) Option {
 	return func(cs ConfigSource) ConfigSource {
 		dcs, ok := cs.(*defaultConfigSource)
 		if !ok {
@@ -59,7 +59,7 @@ func WithSurfacerConfig(sconfig string) Option {
 type defaultConfigSource struct {
 	FileName                string
 	SurfacersConfigFileName string
-	BaseVars                map[string]string
+	BaseVars                map[string]any
 	GetGCECustomMetadata    func(string) (string, error)
 	l                       *logger.Logger
 
@@ -100,7 +100,10 @@ func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 	}
 
 	if dcs.BaseVars == nil {
-		dcs.BaseVars = sysvars.Vars()
+		dcs.BaseVars = make(map[string]any, len(sysvars.Vars()))
+		for k, v := range sysvars.Vars() {
+			dcs.BaseVars[k] = v
+		}
 	}
 
 	if dcs.GetGCECustomMetadata == nil {

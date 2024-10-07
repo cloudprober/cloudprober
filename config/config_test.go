@@ -119,7 +119,7 @@ func TestConfigTest(t *testing.T) {
 		configFileFlag string
 		configFile     string
 		cs             ConfigSource
-		withBaseVars   map[string]string
+		withBaseVars   map[string]any
 		wantErr        bool
 	}{
 		{
@@ -143,14 +143,14 @@ func TestConfigTest(t *testing.T) {
 		{
 			name:       "valid_with_explicit_vars",
 			configFile: "testdata/cloudprober_invalid.cfg",
-			withBaseVars: map[string]string{
+			withBaseVars: map[string]any{
 				"probetype": "HTTP",
 			},
 		},
 		{
 			name: "valid_with_vars",
 			cs: &defaultConfigSource{
-				BaseVars: map[string]string{
+				BaseVars: map[string]any{
 					"probetype": "HTTP",
 				},
 			},
