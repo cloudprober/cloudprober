@@ -17,6 +17,7 @@ package sched
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/stretchr/testify/assert"
 )
 
 type testProbeResult struct {
@@ -104,6 +106,48 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 	ems, _ = testutils.MetricsFromChannel(s.DataChan, 100, time.Second)
 	wantCloseRange = false
 	compareNumberOfMetrics(t, ems, "total", testTargets, wantCloseRange)
+
+	cancelF()
+	s.Wait()
+}
+
+func TestRunProbeForTargetTimeout(t *testing.T) {
+	testTargets := [2]string{"test1.com", "test2.com"}
+
+	opts := &options.Options{
+		Targets:  targets.StaticTargets(strings.Join(testTargets[:], ",")),
+		Interval: 10 * time.Millisecond,
+		Timeout:  5 * time.Millisecond,
+	}
+
+	s := &Scheduler{
+		Opts:      opts,
+		DataChan:  make(chan *metrics.EventMetrics, 100),
+		NewResult: func(_ *endpoint.Endpoint) ProbeResult { return &testProbeResult{} },
+		RunProbeForTarget: func(ctx context.Context, ep endpoint.Endpoint, r ProbeResult) {
+			select {
+			case <-ctx.Done():
+				if ctx.Err() != context.DeadlineExceeded {
+					if ctx.Err() == context.Canceled {
+						t.Log("Probe canceled by the test")
+						return
+					}
+					t.Errorf("Probe did not timeout as expected")
+				}
+			case <-time.After(50 * time.Millisecond):
+				t.Errorf("Probe did not timeout as expected")
+			}
+		},
+	}
+	s.init()
+
+	ctx, cancelF := context.WithCancel(context.Background())
+
+	s.refreshTargets(ctx)
+	// Run the probe for a short duration to trigger the timeout.
+	time.Sleep(100 * time.Millisecond)
+
+	assert.Equal(t, len(testTargets), len(s.cancelFuncs), "len(s.cancelFunc)=%d, want=%d", len(s.cancelFuncs), len(testTargets))
 
 	cancelF()
 	s.Wait()
