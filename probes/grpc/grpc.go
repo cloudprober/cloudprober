@@ -389,12 +389,7 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpo
 	}
 
 	client := spb.NewProberClient(conn)
-	timeout := p.opts.Timeout
-	method := p.c.GetMethod()
-
-	reqCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-	defer cancelFunc()
-	reqCtx = p.ctxWithHeaders(reqCtx)
+	reqCtx := p.ctxWithHeaders(ctx)
 
 	var delta time.Duration
 	start := time.Now()
@@ -414,7 +409,7 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpo
 		return msg
 	}
 
-	switch method {
+	switch p.c.GetMethod() {
 	case configpb.ProbeConf_ECHO:
 		r, err = client.Echo(reqCtx, &pb.EchoMessage{Blob: []byte(getPaylod())}, opts...)
 	case configpb.ProbeConf_READ:
@@ -426,7 +421,7 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpo
 	case configpb.ProbeConf_GENERIC:
 		r, err = p.genericRequest(reqCtx, conn, p.c.GetRequest())
 	default:
-		p.l.Criticalf("Method %v not implemented", method)
+		p.l.Criticalf("Method %v not implemented", p.c.GetMethod())
 	}
 
 	p.l.DebugAttrs("Response: "+r.String(), logAttrs...)

@@ -97,6 +97,7 @@ message ProbeConf {
   optional int32 num_conns = 5;
 
   // If connect_timeout is not specified, reuse probe timeout.
+  // Note that this timeout should be less than the probe timeout.
   optional int32 connect_timeout_msec = 7;
 
   // URI scheme allows gRPC to use different resolvers
