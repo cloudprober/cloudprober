@@ -43,14 +43,16 @@ func Header() template.HTML {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
-	t.Execute(&buf, struct {
+	if err := t.Execute(&buf, struct {
 		Version, BuiltAt, StartTime, Uptime, RightDiv interface{}
 	}{
 		Version:   runconfig.Version(),
 		BuiltAt:   runconfig.BuildTimestamp(),
 		StartTime: startTime,
 		Uptime:    uptime,
-	})
+	}); err != nil {
+		panic("Error rendering header")
+	}
 
 	return template.HTML(buf.String())
 }

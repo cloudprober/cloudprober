@@ -389,9 +389,15 @@ func (p *Probe) statsKeeper(ctx context.Context, ptype, name string, opts *optio
 				targetMetrics[t] = result.Metrics()
 				continue
 			}
-			err := targetMetrics[t].Update(result.Metrics())
-			if err != nil {
-				opts.Logger.Errorf("Error adding metrics from the probe result for the target: %s. Err: %v", t, err)
+			em := result.Metrics()
+			for _, k := range em.MetricsKeys() {
+				if targetMetrics[t].Metric(k) == nil {
+					targetMetrics[t].AddMetric(k, em.Metric(k))
+				} else {
+					if err := targetMetrics[t].Metric(k).Add(em.Metric(k)); err != nil {
+						opts.Logger.Errorf("Error adding metric %s for the target: %s. Err: %v", k, t, err)
+					}
+				}
 			}
 		case ts := <-exportTicker.C:
 			for _, t := range p.targets {

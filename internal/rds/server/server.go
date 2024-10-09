@@ -117,10 +117,8 @@ func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]P
 	}
 
 	// If providers are not nil. This option is mainly for testing.
-	if providers != nil {
-		for prefix, p := range providers {
-			srv.providers[prefix] = p
-		}
+	for prefix, p := range providers {
+		srv.providers[prefix] = p
 	}
 
 	return srv, nil

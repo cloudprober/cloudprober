@@ -15,7 +15,6 @@
 package metrics
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -157,35 +156,6 @@ func (em *EventMetrics) Clone() *EventMetrics {
 		newEM.metricsKeys = append(newEM.metricsKeys, mk)
 	}
 	return newEM
-}
-
-// Update updates the receiver EventMetrics with the incoming one.
-func (em *EventMetrics) Update(in *EventMetrics) error {
-	if em.Kind != in.Kind {
-		return fmt.Errorf("EventMetrics of different kind cannot be merged. Receiver's kind: %d, incoming: %d", em.Kind, in.Kind)
-	}
-	switch em.Kind {
-	case GAUGE:
-		for name, newVal := range in.metrics {
-			_, ok := em.metrics[name]
-			if !ok {
-				return fmt.Errorf("receiver EventMetrics doesn't have %s metric", name)
-			}
-			em.metrics[name] = newVal.Clone()
-		}
-		return nil
-	case CUMULATIVE:
-		for name, newVal := range in.metrics {
-			val, ok := em.metrics[name]
-			if !ok {
-				return fmt.Errorf("receiver EventMetrics doesn't have %s metric", name)
-			}
-			val.Add(newVal)
-		}
-		return nil
-	default:
-		return errors.New("Unknown metrics kind")
-	}
 }
 
 // SubtractLast subtracts the provided (last) EventMetrics from the receiver

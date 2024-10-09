@@ -69,49 +69,6 @@ func verifyEventMetrics(t *testing.T, m *EventMetrics, sent, rcvd, rtt int64, re
 	}
 }
 
-func TestEventMetricsUpdate(t *testing.T) {
-	m := newEventMetrics(0, 0, 0, make(map[string]int64))
-	m.AddLabel("ptype", "http")
-
-	m2 := newEventMetrics(32, 22, 220100, map[string]int64{
-		"200": 22,
-	})
-	m.Update(m2)
-	// We'll verify later that mClone is un-impacted by further updates.
-	mClone := m.Clone()
-
-	// Verify that "m" has been updated correctly.
-	verifyEventMetrics(t, m, 32, 22, 220100, map[string]int64{
-		"200": 22,
-	})
-
-	m3 := newEventMetrics(30, 30, 300100, map[string]int64{
-		"200": 22,
-		"204": 8,
-	})
-	m.Update(m3)
-
-	// Verify that "m" has been updated correctly.
-	verifyEventMetrics(t, m, 62, 52, 520200, map[string]int64{
-		"200": 44,
-		"204": 8,
-	})
-
-	// Verify that even though "m" has changed, mClone is as m was after first update
-	verifyEventMetrics(t, mClone, 32, 22, 220100, map[string]int64{
-		"200": 22,
-	})
-
-	// Log metrics in string format
-	// t.Log(m.String())
-
-	expectedString := fmt.Sprintf("%d labels=ptype=http sent=62 rcvd=52 rtt=520200 resp-code=map:code,200:44,204:8", m.Timestamp.Unix())
-	s := m.String()
-	if s != expectedString {
-		t.Errorf("em.String()=%s, want=%s", s, expectedString)
-	}
-}
-
 func TestEventMetricsSubtractCounters(t *testing.T) {
 	m := newEventMetrics(10, 10, 1000, make(map[string]int64))
 	m.AddLabel("ptype", "http")
