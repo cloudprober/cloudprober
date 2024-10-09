@@ -49,7 +49,7 @@ const defaultPort = 53
 // This makes it possible to mock.
 type Client interface {
 	ExchangeContext(context.Context, *dns.Msg, string) (*dns.Msg, time.Duration, error)
-	setReadTimeout(time.Duration)
+	setTimeout(time.Duration)
 	setSourceIP(net.IP)
 	setDNSProto(configpb.DNSProto)
 }
@@ -59,9 +59,9 @@ type clientImpl struct {
 	dns.Client
 }
 
-// setReadTimeout allows write-access to the underlying ReadTimeout variable.
-func (c *clientImpl) setReadTimeout(d time.Duration) {
-	c.ReadTimeout = d
+// setTimeout allows write-access to the underlying Timeout variable.
+func (c *clientImpl) setTimeout(d time.Duration) {
+	c.Timeout = d
 }
 
 // setSourceIP allows write-access to the underlying ReadTimeout variable.
@@ -183,8 +183,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.opts.SourceIP != nil {
 		p.client.setSourceIP(p.opts.SourceIP)
 	}
-	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
-	p.client.setReadTimeout(p.opts.Timeout)
+
+	// We need it even with context because DNS client uses the lower of this
+	// timeout which is 2s by default, and context timeout, so if context
+	// timeout is 5s, DNS query will timeout in 2s even though context timeout
+	// is 5s.
+	p.client.setTimeout(p.opts.Timeout)
 	// Set DNS Protocol to use
 	p.client.setDNSProto(p.c.GetDnsProto())
 
