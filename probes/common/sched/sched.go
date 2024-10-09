@@ -134,7 +134,10 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		if !s.Opts.IsScheduled() {
 			continue
 		}
+
+		ctx, cancelCtx := context.WithTimeout(ctx, s.Opts.Timeout)
 		s.RunProbeForTarget(ctx, target, result)
+		cancelCtx()
 
 		// Export stats if it's the time to do so.
 		runCnt++
