@@ -121,9 +121,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 }
 
 func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	ctx, cancelCtx := context.WithTimeout(ctx, p.opts.Timeout)
-	defer cancelCtx()
-
 	// Convert interface to struct type
 	result := res.(*probeResult)
 

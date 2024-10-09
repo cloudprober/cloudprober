@@ -69,7 +69,7 @@ func (*mockClient) ExchangeContext(ctx context.Context, in *dns.Msg, fullTarget 
 	}
 	return out, time.Millisecond, nil
 }
-func (*mockClient) setReadTimeout(time.Duration)  {}
+func (*mockClient) setTimeout(time.Duration)      {}
 func (*mockClient) setSourceIP(net.IP)            {}
 func (*mockClient) setDNSProto(configpb.DNSProto) {}
 
