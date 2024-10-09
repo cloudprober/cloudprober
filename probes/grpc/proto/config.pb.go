@@ -257,7 +257,8 @@ type ProbeConf struct {
 	// methods for backward compatibility. For HEALTH_CHECK and GENERIC, default
 	// is 1.
 	NumConns *int32 `protobuf:"varint,5,opt,name=num_conns,json=numConns" json:"num_conns,omitempty"`
-	// If connect_timeout is not specified, reuse probe timeout.
+	// If connect_timeout is not specified, reuse probe timeout. Note that this
+	// timeout will have an impact only if it is less than the probe timeout.
 	ConnectTimeoutMsec *int32 `protobuf:"varint,7,opt,name=connect_timeout_msec,json=connectTimeoutMsec" json:"connect_timeout_msec,omitempty"`
 	// URI scheme allows gRPC to use different resolvers
 	// Example URI scheme: "google-c2p:///"
