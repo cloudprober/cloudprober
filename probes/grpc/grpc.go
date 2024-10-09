@@ -299,9 +299,10 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 		addr = net.JoinHostPort(addr, strconv.Itoa(target.Port))
 	}
 
-	connectTimeout := p.opts.Timeout
 	if p.c.GetConnectTimeoutMsec() > 0 {
-		connectTimeout = time.Duration(p.c.GetConnectTimeoutMsec()) * time.Millisecond
+		connctx, cancelFunc := context.WithTimeout(ctx, time.Duration(p.c.GetConnectTimeoutMsec())*time.Millisecond)
+		defer cancelFunc()
+		ctx = connctx
 	}
 
 	if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
@@ -315,9 +316,7 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 	// fluid, and come and go, but for  aprober it's important that
 	// connection is established before we start sending RPCs. We'll get a
 	// much better error message if connection fails.
-	connCtx, cancelFunc := context.WithTimeout(ctx, connectTimeout)
-	defer cancelFunc()
-	return grpcurl.BlockingDial(connCtx, "tcp", addr, p.creds, p.dialOpts...)
+	return grpcurl.BlockingDial(ctx, "tcp", addr, p.creds, p.dialOpts...)
 }
 
 func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
