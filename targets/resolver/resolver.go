@@ -187,7 +187,14 @@ func WithDNSServer(serverNetworkOverride, serverAddressOverride string) Option {
 
 		r.resolveFunc = func(ctx context.Context, network, host string) ([]net.IP, error) {
 			fqdn := dns.Fqdn(host)
-			dnsClient := &dns.Client{Net: r.backendNetwork}
+			dnsClient := &dns.Client{
+				Net: r.backendNetwork,
+			}
+			// miekg/dns client doesn't honor the context timeout if it's
+			// higher than the client's Timeout which by default is 2s.
+			if deadline, ok := ctx.Deadline(); ok {
+				dnsClient.Timeout = time.Until(deadline)
+			}
 			conn, err := dnsClient.DialContext(ctx, r.backendServer)
 			if err != nil {
 				return nil, err
