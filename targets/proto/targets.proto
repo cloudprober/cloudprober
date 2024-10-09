@@ -101,8 +101,9 @@ message DNSOptions {
   // for the backend DNS server to respond. Note that DNS resolution happens
   // asynchronously, so DNS resolve time should never really affect the probe.
   // This timeout affects how soon DNS resolution is retried, if it's hanging.
-  optional int32 backend_timeout_msec = 4 [default = 30000];
+  optional int32 backend_timeout_msec = 4 [default = 10000];
 }
+
 message TargetsDef {
   oneof type {
     // Static host names, for example:
