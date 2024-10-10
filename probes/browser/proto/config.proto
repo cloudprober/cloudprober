@@ -22,7 +22,7 @@ message S3 {
 
 message Storage {
     oneof storage {
-        string local_dir = 1;
+        string local_storage_dir = 1;
         S3 s3 = 2;
     }
 }
