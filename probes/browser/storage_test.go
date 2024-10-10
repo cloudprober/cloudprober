@@ -95,10 +95,12 @@ func TestWalkAndSave(t *testing.T) {
 				t.Errorf("walkAndSave() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantFiles == nil {
-				tt.wantFiles = make(map[string]string)
+
+			wantFiles := make(map[string]string)
+			for path, content := range tt.wantFiles {
+				wantFiles[filepath.FromSlash(path)] = content
 			}
-			assert.Equal(t, tt.wantFiles, filesSeen, "files seen")
+			assert.Equal(t, wantFiles, filesSeen, "files seen")
 		})
 	}
 }
