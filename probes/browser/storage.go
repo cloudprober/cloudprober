@@ -23,7 +23,6 @@ import (
 )
 
 func walkAndSave(ctx context.Context, localPath, basePath string, fn func(context.Context, io.Reader, string) error) error {
-	fmt.Println("Walking", localPath)
 	// Check if the local directory exists
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		return fmt.Errorf("local directory %s does not exist", localPath)

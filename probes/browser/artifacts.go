@@ -79,7 +79,8 @@ func initArtifactsHandler(opts *configpb.ArtifactsOptions, probeName, outputDir 
 func (ah *artifactsHandler) handle(ctx context.Context, path string) {
 	for _, s3 := range ah.s3Storage {
 		go func(s3 *s3Storage) {
-			if err := s3.uploadDirToS3(ctx, path, ah.basePath); err != nil {
+			ah.l.Infof("Uploading artifacts from %s to: s3://%s/%s", path, s3.bucket, s3.path)
+			if err := s3.store(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error uploading artifacts to S3: %v", err)
 			}
 		}(s3)
@@ -87,7 +88,8 @@ func (ah *artifactsHandler) handle(ctx context.Context, path string) {
 
 	for _, lStorage := range ah.localStorage {
 		go func(lStorage *localStorage) {
-			if err := lStorage.save(ctx, ah.basePath, ah.basePath); err != nil {
+			ah.l.Infof("Saving artifacts from %s at: %s", path, lStorage.destDir)
+			if err := lStorage.save(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error saving artifacts locally: %v", err)
 			}
 		}(lStorage)

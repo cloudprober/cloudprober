@@ -79,8 +79,8 @@ func initS3(ctx context.Context, s3config *configpb.S3) (*s3Storage, error) {
 	return s3Storage, nil
 }
 
-// uploadDirToS3 syncs a local directory to an S3 path
-func (s *s3Storage) uploadDirToS3(ctx context.Context, localPath, basePath string) error {
+// store syncs a local directory to an S3 path
+func (s *s3Storage) store(ctx context.Context, localPath, basePath string) error {
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
 		s3Key := filepath.Join(s.path, relPath)
 
