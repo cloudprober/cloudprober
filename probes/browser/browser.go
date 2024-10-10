@@ -63,6 +63,10 @@ type Probe struct {
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
+
+	// startCtx is the context used to start the probe. We use this context to
+	// control various background processes started by the probe.
+	startCtx context.Context
 }
 
 // embed templates dir
@@ -295,7 +299,9 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	startTime := time.Now()
 	_, err := cmd.Execute(ctx, p.l)
 
-	p.artifactsHandler.handle(reportDir)
+	// We use startCtx here to make sure artifactsHandler keeps running (if
+	// required) even after this probe run.
+	p.artifactsHandler.handle(p.startCtx, reportDir)
 
 	if err != nil {
 		p.l.Errorf("error running playwright test: %v", err)
@@ -350,9 +356,10 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	p.startCtx = ctx
 
 	if p.cleanupHandler != nil {
-		go p.cleanupHandler.start(ctx, p.outputDir)
+		go p.cleanupHandler.start(p.startCtx, p.outputDir)
 	}
 
 	p.dataChan = dataChan
