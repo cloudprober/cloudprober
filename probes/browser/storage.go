@@ -78,26 +78,30 @@ func initLocalStorage(destDir string) (*localStorage, error) {
 	return s, nil
 }
 
-// save saves the local directory to the destination directory.
-func (s *localStorage) save(ctx context.Context, localPath, basePath string) error {
+func (s *localStorage) saveFile(r io.Reader, relPath string) error {
+	filePath := filepath.Join(s.destDir, relPath)
+
+	// Create the destination directory and all necessary parent directories
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return err
+	}
+
+	fileBytes, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	// Write to file path
+	if err := os.WriteFile(filePath, fileBytes, 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// store saves the local directory to the destination directory.
+func (s *localStorage) store(ctx context.Context, localPath, basePath string) error {
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
-		filePath := filepath.Join(s.destDir, relPath)
-
-		// Create the destination directory and all necessary parent directories
-		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-			return err
-		}
-
-		fileBytes, err := io.ReadAll(r)
-		if err != nil {
-			return err
-		}
-
-		// Write to file path
-		if err := os.WriteFile(filePath, fileBytes, 0644); err != nil {
-			return err
-		}
-
-		return nil
+		return s.saveFile(r, relPath)
 	})
 }

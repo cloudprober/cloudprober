@@ -89,7 +89,7 @@ func (ah *artifactsHandler) handle(ctx context.Context, path string) {
 	for _, lStorage := range ah.localStorage {
 		go func(lStorage *localStorage) {
 			ah.l.Infof("Saving artifacts from %s at: %s", path, lStorage.destDir)
-			if err := lStorage.save(ctx, path, ah.basePath); err != nil {
+			if err := lStorage.store(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error saving artifacts locally: %v", err)
 			}
 		}(lStorage)

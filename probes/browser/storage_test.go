@@ -15,6 +15,7 @@
 package browser
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -25,12 +26,7 @@ import (
 )
 
 func TestWalkAndSave(t *testing.T) {
-	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "walkAndSave_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Create a test directory structure
 	testFiles := map[string]string{
@@ -104,5 +100,31 @@ func TestWalkAndSave(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantFiles, filesSeen, "files seen")
 		})
+	}
+}
+
+func TestLocalStorageSaveFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmpDir, "date"), 0755); err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+
+	localStorage, err := initLocalStorage(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize local storage: %v", err)
+	}
+
+	if err := localStorage.saveFile(bytes.NewReader([]byte("storage")), "date/ts1/report/file.txt"); err != nil {
+		t.Fatalf("Failed to save file: %v", err)
+	}
+
+	// Verify the file content
+	content, err := os.ReadFile(filepath.Join(tmpDir, "date", "ts1", "report", "file.txt"))
+	if err != nil {
+		t.Fatalf("Failed to read file: %v", err)
+	}
+
+	if string(content) != "storage" {
+		t.Errorf("File content mismatch. Expected 'storage', got '%s'", string(content))
 	}
 }
