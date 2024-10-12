@@ -95,13 +95,13 @@ func (s *Scheduler) init() {
 }
 
 func (s *Scheduler) gapBetweenTargets() time.Duration {
-	type confTargetGap interface {
-		GetIntervalBetweenTargetsMsec() int32
-	}
-
 	var interTargetGap time.Duration
 
 	if s.Opts.ProbeConf != nil {
+		type confTargetGap interface {
+			GetIntervalBetweenTargetsMsec() int32
+		}
+
 		if c, ok := s.Opts.ProbeConf.(confTargetGap); ok {
 			interTargetGap = time.Duration(c.GetIntervalBetweenTargetsMsec()) * time.Millisecond
 		}
