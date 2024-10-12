@@ -69,9 +69,6 @@ type Scheduler struct {
 	// RunProbeForTarget is called per probe cycle for each target.
 	RunProbeForTarget func(context.Context, endpoint.Endpoint, ProbeResult)
 
-	// IntervalBetweenTargets defines the time between target updates.
-	IntervalBetweenTargets time.Duration
-
 	statsExportFrequency  int64
 	targetsUpdateInterval time.Duration
 	targets               []endpoint.Endpoint
@@ -98,16 +95,26 @@ func (s *Scheduler) init() {
 }
 
 func (s *Scheduler) gapBetweenTargets() time.Duration {
-	interTargetGap := s.IntervalBetweenTargets
+	var interTargetGap time.Duration
 
-	// If not configured by user, determine based on probe interval and number of
-	// targets.
-	if interTargetGap == 0 && len(s.targets) != 0 {
-		// Use 1/10th of the probe interval to spread out target groroutines.
-		interTargetGap = s.Opts.Interval / time.Duration(10*len(s.targets))
+	if s.Opts.ProbeConf != nil {
+		type confTargetGap interface {
+			GetIntervalBetweenTargetsMsec() int32
+		}
+
+		if c, ok := s.Opts.ProbeConf.(confTargetGap); ok {
+			interTargetGap = time.Duration(c.GetIntervalBetweenTargetsMsec()) * time.Millisecond
+		}
 	}
 
-	return interTargetGap
+	if interTargetGap != 0 || len(s.targets) == 0 {
+		return interTargetGap
+	}
+
+	// If not configured by user, determine based on probe interval and number
+	// of targets. Use 1/10th of the probe interval to spread out target
+	// goroutines.
+	return s.Opts.Interval / time.Duration(10*len(s.targets))
 }
 
 func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint) {
