@@ -24,10 +24,14 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
+	dnsconfigpb "github.com/cloudprober/cloudprober/probes/dns/proto"
+	httpconfigpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
+	tcpconfigpb "github.com/cloudprober/cloudprober/probes/tcp/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 type testProbeResult struct {
@@ -151,4 +155,60 @@ func TestRunProbeForTargetTimeout(t *testing.T) {
 
 	cancelF()
 	s.Wait()
+}
+
+func TestSchedulerGapBetweenTargets(t *testing.T) {
+	testTargets := []endpoint.Endpoint{{Name: "test1.com"}, {Name: "test2.com"}}
+	tests := []struct {
+		name string
+		opts *options.Options
+		want time.Duration
+	}{
+		{
+			name: "default",
+			opts: &options.Options{
+				Interval: 10 * time.Second,
+			},
+			want: 500 * time.Millisecond,
+		},
+		{
+			name: "tcp probe",
+			opts: &options.Options{
+				Interval: 10 * time.Second,
+				ProbeConf: &tcpconfigpb.ProbeConf{
+					IntervalBetweenTargetsMsec: proto.Int32(1000),
+				},
+			},
+			want: 1 * time.Second,
+		},
+		{
+			name: "http probe",
+			opts: &options.Options{
+				Interval: 10 * time.Second,
+				ProbeConf: &httpconfigpb.ProbeConf{
+					IntervalBetweenTargetsMsec: proto.Int32(2000),
+				},
+			},
+			want: 2 * time.Second,
+		},
+		{
+			name: "dns probe doesn't have interval between targets",
+			opts: &options.Options{
+				Interval:  10 * time.Second,
+				ProbeConf: &dnsconfigpb.ProbeConf{},
+			},
+			want: 500 * time.Millisecond,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Scheduler{
+				Opts:    tt.opts,
+				targets: testTargets,
+			}
+			if got := s.gapBetweenTargets(); got != tt.want {
+				t.Errorf("Scheduler.gapBetweenTargets() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

@@ -182,12 +182,11 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	s := &sched.Scheduler{
-		ProbeName:              p.name,
-		DataChan:               dataChan,
-		Opts:                   p.opts,
-		NewResult:              func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
-		RunProbeForTarget:      p.runProbe,
-		IntervalBetweenTargets: time.Duration(p.c.GetIntervalBetweenTargetsMsec()) * time.Millisecond,
+		ProbeName:         p.name,
+		DataChan:          dataChan,
+		Opts:              p.opts,
+		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
+		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
 }
