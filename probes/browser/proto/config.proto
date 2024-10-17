@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.probes.browser;
 
+import "github.com/cloudprober/cloudprober/internal/oauth/proto/config.proto";
+
 option go_package = "github.com/cloudprober/cloudprober/probes/browser/proto";
 
 message TestMetricsOptions {
@@ -17,13 +19,25 @@ message S3 {
     optional string region = 3;
     optional string access_key_id = 4;
     optional string secret_access_key = 5;
+
+    // S3 endpoint. If not specified, default endpoint for the region is used.
     optional string endpoint = 6;
+}
+
+message GCS {
+    optional string bucket = 1;
+    optional string path = 2;
+    optional oauth.GoogleCredentials credentials = 3;
+
+    // GCS endpoint.
+    optional string endpoint = 4 [default = "https://storage.googleapis.com"];
 }
 
 message Storage {
     oneof storage {
         string local_storage_dir = 1;
         S3 s3 = 2;
+        GCS gcs = 3;
     }
 }
 
