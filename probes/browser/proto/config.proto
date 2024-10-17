@@ -37,6 +37,7 @@ message Storage {
     oneof storage {
         string local_storage_dir = 1;
         S3 s3 = 2;
+        GCS gcs = 3;
     }
 }
 

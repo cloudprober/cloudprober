@@ -30,8 +30,6 @@ import (
 
 type gcsStorage struct {
 	client  *http.Client
-	bucket  string
-	path    string
 	baseURL string
 }
 
@@ -54,7 +52,6 @@ func initGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*gcsStor
 	}
 	return &gcsStorage{
 		client:  client,
-		path:    cfg.GetPath(),
 		baseURL: baseURL,
 	}, nil
 }
