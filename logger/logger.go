@@ -291,15 +291,16 @@ func (l *Logger) sdLogName() (string, error) {
 
 // EnableStackdriverLogging enables logging to stackdriver.
 func (l *Logger) EnableStackdriverLogging() {
+	disableCloudLoggingMsg := "Set flag --disable_cloud_logging to explicitly disable cloud logging."
 	logName, err := l.sdLogName()
 	if err != nil {
-		l.Warningf("Error getting log name for google cloud logging: %v, will skip", err)
+		l.Warningf("Error getting log name for google cloud logging: %v, will skip. %s", err, disableCloudLoggingMsg)
 		return
 	}
 
 	projectID, err := metadata.ProjectID()
 	if err != nil {
-		l.Warningf("Error getting project id for google cloud logging: %v, will skip", err)
+		l.Warningf("Error getting project id for google cloud logging: %v, will skip. %s", err, disableCloudLoggingMsg)
 		return
 	}
 
@@ -312,7 +313,7 @@ func (l *Logger) EnableStackdriverLogging() {
 
 	l.gcpLogc, err = logging.NewClient(context.Background(), projectID, o...)
 	if err != nil {
-		l.Warningf("Error creating client for google cloud logging: %v, will skip", err)
+		l.Warningf("Error creating client for google cloud logging: %v, will skip. %s", err, disableCloudLoggingMsg)
 		return
 	}
 
