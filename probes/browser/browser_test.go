@@ -16,6 +16,7 @@ package browser
 
 import (
 	"net"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -114,10 +115,10 @@ func TestProbe_prepareCommand(t *testing.T) {
 			outputDir := p.outputDirPath(tt.target, ts)
 			for i, arg := range tt.wantCmdLine {
 				tt.wantCmdLine[i] = strings.ReplaceAll(arg, "{WORKDIR}", p.workdir)
-				tt.wantCmdLine[i] = strings.ReplaceAll(tt.wantCmdLine[i], "${OUTPUT_DIR}", outputDir)
+				tt.wantCmdLine[i] = filepath.FromSlash(strings.ReplaceAll(tt.wantCmdLine[i], "${OUTPUT_DIR}", outputDir))
 			}
 			for i, envVar := range tt.wantEnvVars {
-				tt.wantEnvVars[i] = strings.ReplaceAll(envVar, "{OUTPUT_DIR}", outputDir)
+				tt.wantEnvVars[i] = filepath.FromSlash(strings.ReplaceAll(envVar, "{OUTPUT_DIR}", outputDir))
 			}
 
 			assert.Equal(t, tt.wantCmdLine, cmd.CmdLine)
