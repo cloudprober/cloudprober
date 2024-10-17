@@ -255,15 +255,34 @@ func (p *Probe) generateRunID(target endpoint.Endpoint) int64 {
 	return runID
 }
 
-func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
-	runID := p.generateRunID(target)
+func targetEnvVars(target endpoint.Endpoint) []string {
+	if target.Name == "" {
+		return nil
+	}
+	envVars := []string{
+		fmt.Sprintf("target_name=%s", target.Name),
+		fmt.Sprintf("target_ip=%s", target.IP.String()),
+		fmt.Sprintf("target_port=%d", target.Port),
+	}
+	for k, v := range target.Labels {
+		envVars = append(envVars, fmt.Sprintf("target_label_%s=%s", k, v))
+	}
+	return envVars
+}
 
-	nowUTC := time.Now().UTC()
+func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
+	nowUTC := ts.UTC()
 	outputDirPath := []string{p.outputDir, nowUTC.Format("2006-01-02")}
 	if target.Name != "" {
 		outputDirPath = append(outputDirPath, target.Name)
 	}
-	outputDir := filepath.Join(append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))...)
+	return filepath.Join(append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))...)
+}
+
+func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command.Command, string) {
+	runID := p.generateRunID(target)
+
+	outputDir := p.outputDirPath(target, ts)
 	reportDir := filepath.Join(outputDir, "report")
 
 	envVars := []string{
@@ -271,9 +290,10 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
 		"PLAYWRIGHT_HTML_OPEN=never",
 	}
+	envVars = append(envVars, targetEnvVars(target)...)
 
 	cmdLine := []string{
-		"npx",
+		p.c.GetNpxPath(),
 		"playwright",
 		"test",
 		"--config=" + p.playwrightConfigPath,
@@ -281,12 +301,15 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		"--reporter=html," + p.reporterPath,
 	}
 	p.l.Infof("Running command line: %v", cmdLine)
-	cmd := command.Command{
+	cmd := &command.Command{
 		CmdLine: cmdLine,
 		WorkDir: p.c.GetPlaywrightDir(),
 		EnvVars: envVars,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
+		if p.payloadParser == nil {
+			return
+		}
 		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
 			em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
@@ -296,7 +319,13 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		}
 	}
 
+	return cmd, reportDir
+}
+
+func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
 	startTime := time.Now()
+
+	cmd, reportDir := p.prepareCommand(target, startTime)
 	_, err := cmd.Execute(ctx, p.l)
 
 	// We use startCtx here to make sure artifactsHandler keeps running (if
