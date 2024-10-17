@@ -99,7 +99,7 @@ func TestProbe_prepareCommand(t *testing.T) {
 				conf.PlaywrightDir = &tt.playwrightDir
 			}
 			if tt.npxPath != "" {
-				conf.NpxPath = &tt.npxPath
+				conf.NpxPath = proto.String(filepath.FromSlash(tt.npxPath))
 			}
 
 			opts := options.DefaultOptions()
