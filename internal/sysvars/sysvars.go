@@ -163,6 +163,9 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 	sysVars["hostname"] = hostname
 
 	if err := initCloudMetadata(*cloudMetadataFlag); err != nil {
+		if *cloudMetadataFlag == cloudProviders.auto {
+			return fmt.Errorf("got errror while initializing cloud metadata: %v, set flag: --cloud_metadata=none to disable cloud metadata check", err)
+		}
 		return err
 	}
 
