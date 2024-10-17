@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
+	"path"
 
 	"github.com/cloudprober/cloudprober/internal/oauth"
 	oauthconfigpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
@@ -30,10 +30,19 @@ import (
 
 type gcsStorage struct {
 	client  *http.Client
+	path    string
 	baseURL string
 }
 
+func gcsBaseURL(cfg *configpb.GCS) string {
+	return fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=media&name=", cfg.GetEndpoint(), cfg.GetBucket())
+}
+
 func initGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*gcsStorage, error) {
+	if cfg.GetBucket() == "" {
+		return nil, fmt.Errorf("GCS bucket name is required")
+	}
+
 	oauthCfg := oauthconfigpb.Config{
 		Type: &oauthconfigpb.Config_GoogleCredentials{
 			GoogleCredentials: cfg.Credentials,
@@ -46,39 +55,35 @@ func initGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*gcsStor
 
 	client := oauth2.NewClient(ctx, oauthTS)
 
-	baseURL, err := url.JoinPath(fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=media&name=", cfg.GetEndpoint(), cfg.GetBucket()), cfg.GetPath())
-	if err != nil {
-		return nil, fmt.Errorf("error creating GCS URL: %v", err)
-	}
 	return &gcsStorage{
 		client:  client,
-		baseURL: baseURL,
+		path:    cfg.GetPath(),
+		baseURL: gcsBaseURL(cfg),
 	}, nil
+}
+
+func (s *gcsStorage) upload(ctx context.Context, r io.Reader, relPath string) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+path.Join(s.path, relPath), r)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to upload object, status code: %d", resp.StatusCode)
+	}
+	return nil
 }
 
 // store syncs a local directory to an S3 path
 func (s *gcsStorage) store(ctx context.Context, localPath, basePath string) error {
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
-		u, err := url.JoinPath(s.baseURL, relPath)
-		if err != nil {
-			return fmt.Errorf("error creating GCS URL with relative URL: %v", err)
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", u, r)
-		if err != nil {
-			return err
-		}
-		req.Header.Set("Content-Type", "application/octet-stream")
-
-		resp, err := s.client.Do(req)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("failed to upload object, status code: %d", resp.StatusCode)
-		}
-		return nil
+		return s.upload(ctx, r, relPath)
 	})
 }
