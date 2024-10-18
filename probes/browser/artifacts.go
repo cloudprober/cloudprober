@@ -28,6 +28,7 @@ import (
 type artifactsHandler struct {
 	basePath     string
 	s3Storage    []*s3Storage
+	gcsStorage   []*gcsStorage
 	localStorage []*localStorage
 	l            *logger.Logger
 }
@@ -64,6 +65,14 @@ func initArtifactsHandler(opts *configpb.ArtifactsOptions, probeName, outputDir 
 			ah.s3Storage = append(ah.s3Storage, s3)
 		}
 
+		if gcsConf := storageConfig.GetGcs(); gcsConf != nil {
+			gcs, err := initGCS(context.Background(), gcsConf, l)
+			if err != nil {
+				return nil, fmt.Errorf("error initializing GCS storage: %v", err)
+			}
+			ah.gcsStorage = append(ah.gcsStorage, gcs)
+		}
+
 		if dir := storageConfig.GetLocalStorageDir(); dir != "" {
 			ls, err := initLocalStorage(dir)
 			if err != nil {
@@ -84,6 +93,15 @@ func (ah *artifactsHandler) handle(ctx context.Context, path string) {
 				ah.l.Errorf("error uploading artifacts to S3: %v", err)
 			}
 		}(s3)
+	}
+
+	for _, gcs := range ah.gcsStorage {
+		go func(gcs *gcsStorage) {
+			ah.l.Infof("Uploading artifacts from %s to: %s", path, gcs.baseURL)
+			if err := gcs.store(ctx, path, ah.basePath); err != nil {
+				ah.l.Errorf("error uploading artifacts to GCS: %v", err)
+			}
+		}(gcs)
 	}
 
 	for _, lStorage := range ah.localStorage {
