@@ -272,11 +272,11 @@ func targetEnvVars(target endpoint.Endpoint) []string {
 
 func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
 	nowUTC := ts.UTC()
-	outputDirPath := []string{p.outputDir, nowUTC.Format("2006-01-02")}
+	outputDirPath := []string{p.outputDir, nowUTC.Format("2006-01-02"), strconv.FormatInt(nowUTC.UnixMilli(), 10)}
 	if target.Name != "" {
 		outputDirPath = append(outputDirPath, target.Name)
 	}
-	return filepath.Join(append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))...)
+	return filepath.Join(outputDirPath...)
 }
 
 func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command.Command, string) {
