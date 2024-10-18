@@ -15,6 +15,7 @@
 package browser
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -56,23 +57,22 @@ type fakeRoundTripper struct {
 }
 
 func (f *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	errorResp := &http.Response{
+		StatusCode: http.StatusInternalServerError,
+		Body:       io.NopCloser(bytes.NewBufferString("error")),
+	}
 	if !strings.HasPrefix(req.URL.String(), f.wantPrefix) {
-		return &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(nil),
-		}, nil
+		return errorResp, nil
 	}
 
 	objectName := req.URL.Query().Get("name")
 	if !slices.Contains(f.validObjectNames, objectName) {
-		return &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(nil),
-		}, nil
+		return errorResp, nil
 	}
+
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(nil),
+		Body:       io.NopCloser(bytes.NewBufferString("ok")),
 	}, nil
 }
 
