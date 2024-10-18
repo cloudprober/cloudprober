@@ -135,3 +135,33 @@ func TestProbe_prepareCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestProbeOutputDirPath(t *testing.T) {
+	tests := []struct {
+		name      string
+		outputDir string
+		target    endpoint.Endpoint
+		ts        time.Time
+		want      string
+	}{
+		{
+			name:      "default",
+			outputDir: "/tmp/output",
+			ts:        time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+			want:      "/tmp/output/2024-01-01/1704067200000",
+		},
+		{
+			name:      "with_target",
+			outputDir: "/tmp/output",
+			target:    endpoint.Endpoint{Name: "test_target"},
+			ts:        time.Date(2024, time.February, 2, 12, 30, 45, 0, time.UTC),
+			want:      "/tmp/output/2024-02-02/1706877045000/test_target",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{outputDir: tt.outputDir}
+			assert.Equal(t, filepath.FromSlash(tt.want), p.outputDirPath(tt.target, tt.ts))
+		})
+	}
+}
