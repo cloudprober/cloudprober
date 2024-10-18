@@ -43,6 +43,9 @@ func initGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*gcsStor
 		return nil, fmt.Errorf("GCS bucket name is required")
 	}
 
+	if cfg.GetCredentials().GetScope() == nil {
+		cfg.Credentials.Scope = []string{"https://www.googleapis.com/auth/devstorage.read_write"}
+	}
 	oauthCfg := oauthconfigpb.Config{
 		Type: &oauthconfigpb.Config_GoogleCredentials{
 			GoogleCredentials: cfg.Credentials,
@@ -76,7 +79,8 @@ func (s *gcsStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to upload object, status code: %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to upload object, status code: %d, msg: %s", resp.StatusCode, string(b))
 	}
 	return nil
 }
