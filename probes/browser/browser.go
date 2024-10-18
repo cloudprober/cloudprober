@@ -22,7 +22,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -30,7 +29,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -60,9 +58,15 @@ type Probe struct {
 	reporterPath         string
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
+	artifactsHandler     *artifactsHandler
+	cleanupHandler       *cleanupHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
+
+	// startCtx is the context used to start the probe. We use this context to
+	// control various background processes started by the probe.
+	startCtx context.Context
 }
 
 // embed templates dir
@@ -205,10 +209,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
 		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
 	}
-	if p.c.GetEnableScreenshotsForSuccess() {
+	if p.c.GetSaveScreenshotsForSuccess() {
 		data.Screenshot = "on"
 	}
-	if p.c.GetEnableTraces() {
+	if p.c.GetSaveTraces() {
 		data.Trace = "on"
 	}
 
@@ -225,17 +229,18 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.reporterPath = reporterPath
 
-	if p.c.GetArtifactsOptions().GetServeOnWeb() {
-		httpServerMux := runconfig.DefaultHTTPServeMux()
-		if httpServerMux == nil {
-			return fmt.Errorf("default http server mux is not initialized")
+	ah, err := initArtifactsHandler(p.c.GetArtifactsOptions(), p.name, p.outputDir, p.l)
+	if err != nil {
+		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
+	}
+	p.artifactsHandler = ah
+
+	if p.c.GetWorkdirCleanupOptions() != nil {
+		ch, err := newCleanupHandler(p.c.GetWorkdirCleanupOptions(), p.l)
+		if err != nil {
+			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 		}
-		webServerPath := p.c.GetArtifactsOptions().GetWebServerPath()
-		if webServerPath == "" {
-			webServerPath = "/artifacts/" + p.name
-		}
-		fileServer := http.FileServer(http.Dir(p.outputDir))
-		httpServerMux.Handle(webServerPath+"/", http.StripPrefix(webServerPath, fileServer))
+		p.cleanupHandler = ch
 	}
 
 	return nil
@@ -250,31 +255,61 @@ func (p *Probe) generateRunID(target endpoint.Endpoint) int64 {
 	return runID
 }
 
-func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
-	runID := p.generateRunID(target)
+func targetEnvVars(target endpoint.Endpoint) []string {
+	if target.Name == "" {
+		return nil
+	}
+	envVars := []string{
+		fmt.Sprintf("target_name=%s", target.Name),
+		fmt.Sprintf("target_ip=%s", target.IP.String()),
+		fmt.Sprintf("target_port=%d", target.Port),
+	}
+	for k, v := range target.Labels {
+		envVars = append(envVars, fmt.Sprintf("target_label_%s=%s", k, v))
+	}
+	return envVars
+}
 
-	nowUTC := time.Now().UTC()
+func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
+	nowUTC := ts.UTC()
 	outputDirPath := []string{p.outputDir, nowUTC.Format("2006-01-02")}
 	if target.Name != "" {
 		outputDirPath = append(outputDirPath, target.Name)
 	}
-	outputDirPath = append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))
+	return filepath.Join(append(outputDirPath, strconv.FormatInt(nowUTC.UnixMilli(), 10))...)
+}
+
+func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command.Command, string) {
+	runID := p.generateRunID(target)
+
+	outputDir := p.outputDirPath(target, ts)
+	reportDir := filepath.Join(outputDir, "report")
+
+	envVars := []string{
+		fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules")),
+		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
+		"PLAYWRIGHT_HTML_OPEN=never",
+	}
+	envVars = append(envVars, targetEnvVars(target)...)
 
 	cmdLine := []string{
-		"npx",
+		p.c.GetNpxPath(),
 		"playwright",
 		"test",
 		"--config=" + p.playwrightConfigPath,
-		"--output=" + filepath.Join(outputDirPath...),
-		"--reporter=" + p.reporterPath,
+		"--output=" + filepath.Join(outputDir, "results"),
+		"--reporter=html," + p.reporterPath,
 	}
 	p.l.Infof("Running command line: %v", cmdLine)
-	cmd := command.Command{
+	cmd := &command.Command{
 		CmdLine: cmdLine,
 		WorkDir: p.c.GetPlaywrightDir(),
-		EnvVars: []string{fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules"))},
+		EnvVars: envVars,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
+		if p.payloadParser == nil {
+			return
+		}
 		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
 			em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
@@ -284,8 +319,19 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 		}
 	}
 
+	return cmd, reportDir
+}
+
+func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
 	startTime := time.Now()
+
+	cmd, reportDir := p.prepareCommand(target, startTime)
 	_, err := cmd.Execute(ctx, p.l)
+
+	// We use startCtx here to make sure artifactsHandler keeps running (if
+	// required) even after this probe run.
+	p.artifactsHandler.handle(p.startCtx, reportDir)
+
 	if err != nil {
 		p.l.Errorf("error running playwright test: %v", err)
 		return
@@ -339,6 +385,12 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	p.startCtx = ctx
+
+	if p.cleanupHandler != nil {
+		go p.cleanupHandler.start(p.startCtx, p.outputDir)
+	}
+
 	p.dataChan = dataChan
 
 	s := &sched.Scheduler{
