@@ -60,7 +60,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/resolver"
 
 	// Import grpclb module so it can be used by name for DirectPath connections.
 	_ "google.golang.org/grpc/balancer/grpclb"
@@ -255,8 +254,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 		p.dialOpts = append(p.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{TokenSource: oauthTS}))
 	}
-
-	resolver.SetDefaultScheme("dns")
 
 	p.numConns = int(p.c.GetNumConns())
 	if p.numConns == 0 {

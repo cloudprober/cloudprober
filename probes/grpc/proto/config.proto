@@ -103,7 +103,7 @@ message ProbeConf {
   // URI scheme allows gRPC to use different resolvers
   // Example URI scheme: "google-c2p:///"
   // See https://github.com/grpc/grpc/blob/master/doc/naming.md for more details
-  optional string uri_scheme = 8;
+  optional string uri_scheme = 8 [default = "dns:///"];
   
   message Header {
     optional string name = 1;
