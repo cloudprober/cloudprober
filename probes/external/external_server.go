@@ -28,6 +28,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
@@ -109,7 +110,7 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	go func() {
 		scanner := bufio.NewScanner(p.cmdStderr)
 		for scanner.Scan() {
-			p.l.Warningf("Stderr of %s: %s", cmd.Path, scanner.Text())
+			p.l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", cmd.Path))
 		}
 	}()
 
