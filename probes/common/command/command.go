@@ -23,8 +23,10 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 
@@ -89,10 +91,10 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
 		scanner.Buffer(buf, maxScannerTokenSize)
 
 		for scanner.Scan() {
-			l.Warningf("Stderr: %s", scanner.Text())
+			l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", c.CmdLine[0]))
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
-			l.Errorf("Error reading from stderr: %v", err)
+			l.ErrorAttrs(fmt.Sprintf("Error reading from stderr: %v", err), slog.String("process_path", c.CmdLine[0]))
 		}
 	}()
 
@@ -106,6 +108,9 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
 }
 
 func (c *Command) Execute(ctx context.Context, l *logger.Logger) (string, error) {
+	if len(c.CmdLine) == 0 {
+		return "", errors.New("no command specified)")
+	}
 	cmd := exec.CommandContext(ctx, c.CmdLine[0], c.CmdLine[1:]...)
 	if c.EnvVars != nil {
 		cmd.Env = append(append(cmd.Env, os.Environ()...), c.EnvVars...)
