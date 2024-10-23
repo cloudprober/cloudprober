@@ -91,10 +91,11 @@ type Probe struct {
 	l    *logger.Logger
 
 	// book-keeping params
-	targets   []endpoint.Endpoint
-	queryType uint16
-	fqdn      string
-	client    Client
+	targets    []endpoint.Endpoint
+	queryType  uint16
+	queryClass uint16
+	fqdn       string
+	client     Client
 }
 
 // probeRunResult captures the results of a single probe run. The way we work with
@@ -173,6 +174,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("dns_probe(%v): invalid query type %v", name, queryType)
 	}
 	p.queryType = uint16(queryType)
+	p.queryClass = uint16(p.c.GetQueryClass())
 	p.fqdn = dns.Fqdn(p.c.GetResolvedDomain())
 
 	// I believe the client is safe for concurrent use by multiple goroutines
@@ -243,6 +245,7 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 	// Generate a new question for each probe so transaction IDs aren't repeated.
 	msg := new(dns.Msg)
 	msg.SetQuestion(p.fqdn, p.queryType)
+	msg.Question[0].Qclass = p.queryClass
 
 	resp, latency, err := p.client.ExchangeContext(ctx, msg, target)
 

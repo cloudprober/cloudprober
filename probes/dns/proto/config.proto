@@ -48,6 +48,12 @@ enum QueryType {
   DLV = 32769;
 }
 
+// DNS query classes https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.4
+enum QueryClass {
+  IN = 1;
+  CH = 3;
+}
+
 enum DNSProto {
   UDP = 0;
   TCP = 1;
@@ -71,6 +77,9 @@ message ProbeConf {
   // default we resolve first if it's a discovered resource, e.g., a k8s
   // endpoint.
   optional bool resolve_first = 5;
+
+  // DNS Query QueryClass
+  optional QueryClass query_class = 96 [default = IN];
 
   // Which DNS protocol is used for resolution.
   optional DNSProto dns_proto = 97 [default = UDP];
