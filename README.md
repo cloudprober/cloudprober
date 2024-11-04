@@ -24,7 +24,7 @@ interfaces regardless of the implementation and helps you quickly pin down
 what's broken in your system (see
 [why probers](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e)).
 
-<img width="460" src="https://cloudprober.org/homepage.svg"/>
+<img width="460" src="https://cloudprober.org/homepage.png"/>
 
 ## Features
 
