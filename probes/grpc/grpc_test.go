@@ -590,3 +590,103 @@ func TestTransportCreds(t *testing.T) {
 		})
 	}
 }
+
+func TestConnectionString(t *testing.T) {
+	tests := []struct {
+		name   string
+		probe  *Probe
+		target endpoint.Endpoint
+		want   string
+	}{
+		{
+			name: "hostname_only",
+			probe: &Probe{
+				c:    &configpb.ProbeConf{},
+				opts: &options.Options{},
+			},
+			target: endpoint.Endpoint{Name: "example.com"},
+			want:   "dns:///example.com:443",
+		},
+		{
+			name: "hostname_with_custom_port",
+			probe: &Probe{
+				c: &configpb.ProbeConf{
+					Port: proto.Int32(8080),
+				},
+				opts: &options.Options{},
+			},
+			target: endpoint.Endpoint{Name: "example.com"},
+			want:   "dns:///example.com:8080",
+		},
+		{
+			name: "hostname_with_target_port",
+			probe: &Probe{
+				c:    &configpb.ProbeConf{},
+				opts: &options.Options{},
+			},
+			target: endpoint.Endpoint{Name: "example.com", Port: 9000},
+			want:   "dns:///example.com:9000",
+		},
+		{
+			name: "ip_address",
+			probe: &Probe{
+				c:    &configpb.ProbeConf{},
+				opts: &options.Options{},
+			},
+			target: endpoint.Endpoint{
+				Name: "example.com",
+				IP:   net.ParseIP("192.0.2.1"),
+			},
+			want: "dns:///192.0.2.1:443",
+		},
+		{
+			name: "ip_address_with_version_mismatch",
+			probe: &Probe{
+				c: &configpb.ProbeConf{},
+				opts: &options.Options{
+					IPVersion: 6,
+				},
+			},
+			target: endpoint.Endpoint{
+				Name: "example.com",
+				IP:   net.ParseIP("192.0.2.1"),
+			},
+			want: "dns:///example.com:443",
+		},
+		{
+			name: "with_uri_scheme",
+			probe: &Probe{
+				c: &configpb.ProbeConf{
+					UriScheme: proto.String("xds:///"),
+				},
+				opts: &options.Options{},
+			},
+			target: endpoint.Endpoint{Name: "example.com"},
+			want:   "xds:///example.com:443",
+		},
+		{
+			name: "ipv6_address",
+			probe: &Probe{
+				c:    &configpb.ProbeConf{},
+				opts: &options.Options{},
+			},
+			target: endpoint.Endpoint{
+				Name: "example.com",
+				IP:   net.ParseIP("2001:db8::1"),
+			},
+			want: "dns:///[2001:db8::1]:443",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.probe.l == nil {
+				tt.probe.l = &logger.Logger{}
+			}
+			got := tt.probe.connectionString(tt.target)
+			if got != tt.want {
+				t.Errorf("Probe.connectionString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

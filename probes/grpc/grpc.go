@@ -281,9 +281,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-// connect attempts to connect to a target.
-func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.ClientConn, error) {
+func (p *Probe) connectionString(target endpoint.Endpoint) string {
 	addr := target.Name
+
 	if target.IP != nil {
 		if p.opts.IPVersion == 0 || iputils.IPVersion(target.IP) == p.opts.IPVersion {
 			addr = target.IP.String()
@@ -292,18 +292,30 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 		}
 	}
 
-	if target.Port > 0 {
-		addr = net.JoinHostPort(addr, strconv.Itoa(target.Port))
+	port := 443 // default
+	if target.Port != 0 {
+		port = target.Port
 	}
+	if p.c.GetPort() != 0 {
+		port = int(p.c.GetPort())
+	}
+
+	addr = net.JoinHostPort(addr, strconv.Itoa(port))
+
+	if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
+		addr = uriScheme + addr
+	}
+
+	return addr
+}
+
+// connect attempts to connect to a target.
+func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.ClientConn, error) {
 
 	if p.c.GetConnectTimeoutMsec() > 0 {
 		connctx, cancelFunc := context.WithTimeout(ctx, time.Duration(p.c.GetConnectTimeoutMsec())*time.Millisecond)
 		defer cancelFunc()
 		ctx = connctx
-	}
-
-	if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
-		addr = uriScheme + addr
 	}
 
 	// Note we use grpcurl.BlockingDial which uses WithBlock dial option which is
@@ -313,7 +325,7 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 	// fluid, and come and go, but for  aprober it's important that
 	// connection is established before we start sending RPCs. We'll get a
 	// much better error message if connection fails.
-	return grpcurl.BlockingDial(ctx, "tcp", addr, p.creds, p.dialOpts...)
+	return grpcurl.BlockingDial(ctx, "tcp", p.connectionString(target), p.creds, p.dialOpts...)
 }
 
 func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
