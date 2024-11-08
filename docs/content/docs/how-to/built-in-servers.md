@@ -6,14 +6,13 @@ menu:
 title: "Built-in Servers"
 ---
 
-Cloudprober comes with some custom servers that can be enabled through
-configuration. These servers can act as targets for the other probes -- for
-example, you can run two Cloudprober instances on two different machines and
-have one instance's servers act as targets and other instance probe those
-targets.
+Cloudprober includes built-in servers that can be enabled through configuration.
+These servers can act as targets for other probes. For example, you can run two
+Cloudprober instances on different machines, with one instance's servers acting
+as targets and the other instance probing those targets.
 
-These servers can come in handy when the goal is to monitor the underlying
-infrastructure: e.g. network or load balancers.
+These servers are useful for monitoring the underlying infrastructure, such as
+underlying network or load balancers.
 
 <pre>
 Cloudprober (probes) ===(Network)===> Cloudprober (servers)
