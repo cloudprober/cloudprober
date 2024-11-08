@@ -294,7 +294,7 @@ func (p *Probe) connectionString(target endpoint.Endpoint) string {
 
 	port := 443 // default
 	if target.Port != 0 {
-		port = int(target.Port)
+		port = target.Port
 	}
 	if p.c.GetPort() != 0 {
 		port = int(p.c.GetPort())
