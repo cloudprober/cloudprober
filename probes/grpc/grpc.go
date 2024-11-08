@@ -292,12 +292,12 @@ func (p *Probe) connectionString(target endpoint.Endpoint) string {
 		}
 	}
 
-	port := target.Port
+	port := 443 // default
+	if target.Port != 0 {
+		port = int(target.Port)
+	}
 	if p.c.GetPort() != 0 {
 		port = int(p.c.GetPort())
-	}
-	if port == 0 {
-		port = 443
 	}
 
 	addr = net.JoinHostPort(addr, strconv.Itoa(port))
