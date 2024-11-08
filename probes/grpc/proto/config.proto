@@ -37,6 +37,12 @@ message GenericRequest {
 
 // Next tag: 14
 message ProbeConf {
+  // Port for gRPC requests (Corresponding target field: port)
+  // Default is 443, but if this field is not set and target has a port, either
+  // discovered (e.g., k8s services, ingresses), or configured (e.g. endpoint,
+  // file targets), we use target's port.
+  optional int32 port = 6;
+
   // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
   // oauth_config: { bearer_token { gce_service_account: "default" } }
   optional oauth.Config oauth_config = 1;
