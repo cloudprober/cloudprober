@@ -2,7 +2,7 @@
 #   docker run --net host -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
 #                         cloudprober/cloudprober
 
-FROM busybox as temp
+FROM busybox AS temp
 
 COPY cloudprober-linux-* ./
 
@@ -24,6 +24,7 @@ COPY probes/browser/package*.json .
 RUN npm i && rm -rf /root/.npm
 ENV PLAYWRIGHT_BROWSERS_PATH=0
 RUN npx -y playwright install --with-deps chromium
+ENV PLAYWRIGHT_DIR=/playwright
 
 # Metadata params
 ARG BUILD_DATE
