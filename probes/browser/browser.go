@@ -54,6 +54,7 @@ type Probe struct {
 	targets              []endpoint.Endpoint
 	workdir              string
 	outputDir            string
+	playwrightDir        string
 	playwrightConfigPath string
 	reporterPath         string
 	payloadParser        *payload.Parser
@@ -156,6 +157,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	p.targets = p.opts.Targets.ListEndpoints()
+
+	p.playwrightDir = p.c.GetPlaywrightDir()
+	if p.playwrightDir == "" && os.Getenv("PLAYWRIGHT_DIR") != "" {
+		p.playwrightDir = os.Getenv("PLAYWRIGHT_DIR")
+	}
+	if p.playwrightDir == "" {
+		return fmt.Errorf("playwrightDir is not provided through config or PLAYWRIGHT_DIR env variable")
+	}
 
 	p.workdir = p.c.GetWorkdir()
 	if p.c.GetWorkdir() == "" {
@@ -286,7 +295,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	reportDir := filepath.Join(outputDir, "report")
 
 	envVars := []string{
-		fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.c.GetPlaywrightDir(), "node_modules")),
+		fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.playwrightDir, "node_modules")),
 		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
 		"PLAYWRIGHT_HTML_OPEN=never",
 	}
@@ -303,7 +312,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := &command.Command{
 		CmdLine: cmdLine,
-		WorkDir: p.c.GetPlaywrightDir(),
+		WorkDir: p.playwrightDir,
 		EnvVars: envVars,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
