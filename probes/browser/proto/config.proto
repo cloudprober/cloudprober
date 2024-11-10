@@ -83,26 +83,31 @@ message ProbeConf {
     optional string workdir = 3;
 
     // Path to the playwright installation. We execute tests from this location.
+    // If not specified, we'll use the playwright installation path in the
+    // cloudprober-playwright image (tag: "<version>-pw").
     optional string playwright_dir = 4 [default = "/playwright"];
+
+    // NPX path. Default is to assume npx is in the PATH.
+    optional string npx_path = 5 [default = "npx"];
 
     // Whether to enable screenshots for successful tests as well.
     // Note that screenshots are always enabled for failed tests, and you can
     // always save screenshots explicitly in the test spec.
-    optional bool enable_screenshots_for_success = 5 [default = false];
+    optional bool save_screenshots_for_success = 6 [default = false];
 
     // Traces are expensive and can slow down the test. We recommend to enable
     // this only when needed.
-    optional bool enable_traces = 6 [default = false];
+    optional bool save_traces = 7 [default = false];
 
     // By default, we export all test metrica as counters. You can change how
     // metrics are exported by setting the following options.
-    optional TestMetricsOptions test_metrics_options = 7;
+    optional TestMetricsOptions test_metrics_options = 8;
 
     // Artifacts options.
-    optional ArtifactsOptions artifacts_options = 8;
+    optional ArtifactsOptions artifacts_options = 9;
 
     // Cleanup options.
-    optional CleanupOptions workdir_cleanup_options = 9;
+    optional CleanupOptions workdir_cleanup_options = 10;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and
