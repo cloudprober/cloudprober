@@ -31,9 +31,11 @@ import (
 // e.g., servers injected by external cloudprober users.
 type runConfig struct {
 	sync.RWMutex
+
 	grpcSrv        *grpc.Server
 	version        string
 	buildTimestamp time.Time
+	configFilePath string
 	rdsServer      *rdsserver.Server
 	httpServeMux   *http.ServeMux
 }
@@ -114,4 +116,16 @@ func DefaultHTTPServeMux() *http.ServeMux {
 	rc.RLock()
 	defer rc.RUnlock()
 	return rc.httpServeMux
+}
+
+func SetConfigFilePath(path string) {
+	rc.Lock()
+	defer rc.Unlock()
+	rc.configFilePath = path
+}
+
+func ConfigFilePath() string {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.configFilePath
 }
