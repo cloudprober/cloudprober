@@ -67,8 +67,8 @@ message CleanupOptions {
 }
 
 message ProbeConf {
-    // Path to the playwright test spec file. We'll search for it in the the
-    // current working directory and the workdir directory.
+    // Path to the playwright test spec file. If the path is not absolute, we'll
+    // search for it relative to the config file directory and workdir.
     optional string test_spec_file = 1;
 
     // Inline playwright test spec.
@@ -83,9 +83,10 @@ message ProbeConf {
     optional string workdir = 3;
 
     // Path to the playwright installation. We execute tests from this location.
-    // If not specified, we'll use the playwright installation path in the
-    // cloudprober-playwright image (tag: "<version>-pw").
-    optional string playwright_dir = 4 [default = "/playwright"];
+    // If not specified, we'll use the value of environment variable
+    // $PLAYWRIGHT_DIR, which is automatically set by the official cloudprober
+    // playwright image (tag: "<version>-pw").
+    optional string playwright_dir = 4;
 
     // NPX path. Default is to assume npx is in the PATH.
     optional string npx_path = 5 [default = "npx"];
