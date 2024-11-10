@@ -16,6 +16,7 @@ package browser
 
 import (
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -30,6 +31,9 @@ import (
 )
 
 func TestProbe_prepareCommand(t *testing.T) {
+	os.Setenv("PLAYWRIGHT_DIR", "/playwright")
+	defer os.Unsetenv("PLAYWRIGHT_DIR")
+
 	baseEnvVars := func(pwDir string) []string {
 		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/report", "PLAYWRIGHT_HTML_OPEN=never"}
 	}
