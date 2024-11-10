@@ -145,6 +145,10 @@ func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 		dcs.cfg.Surfacer = append(dcs.cfg.Surfacer, sConfig.GetSurfacer()...)
 	}
 
+	// Set the config file path in runconfig. This can be used to find files
+	// relative to the config file.
+	runconfig.SetConfigFilePath(dcs.FileName)
+
 	return dcs.cfg, nil
 }
 

@@ -29,6 +29,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -49,7 +50,6 @@ type Probe struct {
 	c    *configpb.ProbeConf
 	l    *logger.Logger
 
-	testSpec string
 	// book-keeping params
 	targets              []endpoint.Endpoint
 	workdir              string
@@ -189,30 +189,20 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.payloadParser = payloadParser
 	}
 
-	// Set up test spec
-	p.testSpec = p.c.GetTestSpec()
-	if p.testSpec == "" {
-		if p.c.GetTestSpecFile() == "" {
-			return fmt.Errorf("test spec is not provided")
-		}
-		b, err := os.ReadFile(p.c.GetTestSpecFile())
-		if err != nil {
-			return fmt.Errorf("failed to read test spec from file (%s): %v", p.c.GetTestSpecFile(), err)
-		}
-		p.testSpec = string(b)
-	}
-	testSpecPath := filepath.Join(p.workdir, "test.spec.ts")
-	if err := os.WriteFile(testSpecPath, []byte(p.testSpec), 0644); err != nil {
-		return fmt.Errorf("failed to write test spec to workdir (%s): %v", p.workdir, err)
+	testDir := p.c.GetTestDir()
+	if testDir == "" {
+		testDir = filepath.Dir(runconfig.ConfigFilePath())
 	}
 
 	// Set up playwright config in workdir
 	data := struct {
+		TestDir            string
 		Screenshot         string
 		Trace              string
 		EnableStepMetrics  bool
 		DisableTestMetrics bool
 	}{
+		TestDir:            testDir,
 		Screenshot:         "only-on-failure",
 		Trace:              "off",
 		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
@@ -309,6 +299,8 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		"--output=" + filepath.Join(outputDir, "results"),
 		"--reporter=html," + p.reporterPath,
 	}
+	cmdLine = append(cmdLine, p.c.GetTestSpec()...)
+
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := &command.Command{
 		CmdLine: cmdLine,

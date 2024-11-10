@@ -31,12 +31,13 @@ import (
 // e.g., servers injected by external cloudprober users.
 type runConfig struct {
 	sync.RWMutex
+
 	grpcSrv        *grpc.Server
 	version        string
 	buildTimestamp time.Time
+	configFilePath string
 	rdsServer      *rdsserver.Server
 	httpServeMux   *http.ServeMux
-	configFilePath string
 }
 
 var rc runConfig
