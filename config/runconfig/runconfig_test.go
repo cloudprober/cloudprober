@@ -3,10 +3,11 @@ package runconfig
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )
 
-func TestRunConfig(t *testing.T) {
+func TestRunConfigDefaultGRPCServer(t *testing.T) {
 	if srv := DefaultGRPCServer(); srv != nil {
 		t.Fatalf("RunConfig has server unexpectedly set. Got %v Want nil", srv)
 	}
@@ -18,4 +19,9 @@ func TestRunConfig(t *testing.T) {
 	if srv := DefaultGRPCServer(); srv != testSrv {
 		t.Fatalf("Error retrieving stored service. Got %v Want %v", srv, testSrv)
 	}
+}
+
+func TestRunConfigConfigFilePath(t *testing.T) {
+	SetConfigFilePath("/cfg/cloudprober.cfg")
+	assert.Equal(t, "/cfg/cloudprober.cfg", ConfigFilePath(), "config file path")
 }
