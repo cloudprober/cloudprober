@@ -16,10 +16,12 @@ package config
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -164,6 +166,41 @@ func TestParseTemplate(t *testing.T) {
 			assert.Equal(t, tt.wantTargets, targets, "targets")
 		})
 	}
+}
+
+func TestParseTemplateConfigDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on windows")
+	}
+	configFilePath := runconfig.ConfigFilePath()
+	defer runconfig.SetConfigFilePath(configFilePath)
+	runconfig.SetConfigFilePath("/cfg/cloudprober.cfg")
+
+	testConfig := `
+probe {
+  name: "test_x"
+  type: EXTERNAL
+  probe_external {
+    # test_x.sh is in the same directory as the config file.
+	command: "{{configDir}}/scripts/test_x.sh"
+  }
+}
+`
+	wantConfig := `
+probe {
+  name: "test_x"
+  type: EXTERNAL
+  probe_external {
+    # test_x.sh is in the same directory as the config file.
+	command: "/cfg/scripts/test_x.sh"
+  }
+}
+`
+	textConfig, err := parseTemplate(testConfig, map[string]any{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, wantConfig, textConfig, "config")
 }
 
 func TestParseGCEMetadata(t *testing.T) {
