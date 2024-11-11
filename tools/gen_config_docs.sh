@@ -16,6 +16,8 @@ if [ -z "${DOCS_VERSION}" ]; then
     fi
 fi
 
+DOCS_VERSION=${DOCS_VERSION//\//_}
+
 go install github.com/manugarg/protodoc/cmd/protodoc@latest
 protodoc --proto_root_dir=. --package_prefix=github.com/cloudprober/cloudprober \
     --format=yaml --out_dir=docs/_config_docs/${DOCS_VERSION}/yaml --extra_msgs=cloudprober.rds.file.FileResources

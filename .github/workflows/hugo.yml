@@ -68,7 +68,6 @@ jobs:
 
       - name: Build pages
         run: |
-          tools/gen_config_docs.sh
           cd docs
           npm install
           npm run build
