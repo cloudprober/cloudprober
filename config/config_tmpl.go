@@ -101,14 +101,14 @@ construction easier:
 			configDir expands to the config file's directory. This is useful to
 			specify files relative to the config file.
 
-	        probe {
+	    	probe {
 			  name: "test_x"
 			  type: EXTERNAL
 			  probe_external {
 			    # test_x.sh is in the same directory as the config file.
 			    command: "{{configDir}}/test_x.sh"
-	          }
-	        }
+	    	  }
+	    	}
 */
 package config
 
