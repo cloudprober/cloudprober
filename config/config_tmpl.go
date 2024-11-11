@@ -28,88 +28,101 @@ Cloudprober configs support Go text templates with sprig functions
 (https://masterminds.github.io/sprig/) and the following macros to make configs
 construction easier:
 
-	gceCustomMetadata
-	 	Get value of a GCE custom metadata key. It first looks for the given key in
-		the instance's custom metadata and if it is not found there, it looks for it
-		in the project's custom metaata.
+		gceCustomMetadata
+		 	Get value of a GCE custom metadata key. It first looks for the given key in
+			the instance's custom metadata and if it is not found there, it looks for it
+			in the project's custom metaata.
 
-		# Get load balancer IP from metadata.
-		probe {
-		  name: "http_lb"
-		  type: HTTP
-		  targets {
-		    host_names: "{{gceCustomMetadata "lb_ip"}}"
-		  }
-		}
+			# Get load balancer IP from metadata.
+			probe {
+			  name: "http_lb"
+			  type: HTTP
+			  targets {
+			    host_names: "{{gceCustomMetadata "lb_ip"}}"
+			  }
+			}
 
-	extractSubstring
-		Extract substring from a string using regex. Example use in config:
+		extractSubstring
+			Extract substring from a string using regex. Example use in config:
 
-		# Sharded VM-to-VM connectivity checks over internal IP
-		# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
-		{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
-		probe {
-		  name: "vm-to-vm-{{$shard}}"
-		  type: PING
-		  targets {
-		    gce_targets {
-		      instances {}
-		    }
-		    regex: "{{$targets}}"
-		  }
-		  run_on: "{{$run_on}}"
-		}
+			# Sharded VM-to-VM connectivity checks over internal IP
+			# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
+			{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
+			probe {
+			  name: "vm-to-vm-{{$shard}}"
+			  type: PING
+			  targets {
+			    gce_targets {
+			      instances {}
+			    }
+			    regex: "{{$targets}}"
+			  }
+			  run_on: "{{$run_on}}"
+			}
 
-	mkMap or dict
-		Same as dict: https://masterminds.github.io/sprig/dicts.html. Returns a
-		map built from the arguments. It's useful as Go templates take only one
-		argument. With this function, we can create a map of multiple values and
-		pass it to a template. Example use in config:
+		mkMap or dict
+			Same as dict: https://masterminds.github.io/sprig/dicts.html. Returns a
+			map built from the arguments. It's useful as Go templates take only one
+			argument. With this function, we can create a map of multiple values and
+			pass it to a template. Example use in config:
 
-		{{define "probeTmpl"}}
-		probe {
-		  type: {{.typ}}
-		  name: "{{.name}}"
-		  targets {
-		    host_names: "www.google.com"
-		  }
-		}
-		{{end}}
+			{{define "probeTmpl"}}
+			probe {
+			  type: {{.typ}}
+			  name: "{{.name}}"
+			  targets {
+			    host_names: "www.google.com"
+			  }
+			}
+			{{end}}
 
-		{{template "probeTmpl" dict "typ" "PING" "name" "ping_google"}}
-		{{template "probeTmpl" dict "typ" "HTTP" "name" "http_google"}}
+			{{template "probeTmpl" dict "typ" "PING" "name" "ping_google"}}
+			{{template "probeTmpl" dict "typ" "HTTP" "name" "http_google"}}
 
+		mkSlice or list
+			Same as list: https://masterminds.github.io/sprig/lists.html. It can be
+			used with the built-in'range' function to replicate text.
 
-	mkSlice or list
-		Same as list: https://masterminds.github.io/sprig/lists.html. It can be
-		used with the built-in'range' function to replicate text.
+			{{with $regions := list "us=central1" "us-east1"}}
+			{{range $_, $region := $regions}}
 
+			probe {
+			  name: "service-a-{{$region}}"
+			  type: HTTP
+			  targets {
+			    host_names: "service-a.{{$region}}.corp.xx.com"
+			  }
+			}
 
-		{{with $regions := list "us=central1" "us-east1"}}
-		{{range $_, $region := $regions}}
+			{{end}}
+			{{end}}
 
-		probe {
-		  name: "service-a-{{$region}}"
-		  type: HTTP
-		  targets {
-		    host_names: "service-a.{{$region}}.corp.xx.com"
-		  }
-		}
+	    configDir
+			configDir expands to the config file's directory. This is useful to
+			specify files relative to the config file.
 
-		{{end}}
-		{{end}}
+	        probe {
+			  name: "test_x"
+			  type: EXTERNAL
+			  probe_external {
+			    # test_x.sh is in the same directory as the config file.
+			    command: "{{configDir}}/test_x.sh"
+	          }
+	        }
 */
 package config
 
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"text/template"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/Masterminds/sprig/v3"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
@@ -173,6 +186,7 @@ func parseTemplate(config string, tmplVars map[string]any, getGCECustomMetadata 
 			return matches[n], nil
 		},
 		"envSecret": func(s string) string { return "**$" + s + "**" },
+		"configDir": func() string { return filepath.Dir(runconfig.ConfigFilePath()) },
 	}
 
 	for name, f := range sprig.TxtFuncMap() {
