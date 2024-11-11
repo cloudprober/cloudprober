@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
@@ -168,6 +169,9 @@ func TestParseTemplate(t *testing.T) {
 }
 
 func TestParseTemplateConfigDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on windows")
+	}
 	configFilePath := runconfig.ConfigFilePath()
 	defer runconfig.SetConfigFilePath(configFilePath)
 	runconfig.SetConfigFilePath("/cfg/cloudprober.cfg")
