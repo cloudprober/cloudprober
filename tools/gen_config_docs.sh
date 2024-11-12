@@ -37,7 +37,7 @@ menu:
 title: "$(basename $dir) Config"
 ---
 
-{{% config-docs-nav %}}
+{{% config-docs-nav version="${DOCS_VERSION}" %}}
 
 {{% config-doc config="$(basename $dir)" version="${DOCS_VERSION}" %}}
 
