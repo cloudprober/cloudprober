@@ -49,18 +49,21 @@ MENU_HDR="menu:
     params:
       hide: true
 "
+TITLE_VERSION=""
 
 if [ "${DOCS_VERSION}" != "latest" ]; then
   MENU_HDR=""
+  TITLE_VERSION=" (${DOCS_VERSION})"
 fi
 
 for dir in ${ORIGINAL_DIR}/docs/_config_docs/${DOCS_VERSION}/textpb/*; do
+  baseName=$(basename $dir)
   if [ ! -d $dir ]; then
     continue
   fi
-  cat > ${BASE_PATH}/$(basename $dir).md <<EOF
+  cat > ${BASE_PATH}/${baseName}.md <<EOF
 ---
-${MENU_HDR}title: "$(basename $dir) Config"
+${MENU_HDR}title: "${baseName^} Config${TITLE_VERSION}"
 ---
 
 {{% config-docs-nav version="${DOCS_VERSION}" %}}
