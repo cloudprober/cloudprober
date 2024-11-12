@@ -128,7 +128,7 @@ an example of targets in JSON format:
 ```
 
 <span class=small>(You can also define targets in the textproto format: <a
-href="https://github.com/cloudprober/cloudprober/blob/master/rds/file/testdata/targets1.textpb">example</a>.
+href="https://github.com/cloudprober/cloudprober/blob/master/internal/rds/file/testdata/targets1.textpb">example</a>.
 Full example with cloudprober.cfg:
 <a href="https://github.com/cloudprober/cloudprober/blob/master/examples/file_based_targets">file_based_targets</a>)</span>
 
