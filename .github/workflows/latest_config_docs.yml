@@ -1,13 +1,14 @@
-name: Build and deploy gh-pages
+name: Build config docs for release
 
 on:
   release:
     types:
-      - created
+      - published
   workflow_dispatch:
     inputs:
       tag:
         description: "Tag to run workflow for"
+        default: "latest"
   
 jobs:
   build-and-deploy:
@@ -45,7 +46,14 @@ jobs:
           git checkout -b gh-pages-github-action gh-pages
 
       - name: Generate config docs for latest
-        run: tools/gen_config_docs.sh latest
+        if: ${{ github.event_name == 'release'}}
+        run: |
+          tools/gen_config_docs.sh
+          tools/gen_config_docs.sh latest
+
+      - name: Generate config docs for latest (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch'}}
+        run: tools/gen_config_docs.sh ${{ github.event.inputs.tag }}
 
       - name: Build pages
         run: |
