@@ -42,19 +42,25 @@ protodoc --proto_root_dir=. --package_prefix=github.com/cloudprober/cloudprober 
 BASE_PATH=${ORIGINAL_DIR}/docs/content/docs/config/${DOCS_VERSION}
 mkdir -p ${BASE_PATH}
 
+MENU_HDR="menu:
+  docs:
+    parent: \"config\"
+    weight: 23
+    params:
+      hide: true
+"
+
+if [ "${DOCS_VERSION}" != "latest" ]; then
+  MENU_HDR=""
+fi
+
 for dir in ${ORIGINAL_DIR}/docs/_config_docs/${DOCS_VERSION}/textpb/*; do
   if [ ! -d $dir ]; then
     continue
   fi
   cat > ${BASE_PATH}/$(basename $dir).md <<EOF
 ---
-menu:
-  docs:
-    parent: "config"
-    weight: 23
-    params:
-      hide: true
-title: "$(basename $dir) Config"
+${MENU_HDR}title: "$(basename $dir) Config"
 ---
 
 {{% config-docs-nav version="${DOCS_VERSION}" %}}
