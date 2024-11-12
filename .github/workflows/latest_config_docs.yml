@@ -1,0 +1,68 @@
+name: Build and deploy gh-pages
+
+on:
+  release:
+    types:
+      - created
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to run workflow for"
+  
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: 'docs/package-lock.json'
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+          cache: true
+        id: go
+
+      - name: Setup public worktree
+        run: cd docs && git worktree add public gh-pages
+
+      - name: Create a branch for pull request
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd docs/public
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          git push origin --delete gh-pages-github-action || true
+          git checkout -b gh-pages-github-action gh-pages
+
+      - name: Generate config docs for latest
+        run: tools/gen_config_docs.sh latest
+
+      - name: Build pages
+        run: |
+          cd docs
+          npm install
+          npm run build
+          ls public
+          cd public && git status
+
+      - name: Deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd docs/public
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          git add --all
+          git status
+          git diff-index --quiet HEAD || git commit -m "Update gh-pages" && git push --set-upstream origin gh-pages-github-action
