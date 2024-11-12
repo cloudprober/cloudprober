@@ -10,6 +10,7 @@ on:
       - 'docs/**'
       - '**proto/*.proto'
       - '.github/workflows/hugo.yml'
+      - 'tools/gen_config_docs.sh'
   
 jobs:
   build-and-deploy:
