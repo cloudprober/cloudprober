@@ -1,22 +1,20 @@
 name: Build and deploy gh-pages
 
 on:
-  push:
-    branches:
-      - master
-      - browser_dev
-      - docs_test/**
-    paths:
-      - 'docs/**'
-      - '**proto/*.proto'
-      - '.github/workflows/hugo.yml'
+  release:
+    types:
+      - created
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to run workflow for"
   
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out code into the Go module directory
+      - name: Check out code
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
@@ -46,8 +44,8 @@ jobs:
           git push origin --delete gh-pages-github-action || true
           git checkout -b gh-pages-github-action gh-pages
 
-      - name: Generate config docs
-        run: tools/gen_config_docs.sh
+      - name: Generate config docs for latest
+        run: tools/gen_config_docs.sh latest
 
       - name: Build pages
         run: |
