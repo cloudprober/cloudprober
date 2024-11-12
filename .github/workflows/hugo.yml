@@ -50,9 +50,6 @@ jobs:
       - name: Setup public worktree
         run: cd docs && git worktree add public gh-pages
 
-      - name: Setup config_docs worktree
-        run: cd docs && git worktree add _config_docs _config_docs
-
       - name: Create a branch for pull request
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
