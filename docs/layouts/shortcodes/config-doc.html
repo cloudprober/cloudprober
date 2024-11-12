@@ -1,9 +1,13 @@
 <div id="content-lang-yaml" class="select-content-lang" style="display:none">
-    {{ $file := .Get "config" | printf "_config_docs/yaml/%s/index.html" | readFile }}
+    {{ $config := .Get "config" | default "overview" }}
+    {{ $version := .Get "version" | default "latest" }}
+    {{ $file := (printf "_config_docs/%s/yaml/%s/index.html" $version $config) | readFile }}
     {{ (print $file) | safeHTML }}
 </div>
 <div id="content-lang-textpb" class="select-content-lang" style="display:none">
-    {{ $file := .Get "config" | printf "_config_docs/textpb/%s/index.html" | readFile }}
+    {{ $config := .Get "config" | default "overview" }}
+    {{ $version := .Get "version" | default "latest" }}
+    {{ $file := (printf "_config_docs/%s/textpb/%s/index.html" $version $config) | readFile }}
     {{ (print $file) | safeHTML }}
 </div>
     

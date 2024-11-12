@@ -33,7 +33,8 @@
 <script src="/configdoc.js"></script>
 
 {{ $s := "<a href=\"../overview/\">main</a>" }}
-{{ range os.ReadDir "_config_docs/yaml" -}}
+{{ $version := .Get "version" | default "latest" }}
+{{ range os.ReadDir (printf "_config_docs/%s/yaml" $version) -}}
     {{ if and (ne .Name "overview") .IsDir }} {{ $s = printf "%s | <a href=\"../%s/\">%s</a>" $s .Name .Name }} {{ end }}
 {{ end }}
 {{ $s = trim $s "| " }}
