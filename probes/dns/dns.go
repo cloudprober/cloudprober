@@ -132,7 +132,8 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
 		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
-		AddMetric("timeouts", &prr.timeouts)
+		AddMetric("timeouts", &prr.timeouts).
+		AddLabel("ptype", "dns")
 
 	if prr.validationFailure != nil {
 		em.AddMetric("validation_failure", prr.validationFailure)
