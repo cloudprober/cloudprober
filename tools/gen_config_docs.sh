@@ -72,3 +72,16 @@ ${MENU_HDR}title: "${baseName^} Config${TITLE_VERSION}"
 
 EOF
 done
+
+cp ${ORIGINAL_DIR}/docs/content/docs/config/_index.md ${BASE_PATH}/
+
+# Copy latest configs to non-versioned path as well to make sure
+# we don't break existing links.
+if [ "${DOCS_VERSION}" == "latest" ]; then
+  echo "Copying latest configs to non-versioned path as well."
+  NON_VERSIONED_BASE_PATH=${ORIGINAL_DIR}/docs/content/docs/config
+  mkdir -p ${NON_VERSIONED_BASE_PATH}
+  for dir in ${BASE_PATH}/*; do
+    cp -r $dir ${NON_VERSIONED_BASE_PATH}/
+  done
+fi
