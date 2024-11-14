@@ -58,7 +58,7 @@ jobs:
       - name: Generate config docs for latest (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag == 'all'
         run: |
-          for dir in public/docs/config/v*.*.*
+          for dir in docs/public/docs/config/v*.*.*
           do
             version=$(basename $dir)
             echo "Generating config docs for $version"
