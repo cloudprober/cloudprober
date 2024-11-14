@@ -52,8 +52,20 @@ jobs:
           tools/gen_config_docs.sh latest
 
       - name: Generate config docs for latest (workflow_dispatch)
-        if: ${{ github.event_name == 'workflow_dispatch'}}
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != 'all'
         run: tools/gen_config_docs.sh ${{ github.event.inputs.tag }}
+
+      - name: Generate config docs for latest (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag == 'all'
+        run: |
+          for dir in public/docs/config/v*.*.*
+          do
+            version=$(basename $dir)
+            echo "Generating config docs for $version"
+            tools/gen_config_docs.sh $version
+          done
+          echo "Generating config docs for latest"
+          tools/gen_config_docs.sh latest
 
       - name: Build pages
         run: |
