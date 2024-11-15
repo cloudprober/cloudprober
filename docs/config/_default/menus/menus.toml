@@ -26,7 +26,7 @@
   name = "Config"
   weight = 40
   identifier = "config"
-  url = "/docs/config/overview"
+  url = "/docs/config/latest/overview"
 
 [[main]]
   name = "How-To"
@@ -90,7 +90,7 @@
 [[docs]]
   name = "Configuration"
   identifier = "config"
-  url = "/docs/config/overview"
+  url = "/docs/config/latest/overview"
   weight = 20
   [docs.params]
     collapsible = true
