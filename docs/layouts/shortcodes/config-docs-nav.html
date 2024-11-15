@@ -42,4 +42,16 @@
     Configs:&nbsp;&nbsp;{{ $s | safeHTML}}
 </div>
 <br>
-<button id="set-lang-yaml" class="set-lang">YAML</button>|<button id="set-lang-textpb" class="set-lang">TextPB</button>
+<div style="font-size:85%">
+{{ if os.FileExists "public/docs/config/" -}}
+<label for="config-version-selector">Version:</label>
+<select id="config-version-selector">
+    <option selected value="latest">latest</option>
+    <option value="master">master</option>
+{{ range os.ReadDir "public/docs/config/" -}}
+    {{ if and (findRE `v[0-9]+\.[0-9]+\.[0-9]+` .Name) .IsDir }}<option value="{{ .Name }}">{{ .Name }}</option> {{ end }}
+{{- end }}
+</select> |
+{{- end }}
+Language: <button id="set-lang-yaml" class="set-lang">YAML</button>|<button id="set-lang-textpb" class="set-lang">TextPB</button>
+</div>
