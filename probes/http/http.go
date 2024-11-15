@@ -128,6 +128,9 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 		}
 		transport.Proxy = http.ProxyURL(url)
 
+		if len(p.c.GetProxyConnectHeader()) > 0 && transport.ProxyConnectHeader == nil {
+			transport.ProxyConnectHeader = make(http.Header)
+		}
 		for k, v := range p.c.GetProxyConnectHeader() {
 			transport.ProxyConnectHeader.Add(k, v)
 		}
