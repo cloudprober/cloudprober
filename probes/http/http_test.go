@@ -644,11 +644,12 @@ func TestGetTransport(t *testing.T) {
 	p := &Probe{opts: opts}
 
 	tests := []struct {
-		desc             string
-		keepAlive        bool
-		disableHTTP2     bool
-		proxy            string
-		disableCertCheck bool
+		desc               string
+		keepAlive          bool
+		disableHTTP2       bool
+		proxy              string
+		proxyConnectHeader map[string]string
+		disableCertCheck   bool
 	}{
 		{
 			desc: "default transport",
@@ -662,8 +663,9 @@ func TestGetTransport(t *testing.T) {
 			keepAlive: true,
 		},
 		{
-			desc:  "with_proxy",
-			proxy: "http://test-proxy",
+			desc:               "with_proxy",
+			proxy:              "http://test-proxy",
+			proxyConnectHeader: map[string]string{"Proxy-Connect": "test"},
 		},
 		{
 			desc:             "disable_cert_check",
@@ -686,6 +688,7 @@ func TestGetTransport(t *testing.T) {
 				RequestsPerProbe:      proto.Int32(10),
 				ProxyUrl:              &test.proxy,
 				DisableCertValidation: &test.disableCertCheck,
+				ProxyConnectHeader:    test.proxyConnectHeader,
 			}
 
 			transport, err := p.getTransport()
@@ -712,6 +715,12 @@ func TestGetTransport(t *testing.T) {
 			if test.proxy != "" {
 				proxy, _ := transport.Proxy(nil)
 				assert.Equal(t, test.proxy, proxy.String())
+			}
+
+			if test.proxyConnectHeader != nil {
+				for k, v := range transport.ProxyConnectHeader {
+					assert.Equal(t, v[0], test.proxyConnectHeader[k], "Proxy-connect header mismatch for key: %s", k)
+				}
 			}
 
 			if test.disableCertCheck {
