@@ -56,14 +56,17 @@ if [ "${DOCS_VERSION}" != "latest" ]; then
   TITLE_VERSION=" (${DOCS_VERSION})"
 fi
 
-for dir in ${ORIGINAL_DIR}/docs/_config_docs/${DOCS_VERSION}/textpb/*; do
-  baseName=$(basename $dir)
-  if [ ! -d $dir ]; then
-    continue
-  fi
-  cat > ${BASE_PATH}/${baseName}.md <<EOF
+generate_config_files() {
+  local base_path="$1"
+  local menu_hdr="$2"
+  for dir in ${ORIGINAL_DIR}/docs/_config_docs/${DOCS_VERSION}/textpb/*; do
+    baseName=$(basename $dir)
+    if [ ! -d $dir ]; then
+      continue
+    fi
+    cat > ${base_path}/${baseName}.md <<EOF
 ---
-${MENU_HDR}title: "${baseName^} Config${TITLE_VERSION}"
+${menu_hdr}title: "${baseName^} Config${TITLE_VERSION}"
 ---
 
 {{% config-docs-nav version="${DOCS_VERSION}" %}}
@@ -71,7 +74,11 @@ ${MENU_HDR}title: "${baseName^} Config${TITLE_VERSION}"
 {{% config-doc config="$(basename $dir)" version="${DOCS_VERSION}" %}}
 
 EOF
-done
+  done
+}
+
+# Call the function with BASE_PATH
+generate_config_files "${BASE_PATH}" "${MENU_HDR}"
 
 cp ${ORIGINAL_DIR}/docs/content/docs/config/_index.md ${BASE_PATH}/
 
@@ -81,7 +88,5 @@ if [ "${DOCS_VERSION}" == "latest" ]; then
   echo "Copying latest configs to non-versioned path as well."
   NON_VERSIONED_BASE_PATH=${ORIGINAL_DIR}/docs/content/docs/config
   mkdir -p ${NON_VERSIONED_BASE_PATH}
-  for dir in ${BASE_PATH}/*; do
-    cp -r $dir ${NON_VERSIONED_BASE_PATH}/
-  done
+  generate_config_files "${NON_VERSIONED_BASE_PATH}" ""
 fi
