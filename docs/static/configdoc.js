@@ -168,8 +168,34 @@ function addTOC() {
   }
 }
 
+function configVersionSelector() {
+  var currentVersion = "latest";
+  var configName = "overview";
+  const configDocsPath = (version, configName) => `/docs/config/${version}/${configName}/`;
+  const url = new URL(window.location.href);
+  const urlParts = url.pathname.split("/");
+  // URL with version will have 6 parts.
+  if (urlParts.length == 6) {
+    configName = urlParts[4];
+    currentVersion = urlParts[3];
+  } else if (urlParts.length == 5) {
+    configName = urlParts[3];
+  }
+  
+  const versionSelector = document.getElementById("config-version-selector");
+  if (versionSelector) {
+    versionSelector.value = currentVersion;
+    versionSelector.addEventListener("change", function () {
+      const selectedVersion = versionSelector.value;
+      url.pathname = configDocsPath(selectedVersion, configName);
+      window.location.href = url.toString();
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   setConfigLang();
+  configVersionSelector();
   if (window.location.hash) {
     const e = document.querySelector(window.location.hash);
     if (e) {
