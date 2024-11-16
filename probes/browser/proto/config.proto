@@ -67,12 +67,19 @@ message CleanupOptions {
 }
 
 message ProbeConf {
-    // Path to the playwright test spec file. If the path is not absolute, we'll
-    // search for it relative to the config file directory and workdir.
-    optional string test_spec_file = 1;
+    // Playwright test specs. These are passed to playwright as it is. This
+    // field works in conjunction with test_dir -- test specs should be under
+    // test directory.
+    //
+    // If test_spec is not specified, all test specs in the test directory are
+    // executed, and since default test directory is config file's directory,
+    // if you leave both the fields unspecified, all test specs co-located with
+    // the config file are executed.
+    repeated string test_spec = 1;
 
-    // Inline playwright test spec.
-    optional string test_spec = 2;
+    // Test directory. This is the directory where test specs are located.
+    // Default test_dir is config file director.
+    optional string test_dir = 2 [default = "{{configDir}}"];
 
     // Workdir is path to the working directory. It should be writable. If not
     // specified, we try to create a temporary directory. All the output files
