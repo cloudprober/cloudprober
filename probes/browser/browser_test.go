@@ -30,21 +30,26 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestProbe_prepareCommand(t *testing.T) {
+func TestProbePrepareCommand(t *testing.T) {
 	os.Setenv("PLAYWRIGHT_DIR", "/playwright")
 	defer os.Unsetenv("PLAYWRIGHT_DIR")
 
 	baseEnvVars := func(pwDir string) []string {
 		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/report", "PLAYWRIGHT_HTML_OPEN=never"}
 	}
+
 	cmdLine := func(npxPath string) []string {
 		return []string{npxPath, "playwright", "test", "--config={WORKDIR}/playwright.config.ts", "--output=${OUTPUT_DIR}/results", "--reporter=html,{WORKDIR}/cloudprober-reporter.ts"}
 	}
+
+	baseWantEMLabels := [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}}
+
 	tests := []struct {
 		name               string
 		disableAggregation bool
 		npxPath            string
 		playwrightDir      string
+		testSpec           []string
 		target             endpoint.Endpoint
 		wantCmdLine        []string
 		wantEnvVars        []string
@@ -56,7 +61,7 @@ func TestProbe_prepareCommand(t *testing.T) {
 			wantCmdLine:  cmdLine("npx"),
 			wantEnvVars:  baseEnvVars("/playwright"),
 			wantWorkDir:  "/playwright",
-			wantEMLabels: [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}},
+			wantEMLabels: baseWantEMLabels,
 		},
 		{
 			name:         "with_target",
@@ -72,7 +77,7 @@ func TestProbe_prepareCommand(t *testing.T) {
 			wantCmdLine:        cmdLine("npx"),
 			wantEnvVars:        baseEnvVars("/playwright"),
 			wantWorkDir:        "/playwright",
-			wantEMLabels:       [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}, {"run_id", "0"}},
+			wantEMLabels:       append(baseWantEMLabels, [2]string{"run_id", "0"}),
 		},
 		{
 			name:          "with_playwright_dir",
@@ -80,7 +85,7 @@ func TestProbe_prepareCommand(t *testing.T) {
 			wantCmdLine:   cmdLine("npx"),
 			wantEnvVars:   baseEnvVars("/app"),
 			wantWorkDir:   "/app",
-			wantEMLabels:  [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}},
+			wantEMLabels:  baseWantEMLabels,
 		},
 		{
 			name:         "with_npx_path",
@@ -88,13 +93,21 @@ func TestProbe_prepareCommand(t *testing.T) {
 			wantCmdLine:  cmdLine("/usr/bin/npx"),
 			wantEnvVars:  baseEnvVars("/playwright"),
 			wantWorkDir:  "/playwright",
-			wantEMLabels: [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}},
+			wantEMLabels: baseWantEMLabels,
+		},
+		{
+			name:         "with_test_spec",
+			testSpec:     []string{"test_spec_1", "test_spec_2"},
+			wantCmdLine:  append(cmdLine("npx"), "test_spec_1", "test_spec_2"),
+			wantEnvVars:  baseEnvVars("/playwright"),
+			wantWorkDir:  "/playwright",
+			wantEMLabels: baseWantEMLabels,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.ProbeConf{
-				TestSpec: proto.String("test_spec"),
+				TestSpec: tt.testSpec,
 				TestMetricsOptions: &configpb.TestMetricsOptions{
 					DisableAggregation: &tt.disableAggregation,
 				},
