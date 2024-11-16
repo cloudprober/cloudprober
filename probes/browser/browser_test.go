@@ -18,10 +18,12 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -179,6 +181,136 @@ func TestProbeOutputDirPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &Probe{outputDir: tt.outputDir}
 			assert.Equal(t, filepath.FromSlash(tt.want), p.outputDirPath(tt.target, tt.ts))
+		})
+	}
+}
+
+func TestProbeInitTemplates(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows, path issues - not worth it")
+	}
+
+	tmpDir := t.TempDir()
+
+	oldConfigFilePath := runconfig.ConfigFilePath()
+	defer runconfig.SetConfigFilePath(oldConfigFilePath)
+	runconfig.SetConfigFilePath("/cfg/cloudprober.cfg")
+
+	defaultConfigContains := []string{
+		"testDir: \"/cfg\"",
+		"screenshot: \"only-on-failure\"",
+		"trace: \"off\"",
+	}
+	reporterContainTestLevel := []string{
+		"print(`test_status",
+		"print(`test_latency",
+	}
+	reporterContainStepLevel := []string{
+		"print(`test_step_status",
+		"print(`test_step_latency",
+	}
+
+	tests := []struct {
+		name                string
+		conf                *configpb.ProbeConf
+		configContains      []string
+		reporterContains    []string
+		reporterNotContains []string
+	}{
+		{
+			name: "default",
+			conf: &configpb.ProbeConf{
+				Workdir: proto.String(tmpDir),
+			},
+			configContains:      defaultConfigContains,
+			reporterContains:    reporterContainTestLevel,
+			reporterNotContains: reporterContainStepLevel,
+		},
+		{
+			name: "with_config_dir",
+			conf: &configpb.ProbeConf{
+				TestDir: proto.String("/cfg/tests"),
+				Workdir: proto.String(tmpDir),
+			},
+			configContains: []string{
+				"testDir: \"/cfg/tests\"",
+				"screenshot: \"only-on-failure\"",
+				"trace: \"off\"",
+			},
+			reporterContains:    reporterContainTestLevel,
+			reporterNotContains: reporterContainStepLevel,
+		},
+		{
+			name: "with_screenshots_and_traces",
+			conf: &configpb.ProbeConf{
+				Workdir:                   proto.String(tmpDir),
+				SaveScreenshotsForSuccess: proto.Bool(true),
+				SaveTraces:                proto.Bool(true),
+			},
+			configContains: []string{
+				"screenshot: \"on\"",
+				"trace: \"on\"",
+			},
+			reporterContains:    reporterContainTestLevel,
+			reporterNotContains: reporterContainStepLevel,
+		},
+		{
+			name: "with_step_metrics",
+			conf: &configpb.ProbeConf{
+				Workdir: proto.String(tmpDir),
+				TestMetricsOptions: &configpb.TestMetricsOptions{
+					EnableStepMetrics: proto.Bool(true),
+				},
+			},
+			configContains:   defaultConfigContains,
+			reporterContains: append(reporterContainTestLevel, reporterContainStepLevel...),
+		},
+		{
+			name: "disable_test_metrics",
+			conf: &configpb.ProbeConf{
+				Workdir: proto.String(tmpDir),
+				TestMetricsOptions: &configpb.TestMetricsOptions{
+					DisableTestMetrics: proto.Bool(true),
+				},
+			},
+			configContains:      defaultConfigContains,
+			reporterNotContains: append(reporterContainTestLevel, reporterContainStepLevel...),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				name:    "test_probe",
+				c:       tt.conf,
+				workdir: tmpDir,
+			}
+
+			err := p.initTemplates()
+			if err != nil {
+				t.Fatalf("initTemplates() error = %v", err)
+			}
+
+			// Verify playwright config file
+			got, err := os.ReadFile(p.playwrightConfigPath)
+			if err != nil {
+				t.Fatalf("Error reading playwright config: %v", err)
+			}
+			for _, want := range tt.configContains {
+				assert.Contains(t, string(got), want, "playwright config should contain: %s", want)
+			}
+
+			// Verify reporter file
+			got, err = os.ReadFile(p.reporterPath)
+			if err != nil {
+				t.Fatalf("Error reading playwright config: %v", err)
+			}
+			for _, want := range tt.reporterContains {
+				assert.Contains(t, string(got), want, "reporter file should contain: %s", want)
+			}
+			for _, want := range tt.reporterNotContains {
+				assert.NotContains(t, string(got), want, "reporter file should not contain: %s", want)
+			}
 		})
 	}
 }

@@ -29,6 +29,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -129,6 +130,49 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 	return filePath, nil
 }
 
+func (p *Probe) initTemplates() error {
+	testDir := p.c.GetTestDir()
+	if p.c.TestDir == nil {
+		testDir = filepath.Dir(runconfig.ConfigFilePath())
+	}
+
+	// Set up playwright config in workdir
+	data := struct {
+		TestDir            string
+		Screenshot         string
+		Trace              string
+		EnableStepMetrics  bool
+		DisableTestMetrics bool
+	}{
+		TestDir:            testDir,
+		Screenshot:         "only-on-failure",
+		Trace:              "off",
+		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
+		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
+	}
+	if p.c.GetSaveScreenshotsForSuccess() {
+		data.Screenshot = "on"
+	}
+	if p.c.GetSaveTraces() {
+		data.Trace = "on"
+	}
+
+	configPath, err := p.initTemplateFile(templates, "playwright.config.ts", data)
+	if err != nil {
+		return fmt.Errorf("failed to create playwright config: %v", err)
+	}
+	p.playwrightConfigPath = configPath
+
+	// Set up reporter in workdir
+	reporterPath, err := p.initTemplateFile(templates, "cloudprober-reporter.ts", data)
+	if err != nil {
+		return fmt.Errorf("failed to create cloudprober-reporter: %v", err)
+	}
+	p.reporterPath = reporterPath
+
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -188,39 +232,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.payloadParser = payloadParser
 	}
 
-	// Set up playwright config in workdir
-	data := struct {
-		TestDir            string
-		Screenshot         string
-		Trace              string
-		EnableStepMetrics  bool
-		DisableTestMetrics bool
-	}{
-		TestDir:            p.c.GetTestDir(),
-		Screenshot:         "only-on-failure",
-		Trace:              "off",
-		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
-		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
+	if err := p.initTemplates(); err != nil {
+		return fmt.Errorf("failed to initialize templates: %v", err)
 	}
-	if p.c.GetSaveScreenshotsForSuccess() {
-		data.Screenshot = "on"
-	}
-	if p.c.GetSaveTraces() {
-		data.Trace = "on"
-	}
-
-	configPath, err := p.initTemplateFile(templates, "playwright.config.ts", data)
-	if err != nil {
-		return fmt.Errorf("failed to create playwright config: %v", err)
-	}
-	p.playwrightConfigPath = configPath
-
-	// Set up reporter in workdir
-	reporterPath, err := p.initTemplateFile(templates, "cloudprober-reporter.ts", data)
-	if err != nil {
-		return fmt.Errorf("failed to create cloudprober-reporter: %v", err)
-	}
-	p.reporterPath = reporterPath
 
 	ah, err := initArtifactsHandler(p.c.GetArtifactsOptions(), p.name, p.outputDir, p.l)
 	if err != nil {
