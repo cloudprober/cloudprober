@@ -27,6 +27,9 @@ message S3 {
 message GCS {
     optional string bucket = 1;
     optional string path = 2;
+
+    // If you want to use default credentials on GCE or GKE, leave this field
+    // empty.
     optional oauth.GoogleCredentials credentials = 3;
 
     // GCS endpoint.
@@ -41,11 +44,25 @@ message LocalStorage {
     optional CleanupOptions cleanup_options = 2;
 }
 
+message ABS {
+    optional string container = 1;
+    optional string path = 2;
+
+    // Azure account name and key. If you want to use managed identities, leave
+    // these fields empty.
+    optional string account_name = 3;
+    optional string account_key = 4;
+
+    // Azure endpoint. Default is "https://<account>.blob.core.windows.net".
+    optional string endpoint = 5;
+}
+
 message Storage {
     oneof storage {
         LocalStorage local_storage = 1;
         S3 s3 = 2;
         GCS gcs = 3;
+        ABS abs = 4;
     }
 }
 
