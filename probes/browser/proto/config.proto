@@ -78,8 +78,8 @@ message ProbeConf {
     repeated string test_spec = 1;
 
     // Test directory. This is the directory where test specs are located.
-    // Default test_dir is config file director.
-    optional string test_dir = 2 [default = "{{configDir}}"];
+    // Default test_dir is config file directory ("{{configDir}}").
+    optional string test_dir = 2;
 
     // Workdir is path to the working directory. It should be writable. If not
     // specified, we try to create a temporary directory. All the output files
