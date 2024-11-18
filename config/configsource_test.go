@@ -68,6 +68,7 @@ surfacer {
 		surfacersCfgFile  string
 		configFile        string
 		defaultConfigFile string
+		baseVars          map[string]any
 		want              *configpb.ProberConfig
 		wantRawConfig     string
 		wantParsedConfig  string
@@ -103,6 +104,14 @@ surfacer {
 			wantParsedConfig:  wantCfgStr,
 		},
 		{
+			name:             "config_with_template_vars",
+			filename:         "testdata/cloudprober_tmpl.cfg",
+			baseVars:         map[string]any{"ProbeName": "dns_k8s", "ProbeType": "DNS"},
+			want:             wantCfg,
+			wantRawConfig:    strings.ReplaceAll(strings.ReplaceAll(wantCfgStr, "dns_k8s", "{{.ProbeName}}"), "DNS", "{{.ProbeType}}"),
+			wantParsedConfig: wantCfgStr,
+		},
+		{
 			name:             "default_config",
 			want:             &configpb.ProberConfig{},
 			wantRawConfig:    "",
@@ -114,8 +123,11 @@ surfacer {
 		t.Run(tt.name, func(t *testing.T) {
 			*configFile = tt.configFile
 			dcs := &defaultConfigSource{
-				FileName:                tt.filename,
-				SurfacersConfigFileName: tt.surfacersCfgFile,
+				fileName:                tt.filename,
+				surfacersConfigFileName: tt.surfacersCfgFile,
+			}
+			if tt.baseVars != nil {
+				dcs.baseVars = tt.baseVars
 			}
 
 			if tt.defaultConfigFile != "" {
