@@ -150,7 +150,7 @@ func TestConfigTest(t *testing.T) {
 		{
 			name: "valid_with_vars",
 			cs: &defaultConfigSource{
-				BaseVars: map[string]any{
+				baseVars: map[string]any{
 					"probetype": "HTTP",
 				},
 			},
