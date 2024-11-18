@@ -114,8 +114,8 @@ surfacer {
 		t.Run(tt.name, func(t *testing.T) {
 			*configFile = tt.configFile
 			dcs := &defaultConfigSource{
-				FileName:                tt.filename,
-				SurfacersConfigFileName: tt.surfacersCfgFile,
+				fileName:                tt.filename,
+				surfacersConfigFileName: tt.surfacersCfgFile,
 			}
 
 			if tt.defaultConfigFile != "" {
