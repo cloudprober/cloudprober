@@ -41,7 +41,7 @@ func WithBaseVars(vars map[string]any) Option {
 		if !ok {
 			return cs
 		}
-		dcs.BaseVars = vars
+		dcs.baseVars = vars
 		return dcs
 	}
 }
@@ -52,16 +52,16 @@ func WithSurfacerConfig(sconfig string) Option {
 		if !ok {
 			return cs
 		}
-		dcs.SurfacersConfigFileName = sconfig
+		dcs.surfacersConfigFileName = sconfig
 		return dcs
 	}
 }
 
 type defaultConfigSource struct {
-	FileName                string
-	SurfacersConfigFileName string
-	BaseVars                map[string]any
-	GetGCECustomMetadata    func(string) (string, error)
+	fileName                string
+	surfacersConfigFileName string
+	baseVars                map[string]any
+	getGCECustomMetadata    func(string) (string, error)
 	l                       *logger.Logger
 
 	parsedConfig string
@@ -70,14 +70,14 @@ type defaultConfigSource struct {
 }
 
 func (dcs *defaultConfigSource) configContent() (content string, format string, err error) {
-	if dcs.FileName != "" {
-		content, err := readConfigFile(dcs.FileName)
-		return content, formatFromFileName(dcs.FileName), err
+	if dcs.fileName != "" {
+		content, err := readConfigFile(dcs.fileName)
+		return content, formatFromFileName(dcs.fileName), err
 	}
 
 	// On GCE first check if there is a config in custom metadata attributes.
 	if metadata.OnGCE() {
-		if config, err := dcs.GetGCECustomMetadata(configMetadataKeyName); err != nil {
+		if config, err := dcs.getGCECustomMetadata(configMetadataKeyName); err != nil {
 			dcs.l.Infof("Error reading config from metadata. Err: %v", err)
 		} else {
 			return config, "", nil
@@ -90,29 +90,30 @@ func (dcs *defaultConfigSource) configContent() (content string, format string, 
 
 func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 	// Figure out which file to read
-	if dcs.FileName == "" {
-		dcs.FileName = *configFile
+	if dcs.fileName == "" {
+		dcs.fileName = *configFile
 	}
 
-	if dcs.FileName == "" {
+	if dcs.fileName == "" {
 		if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
-			dcs.FileName = defaultConfigFile
+			dcs.fileName = defaultConfigFile
 		}
 	}
 
 	// Set the config file path in runconfig. This can be used to find files
 	// relative to the config file.
-	runconfig.SetConfigFilePath(dcs.FileName)
+	runconfig.SetConfigFilePath(dcs.fileName)
 
-	if dcs.BaseVars == nil {
-		dcs.BaseVars = make(map[string]any, len(sysvars.Vars()))
-		for k, v := range sysvars.Vars() {
-			dcs.BaseVars[k] = v
-		}
+	tmplVars := make(map[string]any)
+	for k, v := range dcs.baseVars {
+		tmplVars[k] = v
+	}
+	for k, v := range sysvars.Vars() {
+		tmplVars[k] = v
 	}
 
-	if dcs.GetGCECustomMetadata == nil {
-		dcs.GetGCECustomMetadata = readFromGCEMetadata
+	if dcs.getGCECustomMetadata == nil {
+		dcs.getGCECustomMetadata = readFromGCEMetadata
 	}
 
 	configStr, configFormat, err := dcs.configContent()
@@ -122,22 +123,22 @@ func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 	dcs.rawConfig = configStr
 
 	dcs.cfg = &configpb.ProberConfig{}
-	if dcs.parsedConfig, err = processConfigText(dcs.rawConfig, configFormat, dcs.BaseVars, dcs.cfg, dcs.l); err != nil {
+	if dcs.parsedConfig, err = processConfigText(dcs.rawConfig, configFormat, tmplVars, dcs.cfg, dcs.l); err != nil {
 		return nil, fmt.Errorf("error processing config. Err: %v", err)
 	}
 
-	if dcs.SurfacersConfigFileName != "" {
+	if dcs.surfacersConfigFileName != "" {
 		var sConfigText string
 		var err error
 
-		sConfigText, err = readConfigFile(dcs.SurfacersConfigFileName)
+		sConfigText, err = readConfigFile(dcs.surfacersConfigFileName)
 		if err != nil {
 			return nil, fmt.Errorf("error reading surfacers config file: %v", err)
 		}
 		dcs.rawConfig += "\n\n" + sConfigText
 
-		sConfig, fileFmt := &configpb.SurfacersConfig{}, formatFromFileName(dcs.SurfacersConfigFileName)
-		parsedSConfig, err := processConfigText(sConfigText, fileFmt, dcs.BaseVars, sConfig, dcs.l)
+		sConfig, fileFmt := &configpb.SurfacersConfig{}, formatFromFileName(dcs.surfacersConfigFileName)
+		parsedSConfig, err := processConfigText(sConfigText, fileFmt, tmplVars, sConfig, dcs.l)
 		if err != nil {
 			return nil, fmt.Errorf("error processing surfacers config. Err: %v", err)
 		}

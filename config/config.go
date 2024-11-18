@@ -69,7 +69,7 @@ func DefaultConfigSource(opts ...Option) ConfigSource {
 
 func ConfigSourceWithFile(fileName string, opts ...Option) ConfigSource {
 	dcs := &defaultConfigSource{
-		FileName: fileName,
+		fileName: fileName,
 	}
 	cs := ConfigSource(dcs)
 	for _, opt := range opts {
@@ -217,9 +217,9 @@ func ConfigTest(cs ConfigSource) error {
 			return errors.New("config_file is required for testing")
 		}
 		cs = &defaultConfigSource{
-			FileName: *configFile,
-			BaseVars: configTestVars,
-			GetGCECustomMetadata: func(v string) (string, error) {
+			fileName: *configFile,
+			baseVars: configTestVars,
+			getGCECustomMetadata: func(v string) (string, error) {
 				return v + "-test-value", nil
 			},
 		}
@@ -231,7 +231,7 @@ func ConfigTest(cs ConfigSource) error {
 func DumpConfig(outFormat string, cs ConfigSource) ([]byte, error) {
 	if cs == nil {
 		cs = &defaultConfigSource{
-			BaseVars: configTestVars,
+			baseVars: configTestVars,
 		}
 	}
 	cfg, err := cs.GetConfig()
