@@ -1,0 +1,20 @@
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+    testDir: "{{ .TestDir }}",
+    outputDir: "./results",
+    retries: 0,
+
+    use: {
+        baseURL: "",
+        screenshot: "{{ .Screenshot }}",
+        trace: "{{ .Trace }}",
+    },
+
+    projects: [
+        {
+            name: "chromium",
+            use: { ...devices["Desktop Chrome"] },
+        },
+    ],
+})
