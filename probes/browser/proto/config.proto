@@ -1,0 +1,135 @@
+syntax = "proto2";
+
+package cloudprober.probes.browser;
+
+import "github.com/cloudprober/cloudprober/internal/oauth/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/probes/browser/proto";
+
+message TestMetricsOptions {
+    optional bool disable_test_metrics = 1;
+    optional bool disable_aggregation = 2;
+    optional bool enable_step_metrics = 3;
+}
+
+// S3 storage backend configuration.
+message S3 {
+    optional string bucket = 1;
+    optional string path = 2;
+    optional string region = 3;
+    optional string access_key_id = 4;
+    optional string secret_access_key = 5;
+
+    // S3 endpoint. If not specified, default endpoint for the region is used.
+    optional string endpoint = 6;
+}
+
+message GCS {
+    optional string bucket = 1;
+    optional string path = 2;
+    optional oauth.GoogleCredentials credentials = 3;
+
+    // GCS endpoint.
+    optional string endpoint = 4 [default = "https://storage.googleapis.com"];
+}
+
+message Storage {
+    oneof storage {
+        string local_storage_dir = 1;
+        S3 s3 = 2;
+        GCS gcs = 3;
+    }
+}
+
+message ArtifactsOptions {
+    // Serve test artifacts on Cloudprober's default webserver. This is
+    // disabled by default for security reasons.
+    optional bool serve_on_web = 1;
+
+    // Specify web server path to serve test artifacts on.
+    // Default is "/artifacts/<probename>".
+    optional string web_server_path = 2;
+
+    // Storage for test artifacts. Note that test artifacts are always
+    // written to the workdir first, and uploaded to the storage backend in a
+    // parallel goroutine. This is to make sure that uploads don't block the
+    // main probe execution.
+    repeated Storage storage = 3;
+}
+
+message CleanupOptions {
+    // Maximum age of artifacts in seconds.
+    optional int32 max_age_sec = 1;
+
+    // Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
+    // is smaller.
+    optional int32 cleanup_interval_sec = 3 [default = 3600];
+}
+
+message ProbeConf {
+    // Playwright test specs. These are passed to playwright as it is. This
+    // field works in conjunction with test_dir -- test specs should be under
+    // test directory.
+    //
+    // If test_spec is not specified, all test specs in the test directory are
+    // executed, and since default test directory is config file's directory,
+    // if you leave both the fields unspecified, all test specs co-located with
+    // the config file are executed.
+    repeated string test_spec = 1;
+
+    // Test directory. This is the directory where test specs are located.
+    // Default test_dir is config file directory ("{{configDir}}").
+    optional string test_dir = 2;
+
+    // Workdir is path to the working directory. It should be writable. If not
+    // specified, we try to create a temporary directory. All the output files
+    // and reports are stored under <workdir>/output/.
+    // If you need to be able access the output files, you should set this 
+    // field to a persistent location, e.g. a persistent volume, or configure
+    // artifact options.
+    optional string workdir = 3;
+
+    // Path to the playwright installation. We execute tests from this location.
+    // If not specified, we'll use the value of environment variable
+    // $PLAYWRIGHT_DIR, which is automatically set by the official cloudprober
+    // playwright image (tag: "<version>-pw").
+    optional string playwright_dir = 4;
+
+    // NPX path. Default is to assume npx is in the PATH.
+    optional string npx_path = 5 [default = "npx"];
+
+    // Whether to enable screenshots for successful tests as well.
+    // Note that screenshots are always enabled for failed tests, and you can
+    // always save screenshots explicitly in the test spec.
+    optional bool save_screenshots_for_success = 6 [default = false];
+
+    // Traces are expensive and can slow down the test. We recommend to enable
+    // this only when needed.
+    optional bool save_traces = 7 [default = false];
+
+    // By default, we export all test metrica as counters. You can change how
+    // metrics are exported by setting the following options.
+    optional TestMetricsOptions test_metrics_options = 8;
+
+    // Artifacts options.
+    optional ArtifactsOptions artifacts_options = 9;
+
+    // Cleanup options.
+    optional CleanupOptions workdir_cleanup_options = 10;
+    
+    // Requests per probe.
+    // Number of DNS requests per probe. Requests are executed concurrently and
+    // each DNS request contributes to probe results. For example, if you run two
+    // requests per probe, "total" counter will be incremented by 2.
+    optional int32 requests_per_probe = 98 [default = 1];
+
+    // How long to wait between two requests to the same target. Only relevant
+    // if requests_per_probe is also configured.
+    //
+    // This value should be less than (interval - timeout) / requests_per_probe.
+    // This is to ensure that all requests are executed within one probe interval
+    // and all of them get sufficient time. For example, if probe interval is 2s,
+    // timeout is 1s, and requests_per_probe is 10,  requests_interval_msec
+    // should be less than 10ms.
+    optional int32 requests_interval_msec = 99 [default = 0];
+}
