@@ -3,7 +3,7 @@ name: Build and deploy gh-pages
 on:
   push:
     branches:
-      - master
+      - main
       - browser_dev
       - docs_test/**
     paths:
