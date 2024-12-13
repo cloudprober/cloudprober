@@ -2,7 +2,7 @@ name: Go Build and Test
 on:
   push:
     branches:
-      - master
+      - main
     paths-ignore:
       - "docs/**"
       - ".github/workflows/hugo.yml"
@@ -185,7 +185,7 @@ jobs:
     name: Build and push multiarch docker image
     if: |
       github.repository == 'cloudprober/cloudprober' &&
-      (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: [build-and-test, build-binaries]
     runs-on: ubuntu-latest
     strategy:
@@ -261,7 +261,7 @@ jobs:
 
   pre-release:
     name: Upload pre-release binaries
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main'
     needs: [build-dist]
     runs-on: ubuntu-latest
 
