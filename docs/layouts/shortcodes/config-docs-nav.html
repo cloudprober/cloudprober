@@ -47,7 +47,7 @@
 <label for="config-version-selector">Version:</label>
 <select id="config-version-selector">
     <option selected value="latest">latest</option>
-    <option value="master">master</option>
+    <option value="main">main</option>
 {{ range os.ReadDir "public/docs/config/" -}}
     {{ if and (findRE `v[0-9]+\.[0-9]+\.[0-9]+` .Name) .IsDir }}<option value="{{ .Name }}">{{ .Name }}</option> {{ end }}
 {{- end }}
