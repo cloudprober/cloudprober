@@ -121,7 +121,7 @@ func (lister *pubsubMsgsLister) initSubscriber(ctx context.Context, sub *configp
 	if ok {
 		err := s.SeekToTime(ctx, time.Now().Add(-seekBackDuration))
 		if err != nil {
-			return nil, fmt.Errorf("pubsub: error seeking back time for the subscription: %s", sub.GetName())
+			return nil, fmt.Errorf("pubsub: error seeking back time for the subscription: %s, %v", sub.GetName(), err)
 		}
 		return s, nil
 	}
@@ -163,6 +163,9 @@ func newPubSubMsgsLister(project string, c *configpb.PubSubMessages, l *logger.L
 	var opts []option.ClientOption
 	if c.GetApiEndpoint() != "" {
 		opts = append(opts, option.WithEndpoint(c.GetApiEndpoint()))
+		if *logger.GCPUniverseDomain != "" {
+			opts = append(opts, option.WithUniverseDomain(*logger.GCPUniverseDomain))
+		}
 	}
 
 	client, err := pubsub.NewClient(ctx, project, opts...)
