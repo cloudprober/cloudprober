@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/bin/bash -e
 #
 # Copyright 2017 Google Inc.
 #
@@ -13,6 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Function to get metadata
+function md {
+  curl -s "http://metadata/computeMetadata/v1/$1" -H "Metadata-Flavor: Google"
+}
 
 # This startup_script makes it easy to run cloudprober inside a docker
 # image.
@@ -51,11 +56,22 @@ GOOGLE_RELEASE=$(grep GOOGLE_RELEASE /etc/lsb-release|cut -d"=" -f2)
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 # Get credentials to fetch docker image from gcr.io
 . /usr/share/google/dockercfg_update.sh
+readonly REGISTRY="${IMAGE%%/*}"
+docker-credential-gcr configure-docker --registries="${REGISTRY}"
 docker pull "${IMAGE}:${VERSION}"
 DIGEST=$(docker inspect --format "{{.Id}}" "${IMAGE}:${VERSION}")
 VARS="kernel=${KERNEL_VERSION},google_release=${GOOGLE_RELEASE}"
 VARS="${VARS},${JOB}_tag=${VERSION},${JOB}_version=${DIGEST:0:12}"
 
+API_DOMAIN_TPC=$(md universe/universe_domain)
+if [[ "${API_DOMAIN_TPC}" =~ "Error 404" ]]; then
 docker run -e "SYSVARS=${VARS}" --env-file <(env | grep CLOUDPROBER_)  \
-  --net host --privileged -v /tmp:/tmp --log-driver journald \
+  --log-driver "journald" --net host --privileged -v /tmp:/tmp \
   "${IMAGE}:${VERSION}"
+else
+docker run -e "SYSVARS=${VARS}" --env-file <(env | grep CLOUDPROBER_)  \
+  --log-driver  "journald" --net host --privileged -v /tmp:/tmp \
+    -e CLOUDPROBER_GCP_LOGGING_ENDPOINT=logging."${API_DOMAIN_TPC}" \
+    -e CLOUDPROBER_GCP_UNIVERSE_DOMAIN="${API_DOMAIN_TPC}" \
+  "${IMAGE}:${VERSION}"
+fi
