@@ -205,6 +205,144 @@ func (x *ProbeConf) GetDisableStreamingOutputMetrics() bool {
 	return Default_ProbeConf_DisableStreamingOutputMetrics
 }
 
+// ProbeRequest is the message that cloudprober sends to the external probe
+// server.
+type ProbeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The unique identifier for this request.  This is unique across
+	// an execution of the probe server.  It starts at 1.
+	RequestId *int32 `protobuf:"varint,1,req,name=request_id,json=requestId" json:"request_id,omitempty"`
+	// How long to allow for the execution of this request, in
+	// milliseconds.  If the time limit is exceeded, the server
+	// should abort the request, but *not* send back a reply.  The
+	// client will have to do timeouts anyway.
+	TimeLimit     *int32                 `protobuf:"varint,2,req,name=time_limit,json=timeLimit" json:"time_limit,omitempty"`
+	Options       []*ProbeRequest_Option `protobuf:"bytes,3,rep,name=options" json:"options,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeRequest) Reset() {
+	*x = ProbeRequest{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeRequest) ProtoMessage() {}
+
+func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeRequest.ProtoReflect.Descriptor instead.
+func (*ProbeRequest) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ProbeRequest) GetRequestId() int32 {
+	if x != nil && x.RequestId != nil {
+		return *x.RequestId
+	}
+	return 0
+}
+
+func (x *ProbeRequest) GetTimeLimit() int32 {
+	if x != nil && x.TimeLimit != nil {
+		return *x.TimeLimit
+	}
+	return 0
+}
+
+func (x *ProbeRequest) GetOptions() []*ProbeRequest_Option {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+// ProbeReply is the message that external probe server sends back to the
+// cloudprober.
+type ProbeReply struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The sequence number for this request.
+	RequestId *int32 `protobuf:"varint,1,req,name=request_id,json=requestId" json:"request_id,omitempty"`
+	// For a normal result, this is not present.
+	// If it is present, it indicates that the probe failed.
+	ErrorMessage *string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage" json:"error_message,omitempty"`
+	// The result of the probe. Cloudprober parses the payload to retrieve
+	// variables from it. It expects variables in the following format:
+	// var1 value1 (for example: total_errors 589)
+	// TODO(manugarg): Add an option to export mapped variables, for example:
+	// client-errors map:lang java:200 python:20 golang:3
+	Payload       *string `protobuf:"bytes,3,opt,name=payload" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeReply) Reset() {
+	*x = ProbeReply{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeReply) ProtoMessage() {}
+
+func (x *ProbeReply) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeReply.ProtoReflect.Descriptor instead.
+func (*ProbeReply) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ProbeReply) GetRequestId() int32 {
+	if x != nil && x.RequestId != nil {
+		return *x.RequestId
+	}
+	return 0
+}
+
+func (x *ProbeReply) GetErrorMessage() string {
+	if x != nil && x.ErrorMessage != nil {
+		return *x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *ProbeReply) GetPayload() string {
+	if x != nil && x.Payload != nil {
+		return *x.Payload
+	}
+	return ""
+}
+
 // Options for the SERVER mode probe requests. These options are passed on to
 // the external probe server as part of the ProbeRequest. Values are
 // substituted similar to command arguments for the ONCE mode probes above.
@@ -218,7 +356,7 @@ type ProbeConf_Option struct {
 
 func (x *ProbeConf_Option) Reset() {
 	*x = ProbeConf_Option{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[2]
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -230,7 +368,7 @@ func (x *ProbeConf_Option) String() string {
 func (*ProbeConf_Option) ProtoMessage() {}
 
 func (x *ProbeConf_Option) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[2]
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -254,6 +392,58 @@ func (x *ProbeConf_Option) GetName() string {
 }
 
 func (x *ProbeConf_Option) GetValue() string {
+	if x != nil && x.Value != nil {
+		return *x.Value
+	}
+	return ""
+}
+
+type ProbeRequest_Option struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          *string                `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
+	Value         *string                `protobuf:"bytes,2,req,name=value" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeRequest_Option) Reset() {
+	*x = ProbeRequest_Option{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeRequest_Option) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeRequest_Option) ProtoMessage() {}
+
+func (x *ProbeRequest_Option) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeRequest_Option.ProtoReflect.Descriptor instead.
+func (*ProbeRequest_Option) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_rawDescGZIP(), []int{1, 0}
+}
+
+func (x *ProbeRequest_Option) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *ProbeRequest_Option) GetValue() string {
 	if x != nil && x.Value != nil {
 		return *x.Value
 	}
@@ -313,11 +503,30 @@ var file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_r
 	0x6e, 0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x1c, 0x0a, 0x04, 0x4d, 0x6f,
 	0x64, 0x65, 0x12, 0x08, 0x0a, 0x04, 0x4f, 0x4e, 0x43, 0x45, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06,
-	0x53, 0x45, 0x52, 0x56, 0x45, 0x52, 0x10, 0x01, 0x42, 0x3a, 0x5a, 0x38, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62,
-	0x65, 0x72, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x70,
-	0x72, 0x6f, 0x62, 0x65, 0x73, 0x2f, 0x65, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x70,
-	0x72, 0x6f, 0x74, 0x6f,
+	0x53, 0x45, 0x52, 0x56, 0x45, 0x52, 0x10, 0x01, 0x22, 0xcc, 0x01, 0x0a, 0x0c, 0x50, 0x72, 0x6f,
+	0x62, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x72, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x02, 0x28, 0x05, 0x52, 0x09, 0x72,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x49, 0x64, 0x12, 0x1d, 0x0a, 0x0a, 0x74, 0x69, 0x6d, 0x65,
+	0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x02, 0x20, 0x02, 0x28, 0x05, 0x52, 0x09, 0x74, 0x69,
+	0x6d, 0x65, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x12, 0x4a, 0x0a, 0x07, 0x6f, 0x70, 0x74, 0x69, 0x6f,
+	0x6e, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x30, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64,
+	0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x2e, 0x65, 0x78,
+	0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2e, 0x50, 0x72, 0x6f, 0x62, 0x65, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x2e, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x07, 0x6f, 0x70, 0x74, 0x69,
+	0x6f, 0x6e, 0x73, 0x1a, 0x32, 0x0a, 0x06, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x12, 0x0a,
+	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x02, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d,
+	0x65, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x02, 0x28, 0x09,
+	0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x6a, 0x0a, 0x0a, 0x50, 0x72, 0x6f, 0x62, 0x65,
+	0x52, 0x65, 0x70, 0x6c, 0x79, 0x12, 0x1d, 0x0a, 0x0a, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x02, 0x28, 0x05, 0x52, 0x09, 0x72, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x49, 0x64, 0x12, 0x23, 0x0a, 0x0d, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x5f, 0x6d, 0x65,
+	0x73, 0x73, 0x61, 0x67, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x65, 0x72, 0x72,
+	0x6f, 0x72, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x70, 0x61, 0x79,
+	0x6c, 0x6f, 0x61, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x70, 0x61, 0x79, 0x6c,
+	0x6f, 0x61, 0x64, 0x42, 0x3a, 0x5a, 0x38, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x63, 0x6c,
+	0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2f, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x73,
+	0x2f, 0x65, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 }
 
 var (
@@ -333,24 +542,28 @@ func file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_
 }
 
 var file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_goTypes = []any{
 	(ProbeConf_Mode)(0),                // 0: cloudprober.probes.external.ProbeConf.Mode
 	(*ProbeConf)(nil),                  // 1: cloudprober.probes.external.ProbeConf
-	nil,                                // 2: cloudprober.probes.external.ProbeConf.EnvVarEntry
-	(*ProbeConf_Option)(nil),           // 3: cloudprober.probes.external.ProbeConf.Option
-	(*proto.OutputMetricsOptions)(nil), // 4: cloudprober.metrics.payload.OutputMetricsOptions
+	(*ProbeRequest)(nil),               // 2: cloudprober.probes.external.ProbeRequest
+	(*ProbeReply)(nil),                 // 3: cloudprober.probes.external.ProbeReply
+	nil,                                // 4: cloudprober.probes.external.ProbeConf.EnvVarEntry
+	(*ProbeConf_Option)(nil),           // 5: cloudprober.probes.external.ProbeConf.Option
+	(*ProbeRequest_Option)(nil),        // 6: cloudprober.probes.external.ProbeRequest.Option
+	(*proto.OutputMetricsOptions)(nil), // 7: cloudprober.metrics.payload.OutputMetricsOptions
 }
 var file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_depIdxs = []int32{
 	0, // 0: cloudprober.probes.external.ProbeConf.mode:type_name -> cloudprober.probes.external.ProbeConf.Mode
-	2, // 1: cloudprober.probes.external.ProbeConf.env_var:type_name -> cloudprober.probes.external.ProbeConf.EnvVarEntry
-	3, // 2: cloudprober.probes.external.ProbeConf.options:type_name -> cloudprober.probes.external.ProbeConf.Option
-	4, // 3: cloudprober.probes.external.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 1: cloudprober.probes.external.ProbeConf.env_var:type_name -> cloudprober.probes.external.ProbeConf.EnvVarEntry
+	5, // 2: cloudprober.probes.external.ProbeConf.options:type_name -> cloudprober.probes.external.ProbeConf.Option
+	7, // 3: cloudprober.probes.external.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
+	6, // 4: cloudprober.probes.external.ProbeRequest.options:type_name -> cloudprober.probes.external.ProbeRequest.Option
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_init() }
@@ -364,7 +577,7 @@ func file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   3,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
