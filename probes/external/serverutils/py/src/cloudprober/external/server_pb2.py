@@ -24,18 +24,17 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nEgithub.com/cloudprober/cloudprober/probes/external/proto/server.proto\x12\x0b\x63loudprober\"\x90\x01\n\x0cProbeRequest\x12\x12\n\nrequest_id\x18\x01 \x02(\x05\x12\x12\n\ntime_limit\x18\x02 \x02(\x05\x12\x31\n\x07options\x18\x03 \x03(\x0b\x32 .cloudprober.ProbeRequest.Option\x1a%\n\x06Option\x12\x0c\n\x04name\x18\x01 \x02(\t\x12\r\n\x05value\x18\x02 \x02(\t\"H\n\nProbeReply\x12\x12\n\nrequest_id\x18\x01 \x02(\x05\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\tB:Z8github.com/cloudprober/cloudprober/probes/external/proto')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nEgithub.com/cloudprober/cloudprober/probes/external/proto/server.proto\"\x84\x01\n\x0cProbeRequest\x12\x12\n\nrequest_id\x18\x01 \x02(\x05\x12\x12\n\ntime_limit\x18\x02 \x02(\x05\x12%\n\x07options\x18\x03 \x03(\x0b\x32\x14.ProbeRequest.Option\x1a%\n\x06Option\x12\x0c\n\x04name\x18\x01 \x02(\t\x12\r\n\x05value\x18\x02 \x02(\t\"H\n\nProbeReply\x12\x12\n\nrequest_id\x18\x01 \x02(\x05\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\t')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'github.com.cloudprober.cloudprober.probes.external.proto.server_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'Z8github.com/cloudprober/cloudprober/probes/external/proto'
-  _globals['_PROBEREQUEST']._serialized_start=87
-  _globals['_PROBEREQUEST']._serialized_end=231
-  _globals['_PROBEREQUEST_OPTION']._serialized_start=194
-  _globals['_PROBEREQUEST_OPTION']._serialized_end=231
-  _globals['_PROBEREPLY']._serialized_start=233
-  _globals['_PROBEREPLY']._serialized_end=305
+  DESCRIPTOR._loaded_options = None
+  _globals['_PROBEREQUEST']._serialized_start=74
+  _globals['_PROBEREQUEST']._serialized_end=206
+  _globals['_PROBEREQUEST_OPTION']._serialized_start=169
+  _globals['_PROBEREQUEST_OPTION']._serialized_end=206
+  _globals['_PROBEREPLY']._serialized_start=208
+  _globals['_PROBEREPLY']._serialized_end=280
 # @@protoc_insertion_point(module_scope)
