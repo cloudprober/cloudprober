@@ -60,7 +60,7 @@ type Probe struct {
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
 	artifactsHandler     *artifactsHandler
-	cleanupHandler       *cleanupHandler
+	cleanupHandlers      []*cleanupHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
@@ -236,18 +236,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("failed to initialize templates: %v", err)
 	}
 
-	ah, err := initArtifactsHandler(p.c.GetArtifactsOptions(), p.name, p.outputDir, p.l)
-	if err != nil {
+	if err := p.initArtifactsHandler(); err != nil {
 		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
 	}
-	p.artifactsHandler = ah
 
 	if p.c.GetWorkdirCleanupOptions() != nil {
 		ch, err := newCleanupHandler(p.c.GetWorkdirCleanupOptions(), p.l)
 		if err != nil {
 			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 		}
-		p.cleanupHandler = ch
+		p.cleanupHandlers = append(p.cleanupHandlers, ch)
 	}
 
 	return nil
@@ -396,8 +394,8 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.startCtx = ctx
 
-	if p.cleanupHandler != nil {
-		go p.cleanupHandler.start(p.startCtx, p.outputDir)
+	for _, ch := range p.cleanupHandlers {
+		go ch.start(p.startCtx, p.outputDir)
 	}
 
 	p.dataChan = dataChan

@@ -22,7 +22,6 @@ import (
 
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
-	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 )
 
 type artifactsHandler struct {
@@ -33,56 +32,64 @@ type artifactsHandler struct {
 	l            *logger.Logger
 }
 
-func initArtifactsHandler(opts *configpb.ArtifactsOptions, probeName, outputDir string, l *logger.Logger) (*artifactsHandler, error) {
+func (p *Probe) initArtifactsHandler() error {
 	ah := &artifactsHandler{
-		basePath: outputDir,
-		l:        l,
+		basePath: p.outputDir,
+		l:        p.l,
 	}
 
-	if opts.GetServeOnWeb() {
+	if p.c.GetArtifactsOptions().GetServeOnWeb() {
 		httpServerMux := runconfig.DefaultHTTPServeMux()
 		if httpServerMux == nil {
-			return nil, fmt.Errorf("default http server mux is not initialized")
+			return fmt.Errorf("default http server mux is not initialized")
 		}
 
-		pathPrefix := opts.GetWebServerPath()
+		pathPrefix := p.c.GetArtifactsOptions().GetWebServerPath()
 		if pathPrefix == "" {
-			pathPrefix = filepath.Join("/artifacts", probeName)
+			pathPrefix = filepath.Join("/artifacts", p.name)
 		}
 
-		fileServer := http.FileServer(http.Dir(outputDir))
+		fileServer := http.FileServer(http.Dir(p.outputDir))
 		httpServerMux.Handle(pathPrefix+"/", http.StripPrefix(pathPrefix, fileServer))
 	}
 
-	for _, storageConfig := range opts.GetStorage() {
+	for _, storageConfig := range p.c.GetArtifactsOptions().GetStorage() {
 		if s3conf := storageConfig.GetS3(); s3conf != nil {
 			s3, err := initS3(context.Background(), s3conf)
 
 			if err != nil {
-				return nil, fmt.Errorf("error initializing S3 storage (bucket: %s): %v", s3conf.GetBucket(), err)
+				return fmt.Errorf("error initializing S3 storage (bucket: %s): %v", s3conf.GetBucket(), err)
 			}
 
 			ah.s3Storage = append(ah.s3Storage, s3)
 		}
 
 		if gcsConf := storageConfig.GetGcs(); gcsConf != nil {
-			gcs, err := initGCS(context.Background(), gcsConf, l)
+			gcs, err := initGCS(context.Background(), gcsConf, p.l)
 			if err != nil {
-				return nil, fmt.Errorf("error initializing GCS storage: %v", err)
+				return fmt.Errorf("error initializing GCS storage: %v", err)
 			}
 			ah.gcsStorage = append(ah.gcsStorage, gcs)
 		}
 
-		if dir := storageConfig.GetLocalStorageDir(); dir != "" {
-			ls, err := initLocalStorage(dir)
+		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
+			if localStorage.GetCleanupOptions() != nil {
+				cleanupHandler, err := newCleanupHandler(localStorage.GetCleanupOptions(), p.l)
+				if err != nil {
+					return fmt.Errorf("error initializing cleanup handler for local storage: %v", err)
+				}
+				p.cleanupHandlers = append(p.cleanupHandlers, cleanupHandler)
+			}
+			ls, err := initLocalStorage(localStorage.GetDir())
 			if err != nil {
-				return nil, fmt.Errorf("error initializing local storage: %v", err)
+				return fmt.Errorf("error initializing local storage: %v", err)
 			}
 			ah.localStorage = append(ah.localStorage, ls)
 		}
 	}
 
-	return ah, nil
+	p.artifactsHandler = ah
+	return nil
 }
 
 func (ah *artifactsHandler) handle(ctx context.Context, path string) {

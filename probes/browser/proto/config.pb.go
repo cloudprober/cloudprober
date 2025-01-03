@@ -241,11 +241,65 @@ func (x *GCS) GetEndpoint() string {
 	return Default_GCS_Endpoint
 }
 
+type LocalStorage struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Dir   *string                `protobuf:"bytes,1,opt,name=dir" json:"dir,omitempty"`
+	// Cleanup options for local storage. Specifying cleanup options for local
+	// enables automatic cleanup of old artifacts.
+	CleanupOptions *CleanupOptions `protobuf:"bytes,2,opt,name=cleanup_options,json=cleanupOptions" json:"cleanup_options,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *LocalStorage) Reset() {
+	*x = LocalStorage{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LocalStorage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LocalStorage) ProtoMessage() {}
+
+func (x *LocalStorage) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LocalStorage.ProtoReflect.Descriptor instead.
+func (*LocalStorage) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *LocalStorage) GetDir() string {
+	if x != nil && x.Dir != nil {
+		return *x.Dir
+	}
+	return ""
+}
+
+func (x *LocalStorage) GetCleanupOptions() *CleanupOptions {
+	if x != nil {
+		return x.CleanupOptions
+	}
+	return nil
+}
+
 type Storage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Storage:
 	//
-	//	*Storage_LocalStorageDir
+	//	*Storage_LocalStorage
 	//	*Storage_S3
 	//	*Storage_Gcs
 	Storage       isStorage_Storage `protobuf_oneof:"storage"`
@@ -255,7 +309,7 @@ type Storage struct {
 
 func (x *Storage) Reset() {
 	*x = Storage{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[3]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -267,7 +321,7 @@ func (x *Storage) String() string {
 func (*Storage) ProtoMessage() {}
 
 func (x *Storage) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[3]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -280,7 +334,7 @@ func (x *Storage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Storage.ProtoReflect.Descriptor instead.
 func (*Storage) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{3}
+	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Storage) GetStorage() isStorage_Storage {
@@ -290,13 +344,13 @@ func (x *Storage) GetStorage() isStorage_Storage {
 	return nil
 }
 
-func (x *Storage) GetLocalStorageDir() string {
+func (x *Storage) GetLocalStorage() *LocalStorage {
 	if x != nil {
-		if x, ok := x.Storage.(*Storage_LocalStorageDir); ok {
-			return x.LocalStorageDir
+		if x, ok := x.Storage.(*Storage_LocalStorage); ok {
+			return x.LocalStorage
 		}
 	}
-	return ""
+	return nil
 }
 
 func (x *Storage) GetS3() *S3 {
@@ -321,8 +375,8 @@ type isStorage_Storage interface {
 	isStorage_Storage()
 }
 
-type Storage_LocalStorageDir struct {
-	LocalStorageDir string `protobuf:"bytes,1,opt,name=local_storage_dir,json=localStorageDir,oneof"`
+type Storage_LocalStorage struct {
+	LocalStorage *LocalStorage `protobuf:"bytes,1,opt,name=local_storage,json=localStorage,oneof"`
 }
 
 type Storage_S3 struct {
@@ -333,7 +387,7 @@ type Storage_Gcs struct {
 	Gcs *GCS `protobuf:"bytes,3,opt,name=gcs,oneof"`
 }
 
-func (*Storage_LocalStorageDir) isStorage_Storage() {}
+func (*Storage_LocalStorage) isStorage_Storage() {}
 
 func (*Storage_S3) isStorage_Storage() {}
 
@@ -358,7 +412,7 @@ type ArtifactsOptions struct {
 
 func (x *ArtifactsOptions) Reset() {
 	*x = ArtifactsOptions{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[4]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +424,7 @@ func (x *ArtifactsOptions) String() string {
 func (*ArtifactsOptions) ProtoMessage() {}
 
 func (x *ArtifactsOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[4]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +437,7 @@ func (x *ArtifactsOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactsOptions.ProtoReflect.Descriptor instead.
 func (*ArtifactsOptions) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{4}
+	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ArtifactsOptions) GetServeOnWeb() bool {
@@ -410,7 +464,7 @@ func (x *ArtifactsOptions) GetStorage() []*Storage {
 type CleanupOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Maximum age of artifacts in seconds.
-	MaxAgeSec *int32 `protobuf:"varint,1,opt,name=max_age_sec,json=maxAgeSec" json:"max_age_sec,omitempty"`
+	MaxAgeSec *int32 `protobuf:"varint,1,opt,name=max_age_sec,json=maxAgeSec,def=3600" json:"max_age_sec,omitempty"`
 	// Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
 	// is smaller.
 	CleanupIntervalSec *int32 `protobuf:"varint,3,opt,name=cleanup_interval_sec,json=cleanupIntervalSec,def=3600" json:"cleanup_interval_sec,omitempty"`
@@ -420,12 +474,13 @@ type CleanupOptions struct {
 
 // Default values for CleanupOptions fields.
 const (
+	Default_CleanupOptions_MaxAgeSec          = int32(3600)
 	Default_CleanupOptions_CleanupIntervalSec = int32(3600)
 )
 
 func (x *CleanupOptions) Reset() {
 	*x = CleanupOptions{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[5]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +492,7 @@ func (x *CleanupOptions) String() string {
 func (*CleanupOptions) ProtoMessage() {}
 
 func (x *CleanupOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[5]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,14 +505,14 @@ func (x *CleanupOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CleanupOptions.ProtoReflect.Descriptor instead.
 func (*CleanupOptions) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{5}
+	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CleanupOptions) GetMaxAgeSec() int32 {
 	if x != nil && x.MaxAgeSec != nil {
 		return *x.MaxAgeSec
 	}
-	return 0
+	return Default_CleanupOptions_MaxAgeSec
 }
 
 func (x *CleanupOptions) GetCleanupIntervalSec() int32 {
@@ -538,7 +593,7 @@ const (
 
 func (x *ProbeConf) Reset() {
 	*x = ProbeConf{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[6]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -550,7 +605,7 @@ func (x *ProbeConf) String() string {
 func (*ProbeConf) ProtoMessage() {}
 
 func (x *ProbeConf) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[6]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -563,7 +618,7 @@ func (x *ProbeConf) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeConf.ProtoReflect.Descriptor instead.
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{6}
+	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ProbeConf) GetTestSpec() []string {
@@ -697,30 +752,40 @@ var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_ra
 	0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x3a, 0x1e, 0x68, 0x74, 0x74, 0x70, 0x73, 0x3a, 0x2f,
 	0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x61,
 	0x70, 0x69, 0x73, 0x2e, 0x63, 0x6f, 0x6d, 0x52, 0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e,
-	0x74, 0x22, 0xa9, 0x01, 0x0a, 0x07, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x12, 0x2c, 0x0a,
-	0x11, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x5f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x5f, 0x64,
-	0x69, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x0f, 0x6c, 0x6f, 0x63, 0x61,
-	0x6c, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x44, 0x69, 0x72, 0x12, 0x30, 0x0a, 0x02, 0x73,
-	0x33, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70,
+	0x74, 0x22, 0x75, 0x0a, 0x0c, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67,
+	0x65, 0x12, 0x10, 0x0a, 0x03, 0x64, 0x69, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03,
+	0x64, 0x69, 0x72, 0x12, 0x53, 0x0a, 0x0f, 0x63, 0x6c, 0x65, 0x61, 0x6e, 0x75, 0x70, 0x5f, 0x6f,
+	0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x2a, 0x2e, 0x63,
+	0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x62, 0x65,
+	0x73, 0x2e, 0x62, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72, 0x2e, 0x43, 0x6c, 0x65, 0x61, 0x6e, 0x75,
+	0x70, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x52, 0x0e, 0x63, 0x6c, 0x65, 0x61, 0x6e, 0x75,
+	0x70, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0xcc, 0x01, 0x0a, 0x07, 0x53, 0x74, 0x6f,
+	0x72, 0x61, 0x67, 0x65, 0x12, 0x4f, 0x0a, 0x0d, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x5f, 0x73, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x28, 0x2e, 0x63, 0x6c,
+	0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x73,
+	0x2e, 0x62, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72, 0x2e, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x53, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x48, 0x00, 0x52, 0x0c, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x53, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x12, 0x30, 0x0a, 0x02, 0x73, 0x33, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x1e, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e,
+	0x70, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x2e, 0x62, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72, 0x2e, 0x53,
+	0x33, 0x48, 0x00, 0x52, 0x02, 0x73, 0x33, 0x12, 0x33, 0x0a, 0x03, 0x67, 0x63, 0x73, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62,
+	0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x2e, 0x62, 0x72, 0x6f, 0x77, 0x73, 0x65,
+	0x72, 0x2e, 0x47, 0x43, 0x53, 0x48, 0x00, 0x52, 0x03, 0x67, 0x63, 0x73, 0x42, 0x09, 0x0a, 0x07,
+	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x22, 0x9b, 0x01, 0x0a, 0x10, 0x41, 0x72, 0x74, 0x69,
+	0x66, 0x61, 0x63, 0x74, 0x73, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x20, 0x0a, 0x0c,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x5f, 0x6f, 0x6e, 0x5f, 0x77, 0x65, 0x62, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x08, 0x52, 0x0a, 0x73, 0x65, 0x72, 0x76, 0x65, 0x4f, 0x6e, 0x57, 0x65, 0x62, 0x12, 0x26,
+	0x0a, 0x0f, 0x77, 0x65, 0x62, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x70, 0x61, 0x74,
+	0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x77, 0x65, 0x62, 0x53, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x50, 0x61, 0x74, 0x68, 0x12, 0x3d, 0x0a, 0x07, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67,
+	0x65, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70,
 	0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x2e, 0x62, 0x72, 0x6f,
-	0x77, 0x73, 0x65, 0x72, 0x2e, 0x53, 0x33, 0x48, 0x00, 0x52, 0x02, 0x73, 0x33, 0x12, 0x33, 0x0a,
-	0x03, 0x67, 0x63, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x63, 0x6c, 0x6f,
-	0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x73, 0x2e,
-	0x62, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72, 0x2e, 0x47, 0x43, 0x53, 0x48, 0x00, 0x52, 0x03, 0x67,
-	0x63, 0x73, 0x42, 0x09, 0x0a, 0x07, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x22, 0x9b, 0x01,
-	0x0a, 0x10, 0x41, 0x72, 0x74, 0x69, 0x66, 0x61, 0x63, 0x74, 0x73, 0x4f, 0x70, 0x74, 0x69, 0x6f,
-	0x6e, 0x73, 0x12, 0x20, 0x0a, 0x0c, 0x73, 0x65, 0x72, 0x76, 0x65, 0x5f, 0x6f, 0x6e, 0x5f, 0x77,
-	0x65, 0x62, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x73, 0x65, 0x72, 0x76, 0x65, 0x4f,
-	0x6e, 0x57, 0x65, 0x62, 0x12, 0x26, 0x0a, 0x0f, 0x77, 0x65, 0x62, 0x5f, 0x73, 0x65, 0x72, 0x76,
-	0x65, 0x72, 0x5f, 0x70, 0x61, 0x74, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x77,
-	0x65, 0x62, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x50, 0x61, 0x74, 0x68, 0x12, 0x3d, 0x0a, 0x07,
-	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x23, 0x2e,
-	0x63, 0x6c, 0x6f, 0x75, 0x64, 0x70, 0x72, 0x6f, 0x62, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x62,
-	0x65, 0x73, 0x2e, 0x62, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x61,
-	0x67, 0x65, 0x52, 0x07, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x22, 0x68, 0x0a, 0x0e, 0x43,
-	0x6c, 0x65, 0x61, 0x6e, 0x75, 0x70, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x1e, 0x0a,
-	0x0b, 0x6d, 0x61, 0x78, 0x5f, 0x61, 0x67, 0x65, 0x5f, 0x73, 0x65, 0x63, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x05, 0x52, 0x09, 0x6d, 0x61, 0x78, 0x41, 0x67, 0x65, 0x53, 0x65, 0x63, 0x12, 0x36, 0x0a,
+	0x77, 0x73, 0x65, 0x72, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x52, 0x07, 0x73, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x22, 0x6e, 0x0a, 0x0e, 0x43, 0x6c, 0x65, 0x61, 0x6e, 0x75, 0x70,
+	0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x24, 0x0a, 0x0b, 0x6d, 0x61, 0x78, 0x5f, 0x61,
+	0x67, 0x65, 0x5f, 0x73, 0x65, 0x63, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x3a, 0x04, 0x33, 0x36,
+	0x30, 0x30, 0x52, 0x09, 0x6d, 0x61, 0x78, 0x41, 0x67, 0x65, 0x53, 0x65, 0x63, 0x12, 0x36, 0x0a,
 	0x14, 0x63, 0x6c, 0x65, 0x61, 0x6e, 0x75, 0x70, 0x5f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61,
 	0x6c, 0x5f, 0x73, 0x65, 0x63, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x3a, 0x04, 0x33, 0x36, 0x30,
 	0x30, 0x52, 0x12, 0x63, 0x6c, 0x65, 0x61, 0x6e, 0x75, 0x70, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76,
@@ -785,30 +850,33 @@ func file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_r
 	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_goTypes = []any{
 	(*TestMetricsOptions)(nil),      // 0: cloudprober.probes.browser.TestMetricsOptions
 	(*S3)(nil),                      // 1: cloudprober.probes.browser.S3
 	(*GCS)(nil),                     // 2: cloudprober.probes.browser.GCS
-	(*Storage)(nil),                 // 3: cloudprober.probes.browser.Storage
-	(*ArtifactsOptions)(nil),        // 4: cloudprober.probes.browser.ArtifactsOptions
-	(*CleanupOptions)(nil),          // 5: cloudprober.probes.browser.CleanupOptions
-	(*ProbeConf)(nil),               // 6: cloudprober.probes.browser.ProbeConf
-	(*proto.GoogleCredentials)(nil), // 7: cloudprober.oauth.GoogleCredentials
+	(*LocalStorage)(nil),            // 3: cloudprober.probes.browser.LocalStorage
+	(*Storage)(nil),                 // 4: cloudprober.probes.browser.Storage
+	(*ArtifactsOptions)(nil),        // 5: cloudprober.probes.browser.ArtifactsOptions
+	(*CleanupOptions)(nil),          // 6: cloudprober.probes.browser.CleanupOptions
+	(*ProbeConf)(nil),               // 7: cloudprober.probes.browser.ProbeConf
+	(*proto.GoogleCredentials)(nil), // 8: cloudprober.oauth.GoogleCredentials
 }
 var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_depIdxs = []int32{
-	7, // 0: cloudprober.probes.browser.GCS.credentials:type_name -> cloudprober.oauth.GoogleCredentials
-	1, // 1: cloudprober.probes.browser.Storage.s3:type_name -> cloudprober.probes.browser.S3
-	2, // 2: cloudprober.probes.browser.Storage.gcs:type_name -> cloudprober.probes.browser.GCS
-	3, // 3: cloudprober.probes.browser.ArtifactsOptions.storage:type_name -> cloudprober.probes.browser.Storage
-	0, // 4: cloudprober.probes.browser.ProbeConf.test_metrics_options:type_name -> cloudprober.probes.browser.TestMetricsOptions
-	4, // 5: cloudprober.probes.browser.ProbeConf.artifacts_options:type_name -> cloudprober.probes.browser.ArtifactsOptions
-	5, // 6: cloudprober.probes.browser.ProbeConf.workdir_cleanup_options:type_name -> cloudprober.probes.browser.CleanupOptions
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	8, // 0: cloudprober.probes.browser.GCS.credentials:type_name -> cloudprober.oauth.GoogleCredentials
+	6, // 1: cloudprober.probes.browser.LocalStorage.cleanup_options:type_name -> cloudprober.probes.browser.CleanupOptions
+	3, // 2: cloudprober.probes.browser.Storage.local_storage:type_name -> cloudprober.probes.browser.LocalStorage
+	1, // 3: cloudprober.probes.browser.Storage.s3:type_name -> cloudprober.probes.browser.S3
+	2, // 4: cloudprober.probes.browser.Storage.gcs:type_name -> cloudprober.probes.browser.GCS
+	4, // 5: cloudprober.probes.browser.ArtifactsOptions.storage:type_name -> cloudprober.probes.browser.Storage
+	0, // 6: cloudprober.probes.browser.ProbeConf.test_metrics_options:type_name -> cloudprober.probes.browser.TestMetricsOptions
+	5, // 7: cloudprober.probes.browser.ProbeConf.artifacts_options:type_name -> cloudprober.probes.browser.ArtifactsOptions
+	6, // 8: cloudprober.probes.browser.ProbeConf.workdir_cleanup_options:type_name -> cloudprober.probes.browser.CleanupOptions
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_init() }
@@ -816,8 +884,8 @@ func file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_i
 	if File_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto != nil {
 		return
 	}
-	file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[3].OneofWrappers = []any{
-		(*Storage_LocalStorageDir)(nil),
+	file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[4].OneofWrappers = []any{
+		(*Storage_LocalStorage)(nil),
 		(*Storage_S3)(nil),
 		(*Storage_Gcs)(nil),
 	}
@@ -827,7 +895,7 @@ func file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_i
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
