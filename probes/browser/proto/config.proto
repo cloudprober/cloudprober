@@ -33,9 +33,17 @@ message GCS {
     optional string endpoint = 4 [default = "https://storage.googleapis.com"];
 }
 
+message LocalStorage {
+    optional string dir = 1;
+
+    // Cleanup options for local storage. Specifying cleanup options for local
+    // enables automatic cleanup of old artifacts.
+    optional CleanupOptions cleanup_options = 2;
+}
+
 message Storage {
     oneof storage {
-        string local_storage_dir = 1;
+        LocalStorage local_storage = 1;
         S3 s3 = 2;
         GCS gcs = 3;
     }
@@ -59,7 +67,7 @@ message ArtifactsOptions {
 
 message CleanupOptions {
     // Maximum age of artifacts in seconds.
-    optional int32 max_age_sec = 1;
+    optional int32 max_age_sec = 1 [default = 3600];
 
     // Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
     // is smaller.
