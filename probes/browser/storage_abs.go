@@ -15,6 +15,7 @@
 package browser
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -39,6 +40,7 @@ type absStorage struct {
 	key         []byte
 	path        string
 	endpoint    string
+	l           *logger.Logger
 }
 
 const (
@@ -49,8 +51,9 @@ const (
 	version          = "2020-08-04"
 )
 
-func (s *absStorage) stringToSign(contentLength int64, contentType, canonicalizedHeaders, blobPath string) string {
-	return fmt.Sprintf("PUT\n\n\n%d\n\n%s\n\n\n\n\n\n\n%s/%s", contentLength, contentType, canonicalizedHeaders, path.Join(s.accountName, blobPath))
+func (s *absStorage) stringToSign(req *http.Request, canonicalizedHeaders string) string {
+	resource := path.Join(s.accountName, req.URL.Path)
+	return fmt.Sprintf("%s\n\n\n%d\n\n\n\n\n\n\n\n\n%s/%s", req.Method, req.ContentLength, canonicalizedHeaders, resource)
 }
 
 func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStorage, error) {
@@ -64,6 +67,7 @@ func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStor
 		path:        cfg.GetPath(),
 		endpoint:    cfg.GetEndpoint(),
 		client:      &http.Client{},
+		l:           l,
 	}
 	if abs.endpoint == "" {
 		abs.endpoint = "https://" + abs.accountName + ".blob.core.windows.net"
@@ -103,29 +107,30 @@ func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStor
 
 // CreateAuthorizationHeader generates the authorization header needed for Azure Blob REST API requests.
 func (s *absStorage) createAuthorizationHeader(req *http.Request) string {
-	canonicalizedHeaders := ""
-	for header, values := range req.Header {
-		if len(values) > 0 && header[:5] == "x-ms-" {
-			canonicalizedHeaders += fmt.Sprintf("%s:%s\n", header, values[0])
-		}
-	}
+	canonicalizedHeaders := fmt.Sprintf("x-ms-blob-type:BlockBlob\nx-ms-date:%s\nx-ms-version:%s\n", req.Header.Get("x-ms-date"), version)
+
+	stringToSign := s.stringToSign(req, canonicalizedHeaders)
+	s.l.Debugf("String to sign: %s", stringToSign)
 
 	h := hmac.New(sha256.New, s.key)
-	h.Write([]byte(s.stringToSign(req.ContentLength, contentType, canonicalizedHeaders, req.URL.Path)))
+	h.Write([]byte(stringToSign))
 	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
 
-	authHeader := fmt.Sprintf("SharedKey %s:%s", s.accountName, signature)
-	return authHeader
+	return fmt.Sprintf("SharedKey %s:%s", s.accountName, signature)
 }
 
 func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) error {
+	fileContent, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("failed to read file content: %v", err)
+	}
 	blobPath := path.Join(s.container, s.path, relPath)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.endpoint+"/"+blobPath, r)
+	req, err := http.NewRequestWithContext(ctx, "PUT", s.endpoint+"/"+blobPath, bytes.NewReader(fileContent))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", req.ContentLength))
 	req.Header.Set("x-ms-blob-type", "BlockBlob")
 	req.Header.Set("x-ms-version", version)
 	date := time.Now().UTC().Format(http.TimeFormat)
@@ -135,6 +140,8 @@ func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 		req.Header.Set("Authorization", s.createAuthorizationHeader(req))
 	}
 
+	s.l.Debugf("Sending request to: %s, with headers: %v", req.URL, req.Header)
+
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
@@ -142,7 +149,7 @@ func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to upload object, status code: %d, msg: %s", resp.StatusCode, string(b))
 	}
