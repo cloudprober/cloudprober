@@ -74,9 +74,9 @@ func (p *Probe) initArtifactsHandler() error {
 		}
 
 		if absConf := storageConfig.GetAbs(); absConf != nil {
-			abs, err := initABS(context.Background(), absConf, l)
+			abs, err := initABS(context.Background(), absConf, p.l)
 			if err != nil {
-				return nil, fmt.Errorf("error initializing ABS storage: %v", err)
+				return fmt.Errorf("error initializing ABS storage: %v", err)
 			}
 			ah.absStorage = append(ah.absStorage, abs)
 		}
