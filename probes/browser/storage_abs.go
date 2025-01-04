@@ -45,15 +45,17 @@ type absStorage struct {
 
 const (
 	identityEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
-	resource         = "https://storage.azure.com/"
+	storageURL       = "https://storage.azure.com/"
 	tokenAPIVersion  = "2018-02-01"
-	contentType      = "application/octet-stream"
 	version          = "2020-08-04"
 )
 
-func (s *absStorage) stringToSign(req *http.Request, canonicalizedHeaders string) string {
-	resource := path.Join(s.accountName, req.URL.Path)
-	return fmt.Sprintf("%s\n\n\n%d\n\n\n\n\n\n\n\n\n%s/%s", req.Method, req.ContentLength, canonicalizedHeaders, resource)
+// stringToSign creates the string to sign for the given request.
+// https://docs.microsoft.com/en-us/rest/api/storageservices/authorize-with-shared-key#shared-key-format-for-authorization
+func (s *absStorage) stringToSign(req *http.Request) string {
+	cHeaders := fmt.Sprintf("x-ms-blob-type:BlockBlob\nx-ms-date:%s\nx-ms-version:%s\n", req.Header.Get("x-ms-date"), version)
+	cResource := path.Join(s.accountName, req.URL.Path)
+	return fmt.Sprintf("%s\n\n\n%d\n\n\n\n\n\n\n\n\n%s/%s", req.Method, req.ContentLength, cHeaders, cResource)
 }
 
 func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStorage, error) {
@@ -84,7 +86,7 @@ func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStor
 						"Metadata": "true",
 					},
 					Data: []string{
-						"resource=" + resource,
+						"resource=" + storageURL,
 						"api-version=" + tokenAPIVersion,
 					},
 				},
@@ -105,18 +107,11 @@ func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStor
 	return abs, nil
 }
 
-// CreateAuthorizationHeader generates the authorization header needed for Azure Blob REST API requests.
-func (s *absStorage) createAuthorizationHeader(req *http.Request) string {
-	canonicalizedHeaders := fmt.Sprintf("x-ms-blob-type:BlockBlob\nx-ms-date:%s\nx-ms-version:%s\n", req.Header.Get("x-ms-date"), version)
-
-	stringToSign := s.stringToSign(req, canonicalizedHeaders)
-	s.l.Debugf("String to sign: %s", stringToSign)
-
+// signature creates signature for the given string using the account key.
+func (s *absStorage) signature(stringToSign string) string {
 	h := hmac.New(sha256.New, s.key)
 	h.Write([]byte(stringToSign))
-	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
-
-	return fmt.Sprintf("SharedKey %s:%s", s.accountName, signature)
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
 func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) error {
@@ -130,6 +125,11 @@ func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 	if err != nil {
 		return err
 	}
+
+	if req.ContentLength == 0 {
+		req.ContentLength = int64(len(fileContent))
+	}
+
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", req.ContentLength))
 	req.Header.Set("x-ms-blob-type", "BlockBlob")
 	req.Header.Set("x-ms-version", version)
@@ -137,10 +137,12 @@ func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 	req.Header.Set("x-ms-date", date)
 
 	if s.key != nil {
-		req.Header.Set("Authorization", s.createAuthorizationHeader(req))
+		stringToSign := s.stringToSign(req)
+		s.l.Debugf("String to sign: %s", stringToSign)
+		req.Header.Set("Authorization", fmt.Sprintf("SharedKey %s:%s", s.accountName, s.signature(stringToSign)))
 	}
 
-	s.l.Debugf("Sending request to: %s, with headers: %v", req.URL, req.Header)
+	s.l.Infof("Sending request to: %s, with headers: %v", req.URL, req.Header)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
