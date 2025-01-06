@@ -28,6 +28,7 @@ type artifactsHandler struct {
 	basePath     string
 	s3Storage    []*s3Storage
 	gcsStorage   []*gcsStorage
+	absStorage   []*absStorage
 	localStorage []*localStorage
 	l            *logger.Logger
 }
@@ -72,6 +73,14 @@ func (p *Probe) initArtifactsHandler() error {
 			ah.gcsStorage = append(ah.gcsStorage, gcs)
 		}
 
+		if absConf := storageConfig.GetAbs(); absConf != nil {
+			abs, err := initABS(context.Background(), absConf, p.l)
+			if err != nil {
+				return fmt.Errorf("error initializing ABS storage: %v", err)
+			}
+			ah.absStorage = append(ah.absStorage, abs)
+		}
+
 		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
 			if localStorage.GetCleanupOptions() != nil {
 				cleanupHandler, err := newCleanupHandler(localStorage.GetCleanupOptions(), p.l)
@@ -80,6 +89,7 @@ func (p *Probe) initArtifactsHandler() error {
 				}
 				p.cleanupHandlers = append(p.cleanupHandlers, cleanupHandler)
 			}
+
 			ls, err := initLocalStorage(localStorage.GetDir())
 			if err != nil {
 				return fmt.Errorf("error initializing local storage: %v", err)
@@ -109,6 +119,15 @@ func (ah *artifactsHandler) handle(ctx context.Context, path string) {
 				ah.l.Errorf("error uploading artifacts to GCS: %v", err)
 			}
 		}(gcs)
+	}
+
+	for _, abs := range ah.absStorage {
+		go func(abs *absStorage) {
+			ah.l.Infof("Uploading artifacts from %s to: %s", path, abs.endpoint)
+			if err := abs.store(ctx, path, ah.basePath); err != nil {
+				ah.l.Errorf("error uploading artifacts to ABS: %v", err)
+			}
+		}(abs)
 	}
 
 	for _, lStorage := range ah.localStorage {
