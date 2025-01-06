@@ -29,7 +29,9 @@ message GCS {
     optional string path = 2;
 
     // If you want to use default credentials on GCE or GKE, leave this field
-    // empty.
+    // empty. See
+    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
+    // for more details on oauth.GoogleCredentials.
     optional oauth.GoogleCredentials credentials = 3;
 
     // GCS endpoint.
@@ -49,12 +51,18 @@ message ABS {
     optional string path = 2;
 
     // Azure account name and key. If you want to use managed identities, leave
-    // these fields empty.
+    // account_key empty.
     optional string account_name = 3;
     optional string account_key = 4;
 
     // Azure endpoint. Default is "https://<account>.blob.core.windows.net".
     optional string endpoint = 5;
+
+    // OAuth2 configuration. If you want to use managed identities, leave this
+    // field empty. See
+    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
+    // for more details on oauth.Config.
+    optional oauth.Config oauth_config = 6;
 }
 
 message Storage {
