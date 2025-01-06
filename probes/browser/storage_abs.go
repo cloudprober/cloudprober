@@ -114,20 +114,16 @@ func (s *absStorage) signature(stringToSign string) string {
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
-func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) error {
-	fileContent, err := io.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("failed to read file content: %v", err)
-	}
+func (s *absStorage) uploadRequest(ctx context.Context, content []byte, relPath string) (*http.Request, error) {
 	blobPath := path.Join(s.container, s.path, relPath)
 
-	req, err := http.NewRequestWithContext(ctx, "PUT", s.endpoint+"/"+blobPath, bytes.NewReader(fileContent))
+	req, err := http.NewRequestWithContext(ctx, "PUT", s.endpoint+"/"+blobPath, bytes.NewReader(content))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if req.ContentLength == 0 {
-		req.ContentLength = int64(len(fileContent))
+		req.ContentLength = int64(len(content))
 	}
 
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", req.ContentLength))
@@ -135,6 +131,19 @@ func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 	req.Header.Set("x-ms-version", version)
 	date := time.Now().UTC().Format(http.TimeFormat)
 	req.Header.Set("x-ms-date", date)
+	return req, nil
+}
+
+func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) error {
+	fileContent, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("failed to read file content: %v", err)
+	}
+
+	req, err := s.uploadRequest(ctx, fileContent, relPath)
+	if err != nil {
+		return err
+	}
 
 	if s.key != nil {
 		stringToSign := s.stringToSign(req)
