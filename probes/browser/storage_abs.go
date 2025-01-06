@@ -58,6 +58,48 @@ func (s *absStorage) stringToSign(req *http.Request) string {
 	return fmt.Sprintf("%s\n\n\n%d\n\n\n\n\n\n\n\n\n%s/%s", req.Method, req.ContentLength, cHeaders, cResource)
 }
 
+func (s *absStorage) initAuth(ctx context.Context, cfg *configpb.ABS) error {
+	if cfg.GetAccountKey() != "" {
+		key, err := base64.StdEncoding.DecodeString(cfg.GetAccountKey())
+		if err != nil {
+			return fmt.Errorf("failed to decode account key: %v", err)
+		}
+		s.key = key
+		return nil
+	}
+
+	if cfg.GetOauthConfig() != nil {
+		oauthTS, err := oauth.TokenSourceFromConfig(cfg.GetOauthConfig(), s.l)
+		if err != nil {
+			return err
+		}
+		s.client = oauth2.NewClient(ctx, oauthTS)
+		return nil
+	}
+
+	// If account key and auth config are not provided, we will use the metadata
+	// service to get the bearer token.
+	oauthTS, err := oauth.TokenSourceFromConfig(&oauthconfigpb.Config{
+		Type: &oauthconfigpb.Config_HttpRequest{
+			HttpRequest: &oauthconfigpb.HTTPRequest{
+				TokenUrl: identityEndpoint,
+				Header: map[string]string{
+					"Metadata": "true",
+				},
+				Data: []string{
+					"resource=" + storageURL,
+					"api-version=" + tokenAPIVersion,
+				},
+			},
+		},
+	}, s.l)
+	if err != nil {
+		return err
+	}
+	s.client = oauth2.NewClient(ctx, oauthTS)
+	return nil
+}
+
 func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStorage, error) {
 	if cfg.GetContainer() == "" {
 		return nil, fmt.Errorf("ABS container name is required")
@@ -75,36 +117,7 @@ func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStor
 		abs.endpoint = "https://" + abs.accountName + ".blob.core.windows.net"
 	}
 
-	// If account key is not provided, we will use the metadata service to get
-	// the bearer token.
-	if cfg.GetAccountKey() == "" {
-		oauthTS, err := oauth.TokenSourceFromConfig(&oauthconfigpb.Config{
-			Type: &oauthconfigpb.Config_HttpRequest{
-				HttpRequest: &oauthconfigpb.HTTPRequest{
-					TokenUrl: identityEndpoint,
-					Header: map[string]string{
-						"Metadata": "true",
-					},
-					Data: []string{
-						"resource=" + storageURL,
-						"api-version=" + tokenAPIVersion,
-					},
-				},
-			},
-		}, l)
-		if err != nil {
-			return nil, err
-		}
-		abs.client = oauth2.NewClient(ctx, oauthTS)
-	} else {
-		key, err := base64.StdEncoding.DecodeString(cfg.GetAccountKey())
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode account key: %v", err)
-		}
-		abs.key = key
-	}
-
-	return abs, nil
+	return abs, abs.initAuth(ctx, cfg)
 }
 
 // signature creates signature for the given string using the account key.
