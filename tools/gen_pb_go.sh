@@ -114,6 +114,11 @@ find ${MODULE} -type d | \
     ${protoc_path} --go-grpc_out=. --go_out=. ${dir}/*.proto
   done
 
+# Split external config proto into a separate package.
+EXTERNAL_PROTO_DIR=${MODULE}/probes/external/proto
+echo -e "syntax = \"proto2\";\n\npackage cloudprober.probes.external;" > ${EXTERNAL_PROTO_DIR}/server.proto
+sed -n "/^\/\/ SERVER_MESSAGES_START/,\$p" \
+  ${EXTERNAL_PROTO_DIR}/config.proto > ${EXTERNAL_PROTO_DIR}/server.proto
 ${protoc_path} --python_out=. ${MODULE}/probes/external/proto/server.proto
 PY_SRC_DIR=${MODULE}/probes/external/serverutils/py/src/cloudprober/external
 mkdir -p ${PY_SRC_DIR}
