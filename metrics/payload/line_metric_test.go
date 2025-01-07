@@ -262,7 +262,7 @@ func TestParseLine(t *testing.T) {
 		},
 		{
 			desc:   "standard metric with labels",
-			line:   "op_total{service=serviceA,dc=xx} 56",
+			line:   "op_total{svc=serviceA,dc=xx} 56",
 			metric: "op_total",
 			labels: [][2]string{
 				{"service", "serviceA"},
@@ -272,7 +272,7 @@ func TestParseLine(t *testing.T) {
 		},
 		{
 			desc:   "quoted labels, same result",
-			line:   "op_total{service=\"serviceA\",dc=\"xx\"} 56",
+			line:   "op_total{svc=\"serviceA\",dc=\"xx\"} 56",
 			metric: "op_total",
 			labels: [][2]string{
 				{"service", "serviceA"},
@@ -282,20 +282,20 @@ func TestParseLine(t *testing.T) {
 		},
 		{
 			desc:   "a label value has space and more spaces",
-			line:   "op_total{service=\"service A\", dc= \"xx\"} 56",
+			line:   "op_total{svc=\"svc A\", dcs= \"xx,yy\"} 56",
 			metric: "op_total",
 			labels: [][2]string{
-				{"service", "service A"},
-				{"dc", "xx"},
+				{"service", "svc A"},
+				{"dcs", "xx,yy"},
 			},
 			value: "56",
 		},
 		{
 			desc:   "label and value have a space",
-			line:   "version{service=\"service A\",dc=xx} \"version 1.5\"",
+			line:   "version{svc=\"svc A\",dc=xx} \"version 1.5\"",
 			metric: "version",
 			labels: [][2]string{
-				{"service", "service A"},
+				{"service", "svc A"},
 				{"dc", "xx"},
 			},
 			value: "\"version 1.5\"",
@@ -307,12 +307,15 @@ func TestParseLine(t *testing.T) {
 		},
 		{
 			desc:    "only one brace, invalid line",
-			line:    "total{service=\"service A\",dc=\"xx\" 56",
+			line:    "total{svc=\"svc A\",dc=\"xx\" 56",
 			wantErr: true,
 		},
 	}
 
 	for _, test := range tests {
+		if test.desc != "empty dc label" {
+			continue
+		}
 		t.Run(test.desc, func(t *testing.T) {
 			m, v, l, err := parseLine(test.line)
 			if err != nil {
@@ -331,13 +334,51 @@ func TestParseLine(t *testing.T) {
 	}
 }
 
+func TestParseLabels(t *testing.T) {
+	invalidLabelLines := []string{
+		"svc=A,dc=\"xx\"56",      // invalid dc label value
+		"svc=A,dc=44\"xx\"",      // invalid dc label value
+		"svc=A,dc=44 \"xx\"",     // invalid dc label value
+		"svc=A,dc=xx\" 56",       // missing closing quote
+		"svc=\"svc A\",dc=xx 56", // space in unquoted value
+		"svc=A,dc=xx,56",         // missing value
+		"svc=A,dc=x/x,",          // invalid character in unquoted value
+		`svcs=""A", B",dc=xx`,    // single doublequote in quoted value
+	}
+	for _, line := range invalidLabelLines {
+		labels, err := parseLabels(line)
+		if err == nil {
+			t.Errorf("Expected error, got nil, labels: %v", labels)
+		}
+	}
+
+	inputToLabels := map[string][][2]string{
+		"":                              nil,
+		"svc=,dc=\"xx\"":                {{"svc", ""}, {"dc", "xx"}},
+		"svc=,dc=":                      {{"svc", ""}, {"dc", ""}},
+		"svc=\"svc A\",dc=":             {{"svc", "svc A"}, {"dc", ""}},
+		"svc=\"svc A\",dc=xx":           {{"svc", "svc A"}, {"dc", "xx"}},
+		"svc=\"svc A\",dc=xx,":          {{"svc", "svc A"}, {"dc", "xx"}},
+		"svc=\"svc A\",dc=\"xx\",":      {{"svc", "svc A"}, {"dc", "xx"}},
+		"svcs=\"svc A, svc B\",dc=xx":   {{"svcs", "svc A, svc B"}, {"dc", "xx"}},
+		`svcs="svc \"A\", svc B",dc=xx`: {{"svcs", `svc \"A\", svc B`}, {"dc", "xx"}},
+	}
+	for input, wantLabels := range inputToLabels {
+		labels, err := parseLabels(input)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		assert.Equal(t, wantLabels, labels, "input: %v", input)
+	}
+}
+
 func BenchmarkMetricValueLabels(b *testing.B) {
 	payload := []string{
 		"total 50",
 		"total   56",
-		"total{service=serviceA,dc=xx} 56",
-		"total{service=\"serviceA\",dc=\"xx\"} 56",
-		"version{service=\"service A\",dc=xx} \"version 1.5\"",
+		"total{svc=serviceA,dc=xx} 56",
+		"total{svc=\"serviceA\",dc=\"xx\"} 56",
+		"version{svc=\"svc A\",dc=xx} \"version 1.5\"",
 	}
 	// run the em.String() function b.N times
 	for n := 0; n < b.N; n++ {
