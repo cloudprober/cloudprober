@@ -24,7 +24,6 @@ import (
 
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
-	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -39,7 +38,7 @@ func startProbeServer(t *testing.T, ctx context.Context, testPayload string, r i
 			return
 		}
 
-		req := &serverpb.ProbeRequest{}
+		req := &configpb.ProbeRequest{}
 		if err := serverutils.ReadMessage(context.Background(), req, rd); err != nil {
 			if ctx.Err() != nil {
 				return
@@ -61,7 +60,7 @@ func startProbeServer(t *testing.T, ctx context.Context, testPayload string, r i
 		}
 		id := req.GetRequestId()
 
-		actionToResponse := map[string]*serverpb.ProbeReply{
+		actionToResponse := map[string]*configpb.ProbeReply{
 			"nopayload": {RequestId: proto.Int32(id)},
 			"payload": {
 				RequestId: proto.Int32(id),
