@@ -36,7 +36,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
-	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
@@ -146,7 +146,7 @@ func (p *Probe) readProbeReplies(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return nil
 		}
-		rep := new(serverpb.ProbeReply)
+		rep := new(configpb.ProbeReply)
 		if err := serverutils.ReadMessage(ctx, rep, bufReader); err != nil {
 			// Return if external probe process pipe has closed. We get:
 			//  io.EOF: when other process has closed the pipe.
@@ -166,10 +166,10 @@ func (p *Probe) readProbeReplies(ctx context.Context) error {
 }
 
 func (p *Probe) sendRequest(requestID int32, ep endpoint.Endpoint) error {
-	req := &serverpb.ProbeRequest{
+	req := &configpb.ProbeRequest{
 		RequestId: proto.Int32(requestID),
 		TimeLimit: proto.Int32(int32(p.opts.Timeout / time.Millisecond)),
-		Options:   []*serverpb.ProbeRequest_Option{},
+		Options:   []*configpb.ProbeRequest_Option{},
 	}
 	for _, opt := range p.c.GetOptions() {
 		value := opt.GetValue()
@@ -181,7 +181,7 @@ func (p *Probe) sendRequest(requestID int32, ep endpoint.Endpoint) error {
 				value = res
 			}
 		}
-		req.Options = append(req.Options, &serverpb.ProbeRequest_Option{
+		req.Options = append(req.Options, &configpb.ProbeRequest_Option{
 			Name:  opt.Name,
 			Value: proto.String(value),
 		})

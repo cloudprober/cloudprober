@@ -43,7 +43,6 @@ import (
 	payloadpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
-	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/google/shlex"
@@ -77,7 +76,7 @@ type Probe struct {
 	cmdStdin     io.Writer
 	cmdStdout    io.ReadCloser
 	cmdStderr    io.ReadCloser
-	replyChan    chan *serverpb.ProbeReply
+	replyChan    chan *configpb.ProbeReply
 	targets      []endpoint.Endpoint
 	results      map[string]*result // probe results keyed by targets
 	dataChan     chan *metrics.EventMetrics
@@ -120,7 +119,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.c = c
-	p.replyChan = make(chan *serverpb.ProbeReply)
+	p.replyChan = make(chan *configpb.ProbeReply)
 
 	cmdParts, err := shlex.Split(p.c.GetCommand())
 	if err != nil {
