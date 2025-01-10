@@ -33,7 +33,6 @@ import (
 	payloadconfigpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
-	serverpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probeconfigpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/targets"
@@ -350,7 +349,7 @@ func TestSendRequest(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to sendRequest: %v", err)
 	}
-	req := new(serverpb.ProbeRequest)
+	req := new(configpb.ProbeRequest)
 	var length int
 	_, err = fmt.Fscanf(&buf, "\nContent-Length: %d\n\n", &length)
 	if err != nil {
