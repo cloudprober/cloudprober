@@ -295,6 +295,12 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
 		"PLAYWRIGHT_HTML_OPEN=never",
 	}
+	for k, v := range p.c.GetEnvVar() {
+		if v == "" {
+			v = "1" // default to a truthy value
+		}
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+	}
 	envVars = append(envVars, targetEnvVars(target)...)
 
 	cmdLine := []string{
