@@ -149,6 +149,9 @@ message ProbeConf {
 
     // Cleanup options.
     optional CleanupOptions workdir_cleanup_options = 10;
+
+    // Environment variables. These are passed/set before probing starts.
+    map<string, string> env_var = 11;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and
