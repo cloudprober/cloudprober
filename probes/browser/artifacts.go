@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"slices"
 
 	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
@@ -39,20 +40,7 @@ func (p *Probe) initArtifactsHandler() error {
 		l:        p.l,
 	}
 
-	if p.c.GetArtifactsOptions().GetServeOnWeb() {
-		httpServerMux := runconfig.DefaultHTTPServeMux()
-		if httpServerMux == nil {
-			return fmt.Errorf("default http server mux is not initialized")
-		}
-
-		pathPrefix := p.c.GetArtifactsOptions().GetWebServerPath()
-		if pathPrefix == "" {
-			pathPrefix = filepath.Join("/artifacts", p.name)
-		}
-
-		fileServer := http.FileServer(http.Dir(p.outputDir))
-		httpServerMux.Handle(pathPrefix+"/", http.StripPrefix(pathPrefix, fileServer))
-	}
+	var localStorageDirs []string
 
 	for _, storageConfig := range p.c.GetArtifactsOptions().GetStorage() {
 		if s3conf := storageConfig.GetS3(); s3conf != nil {
@@ -94,8 +82,31 @@ func (p *Probe) initArtifactsHandler() error {
 			if err != nil {
 				return fmt.Errorf("error initializing local storage: %v", err)
 			}
+			localStorageDirs = append(localStorageDirs, ls.destDir)
 			ah.localStorage = append(ah.localStorage, ls)
 		}
+	}
+
+	if p.c.GetArtifactsOptions().GetServeOnWeb() {
+		httpServerMux := runconfig.DefaultHTTPServeMux()
+		if httpServerMux == nil {
+			return fmt.Errorf("default http server mux is not initialized")
+		}
+
+		pathPrefix := p.c.GetArtifactsOptions().GetWebServerPath()
+		if pathPrefix == "" {
+			pathPrefix = filepath.Join("/artifacts", p.name)
+		}
+
+		webRoot := p.outputDir
+		if r := p.c.GetArtifactsOptions().GetWebServerRoot(); r != "" {
+			if !slices.Contains(localStorageDirs, r) {
+				return fmt.Errorf("invalid web server root: %s; web server root can be either local_storage.dir or empty", r)
+			}
+			webRoot = r
+		}
+		fileServer := http.FileServer(http.Dir(webRoot))
+		httpServerMux.Handle(pathPrefix+"/", http.StripPrefix(pathPrefix, fileServer))
 	}
 
 	p.artifactsHandler = ah
