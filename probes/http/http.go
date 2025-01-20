@@ -249,10 +249,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 	}
 
-	p.statsExportFrequency = p.opts.StatsExportInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
-	if p.statsExportFrequency == 0 {
-		p.statsExportFrequency = 1
-	}
+	p.statsExportFrequency = sched.StatsExportFrequency(p.opts.Interval, p.opts.StatsExportInterval)
 
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -439,12 +436,41 @@ func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *la
 	return ld
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, clients []*http.Client, req *http.Request, result *probeResult) {
-	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
-	defer cancelReqCtx()
+type targetState struct {
+	req     *http.Request
+	clients []*http.Client
+}
+
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	target, result, runCnt := runReq.Target, runReq.Result.(*probeResult), runReq.RunID
+
+	if runReq.TargetState == nil {
+		runReq.TargetState = &targetState{}
+	}
+	tgtState := runReq.TargetState.(*targetState)
+
+	if tgtState.req == nil {
+		tgtState.req = p.httpRequestForTarget(runReq.Target)
+	}
+	if tgtState.clients == nil {
+		tgtState.clients = p.clientsForTarget(runReq.Target)
+	}
+
+	req, clients := runReq.TargetState.(*targetState).req, runReq.TargetState.(*targetState).clients
+	if req == nil {
+		result.total += int64(p.c.GetRequestsPerProbe())
+		return
+	}
+
+	// If we are resolving first, we update the request object at every stats
+	// export interval. This is to make sure that we are using the correct IP
+	// address for the target.
+	if p.c.GetResolveFirst() && runCnt%p.statsExportFrequency == 0 {
+		runReq.TargetState.(*targetState).req = p.httpRequestForTarget(target)
+	}
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doHTTPRequest(req.WithContext(reqCtx), clients[0], target, result, nil)
+		p.doHTTPRequest(req.WithContext(ctx), clients[0], target, result, nil)
 		return
 	}
 
@@ -461,7 +487,7 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, clients 
 			defer wg.Done()
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doHTTPRequest(req.WithContext(reqCtx), clients[numReq], target, result, &resultMu)
+			p.doHTTPRequest(req.WithContext(ctx), clients[numReq], target, result, &resultMu)
 		}(req, numReq, target, result)
 	}
 	wg.Wait()
@@ -492,11 +518,27 @@ func (p *Probe) newResult() *probeResult {
 	return result
 }
 
-func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
+func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics {
+	var ems []*metrics.EventMetrics
+
+	// SSL earliest cert expiry is exported in an independent EM as it's a
+	// GAUGE metrics.
+	if result.sslEarliestExpirationSeconds >= 0 {
+		em := metrics.NewEventMetrics(ts).
+			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
+		em.Kind = metrics.GAUGE
+		if em.Options == nil {
+			em.Options = &metrics.EventMetricsOptions{}
+		}
+		em.Options.NotForAlerting = true
+		em.AddLabel("ptype", "http")
+		ems = append(ems, em)
+	}
+
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
-		AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
+		AddMetric(opts.LatencyMetricName, result.latency.Clone()).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
 		AddMetric("resp-code", result.respCodes.Clone())
 
@@ -504,7 +546,7 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 		em.AddMetric("resp-body", result.respBodies.Clone())
 	}
 
-	if p.c.GetKeepAlive() {
+	if opts.ProbeConf.(*configpb.ProbeConf).GetKeepAlive() {
 		em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
 	}
 
@@ -530,18 +572,10 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, target endpoint
 		}
 	}
 
-	em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
-	p.opts.RecordMetrics(target, em, dataChan)
+	em.AddLabel("ptype", "http")
+	ems = append(ems, em)
 
-	// SSL earliest cert expiry is exported in an independent EM as it's a
-	// GAUGE metrics.
-	if result.sslEarliestExpirationSeconds >= 0 {
-		em := metrics.NewEventMetrics(ts).
-			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
-		em.Kind = metrics.GAUGE
-		em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Name)
-		p.opts.RecordMetrics(target, em, dataChan, options.WithNoAlert())
-	}
+	return ems
 }
 
 // Returns clients for a target. We use a different HTTP client (transport) for
@@ -581,60 +615,16 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 	return clients
 }
 
-func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
-	p.l.Debug("Starting probing for the target ", target.Name)
-
-	// We use this counter to decide when to export stats.
-	var runCnt int64
-
-	result := p.newResult()
-	req := p.httpRequestForTarget(target)
-	ticker := time.NewTicker(p.opts.Interval)
-	defer ticker.Stop()
-
-	clients := p.clientsForTarget(target)
-	for ts := time.Now(); true; ts = <-ticker.C {
-		// Don't run another probe if context is canceled already.
-		if sched.CtxDone(ctx) {
-			return
-		}
-
-		if !p.opts.IsScheduled() {
-			continue
-		}
-
-		// If request is nil (most likely because target resolving failed or it
-		// was an invalid target), skip this probe cycle. Note that request
-		// creation gets retried at a regular interval (stats export interval).
-		if req != nil {
-			p.runProbe(ctx, target, clients, req, result)
-		} else {
-			result.total += int64(p.c.GetRequestsPerProbe())
-		}
-
-		// Export stats if it's the time to do so.
-		runCnt++
-		if (runCnt % p.statsExportFrequency) == 0 {
-			p.exportMetrics(ts, result, target, dataChan)
-
-			// If we are resolving first, this is also a good time to recreate HTTP
-			// request in case target's IP has changed.
-			if p.c.GetResolveFirst() {
-				req = p.httpRequestForTarget(target)
-			}
-		}
-	}
-}
-
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.dataChan = dataChan
 
 	s := &sched.Scheduler{
-		ProbeName:      p.name,
-		DataChan:       dataChan,
-		Opts:           p.opts,
-		StartForTarget: func(ctx context.Context, target endpoint.Endpoint) { p.startForTarget(ctx, target, dataChan) },
+		ProbeName:         p.name,
+		DataChan:          dataChan,
+		Opts:              p.opts,
+		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
+		RunProbeForTarget: p.runProbe,
 	}
 
 	s.UpdateTargetsAndStartProbes(ctx)

@@ -315,7 +315,7 @@ func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetric
 	opts.LogMetrics(em)
 	dataChan <- em
 
-	if !ro.NoAlert {
+	if !ro.NoAlert && (em.Options == nil || !em.Options.NotForAlerting) {
 		for _, ah := range opts.AlertHandlers {
 			ah.Record(ep, em)
 		}

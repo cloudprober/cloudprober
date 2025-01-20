@@ -140,7 +140,7 @@ func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
 	return result
 }
 
-func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) *metrics.EventMetrics {
+func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics {
 	prr.Lock()
 	defer prr.Unlock()
 
@@ -163,7 +163,7 @@ func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 func (p *Probe) transportCredentials() (credentials.TransportCredentials, error) {
@@ -480,12 +480,14 @@ func (p *Probe) ctxWithHeaders(ctx context.Context) context.Context {
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	s := &sched.Scheduler{
-		ProbeName:         p.name,
-		DataChan:          dataChan,
-		Opts:              p.opts,
-		ListEndpoints:     p.ListEndpoints,
-		NewResult:         p.newResult,
-		RunProbeForTarget: p.runProbeForTargetAndConn,
+		ProbeName:     p.name,
+		DataChan:      dataChan,
+		Opts:          p.opts,
+		ListEndpoints: p.ListEndpoints,
+		NewResult:     p.newResult,
+		RunProbeForTarget: func(ctx context.Context, req *sched.RunProbeForTargetRequest) {
+			p.runProbeForTargetAndConn(ctx, req.Target, req.Result)
+		},
 	}
 
 	s.UpdateTargetsAndStartProbes(ctx)

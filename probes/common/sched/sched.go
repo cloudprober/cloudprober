@@ -40,13 +40,29 @@ func CtxDone(ctx context.Context) bool {
 	}
 }
 
+func StatsExportFrequency(interval time.Duration, statsExportInterval time.Duration) int64 {
+	f := statsExportInterval.Nanoseconds() / interval.Nanoseconds()
+	if f != 0 {
+		return f
+	}
+	return 1
+}
+
 // ProbeResult represents results of a probe run.
 type ProbeResult interface {
 	// Metrics returns ProbeResult metrics as a metrics.EventMetrics object.
 	// This EventMetrics object should not be reused for further accounting
 	// because it's modified by the scheduler and later on when it's pushed
 	// to the data channel.
-	Metrics(timeStamp time.Time, runID int64, opts *options.Options) *metrics.EventMetrics
+	Metrics(timeStamp time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics
+}
+
+type RunProbeForTargetRequest struct {
+	Target      endpoint.Endpoint
+	TargetKey   string
+	Result      ProbeResult
+	RunID       int64
+	TargetState any
 }
 
 type Scheduler struct {
@@ -67,7 +83,7 @@ type Scheduler struct {
 	StartForTarget func(ctx context.Context, target endpoint.Endpoint)
 
 	// RunProbeForTarget is called per probe cycle for each target.
-	RunProbeForTarget func(context.Context, endpoint.Endpoint, ProbeResult)
+	RunProbeForTarget func(context.Context, *RunProbeForTargetRequest)
 
 	statsExportFrequency  int64
 	targetsUpdateInterval time.Duration
@@ -81,10 +97,7 @@ func (s *Scheduler) init() {
 		s.cancelFuncs = make(map[string]context.CancelFunc)
 	}
 
-	s.statsExportFrequency = s.Opts.StatsExportInterval.Nanoseconds() / s.Opts.Interval.Nanoseconds()
-	if s.statsExportFrequency == 0 {
-		s.statsExportFrequency = 1
-	}
+	s.statsExportFrequency = StatsExportFrequency(s.Opts.Interval, s.Opts.StatsExportInterval)
 
 	s.targetsUpdateInterval = DefaultTargetsUpdateInterval
 	// There is no point refreshing targets before probe interval.
@@ -133,6 +146,13 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	ticker := time.NewTicker(s.Opts.Interval)
 	defer ticker.Stop()
 
+	targetKey := target.Key()
+	req := &RunProbeForTargetRequest{
+		Target:    target,
+		TargetKey: targetKey,
+		Result:    result,
+	}
+
 	for ts := time.Now(); true; ts = <-ticker.C {
 		// Don't run another probe if context is canceled already.
 		if CtxDone(ctx) {
@@ -142,21 +162,24 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 			continue
 		}
 
+		runCnt++
+		req.RunID = runCnt
+
 		ctx, cancelCtx := context.WithTimeout(ctx, s.Opts.Timeout)
-		s.RunProbeForTarget(ctx, target, result)
+		s.RunProbeForTarget(ctx, req)
 		cancelCtx()
 
 		// Export stats if it's the time to do so.
-		runCnt++
 		if (runCnt % s.statsExportFrequency) == 0 {
-			em := result.Metrics(ts, runCnt, s.Opts)
-			// Returning nil is a way to skip this target. Used by grpc probe.
-			if em == nil {
-				continue
+			for _, em := range result.Metrics(ts, runCnt, s.Opts) {
+				// Returning nil is a way to skip this target. Used by grpc probe.
+				if em == nil {
+					continue
+				}
+				em.AddLabel("probe", s.ProbeName).
+					AddLabel("dst", target.Dst())
+				s.Opts.RecordMetrics(target, em, s.DataChan)
 			}
-			em.AddLabel("probe", s.ProbeName).
-				AddLabel("dst", target.Dst())
-			s.Opts.RecordMetrics(target, em, s.DataChan)
 		}
 	}
 }
