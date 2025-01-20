@@ -30,7 +30,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/cloudprober/cloudprober/internal/httpreq"
@@ -94,7 +93,7 @@ type latencyDetails struct {
 
 type probeResult struct {
 	total, success, timeouts     int64
-	connEvent                    int64
+	connEvent                    *metrics.Int
 	latency                      metrics.LatencyValue
 	respCodes                    *metrics.Map[int64]
 	respBodies                   *metrics.Map[int64]
@@ -313,12 +312,10 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		}
 	}
 
-	var connEvent atomic.Int32
-
 	if p.c.GetKeepAlive() {
 		oldConnectDone := trace.ConnectDone
 		trace.ConnectDone = func(network, addr string, err error) {
-			connEvent.Add(1)
+			result.connEvent.Inc()
 			if oldConnectDone != nil {
 				oldConnectDone(network, addr, err)
 			}
@@ -344,7 +341,6 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 	}
 
 	result.total++
-	result.connEvent += int64(connEvent.Load())
 
 	if err != nil {
 		if isClientTimeout(err) {
@@ -442,12 +438,14 @@ type targetState struct {
 }
 
 func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
-	target, result, runCnt := runReq.Target, runReq.Result.(*probeResult), runReq.RunID
-
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
 	if runReq.TargetState == nil {
 		runReq.TargetState = &targetState{}
 	}
-	tgtState := runReq.TargetState.(*targetState)
+
+	target, result, runCnt, tgtState := runReq.Target, runReq.Result.(*probeResult), runReq.RunID, runReq.TargetState.(*targetState)
 
 	if tgtState.req == nil {
 		tgtState.req = p.httpRequestForTarget(runReq.Target)
@@ -499,6 +497,10 @@ func (p *Probe) newResult() *probeResult {
 		sslEarliestExpirationSeconds: -1,
 	}
 
+	if p.c.GetKeepAlive() {
+		result.connEvent = metrics.NewInt(0)
+	}
+
 	if p.opts.Validators != nil {
 		result.validationFailure = validators.ValidationFailureMap(p.opts.Validators)
 	}
@@ -546,8 +548,8 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		em.AddMetric("resp-body", result.respBodies.Clone())
 	}
 
-	if opts.ProbeConf.(*configpb.ProbeConf).GetKeepAlive() {
-		em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
+	if result.connEvent != nil {
+		em.AddMetric("connect_event", result.connEvent.Clone())
 	}
 
 	if result.validationFailure != nil {
@@ -623,7 +625,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget: p.runProbe,
 	}
 

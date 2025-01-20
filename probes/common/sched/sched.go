@@ -141,8 +141,6 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	// We use this counter to decide when to export stats.
 	var runCnt int64
 
-	result := s.NewResult(&target)
-
 	ticker := time.NewTicker(s.Opts.Interval)
 	defer ticker.Stop()
 
@@ -150,7 +148,9 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	req := &RunProbeForTargetRequest{
 		Target:    target,
 		TargetKey: targetKey,
-		Result:    result,
+	}
+	if s.NewResult != nil {
+		req.Result = s.NewResult(&target)
 	}
 
 	for ts := time.Now(); true; ts = <-ticker.C {
@@ -171,7 +171,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 
 		// Export stats if it's the time to do so.
 		if (runCnt % s.statsExportFrequency) == 0 {
-			for _, em := range result.Metrics(ts, runCnt, s.Opts) {
+			for _, em := range req.Result.Metrics(ts, runCnt, s.Opts) {
 				// Returning nil is a way to skip this target. Used by grpc probe.
 				if em == nil {
 					continue
