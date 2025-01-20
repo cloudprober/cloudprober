@@ -441,6 +441,8 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	if runReq.Result == nil {
 		runReq.Result = p.newResult()
 	}
+
+	// We cache the HTTP requests and clients in the target state.
 	if runReq.TargetState == nil {
 		runReq.TargetState = &targetState{}
 	}
@@ -455,6 +457,8 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 
 	req, clients := runReq.TargetState.(*targetState).req, runReq.TargetState.(*targetState).clients
+
+	// If request is nil, just update the total count and return.
 	if req == nil {
 		result.total += int64(p.c.GetRequestsPerProbe())
 		return
