@@ -55,6 +55,13 @@ type Options struct {
 	logMetricsOverride  func(*metrics.EventMetrics)
 }
 
+func (opts *Options) StatsExportFrequency() int64 {
+	if f := opts.StatsExportInterval.Nanoseconds() / opts.Interval.Nanoseconds(); f != 0 {
+		return f
+	}
+	return 1
+}
+
 func (opts *Options) LogMetrics(em *metrics.EventMetrics) {
 	if opts.logMetricsOverride != nil {
 		opts.logMetricsOverride(em)

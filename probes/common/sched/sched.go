@@ -40,14 +40,6 @@ func CtxDone(ctx context.Context) bool {
 	}
 }
 
-func StatsExportFrequency(interval time.Duration, statsExportInterval time.Duration) int64 {
-	f := statsExportInterval.Nanoseconds() / interval.Nanoseconds()
-	if f != 0 {
-		return f
-	}
-	return 1
-}
-
 // ProbeResult represents results of a probe run.
 type ProbeResult interface {
 	// Metrics returns ProbeResult metrics as a metrics.EventMetrics object.
@@ -83,7 +75,6 @@ type Scheduler struct {
 	// RunProbeForTarget is called per probe cycle for each target.
 	RunProbeForTarget func(context.Context, *RunProbeForTargetRequest)
 
-	statsExportFrequency  int64
 	targetsUpdateInterval time.Duration
 	targets               []endpoint.Endpoint
 	waitGroup             sync.WaitGroup
@@ -94,8 +85,6 @@ func (s *Scheduler) init() {
 	if s.cancelFuncs == nil {
 		s.cancelFuncs = make(map[string]context.CancelFunc)
 	}
-
-	s.statsExportFrequency = StatsExportFrequency(s.Opts.Interval, s.Opts.StatsExportInterval)
 
 	s.targetsUpdateInterval = DefaultTargetsUpdateInterval
 	// There is no point refreshing targets before probe interval.
@@ -162,7 +151,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		cancelCtx()
 
 		// Export stats if it's the time to do so.
-		if (runCnt % s.statsExportFrequency) == 0 {
+		if (runCnt % s.Opts.StatsExportFrequency()) == 0 {
 			for _, em := range runReq.Result.Metrics(ts, runCnt, s.Opts) {
 				// Returning nil is a way to skip this target. Used by grpc probe.
 				if em == nil {

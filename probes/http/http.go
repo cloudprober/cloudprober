@@ -248,7 +248,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 	}
 
-	p.statsExportFrequency = sched.StatsExportFrequency(p.opts.Interval, p.opts.StatsExportInterval)
+	p.statsExportFrequency = p.opts.StatsExportFrequency()
 
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -467,7 +467,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	// If we are resolving first, we update the request object at every stats
 	// export interval. This is to make sure that we are using the correct IP
 	// address for the target.
-	if p.c.GetResolveFirst() && tgtState.runCnt%p.statsExportFrequency == 0 {
+	if p.c.GetResolveFirst() && tgtState.runCnt%p.opts.StatsExportFrequency() == 0 {
 		runReq.TargetState.(*targetState).req = p.httpRequestForTarget(target)
 	}
 
