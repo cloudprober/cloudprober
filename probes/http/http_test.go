@@ -293,11 +293,9 @@ func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody str
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
-	result := p.newResult()
 	req := p.httpRequestForTarget(target)
 	runReq := &sched.RunProbeForTargetRequest{
 		Target: target,
-		Result: result,
 		TargetState: &targetState{
 			req: req,
 		},
