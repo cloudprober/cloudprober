@@ -149,15 +149,12 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 	}
 	patchWithTestTransport(p)
 
-	result := p.newResult()
-
 	runReq := &sched.RunProbeForTargetRequest{
 		Target: endpoint.Endpoint{Name: "test.com"},
-		Result: result,
 	}
 	p.runProbe(context.Background(), runReq)
 
-	return result, nil
+	return runReq.Result.(*probeResult), nil
 }
 
 func TestProbeInitError(t *testing.T) {
