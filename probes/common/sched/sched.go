@@ -49,9 +49,17 @@ type ProbeResult interface {
 	Metrics(timeStamp time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics
 }
 
+// RunProbeForTargetRequest is used to pass information to RunProbeForTarget
+// function. It's created once per target and its address is passed to
+// the successive RunProbeForTarget calls.
 type RunProbeForTargetRequest struct {
-	Target      endpoint.Endpoint
-	Result      ProbeResult
+	Target endpoint.Endpoint
+	Result ProbeResult
+
+	// TargetState is an optional field that is used to pass around and retain
+	// state across probe runs. It's typically filled by the individual probe
+	// type. For example, http probe uses this field to cache HTTP request and
+	// clients.
 	TargetState any
 }
 
