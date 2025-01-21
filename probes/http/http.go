@@ -93,7 +93,7 @@ type latencyDetails struct {
 
 type probeResult struct {
 	total, success, timeouts     int64
-	connEvent                    *metrics.Int
+	connEvent                    *metrics.AtomicInt
 	latency                      metrics.LatencyValue
 	respCodes                    *metrics.Map[int64]
 	respBodies                   *metrics.Map[int64]
@@ -502,7 +502,7 @@ func (p *Probe) newResult() *probeResult {
 	}
 
 	if p.c.GetKeepAlive() {
-		result.connEvent = metrics.NewInt(0)
+		result.connEvent = metrics.NewAtomicInt(0)
 	}
 
 	if p.opts.Validators != nil {
