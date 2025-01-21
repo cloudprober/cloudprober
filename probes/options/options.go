@@ -55,6 +55,9 @@ type Options struct {
 	logMetricsOverride  func(*metrics.EventMetrics)
 }
 
+// StatsExportFrequency returns how often to export metrics (in probe counts),
+// initialized to statsExportInterval / p.opts.Interval. Metrics are exported
+// when (runCnt % statsExportFrequency) == 0
 func (opts *Options) StatsExportFrequency() int64 {
 	if f := opts.StatsExportInterval.Nanoseconds() / opts.Interval.Nanoseconds(); f != 0 {
 		return f

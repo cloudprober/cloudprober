@@ -79,11 +79,6 @@ type Probe struct {
 	// How often to resolve targets (in probe counts), it's the minimum of
 	targetsUpdateInterval time.Duration
 
-	// How often to export metrics (in probe counts), initialized to
-	// statsExportInterval / p.opts.Interval. Metrics are exported when
-	// (runCnt % statsExportFrequency) == 0
-	statsExportFrequency int64
-
 	requestBody *httpreq.RequestBody
 }
 
@@ -247,8 +242,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			return fmt.Errorf("error initializing response metrics parser: %v", err)
 		}
 	}
-
-	p.statsExportFrequency = p.opts.StatsExportFrequency()
 
 	p.targets = p.opts.Targets.ListEndpoints()
 
@@ -527,20 +520,6 @@ func (p *Probe) newResult() *probeResult {
 func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics {
 	var ems []*metrics.EventMetrics
 
-	// SSL earliest cert expiry is exported in an independent EM as it's a
-	// GAUGE metrics.
-	if result.sslEarliestExpirationSeconds >= 0 {
-		em := metrics.NewEventMetrics(ts).
-			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
-		em.Kind = metrics.GAUGE
-		if em.Options == nil {
-			em.Options = &metrics.EventMetricsOptions{}
-		}
-		em.Options.NotForAlerting = true
-		em.AddLabel("ptype", "http")
-		ems = append(ems, em)
-	}
-
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
@@ -581,6 +560,19 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 	em.AddLabel("ptype", "http")
 	ems = append(ems, em)
 
+	// SSL earliest cert expiry is exported in an independent EM as it's a
+	// GAUGE metrics.
+	if result.sslEarliestExpirationSeconds >= 0 {
+		em := metrics.NewEventMetrics(ts).
+			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
+		em.Kind = metrics.GAUGE
+		if em.Options == nil {
+			em.Options = &metrics.EventMetricsOptions{}
+		}
+		em.Options.NotForAlerting = true
+		em.AddLabel("ptype", "http")
+		ems = append(ems, em)
+	}
 	return ems
 }
 
