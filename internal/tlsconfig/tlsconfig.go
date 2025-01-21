@@ -39,6 +39,13 @@ var global = struct {
 	cache: make(map[[2]string]cacheEntry),
 }
 
+var tlsVersionMap = map[configpb.TLSVersion]uint16{
+	configpb.TLSVersion_TLS_1_0: tls.VersionTLS10,
+	configpb.TLSVersion_TLS_1_1: tls.VersionTLS11,
+	configpb.TLSVersion_TLS_1_2: tls.VersionTLS12,
+	configpb.TLSVersion_TLS_1_3: tls.VersionTLS13,
+}
+
 func loadCert(certFile, keyFile string) (*tls.Certificate, error) {
 	certPEMBlock, err := file.ReadFile(context.Background(), certFile)
 	if err != nil {
@@ -123,6 +130,13 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig) error {
 
 	if c.GetServerName() != "" {
 		tlsConfig.ServerName = c.GetServerName()
+	}
+
+	if c.GetMinTlsVersion() != configpb.TLSVersion_TLS_AUTO {
+		tlsConfig.MinVersion = tlsVersionMap[c.GetMinTlsVersion()]
+	}
+	if c.GetMaxTlsVersion() != configpb.TLSVersion_TLS_AUTO {
+		tlsConfig.MaxVersion = tlsVersionMap[c.GetMaxTlsVersion()]
 	}
 
 	return nil

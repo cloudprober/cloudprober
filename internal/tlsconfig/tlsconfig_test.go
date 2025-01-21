@@ -62,6 +62,10 @@ func TestUpdateTLSConfig(t *testing.T) {
 		dynamic    bool
 		wantCN     string
 		wantNextCN string
+		minVersion configpb.TLSVersion
+		maxVersion configpb.TLSVersion
+		wantMinVer uint16
+		wantMaxVer uint16
 		wantErr    bool
 	}{
 		{
@@ -90,13 +94,24 @@ func TestUpdateTLSConfig(t *testing.T) {
 			wantCN:     "cert1.cloudprober.org",
 			wantNextCN: "cert2.cloudprober.org",
 		},
+		{
+			name:       "min-max-version",
+			baseCert:   cert1,
+			wantCN:     "cert1.cloudprober.org",
+			minVersion: configpb.TLSVersion_TLS_1_1,
+			maxVersion: configpb.TLSVersion_TLS_1_3,
+			wantMinVer: tls.VersionTLS11,
+			wantMaxVer: tls.VersionTLS13,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tlsConfig := &tls.Config{}
 			testConf := &configpb.TLSConfig{
-				TlsCertFile: &testCert,
-				TlsKeyFile:  &testKey,
+				TlsCertFile:   &testCert,
+				TlsKeyFile:    &testKey,
+				MinTlsVersion: tt.minVersion.Enum(),
+				MaxTlsVersion: tt.maxVersion.Enum(),
 			}
 			if tt.dynamic {
 				testConf.ReloadIntervalSec = proto.Int32(1)
@@ -112,6 +127,8 @@ func TestUpdateTLSConfig(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.serverName, tlsConfig.ServerName, "ServerName mismatch")
+			assert.Equal(t, tt.wantMinVer, tlsConfig.MinVersion, "MinVersion mismatch")
+			assert.Equal(t, tt.wantMaxVer, tlsConfig.MaxVersion, "MaxVersion mismatch")
 
 			if !tt.dynamic {
 				assert.Nil(t, tlsConfig.GetClientCertificate, "GetClientCertificate should be nil")
