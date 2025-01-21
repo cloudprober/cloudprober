@@ -316,6 +316,8 @@ func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody str
 }
 
 func TestProbeWithBody(t *testing.T) {
+	largeBodyThreshold := bytes.MinRead // 512.
+
 	for _, size := range []int{12, largeBodyThreshold - 1, largeBodyThreshold, largeBodyThreshold + 1, largeBodyThreshold * 2} {
 		t.Run(fmt.Sprintf("size:%d", size), func(t *testing.T) {
 			testBody := strings.Repeat("a", size)
@@ -536,6 +538,8 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 }
 
 func TestProbeWithReqBody(t *testing.T) {
+	largeBodyThreshold := bytes.MinRead // 512.
+
 	for _, size := range []int{0, 32, largeBodyThreshold + 1} {
 		for _, method := range []string{"GET", "POST"} {
 			for _, withRedirect := range []bool{false, true} {

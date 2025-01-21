@@ -16,7 +16,6 @@
 package http
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -48,8 +47,6 @@ import (
 
 const (
 	maxResponseSizeForMetrics = 128
-	targetsUpdateInterval     = 1 * time.Minute
-	largeBodyThreshold        = bytes.MinRead // 512.
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
