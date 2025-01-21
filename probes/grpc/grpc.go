@@ -376,11 +376,10 @@ type targetState struct {
 
 // runProbeForTargetAndConn runs a single probe for a target + connection index.
 func (p *Probe) runProbeForTargetAndConn(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
-	tgtState := runReq.TargetState.(*targetState)
-	if tgtState == nil {
-		tgtState = &targetState{targetKey: runReq.Target.Key()}
-		runReq.TargetState = tgtState
+	if runReq.TargetState == nil {
+		runReq.TargetState = &targetState{targetKey: runReq.Target.Key()}
 	}
+	tgtState := runReq.TargetState.(*targetState)
 
 	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), runReq.Target.Name, runReq.Target.Labels[connIndexLabel])
 	logAttrs := []slog.Attr{
