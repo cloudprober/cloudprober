@@ -46,11 +46,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// DefaultTargetsUpdateInterval defines default frequency for target updates.
-// Actual targets update interval is:
-// max(DefaultTargetsUpdateInterval, probe_interval)
-var DefaultTargetsUpdateInterval = 1 * time.Minute
-
 const (
 	maxResponseSizeForMetrics = 128
 	targetsUpdateInterval     = 1 * time.Minute
@@ -75,9 +70,6 @@ type Probe struct {
 
 	responseParser *payload.Parser
 	dataChan       chan *metrics.EventMetrics
-
-	// How often to resolve targets (in probe counts), it's the minimum of
-	targetsUpdateInterval time.Duration
 
 	requestBody *httpreq.RequestBody
 }
@@ -244,13 +236,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	p.targets = p.opts.Targets.ListEndpoints()
-
-	p.targetsUpdateInterval = DefaultTargetsUpdateInterval
-	// There is no point refreshing targets before probe interval.
-	if p.targetsUpdateInterval < p.opts.Interval {
-		p.targetsUpdateInterval = p.opts.Interval
-	}
-	p.l.Infof("Targets update interval: %v", p.targetsUpdateInterval)
 
 	return nil
 }
