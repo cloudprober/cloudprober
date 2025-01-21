@@ -370,8 +370,18 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, log
 	return resp, nil
 }
 
+type targetState struct {
+	targetKey string
+}
+
 // runProbeForTargetAndConn runs a single probe for a target + connection index.
 func (p *Probe) runProbeForTargetAndConn(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	tgtState := runReq.TargetState.(*targetState)
+	if tgtState == nil {
+		tgtState = &targetState{targetKey: runReq.Target.Key()}
+		runReq.TargetState = tgtState
+	}
+
 	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), runReq.Target.Name, runReq.Target.Labels[connIndexLabel])
 	logAttrs := []slog.Attr{
 		slog.String("probeId", msgPattern),
@@ -388,7 +398,7 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, runReq *sched.RunP
 	result := runReq.Result.(*probeRunResult)
 
 	// On connection failure, this is where probe will end.
-	conn, err := p.getConn(ctx, runReq.Target, runReq.TargetKey, logAttrs...)
+	conn, err := p.getConn(ctx, runReq.Target, tgtState.targetKey, logAttrs...)
 	if err != nil {
 		result.Lock()
 		result.total.Inc()

@@ -435,6 +435,7 @@ func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *la
 type targetState struct {
 	req     *http.Request
 	clients []*http.Client
+	runCnt  int64
 }
 
 func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
@@ -442,13 +443,14 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		runReq.Result = p.newResult()
 	}
 
-	// We cache the HTTP requests and clients in the target state.
+	// We cache the HTTP requests, clients, and runCnt in the target state.
 	if runReq.TargetState == nil {
 		runReq.TargetState = &targetState{}
 	}
 
-	target, result, runCnt, tgtState := runReq.Target, runReq.Result.(*probeResult), runReq.RunID, runReq.TargetState.(*targetState)
+	target, result, tgtState := runReq.Target, runReq.Result.(*probeResult), runReq.TargetState.(*targetState)
 
+	tgtState.runCnt++
 	if tgtState.req == nil {
 		tgtState.req = p.httpRequestForTarget(runReq.Target)
 	}
@@ -456,10 +458,8 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		tgtState.clients = p.clientsForTarget(runReq.Target)
 	}
 
-	req, clients := runReq.TargetState.(*targetState).req, runReq.TargetState.(*targetState).clients
-
 	// If request is nil, just update the total count and return.
-	if req == nil {
+	if tgtState.req == nil {
 		result.total += int64(p.c.GetRequestsPerProbe())
 		return
 	}
@@ -467,12 +467,12 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	// If we are resolving first, we update the request object at every stats
 	// export interval. This is to make sure that we are using the correct IP
 	// address for the target.
-	if p.c.GetResolveFirst() && runCnt%p.statsExportFrequency == 0 {
+	if p.c.GetResolveFirst() && tgtState.runCnt%p.statsExportFrequency == 0 {
 		runReq.TargetState.(*targetState).req = p.httpRequestForTarget(target)
 	}
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doHTTPRequest(req.WithContext(ctx), clients[0], target, result, nil)
+		p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
 		return
 	}
 
@@ -489,8 +489,8 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 			defer wg.Done()
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doHTTPRequest(req.WithContext(ctx), clients[numReq], target, result, &resultMu)
-		}(req, numReq, target, result)
+			p.doHTTPRequest(req.WithContext(ctx), tgtState.clients[numReq], target, result, &resultMu)
+		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()
 }

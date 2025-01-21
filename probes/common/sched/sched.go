@@ -59,9 +59,7 @@ type ProbeResult interface {
 
 type RunProbeForTargetRequest struct {
 	Target      endpoint.Endpoint
-	TargetKey   string
 	Result      ProbeResult
-	RunID       int64
 	TargetState any
 }
 
@@ -144,13 +142,9 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	ticker := time.NewTicker(s.Opts.Interval)
 	defer ticker.Stop()
 
-	targetKey := target.Key()
-	req := &RunProbeForTargetRequest{
-		Target:    target,
-		TargetKey: targetKey,
-	}
+	runReq := &RunProbeForTargetRequest{Target: target}
 	if s.NewResult != nil {
-		req.Result = s.NewResult(&target)
+		runReq.Result = s.NewResult(&target)
 	}
 
 	for ts := time.Now(); true; ts = <-ticker.C {
@@ -163,15 +157,13 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		}
 
 		runCnt++
-		req.RunID = runCnt
-
 		ctx, cancelCtx := context.WithTimeout(ctx, s.Opts.Timeout)
-		s.RunProbeForTarget(ctx, req)
+		s.RunProbeForTarget(ctx, runReq)
 		cancelCtx()
 
 		// Export stats if it's the time to do so.
 		if (runCnt % s.statsExportFrequency) == 0 {
-			for _, em := range req.Result.Metrics(ts, runCnt, s.Opts) {
+			for _, em := range runReq.Result.Metrics(ts, runCnt, s.Opts) {
 				// Returning nil is a way to skip this target. Used by grpc probe.
 				if em == nil {
 					continue
