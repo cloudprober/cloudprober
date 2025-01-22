@@ -55,6 +55,16 @@ type Options struct {
 	logMetricsOverride  func(*metrics.EventMetrics)
 }
 
+// StatsExportFrequency returns how often to export metrics (in probe counts),
+// initialized to statsExportInterval / p.opts.Interval. Metrics are exported
+// when (runCnt % statsExportFrequency) == 0
+func (opts *Options) StatsExportFrequency() int64 {
+	if f := opts.StatsExportInterval.Nanoseconds() / opts.Interval.Nanoseconds(); f != 0 {
+		return f
+	}
+	return 1
+}
+
 func (opts *Options) LogMetrics(em *metrics.EventMetrics) {
 	if opts.logMetricsOverride != nil {
 		opts.logMetricsOverride(em)
@@ -315,7 +325,7 @@ func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetric
 	opts.LogMetrics(em)
 	dataChan <- em
 
-	if !ro.NoAlert {
+	if !ro.NoAlert && (em.Options == nil || !em.Options.NotForAlerting) {
 		for _, ah := range opts.AlertHandlers {
 			ah.Record(ep, em)
 		}

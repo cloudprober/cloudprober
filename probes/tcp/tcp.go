@@ -65,7 +65,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 	return result
 }
 
-func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
@@ -76,7 +76,7 @@ func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options)
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 // Init initializes the probe with the given params.
@@ -182,11 +182,13 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	s := &sched.Scheduler{
-		ProbeName:         p.name,
-		DataChan:          dataChan,
-		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
-		RunProbeForTarget: p.runProbe,
+		ProbeName: p.name,
+		DataChan:  dataChan,
+		Opts:      p.opts,
+		NewResult: func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
+		RunProbeForTarget: func(ctx context.Context, req *sched.RunProbeForTargetRequest) {
+			p.runProbe(ctx, req.Target, req.Result)
+		},
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
 }
