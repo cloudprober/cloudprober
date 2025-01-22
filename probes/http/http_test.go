@@ -36,6 +36,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
@@ -148,13 +149,12 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 	}
 	patchWithTestTransport(p)
 
-	target := endpoint.Endpoint{Name: "test.com"}
-	result := p.newResult()
-	req := p.httpRequestForTarget(target)
+	runReq := &sched.RunProbeForTargetRequest{
+		Target: endpoint.Endpoint{Name: "test.com"},
+	}
+	p.runProbe(context.Background(), runReq)
 
-	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
-
-	return result, nil
+	return runReq.Result.(*probeResult), nil
 }
 
 func TestProbeInitError(t *testing.T) {
@@ -293,9 +293,14 @@ func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody str
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
-	result := p.newResult()
 	req := p.httpRequestForTarget(target)
-	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
+	runReq := &sched.RunProbeForTargetRequest{
+		Target: target,
+		TargetState: &targetState{
+			req: req,
+		},
+	}
+	p.runProbe(context.Background(), runReq)
 
 	got := string(tt.lastRequestBody)
 	if got != wantBody {
@@ -303,7 +308,7 @@ func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody str
 	}
 
 	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
+	p.runProbe(context.Background(), runReq)
 	got = string(tt.lastRequestBody)
 	if got != wantBody {
 		t.Errorf("response body length: got=%d, expected=%d", len(got), len(wantBody))
@@ -311,6 +316,8 @@ func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody str
 }
 
 func TestProbeWithBody(t *testing.T) {
+	largeBodyThreshold := bytes.MinRead // 512.
+
 	for _, size := range []int{12, largeBodyThreshold - 1, largeBodyThreshold, largeBodyThreshold + 1, largeBodyThreshold * 2} {
 		t.Run(fmt.Sprintf("size:%d", size), func(t *testing.T) {
 			testBody := strings.Repeat("a", size)
@@ -531,6 +538,8 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 }
 
 func TestProbeWithReqBody(t *testing.T) {
+	largeBodyThreshold := bytes.MinRead // 512.
+
 	for _, size := range []int{0, 32, largeBodyThreshold + 1} {
 		for _, method := range []string{"GET", "POST"} {
 			for _, withRedirect := range []bool{false, true} {
@@ -623,7 +632,14 @@ func TestRunProbeWithOAuth(t *testing.T) {
 			}
 
 			clients := p.clientsForTarget(testTarget)
-			p.runProbe(context.Background(), testTarget, clients, req, result)
+			runReq := &sched.RunProbeForTargetRequest{
+				Target: testTarget,
+				Result: result,
+				TargetState: &targetState{
+					req: req,
+				},
+			}
+			p.runProbe(context.Background(), runReq)
 
 			if result.success != wantSuccess || result.total != wantTotal {
 				t.Errorf("success=%d,wanted=%d; total=%d,wanted=%d", result.success, wantSuccess, result.total, wantTotal)
@@ -982,9 +998,8 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 
 			target := endpoint.Endpoint{Name: "test.com"}
 			result := p.newResult()
-			req := p.httpRequestForTarget(target)
 
-			p.runProbe(context.Background(), target, p.clientsForTarget(target), req, result)
+			p.runProbe(context.Background(), &sched.RunProbeForTargetRequest{Target: target, Result: result})
 
 			assert.NotNil(t, result.latencyBreakdown, "latencyDetails not populated")
 
@@ -1009,9 +1024,7 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 				}
 			}
 
-			dataChan := make(chan *metrics.EventMetrics, 1)
-			p.exportMetrics(ts, result, target, dataChan)
-			em := <-dataChan
+			em := result.Metrics(ts, 0, p.opts)[0]
 			for _, m := range tt.wantMetrics {
 				assert.NotNil(t, em.Metric(m), fmt.Sprintf("%s: metric not exported", m))
 				wantValue := latenciesMap[strings.TrimSuffix(m, "_latency")]

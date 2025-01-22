@@ -536,3 +536,35 @@ func TestOptionsLogMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestOptions_StatsExportFrequency(t *testing.T) {
+	tests := []struct {
+		name string
+		opts *Options
+		want int64
+	}{
+		{
+			name: "default",
+			opts: &Options{
+				Interval:            2 * time.Second,
+				StatsExportInterval: 10 * time.Second,
+			},
+			want: 5,
+		},
+		{
+			name: "default",
+			opts: &Options{
+				Interval:            20 * time.Second,
+				StatsExportInterval: 10 * time.Second,
+			},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.opts.StatsExportFrequency(); got != tt.want {
+				t.Errorf("Options.StatsExportFrequency() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

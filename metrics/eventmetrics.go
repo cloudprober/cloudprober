@@ -35,6 +35,10 @@ const (
 	GAUGE
 )
 
+type EventMetricsOptions struct {
+	NotForAlerting bool
+}
+
 // EventMetrics respresents metrics associated with a particular time event.
 type EventMetrics struct {
 	mu        sync.RWMutex
@@ -51,6 +55,9 @@ type EventMetrics struct {
 	labelsKeys []string
 
 	LatencyUnit time.Duration
+
+	// EventMetricsOptions are additional options for the EventMetrics.
+	Options *EventMetricsOptions
 }
 
 // NewEventMetrics return a new EventMetrics object with internals maps initialized.
