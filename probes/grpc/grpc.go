@@ -140,7 +140,7 @@ func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
 	return result
 }
 
-func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) *metrics.EventMetrics {
+func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics {
 	prr.Lock()
 	defer prr.Unlock()
 
@@ -163,7 +163,7 @@ func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 func (p *Probe) transportCredentials() (credentials.TransportCredentials, error) {
@@ -328,13 +328,11 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 	return grpcurl.BlockingDial(ctx, "tcp", p.connectionString(target), p.creds, p.dialOpts...)
 }
 
-func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
-	key := target.Key()
-
+func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey string, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
 	p.connsMu.Lock()
 	defer p.connsMu.Unlock()
 
-	if conn := p.conns[key]; conn != nil {
+	if conn := p.conns[targetKey]; conn != nil {
 		return conn, nil
 	}
 
@@ -344,7 +342,7 @@ func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, logAttrs 
 		return nil, err
 	}
 	p.l.InfoAttrs("Connection established", logAttrs...)
-	p.conns[key] = conn
+	p.conns[targetKey] = conn
 	return conn, nil
 }
 
@@ -372,22 +370,34 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, log
 	return resp, nil
 }
 
+type targetState struct {
+	targetKey string
+}
+
 // runProbeForTargetAndConn runs a single probe for a target + connection index.
-func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpoint, probeResult sched.ProbeResult) {
-	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), tgt.Name, tgt.Labels[connIndexLabel])
+func (p *Probe) runProbeForTargetAndConn(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.TargetState == nil {
+		runReq.TargetState = &targetState{targetKey: runReq.Target.Key()}
+	}
+	tgtState := runReq.TargetState.(*targetState)
+
+	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), runReq.Target.Name, runReq.Target.Labels[connIndexLabel])
 	logAttrs := []slog.Attr{
 		slog.String("probeId", msgPattern),
 		slog.String("request_type", p.c.GetMethod().String()),
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTarget(tgt, "", 0)
+		al.UpdateForTarget(runReq.Target, "", 0)
 	}
 
-	result := probeResult.(*probeRunResult)
+	if runReq.Result == nil {
+		runReq.Result = p.newResult(&runReq.Target)
+	}
+	result := runReq.Result.(*probeRunResult)
 
 	// On connection failure, this is where probe will end.
-	conn, err := p.getConn(ctx, tgt, logAttrs...)
+	conn, err := p.getConn(ctx, runReq.Target, tgtState.targetKey, logAttrs...)
 	if err != nil {
 		result.Lock()
 		result.total.Inc()
@@ -484,7 +494,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		DataChan:          dataChan,
 		Opts:              p.opts,
 		ListEndpoints:     p.ListEndpoints,
-		NewResult:         p.newResult,
 		RunProbeForTarget: p.runProbeForTargetAndConn,
 	}
 
