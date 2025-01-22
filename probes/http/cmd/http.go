@@ -57,12 +57,10 @@ func main() {
 		}
 	}
 
-	opts := &options.Options{
-		Interval:  *intervalF,
-		Timeout:   *timeoutF,
-		Targets:   targets.StaticTargets(*targetsF),
-		ProbeConf: c,
-	}
+	opts := options.DefaultOptions()
+	opts.Interval, opts.Timeout, opts.Targets = *intervalF, *timeoutF, targets.StaticTargets(*targetsF)
+	opts.ProbeConf = c
+	opts.StatsExportInterval = opts.Interval
 
 	hp := &http.Probe{}
 	if err := hp.Init("http_test", opts); err != nil {
