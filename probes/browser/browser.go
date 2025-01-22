@@ -103,7 +103,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
@@ -114,7 +114,7 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) (string, error) {
@@ -407,11 +407,13 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	p.dataChan = dataChan
 
 	s := &sched.Scheduler{
-		ProbeName:         p.name,
-		DataChan:          dataChan,
-		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
-		RunProbeForTarget: p.runProbe,
+		ProbeName: p.name,
+		DataChan:  dataChan,
+		Opts:      p.opts,
+		NewResult: func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
+		RunProbeForTarget: func(ctx context.Context, req *sched.RunProbeForTargetRequest) {
+			p.runProbe(ctx, req.Target, req.Result)
+		},
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
 }

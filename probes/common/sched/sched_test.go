@@ -38,8 +38,8 @@ type testProbeResult struct {
 	total int
 }
 
-func (tpr *testProbeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
-	return metrics.NewEventMetrics(ts).AddMetric("total", metrics.NewInt(int64(tpr.total)))
+func (tpr *testProbeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
+	return []*metrics.EventMetrics{metrics.NewEventMetrics(ts).AddMetric("total", metrics.NewInt(int64(tpr.total)))}
 }
 
 func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, metricName string, targets [2]string, wantCloseRange bool) {
@@ -87,7 +87,7 @@ func TestUpdateTargetsAndStartProbes(t *testing.T) {
 		Opts:              opts,
 		DataChan:          make(chan *metrics.EventMetrics, 100),
 		NewResult:         func(_ *endpoint.Endpoint) ProbeResult { return &testProbeResult{} },
-		RunProbeForTarget: func(ctx context.Context, ep endpoint.Endpoint, r ProbeResult) { r.(*testProbeResult).total++ },
+		RunProbeForTarget: func(ctx context.Context, runReq *RunProbeForTargetRequest) { runReq.Result.(*testProbeResult).total++ },
 	}
 	s.init()
 
@@ -128,7 +128,7 @@ func TestRunProbeForTargetTimeout(t *testing.T) {
 		Opts:      opts,
 		DataChan:  make(chan *metrics.EventMetrics, 100),
 		NewResult: func(_ *endpoint.Endpoint) ProbeResult { return &testProbeResult{} },
-		RunProbeForTarget: func(ctx context.Context, ep endpoint.Endpoint, r ProbeResult) {
+		RunProbeForTarget: func(ctx context.Context, runReq *RunProbeForTargetRequest) {
 			select {
 			case <-ctx.Done():
 				if ctx.Err() != context.DeadlineExceeded {
