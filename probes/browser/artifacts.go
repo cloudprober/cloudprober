@@ -34,6 +34,23 @@ type artifactsHandler struct {
 	l            *logger.Logger
 }
 
+func (p *Probe) pathPrefix() string {
+	if pathPrefix := p.c.GetArtifactsOptions().GetWebServerPath(); pathPrefix != "" {
+		return pathPrefix
+	}
+	return filepath.Join("/artifacts", p.name)
+}
+
+func (p *Probe) webServerRoot(localStorageDirs []string) (string, error) {
+	if r := p.c.GetArtifactsOptions().GetWebServerRoot(); r != "" {
+		if !slices.Contains(localStorageDirs, r) {
+			return "", fmt.Errorf("invalid web server root: %s; web server root can be either local_storage.dir or empty", r)
+		}
+		return r, nil
+	}
+	return p.outputDir, nil
+}
+
 func (p *Probe) initArtifactsHandler() error {
 	ah := &artifactsHandler{
 		basePath: p.outputDir,
@@ -93,19 +110,12 @@ func (p *Probe) initArtifactsHandler() error {
 			return fmt.Errorf("default http server mux is not initialized")
 		}
 
-		pathPrefix := p.c.GetArtifactsOptions().GetWebServerPath()
-		if pathPrefix == "" {
-			pathPrefix = filepath.Join("/artifacts", p.name)
-		}
-
-		webRoot := p.outputDir
-		if r := p.c.GetArtifactsOptions().GetWebServerRoot(); r != "" {
-			if !slices.Contains(localStorageDirs, r) {
-				return fmt.Errorf("invalid web server root: %s; web server root can be either local_storage.dir or empty", r)
-			}
-			webRoot = r
+		webRoot, err := p.webServerRoot(localStorageDirs)
+		if err != nil {
+			return err
 		}
 		fileServer := http.FileServer(http.Dir(webRoot))
+		pathPrefix := p.pathPrefix()
 		httpServerMux.Handle(pathPrefix+"/", http.StripPrefix(pathPrefix, fileServer))
 	}
 
