@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"slices"
 
 	"github.com/cloudprober/cloudprober/config/runconfig"
@@ -38,7 +37,7 @@ func (p *Probe) pathPrefix() string {
 	if pathPrefix := p.c.GetArtifactsOptions().GetWebServerPath(); pathPrefix != "" {
 		return pathPrefix
 	}
-	return filepath.Join("/artifacts", p.name)
+	return "/artifacts/" + p.name
 }
 
 func (p *Probe) webServerRoot(localStorageDirs []string) (string, error) {
