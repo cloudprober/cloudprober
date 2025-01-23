@@ -268,9 +268,11 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	// Convert interface to struct type
-	result := res.(*probeRunResult)
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 
 	port := defaultPort
 	if target.Port != 0 {
@@ -328,13 +330,10 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	s := &sched.Scheduler{
-		ProbeName: p.name,
-		DataChan:  dataChan,
-		Opts:      p.opts,
-		NewResult: func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
-		RunProbeForTarget: func(ctx context.Context, req *sched.RunProbeForTargetRequest) {
-			p.runProbe(ctx, req.Target, req.Result)
-		},
+		ProbeName:         p.name,
+		DataChan:          dataChan,
+		Opts:              p.opts,
+		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
 }
