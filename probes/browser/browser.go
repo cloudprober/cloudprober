@@ -359,9 +359,11 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	// Convert interface to struct type
-	result := res.(*probeRunResult)
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 
 	port := target.Port
 	result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
@@ -407,13 +409,10 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	p.dataChan = dataChan
 
 	s := &sched.Scheduler{
-		ProbeName: p.name,
-		DataChan:  dataChan,
-		Opts:      p.opts,
-		NewResult: func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
-		RunProbeForTarget: func(ctx context.Context, req *sched.RunProbeForTargetRequest) {
-			p.runProbe(ctx, req.Target, req.Result)
-		},
+		ProbeName:         p.name,
+		DataChan:          dataChan,
+		Opts:              p.opts,
+		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
 }
