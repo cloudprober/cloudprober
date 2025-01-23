@@ -149,15 +149,11 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 	}
 	patchWithTestTransport(p)
 
-	result := p.newResult()
+	runReq := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: "test.com"}}
 
-	runReq := &sched.RunProbeForTargetRequest{
-		Target: endpoint.Endpoint{Name: "test.com"},
-		Result: result,
-	}
 	p.runProbe(context.Background(), runReq)
 
-	return result, nil
+	return runReq.Result.(*probeResult), nil
 }
 
 func TestProbeInitError(t *testing.T) {
@@ -296,14 +292,8 @@ func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody str
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
-	result := p.newResult()
-	req := p.httpRequestForTarget(target)
 	runReq := &sched.RunProbeForTargetRequest{
 		Target: target,
-		Result: result,
-		TargetState: &targetState{
-			req: req,
-		},
 	}
 	p.runProbe(context.Background(), runReq)
 
@@ -679,10 +669,10 @@ func TestRunProbeWithOAuth(t *testing.T) {
 	}
 	patchWithTestTransport(p)
 
-	req := p.httpRequestForTarget(testTarget)
-	result := p.newResult()
-
 	var wantSuccess, wantTotal int64
+	runReq := &sched.RunProbeForTargetRequest{
+		Target: testTarget,
+	}
 	for _, tok := range []string{"tok-1", "tok-2", ""} {
 		wantTotal += reqPerProbe
 		wantHeader := "Bearer <token-missing>"
@@ -700,15 +690,9 @@ func TestRunProbeWithOAuth(t *testing.T) {
 			}
 
 			clients := p.clientsForTarget(testTarget)
-			runReq := &sched.RunProbeForTargetRequest{
-				Target: testTarget,
-				Result: result,
-				TargetState: &targetState{
-					req: req,
-				},
-			}
 			p.runProbe(context.Background(), runReq)
 
+			result := runReq.Result.(*probeResult)
 			if result.success != wantSuccess || result.total != wantTotal {
 				t.Errorf("success=%d,wanted=%d; total=%d,wanted=%d", result.success, wantSuccess, result.total, wantTotal)
 			}
@@ -1064,10 +1048,12 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 
 			patchWithTestTransport(p)
 
-			target := endpoint.Endpoint{Name: "test.com"}
-			result := p.newResult()
+			runReq := &sched.RunProbeForTargetRequest{
+				Target: endpoint.Endpoint{Name: "test.com"},
+			}
+			p.runProbe(context.Background(), runReq)
 
-			p.runProbe(context.Background(), &sched.RunProbeForTargetRequest{Target: target, Result: result})
+			result := runReq.Result.(*probeResult)
 
 			assert.NotNil(t, result.latencyBreakdown, "latencyDetails not populated")
 
