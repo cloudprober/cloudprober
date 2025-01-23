@@ -24,6 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
@@ -77,12 +78,11 @@ func runProbeAndVerify(t *testing.T, testName string, p *Probe, total, success i
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.ListEndpoints()
 
-	result := p.newResult()
-
 	for _, target := range p.targets {
-		p.runProbe(context.Background(), target, result)
+		runReq := &sched.RunProbeForTargetRequest{Target: target}
+		p.runProbe(context.Background(), runReq)
 
-		result := result.(*probeRunResult)
+		result := runReq.Result.(*probeRunResult)
 		if result.total.Int64() != total || result.success.Int64() != success {
 			t.Errorf("test(%s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
 				testName, result.total.Int64(), result.success.Int64(), total, success)
