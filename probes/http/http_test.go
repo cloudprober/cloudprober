@@ -149,12 +149,15 @@ func testProbe(opts *options.Options) (*probeResult, error) {
 	}
 	patchWithTestTransport(p)
 
+	result := p.newResult()
+
 	runReq := &sched.RunProbeForTargetRequest{
 		Target: endpoint.Endpoint{Name: "test.com"},
+		Result: result,
 	}
 	p.runProbe(context.Background(), runReq)
 
-	return runReq.Result.(*probeResult), nil
+	return result, nil
 }
 
 func TestProbeInitError(t *testing.T) {
@@ -293,9 +296,11 @@ func testProbeWithBody(t *testing.T, probeConf *configpb.ProbeConf, wantBody str
 	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
+	result := p.newResult()
 	req := p.httpRequestForTarget(target)
 	runReq := &sched.RunProbeForTargetRequest{
 		Target: target,
+		Result: result,
 		TargetState: &targetState{
 			req: req,
 		},
@@ -403,18 +408,16 @@ type testProbeOpts struct {
 	url         string
 }
 
-func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts) {
+func creatTestProbe(t *testing.T, ctx context.Context, probeOpts *testProbeOpts) *Probe {
+	t.Helper()
+
 	if probeOpts.reqPerProbe == 0 {
 		probeOpts.reqPerProbe = 1
 	}
 
-	ctx, cancelF := context.WithCancel(context.Background())
-	defer cancelF()
-
 	ts, err := newTestServer(t, ctx, probeOpts.ipVer)
 	if err != nil {
-		t.Errorf("Error starting test HTTP server: %v", err)
-		return
+		t.Fatalf("Error starting test HTTP server: %v", err)
 	}
 	t.Logf("Started test HTTP server at: %v", ts.addr)
 
@@ -455,9 +458,131 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 	p := &Probe{}
 	err = p.Init("http_test", opts)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-		return
+		t.Fatalf("Unexpected error: %v", err)
 	}
+	return p
+}
+
+func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts) {
+	ctx, cancelF := context.WithCancel(context.Background())
+	defer cancelF()
+
+	p := creatTestProbe(t, ctx, probeOpts)
+	ems := make(map[string]*metrics.EventMetrics)
+	var emsMu sync.Mutex
+	numRuns := func(targetName string) int {
+		if targetName == "fail-test.com" {
+			return 2 // To speed up the test, run less iterations for fail-test
+		}
+		return 10
+	}
+	var wg sync.WaitGroup
+	for _, target := range p.opts.Targets.ListEndpoints() {
+		runReq := &sched.RunProbeForTargetRequest{Target: target}
+		timeout := time.Second
+		if target.Name == "fail-test.com" {
+			timeout = 10 * time.Millisecond
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < numRuns(target.Name); i++ {
+				// We use local web server, but still give enough time for
+				// timeout because on slow CI machines we can still timeout.
+				ctx, cancelCtx := context.WithTimeout(ctx, timeout)
+				p.runProbe(ctx, runReq)
+				cancelCtx()
+				time.Sleep(time.Millisecond)
+			}
+			emsMu.Lock()
+			// We need the first EM.
+			ems[target.Name] = runReq.Result.Metrics(time.Now(), 0, p.opts)[0]
+			emsMu.Unlock()
+		}()
+	}
+
+	wg.Wait() // Wait for all goroutines to finish.
+
+	for _, tgt := range probeOpts.targets {
+		totalRuns := int64(numRuns(tgt) * probeOpts.reqPerProbe)
+		wantTotal, wantSuccess := totalRuns, totalRuns
+		if tgt == "fail-test.com" || tgt == "fails-to-resolve.com" {
+			wantSuccess = 0
+		}
+
+		em := ems[tgt]
+		assert.NotNil(t, em, "No metrics found for target: %s, ems: %v", tgt, ems)
+		assert.Equal(t, wantTotal, em.Metric("total").(metrics.NumValue).Int64(), "Unexpected 'total' for %s, EventMetrics: %v", tgt)
+		assert.Equal(t, wantSuccess, em.Metric("success").(metrics.NumValue).Int64(), "Unexpected 'success' for %s, EventMetrics: %v", tgt)
+
+		if probeOpts.keepAlive && tgt == "test.com" {
+			connEvent := em.Metric("connect_event").(metrics.NumValue).Int64()
+			minConnEvent := int64(probeOpts.reqPerProbe * 1)
+			maxConnEvent := int64(probeOpts.reqPerProbe * 2)
+			if connEvent <= minConnEvent && connEvent >= maxConnEvent {
+				t.Errorf("connect_event for target: %s, got: %d, want: <= %d, >= %d", tgt, connEvent, maxConnEvent, minConnEvent)
+			}
+		}
+	}
+}
+
+func TestMultipleTargetsMultipleRequests(t *testing.T) {
+	for _, ipVer := range []int{0, 4, 6} {
+		// Disable windows IPv6 tests.
+		if ipVer == 6 && os.Getenv("DISABLE_IPV6_TESTS") == "yes" {
+			return
+		}
+		for _, reqPerProbe := range []int{1, 2} {
+			for _, keepAlive := range []bool{false, true} {
+				t.Run(fmt.Sprintf("ip_ver=%d,req_per_probe=%d,keepAlive=%v", ipVer, reqPerProbe, keepAlive), func(t *testing.T) {
+					testMultipleTargetsMultipleRequests(t, &testProbeOpts{
+						reqPerProbe: reqPerProbe,
+						ipVer:       ipVer,
+						keepAlive:   keepAlive,
+						targets:     []string{"test.com", "fail-test.com", "fails-to-resolve.com"},
+					})
+				})
+			}
+		}
+	}
+}
+
+func TestProbeWithReqBody(t *testing.T) {
+	largeBodyThreshold := bytes.MinRead // 512.
+
+	for _, size := range []int{0, 32, largeBodyThreshold + 1} {
+		for _, method := range []string{"GET", "POST"} {
+			for _, withRedirect := range []bool{false, true} {
+				for _, keepAlive := range []bool{false, true} {
+					testName := fmt.Sprintf("method:%s,bodysize:%d,keepAlive:%v,withRedirect:%v", method, size, keepAlive, withRedirect)
+					t.Run(testName, func(t *testing.T) {
+						u := "/test-body-size?size=" + strconv.Itoa(size)
+						if withRedirect {
+							u = "/redirect?url=" + url.QueryEscape(u)
+						}
+						testMultipleTargetsMultipleRequests(t, &testProbeOpts{
+							body:      strings.Repeat("a", size),
+							method:    method,
+							keepAlive: keepAlive,
+							targets:   []string{"test.com"},
+							url:       u,
+						})
+					})
+				}
+			}
+		}
+	}
+}
+
+func TestE2E(t *testing.T) {
+	ctx, cancelF := context.WithCancel(context.Background())
+	defer cancelF()
+
+	probeOpts := &testProbeOpts{
+		targets: []string{"test.com", "fail-test.com", "fails-to-resolve.com"},
+	}
+
+	p := creatTestProbe(t, ctx, probeOpts)
 	dataChan := make(chan *metrics.EventMetrics, 100)
 
 	var wg sync.WaitGroup
@@ -504,63 +629,6 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 		}
 		assert.LessOrEqualf(t, int64(minTotal), dataMap.LastValueInt64(tgt, "total"), "total for target: %s", tgt)
 		assert.LessOrEqualf(t, int64(minSuccess), dataMap.LastValueInt64(tgt, "success"), "success for target: %s", tgt)
-
-		if probeOpts.keepAlive && tgt == "test.com" {
-			connEvent := dataMap.LastValueInt64(tgt, "connect_event")
-			minConnEvent := int64(probeOpts.reqPerProbe * 1)
-			maxConnEvent := int64(probeOpts.reqPerProbe * 2)
-			if connEvent <= minConnEvent && connEvent >= maxConnEvent {
-				t.Errorf("connect_event for target: %s, got: %d, want: <= %d, >= %d", tgt, connEvent, maxConnEvent, minConnEvent)
-			}
-		}
-	}
-}
-
-func TestMultipleTargetsMultipleRequests(t *testing.T) {
-	for _, ipVer := range []int{0, 4, 6} {
-		// Disable windows IPv6 tests.
-		if ipVer == 6 && os.Getenv("DISABLE_IPV6_TESTS") == "yes" {
-			return
-		}
-		for _, reqPerProbe := range []int{1, 3} {
-			for _, keepAlive := range []bool{false, true} {
-				t.Run(fmt.Sprintf("ip_ver=%d,req_per_probe=%d,keepAlive=%v", ipVer, reqPerProbe, keepAlive), func(t *testing.T) {
-					testMultipleTargetsMultipleRequests(t, &testProbeOpts{
-						reqPerProbe: reqPerProbe,
-						ipVer:       ipVer,
-						keepAlive:   keepAlive,
-						targets:     []string{"test.com", "fail-test.com", "fails-to-resolve.com"},
-					})
-				})
-			}
-		}
-	}
-}
-
-func TestProbeWithReqBody(t *testing.T) {
-	largeBodyThreshold := bytes.MinRead // 512.
-
-	for _, size := range []int{0, 32, largeBodyThreshold + 1} {
-		for _, method := range []string{"GET", "POST"} {
-			for _, withRedirect := range []bool{false, true} {
-				for _, keepAlive := range []bool{false, true} {
-					testName := fmt.Sprintf("method:%s,bodysize:%d,keepAlive:%v,withRedirect:%v", method, size, keepAlive, withRedirect)
-					t.Run(testName, func(t *testing.T) {
-						u := "/test-body-size?size=" + strconv.Itoa(size)
-						if withRedirect {
-							u = "/redirect?url=" + url.QueryEscape(u)
-						}
-						testMultipleTargetsMultipleRequests(t, &testProbeOpts{
-							body:      strings.Repeat("a", size),
-							method:    method,
-							keepAlive: keepAlive,
-							targets:   []string{"test.com"},
-							url:       u,
-						})
-					})
-				}
-			}
-		}
 	}
 }
 
