@@ -83,6 +83,11 @@ message ArtifactsOptions {
     // Default is "/artifacts/<probename>".
     optional string web_server_path = 2;
 
+    // Web server root directory. You can only set it to one of the local
+    // storage directories. Default is <workdir>/output. This option allows
+    // you to serve artifacts from a local storage directory.
+    optional string web_server_root = 4;
+
     // Storage for test artifacts. Note that test artifacts are always
     // written to the workdir first, and uploaded to the storage backend in a
     // parallel goroutine. This is to make sure that uploads don't block the
