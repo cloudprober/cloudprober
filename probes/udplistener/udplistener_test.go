@@ -51,8 +51,8 @@ type inputState struct {
 
 const (
 	localhost            = "localhost"
-	interval             = time.Second
-	timeout              = time.Second
+	interval             = 100 * time.Millisecond
+	timeout              = 100 * time.Millisecond
 	defaultServerType    = configpb.ProbeConf_DISCARD
 	defaultStatsInterval = 3600 * time.Second
 )
@@ -324,7 +324,7 @@ func TestResultsChan(t *testing.T) {
 	inp := &inputState{
 		seq:           []int{1, 2, 4, 5, 7, 6},
 		statsInterval: 4 * interval,
-		postTxSleep:   "4s", // collect data for longer than pkts are sent.
+		postTxSleep:   "1s", // collect data for longer than pkts are sent.
 	}
 	_, resChan, _, _ := runProbe(ctx, t, inp)
 
@@ -332,7 +332,7 @@ func TestResultsChan(t *testing.T) {
 readResChan:
 	for {
 		select {
-		case <-time.After(1 * time.Second):
+		case <-time.After(100 * time.Millisecond):
 			break readResChan
 		case r := <-resChan:
 			t.Logf("Chan Res: %v", r.Metrics())
