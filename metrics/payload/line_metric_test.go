@@ -241,64 +241,52 @@ func TestAggreagateInCloudprober(t *testing.T) {
 
 func TestParseLine(t *testing.T) {
 	tests := []struct {
-		desc    string
-		line    string
-		metric  string
-		labels  [][2]string
-		value   string
-		wantErr bool
+		desc       string
+		line       string
+		wantMetric string
+		wantLabels [][2]string
+		wantValue  string
+		wantErr    bool
 	}{
 		{
-			desc:   "metric with no labels",
-			line:   "op_total 56",
-			metric: "op_total",
-			value:  "56",
+			desc:       "metric with no labels",
+			line:       "op_total 56",
+			wantMetric: "op_total",
+			wantValue:  "56",
 		},
 		{
-			desc:   "metric with no labels, but more spaces",
-			line:   "op_total   56",
-			metric: "op_total",
-			value:  "56",
+			desc:       "metric with no labels, but more spaces",
+			line:       "op_total   56",
+			wantMetric: "op_total",
+			wantValue:  "56",
 		},
 		{
-			desc:   "standard metric with labels",
-			line:   "op_total{svc=serviceA,dc=xx} 56",
-			metric: "op_total",
-			labels: [][2]string{
-				{"service", "serviceA"},
-				{"dc", "xx"},
-			},
-			value: "56",
+			desc:       "standard metric with labels",
+			line:       "op_total{svc=serviceA,dc=xx} 56",
+			wantMetric: "op_total",
+			wantLabels: [][2]string{{"svc", "serviceA"}, {"dc", "xx"}},
+			wantValue:  "56",
 		},
 		{
-			desc:   "quoted labels, same result",
-			line:   "op_total{svc=\"serviceA\",dc=\"xx\"} 56",
-			metric: "op_total",
-			labels: [][2]string{
-				{"service", "serviceA"},
-				{"dc", "xx"},
-			},
-			value: "56",
+			desc:       "quoted labels, same result",
+			line:       "op_total{svc=\"serviceA\",dc=\"xx\"} 56",
+			wantMetric: "op_total",
+			wantLabels: [][2]string{{"svc", "serviceA"}, {"dc", "xx"}},
+			wantValue:  "56",
 		},
 		{
-			desc:   "a label value has space and more spaces",
-			line:   "op_total{svc=\"svc A\", dcs= \"xx,yy\"} 56",
-			metric: "op_total",
-			labels: [][2]string{
-				{"service", "svc A"},
-				{"dcs", "xx,yy"},
-			},
-			value: "56",
+			desc:       "a label value has space and more spaces",
+			line:       "op_total{svc=\"svc A\", dcs= \"xx,yy\"} 56",
+			wantMetric: "op_total",
+			wantLabels: [][2]string{{"svc", "svc A"}, {"dcs", "xx,yy"}},
+			wantValue:  "56",
 		},
 		{
-			desc:   "label and value have a space",
-			line:   "version{svc=\"svc A\",dc=xx} \"version 1.5\"",
-			metric: "version",
-			labels: [][2]string{
-				{"service", "svc A"},
-				{"dc", "xx"},
-			},
-			value: "\"version 1.5\"",
+			desc:       "label and value have a space",
+			line:       "version{svc=\"svc A\",dc=xx} \"version 1.5\"",
+			wantMetric: "version",
+			wantLabels: [][2]string{{"svc", "svc A"}, {"dc", "xx"}},
+			wantValue:  "\"version 1.5\"",
 		},
 		{
 			desc:    "invalid line",
@@ -313,9 +301,6 @@ func TestParseLine(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if test.desc != "empty dc label" {
-			continue
-		}
 		t.Run(test.desc, func(t *testing.T) {
 			m, v, l, err := parseLine(test.line)
 			if err != nil {
@@ -327,9 +312,9 @@ func TestParseLine(t *testing.T) {
 			if test.wantErr {
 				t.Errorf("Expected error, but didn't get any.")
 			}
-			assert.Equal(t, test.metric, m)
-			assert.Equal(t, test.labels, l)
-			assert.Equal(t, test.value, v)
+			assert.Equal(t, test.wantMetric, m)
+			assert.Equal(t, test.wantLabels, l)
+			assert.Equal(t, test.wantValue, v)
 		})
 	}
 }
