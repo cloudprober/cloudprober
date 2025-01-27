@@ -241,64 +241,52 @@ func TestAggreagateInCloudprober(t *testing.T) {
 
 func TestParseLine(t *testing.T) {
 	tests := []struct {
-		desc    string
-		line    string
-		metric  string
-		labels  [][2]string
-		value   string
-		wantErr bool
+		desc       string
+		line       string
+		wantMetric string
+		wantLabels [][2]string
+		wantValue  string
+		wantErr    bool
 	}{
 		{
-			desc:   "metric with no labels",
-			line:   "op_total 56",
-			metric: "op_total",
-			value:  "56",
+			desc:       "metric with no labels",
+			line:       "op_total 56",
+			wantMetric: "op_total",
+			wantValue:  "56",
 		},
 		{
-			desc:   "metric with no labels, but more spaces",
-			line:   "op_total   56",
-			metric: "op_total",
-			value:  "56",
+			desc:       "metric with no labels, but more spaces",
+			line:       "op_total   56",
+			wantMetric: "op_total",
+			wantValue:  "56",
 		},
 		{
-			desc:   "standard metric with labels",
-			line:   "op_total{service=serviceA,dc=xx} 56",
-			metric: "op_total",
-			labels: [][2]string{
-				{"service", "serviceA"},
-				{"dc", "xx"},
-			},
-			value: "56",
+			desc:       "standard metric with labels",
+			line:       "op_total{svc=serviceA,dc=xx} 56",
+			wantMetric: "op_total",
+			wantLabels: [][2]string{{"svc", "serviceA"}, {"dc", "xx"}},
+			wantValue:  "56",
 		},
 		{
-			desc:   "quoted labels, same result",
-			line:   "op_total{service=\"serviceA\",dc=\"xx\"} 56",
-			metric: "op_total",
-			labels: [][2]string{
-				{"service", "serviceA"},
-				{"dc", "xx"},
-			},
-			value: "56",
+			desc:       "quoted labels, same result",
+			line:       "op_total{svc=\"serviceA\",dc=\"xx\"} 56",
+			wantMetric: "op_total",
+			wantLabels: [][2]string{{"svc", "serviceA"}, {"dc", "xx"}},
+			wantValue:  "56",
 		},
 		{
-			desc:   "a label value has space and more spaces",
-			line:   "op_total{service=\"service A\", dc= \"xx\"} 56",
-			metric: "op_total",
-			labels: [][2]string{
-				{"service", "service A"},
-				{"dc", "xx"},
-			},
-			value: "56",
+			desc:       "a label value has space and more spaces",
+			line:       "op_total{svc=\"svc A\", dcs= \"xx,yy\"} 56",
+			wantMetric: "op_total",
+			wantLabels: [][2]string{{"svc", "svc A"}, {"dcs", "xx,yy"}},
+			wantValue:  "56",
 		},
 		{
-			desc:   "label and value have a space",
-			line:   "version{service=\"service A\",dc=xx} \"version 1.5\"",
-			metric: "version",
-			labels: [][2]string{
-				{"service", "service A"},
-				{"dc", "xx"},
-			},
-			value: "\"version 1.5\"",
+			desc:       "label and value have a space",
+			line:       "version{svc=\"svc A\",dc=xx} \"version 1.5\"",
+			wantMetric: "version",
+			wantLabels: [][2]string{{"svc", "svc A"}, {"dc", "xx"}},
+			wantValue:  "\"version 1.5\"",
 		},
 		{
 			desc:    "invalid line",
@@ -307,7 +295,7 @@ func TestParseLine(t *testing.T) {
 		},
 		{
 			desc:    "only one brace, invalid line",
-			line:    "total{service=\"service A\",dc=\"xx\" 56",
+			line:    "total{svc=\"svc A\",dc=\"xx\" 56",
 			wantErr: true,
 		},
 	}
@@ -324,10 +312,62 @@ func TestParseLine(t *testing.T) {
 			if test.wantErr {
 				t.Errorf("Expected error, but didn't get any.")
 			}
-			assert.Equal(t, test.metric, m)
-			assert.Equal(t, test.labels, l)
-			assert.Equal(t, test.value, v)
+			assert.Equal(t, test.wantMetric, m)
+			assert.Equal(t, test.wantLabels, l)
+			assert.Equal(t, test.wantValue, v)
 		})
+	}
+}
+
+func TestParseLabels(t *testing.T) {
+	invalidLabelLines := []string{
+		`svc=A,dc="xx"56`,    // invalid dc label value
+		`svc=A,dc=44"xx"`,    // invalid dc label value
+		`svc=A,dc=44 "xx"`,   // invalid dc label value
+		`svc=A,dc=xx" 56`,    // spurious quote
+		`svcs=""A, B",dc=xx`, // single doublequote in quoted value
+
+		// Bad character in unquoted value
+		`svc=A,dc=xx 56`,
+		`svc=A,dc=xx,56`,
+		`svc=A,dc=x/x,`,
+		`svc=A,dc=x\x,`,
+		`svc=A,dc=x:x,`,
+	}
+	for _, line := range invalidLabelLines {
+		labels, err := parseLabels(line)
+		if err == nil {
+			t.Errorf("Expected error, got nil, labels: %v", labels)
+		}
+	}
+
+	inputToLabels := map[string][][2]string{
+		"":             nil,
+		"svc=,dc=":     {{"svc", ""}, {"dc", ""}},
+		"svc=A,dc=":    {{"svc", "A"}, {"dc", ""}},
+		"svc=,dc=xx ":  {{"svc", ""}, {"dc", "xx"}},
+		"svc=, dc=xx ": {{"svc", ""}, {"dc", "xx"}},
+		"svc=A,dc=xx":  {{"svc", "A"}, {"dc", "xx"}},
+		"svc=A,dc=xx,": {{"svc", "A"}, {"dc", "xx"}},
+
+		// More allowed characters inside quotes
+		`svc=A,dc="x/y"`:                {{"svc", "A"}, {"dc", "x/y"}},
+		`svc="svc A",dc="xx",`:          {{"svc", "svc A"}, {"dc", "xx"}},
+		`svc="svc	A",dc="xx",`:          {{"svc", "svc	A"}, {"dc", "xx"}},
+		`svcs="svc A, svc B",dc=xx`:     {{"svcs", "svc A, svc B"}, {"dc", "xx"}},
+		`svcs="svc \"A\", svc B",dc=xx`: {{"svcs", `svc \"A\", svc B`}, {"dc", "xx"}},
+
+		// Unquoted allowed chars
+		"svc=A_B,dc=xx": {{"svc", "A_B"}, {"dc", "xx"}},
+		"svc=A-B,dc=xx": {{"svc", "A-B"}, {"dc", "xx"}},
+		"svc=A.B,dc=xx": {{"svc", "A.B"}, {"dc", "xx"}},
+	}
+	for input, wantLabels := range inputToLabels {
+		labels, err := parseLabels(input)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		assert.Equal(t, wantLabels, labels, "input: %v", input)
 	}
 }
 
@@ -335,9 +375,9 @@ func BenchmarkMetricValueLabels(b *testing.B) {
 	payload := []string{
 		"total 50",
 		"total   56",
-		"total{service=serviceA,dc=xx} 56",
-		"total{service=\"serviceA\",dc=\"xx\"} 56",
-		"version{service=\"service A\",dc=xx} \"version 1.5\"",
+		"total{svc=serviceA,dc=xx} 56",
+		"total{svc=\"serviceA\",dc=\"xx\"} 56",
+		"version{svc=\"svc A\",dc=xx} \"version 1.5\"",
 	}
 	// run the em.String() function b.N times
 	for n := 0; n < b.N; n++ {
