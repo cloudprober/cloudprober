@@ -326,9 +326,9 @@ func TestParseLabels(t *testing.T) {
 		"svc=A,dc=44 \"xx\"",     // invalid dc label value
 		"svc=A,dc=xx\" 56",       // missing closing quote
 		"svc=\"svc A\",dc=xx 56", // space in unquoted value
-		"svc=A,dc=xx,56",         // missing value
+		"svc=A,dc=xx,56",         // , in unquoted value
 		"svc=A,dc=x/x,",          // invalid character in unquoted value
-		`svcs=""A", B",dc=xx`,    // single doublequote in quoted value
+		`svcs=""A, B",dc=xx`,     // single doublequote in quoted value
 	}
 	for _, line := range invalidLabelLines {
 		labels, err := parseLabels(line)
@@ -344,6 +344,7 @@ func TestParseLabels(t *testing.T) {
 		"svc=\"svc A\",dc=":             {{"svc", "svc A"}, {"dc", ""}},
 		"svc=\"svc A\",dc=xx":           {{"svc", "svc A"}, {"dc", "xx"}},
 		"svc=\"svc A\",dc=xx,":          {{"svc", "svc A"}, {"dc", "xx"}},
+		"svc=A,dc=\"x/y\"":              {{"svc", "A"}, {"dc", "x/y"}},
 		"svc=\"svc A\",dc=\"xx\",":      {{"svc", "svc A"}, {"dc", "xx"}},
 		"svcs=\"svc A, svc B\",dc=xx":   {{"svcs", "svc A, svc B"}, {"dc", "xx"}},
 		`svcs="svc \"A\", svc B",dc=xx`: {{"svcs", `svc \"A\", svc B`}, {"dc", "xx"}},
