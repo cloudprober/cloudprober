@@ -23,8 +23,8 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 )
 
-func isAlphanumericOrUnderscore(r byte) bool {
-	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_'
+func isAlphanumericOrUnderscore(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 func readLabelKey(s string) (string, string, error) {
@@ -43,7 +43,7 @@ func readLabelKey(s string) (string, string, error) {
 }
 
 func readLabelValue(s string) (string, string, error) {
-	s = strings.TrimSpace(s)
+	s = strings.TrimLeft(s, " ")
 	if len(s) == 0 {
 		return "", "", nil
 	}
