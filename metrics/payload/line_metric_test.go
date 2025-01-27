@@ -328,11 +328,11 @@ func TestParseLabels(t *testing.T) {
 		`svcs=""A, B",dc=xx`, // single doublequote in quoted value
 
 		// Bad character in unquoted value
-		`svc=A,dc=xx 56`, // space in unquoted value
-		`svc=A,dc=xx,56`, // invalid character (,) in unquoted value
-		`svc=A,dc=x/x,`,  // invalid character (/) in unquoted value
-		`svc=A,dc=x:x,`,  // invalid character (/) in unquoted value
-		`svc=A,dc=x;x,`,  // invalid character (/) in unquoted value
+		`svc=A,dc=xx 56`,
+		`svc=A,dc=xx,56`,
+		`svc=A,dc=x/x,`,
+		`svc=A,dc=x\x,`,
+		`svc=A,dc=x:x,`,
 	}
 	for _, line := range invalidLabelLines {
 		labels, err := parseLabels(line)
@@ -357,13 +357,9 @@ func TestParseLabels(t *testing.T) {
 		`svcs="svc \"A\", svc B",dc=xx`: {{"svcs", `svc \"A\", svc B`}, {"dc", "xx"}},
 
 		// Unquoted allowed chars
-		"svc=A,dc=x@y":  {{"svc", "A"}, {"dc", "x@y"}},
 		"svc=A_B,dc=xx": {{"svc", "A_B"}, {"dc", "xx"}},
-		"svc=A.B,dc=xx": {{"svc", "A.B"}, {"dc", "xx"}},
-		"svc=A&B,dc=xx": {{"svc", "A&B"}, {"dc", "xx"}},
 		"svc=A-B,dc=xx": {{"svc", "A-B"}, {"dc", "xx"}},
-		"svc=A+B,dc=xx": {{"svc", "A+B"}, {"dc", "xx"}},
-		"svc=A*B,dc=xx": {{"svc", "A*B"}, {"dc", "xx"}},
+		"svc=A.B,dc=xx": {{"svc", "A.B"}, {"dc", "xx"}},
 	}
 	for input, wantLabels := range inputToLabels {
 		labels, err := parseLabels(input)

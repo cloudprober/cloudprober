@@ -77,10 +77,9 @@ func readLabelValue(s string) (string, string, error) {
 	}
 
 	// Unquoted value, for unquoted value, we support only specific chars.
-	allowedChars := []byte{'-', '_', '.', '+', '@', '&', '*'}
 	i := 0
 	for ; i < len(s) && s[i] != ','; i++ {
-		if !isAlphanumeric(s[i]) && !slices.Contains(allowedChars, s[i]) {
+		if !isAlphanumeric(s[i]) && !slices.Contains([]byte{'-', '_', '.'}, s[i]) {
 			return "", "", fmt.Errorf("invalid unquoted char (%v) in value, input: %s", s[i], s)
 		}
 	}
