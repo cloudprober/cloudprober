@@ -21,7 +21,7 @@ key: &lt;string>
 
 <div class=comment># Probe name. It should be unique across all probes.</div>name: &lt;string>
 
-type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|EXTENSION|USER_DEFINED): &lt;enum>
+type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|EXTENSION|USER_DEFINED): &lt;enum>
 
 <div class=comment># Interval between two probe runs in milliseconds.
 # Only one of &#34;interval&#34; and &#34;inteval_msec&#34; should be defined.
@@ -117,7 +117,7 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 &nbsp;dns_probe &lt;<a href=../probes#cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf</a>&gt; | external_probe &lt;<a href=../probes#cloudprober_probes_external_ProbeConf>cloudprober.probes.external.ProbeConf</a>&gt; | 
 &nbsp;udp_probe &lt;<a href=../probes#cloudprober_probes_udp_ProbeConf>cloudprober.probes.udp.ProbeConf</a>&gt; | udp_listener_probe &lt;<a href=../probes#cloudprober_probes_udplistener_ProbeConf>cloudprober.probes.udplistener.ProbeConf</a>&gt; | 
 &nbsp;grpc_probe &lt;<a href=../probes#cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf</a>&gt; | tcp_probe &lt;<a href=../probes#cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf</a>&gt; | 
-&nbsp;user_defined_probe &lt;string&gt;]: &lt;oneof>
+&nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | user_defined_probe &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Which machines this probe should run on. If defined, cloudprober will run
 # this probe only if machine&#39;s hostname matches this value. This is useful
@@ -167,6 +167,155 @@ type: (ScheduleType_UNSPECIFIED|ENABLE|DISABLE): &lt;enum>
 
 <div class=comment># Timezone in which the probe should run. If not specified, it defaults to
 # UTC. Example: &#34;America/New_York&#34;</div>timezone: &lt;string> | default: UTC
+
+</pre><h3 id=cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS <a class=anchor href=#cloudprober_probes_browser_ABS>#</a></h3><pre class=protodoc>
+
+container: &lt;string>
+
+path: &lt;string>
+
+<div class=comment># Azure account name and key. If you want to use managed identities, leave
+# account_key empty.</div>account_name: &lt;string>
+
+account_key: &lt;string>
+
+<div class=comment># Azure endpoint. Default is &#34;https://&lt;account&gt;.blob.core.windows.net&#34;.</div>endpoint: &lt;string>
+
+<div class=comment># OAuth2 configuration. If you want to use managed identities, leave this
+# field empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
+# for more details on oauth.Config.</div>oauth_config: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
+
+</pre><h3 id=cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions <a class=anchor href=#cloudprober_probes_browser_ArtifactsOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Serve test artifacts on Cloudprober&#39;s default webserver. This is
+# disabled by default for security reasons.</div>serve_on_web: &lt;bool>
+
+<div class=comment># Specify web server path to serve test artifacts on.
+# Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>web_server_path: &lt;string>
+
+<div class=comment># Storage for test artifacts. Note that test artifacts are always
+# written to the workdir first, and uploaded to the storage backend in a
+# parallel goroutine. This is to make sure that uploads don&#39;t block the
+# main probe execution.</div>storage: &lt;<a href=../probes#cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage</a>>
+
+</pre><h3 id=cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions <a class=anchor href=#cloudprober_probes_browser_CleanupOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Maximum age of artifacts in seconds.</div>max_age_sec: &lt;int32> | default: 3600
+
+<div class=comment># Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
+# is smaller.</div>cleanup_interval_sec: &lt;int32> | default: 3600
+
+</pre><h3 id=cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS <a class=anchor href=#cloudprober_probes_browser_GCS>#</a></h3><pre class=protodoc>
+
+bucket: &lt;string>
+
+path: &lt;string>
+
+<div class=comment># If you want to use default credentials on GCE or GKE, leave this field
+# empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
+# for more details on oauth.GoogleCredentials.</div>credentials: &lt;<a href=../oauth#cloudprober_oauth_GoogleCredentials>cloudprober.oauth.GoogleCredentials</a>>
+
+<div class=comment># GCS endpoint.</div>endpoint: &lt;string> | default: https://storage.googleapis.com
+
+</pre><h3 id=cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage <a class=anchor href=#cloudprober_probes_browser_LocalStorage>#</a></h3><pre class=protodoc>
+
+dir: &lt;string>
+
+<div class=comment># Cleanup options for local storage. Specifying cleanup options for local
+# enables automatic cleanup of old artifacts.</div>cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
+
+</pre><h3 id=cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf <a class=anchor href=#cloudprober_probes_browser_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Playwright test specs. These are passed to playwright as it is. This
+# field works in conjunction with test_dir -- test specs should be under
+# test directory.
+#
+# If test_spec is not specified, all test specs in the test directory are
+# executed, and since default test directory is config file&#39;s directory,
+# if you leave both the fields unspecified, all test specs co-located with
+# the config file are executed.</div>test_spec: &lt;string>
+
+<div class=comment># Test directory. This is the directory where test specs are located.
+# Default test_dir is config file directory (&#34;{{configDir}}&#34;).</div>test_dir: &lt;string>
+
+<div class=comment># Workdir is path to the working directory. It should be writable. If not
+# specified, we try to create a temporary directory. All the output files
+# and reports are stored under &lt;workdir&gt;/output/.
+# If you need to be able access the output files, you should set this 
+# field to a persistent location, e.g. a persistent volume, or configure
+# artifact options.</div>workdir: &lt;string>
+
+<div class=comment># Path to the playwright installation. We execute tests from this location.
+# If not specified, we&#39;ll use the value of environment variable
+# $PLAYWRIGHT_DIR, which is automatically set by the official cloudprober
+# playwright image (tag: &#34;&lt;version&gt;-pw&#34;).</div>playwright_dir: &lt;string>
+
+<div class=comment># NPX path. Default is to assume npx is in the PATH.</div>npx_path: &lt;string> | default: npx
+
+<div class=comment># Whether to enable screenshots for successful tests as well.
+# Note that screenshots are always enabled for failed tests, and you can
+# always save screenshots explicitly in the test spec.</div>save_screenshots_for_success: &lt;bool> | default: false
+
+<div class=comment># Traces are expensive and can slow down the test. We recommend to enable
+# this only when needed.</div>save_traces: &lt;bool> | default: false
+
+<div class=comment># By default, we export all test metrica as counters. You can change how
+# metrics are exported by setting the following options.</div>test_metrics_options: &lt;<a href=../probes#cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions</a>>
+
+<div class=comment># Artifacts options.</div>artifacts_options: &lt;<a href=../probes#cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions</a>>
+
+<div class=comment># Cleanup options.</div>workdir_cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
+
+<div class=comment># Environment variables. These are passed/set before probing starts.</div>env_var: &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf_EnvVarEntry>cloudprober.probes.browser.ProbeConf.EnvVarEntry</a>>
+
+<div class=comment># Requests per probe.
+# Number of DNS requests per probe. Requests are executed concurrently and
+# each DNS request contributes to probe results. For example, if you run two
+# requests per probe, &#34;total&#34; counter will be incremented by 2.</div>requests_per_probe: &lt;int32> | default: 1
+
+<div class=comment># How long to wait between two requests to the same target. Only relevant
+# if requests_per_probe is also configured.
+#
+# This value should be less than (interval - timeout) / requests_per_probe.
+# This is to ensure that all requests are executed within one probe interval
+# and all of them get sufficient time. For example, if probe interval is 2s,
+# timeout is 1s, and requests_per_probe is 10,  requests_interval_msec
+# should be less than 10ms.</div>requests_interval_msec: &lt;int32> | default: 0
+
+</pre><h3 id=cloudprober_probes_browser_ProbeConf_EnvVarEntry>cloudprober.probes.browser.ProbeConf.EnvVarEntry <a class=anchor href=#cloudprober_probes_browser_ProbeConf_EnvVarEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_probes_browser_S3>cloudprober.probes.browser.S3 <a class=anchor href=#cloudprober_probes_browser_S3>#</a></h3><pre class=protodoc>
+
+bucket: &lt;string>
+
+path: &lt;string>
+
+region: &lt;string>
+
+access_key_id: &lt;string>
+
+secret_access_key: &lt;string>
+
+<div class=comment># S3 endpoint. If not specified, default endpoint for the region is used.</div>endpoint: &lt;string>
+
+</pre><h3 id=cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage <a class=anchor href=#cloudprober_probes_browser_Storage>#</a></h3><pre class=protodoc>
+
+[local_storage &lt;<a href=../probes#cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage</a>&gt; | s3 &lt;<a href=../probes#cloudprober_probes_browser_S3>cloudprober.probes.browser.S3</a>&gt; | 
+&nbsp;gcs &lt;<a href=../probes#cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS</a>&gt; | abs &lt;<a href=../probes#cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS</a>&gt;]: &lt;oneof>
+
+</pre><h3 id=cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions <a class=anchor href=#cloudprober_probes_browser_TestMetricsOptions>#</a></h3><pre class=protodoc>
+
+disable_test_metrics: &lt;bool>
+
+disable_aggregation: &lt;bool>
+
+enable_step_metrics: &lt;bool>
 
 </pre><h3 id=cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf <a class=anchor href=#cloudprober_probes_dns_ProbeConf>#</a></h3><pre class=protodoc>
 
@@ -557,7 +706,7 @@ key: &lt;string>
 
 <div class=comment># Probe name. It should be unique across all probes.</div>name: &lt;string>
 
-type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|EXTENSION|USER_DEFINED): &lt;enum>
+type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|EXTENSION|USER_DEFINED): &lt;enum>
 
 <div class=comment># Interval between two probe runs in milliseconds.
 # Only one of &#34;interval&#34; and &#34;inteval_msec&#34; should be defined.
@@ -653,7 +802,7 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 &nbsp;dns_probe &lt;<a href=../probes#cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf</a>&gt; | external_probe &lt;<a href=../probes#cloudprober_probes_external_ProbeConf>cloudprober.probes.external.ProbeConf</a>&gt; | 
 &nbsp;udp_probe &lt;<a href=../probes#cloudprober_probes_udp_ProbeConf>cloudprober.probes.udp.ProbeConf</a>&gt; | udp_listener_probe &lt;<a href=../probes#cloudprober_probes_udplistener_ProbeConf>cloudprober.probes.udplistener.ProbeConf</a>&gt; | 
 &nbsp;grpc_probe &lt;<a href=../probes#cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf</a>&gt; | tcp_probe &lt;<a href=../probes#cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf</a>&gt; | 
-&nbsp;user_defined_probe &lt;string&gt;]: &lt;oneof>
+&nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | user_defined_probe &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Which machines this probe should run on. If defined, cloudprober will run
 # this probe only if machine&#39;s hostname matches this value. This is useful
@@ -703,6 +852,155 @@ type: (ScheduleType_UNSPECIFIED|ENABLE|DISABLE): &lt;enum>
 
 <div class=comment># Timezone in which the probe should run. If not specified, it defaults to
 # UTC. Example: &#34;America/New_York&#34;</div>timezone: &lt;string> | default: UTC
+
+</pre><h3 id=cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS <a class=anchor href=#cloudprober_probes_browser_ABS>#</a></h3><pre class=protodoc>
+
+container: &lt;string>
+
+path: &lt;string>
+
+<div class=comment># Azure account name and key. If you want to use managed identities, leave
+# account_key empty.</div>account_name: &lt;string>
+
+account_key: &lt;string>
+
+<div class=comment># Azure endpoint. Default is &#34;https://&lt;account&gt;.blob.core.windows.net&#34;.</div>endpoint: &lt;string>
+
+<div class=comment># OAuth2 configuration. If you want to use managed identities, leave this
+# field empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
+# for more details on oauth.Config.</div>oauth_config: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
+
+</pre><h3 id=cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions <a class=anchor href=#cloudprober_probes_browser_ArtifactsOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Serve test artifacts on Cloudprober&#39;s default webserver. This is
+# disabled by default for security reasons.</div>serve_on_web: &lt;bool>
+
+<div class=comment># Specify web server path to serve test artifacts on.
+# Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>web_server_path: &lt;string>
+
+<div class=comment># Storage for test artifacts. Note that test artifacts are always
+# written to the workdir first, and uploaded to the storage backend in a
+# parallel goroutine. This is to make sure that uploads don&#39;t block the
+# main probe execution.</div>storage: &lt;<a href=../probes#cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage</a>>
+
+</pre><h3 id=cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions <a class=anchor href=#cloudprober_probes_browser_CleanupOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Maximum age of artifacts in seconds.</div>max_age_sec: &lt;int32> | default: 3600
+
+<div class=comment># Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
+# is smaller.</div>cleanup_interval_sec: &lt;int32> | default: 3600
+
+</pre><h3 id=cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS <a class=anchor href=#cloudprober_probes_browser_GCS>#</a></h3><pre class=protodoc>
+
+bucket: &lt;string>
+
+path: &lt;string>
+
+<div class=comment># If you want to use default credentials on GCE or GKE, leave this field
+# empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
+# for more details on oauth.GoogleCredentials.</div>credentials: &lt;<a href=../oauth#cloudprober_oauth_GoogleCredentials>cloudprober.oauth.GoogleCredentials</a>>
+
+<div class=comment># GCS endpoint.</div>endpoint: &lt;string> | default: https://storage.googleapis.com
+
+</pre><h3 id=cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage <a class=anchor href=#cloudprober_probes_browser_LocalStorage>#</a></h3><pre class=protodoc>
+
+dir: &lt;string>
+
+<div class=comment># Cleanup options for local storage. Specifying cleanup options for local
+# enables automatic cleanup of old artifacts.</div>cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
+
+</pre><h3 id=cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf <a class=anchor href=#cloudprober_probes_browser_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Playwright test specs. These are passed to playwright as it is. This
+# field works in conjunction with test_dir -- test specs should be under
+# test directory.
+#
+# If test_spec is not specified, all test specs in the test directory are
+# executed, and since default test directory is config file&#39;s directory,
+# if you leave both the fields unspecified, all test specs co-located with
+# the config file are executed.</div>test_spec: &lt;string>
+
+<div class=comment># Test directory. This is the directory where test specs are located.
+# Default test_dir is config file directory (&#34;{{configDir}}&#34;).</div>test_dir: &lt;string>
+
+<div class=comment># Workdir is path to the working directory. It should be writable. If not
+# specified, we try to create a temporary directory. All the output files
+# and reports are stored under &lt;workdir&gt;/output/.
+# If you need to be able access the output files, you should set this 
+# field to a persistent location, e.g. a persistent volume, or configure
+# artifact options.</div>workdir: &lt;string>
+
+<div class=comment># Path to the playwright installation. We execute tests from this location.
+# If not specified, we&#39;ll use the value of environment variable
+# $PLAYWRIGHT_DIR, which is automatically set by the official cloudprober
+# playwright image (tag: &#34;&lt;version&gt;-pw&#34;).</div>playwright_dir: &lt;string>
+
+<div class=comment># NPX path. Default is to assume npx is in the PATH.</div>npx_path: &lt;string> | default: npx
+
+<div class=comment># Whether to enable screenshots for successful tests as well.
+# Note that screenshots are always enabled for failed tests, and you can
+# always save screenshots explicitly in the test spec.</div>save_screenshots_for_success: &lt;bool> | default: false
+
+<div class=comment># Traces are expensive and can slow down the test. We recommend to enable
+# this only when needed.</div>save_traces: &lt;bool> | default: false
+
+<div class=comment># By default, we export all test metrica as counters. You can change how
+# metrics are exported by setting the following options.</div>test_metrics_options: &lt;<a href=../probes#cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions</a>>
+
+<div class=comment># Artifacts options.</div>artifacts_options: &lt;<a href=../probes#cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions</a>>
+
+<div class=comment># Cleanup options.</div>workdir_cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
+
+<div class=comment># Environment variables. These are passed/set before probing starts.</div>env_var: &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf_EnvVarEntry>cloudprober.probes.browser.ProbeConf.EnvVarEntry</a>>
+
+<div class=comment># Requests per probe.
+# Number of DNS requests per probe. Requests are executed concurrently and
+# each DNS request contributes to probe results. For example, if you run two
+# requests per probe, &#34;total&#34; counter will be incremented by 2.</div>requests_per_probe: &lt;int32> | default: 1
+
+<div class=comment># How long to wait between two requests to the same target. Only relevant
+# if requests_per_probe is also configured.
+#
+# This value should be less than (interval - timeout) / requests_per_probe.
+# This is to ensure that all requests are executed within one probe interval
+# and all of them get sufficient time. For example, if probe interval is 2s,
+# timeout is 1s, and requests_per_probe is 10,  requests_interval_msec
+# should be less than 10ms.</div>requests_interval_msec: &lt;int32> | default: 0
+
+</pre><h3 id=cloudprober_probes_browser_ProbeConf_EnvVarEntry>cloudprober.probes.browser.ProbeConf.EnvVarEntry <a class=anchor href=#cloudprober_probes_browser_ProbeConf_EnvVarEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_probes_browser_S3>cloudprober.probes.browser.S3 <a class=anchor href=#cloudprober_probes_browser_S3>#</a></h3><pre class=protodoc>
+
+bucket: &lt;string>
+
+path: &lt;string>
+
+region: &lt;string>
+
+access_key_id: &lt;string>
+
+secret_access_key: &lt;string>
+
+<div class=comment># S3 endpoint. If not specified, default endpoint for the region is used.</div>endpoint: &lt;string>
+
+</pre><h3 id=cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage <a class=anchor href=#cloudprober_probes_browser_Storage>#</a></h3><pre class=protodoc>
+
+[local_storage &lt;<a href=../probes#cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage</a>&gt; | s3 &lt;<a href=../probes#cloudprober_probes_browser_S3>cloudprober.probes.browser.S3</a>&gt; | 
+&nbsp;gcs &lt;<a href=../probes#cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS</a>&gt; | abs &lt;<a href=../probes#cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS</a>&gt;]: &lt;oneof>
+
+</pre><h3 id=cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions <a class=anchor href=#cloudprober_probes_browser_TestMetricsOptions>#</a></h3><pre class=protodoc>
+
+disable_test_metrics: &lt;bool>
+
+disable_aggregation: &lt;bool>
+
+enable_step_metrics: &lt;bool>
 
 </pre><h3 id=cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf <a class=anchor href=#cloudprober_probes_dns_ProbeConf>#</a></h3><pre class=protodoc>
 
@@ -1077,7 +1375,7 @@ type: (INVALID|ECHO|DISCARD): &lt;enum>
 
 <div class=comment># Number of packets sent in a single probe.</div>packets_per_probe: &lt;int32> | default: 1
 
-</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/latest/probes/><div class="card my-1"><div class="card-body py-2">&larr; Probes Config</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/v0.13.7/probes/><div class="card my-1"><div class="card-body py-2">Probes Config (v0.13.7) &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
+</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/latest/probes/><div class="card my-1"><div class="card-body py-2">&larr; Probes Config</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/latest/rds/><div class="card my-1"><div class="card-body py-2">Rds Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.d7fc5ab99c3b052169e39260db72d7dcf9222a72bcc970054c850a51fb8f182f827f0d9cec66f9c9804e149881b869187a29d9355f9d4601af6558465f58238d.js integrity="sha512-1/xauZw7BSFp45Jg23LX3PkiKnK8yXAFTIUKUfuPGC+Cfw2c7Gb5yYBOFJiBuGkYeinZNV+dRgGvZVhGX1gjjQ==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.3de68536b0b9e594a2ec92c4473e806465e57062bd6b10b037f376089a1ad600c07d29dc06cb06274bee3be63337f3c1952fa1c9f65071f4e5b0779acc469235.js integrity="sha512-PeaFNrC55ZSi7JLERz6AZGXlcGK9axCwN/N2CJoa1gDAfSncBssGJ0vuO+YzN/PBlS+hyfZQcfTlsHeazEaSNQ==" crossorigin=anonymous defer></script></body></html>
