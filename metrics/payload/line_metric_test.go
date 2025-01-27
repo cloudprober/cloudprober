@@ -353,6 +353,7 @@ func TestParseLabels(t *testing.T) {
 		// More allowed characters inside quotes
 		`svc=A,dc="x/y"`:                {{"svc", "A"}, {"dc", "x/y"}},
 		`svc="svc A",dc="xx",`:          {{"svc", "svc A"}, {"dc", "xx"}},
+		`svc="svc	A",dc="xx",`:          {{"svc", "svc	A"}, {"dc", "xx"}},
 		`svcs="svc A, svc B",dc=xx`:     {{"svcs", "svc A, svc B"}, {"dc", "xx"}},
 		`svcs="svc \"A\", svc B",dc=xx`: {{"svcs", `svc \"A\", svc B`}, {"dc", "xx"}},
 
