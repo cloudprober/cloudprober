@@ -16,6 +16,7 @@ package payload
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,15 +24,15 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 )
 
-func isAlphanumericOrUnderscore(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+func isAlphanumeric(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
 func readLabelKey(s string) (string, string, error) {
 	s = strings.TrimLeft(s, " ")
 	i := 0
 	for i < len(s) && s[i] != '=' {
-		if !isAlphanumericOrUnderscore(s[i]) {
+		if !isAlphanumeric(s[i]) && s[i] != '_' {
 			return "", "", fmt.Errorf("invalid key char (%v), input: %s", s[i], s)
 		}
 		i++
@@ -75,10 +76,11 @@ func readLabelValue(s string) (string, string, error) {
 		return "", "", fmt.Errorf("no closing quote found in the input: %s", s)
 	}
 
-	// Unquoted value, for unquoted value, we support only alphanumeric plus underscore.
+	// Unquoted value, for unquoted value, we support only specific chars.
+	allowedChars := []byte{'-', '_', '.', '+', '@', '&', '*'}
 	i := 0
 	for ; i < len(s) && s[i] != ','; i++ {
-		if !isAlphanumericOrUnderscore(s[i]) {
+		if !isAlphanumeric(s[i]) && !slices.Contains(allowedChars, s[i]) {
 			return "", "", fmt.Errorf("invalid unquoted char (%v) in value, input: %s", s[i], s)
 		}
 	}

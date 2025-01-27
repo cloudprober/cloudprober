@@ -321,14 +321,18 @@ func TestParseLine(t *testing.T) {
 
 func TestParseLabels(t *testing.T) {
 	invalidLabelLines := []string{
-		"svc=A,dc=\"xx\"56",      // invalid dc label value
-		"svc=A,dc=44\"xx\"",      // invalid dc label value
-		"svc=A,dc=44 \"xx\"",     // invalid dc label value
-		"svc=A,dc=xx\" 56",       // missing closing quote
-		"svc=\"svc A\",dc=xx 56", // space in unquoted value
-		"svc=A,dc=xx,56",         // , in unquoted value
-		"svc=A,dc=x/x,",          // invalid character in unquoted value
-		`svcs=""A, B",dc=xx`,     // single doublequote in quoted value
+		`svc=A,dc="xx"56`,    // invalid dc label value
+		`svc=A,dc=44"xx"`,    // invalid dc label value
+		`svc=A,dc=44 "xx"`,   // invalid dc label value
+		`svc=A,dc=xx" 56`,    // spurious quote
+		`svcs=""A, B",dc=xx`, // single doublequote in quoted value
+
+		// Bad character in unquoted value
+		`svc=A,dc=xx 56`, // space in unquoted value
+		`svc=A,dc=xx,56`, // invalid character (,) in unquoted value
+		`svc=A,dc=x/x,`,  // invalid character (/) in unquoted value
+		`svc=A,dc=x:x,`,  // invalid character (/) in unquoted value
+		`svc=A,dc=x;x,`,  // invalid character (/) in unquoted value
 	}
 	for _, line := range invalidLabelLines {
 		labels, err := parseLabels(line)
@@ -338,16 +342,28 @@ func TestParseLabels(t *testing.T) {
 	}
 
 	inputToLabels := map[string][][2]string{
-		"":                              nil,
-		"svc=,dc=\"xx\"":                {{"svc", ""}, {"dc", "xx"}},
-		"svc=,dc=":                      {{"svc", ""}, {"dc", ""}},
-		"svc=\"svc A\",dc=":             {{"svc", "svc A"}, {"dc", ""}},
-		"svc=\"svc A\",dc=xx":           {{"svc", "svc A"}, {"dc", "xx"}},
-		"svc=\"svc A\",dc=xx,":          {{"svc", "svc A"}, {"dc", "xx"}},
-		"svc=A,dc=\"x/y\"":              {{"svc", "A"}, {"dc", "x/y"}},
-		"svc=\"svc A\",dc=\"xx\",":      {{"svc", "svc A"}, {"dc", "xx"}},
-		"svcs=\"svc A, svc B\",dc=xx":   {{"svcs", "svc A, svc B"}, {"dc", "xx"}},
+		"":             nil,
+		"svc=,dc=":     {{"svc", ""}, {"dc", ""}},
+		"svc=A,dc=":    {{"svc", "A"}, {"dc", ""}},
+		"svc=,dc=xx ":  {{"svc", ""}, {"dc", "xx"}},
+		"svc=, dc=xx ": {{"svc", ""}, {"dc", "xx"}},
+		"svc=A,dc=xx":  {{"svc", "A"}, {"dc", "xx"}},
+		"svc=A,dc=xx,": {{"svc", "A"}, {"dc", "xx"}},
+
+		// More allowed characters inside quotes
+		`svc=A,dc="x/y"`:                {{"svc", "A"}, {"dc", "x/y"}},
+		`svc="svc A",dc="xx",`:          {{"svc", "svc A"}, {"dc", "xx"}},
+		`svcs="svc A, svc B",dc=xx`:     {{"svcs", "svc A, svc B"}, {"dc", "xx"}},
 		`svcs="svc \"A\", svc B",dc=xx`: {{"svcs", `svc \"A\", svc B`}, {"dc", "xx"}},
+
+		// Unquoted allowed chars
+		"svc=A,dc=x@y":  {{"svc", "A"}, {"dc", "x@y"}},
+		"svc=A_B,dc=xx": {{"svc", "A_B"}, {"dc", "xx"}},
+		"svc=A.B,dc=xx": {{"svc", "A.B"}, {"dc", "xx"}},
+		"svc=A&B,dc=xx": {{"svc", "A&B"}, {"dc", "xx"}},
+		"svc=A-B,dc=xx": {{"svc", "A-B"}, {"dc", "xx"}},
+		"svc=A+B,dc=xx": {{"svc", "A+B"}, {"dc", "xx"}},
+		"svc=A*B,dc=xx": {{"svc", "A*B"}, {"dc", "xx"}},
 	}
 	for input, wantLabels := range inputToLabels {
 		labels, err := parseLabels(input)
