@@ -38,7 +38,8 @@ message GenericRequest {
   // value is read from a file.
   optional string body_file = 7;
 
-  // Substitute env variables in body file
+  // Substitute env variables in body file. It will expand environment
+  // variables if you refer to them as ${VARIABLE} or $VARIABLE in the file. 
   optional bool body_file_substitute_env = 8;
 }
 

@@ -110,7 +110,8 @@ type GenericRequest struct {
 	// Request body from file. This field is similar to the body field above, but
 	// value is read from a file.
 	BodyFile *string `protobuf:"bytes,7,opt,name=body_file,json=bodyFile" json:"body_file,omitempty"`
-	// Substitute env variables in body file
+	// Substitute env variables in body file. It will expand environment
+	// variables if you refer to them as ${VARIABLE} or $VARIABLE in the file.
 	BodyFileSubstituteEnv *bool `protobuf:"varint,8,opt,name=body_file_substitute_env,json=bodyFileSubstituteEnv" json:"body_file_substitute_env,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
