@@ -35,6 +35,7 @@ import (
 	"log/slog"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/internal/oauth"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/internal/tlsconfig"
@@ -271,6 +272,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.c.GetMethod() == configpb.ProbeConf_GENERIC {
 		if err := p.initDescriptorSource(); err != nil {
 			return err
+		}
+		if filePath := p.c.GetRequest().GetBodyFile(); filePath != "" {
+			if p.c.GetRequest().GetBody() != "" {
+				return errors.New("bad config: both body and body_file are set")
+			}
+			var opts []file.ReadOption
+			if p.c.GetRequest().GetBodyFileSubstituteEnv() {
+				opts = append(opts, file.WithEnvSubstitution())
+			}
+			b, err := file.ReadFile(context.Background(), filePath, opts...)
+			if err != nil {
+				return fmt.Errorf("error reading request body from file (%s): %v", filePath, err)
+			}
+			p.c.Request.Body = proto.String(string(b))
+			fmt.Println("--", p.c.Request.GetBody(), "--")
 		}
 	}
 

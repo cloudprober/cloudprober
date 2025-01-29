@@ -17,6 +17,7 @@ package file
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,21 +46,25 @@ func testReadFile(ctx context.Context, path string) ([]byte, error) {
 func TestReadFile(t *testing.T) {
 	prefixToReadfunc["test://"] = testReadFile
 
-	// Virtual file
-	testPath := "test://test-file"
-
-	// Disk file
-	tempContent := "temp-content"
-	tempPath := createTempFile(t, []byte(tempContent))
+	os.Setenv("TESTDATAX", "test-data-env")
+	defer os.Unsetenv("TESTDATAX")
 
 	testData := map[string]string{
-		testPath: "content-for-test-file",
-		tempPath: tempContent,
+		"test://test-file":                             "content-for-test-file",
+		createTempFile(t, []byte("temp-content")):      "temp-content",
+		createTempFile(t, []byte("temp-$TESTDATAX")):   "temp-test-data-env",
+		createTempFile(t, []byte("temp-${TESTDATAX}")): "temp-test-data-env",
 	}
 
 	for path, expectedContent := range testData {
 		t.Run("ReadFile("+path+")", func(t *testing.T) {
-			b, err := ReadFile(context.Background(), path)
+			var b []byte
+			var err error
+			if strings.Contains(expectedContent, "env") {
+				b, err = ReadFile(context.Background(), path, WithEnvSubstitution())
+			} else {
+				b, err = ReadFile(context.Background(), path)
+			}
 			if err != nil {
 				t.Fatalf("Error while reading the file: %s", path)
 			}
