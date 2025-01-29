@@ -16,11 +16,13 @@ package grpc
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
+	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,10 +38,12 @@ func TestGenericRequest(t *testing.T) {
 	defer conn.Close()
 
 	tests := []struct {
-		name     string
-		req      *configpb.GenericRequest
-		wantResp string
-		wantErr  bool
+		name        string
+		req         *configpb.GenericRequest
+		env         map[string]string
+		wantResp    string
+		wantInitErr bool
+		wantErr     bool
 	}{
 		{
 			name: "list_services",
@@ -88,6 +92,41 @@ func TestGenericRequest(t *testing.T) {
 			wantResp: "{\"blob\":\"test\"}",
 		},
 		{
+			name: "call_service_method_body_file",
+			req: &configpb.GenericRequest{
+				RequestType: &configpb.GenericRequest_CallServiceMethod{
+					CallServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
+				},
+				BodyFile: proto.String("testdata/echo_request_body.txt"),
+			},
+			wantResp: "{\"blob\":\"test\"}",
+		},
+		{
+			name: "call_service_method_body_file_with_env",
+			req: &configpb.GenericRequest{
+				RequestType: &configpb.GenericRequest_CallServiceMethod{
+					CallServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
+				},
+				BodyFile:              proto.String("testdata/echo_request_body_env.txt"),
+				BodyFileSubstituteEnv: proto.Bool(true),
+			},
+			env: map[string]string{
+				"TESTBLOB": "testblob",
+			},
+			wantResp: "{\"blob\":\"testblob\"}",
+		},
+		{
+			name: "call_service_method_body_file_error",
+			req: &configpb.GenericRequest{
+				RequestType: &configpb.GenericRequest_CallServiceMethod{
+					CallServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
+				},
+				Body:     proto.String("{\"blob\": \"test\"}"),
+				BodyFile: proto.String("testdata/echo_request_body.txt"),
+			},
+			wantInitErr: true,
+		},
+		{
 			name: "call_service_method_error",
 			req: &configpb.GenericRequest{
 				RequestType: &configpb.GenericRequest_CallServiceMethod{
@@ -101,15 +140,33 @@ func TestGenericRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.env != nil {
+				for k, v := range tt.env {
+					defer os.Unsetenv(k)
+					os.Setenv(k, v)
+				}
+			}
 			p := &Probe{}
 
-			resp, err := p.genericRequest(context.Background(), conn, tt.req)
+			opts := options.DefaultOptions()
+			opts.ProbeConf = &configpb.ProbeConf{
+				Method:  configpb.ProbeConf_GENERIC.Enum(),
+				Request: tt.req,
+			}
+			if err := p.Init("test", opts); err != nil {
+				if !tt.wantInitErr {
+					t.Fatalf("unexpected init error: %v", err)
+				}
+				return
+			}
+
+			resp, err := p.genericRequest(context.Background(), conn, p.c.GetRequest())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Probe.genericRequest() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			assert.Equal(t, response(tt.wantResp), resp)
+			assert.Equal(t, response(tt.wantResp), resp, "gRPC request: %v", p.c.GetRequest())
 		})
 	}
 }
