@@ -111,20 +111,51 @@ func httpModTime(ctx context.Context, fileURL string) (time.Time, error) {
 	return httpLastModified(res)
 }
 
+func substituteEnvVariables(content []byte) []byte {
+	return []byte(os.ExpandEnv(string(content)))
+}
+
+type readFileOpts struct {
+	substituteEnvVariables bool
+}
+
+type ReadOption func(*readFileOpts)
+
+func WithEnvSubstitution() ReadOption {
+	return func(opts *readFileOpts) {
+		opts.substituteEnvVariables = true
+	}
+}
+
 // ReadFile returns file contents as a slice of bytes. It's similar to ioutil's
 // ReadFile, but includes support for files on non-disk locations. For example,
 // files with paths starting with gs:// are assumed to be on GCS, and are read
 // from GCS.
-func ReadFile(ctx context.Context, fname string) ([]byte, error) {
+func ReadFile(ctx context.Context, fname string, readOptions ...ReadOption) ([]byte, error) {
+	opts := &readFileOpts{}
+	for _, ropt := range readOptions {
+		ropt(opts)
+	}
+
+	processContent := func(b []byte, err error) ([]byte, error) {
+		if err != nil {
+			return nil, err
+		}
+		if opts.substituteEnvVariables {
+			b = []byte(os.ExpandEnv(string(b)))
+		}
+		return b, nil
+	}
+
 	for prefix, f := range prefixToReadfunc {
 		if strings.HasPrefix(fname, prefix) {
-			return f(ctx, fname[len(prefix):])
+			return processContent(f(ctx, fname[len(prefix):]))
 		}
 	}
-	return os.ReadFile(fname)
+	return processContent(os.ReadFile(fname))
 }
 
-func ReadWithCache(ctx context.Context, fname string, refreshInterval time.Duration) ([]byte, error) {
+func ReadWithCache(ctx context.Context, fname string, refreshInterval time.Duration, readOptions ...ReadOption) ([]byte, error) {
 	global.mu.RLock()
 	fc, ok := global.cache[fname]
 	global.mu.RUnlock()
@@ -132,7 +163,7 @@ func ReadWithCache(ctx context.Context, fname string, refreshInterval time.Durat
 		return fc.b, nil
 	}
 
-	b, err := ReadFile(ctx, fname)
+	b, err := ReadFile(ctx, fname, readOptions...)
 	if err != nil {
 		return nil, err
 	}

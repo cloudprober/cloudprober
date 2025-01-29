@@ -33,6 +33,14 @@ message GenericRequest {
 
   // Request data (in JSON format) for the call_service_method request.
   optional string body = 6;
+
+  // Request body from file. This field is similar to the body field above, but
+  // value is read from a file.
+  optional string body_file = 7;
+
+  // Substitute env variables in body file. It will expand environment
+  // variables if you refer to them as ${VARIABLE} or $VARIABLE in the file. 
+  optional bool body_file_substitute_env = 8;
 }
 
 // Next tag: 14
