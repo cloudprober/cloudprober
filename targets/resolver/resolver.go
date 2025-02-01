@@ -128,12 +128,19 @@ func ParseOverrideAddress(dnsResolverOverride string) (string, string, error) {
 		addr = dnsResolverOverride
 	}
 
-	validNetworks := []string{"", "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6"}
+	validNetworks := []string{"", "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6", "tls"}
 	if !slices.Contains(validNetworks, network) {
 		return "", "", fmt.Errorf("invalid network: %s", network)
 	}
 
 	port := "53"
+
+	// use default dot port and change to tcp-tls for miekg/dns client
+	if network == "tls" {
+		network = "tcp-tls"
+		port = "853"
+	}
+
 	// Check if address includes a port number. If it doesn't parse as an IP
 	// address, but includes a :, then it might contain a port number
 	if ip := net.ParseIP(addr); ip == nil {
