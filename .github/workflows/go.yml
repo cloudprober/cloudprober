@@ -64,9 +64,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo sudo sysctl -w net.ipv4.ping_group_range="0 500000"
       
-      - name: Set up gotestsum
+      - name: Set up gotestsum on non-windows
+        if: matrix.os != 'windows-latest'
         run: |
-          version=$(curl -s https://api.github.com/repos/gotestyourself/gotestsum/releases/latest | jq '.name' | tr -d 'v"'); \
+          version=$(curl -si https://github.com/gotestyourself/gotestsum/releases/latest | grep -i 'location:' | cut -d' ' -f2 | cut -d'/' -f8); \
           os=$(uname -s | tr '[:upper:]' '[:lower:]'); \
           arch=$(uname -m); \
           wget https://github.com/gotestyourself/gotestsum/releases/download/v${version}/gotestsum_${version}_${os}_${arch/x86_64/amd64}.tar.gz; \
@@ -77,11 +78,17 @@ jobs:
         run: |
           ./gotestsum --jsonfile=report.json --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic -coverprofile=cover.out
 
-      - name: Test on non-ubuntu
-        if: matrix.os != 'ubuntu-latest'
+      - name: Test on macos
+        if: matrix.os == 'macos-latest'
         run: |
           ./gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
 
+      - name: Test on windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          go install gotest.tools/gotestsum@latest
+          gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
+  
       - name: SonarCloud Scan
         if: |
           matrix.os == 'ubuntu-latest' &&
