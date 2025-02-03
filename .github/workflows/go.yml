@@ -67,7 +67,7 @@ jobs:
       - name: Set up gotestsum on non-windows
         if: matrix.os != 'windows-latest'
         run: |
-          version=$(curl -si https://github.com/gotestyourself/gotestsum/releases/latest | grep -i 'location:' | cut -d' ' -f2 | cut -d'/' -f8 | tr -d '\n\r'); \
+          version=$(curl -si https://github.com/gotestyourself/gotestsum/releases/latest | grep -i 'location:' | cut -d' ' -f2 | cut -d'/' -f8 | tr -d 'v\n\r'); \
           os=$(uname -s | tr '[:upper:]' '[:lower:]'); \
           arch=$(uname -m); \
           wget https://github.com/gotestyourself/gotestsum/releases/download/v${version}/gotestsum_${version}_${os}_${arch/x86_64/amd64}.tar.gz; \
