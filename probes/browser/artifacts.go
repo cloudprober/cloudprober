@@ -87,7 +87,7 @@ func (p *Probe) initArtifactsHandler() error {
 
 		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
 			if localStorage.GetCleanupOptions() != nil {
-				cleanupHandler, err := newCleanupHandler(localStorage.GetCleanupOptions(), p.l)
+				cleanupHandler, err := newCleanupHandler(localStorage.GetDir(), localStorage.GetCleanupOptions(), p.l)
 				if err != nil {
 					return fmt.Errorf("error initializing cleanup handler for local storage: %v", err)
 				}
