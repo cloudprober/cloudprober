@@ -254,18 +254,14 @@ func (p *Probe) addLatency(latency metrics.LatencyValue, start time.Time) {
 	latency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
-// httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
-	logAttrs := []slog.Attr{slog.String("target", target.Name), slog.String("url", req.URL.String())}
-
-	req = p.prepareRequest(req)
-
-	start := time.Now()
+func (p *Probe) requestTrace(result *probeResult) *httptrace.ClientTrace {
+	if result.latencyBreakdown == nil && result.connEvent == nil {
+		return nil
+	}
 
 	trace := &httptrace.ClientTrace{}
 
 	if lb := result.latencyBreakdown; lb != nil {
-
 		var dnsStart, connectStart, tlsStart, writeStart, firstbyteStart time.Time
 
 		if lb.dnsLatency != nil {
@@ -290,7 +286,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		}
 	}
 
-	if p.c.GetKeepAlive() {
+	if result.connEvent != nil {
 		oldConnectDone := trace.ConnectDone
 		trace.ConnectDone = func(network, addr string, err error) {
 			result.connEvent.Inc()
@@ -305,7 +301,18 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		}
 	}
 
-	if trace != nil {
+	return trace
+}
+
+// doHTTPRequest executes an HTTP request and updates the provided result struct.
+func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
+	logAttrs := []slog.Attr{slog.String("target", target.Name), slog.String("url", req.URL.String())}
+
+	req = p.prepareRequest(req)
+
+	start := time.Now()
+
+	if trace := p.requestTrace(result); trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	}
 
