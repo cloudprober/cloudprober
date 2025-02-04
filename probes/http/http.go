@@ -559,9 +559,8 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		tgtState.clients = p.clientsForTarget(runReq.Target)
 	}
 
-	// If request is nil, create a new one.
-	// Also, if we are resolving first, we update the request object at every
-	// stats export interval. This is to make sure that we are using the
+	// Update request if it is nil, or if we are resolving first and we are at
+	// the stats export interval. This is to make sure that we are using the
 	// correct IP address for the target.
 	if tgtState.req == nil || (p.c.GetResolveFirst() && tgtState.runCnt%p.opts.StatsExportFrequency() == 0) {
 		req, err := p.httpRequestForTarget(runReq.Target)
@@ -574,7 +573,8 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
+		// Ignore the error returned by doHTTPRequest, as it's already logged.
+		_ = p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
 		return
 	}
 
@@ -591,7 +591,8 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 			defer wg.Done()
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doHTTPRequest(req.WithContext(ctx), tgtState.clients[numReq], target, result, &resultMu)
+			// Ignore the error returned by doHTTPRequest, as it's already logged.
+			_ = p.doHTTPRequest(req.WithContext(ctx), tgtState.clients[numReq], target, result, &resultMu)
 		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()
