@@ -241,7 +241,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	if p.c.GetWorkdirCleanupOptions() != nil {
-		ch, err := newCleanupHandler(p.c.GetWorkdirCleanupOptions(), p.l)
+		ch, err := newCleanupHandler(p.outputDir, p.c.GetWorkdirCleanupOptions(), p.l)
 		if err != nil {
 			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 		}
@@ -403,7 +403,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	p.startCtx = ctx
 
 	for _, ch := range p.cleanupHandlers {
-		go ch.start(p.startCtx, p.outputDir)
+		go ch.start(p.startCtx)
 	}
 
 	p.dataChan = dataChan

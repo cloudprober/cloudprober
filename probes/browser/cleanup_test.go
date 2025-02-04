@@ -27,9 +27,11 @@ import (
 )
 
 func TestNewCleanupHandler(t *testing.T) {
+	testDir := "/tmp/x"
 	tests := []struct {
 		name    string
 		opts    *configpb.CleanupOptions
+		dir     string
 		want    *cleanupHandler
 		wantErr bool
 	}{
@@ -62,7 +64,9 @@ func TestNewCleanupHandler(t *testing.T) {
 			opts: &configpb.CleanupOptions{
 				MaxAgeSec: proto.Int32(1),
 			},
+			dir: testDir,
 			want: &cleanupHandler{
+				dir:      testDir,
 				interval: time.Second,
 				maxAge:   time.Second,
 			},
@@ -70,7 +74,7 @@ func TestNewCleanupHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newCleanupHandler(tt.opts, nil)
+			got, err := newCleanupHandler(tt.dir, tt.opts, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newCleanupHandler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -106,9 +110,10 @@ func TestCleanupHandlerCleanupCycle(t *testing.T) {
 
 	maxAge := 150 * time.Millisecond
 	ch := &cleanupHandler{
+		dir:    dir,
 		maxAge: maxAge,
 	}
-	ch.cleanupCycle(dir)
+	ch.cleanupCycle()
 
 	remainingDirs, err := os.ReadDir(dir)
 	if err != nil {
