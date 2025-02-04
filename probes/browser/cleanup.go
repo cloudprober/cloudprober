@@ -26,12 +26,13 @@ import (
 )
 
 type cleanupHandler struct {
+	dir      string
 	maxAge   time.Duration
 	interval time.Duration
 	l        *logger.Logger
 }
 
-func newCleanupHandler(opts *configpb.CleanupOptions, l *logger.Logger) (*cleanupHandler, error) {
+func newCleanupHandler(dir string, opts *configpb.CleanupOptions, l *logger.Logger) (*cleanupHandler, error) {
 	if opts.GetMaxAgeSec() == 0 {
 		return nil, errors.New("max_age_sec cannot be 0")
 	}
@@ -40,6 +41,7 @@ func newCleanupHandler(opts *configpb.CleanupOptions, l *logger.Logger) (*cleanu
 	}
 
 	ch := &cleanupHandler{
+		dir:      dir,
 		interval: time.Duration(opts.GetCleanupIntervalSec()) * time.Second,
 		maxAge:   time.Duration(opts.GetMaxAgeSec()) * time.Second,
 		l:        l,
@@ -55,15 +57,15 @@ func newCleanupHandler(opts *configpb.CleanupOptions, l *logger.Logger) (*cleanu
 	return ch, nil
 }
 
-func (ch *cleanupHandler) cleanupCycle(dir string) {
+func (ch *cleanupHandler) cleanupCycle() {
 	oldestTime := time.Now().Add(-ch.maxAge)
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(ch.dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// We ignore errors as we may delete parent directory before
 			// deleting its children, which will cause errors.
 			return nil
 		}
-		if path == dir {
+		if path == ch.dir {
 			return nil
 		}
 		if info.ModTime().Before(oldestTime) {
@@ -82,7 +84,7 @@ func (ch *cleanupHandler) cleanupCycle(dir string) {
 	})
 }
 
-func (ch *cleanupHandler) start(ctx context.Context, dir string) {
+func (ch *cleanupHandler) start(ctx context.Context) {
 	ticker := time.NewTicker(ch.interval)
 	for ; true; <-ticker.C {
 		select {
@@ -92,7 +94,7 @@ func (ch *cleanupHandler) start(ctx context.Context, dir string) {
 		default:
 		}
 
-		ch.l.Infof("cleanupHandler: starting cleanup for %s", dir)
-		ch.cleanupCycle(dir)
+		ch.l.Infof("cleanupHandler: starting cleanup for %s", ch.dir)
+		ch.cleanupCycle()
 	}
 }
