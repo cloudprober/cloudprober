@@ -195,7 +195,7 @@ jobs:
       - name: Save version env variable
         run: |
           version=$(git describe --tags --exclude tip) && \
-          buildate=$(shell date +%s) && \
+          buildate=$(date +%s) && \
           echo "VERSION=$version" >> $GITHUB_ENV && \
           echo "BUILD_DATE=$buildate" >> $GITHUB_ENV
 
