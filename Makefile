@@ -46,9 +46,10 @@ docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) Dockerfile
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		$(DOCKER_TAGS) .
 
+FIPS_ARCHS := "linux-amd64,linux-arm64"
 docker_multiarch_fips: Dockerfile.fips
 	docker buildx build --push $(DOCKER_BUILD_ARGS) \
-		--platform linux/amd64,linux/arm64 \
+		--platform $(FIPS_ARCHS) \
 		$(DOCKER_FIPS_TAGS) -f Dockerfile.fips .
 
 docker_multiarch_pw: Dockerfile.pw
