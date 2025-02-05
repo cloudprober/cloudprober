@@ -18,6 +18,7 @@ package http
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -253,16 +254,14 @@ func (p *Probe) addLatency(latency metrics.LatencyValue, start time.Time) {
 	latency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
-// httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) {
-	req = p.prepareRequest(req)
-
-	start := time.Now()
+func (p *Probe) requestTrace(result *probeResult) *httptrace.ClientTrace {
+	if result.latencyBreakdown == nil && result.connEvent == nil {
+		return nil
+	}
 
 	trace := &httptrace.ClientTrace{}
 
 	if lb := result.latencyBreakdown; lb != nil {
-
 		var dnsStart, connectStart, tlsStart, writeStart, firstbyteStart time.Time
 
 		if lb.dnsLatency != nil {
@@ -287,7 +286,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		}
 	}
 
-	if p.c.GetKeepAlive() {
+	if result.connEvent != nil {
 		oldConnectDone := trace.ConnectDone
 		trace.ConnectDone = func(network, addr string, err error) {
 			result.connEvent.Inc()
@@ -302,7 +301,18 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		}
 	}
 
-	if trace != nil {
+	return trace
+}
+
+// doHTTPRequest executes an HTTP request and updates the provided result struct.
+func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
+	logAttrs := []slog.Attr{slog.String("target", target.Name), slog.String("url", req.URL.String())}
+
+	req = p.prepareRequest(req)
+
+	start := time.Now()
+
+	if trace := p.requestTrace(result); trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	}
 
@@ -319,21 +329,19 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	if err != nil {
 		if isClientTimeout(err) {
-			p.l.WarningAttrs(err.Error(), slog.String("target", target.Name), slog.String("url", req.URL.String()))
 			result.timeouts++
-			return
 		}
-		p.l.WarningAttrs(err.Error(), slog.String("target", target.Name), slog.String("url", req.URL.String()))
-		return
+		p.l.WarningAttrs(err.Error(), logAttrs...)
+		return err
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		p.l.WarningAttrs(err.Error(), slog.String("target", target.Name), slog.String("url", req.URL.String()))
-		return
+		p.l.WarningAttrs(err.Error(), logAttrs...)
+		return err
 	}
 
-	p.l.Debug("Target:", target.Name, ", URL:", req.URL.String(), ", response: ", string(respBody))
+	p.l.DebugAttrs("Response: \n"+string(respBody), logAttrs...)
 
 	// Calling Body.Close() allows the TCP connection to be reused.
 	resp.Body.Close()
@@ -358,8 +366,9 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		// If any validation failed, return now, leaving the success and latency
 		// counters unchanged.
 		if len(failedValidations) > 0 {
-			p.l.Debug("Target:", target.Name, ", URL:", req.URL.String(), ", http.doHTTPRequest: failed validations: ", strings.Join(failedValidations, ","))
-			return
+			msg := fmt.Sprintf("failed validations: %s", strings.Join(failedValidations, ","))
+			p.l.DebugAttrs(msg, logAttrs...)
+			return errors.New(msg)
 		}
 	}
 
@@ -375,6 +384,8 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
 		}
 	}
+
+	return nil
 }
 
 func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *latencyDetails {
@@ -405,69 +416,6 @@ func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *la
 		ld.firstByteLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
 	}
 	return ld
-}
-
-type targetState struct {
-	req     *http.Request
-	clients []*http.Client
-	runCnt  int64
-}
-
-func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
-	if runReq.Result == nil {
-		runReq.Result = p.newResult()
-	}
-
-	// We cache the HTTP requests, clients, and runCnt in the target state.
-	if runReq.TargetState == nil {
-		runReq.TargetState = &targetState{}
-	}
-
-	target, result, tgtState := runReq.Target, runReq.Result.(*probeResult), runReq.TargetState.(*targetState)
-
-	tgtState.runCnt++
-	if tgtState.req == nil {
-		tgtState.req = p.httpRequestForTarget(runReq.Target)
-	}
-	if tgtState.clients == nil {
-		tgtState.clients = p.clientsForTarget(runReq.Target)
-	}
-
-	// If request is nil, just update the total count and return.
-	if tgtState.req == nil {
-		result.total += int64(p.c.GetRequestsPerProbe())
-		return
-	}
-
-	// If we are resolving first, we update the request object at every stats
-	// export interval. This is to make sure that we are using the correct IP
-	// address for the target.
-	if p.c.GetResolveFirst() && tgtState.runCnt%p.opts.StatsExportFrequency() == 0 {
-		runReq.TargetState.(*targetState).req = p.httpRequestForTarget(target)
-	}
-
-	if p.c.GetRequestsPerProbe() == 1 {
-		p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
-		return
-	}
-
-	// For multiple requests per probe, we launch a separate goroutine for each
-	// HTTP request. We use a mutex to protect access to per-target result object
-	// in doHTTPRequest. Note that result object is not accessed concurrently
-	// anywhere else -- export of metrics happens when probe is not running.
-	var resultMu sync.Mutex
-
-	wg := sync.WaitGroup{}
-	for numReq := 0; numReq < int(p.c.GetRequestsPerProbe()); numReq++ {
-		wg.Add(1)
-		go func(req *http.Request, numReq int, target endpoint.Endpoint, result *probeResult) {
-			defer wg.Done()
-
-			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doHTTPRequest(req.WithContext(ctx), tgtState.clients[numReq], target, result, &resultMu)
-		}(tgtState.req, numReq, target, result)
-	}
-	wg.Wait()
 }
 
 func (p *Probe) newResult() *probeResult {
@@ -593,6 +541,68 @@ func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 		clients[i].CheckRedirect = p.redirectFunc
 	}
 	return clients
+}
+
+type targetState struct {
+	req     *http.Request
+	clients []*http.Client
+	runCnt  int64
+}
+
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+
+	// We cache the HTTP requests, clients, and runCnt in the target state.
+	if runReq.TargetState == nil {
+		runReq.TargetState = &targetState{}
+	}
+
+	target, result, tgtState := runReq.Target, runReq.Result.(*probeResult), runReq.TargetState.(*targetState)
+
+	tgtState.runCnt++
+	if tgtState.clients == nil {
+		tgtState.clients = p.clientsForTarget(runReq.Target)
+	}
+
+	// Update request if it is nil, or if we are resolving first and we are at
+	// the stats export interval. This is to make sure that we are using the
+	// correct IP address for the target.
+	if tgtState.req == nil || (p.c.GetResolveFirst() && tgtState.runCnt%p.opts.StatsExportFrequency() == 0) {
+		req, err := p.httpRequestForTarget(runReq.Target)
+		if err != nil {
+			p.l.Error("Error creating HTTP request for target: ", target.Name, ", err: ", err.Error())
+			result.total += int64(p.c.GetRequestsPerProbe())
+			return
+		}
+		tgtState.req = req
+	}
+
+	if p.c.GetRequestsPerProbe() == 1 {
+		// Ignore the error returned by doHTTPRequest, as it's already logged.
+		_ = p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
+		return
+	}
+
+	// For multiple requests per probe, we launch a separate goroutine for each
+	// HTTP request. We use a mutex to protect access to per-target result object
+	// in doHTTPRequest. Note that result object is not accessed concurrently
+	// anywhere else -- export of metrics happens when probe is not running.
+	var resultMu sync.Mutex
+
+	wg := sync.WaitGroup{}
+	for numReq := 0; numReq < int(p.c.GetRequestsPerProbe()); numReq++ {
+		wg.Add(1)
+		go func(req *http.Request, numReq int, target endpoint.Endpoint, result *probeResult) {
+			defer wg.Done()
+
+			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
+			// Ignore the error returned by doHTTPRequest, as it's already logged.
+			_ = p.doHTTPRequest(req.WithContext(ctx), tgtState.clients[numReq], target, result, &resultMu)
+		}(tgtState.req, numReq, target, result)
+	}
+	wg.Wait()
 }
 
 // Start starts and runs the probe indefinitely.
