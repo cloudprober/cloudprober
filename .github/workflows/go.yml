@@ -169,22 +169,22 @@ jobs:
           echo "VERSION=$version" >> $GITHUB_ENV && \
           echo "BUILD_DATE=$buildate" >> $GITHUB_ENV
 
-      - name: Build multiarch CGO binaries
+      - uses: goto-bus-stop/setup-zig@v2
+  
+      - name: Build linux arm64 binary
         env:
           CGO_ENABLED: 1
+          GOOS: linux
+          GOARCH: arm64
           GOEXPERIMENT: boringcrypto
-        uses: crazy-max/ghaction-xgo@v3
-        with:
-          xgo_version: latest
-          go_version: 1.23.5
-          targets: linux/amd64,linux/arm64,linux/arm/7
-          dest: build
-          v: true
-          ldflags: "-s -w -X main.version=${VERSION} -X main.buildTimestamp=$(BUILD_DATE) -linkmode external -extldflags -static"
+          CC: "zig cc -target arm64-linux"
+          CXX: "zig c++ -target arm64-linux"
+          LDFLAGS: "-s -w -X main.version=${VERSION} -X main.buildTimestamp=$(BUILD_DATE) -linkmode external -extldflags -static"
+        run: go build -v -x -ldflags "$LDFLAGS" -o cloudprober-linux-arm64-fips ./cmd/cloudprober
   
       - name: Check build directory
         run: |
-          env && ls -R build
+          env && ls -R .
         
   build-dist:
     name: Build cloudprober release
