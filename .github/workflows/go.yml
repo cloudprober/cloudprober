@@ -181,6 +181,41 @@ jobs:
           name: cloudprober-release-binaries
           path: cloudprober-*.zip
 
+  build_multiarch_cgo_binaries_for_fips:
+    name: Build multiarch CGO binaries for FIPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code into the Go module directory
+        if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Save version env variable
+        run: |
+          version=$(git describe --tags --exclude tip) && \
+          buildate=$(shell date +%s) && \
+          echo "VERSION=$version" >> $GITHUB_ENV && \
+          echo "BUILD_DATE=$buildate" >> $GITHUB_ENV
+
+      - name: Build multiarch CGO binaries
+        if: ${{ matrix.image_type == 'fips' }}
+        env:
+          CGO_ENABLED: 1
+          GOEXPERIMENT: boringcrypto
+        uses: crazy-max/ghaction-xgo@v3
+        with:
+          xgo_version: latest
+          go_version: 1.23.5
+          targets: linux/amd64,linux/arm64,linux/arm/7
+          dest: build
+          v: true
+          ldflags: "-s -w -X main.version=${VERSION} -X main.buildTimestamp=$(BUILD_DATE) -linkmode external -extldflags -static"
+  
+      - name: Check build directory
+        run: ls -R build
+
   build_and_push_docker_multiarch:
     name: Build and push multiarch docker image
     if: |
@@ -195,7 +230,7 @@ jobs:
     steps:
       - name: Check out code into the Go module directory
         if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
