@@ -222,7 +222,8 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 			"fqdn": td.targetFQDN,
 		},
 	}
-	req := p.httpRequestForTarget(target)
+	req, err := p.httpRequestForTarget(target)
+	assert.NoError(t, err, "Error creating request")
 
 	wantURL := fmt.Sprintf("http://%s", hostWithPort(td.wantURLHost, expectedPort))
 	assert.Equal(t, wantURL, req.URL.String(), "URL mismatch")
@@ -443,7 +444,8 @@ func TestRequestHasConfiguredHeaders(t *testing.T) {
 		Labels: map[string]string{"fqdn": "test.com"},
 	}
 
-	req := p.httpRequestForTarget(target)
+	req, err := p.httpRequestForTarget(target)
+	assert.NoError(t, err, "Error creating request")
 
 	val, ok := req.Header[testHeaderName]
 	assert.True(t, ok, "Configured header (via 'header' setting) is not present in target request")

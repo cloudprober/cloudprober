@@ -145,7 +145,7 @@ func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string
 	return handleIPv6(ipStr), ipStr, nil
 }
 
-func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
+func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) (*http.Request, error) {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
 	// If port is not configured explicitly, use target's port if available.
@@ -157,9 +157,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 
 	urlHost, ipForLabel, err := p.urlHostAndIPLabel(target, host)
 	if err != nil {
-		// We just return a nil request. The caller will skip nil requests.
-		p.l.Error(err.Error())
-		return nil
+		return nil, err
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
@@ -170,8 +168,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 
 	req, err := httpreq.NewRequest(p.method, url, p.requestBody)
 	if err != nil {
-		p.l.Error("target: ", target.Name, ", error creating HTTP request: ", err.Error())
-		return nil
+		return nil, err
 	}
 
 	p.setHeaders(req, host, port)
@@ -179,7 +176,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 		req.Header.Set("User-Agent", p.c.GetUserAgent())
 	}
 
-	return req
+	return req, nil
 }
 
 func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
