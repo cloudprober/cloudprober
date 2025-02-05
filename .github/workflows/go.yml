@@ -250,8 +250,8 @@ jobs:
       - name: Build and push release Docker Image (main)
         if: ${{ matrix.image_type == 'fips' }}
         run: |
-          make docker_multiarch_fips
-          make docker_multiarch_fips DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
+          make docker_multiarch_fips FIPS_ARCHS=linux/amd64
+          make docker_multiarch_fips FIPS_ARCHS=linux/amd64 DOCKER_IMAGE=ghcr.io/cloudprober/cloudprober
 
       - name: Build and push release Docker Image
         if: ${{ matrix.image_type == 'playwright' }}
