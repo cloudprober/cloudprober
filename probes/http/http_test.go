@@ -23,6 +23,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httptrace"
 	"net/url"
 	"os"
@@ -1090,4 +1091,41 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 			assert.Equal(t, wantNumMetrics, len(em.MetricsKeys()), "number of metrics exported")
 		})
 	}
+}
+
+func TestDisableHTTP2(t *testing.T) {
+	testServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, %s", r.Proto)
+	}))
+	testServer.EnableHTTP2 = true
+	testServer.StartTLS()
+	defer testServer.Close()
+
+	p := &Probe{
+		opts: options.DefaultOptions(),
+		c: &configpb.ProbeConf{
+			DisableHttp2:          proto.Bool(true),
+			DisableCertValidation: proto.Bool(true),
+		},
+	}
+
+	transport, err := p.getTransport()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	client := testServer.Client()
+	client.Transport = transport
+
+	res, err := client.Get(testServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	greeting, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "Hello, HTTP/1.1", string(greeting))
 }
