@@ -31,6 +31,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/option"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -186,7 +187,13 @@ func defaultComputeService(apiVersion string, baseAPIPath string) (*compute.Serv
 	if err != nil {
 		return nil, err
 	}
-	cs, err := compute.New(client)
+
+	opts := []option.ClientOption{option.WithHTTPClient(client)}
+	if *logger.GCPUniverseDomain != "" {
+		opts = append(opts, option.WithUniverseDomain(*logger.GCPUniverseDomain))
+	}
+	var cs *compute.Service
+	cs, err = compute.NewService(context.Background(), opts...)
 	if err != nil {
 		return nil, err
 	}
