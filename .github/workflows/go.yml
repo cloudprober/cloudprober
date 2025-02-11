@@ -177,7 +177,7 @@ jobs:
           cache: true
         id: go
 
-      - run: make cloudprober-fips FIPS_BINARY_NAME=cloudprober-${{ matrix.distname }}
+      - run: make cloudprober-fips && mv cloudprober-fips cloudprober-fips-${{ matrix.distname }}
 
       - name: Upload cloudprober dist
         uses: actions/upload-artifact@v4

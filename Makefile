@@ -34,11 +34,11 @@ $1: $(SOURCES)
 	CGO_ENABLED=0 GOOS=$$$${GOOS} GOARCH=$$$${GOARCH} GOARM=$$$${GOARM} go build -o $1 -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 endef
 
-FIPS_BINARY_NAME := cloudprober-fips
 # To cross-compile, for linux arm64 e.g., set GO_BUILD_FLAGS like this:
 # make cloudprober-fips GO_BUILD_FLAGS="GOARCH=arm64 CC_FOR_TARGET=gcc-aarch64-linux-gnu CC=aarch64-linux-gnu-gcc"
 cloudprober-fips: $(SOURCES)
-	$(GO_BUILD_FLAGS) CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -o $(FIPS_BINARY_NAME) -tags netgo,osusergo -ldflags "$(VAR_LD_FLAGS) -w -linkmode external -extldflags -static" $(BINARY_SOURCE)
+	$(GO_BUILD_FLAGS) CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -o cloudprober-fips -tags netgo,osusergo -ldflags "$(VAR_LD_FLAGS) -w -linkmode external -extldflags -static" $(BINARY_SOURCE)
+	go tool nm cloudprober-fips | grep crypto/internal/boring/sig.BoringCrypto.abi0 > /dev/null || (echo "FIPS build failed: BoringCrypto not used" && rm cloudprober-fips && exit 1)
 
 test:
 	go test -v -race -covermode=atomic ./...
