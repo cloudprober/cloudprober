@@ -146,7 +146,7 @@ jobs:
 
 
   build-fips-binaries:
-    name: Build binaries
+    name: Build fips binaries
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
