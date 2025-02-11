@@ -44,7 +44,7 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
@@ -126,7 +126,7 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
@@ -171,7 +171,7 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
