@@ -39,6 +39,7 @@ endef
 cloudprober-fips: $(SOURCES)
 	$(GO_BUILD_FLAGS) CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -o cloudprober-fips -tags netgo,osusergo -ldflags "$(VAR_LD_FLAGS) -w -linkmode external -extldflags -static" $(BINARY_SOURCE)
 	go tool nm cloudprober-fips | grep crypto/internal/boring/sig.BoringCrypto.abi0 > /dev/null || (echo "FIPS build failed: BoringCrypto not used" && rm cloudprober-fips && exit 1)
+	strip cloudprober-fips
 
 test:
 	go test -v -race -covermode=atomic ./...
@@ -53,10 +54,9 @@ docker_multiarch: $(addprefix cloudprober-, $(LINUX_PLATFORMS)) Dockerfile
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		$(DOCKER_TAGS) .
 
-FIPS_ARCHS := "linux-amd64,linux-arm64"
-docker_multiarch_fips: Dockerfile.fips
+docker_multiarch_fips: cloudprober-fips-linux-amd64 cloudprober-fips-linux-arm64 Dockerfile.fips
 	docker buildx build --push $(DOCKER_BUILD_ARGS) \
-		--platform $(FIPS_ARCHS) \
+		--platform linux/amd64,linux/arm64 \
 		$(DOCKER_FIPS_TAGS) -f Dockerfile.fips .
 
 docker_multiarch_pw: Dockerfile.pw
