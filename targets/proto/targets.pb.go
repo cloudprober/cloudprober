@@ -295,12 +295,14 @@ type DNSOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// DNS server to use for DNS resolution, instead of system's default. Server
 	// can be specified in the following format: [network://]ip[:port]
-	// where network is one of udp, tcp, tcp4, tcp6, udp4, udp6.
+	// where network is one of udp, tcp, tcp4, tcp6, udp4, udp6, tls.
 	// Example:
 	//   - "1.1.1.1"           // Use default network and port (53)
 	//
 	// - "tcp://1.1.1.1"      // Use tcp network and default port (53)
 	// - "tcp://1.1.1.1:513   // Use tcp network and port 513
+	// - "tls://8.8.8.8"     // Use tls network and default dot port (853)
+	// - "tls://8.8.8.8:8443" // Use tls network and port 8443
 	Server *string `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
 	// DNS TTL (time to live). This controls how often backend DNS server will be
 	// queried.
