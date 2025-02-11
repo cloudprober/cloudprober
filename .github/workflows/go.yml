@@ -43,6 +43,14 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag }}
 
+      - name: Set up Go env vars on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "GOCACHE=D:\gocache" >> $env:GITHUB_ENV
+          echo "GOMODCACHE=D:\gomodcache" >> $env:GITHUB_ENV
+          echo "GOTMPDIR=D:\gotmp" >> $env:GITHUB_ENV
+          mkdir D:\gotmp
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
