@@ -248,10 +248,23 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Download cloudprober binary
+        if: ${{ matrix.image_type != 'fips' }}
         uses: actions/download-artifact@v4
         with:
           name: cloudprober-ubuntu-latest-dist
 
+      - name: Download fips cloudprober amd64 binary
+        if: ${{ matrix.image_type == 'fips' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudprober-fips-linux-amd64-dist
+
+      - name: Download fips cloudprober arm64 binary
+        if: ${{ matrix.image_type == 'fips' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudprober-fips-linux-arm64-dist
+  
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
