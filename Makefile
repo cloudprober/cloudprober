@@ -9,7 +9,8 @@ BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
 DOCKER_BUILD_ARGS ?= --build-arg BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") --build-arg VERSION=$(VERSION) --build-arg VCS_REF=$(GIT_COMMIT)
 SOURCES := $(shell find . -name '*.go')
-LDFLAGS ?= "-s -w -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) -X main.dirty=$(DIRTY) -extldflags -static"
+VAR_LD_FLAGS := -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) -X main.dirty=$(DIRTY)
+LDFLAGS ?= "$(VAR_LD_FLAGS) -s -w -extldflags -static"
 BINARY_SOURCE ?= "./cmd/cloudprober/."
 
 LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
@@ -32,6 +33,12 @@ $1: $(SOURCES)
 	GOARM=$(subst armv7,7,$(filter armv7,$(word 3,$(subst -, ,$1)))) ; \
 	CGO_ENABLED=0 GOOS=$$$${GOOS} GOARCH=$$$${GOARCH} GOARM=$$$${GOARM} go build -o $1 -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 endef
+
+# To cross-compile, for linux arm64 e.g., set GO_BUILD_FLAGS like this:
+# make cloudprober-fips GO_BUILD_FLAGS="GOARCH=arm64 CC_FOR_TARGET=gcc-aarch64-linux-gnu CC=aarch64-linux-gnu-gcc"
+cloudprober-fips: $(SOURCES)
+	$(GO_BUILD_FLAGS) CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -o cloudprober-fips -tags netgo,osusergo -ldflags "$(VAR_LD_FLAGS) -w -linkmode external -extldflags -static" $(BINARY_SOURCE)
+	go tool nm cloudprober-fips | grep crypto/internal/boring/sig.BoringCrypto.abi0 > /dev/null || (echo "FIPS build failed: BoringCrypto not used" && rm cloudprober-fips && exit 1)
 
 test:
 	go test -v -race -covermode=atomic ./...
