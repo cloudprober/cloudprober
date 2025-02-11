@@ -397,6 +397,16 @@ func TestParseOverrideAddress(t *testing.T) {
 			wantAddr:            "1.1.1.1:53",
 		},
 		{
+			dnsResolverOverride: "tls://1.1.1.1",
+			wantNetwork:         "tcp-tls",
+			wantAddr:            "1.1.1.1:853",
+		},
+		{
+			dnsResolverOverride: "tls://1.1.1.1:8443",
+			wantNetwork:         "tcp-tls",
+			wantAddr:            "1.1.1.1:8443",
+		},
+		{
 			dnsResolverOverride: "udp65://1.1.1.1",
 			wantErr:             true,
 		},
