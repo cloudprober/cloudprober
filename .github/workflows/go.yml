@@ -183,7 +183,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudprober-fips-${{ matrix.distname }}-dist
-          path: cloudprober-fips
+          path: cloudprober-*
         
   build-dist:
     name: Build cloudprober release
