@@ -39,6 +39,7 @@ endef
 cloudprober-fips: $(SOURCES)
 	$(GO_BUILD_FLAGS) CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -o cloudprober-fips -tags netgo,osusergo -ldflags "$(VAR_LD_FLAGS) -w -linkmode external -extldflags -static" $(BINARY_SOURCE)
 	go tool nm cloudprober-fips | grep crypto/internal/boring/sig.BoringCrypto.abi0 > /dev/null || (echo "FIPS build failed: BoringCrypto not used" && rm cloudprober-fips && exit 1)
+	strip cloudprober-fips
 
 test:
 	go test -v -race -covermode=atomic ./...
