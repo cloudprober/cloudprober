@@ -314,3 +314,48 @@ func TestProbeInitTemplates(t *testing.T) {
 		})
 	}
 }
+
+func TestPlaywrightGlobalTimeoutMsec(t *testing.T) {
+	tests := []struct {
+		name                 string
+		timeout              time.Duration
+		requestsPerProbe     int
+		requestsIntervalMsec int
+		want                 int
+	}{
+		{
+			name:    "single_request",
+			timeout: 10 * time.Second,
+			want:    9500,
+		},
+		{
+			name:                 "multiple_requests",
+			timeout:              20 * time.Second,
+			requestsPerProbe:     3,
+			requestsIntervalMsec: 1000,
+			want:                 17100, // (20s - (3-1)*1s) - 0.9s (buffer)
+		},
+		{
+			name:    "large_buffer",
+			timeout: 120 * time.Second,
+			want:    115000,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				opts: &options.Options{
+					Timeout: tt.timeout,
+				},
+				c: &configpb.ProbeConf{
+					RequestsPerProbe:     proto.Int32(int32(tt.requestsPerProbe)),
+					RequestsIntervalMsec: proto.Int32(int32(tt.requestsIntervalMsec)),
+				},
+			}
+			if got := p.playwrightGlobalTimeoutMsec(); got != tt.want {
+				t.Errorf("playwrightGlobalTimeoutMsec() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
