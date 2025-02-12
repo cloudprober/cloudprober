@@ -124,8 +124,8 @@ func (p *Probe) playwrightGlobalTimeoutMsec() int {
 
 	// Keep some buffer for playwright to finish up the test.
 	buffer := 0.1 * float64(timeout)
-	if buffer > 5000 {
-		buffer = 5000
+	if buffer > 2000 {
+		buffer = 2000
 	}
 	return int(timeout - int64(buffer))
 }

@@ -326,19 +326,19 @@ func TestPlaywrightGlobalTimeoutMsec(t *testing.T) {
 		{
 			name:    "single_request",
 			timeout: 10 * time.Second,
-			want:    9500,
+			want:    9000,
 		},
 		{
 			name:                 "multiple_requests",
 			timeout:              20 * time.Second,
 			requestsPerProbe:     3,
 			requestsIntervalMsec: 1000,
-			want:                 17100, // (20s - (3-1)*1s) - 0.9s (buffer)
+			want:                 16200, // (20s - (3-1)*1s) - 0.9s (buffer)
 		},
 		{
 			name:    "large_buffer",
 			timeout: 120 * time.Second,
-			want:    115000,
+			want:    118000,
 		},
 	}
 
