@@ -283,6 +283,7 @@ func TestProbeInitTemplates(t *testing.T) {
 			p := &Probe{
 				name:    "test_probe",
 				c:       tt.conf,
+				opts:    options.DefaultOptions(),
 				workdir: tmpDir,
 			}
 
@@ -310,6 +311,51 @@ func TestProbeInitTemplates(t *testing.T) {
 			}
 			for _, want := range tt.reporterNotContains {
 				assert.NotContains(t, string(got), want, "reporter file should not contain: %s", want)
+			}
+		})
+	}
+}
+
+func TestPlaywrightGlobalTimeoutMsec(t *testing.T) {
+	tests := []struct {
+		name                 string
+		timeout              time.Duration
+		requestsPerProbe     int
+		requestsIntervalMsec int
+		want                 int64
+	}{
+		{
+			name:    "single_request",
+			timeout: 10 * time.Second,
+			want:    9000,
+		},
+		{
+			name:                 "multiple_requests",
+			timeout:              20 * time.Second,
+			requestsPerProbe:     3,
+			requestsIntervalMsec: 1000,
+			want:                 16200, // (20s - (3-1)*1s) - 0.9s (buffer)
+		},
+		{
+			name:    "large_buffer",
+			timeout: 120 * time.Second,
+			want:    118000,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				opts: &options.Options{
+					Timeout: tt.timeout,
+				},
+				c: &configpb.ProbeConf{
+					RequestsPerProbe:     proto.Int32(int32(tt.requestsPerProbe)),
+					RequestsIntervalMsec: proto.Int32(int32(tt.requestsIntervalMsec)),
+				},
+			}
+			if got := p.playwrightGlobalTimeoutMsec(); got != tt.want {
+				t.Errorf("playwrightGlobalTimeoutMsec() = %v, want %v", got, tt.want)
 			}
 		})
 	}
