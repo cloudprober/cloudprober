@@ -322,7 +322,7 @@ func TestPlaywrightGlobalTimeoutMsec(t *testing.T) {
 		timeout              time.Duration
 		requestsPerProbe     int
 		requestsIntervalMsec int
-		want                 int
+		want                 int64
 	}{
 		{
 			name:    "single_request",

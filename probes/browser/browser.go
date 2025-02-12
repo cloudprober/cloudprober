@@ -117,7 +117,7 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	return []*metrics.EventMetrics{em}
 }
 
-func (p *Probe) playwrightGlobalTimeoutMsec() int {
+func (p *Probe) playwrightGlobalTimeoutMsec() int64 {
 	timeout := p.opts.Timeout.Milliseconds()
 	// For multiple requests per probe, last request's effective timeout will be less
 	timeout -= int64(p.c.GetRequestsIntervalMsec() * (p.c.GetRequestsPerProbe() - 1))
@@ -127,7 +127,7 @@ func (p *Probe) playwrightGlobalTimeoutMsec() int {
 	if buffer > 2000 {
 		buffer = 2000
 	}
-	return int(timeout - int64(buffer))
+	return timeout - int64(buffer)
 }
 
 func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) (string, error) {
@@ -152,7 +152,7 @@ func (p *Probe) initTemplates() error {
 	// Set up playwright config in workdir
 	data := struct {
 		TestDir            string
-		GlobalTimeoutMsec  int
+		GlobalTimeoutMsec  int64
 		Screenshot         string
 		Trace              string
 		EnableStepMetrics  bool
