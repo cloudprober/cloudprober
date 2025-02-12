@@ -283,6 +283,7 @@ func TestProbeInitTemplates(t *testing.T) {
 			p := &Probe{
 				name:    "test_probe",
 				c:       tt.conf,
+				opts:    options.DefaultOptions(),
 				workdir: tmpDir,
 			}
 
