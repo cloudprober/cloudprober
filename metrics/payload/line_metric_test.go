@@ -386,3 +386,61 @@ func BenchmarkMetricValueLabels(b *testing.B) {
 		}
 	}
 }
+
+func TestAcceptRejectRegex(t *testing.T) {
+	ts := time.Now()
+	tsString := fmt.Sprintf("%d", ts.Unix())
+	input := "op_total{probe=\"p1\"} 50\nop_success{probe=\"p1\"} 48"
+	tests := []struct {
+		desc     string
+		acceptRe string
+		rejectRe string
+		wantEM   []string
+	}{
+		{
+			desc:   "no regex",
+			wantEM: []string{"labels=probe=p1 op_total=50.000", "labels=probe=p1 op_success=48.000"},
+		},
+		{
+			desc:     "accept regex",
+			acceptRe: "op_total",
+			wantEM:   []string{"labels=probe=p1 op_total=50.000"},
+		},
+		{
+			desc:     "reject regex",
+			rejectRe: "op_total",
+			wantEM:   []string{"labels=probe=p1 op_success=48.000"},
+		},
+		{
+			desc:     "accept and reject regex",
+			acceptRe: "op_success",
+			rejectRe: "op_total",
+			wantEM:   []string{"labels=probe=p1 op_success=48.000"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			c := &configpb.OutputMetricsOptions{
+				LineAcceptRegex: proto.String(test.acceptRe),
+				LineRejectRegex: proto.String(test.rejectRe),
+			}
+			p, err := NewParser(c, nil)
+			if err != nil {
+				t.Error(err)
+			}
+
+			ems := p.PayloadMetrics(&Input{Text: []byte(input)}, testTarget)
+
+			got := make([]string, len(ems))
+			for i, em := range ems {
+				em.Timestamp = ts
+				got[i] = em.String()
+			}
+			for i := range test.wantEM {
+				test.wantEM[i] = tsString + " " + test.wantEM[i]
+			}
+			assert.Equal(t, test.wantEM, got)
+		})
+	}
+}
