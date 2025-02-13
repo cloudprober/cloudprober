@@ -17,6 +17,7 @@ package payload
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -45,7 +46,11 @@ type Parser struct {
 	aggregate         bool
 
 	jsonMetrics []*jsonMetric
-	l           *logger.Logger
+
+	lineAcceptRe *regexp.Regexp
+	lineRejectRe *regexp.Regexp
+
+	l *logger.Logger
 }
 
 type Input struct {
@@ -69,6 +74,22 @@ func NewParser(opts *configpb.OutputMetricsOptions, l *logger.Logger) (*Parser, 
 		distMetrics:       make(map[string]*metrics.Distribution),
 		aggregatedMetrics: make(map[string]*metrics.EventMetrics),
 		l:                 l,
+	}
+
+	if opts.GetLineAcceptRegex() != "" {
+		re, err := regexp.Compile(opts.GetLineAcceptRegex())
+		if err != nil {
+			return nil, fmt.Errorf("payload.NewParser: error compiling line accept regex: %v", err)
+		}
+		parser.lineAcceptRe = re
+	}
+
+	if opts.GetLineRejectRegex() != "" {
+		re, err := regexp.Compile(opts.GetLineRejectRegex())
+		if err != nil {
+			return nil, fmt.Errorf("payload.NewParser: error compiling line reject regex: %v", err)
+		}
+		parser.lineRejectRe = re
 	}
 
 	jsonMetricGroups, err := parseJSONMetricConfig(opts.GetJsonMetric())
