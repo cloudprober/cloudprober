@@ -411,6 +411,12 @@ func TestAcceptRejectRegex(t *testing.T) {
 			rejectRe: "op_total",
 			wantEM:   []string{"labels=probe=p1 op_success=48.000"},
 		},
+		{
+			desc:     "accept and reject regex",
+			acceptRe: "op_success",
+			rejectRe: "op_total",
+			wantEM:   []string{"labels=probe=p1 op_success=48.000"},
+		},
 	}
 
 	for _, test := range tests {
