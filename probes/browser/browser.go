@@ -235,7 +235,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.outputDir = filepath.Join(p.workdir, "output")
 
 	if !p.c.GetTestMetricsOptions().GetDisableTestMetrics() {
-		omo := &payload_configpb.OutputMetricsOptions{}
+		omo := &payload_configpb.OutputMetricsOptions{
+			// All our metrics start with "test_".
+			LineAcceptRegex: proto.String(`^test_.+`),
+		}
 		if !p.c.GetTestMetricsOptions().GetDisableAggregation() {
 			omo.MetricsKind = payload_configpb.OutputMetricsOptions_CUMULATIVE.Enum()
 			omo.AggregateInCloudprober = proto.Bool(true)

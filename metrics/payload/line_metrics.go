@@ -248,6 +248,12 @@ func (p *Parser) processLine(line, targetKey string) *metrics.EventMetrics {
 func (p *Parser) lineBasedMetrics(text []byte, targetKey string) []*metrics.EventMetrics {
 	var results []*metrics.EventMetrics
 	for _, line := range strings.Split(string(text), "\n") {
+		if p.lineAcceptRe != nil && !p.lineAcceptRe.MatchString(line) {
+			continue
+		}
+		if p.lineRejectRe != nil && p.lineRejectRe.MatchString(line) {
+			continue
+		}
 		line = strings.TrimSpace(line)
 		if len(line) == 0 {
 			continue
