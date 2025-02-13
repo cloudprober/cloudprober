@@ -503,8 +503,8 @@ func testMultipleTargetsMultipleRequests(t *testing.T, probeOpts *testProbeOpts)
 
 		em := ems[tgt]
 		assert.NotNil(t, em, "No metrics found for target: %s, ems: %v", tgt, ems)
-		assert.Equal(t, wantTotal, em.Metric("total").(metrics.NumValue).Int64(), "Unexpected 'total' for %s, EventMetrics: %v", tgt)
-		assert.Equal(t, wantSuccess, em.Metric("success").(metrics.NumValue).Int64(), "Unexpected 'success' for %s, EventMetrics: %v", tgt)
+		assert.Equal(t, wantTotal, em.Metric("total").(metrics.NumValue).Int64(), "Unexpected 'total' count for %s, EventMetrics: %v", tgt, em)
+		assert.Equal(t, wantSuccess, em.Metric("success").(metrics.NumValue).Int64(), "Unexpected 'success' count for %s, EventMetrics: %v", tgt, em)
 
 		if probeOpts.keepAlive && tgt == "test.com" {
 			connEvent := em.Metric("connect_event").(metrics.NumValue).Int64()
