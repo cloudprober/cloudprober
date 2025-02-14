@@ -23,11 +23,11 @@ import (
 	"net/http"
 
 	"github.com/cloudprober/cloudprober/config"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
 	"github.com/cloudprober/cloudprober/web/webutils"
@@ -118,7 +118,7 @@ var secretConfigRunningMsg = `
 
 // InitWithDataFuncs initializes cloudprober web interface handler.
 func InitWithDataFuncs(fn DataFuncs) error {
-	srvMux := runconfig.DefaultHTTPServeMux()
+	srvMux := state.DefaultHTTPServeMux()
 	for _, url := range []string{"/config", "/config-running", "/static/"} {
 		if webutils.IsHandled(srvMux, url) {
 			return fmt.Errorf("url %s is already handled", url)

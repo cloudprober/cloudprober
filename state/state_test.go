@@ -1,4 +1,4 @@
-package runconfig
+package state
 
 import (
 	"testing"
