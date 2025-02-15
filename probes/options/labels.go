@@ -82,6 +82,9 @@ func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint, ipAddr string, 
 	if probePort == 0 {
 		probePort = ep.Port
 	}
+	if ipAddr == "" && ep.IP != nil {
+		ipAddr = ep.IP.String()
+	}
 
 	parts := append([]string{}, al.valueParts...)
 	for i, tok := range al.tokens {
