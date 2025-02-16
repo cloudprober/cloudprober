@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/state"
 )
 
 type artifactsHandler struct {
@@ -104,7 +104,7 @@ func (p *Probe) initArtifactsHandler() error {
 	}
 
 	if p.c.GetArtifactsOptions().GetServeOnWeb() {
-		httpServerMux := runconfig.DefaultHTTPServeMux()
+		httpServerMux := state.DefaultHTTPServeMux()
 		if httpServerMux == nil {
 			return fmt.Errorf("default http server mux is not initialized")
 		}

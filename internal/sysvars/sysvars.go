@@ -27,9 +27,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 )
 
 var (
@@ -153,7 +153,7 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 	l = ll
 	startTime = time.Now()
 	sysVars = map[string]string{
-		"version": runconfig.Version(),
+		"version": state.Version(),
 	}
 
 	hostname, err := os.Hostname()
