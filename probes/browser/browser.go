@@ -29,7 +29,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -39,6 +38,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
 )
@@ -146,7 +146,7 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 func (p *Probe) initTemplates() error {
 	testDir := p.c.GetTestDir()
 	if p.c.TestDir == nil {
-		testDir = filepath.Dir(runconfig.ConfigFilePath())
+		testDir = filepath.Dir(state.ConfigFilePath())
 	}
 
 	// Set up playwright config in workdir

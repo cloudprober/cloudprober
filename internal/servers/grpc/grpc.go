@@ -27,13 +27,13 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	configpb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	pb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/probeutils"
+	"github.com/cloudprober/cloudprober/state"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -109,7 +109,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		return srv, nil
 	}
 
-	defGRPCSrv := runconfig.DefaultGRPCServer()
+	defGRPCSrv := state.DefaultGRPCServer()
 	if defGRPCSrv == nil {
 		return nil, errors.New("initialization of gRPC server failed as default gRPC server is not configured")
 	}

@@ -20,9 +20,9 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/state"
 )
 
 var defaultConfigFile = "/etc/cloudprober.cfg"
@@ -100,9 +100,9 @@ func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
 		}
 	}
 
-	// Set the config file path in runconfig. This can be used to find files
+	// Set the config file path in state. This can be used to find files
 	// relative to the config file.
-	runconfig.SetConfigFilePath(dcs.fileName)
+	state.SetConfigFilePath(dcs.fileName)
 
 	tmplVars := make(map[string]any)
 	for k, v := range dcs.baseVars {

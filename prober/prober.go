@@ -34,7 +34,6 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
@@ -44,6 +43,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -131,7 +131,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	pr.l = l
 
 	// Initialize cloudprober gRPC service if configured.
-	srv := runconfig.DefaultGRPCServer()
+	srv := state.DefaultGRPCServer()
 	if srv != nil {
 		pr.grpcStartProbeCh = make(chan string)
 		spb.RegisterCloudproberServer(srv, pr)
@@ -146,7 +146,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 			return err
 		}
 
-		runconfig.SetLocalRDSServer(rdsServer)
+		state.SetLocalRDSServer(rdsServer)
 		if srv != nil {
 			rdsServer.RegisterWithGRPC(srv)
 		}
@@ -237,7 +237,7 @@ func (pr *Prober) Start(ctx context.Context) {
 	} else {
 		pr.startProbesWithJitter(ctx)
 	}
-	if runconfig.DefaultGRPCServer() != nil {
+	if state.DefaultGRPCServer() != nil {
 		// Start a goroutine to handle starting of the probes added through gRPC.
 		// AddProbe adds new probes to the pr.grpcStartProbeCh channel and this
 		// goroutine reads from that channel and starts the probe using the overall

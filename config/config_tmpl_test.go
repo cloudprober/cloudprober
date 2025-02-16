@@ -21,7 +21,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -172,9 +172,9 @@ func TestParseTemplateConfigDir(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping test on windows")
 	}
-	configFilePath := runconfig.ConfigFilePath()
-	defer runconfig.SetConfigFilePath(configFilePath)
-	runconfig.SetConfigFilePath("/cfg/cloudprober.cfg")
+	configFilePath := state.ConfigFilePath()
+	defer state.SetConfigFilePath(configFilePath)
+	state.SetConfigFilePath("/cfg/cloudprober.cfg")
 
 	testConfig := `
 probe {
