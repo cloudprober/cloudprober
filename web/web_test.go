@@ -21,9 +21,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/stretchr/testify/assert"
 )
@@ -69,10 +69,10 @@ func TestInitWithDataFuncs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldSrvMux := runconfig.DefaultHTTPServeMux()
-			defer runconfig.SetDefaultHTTPServeMux(oldSrvMux)
+			oldSrvMux := state.DefaultHTTPServeMux()
+			defer state.SetDefaultHTTPServeMux(oldSrvMux)
 			srvMux := http.NewServeMux()
-			runconfig.SetDefaultHTTPServeMux(srvMux)
+			state.SetDefaultHTTPServeMux(srvMux)
 
 			httpSrv := httptest.NewServer(srvMux)
 			defer httpSrv.Close()

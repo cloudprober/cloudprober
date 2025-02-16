@@ -20,8 +20,8 @@ import (
 	"html/template"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
+	"github.com/cloudprober/cloudprober/state"
 )
 
 var t = template.Must(template.New("header").Parse(`
@@ -46,8 +46,8 @@ func Header() template.HTML {
 	if err := t.Execute(&buf, struct {
 		Version, BuiltAt, StartTime, Uptime, RightDiv interface{}
 	}{
-		Version:   runconfig.Version(),
-		BuiltAt:   runconfig.BuildTimestamp(),
+		Version:   state.Version(),
+		BuiltAt:   state.BuildTimestamp(),
 		StartTime: startTime,
 		Uptime:    uptime,
 	}); err != nil {

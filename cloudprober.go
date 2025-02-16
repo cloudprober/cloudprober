@@ -36,13 +36,13 @@ import (
 
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web"
 	"google.golang.org/grpc"
@@ -192,7 +192,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	}
 	srvMux := http.NewServeMux()
 	setDebugHandlers(srvMux)
-	runconfig.SetDefaultHTTPServeMux(srvMux)
+	state.SetDefaultHTTPServeMux(srvMux)
 
 	var grpcLn net.Listener
 	if cfg.GetGrpcPort() != 0 {
@@ -220,7 +220,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
-		runconfig.SetDefaultGRPCServer(s)
+		state.SetDefaultGRPCServer(s)
 	}
 
 	pr := &prober.Prober{}
@@ -254,9 +254,9 @@ func Start(ctx context.Context) {
 	defer cloudProber.Unlock()
 
 	// Default servers
-	srvMux := runconfig.DefaultHTTPServeMux()
+	srvMux := state.DefaultHTTPServeMux()
 	httpSrv := &http.Server{Handler: srvMux}
-	grpcSrv := runconfig.DefaultGRPCServer()
+	grpcSrv := state.DefaultGRPCServer()
 
 	// Set up a goroutine to cleanup if context ends.
 	go func() {
