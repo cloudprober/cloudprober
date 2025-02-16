@@ -31,11 +31,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/file"
 	"github.com/cloudprober/cloudprober/targets/gce"
@@ -280,7 +280,7 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 	// If rds_server_address is not given in both, local options and in global
 	// options, look for the locally running RDS server.
 	if serverOpts == nil {
-		localRDSServer := runconfig.LocalRDSServer()
+		localRDSServer := state.LocalRDSServer()
 		if localRDSServer == nil {
 			return nil, nil, fmt.Errorf("rds_server_address not given and found no local RDS server")
 		}

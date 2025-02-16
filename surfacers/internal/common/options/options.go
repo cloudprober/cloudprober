@@ -23,9 +23,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
 
@@ -179,12 +179,12 @@ func buildOptions(sdef *surfacerpb.SurfacerDef, ignoreInit bool, l *logger.Logge
 	opts := &Options{
 		Config:            sdef,
 		Logger:            l,
-		HTTPServeMux:      runconfig.DefaultHTTPServeMux(),
+		HTTPServeMux:      state.DefaultHTTPServeMux(),
 		MetricsBufferSize: int(sdef.GetMetricsBufferSize()),
 		AddFailureMetric:  sdef.GetAddFailureMetric(),
 	}
 
-	serveMux := runconfig.DefaultHTTPServeMux()
+	serveMux := state.DefaultHTTPServeMux()
 	if serveMux == nil && !ignoreInit {
 		return nil, errors.New("default ServeMux is not configured, called before cloudprober initialization")
 	}

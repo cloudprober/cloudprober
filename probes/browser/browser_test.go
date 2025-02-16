@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -192,9 +192,9 @@ func TestProbeInitTemplates(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	oldConfigFilePath := runconfig.ConfigFilePath()
-	defer runconfig.SetConfigFilePath(oldConfigFilePath)
-	runconfig.SetConfigFilePath("/cfg/cloudprober.cfg")
+	oldConfigFilePath := state.ConfigFilePath()
+	defer state.SetConfigFilePath(oldConfigFilePath)
+	state.SetConfigFilePath("/cfg/cloudprober.cfg")
 
 	defaultConfigContains := []string{
 		"testDir: \"/cfg\"",

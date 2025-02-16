@@ -26,7 +26,6 @@ import (
 	"sync"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	"github.com/cloudprober/cloudprober/internal/rds/gcp"
@@ -34,6 +33,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/rds/server"
 	serverconfigpb "github.com/cloudprober/cloudprober/internal/rds/server/proto"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
@@ -244,7 +244,7 @@ func newLister(globalOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*l
 
 	// If no RDS server options are configured, look for a local one.
 	if li.rdsServerOpts == nil {
-		localRDSServer := runconfig.LocalRDSServer()
+		localRDSServer := state.LocalRDSServer()
 		if localRDSServer == nil {
 			li.l.Infof("rds_server_address not given and found no local RDS server, creating a new one.")
 

@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 	configpb "github.com/cloudprober/cloudprober/surfacers/proto"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 	"github.com/stretchr/testify/assert"
@@ -213,9 +213,9 @@ func TestAllowMetric(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	runconfig.SetDefaultHTTPServeMux(http.NewServeMux())
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
 	code := m.Run()
-	runconfig.SetDefaultHTTPServeMux(nil)
+	state.SetDefaultHTTPServeMux(nil)
 	os.Exit(code)
 }
 
@@ -275,7 +275,7 @@ func TestBuildOptions(t *testing.T) {
 				tt.want.MetricsBufferSize = 10000
 			}
 			if tt.want.HTTPServeMux == nil {
-				tt.want.HTTPServeMux = runconfig.DefaultHTTPServeMux()
+				tt.want.HTTPServeMux = state.DefaultHTTPServeMux()
 			}
 
 			if tt.want.latencyMetricRe == nil {
