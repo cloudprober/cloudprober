@@ -104,18 +104,15 @@ func (p *Probe) initArtifactsHandler() error {
 	}
 
 	if p.c.GetArtifactsOptions().GetServeOnWeb() {
-		httpServerMux := state.DefaultHTTPServeMux()
-		if httpServerMux == nil {
-			return fmt.Errorf("default http server mux is not initialized")
-		}
-
 		webRoot, err := p.webServerRoot(localStorageDirs)
 		if err != nil {
 			return err
 		}
 		fileServer := http.FileServer(http.Dir(webRoot))
 		pathPrefix := p.pathPrefix()
-		httpServerMux.Handle(pathPrefix+"/", http.StripPrefix(pathPrefix, fileServer))
+		if err := state.AddWebHandler(pathPrefix+"/", http.StripPrefix(pathPrefix, fileServer).ServeHTTP); err != nil {
+			return fmt.Errorf("error adding web handler for artifacts web server: %v", err)
+		}
 	}
 
 	p.artifactsHandler = ah
