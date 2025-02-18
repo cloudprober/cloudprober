@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/internal/alerting"
@@ -30,7 +32,6 @@ import (
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
-	"github.com/cloudprober/cloudprober/web/webutils"
 )
 
 //go:embed static/*
@@ -59,6 +60,17 @@ var runningConfigTmpl = template.Must(template.New("runningConfig").Parse(`
 
 <h3>Servers:</h3>
 {{.ServersStatus}}
+`))
+
+var allLinksTmpl = template.Must(template.New("allLinks").Parse(`
+<html>
+<h3>Links:</h3>
+<ul>
+  {{ range .}}
+  <li><a href="{{.}}">{{.}}</a></li>
+  {{ end }}
+</ul>
+</html>
 `))
 
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
@@ -99,6 +111,19 @@ func alertsState() string {
 	return fmt.Sprintf(htmlTmpl, resources.Header(), status)
 }
 
+func allLinksPage() string {
+	links := state.AllLinks()
+	var out []string
+	for _, link := range links {
+		if strings.Contains(link, "/static/") {
+			continue
+		}
+		out = append(out, link)
+	}
+	sort.Strings(out)
+	return fmt.Sprintf(htmlTmpl, resources.Header(), execTmpl(allLinksTmpl, out))
+}
+
 type DataFuncs struct {
 	GetRawConfig    func() string
 	GetParsedConfig func() string
@@ -118,22 +143,19 @@ var secretConfigRunningMsg = `
 
 // InitWithDataFuncs initializes cloudprober web interface handler.
 func InitWithDataFuncs(fn DataFuncs) error {
-	srvMux := state.DefaultHTTPServeMux()
-	for _, url := range []string{"/config", "/config-running", "/static/"} {
-		if webutils.IsHandled(srvMux, url) {
-			return fmt.Errorf("url %s is already handled", url)
-		}
+	if err := state.AddWebHandler("/config", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, fn.GetRawConfig())
+	}); err != nil {
+		return err
 	}
 
-	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, fn.GetRawConfig())
-	})
-
-	srvMux.HandleFunc("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, fn.GetParsedConfig())
-	})
+	}); err != nil {
+		return err
+	}
 
-	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler("/config-running", func(w http.ResponseWriter, r *http.Request) {
 		parsedConfig := fn.GetParsedConfig()
 		var configRunning string
 		if !config.EnvRegex.MatchString(parsedConfig) {
@@ -143,11 +165,21 @@ func InitWithDataFuncs(fn DataFuncs) error {
 		}
 
 		fmt.Fprint(w, configRunning)
-	})
+	}); err != nil {
+		return err
+	}
 
-	srvMux.HandleFunc("/alerts", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler("/alerts", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, alertsState())
-	})
-	srvMux.Handle("/static/", http.FileServer(http.FS(content)))
-	return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := state.AddWebHandler("/links", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, allLinksPage())
+	}); err != nil {
+		return err
+	}
+
+	return state.AddWebHandler("/static/", http.FileServer(http.FS(content)).ServeHTTP)
 }
