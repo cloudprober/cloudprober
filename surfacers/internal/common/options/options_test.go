@@ -274,9 +274,6 @@ func TestBuildOptions(t *testing.T) {
 			if tt.want.MetricsBufferSize == 0 {
 				tt.want.MetricsBufferSize = 10000
 			}
-			if tt.want.HTTPServeMux == nil {
-				tt.want.HTTPServeMux = state.DefaultHTTPServeMux()
-			}
 
 			if tt.want.latencyMetricRe == nil {
 				tt.want.latencyMetricRe = regexp.MustCompile("^(.+_|)latency$")

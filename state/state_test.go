@@ -1,7 +1,20 @@
+// Copyright 2018-2025 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package state
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
@@ -19,18 +32,6 @@ func TestDefaultGRPCServer(t *testing.T) {
 	}
 	SetDefaultGRPCServer(testSrv)
 	assert.Equal(t, testSrv, DefaultGRPCServer(), "gRPC server")
-}
-
-func TestHTTPServeMux(t *testing.T) {
-	if mux := DefaultHTTPServeMux(); mux != nil {
-		t.Fatalf("State has http serve mux unexpectedly set. Got %v Want nil", mux)
-	}
-	testMux := http.NewServeMux()
-	if testMux == nil {
-		t.Fatal("Unable to create a test http serve mux")
-	}
-	SetDefaultHTTPServeMux(testMux)
-	assert.Equal(t, testMux, DefaultHTTPServeMux(), "http serve mux")
 }
 
 func TestConfigFilePath(t *testing.T) {

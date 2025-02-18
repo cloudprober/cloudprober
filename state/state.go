@@ -1,4 +1,4 @@
-// Copyright 2018 The Cloudprober Authors.
+// Copyright 2018-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ type state struct {
 	rdsServer      *rdsserver.Server
 	httpServeMux   *http.ServeMux
 	configFilePath string
+	webURLs        []string
 }
 
 var st state
@@ -100,21 +101,6 @@ func LocalRDSServer() *rdsserver.Server {
 	st.RLock()
 	defer st.RUnlock()
 	return st.rdsServer
-}
-
-// SetDefaultHTTPServeMux stores the default HTTP ServeMux in state. This
-// allows other modules to add their own handlers to the common ServeMux.
-func SetDefaultHTTPServeMux(mux *http.ServeMux) {
-	st.Lock()
-	defer st.Unlock()
-	st.httpServeMux = mux
-}
-
-// DefaultHTTPServeMux returns the default HTTP ServeMux.
-func DefaultHTTPServeMux() *http.ServeMux {
-	st.RLock()
-	defer st.RUnlock()
-	return st.httpServeMux
 }
 
 func SetConfigFilePath(configFilePath string) {

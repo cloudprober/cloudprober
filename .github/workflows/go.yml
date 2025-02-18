@@ -89,9 +89,8 @@ jobs:
           matrix.os == 'ubuntu-latest' &&
           github.repository == 'cloudprober/cloudprober' &&
           (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Privileged ping tests.

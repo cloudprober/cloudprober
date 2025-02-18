@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto"
 	"github.com/stretchr/testify/assert"
@@ -91,7 +92,7 @@ func testPromSurfacer(baseConf *configpb.SurfacerConf) (*PromSurfacer, error) {
 	// tests can run in parallel without handlers clashing with
 	// each other.
 	c.MetricsUrl = proto.String(fmt.Sprintf("/metrics_%d", rand.Int()))
-	return New(context.Background(), c, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
+	return New(context.Background(), c, &options.Options{}, nil)
 }
 
 func testPromSurfacerNoErr(t *testing.T, baseConf *configpb.SurfacerConf) *PromSurfacer {
@@ -370,4 +371,11 @@ func TestMetricsPrefix(t *testing.T) {
 		"cloudprober_resp_code{ptype=\"http\",probe=\"vm-to-google\",code=\"200\"}": {"cloudprober_resp_code", "22"},
 	}
 	verify(t, ps, expectedMetrics)
+}
+
+func TestMain(m *testing.M) {
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
+	defer state.SetDefaultHTTPServeMux(nil)
+
+	m.Run()
 }

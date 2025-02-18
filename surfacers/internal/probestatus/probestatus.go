@@ -33,10 +33,10 @@ import (
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto"
 	"github.com/cloudprober/cloudprober/web/resources"
-	"github.com/cloudprober/cloudprober/web/webutils"
 )
 
 //go:embed static/*
@@ -128,10 +128,6 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		return nil, nil
 	}
 
-	if webutils.IsHandled(opts.HTTPServeMux, config.GetUrl()) {
-		return nil, fmt.Errorf("probestatus surfacer URL (%s) is already registered", config.GetUrl())
-	}
-
 	res := time.Duration(config.GetResolutionSec()) * time.Second
 	if res == 0 {
 		res = time.Minute
@@ -171,7 +167,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
-	opts.HTTPServeMux.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
+	state.AddWebHandler(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
 		doneChan := make(chan struct{}, 1)
@@ -179,23 +175,29 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		<-doneChan
 	})
 
-	if !webutils.IsHandled(opts.HTTPServeMux, "/probestatus") {
-		opts.HTTPServeMux.Handle("/probestatus", http.RedirectHandler(config.GetUrl(), http.StatusFound))
+	// Make sure older path /probestatus is redirected to the new path.
+	if !state.IsHandled("/probestatus") {
+		state.AddWebHandler("/probestatus", http.RedirectHandler(config.GetUrl(), http.StatusFound).ServeHTTP)
 	}
 
-	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
+	if err := state.AddWebHandler(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))).ServeHTTP); err != nil {
+		return nil, fmt.Errorf("error adding static file handler: %v", err)
+	}
 
-	if !webutils.IsHandled(opts.HTTPServeMux, "/") {
-		opts.HTTPServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	if !state.IsHandled("/") {
+		err := state.AddWebHandler("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/" {
 				http.NotFound(w, r)
 				return
 			}
-			http.Redirect(w, r, "/probestatus", http.StatusFound)
+			http.Redirect(w, r, config.GetUrl(), http.StatusFound)
 		})
+		if err != nil {
+			return nil, fmt.Errorf("error adding / handler: %v", err)
+		}
 	}
 
-	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
+	l.Infof("Initialized status surfacer at the URL: %s", config.GetUrl())
 	return ps, nil
 }
 
