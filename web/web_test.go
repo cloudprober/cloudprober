@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package web provides web interface for cloudprober.
 package web
 
 import (
+	"bytes"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,7 @@ func TestInitWithDataFuncs(t *testing.T) {
 	tests := []struct {
 		name              string
 		dataFuncs         DataFuncs
+		withSecret        bool
 		wantResp          map[string]string
 		wantConfigRunning string
 		wantErr           bool
@@ -60,6 +62,7 @@ func TestInitWithDataFuncs(t *testing.T) {
 				GetParsedConfig: func() string { return "parsed-config **$password**" },
 				GetInfo:         getInfo,
 			},
+			withSecret: true,
 			wantResp: map[string]string{
 				"/config":        "raw-config",
 				"/config-parsed": "parsed-config **$password**",
@@ -82,10 +85,16 @@ func TestInitWithDataFuncs(t *testing.T) {
 			}
 
 			client := httpSrv.Client()
-			if tt.wantConfigRunning == "" {
-				tt.wantConfigRunning = runningConfig(tt.dataFuncs)
+
+			// Figure out config-running response
+			var buf bytes.Buffer
+			if !tt.withSecret {
+				runningConfig(&buf, tt.dataFuncs)
+			} else {
+				writeWithHeader(&buf, template.HTML(secretConfigRunningMsg))
 			}
-			tt.wantResp["/config-running"] = tt.wantConfigRunning
+			tt.wantResp["/config-running"] = buf.String()
+
 			for path, wantResp := range tt.wantResp {
 				resp, err := client.Get(httpSrv.URL + path)
 				if err != nil {
@@ -109,4 +118,64 @@ func TestInitWithDataFuncs(t *testing.T) {
 
 func TestInit(t *testing.T) {
 	assert.Nil(t, Init(), "Init() should return nil")
+}
+
+func TestAllLinksPageLinks(t *testing.T) {
+	tests := []struct {
+		name  string
+		links []string
+		want  []string
+	}{
+		{
+			name:  "no static links",
+			links: []string{"/link1", "/link2", "/link3"},
+			want:  []string{"/link1", "/link2", "/link3"},
+		},
+		{
+			name:  "mixed links",
+			links: []string{"/link1", "/static/link2", "/link3", "/static/link4", "/link5"},
+			want:  []string{"/link1", "/link3", "/link5"},
+		},
+		{
+			name:  "only static links",
+			links: []string{"/static/link1", "/static/link2"},
+			want:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, allLinksPageLinks(tt.links))
+		})
+	}
+}
+
+func TestArtifactsLinks(t *testing.T) {
+	tests := []struct {
+		name  string
+		links []string
+		want  []string
+	}{
+		{
+			name:  "no artifact links",
+			links: []string{"/link1", "/link2", "/link3"},
+			want:  nil,
+		},
+		{
+			name:  "mixed links",
+			links: []string{"/link1", "/artifacts/link2", "/link3", "/artifacts/link4", "/link5"},
+			want:  []string{"/artifacts/link2", "/artifacts/link4"},
+		},
+		{
+			name:  "only artifact links",
+			links: []string{"/artifacts/link1", "/artifacts/link2"},
+			want:  []string{"/artifacts/link1", "/artifacts/link2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, artifactsLinks(tt.links))
+		})
+	}
 }
