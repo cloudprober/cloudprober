@@ -197,10 +197,13 @@ func InitWithDataFuncs(fn DataFuncs) error {
 		return err
 	}
 
-	if err := state.AddWebHandler("/artifacts", func(w http.ResponseWriter, r *http.Request) {
-		writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: artifactsLinks(state.AllLinks())}))
-	}); err != nil {
-		return err
+	artifactsL := artifactsLinks(state.AllLinks())
+	if len(artifactsL) > 0 {
+		if err := state.AddWebHandler("/artifacts", func(w http.ResponseWriter, r *http.Request) {
+			writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: artifactsLinks(state.AllLinks())}))
+		}); err != nil {
+			return err
+		}
 	}
 
 	return state.AddWebHandler("/static/", http.FileServer(http.FS(content)).ServeHTTP)
