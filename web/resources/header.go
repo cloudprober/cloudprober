@@ -26,6 +26,10 @@ import (
 	"github.com/cloudprober/cloudprober/state"
 )
 
+type headerTmplData struct {
+	Version, BuiltAt, StartTime, Uptime, IncludeMetricsLink, IncludeArtifactsLink, RightDiv interface{}
+}
+
 var t = template.Must(template.New("header").Parse(`
 <header>
   <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
@@ -38,15 +42,13 @@ var t = template.Must(template.New("header").Parse(`
   <b>Other Links </b>(<a href="/links">all</a>):
   	<a href="/status">/status</a>,
 	<a href="/config-running">/config</a> (<a href="/config-parsed">parsed</a> | <a href="/config">raw</a>),
-   {{if .IncludeMetricsLink}} <a href="/metrics">/metrics</a>,{{ end }}
-   {{if .IncludeArtifactsLink}} <a href="/artifacts">/artifacts</a>,{{ end }}
-   <a href="/alerts">/alerts</a>
+	{{if .IncludeMetricsLink -}} <a href="/metrics">/metrics</a>,{{ end }}
+	{{if .IncludeArtifactsLink -}} <a href="/artifacts">/artifacts</a>,{{ end }}
+	<a href="/alerts">/alerts</a>
 </div>
 `))
 
-func Header() template.HTML {
-	var buf bytes.Buffer
-
+func headerData() headerTmplData {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
@@ -62,18 +64,20 @@ func Header() template.HTML {
 		}
 	}
 
-	if err := t.Execute(&buf, struct {
-		Version, BuiltAt, StartTime, Uptime, IncludeMetricsLink, IncludeArtifactsLink, RightDiv interface{}
-	}{
+	return headerTmplData{
 		Version:              state.Version(),
 		BuiltAt:              state.BuildTimestamp(),
 		StartTime:            startTime,
 		Uptime:               uptime,
 		IncludeMetricsLink:   includeMetrics,
 		IncludeArtifactsLink: includeArtifacts,
-	}); err != nil {
+	}
+}
+
+func Header() template.HTML {
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, headerData()); err != nil {
 		panic(fmt.Sprintf("Error rendering header: %v", err))
 	}
-
 	return template.HTML(buf.String())
 }
