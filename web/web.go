@@ -20,6 +20,7 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -78,6 +79,10 @@ var allLinksTmpl = template.Must(template.New("allLinks").Parse(`
 </html>
 `))
 
+func writeWithHeader(w io.Writer, body template.HTML) {
+	fmt.Fprint(w, fmt.Sprintf(htmlTmpl, resources.Header(), body))
+}
+
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 	var statusBuf bytes.Buffer
 	err := tmpl.Execute(&statusBuf, v)
@@ -88,7 +93,7 @@ func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 }
 
 // runningConfig returns cloudprober's running config.
-func runningConfig(fn DataFuncs) string {
+func runningConfig(w io.Writer, fn DataFuncs) {
 	var statusBuf bytes.Buffer
 
 	probeInfo, surfacerInfo, serverInfo := fn.GetInfo()
@@ -102,22 +107,14 @@ func runningConfig(fn DataFuncs) string {
 	})
 
 	if err != nil {
-		return fmt.Sprintf(htmlTmpl, err.Error())
+		writeWithHeader(w, template.HTML(err.Error()))
+		return
 	}
 
-	return fmt.Sprintf(htmlTmpl, resources.Header(), statusBuf.String())
+	writeWithHeader(w, template.HTML(statusBuf.String()))
 }
 
-func alertsState() string {
-	status, err := alerting.StatusHTML()
-	if err != nil {
-		return fmt.Sprintf(htmlTmpl, err.Error())
-	}
-	return fmt.Sprintf(htmlTmpl, resources.Header(), status)
-}
-
-func allLinksPage() string {
-	links := state.AllLinks()
+func allLinksPageLinks(links []string) []string {
 	var out []string
 	for _, link := range links {
 		if strings.Contains(link, "/static/") {
@@ -126,11 +123,10 @@ func allLinksPage() string {
 		out = append(out, link)
 	}
 	sort.Strings(out)
-	return fmt.Sprintf(htmlTmpl, resources.Header(), execTmpl(allLinksTmpl, linksData{Title: "All Links", Links: out}))
+	return out
 }
 
-func allArtifactsPage() string {
-	links := state.AllLinks()
+func artifactsLinks(links []string) []string {
 	var out []string
 	for _, link := range links {
 		if strings.Contains(link, "/artifacts/") {
@@ -138,7 +134,7 @@ func allArtifactsPage() string {
 		}
 	}
 	sort.Strings(out)
-	return fmt.Sprintf(htmlTmpl, resources.Header(), execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: out}))
+	return out
 }
 
 type DataFuncs struct {
@@ -174,32 +170,35 @@ func InitWithDataFuncs(fn DataFuncs) error {
 
 	if err := state.AddWebHandler("/config-running", func(w http.ResponseWriter, r *http.Request) {
 		parsedConfig := fn.GetParsedConfig()
-		var configRunning string
 		if !config.EnvRegex.MatchString(parsedConfig) {
-			configRunning = runningConfig(fn)
+			runningConfig(w, fn)
+			return
 		} else {
-			configRunning = secretConfigRunningMsg
+			writeWithHeader(w, template.HTML(secretConfigRunningMsg))
 		}
-
-		fmt.Fprint(w, configRunning)
 	}); err != nil {
 		return err
 	}
 
 	if err := state.AddWebHandler("/alerts", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, alertsState())
+		status, err := alerting.StatusHTML()
+		if err != nil {
+			writeWithHeader(w, template.HTML(err.Error()))
+		} else {
+			writeWithHeader(w, template.HTML(status))
+		}
 	}); err != nil {
 		return err
 	}
 
 	if err := state.AddWebHandler("/links", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, allLinksPage())
+		writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "All Links", Links: allLinksPageLinks(state.AllLinks())}))
 	}); err != nil {
 		return err
 	}
 
 	if err := state.AddWebHandler("/artifacts", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, allArtifactsPage())
+		writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: artifactsLinks(state.AllLinks())}))
 	}); err != nil {
 		return err
 	}
