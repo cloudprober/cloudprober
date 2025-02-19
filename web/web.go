@@ -62,11 +62,16 @@ var runningConfigTmpl = template.Must(template.New("runningConfig").Parse(`
 {{.ServersStatus}}
 `))
 
+type linksData struct {
+	Title string
+	Links []string
+}
+
 var allLinksTmpl = template.Must(template.New("allLinks").Parse(`
 <html>
-<h3>Links:</h3>
+<h3>{{.Title}}:</h3>
 <ul>
-  {{ range .}}
+  {{ range .Links}}
   <li><a href="{{.}}">{{.}}</a></li>
   {{ end }}
 </ul>
@@ -121,7 +126,19 @@ func allLinksPage() string {
 		out = append(out, link)
 	}
 	sort.Strings(out)
-	return fmt.Sprintf(htmlTmpl, resources.Header(), execTmpl(allLinksTmpl, out))
+	return fmt.Sprintf(htmlTmpl, resources.Header(), execTmpl(allLinksTmpl, linksData{Title: "All Links", Links: out}))
+}
+
+func allArtifactsPage() string {
+	links := state.AllLinks()
+	var out []string
+	for _, link := range links {
+		if strings.Contains(link, "/artifacts/") {
+			out = append(out, link)
+		}
+	}
+	sort.Strings(out)
+	return fmt.Sprintf(htmlTmpl, resources.Header(), execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: out}))
 }
 
 type DataFuncs struct {
@@ -177,6 +194,12 @@ func InitWithDataFuncs(fn DataFuncs) error {
 
 	if err := state.AddWebHandler("/links", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, allLinksPage())
+	}); err != nil {
+		return err
+	}
+
+	if err := state.AddWebHandler("/artifacts", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, allArtifactsPage())
 	}); err != nil {
 		return err
 	}

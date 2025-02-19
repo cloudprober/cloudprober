@@ -17,7 +17,9 @@ package resources
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
+	"strings"
 	"time"
 
 	"github.com/cloudprober/cloudprober/internal/sysvars"
@@ -33,7 +35,12 @@ var t = template.Must(template.New("header").Parse(`
   <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
   <b>Version</b>: {{.Version}}<br>
   <b>Built at</b>: {{.BuiltAt}}<br>
-  <b>Other Links</b> (<a href="/links">all</a>): <a href="/status">/status</a>, <a href="/config-running">/config</a> (<a href="/config-parsed">parsed</a> | <a href="/config">raw</a>), <a href="/alerts">/alerts</a>, <a href="/health">/health</a><br>
+  <b>Other Links </b>(<a href="/links">all</a>):
+  	<a href="/status">/status</a>,
+	<a href="/config-running">/config</a> (<a href="/config-parsed">parsed</a> | <a href="/config">raw</a>),
+   {{if .IncludeMetricsLink}} <a href="/metrics">/metrics</a>,{{ end }}
+   {{if .IncludeArtifactsLink}} <a href="/artifacts">/artifacts</a>,{{ end }}
+   <a href="/alerts">/alerts</a>
 </div>
 `))
 
@@ -43,15 +50,29 @@ func Header() template.HTML {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
+	includeMetrics := false
+	includeArtifacts := false
+	allLinks := state.AllLinks()
+	for _, link := range allLinks {
+		if strings.Contains(link, "/artifacts") {
+			includeArtifacts = true
+		}
+		if link == "/metrics" {
+			includeMetrics = true
+		}
+	}
+
 	if err := t.Execute(&buf, struct {
-		Version, BuiltAt, StartTime, Uptime, RightDiv interface{}
+		Version, BuiltAt, StartTime, Uptime, IncludeMetricsLink, IncludeArtifactsLink, RightDiv interface{}
 	}{
-		Version:   state.Version(),
-		BuiltAt:   state.BuildTimestamp(),
-		StartTime: startTime,
-		Uptime:    uptime,
+		Version:              state.Version(),
+		BuiltAt:              state.BuildTimestamp(),
+		StartTime:            startTime,
+		Uptime:               uptime,
+		IncludeMetricsLink:   includeMetrics,
+		IncludeArtifactsLink: includeArtifacts,
 	}); err != nil {
-		panic("Error rendering header")
+		panic(fmt.Sprintf("Error rendering header: %v", err))
 	}
 
 	return template.HTML(buf.String())
