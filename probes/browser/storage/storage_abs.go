@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package storage
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type absStorage struct {
+type ABS struct {
 	container   string
 	accountName string
 	client      *http.Client
@@ -52,13 +52,13 @@ const (
 
 // stringToSign creates the string to sign for the given request.
 // https://docs.microsoft.com/en-us/rest/api/storageservices/authorize-with-shared-key#shared-key-format-for-authorization
-func (s *absStorage) stringToSign(req *http.Request) string {
+func (s *ABS) stringToSign(req *http.Request) string {
 	cHeaders := fmt.Sprintf("x-ms-blob-type:BlockBlob\nx-ms-date:%s\nx-ms-version:%s\n", req.Header.Get("x-ms-date"), version)
 	cResource := path.Join(s.accountName, req.URL.Path)
 	return fmt.Sprintf("%s\n\n\n%d\n\n\n\n\n\n\n\n\n%s/%s", req.Method, req.ContentLength, cHeaders, cResource)
 }
 
-func (s *absStorage) initAuth(ctx context.Context, cfg *configpb.ABS) error {
+func (s *ABS) initAuth(ctx context.Context, cfg *configpb.ABS) error {
 	if cfg.GetAccountKey() != "" {
 		key, err := base64.StdEncoding.DecodeString(cfg.GetAccountKey())
 		if err != nil {
@@ -100,12 +100,12 @@ func (s *absStorage) initAuth(ctx context.Context, cfg *configpb.ABS) error {
 	return nil
 }
 
-func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStorage, error) {
+func InitABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*ABS, error) {
 	if cfg.GetContainer() == "" {
 		return nil, fmt.Errorf("ABS container name is required")
 	}
 
-	abs := &absStorage{
+	abs := &ABS{
 		container:   cfg.GetContainer(),
 		accountName: cfg.GetAccountName(),
 		path:        cfg.GetPath(),
@@ -121,13 +121,13 @@ func initABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*absStor
 }
 
 // signature creates signature for the given string using the account key.
-func (s *absStorage) signature(stringToSign string) string {
+func (s *ABS) signature(stringToSign string) string {
 	h := hmac.New(sha256.New, s.key)
 	h.Write([]byte(stringToSign))
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
-func (s *absStorage) uploadRequest(ctx context.Context, content []byte, relPath string) (*http.Request, error) {
+func (s *ABS) uploadRequest(ctx context.Context, content []byte, relPath string) (*http.Request, error) {
 	blobPath := path.Join(s.container, s.path, relPath)
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", s.endpoint+"/"+blobPath, bytes.NewReader(content))
@@ -147,7 +147,7 @@ func (s *absStorage) uploadRequest(ctx context.Context, content []byte, relPath 
 	return req, nil
 }
 
-func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) error {
+func (s *ABS) upload(ctx context.Context, r io.Reader, relPath string) error {
 	fileContent, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("failed to read file content: %v", err)
@@ -181,7 +181,9 @@ func (s *absStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 }
 
 // store syncs a local directory to an S3 path
-func (s *absStorage) store(ctx context.Context, localPath, basePath string) error {
+func (s *ABS) Store(ctx context.Context, localPath, basePath string) error {
+	s.l.Infof("Uploading artifacts from %s to: %s", localPath, s.endpoint)
+
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
 		return s.upload(ctx, r, relPath)
 	})

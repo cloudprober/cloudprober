@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package storage
 
 import (
 	"bytes"
@@ -111,7 +111,7 @@ func TestLocalStorageSaveFile(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
-	localStorage, err := initLocalStorage(tmpDir)
+	localStorage, err := InitLocal(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to initialize local storage: %v", err)
 	}
