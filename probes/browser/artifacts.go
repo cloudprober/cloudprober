@@ -95,7 +95,7 @@ func (p *Probe) initArtifactsHandler() error {
 				p.cleanupHandlers = append(p.cleanupHandlers, cleanupHandler)
 			}
 
-			ls, err := storage.InitLocal(localStorage.GetDir())
+			ls, err := storage.InitLocal(localStorage.GetDir(), p.l)
 			if err != nil {
 				return fmt.Errorf("error initializing local storage: %v", err)
 			}
@@ -147,7 +147,6 @@ func (ah *artifactsHandler) handle(ctx context.Context, path string) {
 
 	for _, lStorage := range ah.localStorage {
 		go func(lStorage *storage.Local) {
-			//		ah.l.Infof("Saving artifacts from %s at: %s", path, lStorage.destDir)
 			if err := lStorage.Store(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error saving artifacts locally: %v", err)
 			}

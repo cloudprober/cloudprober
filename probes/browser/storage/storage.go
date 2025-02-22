@@ -20,6 +20,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/cloudprober/cloudprober/logger"
 )
 
 func walkAndSave(ctx context.Context, localPath, basePath string, fn func(context.Context, io.Reader, string) error) error {
@@ -64,11 +66,13 @@ func walkAndSave(ctx context.Context, localPath, basePath string, fn func(contex
 
 type Local struct {
 	destDir string
+	l       *logger.Logger
 }
 
-func InitLocal(destDir string) (*Local, error) {
+func InitLocal(destDir string, l *logger.Logger) (*Local, error) {
 	s := &Local{
 		destDir: destDir,
+		l:       l,
 	}
 	// Verify that the destination directory exists
 	if _, err := os.Stat(destDir); os.IsNotExist(err) {
@@ -101,6 +105,8 @@ func (s *Local) saveFile(r io.Reader, relPath string) error {
 
 // store saves the local directory to the destination directory.
 func (s *Local) Store(ctx context.Context, localPath, basePath string) error {
+	s.l.Infof("Saving artifacts from %s at: %s", localPath, s.destDir)
+
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
 		return s.saveFile(r, relPath)
 	})

@@ -111,7 +111,7 @@ func TestLocalStorageSaveFile(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
-	localStorage, err := InitLocal(tmpDir)
+	localStorage, err := InitLocal(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to initialize local storage: %v", err)
 	}
