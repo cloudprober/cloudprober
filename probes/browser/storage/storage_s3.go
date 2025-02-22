@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package storage
 
 import (
 	"context"
@@ -24,16 +24,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 )
 
-type s3Storage struct {
+type S3 struct {
 	client *s3.Client
 	bucket string
 	path   string
+	l      *logger.Logger
 }
 
-func initS3(ctx context.Context, s3config *configpb.S3) (*s3Storage, error) {
+func InitS3(ctx context.Context, s3config *configpb.S3, l *logger.Logger) (*S3, error) {
 	region := s3config.GetRegion()
 	if region == "" && os.Getenv("AWS_REGION") != "" {
 		region = os.Getenv("AWS_REGION")
@@ -63,10 +65,11 @@ func initS3(ctx context.Context, s3config *configpb.S3) (*s3Storage, error) {
 		}
 	})
 
-	s3Storage := &s3Storage{
+	s3Storage := &S3{
 		client: s3Client,
 		bucket: s3config.GetBucket(),
 		path:   s3config.GetPath(),
+		l:      l,
 	}
 
 	// Verify that we have access to the bucket
@@ -80,7 +83,9 @@ func initS3(ctx context.Context, s3config *configpb.S3) (*s3Storage, error) {
 }
 
 // store syncs a local directory to an S3 path
-func (s *s3Storage) store(ctx context.Context, localPath, basePath string) error {
+func (s *S3) Store(ctx context.Context, localPath, basePath string) error {
+	s.l.Infof("Uploading artifacts from %s to: s3://%s/%s", localPath, s.bucket, s.path)
+
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
 		s3Key := filepath.Join(s.path, relPath)
 

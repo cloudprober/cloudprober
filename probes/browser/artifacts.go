@@ -21,15 +21,16 @@ import (
 	"slices"
 
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/browser/storage"
 	"github.com/cloudprober/cloudprober/state"
 )
 
 type artifactsHandler struct {
 	basePath     string
-	s3Storage    []*s3Storage
-	gcsStorage   []*gcsStorage
-	absStorage   []*absStorage
-	localStorage []*localStorage
+	s3Storage    []*storage.S3
+	gcsStorage   []*storage.GCS
+	absStorage   []*storage.ABS
+	localStorage []*storage.Local
 	l            *logger.Logger
 }
 
@@ -60,7 +61,7 @@ func (p *Probe) initArtifactsHandler() error {
 
 	for _, storageConfig := range p.c.GetArtifactsOptions().GetStorage() {
 		if s3conf := storageConfig.GetS3(); s3conf != nil {
-			s3, err := initS3(context.Background(), s3conf)
+			s3, err := storage.InitS3(context.Background(), s3conf, p.l)
 
 			if err != nil {
 				return fmt.Errorf("error initializing S3 storage (bucket: %s): %v", s3conf.GetBucket(), err)
@@ -70,7 +71,7 @@ func (p *Probe) initArtifactsHandler() error {
 		}
 
 		if gcsConf := storageConfig.GetGcs(); gcsConf != nil {
-			gcs, err := initGCS(context.Background(), gcsConf, p.l)
+			gcs, err := storage.InitGCS(context.Background(), gcsConf, p.l)
 			if err != nil {
 				return fmt.Errorf("error initializing GCS storage: %v", err)
 			}
@@ -78,7 +79,7 @@ func (p *Probe) initArtifactsHandler() error {
 		}
 
 		if absConf := storageConfig.GetAbs(); absConf != nil {
-			abs, err := initABS(context.Background(), absConf, p.l)
+			abs, err := storage.InitABS(context.Background(), absConf, p.l)
 			if err != nil {
 				return fmt.Errorf("error initializing ABS storage: %v", err)
 			}
@@ -94,11 +95,11 @@ func (p *Probe) initArtifactsHandler() error {
 				p.cleanupHandlers = append(p.cleanupHandlers, cleanupHandler)
 			}
 
-			ls, err := initLocalStorage(localStorage.GetDir())
+			ls, err := storage.InitLocal(localStorage.GetDir(), p.l)
 			if err != nil {
 				return fmt.Errorf("error initializing local storage: %v", err)
 			}
-			localStorageDirs = append(localStorageDirs, ls.destDir)
+			localStorageDirs = append(localStorageDirs, localStorage.GetDir())
 			ah.localStorage = append(ah.localStorage, ls)
 		}
 	}
@@ -121,36 +122,32 @@ func (p *Probe) initArtifactsHandler() error {
 
 func (ah *artifactsHandler) handle(ctx context.Context, path string) {
 	for _, s3 := range ah.s3Storage {
-		go func(s3 *s3Storage) {
-			ah.l.Infof("Uploading artifacts from %s to: s3://%s/%s", path, s3.bucket, s3.path)
-			if err := s3.store(ctx, path, ah.basePath); err != nil {
+		go func(s3 *storage.S3) {
+			if err := s3.Store(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error uploading artifacts to S3: %v", err)
 			}
 		}(s3)
 	}
 
 	for _, gcs := range ah.gcsStorage {
-		go func(gcs *gcsStorage) {
-			ah.l.Infof("Uploading artifacts from %s to: %s", path, gcs.baseURL)
-			if err := gcs.store(ctx, path, ah.basePath); err != nil {
+		go func(gcs *storage.GCS) {
+			if err := gcs.Store(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error uploading artifacts to GCS: %v", err)
 			}
 		}(gcs)
 	}
 
 	for _, abs := range ah.absStorage {
-		go func(abs *absStorage) {
-			ah.l.Infof("Uploading artifacts from %s to: %s", path, abs.endpoint)
-			if err := abs.store(ctx, path, ah.basePath); err != nil {
+		go func(abs *storage.ABS) {
+			if err := abs.Store(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error uploading artifacts to ABS: %v", err)
 			}
 		}(abs)
 	}
 
 	for _, lStorage := range ah.localStorage {
-		go func(lStorage *localStorage) {
-			ah.l.Infof("Saving artifacts from %s at: %s", path, lStorage.destDir)
-			if err := lStorage.store(ctx, path, ah.basePath); err != nil {
+		go func(lStorage *storage.Local) {
+			if err := lStorage.Store(ctx, path, ah.basePath); err != nil {
 				ah.l.Errorf("error saving artifacts locally: %v", err)
 			}
 		}(lStorage)
