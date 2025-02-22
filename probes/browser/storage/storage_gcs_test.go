@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package storage
 
 import (
 	"bytes"
@@ -118,7 +118,7 @@ func TestGCSUpload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := &gcsStorage{
+			storage := &GCS{
 				client:  client,
 				baseURL: tt.baseURL,
 			}
