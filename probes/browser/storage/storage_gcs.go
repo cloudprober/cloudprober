@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package storage
 
 import (
 	"context"
@@ -28,17 +28,18 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type gcsStorage struct {
+type GCS struct {
 	client  *http.Client
 	path    string
 	baseURL string
+	l       *logger.Logger
 }
 
 func gcsBaseURL(cfg *configpb.GCS) string {
 	return fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=media&name=", cfg.GetEndpoint(), cfg.GetBucket())
 }
 
-func initGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*gcsStorage, error) {
+func InitGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*GCS, error) {
 	if cfg.GetBucket() == "" {
 		return nil, fmt.Errorf("GCS bucket name is required")
 	}
@@ -58,14 +59,15 @@ func initGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*gcsStor
 
 	client := oauth2.NewClient(ctx, oauthTS)
 
-	return &gcsStorage{
+	return &GCS{
 		client:  client,
 		path:    cfg.GetPath(),
 		baseURL: gcsBaseURL(cfg),
+		l:       l,
 	}, nil
 }
 
-func (s *gcsStorage) upload(ctx context.Context, r io.Reader, relPath string) error {
+func (s *GCS) upload(ctx context.Context, r io.Reader, relPath string) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+path.Join(s.path, relPath), r)
 	if err != nil {
 		return err
@@ -86,7 +88,9 @@ func (s *gcsStorage) upload(ctx context.Context, r io.Reader, relPath string) er
 }
 
 // store syncs a local directory to an S3 path
-func (s *gcsStorage) store(ctx context.Context, localPath, basePath string) error {
+func (s *GCS) Store(ctx context.Context, localPath, basePath string) error {
+	s.l.Infof("Uploading artifacts from %s to: %s", localPath, s.baseURL)
+
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
 		return s.upload(ctx, r, relPath)
 	})

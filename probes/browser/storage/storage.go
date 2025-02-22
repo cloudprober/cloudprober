@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package storage
 
 import (
 	"context"
@@ -62,12 +62,12 @@ func walkAndSave(ctx context.Context, localPath, basePath string, fn func(contex
 	return err
 }
 
-type localStorage struct {
+type Local struct {
 	destDir string
 }
 
-func initLocalStorage(destDir string) (*localStorage, error) {
-	s := &localStorage{
+func InitLocal(destDir string) (*Local, error) {
+	s := &Local{
 		destDir: destDir,
 	}
 	// Verify that the destination directory exists
@@ -78,7 +78,7 @@ func initLocalStorage(destDir string) (*localStorage, error) {
 	return s, nil
 }
 
-func (s *localStorage) saveFile(r io.Reader, relPath string) error {
+func (s *Local) saveFile(r io.Reader, relPath string) error {
 	filePath := filepath.Join(s.destDir, relPath)
 
 	// Create the destination directory and all necessary parent directories
@@ -100,7 +100,7 @@ func (s *localStorage) saveFile(r io.Reader, relPath string) error {
 }
 
 // store saves the local directory to the destination directory.
-func (s *localStorage) store(ctx context.Context, localPath, basePath string) error {
+func (s *Local) Store(ctx context.Context, localPath, basePath string) error {
 	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
 		return s.saveFile(r, relPath)
 	})
