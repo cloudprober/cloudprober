@@ -25,16 +25,11 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/stretchr/testify/assert"
 
 	pb "github.com/cloudprober/cloudprober/prober/proto"
-	"github.com/cloudprober/cloudprober/probes"
-	"github.com/cloudprober/cloudprober/probes/options"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
-	testdatapb "github.com/cloudprober/cloudprober/probes/testdata"
 	"github.com/cloudprober/cloudprober/state"
-	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
@@ -60,56 +55,6 @@ func testProber(t *testing.T, cfg *configpb.ProberConfig) (*Prober, context.Canc
 
 	pr.Start(ctx)
 	return pr, cancel
-}
-
-// testProbe implements the probes.Probe interface, while providing
-// facilities to examine the probe status for the purpose of testing.
-// Since cloudprober has to be aware of the probe type, we add testProbe to
-// cloudprober as an EXTENSION probe type (done through the init() function
-// below).
-type testProbe struct {
-	intialized      bool
-	runningStatusCh chan bool
-}
-
-func (p *testProbe) Init(name string, opts *options.Options) error {
-	p.intialized = true
-	p.runningStatusCh = make(chan bool)
-	return nil
-}
-
-func (p *testProbe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	p.runningStatusCh <- true
-
-	// If context is done (used to stop a running probe before removing it),
-	// change probe state to not-running.
-	<-ctx.Done()
-	p.runningStatusCh <- false
-	close(p.runningStatusCh)
-}
-
-// We use an EXTENSION probe for testing. Following has the same effect as:
-// This has the same effect as using the following in your config:
-//
-//	probe {
-//	   name: "<name>"
-//	   targets {
-//	    dummy_targets{}
-//	   }
-//	   [cloudprober.probes.testdata.fancy_probe] {
-//	     name: "fancy"
-//	   }
-//	}
-func testProbeDef(name string) *probes_configpb.ProbeDef {
-	probeDef := &probes_configpb.ProbeDef{
-		Name: proto.String(name),
-		Type: probes_configpb.ProbeDef_EXTENSION.Enum(),
-		Targets: &targetspb.TargetsDef{
-			Type: &targetspb.TargetsDef_DummyTargets{},
-		},
-	}
-	proto.SetExtension(probeDef, testdatapb.E_FancyProbe, &testdatapb.FancyProbe{Name: proto.String("fancy-" + name)})
-	return probeDef
 }
 
 // verifyProbeRunningStatus is a helper function to verify probe's running
@@ -223,12 +168,6 @@ func TestRemoveProbes(t *testing.T) {
 	}
 	p := pr.Probes[testProbeName].Probe.(*testProbe)
 	verifyProbeRunningStatus(t, p, true)
-	/*
-		// Clear probe's running status channel before removing the probe and thus
-		// causing another running status update
-		x := <-p.runningStatusCh
-		fmt.Println(x)
-	*/
 
 	_, err = pr.RemoveProbe(context.Background(), &pb.RemoveProbeRequest{ProbeName: &testProbeName})
 	if err != nil {
@@ -303,11 +242,4 @@ func TestSaveProbesConfig(t *testing.T) {
 	defer os.Remove(f2.Name())
 	pr.SaveProbesConfig(context.Background(), &pb.SaveProbesConfigRequest{FilePath: proto.String(f2.Name())})
 	compareConfig(f2.Name(), wantConfigProbe1)
-}
-
-func init() {
-	// Register extension probe.
-	probes.RegisterProbeType(200, func() probes.Probe {
-		return &testProbe{}
-	})
 }
