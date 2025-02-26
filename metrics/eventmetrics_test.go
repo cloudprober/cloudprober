@@ -333,3 +333,53 @@ func TestEventMetricsEqual(t *testing.T) {
 		})
 	}
 }
+
+func TestSetNotForAlerting(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupMetrics  func() *EventMetrics
+		IsForAlerting bool
+	}{
+		{
+			name: "default",
+			setupMetrics: func() *EventMetrics {
+				return NewEventMetrics(time.Now())
+			},
+			IsForAlerting: true,
+		},
+		{
+			name: "new_metrics",
+			setupMetrics: func() *EventMetrics {
+				return NewEventMetrics(time.Now()).SetNotForAlerting()
+			},
+			IsForAlerting: false,
+		},
+		{
+			name: "existing_metrics_nil_options",
+			setupMetrics: func() *EventMetrics {
+				em := NewEventMetrics(time.Now())
+				em.Options = nil
+				return em.SetNotForAlerting()
+			},
+			IsForAlerting: false,
+		},
+		{
+			name: "existing_metrics_with_options",
+			setupMetrics: func() *EventMetrics {
+				em := NewEventMetrics(time.Now())
+				em.Options = &EventMetricsOptions{
+					NotForAlerting: false,
+				}
+				return em.SetNotForAlerting()
+			},
+			IsForAlerting: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			em := tt.setupMetrics()
+			assert.Equal(t, tt.IsForAlerting, em.IsForAlerting())
+		})
+	}
+}

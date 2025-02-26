@@ -366,9 +366,6 @@ func TestNegativeTestSupport(t *testing.T) {
 }
 
 func TestRecordMetrics(t *testing.T) {
-	em := metrics.NewEventMetrics(time.Now()).
-		AddMetric("total", metrics.NewInt(1)).
-		AddMetric("success", metrics.NewInt(0))
 	ep := endpoint.Endpoint{Name: "test_target"}
 	opts := DefaultOptions()
 	additionalLabel := &AdditionalLabel{
@@ -377,12 +374,6 @@ func TestRecordMetrics(t *testing.T) {
 			ep.Key(): "test_value",
 		},
 	}
-
-	var buf bytes.Buffer
-	l := logger.New(logger.WithWriter(&buf))
-	opts.AdditionalLabels = []*AdditionalLabel{additionalLabel}
-	alertHandler, _ := alerting.NewAlertHandler(&alerting_configpb.AlertConf{}, "test-probe", l)
-	opts.AlertHandlers = []*alerting.AlertHandler{alertHandler}
 
 	tests := []struct {
 		name    string
@@ -398,28 +389,40 @@ func TestRecordMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			buf.Reset()
+			var buf bytes.Buffer
+			l := logger.New(logger.WithWriter(&buf))
+			opts.AdditionalLabels = []*AdditionalLabel{additionalLabel}
+			alertHandler, _ := alerting.NewAlertHandler(&alerting_configpb.AlertConf{}, "test-probe", l)
+			opts.AlertHandlers = []*alerting.AlertHandler{alertHandler}
 
 			dataChan := make(chan *metrics.EventMetrics, 3)
-			rOpts := []RecordOptions{}
+			inputEM := metrics.NewEventMetrics(time.Now()).
+				AddMetric("total", metrics.NewInt(1)).
+				AddMetric("success", metrics.NewInt(0))
 			if tt.noAlert {
-				rOpts = append(rOpts, WithNoAlert())
+				inputEM.SetNotForAlerting()
 			}
-			opts.RecordMetrics(ep, em, dataChan, rOpts...)
+			opts.RecordMetrics(ep, inputEM, dataChan)
 			em := <-dataChan
 
-			assert.Equal(t, int64(1), em.Metric("total").(*metrics.Int).Int64())
-			assert.Equal(t, int64(0), em.Metric("success").(*metrics.Int).Int64())
+			// Verify that we got what we sent (there is no cloning)
+			assert.Equal(t, em, inputEM)
+			// Verify that additional label is set by RecordMetrics
 			assert.Equal(t, "test_value", em.Label("test_additional_label"))
 
 			em = metrics.NewEventMetrics(time.Now()).
 				AddMetric("total", metrics.NewInt(2)).
 				AddMetric("success", metrics.NewInt(0))
-			opts.RecordMetrics(ep, em, dataChan, rOpts...)
-			if !tt.noAlert {
-				assert.Contains(t, buf.String(), "ALERT (test-probe)")
+			if tt.noAlert {
+				em.SetNotForAlerting()
+			}
+			opts.RecordMetrics(ep, em, dataChan)
+			alertHandlerLog := buf.String()
+			t.Log("buf:", alertHandlerLog)
+			if tt.noAlert {
+				assert.NotContains(t, alertHandlerLog, "ALERT (test-probe)")
 			} else {
-				assert.NotContains(t, buf.String(), "ALERT (test-probe)")
+				assert.Contains(t, alertHandlerLog, "ALERT (test-probe)")
 			}
 		})
 	}

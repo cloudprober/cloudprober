@@ -84,7 +84,7 @@ func (td *testData) multiEM(ts time.Time) []*metrics.EventMetrics {
 		if td.labels[i][0] != "" {
 			em.AddLabel(td.labels[i][0], td.labels[i][1])
 		}
-		em.Options = &metrics.EventMetricsOptions{NotForAlerting: true}
+		em.SetNotForAlerting()
 	}
 
 	return results

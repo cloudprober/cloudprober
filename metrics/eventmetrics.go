@@ -138,6 +138,10 @@ func (em *EventMetrics) SetNotForAlerting() *EventMetrics {
 	return em
 }
 
+func (em *EventMetrics) IsForAlerting() bool {
+	return em.Options == nil || !em.Options.NotForAlerting
+}
+
 // Label returns an EventMetrics label value by name. Label will return a
 // zero-string ("") for a non-existent label.
 func (em *EventMetrics) Label(name string) string {
