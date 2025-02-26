@@ -17,12 +17,54 @@ package prober
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"sort"
 
+	configpb "github.com/cloudprober/cloudprober/config/proto"
 	pb "github.com/cloudprober/cloudprober/prober/proto"
+	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
+
+// saveProbesConfigUnprotected saves the current config to the given file path.
+// This function is called whenever we change the config in response to a gRPC
+// request.
+func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
+	pr.mu.RLock()
+	defer pr.mu.RUnlock()
+
+	var keys []string
+	for k := range pr.Probes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	cfg := &configpb.ProberConfig{}
+	for _, k := range keys {
+		cfg.Probe = append(cfg.Probe, pr.Probes[k].ProbeDef)
+	}
+
+	textCfg := prototext.MarshalOptions{
+		Indent: "  ",
+	}.Format(cfg)
+
+	if textCfg == "" && len(pr.Probes) != 0 {
+		err := fmt.Errorf("text marshaling of probes config returned an empty string. Config: %v", cfg)
+		pr.l.Warning(err.Error())
+		return err
+	}
+
+	if err := os.WriteFile(filePath, []byte(textCfg), 0644); err != nil {
+		pr.l.Errorf("Error saving config to disk: %v", err)
+		return err
+	}
+
+	return nil
+}
 
 // AddProbe adds the given probe to cloudprober.
 func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.AddProbeResponse, error) {
@@ -48,6 +90,21 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	}
 
 	return &pb.AddProbeResponse{}, nil
+}
+
+// removeProbe removes the probe with the given name from the prober's internal
+// database and cancels the probe's context.
+func (pr *Prober) removeProbe(name string) error {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	if pr.Probes[name] == nil {
+		return fmt.Errorf("probe %s not found", name)
+	}
+
+	pr.probeCancelFunc[name]()
+	delete(pr.Probes, name)
+	return nil
 }
 
 // RemoveProbe gRPC method cancels the given probe and removes its from the
@@ -82,7 +139,7 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 	for name, p := range pr.Probes {
 		resp.Probe = append(resp.Probe, &pb.Probe{
 			Name:   proto.String(name),
-			Config: p.ProbeDef,
+			Config: proto.Clone(p.ProbeDef).(*probes_configpb.ProbeDef),
 		})
 	}
 
