@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloudprober Authors.
+// Copyright 2019-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,16 @@ package prober
 import (
 	"context"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/stretchr/testify/assert"
 
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	"github.com/cloudprober/cloudprober/probes"
@@ -36,7 +39,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func testProber(t *testing.T) (*Prober, context.CancelFunc) {
+func testProber(t *testing.T, cfg *configpb.ProberConfig) (*Prober, context.CancelFunc) {
 	t.Helper()
 
 	// We need this to initialize default surfacers.
@@ -50,9 +53,7 @@ func testProber(t *testing.T) (*Prober, context.CancelFunc) {
 	defer state.SetDefaultGRPCServer(nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	pr, err := Init(ctx, &configpb.ProberConfig{
-		DisableJitter: proto.Bool(true),
-	}, nil)
+	pr, err := Init(ctx, cfg, nil)
 	if err != nil {
 		t.Fatalf("error while initializing prober: %v", err)
 	}
@@ -140,7 +141,7 @@ func verifyProbeRunningStatus(t *testing.T, p *testProbe, expectedRunning bool) 
 }
 
 func TestAddProbe(t *testing.T) {
-	pr, cancel := testProber(t)
+	pr, cancel := testProber(t, &configpb.ProberConfig{})
 	defer cancel()
 
 	// Test AddProbe()
@@ -174,7 +175,7 @@ func TestAddProbe(t *testing.T) {
 }
 
 func TestListProbes(t *testing.T) {
-	pr, cancel := testProber(t)
+	pr, cancel := testProber(t, &configpb.ProberConfig{})
 	defer cancel()
 
 	// Add couple of probes for testing
@@ -204,7 +205,7 @@ func TestListProbes(t *testing.T) {
 }
 
 func TestRemoveProbes(t *testing.T) {
-	pr, cancel := testProber(t)
+	pr, cancel := testProber(t, &configpb.ProberConfig{})
 	defer cancel()
 
 	testProbeName := "test-probe-for-remove"
@@ -240,6 +241,68 @@ func TestRemoveProbes(t *testing.T) {
 
 	// Verify that probe is not running anymore
 	verifyProbeRunningStatus(t, p, false)
+}
+
+func TestSaveProbesConfig(t *testing.T) {
+	tmpFile := func() *os.File {
+		f, err := os.CreateTemp(t.TempDir(), "")
+		if err != nil {
+			t.Fatalf("error while creating temp file: %v", err)
+		}
+		return f
+	}
+
+	f := tmpFile()
+	*probesConfigSavePath = f.Name()
+	defer func() {
+		os.Remove(f.Name())
+		*probesConfigSavePath = ""
+	}()
+
+	pr, cancel := testProber(t, &configpb.ProberConfig{
+		Probe: []*probes_configpb.ProbeDef{
+			{
+				Name: proto.String("test-probe-1"),
+				Type: probes_configpb.ProbeDef_BROWSER.Enum(),
+			},
+		},
+	})
+	defer cancel()
+
+	if _, err := pr.AddProbe(context.Background(), &pb.AddProbeRequest{
+		ProbeConfig: &probes_configpb.ProbeDef{
+			Name: proto.String("test-probe-2"),
+			Type: probes_configpb.ProbeDef_BROWSER.Enum(),
+		},
+	}); err != nil {
+		t.Errorf("error while adding test probe: %v", err)
+	}
+
+	wantConfigProbe1 := "probe: {\n  name: \"test-probe-1\"\n  type: BROWSER\n  targets: {\n    dummy_targets: {}\n  }\n}\n"
+	wantConfigProbe2 := strings.ReplaceAll(wantConfigProbe1, "test-probe-1", "test-probe-2")
+
+	compareConfig := func(fileName string, wantConfig string) {
+		b, err := os.ReadFile(fileName)
+		if err != nil {
+			t.Errorf("error while reading saved config file: %v", err)
+		}
+		gotConfig := strings.ReplaceAll(string(b), ":  ", ": ")
+		assert.Equal(t, wantConfig, gotConfig)
+	}
+
+	compareConfig(*probesConfigSavePath, wantConfigProbe1+wantConfigProbe2)
+
+	// Remove a probe and check again
+	if _, err := pr.RemoveProbe(context.Background(), &pb.RemoveProbeRequest{ProbeName: proto.String("test-probe-2")}); err != nil {
+		t.Errorf("error while removing probe: %v", err)
+	}
+	compareConfig(*probesConfigSavePath, wantConfigProbe1)
+
+	// Test SaveProbeConfig API
+	f2 := tmpFile()
+	defer os.Remove(f2.Name())
+	pr.SaveProbesConfig(context.Background(), &pb.SaveProbesConfigRequest{FilePath: proto.String(f2.Name())})
+	compareConfig(f2.Name(), wantConfigProbe1)
 }
 
 func init() {
