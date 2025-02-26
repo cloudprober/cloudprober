@@ -27,9 +27,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
-	"os"
 	"regexp"
-	"sort"
 	"sync"
 	"time"
 
@@ -50,7 +48,6 @@ import (
 	"github.com/cloudprober/cloudprober/targets/lameduck"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var randGenerator = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -65,9 +62,13 @@ type Prober struct {
 	Servers   []*servers.ServerInfo
 	c         *configpb.ProberConfig
 	l         *logger.Logger
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	ldLister  endpoint.Lister
 	Surfacers []*surfacers.SurfacerInfo
+
+	// We need this to start probes in response to API trigger. We still want
+	// these probes to exit if prober's start context gets canceled.
+	startCtx context.Context
 
 	// Probe channel to handle starting of the new probes.
 	grpcStartProbeCh chan string
@@ -125,139 +126,15 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 	return nil
 }
 
-// Init initialize prober with the given config file.
-func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) error {
-	pr.c = cfg
-	pr.l = l
-
-	// Initialize cloudprober gRPC service if configured.
-	srv := state.DefaultGRPCServer()
-	if srv != nil {
-		pr.grpcStartProbeCh = make(chan string)
-		spb.RegisterCloudproberServer(srv, pr)
-	}
-
-	// Initialize RDS server, if configured and attach to the default gRPC server.
-	// Note that we can still attach services to the default gRPC server as it's
-	// started later in Start().
-	if c := pr.c.GetRdsServer(); c != nil {
-		rdsServer, err := rdsserver.New(ctx, c, nil, logger.NewWithAttrs(slog.String("component", "rds-server")))
-		if err != nil {
-			return err
-		}
-
-		state.SetLocalRDSServer(rdsServer)
-		if srv != nil {
-			rdsServer.RegisterWithGRPC(srv)
-		}
-	}
-
-	// Initialize lameduck lister
-	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
-
-	if globalTargetsOpts.GetLameDuckOptions() != nil {
-		ldLogger := logger.NewWithAttrs(slog.String("component", "lame-duck"))
-
-		if err := lameduck.InitDefaultLister(globalTargetsOpts, nil, ldLogger); err != nil {
-			return err
-		}
-
-		var err error
-		pr.ldLister, err = lameduck.GetDefaultLister()
-		if err != nil {
-			pr.l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
-		}
-	}
-
-	var err error
-
-	// Initialize shared targets
-	for _, st := range pr.c.GetSharedTargets() {
-		tgts, err := targets.New(st.GetTargets(), pr.ldLister, globalTargetsOpts, pr.l, pr.l)
-		if err != nil {
-			return err
-		}
-		targets.SetSharedTargets(st.GetName(), tgts)
-	}
-
-	// Initiliaze probes
-	pr.Probes = make(map[string]*probes.ProbeInfo)
-	pr.probeCancelFunc = make(map[string]context.CancelFunc)
-	for _, p := range pr.c.GetProbe() {
-		if err := pr.addProbe(p); err != nil {
-			return err
-		}
-	}
-
-	// Initialize servers
-	pr.Servers, err = servers.Init(ctx, pr.c.GetServer())
-	if err != nil {
-		return err
-	}
-
-	pr.Surfacers, err = surfacers.Init(ctx, pr.c.GetSurfacer())
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Start starts a previously initialized Cloudprober.
-func (pr *Prober) Start(ctx context.Context) {
-	pr.dataChan = make(chan *metrics.EventMetrics, 100000)
-
-	go func() {
-		var em *metrics.EventMetrics
-		for {
-			em = <-pr.dataChan
-
-			// Replicate the surfacer message to every surfacer we have
-			// registered. Note that s.Write() is expected to be
-			// non-blocking to avoid blocking of EventMetrics message
-			// processing.
-			for _, surfacer := range pr.Surfacers {
-				surfacer.Write(context.Background(), em)
-			}
-		}
-	}()
-
-	// Start a goroutine to export system variables
-	go sysvars.Start(ctx, pr.dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
-
-	// Start servers, each in its own goroutine
-	for _, s := range pr.Servers {
-		go s.Start(ctx, pr.dataChan)
-	}
-
-	if pr.c.GetDisableJitter() {
-		for name := range pr.Probes {
-			go pr.startProbe(ctx, name)
-		}
-	} else {
-		pr.startProbesWithJitter(ctx)
-	}
-	if state.DefaultGRPCServer() != nil {
-		// Start a goroutine to handle starting of the probes added through gRPC.
-		// AddProbe adds new probes to the pr.grpcStartProbeCh channel and this
-		// goroutine reads from that channel and starts the probe using the overall
-		// Start context.
-		go func() {
-			for {
-				select {
-				case name := <-pr.grpcStartProbeCh:
-					pr.startProbe(ctx, name)
-				}
-			}
-		}()
-	}
-}
-
-func (pr *Prober) startProbe(ctx context.Context, name string) {
+// startProbe starts the probe with the given name.
+// startProbe is protected and can be called concurrently. It's called
+// from Start() at the very beginning, and then every time a new probe is
+// added through a gRPC request.
+func (pr *Prober) startProbe(name string) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
-	probeCtx, cancelFunc := context.WithCancel(ctx)
+	probeCtx, cancelFunc := context.WithCancel(pr.startCtx)
 	pr.probeCancelFunc[name] = cancelFunc
 	go pr.Probes[name].Start(probeCtx, pr.dataChan)
 }
@@ -292,9 +169,13 @@ func interProbeWait(interval time.Duration, numProbes int) time.Duration {
 //	[probe1 <gap> probe2 <gap> probe3 <gap> ...]    interval1 (30s)
 //	<interval-bucket-gap> [probe4 <gap> probe5 ...] interval2 (10s)
 //	<interval-bucket-gap> [probe6 <gap> probe7 ...] interval3 (1m)
-func (pr *Prober) startProbesWithJitter(ctx context.Context) {
+//
+// Note this function is not concurrency safe, which is fine, because it's only
+// called from Start(), which is never called concurrently itself.
+func (pr *Prober) startProbesWithJitter() {
 	// Make interval -> [probe1, probe2, probe3..] map
 	intervalBuckets := make(map[time.Duration][]*probes.ProbeInfo)
+
 	for _, p := range pr.Probes {
 		intervalBuckets[p.Options.Interval] = append(intervalBuckets[p.Options.Interval], p)
 	}
@@ -310,7 +191,7 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 
 			for _, p := range probeInfos {
 				pr.l.Info("Starting probe: ", p.Name)
-				go pr.startProbe(ctx, p.Name)
+				go pr.startProbe(p.Name)
 				time.Sleep(interProbeWait(interval, len(probeInfos)))
 			}
 		}(interval, probeInfos, iter)
@@ -318,32 +199,122 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 	}
 }
 
-func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
-	var keys []string
-	for k := range pr.Probes {
-		keys = append(keys, k)
+// Start starts a previously initialized Cloudprober.
+// Start is unprotected and should never be called concurrently. It's called
+// once from the main function, never in response to a gRPC request.
+func (pr *Prober) Start(ctx context.Context) {
+	pr.startCtx = ctx
+
+	pr.dataChan = make(chan *metrics.EventMetrics, 100000)
+
+	go func() {
+		var em *metrics.EventMetrics
+		for {
+			em = <-pr.dataChan
+
+			// Replicate the surfacer message to every surfacer we have
+			// registered. Note that s.Write() is expected to be
+			// non-blocking to avoid blocking of EventMetrics message
+			// processing.
+			for _, surfacer := range pr.Surfacers {
+				surfacer.Write(pr.startCtx, em)
+			}
+		}
+	}()
+
+	// Start a goroutine to export system variables
+	go sysvars.Start(ctx, pr.dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
+
+	// Start servers, each in its own goroutine
+	for _, s := range pr.Servers {
+		go s.Start(ctx, pr.dataChan)
 	}
-	sort.Strings(keys)
 
-	cfg := &configpb.ProberConfig{}
-	for _, k := range keys {
-		cfg.Probe = append(cfg.Probe, pr.Probes[k].ProbeDef)
+	if pr.c.GetDisableJitter() {
+		for name := range pr.Probes {
+			go pr.startProbe(name)
+		}
+	} else {
+		pr.startProbesWithJitter()
+	}
+}
+
+// Init initialize prober with the given config file.
+func Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) (*Prober, error) {
+	pr := &Prober{
+		c: cfg,
+		l: l,
 	}
 
-	textCfg := prototext.MarshalOptions{
-		Indent: "  ",
-	}.Format(cfg)
-
-	if textCfg == "" && len(pr.Probes) != 0 {
-		err := fmt.Errorf("text marshaling of probes config returned an empty string. Config: %v", cfg)
-		pr.l.Warning(err.Error())
-		return err
+	// Initialize cloudprober gRPC service if configured.
+	srv := state.DefaultGRPCServer()
+	if srv != nil {
+		pr.grpcStartProbeCh = make(chan string, 10)
+		spb.RegisterCloudproberServer(srv, pr)
 	}
 
-	if err := os.WriteFile(filePath, []byte(textCfg), 0644); err != nil {
-		pr.l.Errorf("Error saving config to disk: %v", err)
-		return err
+	// Initialize RDS server, if configured and attach to the default gRPC server.
+	// Note that we can still attach services to the default gRPC server as it's
+	// started later in Start().
+	if c := pr.c.GetRdsServer(); c != nil {
+		rdsServer, err := rdsserver.New(ctx, c, nil, logger.NewWithAttrs(slog.String("component", "rds-server")))
+		if err != nil {
+			return nil, err
+		}
+
+		state.SetLocalRDSServer(rdsServer)
+		if srv != nil {
+			rdsServer.RegisterWithGRPC(srv)
+		}
 	}
 
-	return nil
+	// Initialize lameduck lister
+	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
+
+	if globalTargetsOpts.GetLameDuckOptions() != nil {
+		ldLogger := logger.NewWithAttrs(slog.String("component", "lame-duck"))
+
+		if err := lameduck.InitDefaultLister(globalTargetsOpts, nil, ldLogger); err != nil {
+			return nil, err
+		}
+
+		var err error
+		pr.ldLister, err = lameduck.GetDefaultLister()
+		if err != nil {
+			pr.l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
+		}
+	}
+
+	var err error
+
+	// Initialize shared targets
+	for _, st := range pr.c.GetSharedTargets() {
+		tgts, err := targets.New(st.GetTargets(), pr.ldLister, globalTargetsOpts, pr.l, pr.l)
+		if err != nil {
+			return nil, err
+		}
+		targets.SetSharedTargets(st.GetName(), tgts)
+	}
+
+	// Initiliaze probes
+	pr.Probes = make(map[string]*probes.ProbeInfo)
+	pr.probeCancelFunc = make(map[string]context.CancelFunc)
+	for _, p := range pr.c.GetProbe() {
+		if err := pr.addProbe(p); err != nil {
+			return nil, fmt.Errorf("error while adding probe: %v", err)
+		}
+	}
+
+	// Initialize servers
+	pr.Servers, err = servers.Init(ctx, pr.c.GetServer())
+	if err != nil {
+		return nil, fmt.Errorf("error while initializing servers: %v", err)
+	}
+
+	pr.Surfacers, err = surfacers.Init(ctx, pr.c.GetSurfacer())
+	if err != nil {
+		return nil, fmt.Errorf("error while initializing surfacers: %v", err)
+	}
+
+	return pr, nil
 }

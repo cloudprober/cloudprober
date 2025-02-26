@@ -223,8 +223,6 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		state.SetDefaultGRPCServer(s)
 	}
 
-	pr := &prober.Prober{}
-
 	// initCtx is used to clean up in case of partial initialization failures. For
 	// example, user-configured servers open listeners during initialization and
 	// if initialization fails at a later stage, say in probers or surfacers,
@@ -232,7 +230,8 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	// close their listeners.
 	// TODO(manugarg): Plumb init context from cmd/cloudprober.
 	initCtx, cancelFunc := context.WithCancel(context.TODO())
-	if err := pr.Init(initCtx, cfg, globalLogger); err != nil {
+	pr, err := prober.Init(initCtx, cfg, globalLogger)
+	if err != nil {
 		cancelFunc()
 		ln.Close()
 		return err
