@@ -72,6 +72,7 @@ const (
 type result struct {
 	sent, rcvd        int64
 	latency           metrics.LatencyValue
+	lastPingLatency   *metrics.Float
 	validationFailure *metrics.Map[int64]
 }
 
@@ -264,6 +265,7 @@ func (p *Probe) updateResultForTarget(t string) {
 
 	p.results[t] = &result{
 		latency:           latencyValue,
+		lastPingLatency:   metrics.NewFloat(0),
 		validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 	}
 }
@@ -460,6 +462,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			}
 		}
 
+		result.lastPingLatency = metrics.NewFloat(float64(rtt) / float64(p.opts.LatencyUnit))
 		result.rcvd++
 		result.latency.AddFloat64(rtt.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
@@ -546,6 +549,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				AddMetric("total", metrics.NewInt(result.sent)).
 				AddMetric("success", metrics.NewInt(success)).
 				AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
+				AddMetric("last_ping_latency", result.lastPingLatency).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", target.Name)
