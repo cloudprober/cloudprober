@@ -30,6 +30,7 @@ import (
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/state"
+	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
@@ -198,11 +199,18 @@ func TestSaveProbesConfig(t *testing.T) {
 		*probesConfigSavePath = ""
 	}()
 
+	targetsDef := &targetspb.TargetsDef{
+		Type: &targetspb.TargetsDef_HostNames{
+			HostNames: "manugarg.com",
+		},
+	}
+
 	pr, cancel := testProber(t, &configpb.ProberConfig{
 		Probe: []*probes_configpb.ProbeDef{
 			{
-				Name: proto.String("test-probe-1"),
-				Type: probes_configpb.ProbeDef_BROWSER.Enum(),
+				Name:    proto.String("test-probe-1"),
+				Type:    probes_configpb.ProbeDef_PING.Enum(),
+				Targets: targetsDef,
 			},
 		},
 	})
@@ -210,14 +218,15 @@ func TestSaveProbesConfig(t *testing.T) {
 
 	if _, err := pr.AddProbe(context.Background(), &pb.AddProbeRequest{
 		ProbeConfig: &probes_configpb.ProbeDef{
-			Name: proto.String("test-probe-2"),
-			Type: probes_configpb.ProbeDef_BROWSER.Enum(),
+			Name:    proto.String("test-probe-2"),
+			Type:    probes_configpb.ProbeDef_PING.Enum(),
+			Targets: targetsDef,
 		},
 	}); err != nil {
 		t.Errorf("error while adding test probe: %v", err)
 	}
 
-	wantConfigProbe1 := "probe: {\n  name: \"test-probe-1\"\n  type: BROWSER\n  targets: {\n    dummy_targets: {}\n  }\n}\n"
+	wantConfigProbe1 := "probe: {\n  name: \"test-probe-1\"\n  type: PING\n  targets: {\n    host_names: \"manugarg.com\"\n  }\n}\n"
 	wantConfigProbe2 := strings.ReplaceAll(wantConfigProbe1, "test-probe-1", "test-probe-2")
 
 	compareConfig := func(fileName string, wantConfig string) {
