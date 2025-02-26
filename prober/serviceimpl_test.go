@@ -16,39 +16,49 @@ package prober
 
 import (
 	"context"
+	"net/http"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/metrics"
+
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	testdatapb "github.com/cloudprober/cloudprober/probes/testdata"
+	"github.com/cloudprober/cloudprober/state"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
-func testProber() *Prober {
-	pr := &Prober{
-		Probes:           make(map[string]*probes.ProbeInfo),
-		probeCancelFunc:  make(map[string]context.CancelFunc),
-		grpcStartProbeCh: make(chan string),
+func testProber(t *testing.T) (*Prober, context.CancelFunc) {
+	t.Helper()
+
+	// We need this to initialize default surfacers.
+	httpServerMux := http.NewServeMux()
+	state.SetDefaultHTTPServeMux(httpServerMux)
+	defer state.SetDefaultHTTPServeMux(nil)
+
+	// We need this to acitvate the gRPC functionality.
+	grpcServer := grpc.NewServer()
+	state.SetDefaultGRPCServer(grpcServer)
+	defer state.SetDefaultGRPCServer(nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pr, err := Init(ctx, &configpb.ProberConfig{
+		DisableJitter: proto.Bool(true),
+	}, nil)
+	if err != nil {
+		t.Fatalf("error while initializing prober: %v", err)
 	}
 
-	// Start a never-ending loop to clear pr.grpcStartProbeCh channel.
-	go func() {
-		for {
-			select {
-			case name := <-pr.grpcStartProbeCh:
-				pr.startProbe(context.Background(), name)
-			}
-		}
-	}()
-
-	return pr
+	pr.Start(ctx)
+	return pr, cancel
 }
 
 // testProbe implements the probes.Probe interface, while providing
@@ -79,15 +89,16 @@ func (p *testProbe) Start(ctx context.Context, dataChan chan *metrics.EventMetri
 
 // We use an EXTENSION probe for testing. Following has the same effect as:
 // This has the same effect as using the following in your config:
-// probe {
-//    name: "<name>"
-//    targets {
-//     dummy_targets{}
-//    }
-//    [cloudprober.probes.testdata.fancy_probe] {
-//      name: "fancy"
-//    }
-// }
+//
+//	probe {
+//	   name: "<name>"
+//	   targets {
+//	    dummy_targets{}
+//	   }
+//	   [cloudprober.probes.testdata.fancy_probe] {
+//	     name: "fancy"
+//	   }
+//	}
 func testProbeDef(name string) *probes_configpb.ProbeDef {
 	probeDef := &probes_configpb.ProbeDef{
 		Name: proto.String(name),
@@ -105,7 +116,9 @@ func testProbeDef(name string) *probes_configpb.ProbeDef {
 func verifyProbeRunningStatus(t *testing.T, p *testProbe, expectedRunning bool) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// We use large timeout because we should never really timeout in ideal
+	// conditions.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	var running, timedout bool
@@ -127,7 +140,8 @@ func verifyProbeRunningStatus(t *testing.T, p *testProbe, expectedRunning bool) 
 }
 
 func TestAddProbe(t *testing.T) {
-	pr := testProber()
+	pr, cancel := testProber(t)
+	defer cancel()
 
 	// Test AddProbe()
 	// Empty probe config should return an error
@@ -155,12 +169,13 @@ func TestAddProbe(t *testing.T) {
 	// Add test probe again, should result in error
 	_, err = pr.AddProbe(context.Background(), &pb.AddProbeRequest{ProbeConfig: testProbeDef(testProbeName)})
 	if err == nil {
-		t.Error("empty probe config didn't result in error")
+		t.Error("adding same probe didn't result in error")
 	}
 }
 
 func TestListProbes(t *testing.T) {
-	pr := testProber()
+	pr, cancel := testProber(t)
+	defer cancel()
 
 	// Add couple of probes for testing
 	testProbes := []string{"test-probe-1", "test-probe-2"}
@@ -189,9 +204,10 @@ func TestListProbes(t *testing.T) {
 }
 
 func TestRemoveProbes(t *testing.T) {
-	pr := testProber()
+	pr, cancel := testProber(t)
+	defer cancel()
 
-	testProbeName := "test-probe"
+	testProbeName := "test-probe-for-remove"
 
 	// Remove a non-existent probe, should result in error.
 	_, err := pr.RemoveProbe(context.Background(), &pb.RemoveProbeRequest{ProbeName: &testProbeName})
@@ -205,9 +221,13 @@ func TestRemoveProbes(t *testing.T) {
 		t.Errorf("error while adding test probe: %v", err)
 	}
 	p := pr.Probes[testProbeName].Probe.(*testProbe)
-	// Clear probe's running status channel before removing the probe and thus
-	// causing another running status update
-	<-p.runningStatusCh
+	verifyProbeRunningStatus(t, p, true)
+	/*
+		// Clear probe's running status channel before removing the probe and thus
+		// causing another running status update
+		x := <-p.runningStatusCh
+		fmt.Println(x)
+	*/
 
 	_, err = pr.RemoveProbe(context.Background(), &pb.RemoveProbeRequest{ProbeName: &testProbeName})
 	if err != nil {

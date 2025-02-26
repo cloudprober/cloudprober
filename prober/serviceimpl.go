@@ -29,7 +29,6 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	pr.l.Info("AddProbe called")
 
 	p := req.GetProbeConfig()
-
 	if p == nil {
 		return &pb.AddProbeResponse{}, status.Errorf(codes.InvalidArgument, "probe config cannot be nil")
 	}
@@ -38,9 +37,11 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 		return &pb.AddProbeResponse{}, err
 	}
 
-	// Send probe to the start probe channel to be started by a goroutine started
-	// at the prober start time.
-	pr.grpcStartProbeCh <- p.GetName()
+	// Start probe using the prober's start context.
+	if pr.startCtx == nil {
+		return &pb.AddProbeResponse{}, status.Errorf(codes.FailedPrecondition, "prober not started")
+	}
+	pr.startProbe(p.GetName())
 
 	if *probesConfigSavePath != "" {
 		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
@@ -54,21 +55,14 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (*pb.RemoveProbeResponse, error) {
 	pr.l.Infof("RemoveProbe called with: %s", req.GetProbeName())
 
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
 	name := req.GetProbeName()
-
 	if name == "" {
 		return &pb.RemoveProbeResponse{}, status.Errorf(codes.InvalidArgument, "probe name cannot be empty")
 	}
 
-	if pr.Probes[name] == nil {
-		return &pb.RemoveProbeResponse{}, status.Errorf(codes.NotFound, "probe %s not found", name)
+	if err := pr.removeProbe(name); err != nil {
+		return &pb.RemoveProbeResponse{}, status.Errorf(codes.NotFound, "%v", err)
 	}
-
-	pr.probeCancelFunc[name]()
-	delete(pr.Probes, name)
 
 	if *probesConfigSavePath != "" {
 		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
@@ -80,8 +74,8 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 // ListProbes gRPC method returns the list of probes from the in-memory database.
 func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*pb.ListProbesResponse, error) {
 	pr.l.Info("ListProbes called")
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
+	pr.mu.RLock()
+	defer pr.mu.RUnlock()
 
 	resp := &pb.ListProbesResponse{}
 
@@ -96,9 +90,6 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 }
 
 func (pr *Prober) SaveProbesConfig(ctx context.Context, req *pb.SaveProbesConfigRequest) (*pb.SaveProbesConfigResponse, error) {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
 	filePath := req.GetFilePath()
 	if filePath == "" {
 		filePath = *probesConfigSavePath
