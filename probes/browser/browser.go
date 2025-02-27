@@ -346,7 +346,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
 				em.AddLabel("run_id", fmt.Sprintf("%d", runID))
 			}
-			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
+			p.opts.RecordMetrics(target, em, p.dataChan)
 		}
 	}
 

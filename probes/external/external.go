@@ -243,7 +243,7 @@ func (p *Probe) processProbeResult(ps *probeStatus, target endpoint.Endpoint, re
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
 		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(ps.payload)}, target.Dst()) {
-			p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan, options.WithNoAlert())
+			p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan)
 		}
 	}
 }
@@ -277,7 +277,7 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			if p.c.GetOutputAsMetrics() && !p.c.GetDisableStreamingOutputMetrics() {
 				cmd.ProcessStreamingOutput = func(line []byte) {
 					for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
-						p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan, options.WithNoAlert())
+						p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan)
 					}
 				}
 			}

@@ -17,6 +17,7 @@ package metrics
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -211,6 +212,174 @@ func TestEventMetricsString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, em.String(tt.opts...))
+		})
+	}
+}
+
+func TestEventMetricsEqual(t *testing.T) {
+	baseTime := time.Now()
+	tests := []struct {
+		name     string
+		em1      *EventMetrics
+		em2      *EventMetrics
+		opts     []EqualOption
+		wantEq   bool
+		wantDiff string
+	}{
+		{
+			name: "equal metrics",
+			em1: NewEventMetrics(baseTime).
+				AddMetric("sent", NewInt(10)).
+				AddLabel("probe", "test"),
+			em2: NewEventMetrics(baseTime).
+				AddMetric("sent", NewInt(10)).
+				AddLabel("probe", "test"),
+			wantEq:   true,
+			wantDiff: "",
+		},
+		{
+			name: "different timestamps with noTimestamp",
+			em1: NewEventMetrics(baseTime).
+				AddMetric("sent", NewInt(10)),
+			em2: NewEventMetrics(baseTime.Add(time.Hour)).
+				AddMetric("sent", NewInt(10)),
+			opts:     []EqualOption{EqualNoTimestamp()},
+			wantEq:   true,
+			wantDiff: "",
+		},
+		{
+			name: "different timestamps without noTimestamp",
+			em1: NewEventMetrics(baseTime).
+				AddMetric("sent", NewInt(10)),
+			em2: NewEventMetrics(baseTime.Add(time.Hour)).
+				AddMetric("sent", NewInt(10)),
+			wantEq:   false,
+			wantDiff: fmt.Sprintf("mismatch in timestamp: %v vs %v", baseTime, baseTime.Add(time.Hour)),
+		},
+		{
+			name: "different kinds",
+			em1: func() *EventMetrics {
+				em := NewEventMetrics(baseTime)
+				em.Kind = GAUGE
+				return em
+			}(),
+			em2: func() *EventMetrics {
+				em := NewEventMetrics(baseTime)
+				em.Kind = CUMULATIVE
+				return em
+			}(),
+			wantEq:   false,
+			wantDiff: "mismatch in kind:",
+		},
+		{
+			name: "different options",
+			em1: func() *EventMetrics {
+				em := NewEventMetrics(baseTime)
+				em.Options = &EventMetricsOptions{NotForAlerting: true}
+				return em
+			}(),
+			em2: func() *EventMetrics {
+				em := NewEventMetrics(baseTime)
+				em.Options = &EventMetricsOptions{NotForAlerting: false}
+				return em
+			}(),
+			wantEq:   false,
+			wantDiff: "mismatch in options:",
+		},
+		{
+			name: "different latency units",
+			em1: func() *EventMetrics {
+				em := NewEventMetrics(baseTime)
+				em.LatencyUnit = time.Millisecond
+				return em
+			}(),
+			em2: func() *EventMetrics {
+				em := NewEventMetrics(baseTime)
+				em.LatencyUnit = time.Microsecond
+				return em
+			}(),
+			wantEq:   false,
+			wantDiff: "mismatch in latency unit: 1ms vs 1µs",
+		},
+		{
+			name: "different metrics",
+			em1: NewEventMetrics(baseTime).
+				AddMetric("sent", NewInt(10)),
+			em2: NewEventMetrics(baseTime).
+				AddMetric("sent", NewInt(20)),
+			wantEq:   false,
+			wantDiff: "mismatch in metrics:",
+		},
+		{
+			name: "different labels",
+			em1: NewEventMetrics(baseTime).
+				AddLabel("probe", "test1"),
+			em2: NewEventMetrics(baseTime).
+				AddLabel("probe", "test2"),
+			wantEq:   false,
+			wantDiff: "mismatch in labels:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotEq, gotDiff := tt.em1.Equal(tt.em2, tt.opts...)
+			if gotEq != tt.wantEq {
+				t.Errorf("Equal() equality = %v, want %v", gotEq, tt.wantEq)
+			}
+			if !tt.wantEq && !strings.Contains(gotDiff, tt.wantDiff) {
+				t.Errorf("Equal() diff = %v, want to contain %v", gotDiff, tt.wantDiff)
+			}
+		})
+	}
+}
+
+func TestSetNotForAlerting(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupMetrics  func() *EventMetrics
+		IsForAlerting bool
+	}{
+		{
+			name: "default",
+			setupMetrics: func() *EventMetrics {
+				return NewEventMetrics(time.Now())
+			},
+			IsForAlerting: true,
+		},
+		{
+			name: "new_metrics",
+			setupMetrics: func() *EventMetrics {
+				return NewEventMetrics(time.Now()).SetNotForAlerting()
+			},
+			IsForAlerting: false,
+		},
+		{
+			name: "existing_metrics_nil_options",
+			setupMetrics: func() *EventMetrics {
+				em := NewEventMetrics(time.Now())
+				em.Options = nil
+				return em.SetNotForAlerting()
+			},
+			IsForAlerting: false,
+		},
+		{
+			name: "existing_metrics_with_options",
+			setupMetrics: func() *EventMetrics {
+				em := NewEventMetrics(time.Now())
+				em.Options = &EventMetricsOptions{
+					NotForAlerting: false,
+				}
+				return em.SetNotForAlerting()
+			},
+			IsForAlerting: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			em := tt.setupMetrics()
+			assert.Equal(t, tt.IsForAlerting, em.IsForAlerting())
 		})
 	}
 }

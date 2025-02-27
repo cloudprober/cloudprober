@@ -67,7 +67,6 @@ type Probe struct {
 	oauthTS oauth2.TokenSource
 
 	responseParser *payload.Parser
-	dataChan       chan *metrics.EventMetrics
 
 	requestBody *httpreq.RequestBody
 }
@@ -85,6 +84,7 @@ type probeResult struct {
 	validationFailure            *metrics.Map[int64]
 	latencyBreakdown             *latencyDetails
 	sslEarliestExpirationSeconds int64
+	payloadMetrics               []*metrics.EventMetrics
 }
 
 func (p *Probe) getTransport() (*http.Transport, error) {
@@ -380,8 +380,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	if p.c.GetResponseMetricsOptions() != nil {
 		for _, em := range p.responseParser.PayloadMetrics(&payload.Input{Response: resp, Text: respBody}, target.Dst()) {
-			em.AddLabel("ptype", "http").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
-			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
+			result.payloadMetrics = append(result.payloadMetrics, em.AddLabel("ptype", "http"))
 		}
 	}
 
@@ -487,7 +486,7 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		}
 	}
 
-	em.AddLabel("ptype", "http")
+	em.AddLabel("ptype", "http") // Other labels are added by scheduler.
 	ems = append(ems, em)
 
 	// SSL earliest cert expiry is exported in an independent EM as it's a
@@ -496,13 +495,15 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		em := metrics.NewEventMetrics(ts).
 			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
 		em.Kind = metrics.GAUGE
-		if em.Options == nil {
-			em.Options = &metrics.EventMetricsOptions{}
-		}
-		em.Options.NotForAlerting = true
-		em.AddLabel("ptype", "http")
+		em.SetNotForAlerting()       // Helps with quick discard in alert path.
+		em.AddLabel("ptype", "http") // Other labels are added by scheduler.
 		ems = append(ems, em)
 	}
+
+	// Append any payload metrics and reset.
+	ems = append(ems, result.payloadMetrics...)
+	result.payloadMetrics = nil
+
 	return ems
 }
 
@@ -607,8 +608,6 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	p.dataChan = dataChan
-
 	s := &sched.Scheduler{
 		ProbeName:         p.name,
 		DataChan:          dataChan,

@@ -126,9 +126,10 @@ func NewParser(opts *configpb.OutputMetricsOptions, l *logger.Logger) (*Parser, 
 	return parser, nil
 }
 
-func withTimestamp(ems []*metrics.EventMetrics, ts time.Time) []*metrics.EventMetrics {
+func withTimestampAndNoAlert(ems []*metrics.EventMetrics, ts time.Time) []*metrics.EventMetrics {
 	for _, em := range ems {
 		em.Timestamp = ts
+		em.SetNotForAlerting()
 	}
 	return ems
 }
@@ -139,7 +140,7 @@ func withTimestamp(ems []*metrics.EventMetrics, ts time.Time) []*metrics.EventMe
 func (p *Parser) PayloadMetrics(input *Input, targetKey string) []*metrics.EventMetrics {
 	ts := time.Now()
 	if p.opts.GetHeaderMetric() == nil && p.opts.GetJsonMetric() == nil {
-		return withTimestamp(p.lineBasedMetrics(input.Text, targetKey), ts)
+		return withTimestampAndNoAlert(p.lineBasedMetrics(input.Text, targetKey), ts)
 	}
 
 	var results []*metrics.EventMetrics
@@ -151,5 +152,5 @@ func (p *Parser) PayloadMetrics(input *Input, targetKey string) []*metrics.Event
 		results = append(results, p.processJSONMetric(input.Text)...)
 	}
 
-	return withTimestamp(results, ts)
+	return withTimestampAndNoAlert(results, ts)
 }

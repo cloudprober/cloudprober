@@ -84,6 +84,7 @@ func (td *testData) multiEM(ts time.Time) []*metrics.EventMetrics {
 		if td.labels[i][0] != "" {
 			em.AddLabel(td.labels[i][0], td.labels[i][1])
 		}
+		em.SetNotForAlerting()
 	}
 
 	return results
@@ -120,16 +121,16 @@ func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
 	ems := p.PayloadMetrics(&Input{Text: etd.testPayload(false)}, testTarget)
 	expectedMetrics := etd.multiEM(ems[0].Timestamp)
 	for i, em := range ems {
-		if em.String() != expectedMetrics[i].String() {
-			t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
+		if equal, msg := em.Equal(expectedMetrics[i], metrics.EqualNoTimestamp()); !equal {
+			t.Errorf("Output metrics not correct: %s", msg)
 		}
 	}
 
 	// Test with quoted label values
 	ems = p.PayloadMetrics(&Input{Text: etd.testPayload(true)}, testTarget)
 	for i, em := range ems {
-		if em.String() != expectedMetrics[i].String() {
-			t.Errorf("Output metrics not correct:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
+		if equal, msg := em.Equal(expectedMetrics[i], metrics.EqualNoTimestamp()); !equal {
+			t.Errorf("Output metrics not correct: %s", msg)
 		}
 	}
 }
