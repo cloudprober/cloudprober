@@ -28,7 +28,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"flag"
@@ -90,7 +89,6 @@ const (
 // time, e.g. /Users/manugarg/code/cloudprober. We trim this path from the
 // logged source file names. We set this in the init() function.
 var basePath string
-var basePathOnce sync.Once
 
 // We trim this path from the logged source function name.
 const basePackage = "github.com/cloudprober/cloudprober/"
@@ -213,13 +211,6 @@ func NewLegacy(ctx context.Context, logName string, opts ...Option) (*Logger, er
 }
 
 func newLogger(opts ...Option) *Logger {
-	basePathOnce.Do(func() {
-		var pcs [1]uintptr
-		runtime.Callers(1, pcs[:])
-		frame, _ := runtime.CallersFrames(pcs[:]).Next()
-		basePath = strings.TrimSuffix(frame.File, "logger/logger.go")
-	})
-
 	l := &Logger{
 		disableCloudLogging: *disableCloudLogging,
 		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
@@ -519,4 +510,14 @@ func envVarSet(key string) bool {
 		return true
 	}
 	return false
+}
+
+// init initializes basePath. We generally avoid init() but initializing
+// basePath here, instead of newLogger, makes sense as we support 'nil' logger
+// as well and newLogger will not be called in that case.
+func init() {
+	var pcs [1]uintptr
+	runtime.Callers(1, pcs[:])
+	frame, _ := runtime.CallersFrames(pcs[:]).Next()
+	basePath = strings.TrimSuffix(frame.File, "logger/logger.go")
 }
