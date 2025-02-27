@@ -1,4 +1,4 @@
-// Copyright 2017-2024 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,14 @@ var EnvVars = struct {
 	"CLOUDPROBER_DISABLE_CLOUD_LOGGING",
 	"CLOUDPROBER_DEBUG_LOG",
 	"CLOUDPROBER_GCP_LOGGING_ENDPOINT",
+}
+
+func isEnvSet(key string) bool {
+	v, ok := os.LookupEnv(key)
+	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE" && v != "" {
+		return true
+	}
+	return false
 }
 
 const (
@@ -139,11 +147,11 @@ func slogHandler(w io.Writer) slog.Handler {
 }
 
 func enableDebugLog(debugLog bool, debugLogRe string, attrs ...slog.Attr) bool {
-	if !debugLog && debugLogRe == "" {
+	if !debugLog && !isEnvSet(EnvVars.DebugLog) && debugLogRe == "" {
 		return false
 	}
 
-	if debugLog && debugLogRe == "" {
+	if (debugLog || isEnvSet(EnvVars.DebugLog)) && debugLogRe == "" {
 		// Enable for all logs, regardless of log names.
 		return true
 	}
@@ -217,6 +225,11 @@ func newLogger(opts ...Option) *Logger {
 		systemAttr:          defaultSystemName,
 		minLogLevel:         parseMinLogLevel(),
 	}
+
+	if l.gcpLoggingEndpoint == "" && isEnvSet(EnvVars.GCPLoggingEndpoint) {
+		l.gcpLoggingEndpoint = os.Getenv(EnvVars.GCPLoggingEndpoint)
+	}
+
 	for _, opt := range opts {
 		opt(l)
 	}
@@ -230,7 +243,7 @@ func newLogger(opts ...Option) *Logger {
 		l.minLogLevel = slog.LevelDebug
 	}
 
-	if metadata.OnGCE() && !l.disableCloudLogging {
+	if metadata.OnGCE() && !l.disableCloudLogging && !isEnvSet(EnvVars.DisableCloudLogging) {
 		l.EnableStackdriverLogging()
 	}
 	return l
@@ -499,28 +512,10 @@ func (l *Logger) Criticalf(format string, args ...interface{}) {
 	l.logAttrs(criticalLevel, 2, fmt.Sprintf(format, args...))
 }
 
-func envVarSet(key string) bool {
-	v, ok := os.LookupEnv(key)
-	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE" && v != "" {
-		return true
-	}
-	return false
-}
-
+// init initializes basePath. We generally avoid init() but initializing
+// basePath here, instead of newLogger, makes sense as we support 'nil' logger
+// as well and newLogger will not be called in that case.
 func init() {
-	if envVarSet(EnvVars.DisableCloudLogging) {
-		*disableCloudLogging = true
-	}
-
-	if envVarSet(EnvVars.DebugLog) {
-		*debugLog = true
-	}
-
-	if envVarSet(EnvVars.GCPLoggingEndpoint) {
-		*gcpLoggingEndpoint = os.Getenv(EnvVars.GCPLoggingEndpoint)
-	}
-
-	// Determine the base path for the cloudprober source code.
 	var pcs [1]uintptr
 	runtime.Callers(1, pcs[:])
 	frame, _ := runtime.CallersFrames(pcs[:]).Next()

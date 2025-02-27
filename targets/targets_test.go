@@ -28,6 +28,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	eppb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
+	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
 	testdatapb "github.com/cloudprober/cloudprober/targets/testdata"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -289,6 +290,7 @@ func TestRDSClientConf(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
+	var gotResolver dnsRes.Resolver
 	tests := []struct {
 		name       string
 		targetsDef *targetspb.TargetsDef
@@ -337,6 +339,11 @@ func TestNew(t *testing.T) {
 				return
 			}
 			gotNames := endpoint.NamesFromEndpoints(got.ListEndpoints())
+			if gotResolver == nil {
+				gotResolver = got.(*targets).resolver
+			} else {
+				assert.Equal(t, gotResolver, got.(*targets).resolver, "Unexpected resolver")
+			}
 			assert.Equal(t, tt.wantNames, gotNames, "Unexpected targets")
 		})
 	}
