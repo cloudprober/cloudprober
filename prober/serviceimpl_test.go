@@ -185,17 +185,17 @@ func TestRemoveProbes(t *testing.T) {
 
 func TestSaveProbesConfig(t *testing.T) {
 	tmpFile := func() *os.File {
-		f, err := os.CreateTemp(t.TempDir(), "")
+		f, err := os.CreateTemp(t.TempDir(), "cloudprober_save.cfg")
 		if err != nil {
 			t.Fatalf("error while creating temp file: %v", err)
 		}
+		f.Close()
 		return f
 	}
 
 	f := tmpFile()
 	*probesConfigSavePath = f.Name()
 	defer func() {
-		os.Remove(f.Name())
 		*probesConfigSavePath = ""
 	}()
 
@@ -246,9 +246,8 @@ func TestSaveProbesConfig(t *testing.T) {
 	}
 	compareConfig(*probesConfigSavePath, wantConfigProbe1)
 
-	// Test SaveProbeConfig API
+	// Test SaveProbeConfig
 	f2 := tmpFile()
-	defer os.Remove(f2.Name())
 	pr.SaveProbesConfig(context.Background(), &pb.SaveProbesConfigRequest{FilePath: proto.String(f2.Name())})
 	compareConfig(f2.Name(), wantConfigProbe1)
 }
