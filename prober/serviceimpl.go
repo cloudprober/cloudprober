@@ -30,10 +30,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// saveProbesConfigUnprotected saves the current config to the given file path.
+// saveProbesConfigToFile saves the current config to the given file path.
 // This function is called whenever we change the config in response to a gRPC
 // request.
-func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
+func (pr *Prober) saveProbesConfigToFile(filePath string) error {
 	pr.mu.RLock()
 	defer pr.mu.RUnlock()
 
@@ -86,7 +86,7 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	pr.startProbe(p.GetName())
 
 	if *probesConfigSavePath != "" {
-		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
+		pr.saveProbesConfigToFile(*probesConfigSavePath)
 	}
 
 	return &pb.AddProbeResponse{}, nil
@@ -122,7 +122,7 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 	}
 
 	if *probesConfigSavePath != "" {
-		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
+		pr.saveProbesConfigToFile(*probesConfigSavePath)
 	}
 
 	return &pb.RemoveProbeResponse{}, nil
@@ -155,7 +155,7 @@ func (pr *Prober) SaveProbesConfig(ctx context.Context, req *pb.SaveProbesConfig
 		return nil, errors.New("file_path not provided and --config_save_path flag is also not set")
 	}
 
-	if err := pr.saveProbesConfigUnprotected(filePath); err != nil {
+	if err := pr.saveProbesConfigToFile(filePath); err != nil {
 		return nil, err
 	}
 
