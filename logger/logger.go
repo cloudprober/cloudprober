@@ -1,4 +1,4 @@
-// Copyright 2017-2024 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"flag"
@@ -89,6 +90,7 @@ const (
 // time, e.g. /Users/manugarg/code/cloudprober. We trim this path from the
 // logged source file names. We set this in the init() function.
 var basePath string
+var basePathOnce sync.Once
 
 // We trim this path from the logged source function name.
 const basePackage = "github.com/cloudprober/cloudprober/"
@@ -139,11 +141,11 @@ func slogHandler(w io.Writer) slog.Handler {
 }
 
 func enableDebugLog(debugLog bool, debugLogRe string, attrs ...slog.Attr) bool {
-	if !debugLog && debugLogRe == "" {
+	if !debugLog && !envVarSet(EnvVars.DebugLog) && debugLogRe == "" {
 		return false
 	}
 
-	if debugLog && debugLogRe == "" {
+	if (debugLog || envVarSet(EnvVars.DebugLog)) && debugLogRe == "" {
 		// Enable for all logs, regardless of log names.
 		return true
 	}
@@ -211,12 +213,24 @@ func NewLegacy(ctx context.Context, logName string, opts ...Option) (*Logger, er
 }
 
 func newLogger(opts ...Option) *Logger {
+	basePathOnce.Do(func() {
+		var pcs [1]uintptr
+		runtime.Callers(1, pcs[:])
+		frame, _ := runtime.CallersFrames(pcs[:]).Next()
+		basePath = strings.TrimSuffix(frame.File, "logger/logger.go")
+	})
+
 	l := &Logger{
 		disableCloudLogging: *disableCloudLogging,
 		gcpLoggingEndpoint:  *gcpLoggingEndpoint,
 		systemAttr:          defaultSystemName,
 		minLogLevel:         parseMinLogLevel(),
 	}
+
+	if l.gcpLoggingEndpoint == "" && envVarSet(EnvVars.GCPLoggingEndpoint) {
+		l.gcpLoggingEndpoint = os.Getenv(EnvVars.GCPLoggingEndpoint)
+	}
+
 	for _, opt := range opts {
 		opt(l)
 	}
@@ -230,7 +244,7 @@ func newLogger(opts ...Option) *Logger {
 		l.minLogLevel = slog.LevelDebug
 	}
 
-	if metadata.OnGCE() && !l.disableCloudLogging {
+	if metadata.OnGCE() && !l.disableCloudLogging && !envVarSet(EnvVars.DisableCloudLogging) {
 		l.EnableStackdriverLogging()
 	}
 	return l
@@ -505,24 +519,4 @@ func envVarSet(key string) bool {
 		return true
 	}
 	return false
-}
-
-func init() {
-	if envVarSet(EnvVars.DisableCloudLogging) {
-		*disableCloudLogging = true
-	}
-
-	if envVarSet(EnvVars.DebugLog) {
-		*debugLog = true
-	}
-
-	if envVarSet(EnvVars.GCPLoggingEndpoint) {
-		*gcpLoggingEndpoint = os.Getenv(EnvVars.GCPLoggingEndpoint)
-	}
-
-	// Determine the base path for the cloudprober source code.
-	var pcs [1]uintptr
-	runtime.Callers(1, pcs[:])
-	frame, _ := runtime.CallersFrames(pcs[:]).Next()
-	basePath = strings.TrimSuffix(frame.File, "logger/logger.go")
 }
