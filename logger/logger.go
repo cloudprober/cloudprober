@@ -68,6 +68,14 @@ var EnvVars = struct {
 	"CLOUDPROBER_GCP_LOGGING_ENDPOINT",
 }
 
+func isEnvSet(key string) bool {
+	v, ok := os.LookupEnv(key)
+	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE" && v != "" {
+		return true
+	}
+	return false
+}
+
 const (
 	// Default "system" label and stackdriver log name prefix.
 	defaultSystemName = "cloudprober"
@@ -139,11 +147,11 @@ func slogHandler(w io.Writer) slog.Handler {
 }
 
 func enableDebugLog(debugLog bool, debugLogRe string, attrs ...slog.Attr) bool {
-	if !debugLog && !envVarSet(EnvVars.DebugLog) && debugLogRe == "" {
+	if !debugLog && !isEnvSet(EnvVars.DebugLog) && debugLogRe == "" {
 		return false
 	}
 
-	if (debugLog || envVarSet(EnvVars.DebugLog)) && debugLogRe == "" {
+	if (debugLog || isEnvSet(EnvVars.DebugLog)) && debugLogRe == "" {
 		// Enable for all logs, regardless of log names.
 		return true
 	}
@@ -218,7 +226,7 @@ func newLogger(opts ...Option) *Logger {
 		minLogLevel:         parseMinLogLevel(),
 	}
 
-	if l.gcpLoggingEndpoint == "" && envVarSet(EnvVars.GCPLoggingEndpoint) {
+	if l.gcpLoggingEndpoint == "" && isEnvSet(EnvVars.GCPLoggingEndpoint) {
 		l.gcpLoggingEndpoint = os.Getenv(EnvVars.GCPLoggingEndpoint)
 	}
 
@@ -235,7 +243,7 @@ func newLogger(opts ...Option) *Logger {
 		l.minLogLevel = slog.LevelDebug
 	}
 
-	if metadata.OnGCE() && !l.disableCloudLogging && !envVarSet(EnvVars.DisableCloudLogging) {
+	if metadata.OnGCE() && !l.disableCloudLogging && !isEnvSet(EnvVars.DisableCloudLogging) {
 		l.EnableStackdriverLogging()
 	}
 	return l
@@ -502,14 +510,6 @@ func (l *Logger) Errorf(format string, args ...interface{}) {
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Criticalf(format string, args ...interface{}) {
 	l.logAttrs(criticalLevel, 2, fmt.Sprintf(format, args...))
-}
-
-func envVarSet(key string) bool {
-	v, ok := os.LookupEnv(key)
-	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE" && v != "" {
-		return true
-	}
-	return false
 }
 
 // init initializes basePath. We generally avoid init() but initializing
