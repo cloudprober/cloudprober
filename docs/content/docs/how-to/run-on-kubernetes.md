@@ -88,6 +88,14 @@ spec:
           ports:
             - name: http
               containerPort: 9313
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9313
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9313
 ---
 apiVersion: v1
 kind: Service
