@@ -129,12 +129,12 @@ func TestAllLinksPageLinks(t *testing.T) {
 		{
 			name:  "no static links",
 			links: []string{"/link1", "/link2", "/link3"},
-			want:  []string{"/link1", "/link2", "/link3"},
+			want:  []string{"link1", "link2", "link3"},
 		},
 		{
 			name:  "mixed links",
 			links: []string{"/link1", "/static/link2", "/link3", "/static/link4", "/link5"},
-			want:  []string{"/link1", "/link3", "/link5"},
+			want:  []string{"link1", "link3", "link5"},
 		},
 		{
 			name:  "only static links",
@@ -164,12 +164,12 @@ func TestArtifactsLinks(t *testing.T) {
 		{
 			name:  "mixed links",
 			links: []string{"/link1", "/artifacts/link2", "/link3", "/artifacts/link4", "/link5"},
-			want:  []string{"/artifacts/link2", "/artifacts/link4"},
+			want:  []string{"artifacts/link2", "artifacts/link4"},
 		},
 		{
 			name:  "only artifact links",
 			links: []string{"/artifacts/link1", "/artifacts/link2"},
-			want:  []string{"/artifacts/link1", "/artifacts/link2"},
+			want:  []string{"artifacts/link1", "artifacts/link2"},
 		},
 	}
 
