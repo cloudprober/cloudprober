@@ -32,6 +32,8 @@ type SurfacerConf struct {
 	// Max targets per probe.
 	MaxTargetsPerProbe *int32 `protobuf:"varint,3,opt,name=max_targets_per_probe,json=maxTargetsPerProbe,def=20" json:"max_targets_per_probe,omitempty"`
 	// ProbeStatus URL
+	// This field is now deprecated and soon setting it will result in an
+	// error.
 	// Note that older default URL /probestatus forwards to this URL to avoid
 	// breaking older default setups.
 	Url *string `protobuf:"bytes,4,opt,name=url,def=/status" json:"url,omitempty"`
