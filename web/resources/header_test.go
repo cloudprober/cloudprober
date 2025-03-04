@@ -146,3 +146,21 @@ func TestHeaderData(t *testing.T) {
 		})
 	}
 }
+
+func TestLinkPrefixFromCurrentPath(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{path: "/", expected: ""},
+		{path: "/status", expected: ""},
+		{path: "/config/running", expected: "../"},
+		{path: "/some/deep/path", expected: "../../"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			assert.Equal(t, tt.expected, LinkPrefixFromCurrentPath(tt.path))
+		})
+	}
+}
