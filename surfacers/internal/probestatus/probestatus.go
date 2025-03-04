@@ -372,6 +372,10 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	var statusBuf bytes.Buffer
 
+	// TODO(manugarg): We should stop supporting custom URL for the status
+	// page and always use /status. We'll not need this linkPrefix then.
+	linkPrefix := resources.LinkPrefixFromCurrentPath(ps.c.GetUrl())
+
 	err := statusTmpl.Execute(&statusBuf, struct {
 		BaseURL     string
 		Durations   []string
@@ -381,16 +385,18 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		GraphData   map[string]template.JS
 		DebugData   map[string]template.HTML
 		Header      template.HTML
+		LinkPrefix  string
 		StartTime   fmt.Stringer
 	}{
-		BaseURL:     ps.c.GetUrl(),
+		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
 		Durations:   ps.dashDurationsText,
 		ProbeNames:  probes,
 		AllProbes:   ps.probeNames,
 		StatusTable: statusTable,
 		GraphData:   graphData,
 		DebugData:   debugData,
-		Header:      resources.Header(),
+		Header:      resources.Header(linkPrefix),
+		LinkPrefix:  linkPrefix,
 		StartTime:   ps.startTime,
 	})
 	if err != nil {

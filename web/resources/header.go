@@ -27,7 +27,7 @@ import (
 )
 
 type headerTmplData struct {
-	Version, BuiltAt, StartTime, Uptime, IncludeMetricsLink, IncludeArtifactsLink, RightDiv interface{}
+	Version, BuiltAt, StartTime, Uptime, StatusLink, LinksPrefix, IncludeMetricsLink, IncludeArtifactsLink, RightDiv interface{}
 }
 
 var t = template.Must(template.New("header").Parse(`
@@ -39,21 +39,22 @@ var t = template.Must(template.New("header").Parse(`
   <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
   <b>Version</b>: {{.Version}}<br>
   <b>Built at</b>: {{.BuiltAt}}<br>
-  <b>Other Links </b>(<a href="/links">all</a>):
-  	<a href="/status">/status</a>,
-	<a href="/config-running">/config</a> (<a href="/config-parsed">parsed</a> | <a href="/config">raw</a>),
-	{{if .IncludeMetricsLink -}} <a href="/metrics">/metrics</a>,{{ end }}
-	{{if .IncludeArtifactsLink -}} <a href="/artifacts">/artifacts</a>,{{ end }}
-	<a href="/alerts">/alerts</a>
+  <b>Other Links </b>(<a href="{{.LinksPrefix}}links">all</a>):
+  	<a href="{{.LinksPrefix}}{{.StatusLink}}">/status</a>,
+	<a href="{{.LinksPrefix}}config-running">/config</a> (<a href="{{.LinksPrefix}}config-parsed">parsed</a> | <a href="{{.LinksPrefix}}config">raw</a>),
+	{{if .IncludeMetricsLink -}} <a href="{{.LinksPrefix}}metrics">/metrics</a>,{{ end }}
+	{{if .IncludeArtifactsLink -}} <a href="{{.LinksPrefix}}artifacts">/artifacts</a>,{{ end }}
+	<a href="{{.LinksPrefix}}alerts">/alerts</a>
 </div>
 `))
 
-func headerData() headerTmplData {
+func headerData(linksPrefix string) headerTmplData {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
 	includeMetrics := false
 	includeArtifacts := false
+	statusLink := "status"
 	allLinks := state.AllLinks()
 	for _, link := range allLinks {
 		if strings.Contains(link, "/artifacts") {
@@ -62,6 +63,9 @@ func headerData() headerTmplData {
 		if link == "/metrics" {
 			includeMetrics = true
 		}
+		if strings.HasSuffix(link, "/status") {
+			statusLink = strings.TrimLeft(link, "/")
+		}
 	}
 
 	return headerTmplData{
@@ -69,15 +73,26 @@ func headerData() headerTmplData {
 		BuiltAt:              state.BuildTimestamp(),
 		StartTime:            startTime,
 		Uptime:               uptime,
+		StatusLink:           statusLink,
+		LinksPrefix:          linksPrefix,
 		IncludeMetricsLink:   includeMetrics,
 		IncludeArtifactsLink: includeArtifacts,
 	}
 }
 
-func Header() template.HTML {
+func Header(linksPrefix string) template.HTML {
 	var buf bytes.Buffer
-	if err := t.Execute(&buf, headerData()); err != nil {
+	if err := t.Execute(&buf, headerData(linksPrefix)); err != nil {
 		panic(fmt.Sprintf("Error rendering header: %v", err))
 	}
 	return template.HTML(buf.String())
+}
+
+func LinkPrefixFromCurrentPath(path string) string {
+	pathParts := strings.Split(path, "/")
+	linkPrefix := ""
+	for i := 2; i < len(pathParts); i++ {
+		linkPrefix += "../"
+	}
+	return linkPrefix
 }
