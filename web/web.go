@@ -41,7 +41,7 @@ var content embed.FS
 var htmlTmpl = string(`
 <html>
 <head>
-  <link href="/static/cloudprober.css" rel="stylesheet">
+  <link href="static/cloudprober.css" rel="stylesheet">
 </head>
 
 <body>
@@ -80,7 +80,9 @@ var allLinksTmpl = template.Must(template.New("allLinks").Parse(`
 `))
 
 func writeWithHeader(w io.Writer, body template.HTML) {
-	fmt.Fprint(w, fmt.Sprintf(htmlTmpl, resources.Header(), body))
+	// All links here are served at the root.
+	linkPrefix := ""
+	fmt.Fprint(w, fmt.Sprintf(htmlTmpl, resources.Header(linkPrefix), body))
 }
 
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
