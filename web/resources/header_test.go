@@ -17,6 +17,7 @@ package resources
 import (
 	"html/template"
 	"net/http"
+	"regexp"
 	"testing"
 	"time"
 
@@ -45,59 +46,71 @@ func TestHeader(t *testing.T) {
   <b>Started</b>: 0001-01-01 00:00:00 &#43;0000 UTC -- up 2562047h47m16.854s<br/>
   <b>Version</b>: v1.0.0<br>
   <b>Built at</b>: 2023-10-01 12:00:00 &#43;0000 UTC<br>
-  <b>Other Links </b>(<a href="/links">all</a>):
-  	<a href="/status">/status</a>,
-	<a href="/config-running">/config</a> (<a href="/config-parsed">parsed</a> | <a href="/config">raw</a>),
-	<a href="/metrics">/metrics</a>,
-	<a href="/artifacts">/artifacts</a>,
-	<a href="/alerts">/alerts</a>
+  <b>Other Links </b>(<a href="links">all</a>):
+  	<a href="status">/status</a>,
+	<a href="config-running">/config</a> (<a href="config-parsed">parsed</a> | <a href="config">raw</a>),
+	<a href="metrics">/metrics</a>,
+	<a href="artifacts">/artifacts</a>,
+	<a href="alerts">/alerts</a>
 </div>
 `
 
-	result := Header()
-	assert.Equal(t, template.HTML(expected), result)
+	t.Run("no prefix", func(t *testing.T) {
+		assert.Equal(t, template.HTML(expected), Header(""))
+	})
+
+	t.Run("with prefix", func(t *testing.T) {
+		expected = regexp.MustCompile(`href="([^".]*)"`).ReplaceAllString(expected, "href=\"../../$1\"")
+		assert.Equal(t, template.HTML(expected), Header("../../"))
+	})
 }
 
 func TestHeaderData(t *testing.T) {
 	tests := []struct {
-		name                  string
-		version               string
-		buildTimestamp        time.Time
-		links                 []string
-		expectedMetricsLink   bool
-		expectedArtifactsLink bool
+		name                string
+		version             string
+		buildTimestamp      time.Time
+		links               []string
+		wantStatusLink      string
+		expectMetricsLink   bool
+		expectArtifactsLink bool
 	}{
 		{
-			name:                  "No links",
-			version:               "v1.0.0",
-			buildTimestamp:        time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
-			links:                 []string{},
-			expectedMetricsLink:   false,
-			expectedArtifactsLink: false,
+			name:           "No links",
+			version:        "v1.0.0",
+			buildTimestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:          []string{},
 		},
 		{
-			name:                  "Metrics link",
-			version:               "v1.0.0",
-			buildTimestamp:        time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
-			links:                 []string{"/metrics"},
-			expectedMetricsLink:   true,
-			expectedArtifactsLink: false,
+			name:           "Status link",
+			version:        "v1.0.0",
+			buildTimestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:          []string{"/my/probe/status"},
+			wantStatusLink: "my/probe/status",
 		},
 		{
-			name:                  "Artifacts link",
-			version:               "v1.0.0",
-			buildTimestamp:        time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
-			links:                 []string{"/artifacts"},
-			expectedMetricsLink:   false,
-			expectedArtifactsLink: true,
+			name:                "Metrics link",
+			version:             "v1.0.0",
+			buildTimestamp:      time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:               []string{"/metrics"},
+			expectMetricsLink:   true,
+			expectArtifactsLink: false,
 		},
 		{
-			name:                  "Both links",
-			version:               "v1.0.0",
-			buildTimestamp:        time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
-			links:                 []string{"/metrics", "/artifacts"},
-			expectedMetricsLink:   true,
-			expectedArtifactsLink: true,
+			name:                "Artifacts link",
+			version:             "v1.0.0",
+			buildTimestamp:      time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:               []string{"/artifacts"},
+			expectMetricsLink:   false,
+			expectArtifactsLink: true,
+		},
+		{
+			name:                "Both links",
+			version:             "v1.0.0",
+			buildTimestamp:      time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:               []string{"/metrics", "/artifacts"},
+			expectMetricsLink:   true,
+			expectArtifactsLink: true,
 		},
 	}
 
@@ -115,15 +128,39 @@ func TestHeaderData(t *testing.T) {
 
 			wantStartTime := sysvars.StartTime().Truncate(time.Millisecond)
 			wantUptime := time.Since(wantStartTime).Truncate(time.Millisecond)
+			if tt.wantStatusLink == "" {
+				tt.wantStatusLink = "status"
+			}
 
-			data := headerData()
+			for _, linksPrefix := range []string{"", "../"} {
+				data := headerData(linksPrefix)
+				assert.Equal(t, tt.version, data.Version)
+				assert.Equal(t, tt.buildTimestamp, data.BuiltAt)
+				assert.Equal(t, wantStartTime, data.StartTime)
+				assert.Equal(t, wantUptime, data.Uptime)
+				assert.Equal(t, tt.expectMetricsLink, data.IncludeMetricsLink)
+				assert.Equal(t, tt.expectArtifactsLink, data.IncludeArtifactsLink)
+				assert.Equal(t, linksPrefix, data.LinksPrefix)
+				assert.Equal(t, tt.wantStatusLink, data.StatusLink)
+			}
+		})
+	}
+}
 
-			assert.Equal(t, tt.version, data.Version)
-			assert.Equal(t, tt.buildTimestamp, data.BuiltAt)
-			assert.Equal(t, wantStartTime, data.StartTime)
-			assert.Equal(t, wantUptime, data.Uptime)
-			assert.Equal(t, tt.expectedMetricsLink, data.IncludeMetricsLink)
-			assert.Equal(t, tt.expectedArtifactsLink, data.IncludeArtifactsLink)
+func TestLinkPrefixFromCurrentPath(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{path: "/", expected: ""},
+		{path: "/status", expected: ""},
+		{path: "/config/running", expected: "../"},
+		{path: "/some/deep/path", expected: "../../"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			assert.Equal(t, tt.expected, LinkPrefixFromCurrentPath(tt.path))
 		})
 	}
 }
