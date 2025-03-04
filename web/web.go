@@ -73,7 +73,7 @@ var allLinksTmpl = template.Must(template.New("allLinks").Parse(`
 <h3>{{.Title}}:</h3>
 <ul>
   {{ range .Links}}
-  <li><a href="{{.}}">{{.}}</a></li>
+  <li><a href="{{.}}">/{{.}}</a></li>
   {{ end }}
 </ul>
 </html>
@@ -122,7 +122,7 @@ func allLinksPageLinks(links []string) []string {
 		if strings.Contains(link, "/static/") {
 			continue
 		}
-		out = append(out, link)
+		out = append(out, strings.TrimLeft(link, "/"))
 	}
 	sort.Strings(out)
 	return out
@@ -132,7 +132,7 @@ func artifactsLinks(links []string) []string {
 	var out []string
 	for _, link := range links {
 		if strings.Contains(link, "/artifacts/") {
-			out = append(out, link)
+			out = append(out, strings.TrimLeft(link, "/"))
 		}
 	}
 	sort.Strings(out)
