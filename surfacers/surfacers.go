@@ -265,6 +265,10 @@ func Init(ctx context.Context, sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo
 			sType = inferType(sDef)
 		}
 
+		if sType == surfacerpb.Type_PROBESTATUS && foundSurfacers[sType] {
+			return nil, fmt.Errorf("probestatus surfacer cannot be defined more than once")
+		}
+
 		s, err := initSurfacer(ctx, sDef, sType)
 		if err != nil {
 			return nil, err
