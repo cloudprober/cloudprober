@@ -372,6 +372,8 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	var statusBuf bytes.Buffer
 
+	// TODO(manugarg): We should stop supporting custom URL for the status
+	// page and always use /status. We'll not need this linkPrefix then.
 	linkPrefix := resources.LinkPrefixFromCurrentPath(ps.c.GetUrl())
 
 	err := statusTmpl.Execute(&statusBuf, struct {
