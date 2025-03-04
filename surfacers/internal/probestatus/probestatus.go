@@ -133,6 +133,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		res = time.Minute
 	}
 
+	if config.GetUrl() != "/status" {
+		l.Warningf("Setting status page url is deprecated. In future versions, url will always be fixed at /status and setting it to anything else will result in an error")
+	}
+
 	ps := &Surfacer{
 		c:            config,
 		opts:         opts,
