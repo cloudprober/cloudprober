@@ -179,13 +179,15 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		<-doneChan
 	})
 
+	redirectHTML := fmt.Sprintf(`<html><meta http-equiv="refresh" content="0; url=%s"></html>`, strings.TrimLeft(config.GetUrl(), "/"))
+
 	// Make sure older path /probestatus is redirected to the new path.
 	if !state.IsHandled("/probestatus") {
-		state.AddWebHandler("/probestatus", http.RedirectHandler(config.GetUrl(), http.StatusFound).ServeHTTP)
-	}
-
-	if err := state.AddWebHandler(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))).ServeHTTP); err != nil {
-		return nil, fmt.Errorf("error adding static file handler: %v", err)
+		if err := state.AddWebHandler("/probestatus", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, redirectHTML)
+		}); err != nil {
+			return nil, fmt.Errorf("error setting up /probestatus redirect: %v", err)
+		}
 	}
 
 	if !state.IsHandled("/") {
@@ -194,11 +196,15 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 				http.NotFound(w, r)
 				return
 			}
-			http.Redirect(w, r, config.GetUrl(), http.StatusFound)
+			fmt.Fprintf(w, redirectHTML)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error adding / handler: %v", err)
 		}
+	}
+
+	if err := state.AddWebHandler(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))).ServeHTTP); err != nil {
+		return nil, fmt.Errorf("error adding static file handler: %v", err)
 	}
 
 	l.Infof("Initialized status surfacer at the URL: %s", config.GetUrl())
