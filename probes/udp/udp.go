@@ -219,6 +219,26 @@ func (p *Probe) initProbeRunResults() error {
 			}
 		}
 	}
+
+	// Delete results for targets that are no longer in the target list.
+	var keysToDelete []flow
+	for f := range p.res {
+		found := false
+		for _, target := range p.targets {
+			if f.target == target.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			keysToDelete = append(keysToDelete, f)
+		}
+	}
+
+	// Delete keys after the loop
+	for _, key := range keysToDelete {
+		delete(p.res, key)
+	}
 	return nil
 }
 
