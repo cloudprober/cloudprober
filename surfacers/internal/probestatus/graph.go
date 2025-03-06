@@ -16,6 +16,7 @@ package probestatus
 
 import (
 	"encoding/json"
+	"math"
 	"net/url"
 	"strconv"
 	"time"
@@ -193,6 +194,11 @@ func computeGraphPoints(baseTS *timeseries, gopts *graphOptions) *graphPoints {
 		lastD := ts.a[ts.latest]
 
 		val := float64(currentD.success-lastD.success) / float64(currentD.total-lastD.total)
+		// For graphing purpose, we convert NaNs to -1. We ignore -1 while
+		// drawing the graph.
+		if math.IsNaN(val) {
+			val = -1
+		}
 		if val == lastVal && len(gp.freqs) > 0 {
 			gp.freqs[0]++
 		} else {
