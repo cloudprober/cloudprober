@@ -405,13 +405,11 @@ func (p *Probe) runProbe() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(p.targets) * packetsPerTarget)
-
 	for _, conn := range p.connList {
 		conn.SetWriteDeadline(time.Now().Add(p.opts.Interval / 2))
 	}
 	for _, target := range p.targets {
-		ip, err := p.opts.Targets.Resolve(target.Name, p.ipVer)
+		ip, err := target.Resolve(p.ipVer, p.opts.Targets)
 		if err != nil {
 			p.l.Errorf("unable to resolve %s: %v", target.Name, err)
 			continue
@@ -429,6 +427,7 @@ func (p *Probe) runProbe() {
 		for i := 0; i < packetsPerTarget; i++ {
 			connID := (initialConn + i) % len(p.connList)
 			conn := p.connList[connID]
+			wg.Add(1)
 			go func(conn *net.UDPConn, f flow) {
 				defer wg.Done()
 				if err := p.runSingleProbe(f, conn, maxLen, &net.UDPAddr{IP: ip, Port: dstPort}); err != nil {
