@@ -139,6 +139,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.src = sysvars.GetVar("hostname")
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 	p.fsm = udpmessage.NewFlowStateMap()
 	p.res = make(map[flow]*probeResult)
 
