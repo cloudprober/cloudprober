@@ -281,6 +281,9 @@ func (p *Probe) processRcvdPacket(rpkt packetID) {
 
 func (p *Probe) processSentPacket(spkt packetID) {
 	p.l.Debugf("spkt seq: %d, flow: %v", spkt.seq, spkt.f)
+	if spkt.seq > p.highestSeq[spkt.f] {
+		p.highestSeq[spkt.f] = spkt.seq
+	}
 	res, ok := p.res[p.resultsKey(spkt.f)]
 	if !ok {
 		return
@@ -313,25 +316,22 @@ func (p *Probe) processPackets() {
 	for i := 0; i < lenSentPackets; i++ {
 		pkt := <-p.sentPackets
 		if now.Sub(pkt.txTS) < p.opts.Timeout {
-			p.l.Debugf("Inserting spacket (seq %d) for late processing", pkt.seq)
+			p.l.Debugf("Inserting spacket (seq %d, flow %v) for late processing", pkt.seq, pkt.f)
 			p.sPackets = append(p.sPackets, pkt)
 			continue
 		}
 		p.processSentPacket(pkt)
-		if pkt.seq > p.highestSeq[pkt.f] {
-			p.highestSeq[pkt.f] = pkt.seq
-		}
 	}
 
 	for i := 0; i < lenRcvdPackets; i++ {
 		pkt := <-p.rcvdPackets
 		if now.Sub(pkt.txTS) < p.opts.Timeout {
-			p.l.Debugf("Inserting rpacket (seq %d) for late processing", pkt.seq)
+			p.l.Debugf("Inserting rpacket (seq %d, flow %v) for late processing", pkt.seq, pkt.f)
 			p.rPackets = append(p.rPackets, pkt)
 			continue
 		}
 		if pkt.seq > p.highestSeq[pkt.f] {
-			p.l.Debugf("Inserting rpacket for late processing as seq (%d) > highestSeq (%d)", pkt.seq, p.highestSeq[pkt.f])
+			p.l.Debugf("Inserting rpacket for late processing as seq (%d) > highestSeq (%d),flow: %v", pkt.seq, p.highestSeq[pkt.f], pkt.f)
 			p.rPackets = append(p.rPackets, pkt)
 			continue
 		}
