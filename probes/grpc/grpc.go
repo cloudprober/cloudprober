@@ -345,6 +345,9 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 }
 
 func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey string, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
+	if p.c.GetDisableReuseConn() {
+		return p.connect(ctx, target)
+	}
 	p.connsMu.Lock()
 	defer p.connsMu.Unlock()
 
