@@ -48,8 +48,9 @@ import (
 )
 
 var global = struct {
-	srvAddr string
-	mu      sync.RWMutex
+	srvAddr  string
+	listener *customListener
+	mu       sync.RWMutex
 }{}
 
 type testServer struct {
@@ -60,34 +61,28 @@ type testServer struct {
 	spb.UnimplementedProberServer
 }
 
-var connCounter = struct {
-	mu sync.Mutex
-	c  int64
-}{
-	mu: sync.Mutex{},
-	c:  0,
-}
-
-func currentCount() int64 {
-	connCounter.mu.Lock()
-	c := connCounter.c
-	connCounter.mu.Unlock()
-	return c
-}
-
 type customListener struct {
 	net.Listener
+	connCountMu sync.Mutex
+	connCount   int64
 }
 
 func (cl *customListener) Accept() (net.Conn, error) {
 	conn, err := cl.Listener.Accept()
 	if err == nil {
 		// Increment connection counter when a new connection is accepted
-		connCounter.mu.Lock()
-		connCounter.c++
-		connCounter.mu.Unlock()
+		cl.connCountMu.Lock()
+		cl.connCount++
+		cl.connCountMu.Unlock()
 	}
 	return conn, err
+}
+
+func (cl *customListener) ConnCount() int64 {
+	cl.connCountMu.Lock()
+	c := cl.connCount
+	cl.connCountMu.Unlock()
+	return c
 }
 
 // Echo reflects back the incoming message.
@@ -148,6 +143,7 @@ func globalGRPCServer(delay time.Duration) (string, error) {
 	// Make sure that the server is up before running
 	time.Sleep(time.Second * 2)
 	global.srvAddr = ln.Addr().String()
+	global.listener = customLis
 	return global.srvAddr, nil
 }
 
@@ -196,7 +192,7 @@ func TestGRPCSuccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			startCount := currentCount()
+			startCount := global.listener.ConnCount()
 			iters := 5
 			statsExportInterval := time.Duration(iters) * interval
 
@@ -270,7 +266,7 @@ func TestGRPCSuccess(t *testing.T) {
 				assert.Equal(t, expectedLabels, gotLabels)
 			}
 
-			endCount := currentCount()
+			endCount := global.listener.ConnCount()
 			baseWantEndCount := startCount + int64(cfg.GetNumConns())
 			if !tt.noConnReuse {
 				assert.Equal(t, baseWantEndCount, endCount, "conn count mismatch")
