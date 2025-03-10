@@ -110,6 +110,11 @@ message ProbeConf {
   // is 1.
   optional int32 num_conns = 5;
 
+  // If disable_reuse_conn is set to true, connections will not be reused. This
+  // is useful when you service is behind a loadbalancer and you want to hit
+  // different instances every probe cycle.
+  optional bool disable_reuse_conn = 15;
+
   // If connect_timeout is not specified, reuse probe timeout. Note that this
   // timeout will have an impact only if it is less than the probe timeout.
   optional int32 connect_timeout_msec = 7;

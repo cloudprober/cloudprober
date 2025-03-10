@@ -48,11 +48,12 @@ import (
 )
 
 var global = struct {
-	srvAddr string
-	mu      sync.RWMutex
+	srvAddr  string
+	listener *customListener
+	mu       sync.RWMutex
 }{}
 
-type Server struct {
+type testServer struct {
 	delay time.Duration
 	msg   []byte
 
@@ -60,9 +61,33 @@ type Server struct {
 	spb.UnimplementedProberServer
 }
 
+type customListener struct {
+	net.Listener
+	connCountMu sync.Mutex
+	connCount   int64
+}
+
+func (cl *customListener) Accept() (net.Conn, error) {
+	conn, err := cl.Listener.Accept()
+	if err == nil {
+		// Increment connection counter when a new connection is accepted
+		cl.connCountMu.Lock()
+		cl.connCount++
+		cl.connCountMu.Unlock()
+	}
+	return conn, err
+}
+
+func (cl *customListener) ConnCount() int64 {
+	cl.connCountMu.Lock()
+	c := cl.connCount
+	cl.connCountMu.Unlock()
+	return c
+}
+
 // Echo reflects back the incoming message.
 // TODO: return error if EchoMessage is greater than maxMsgSize.
-func (s *Server) Echo(ctx context.Context, req *pb.EchoMessage) (*pb.EchoMessage, error) {
+func (s *testServer) Echo(ctx context.Context, req *pb.EchoMessage) (*pb.EchoMessage, error) {
 	if s.delay > 0 {
 		time.Sleep(s.delay)
 	}
@@ -70,14 +95,14 @@ func (s *Server) Echo(ctx context.Context, req *pb.EchoMessage) (*pb.EchoMessage
 }
 
 // BlobRead returns a blob of data.
-func (s *Server) BlobRead(ctx context.Context, req *pb.BlobReadRequest) (*pb.BlobReadResponse, error) {
+func (s *testServer) BlobRead(ctx context.Context, req *pb.BlobReadRequest) (*pb.BlobReadResponse, error) {
 	return &pb.BlobReadResponse{
 		Blob: s.msg[0:req.GetSize()],
 	}, nil
 }
 
 // ServerStatus returns the current server status.
-func (s *Server) ServerStatus(ctx context.Context, req *pb.StatusRequest) (*pb.StatusResponse, error) {
+func (s *testServer) ServerStatus(ctx context.Context, req *pb.StatusRequest) (*pb.StatusResponse, error) {
 	return &pb.StatusResponse{
 		UptimeUs: proto.Int64(42),
 	}, nil
@@ -85,7 +110,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *pb.StatusRequest) (*pb.S
 
 // BlobWrite returns the size of blob in the WriteRequest. It does not operate
 // on the blob.
-func (s *Server) BlobWrite(ctx context.Context, req *pb.BlobWriteRequest) (*pb.BlobWriteResponse, error) {
+func (s *testServer) BlobWrite(ctx context.Context, req *pb.BlobWriteRequest) (*pb.BlobWriteResponse, error) {
 	return &pb.BlobWriteResponse{
 		Size: proto.Int32(int32(len(req.Blob))),
 	}, nil
@@ -105,16 +130,20 @@ func globalGRPCServer(delay time.Duration) (string, error) {
 		return "", err
 	}
 
+	// Wrap the listener with our custom listener
+	customLis := &customListener{Listener: ln}
+
 	grpcSrv := grpc.NewServer()
 	reflection.Register(grpcSrv) // Enable reflection
 
-	srv := &Server{delay: delay, msg: make([]byte, 1024)}
+	srv := &testServer{delay: delay, msg: make([]byte, 1024)}
 	spb.RegisterProberServer(grpcSrv, srv)
-	go grpcSrv.Serve(ln)
+	go grpcSrv.Serve(customLis)
 
 	// Make sure that the server is up before running
 	time.Sleep(time.Second * 2)
 	global.srvAddr = ln.Addr().String()
+	global.listener = customLis
 	return global.srvAddr, nil
 }
 
@@ -132,10 +161,17 @@ func TestGRPCSuccess(t *testing.T) {
 	tests := []struct {
 		name            string
 		validationRegex string
+		noConnReuse     bool
 		method          *configpb.ProbeConf_MethodType
 	}{
 		{
 			name:            "echo",
+			method:          configpb.ProbeConf_ECHO.Enum(),
+			validationRegex: "blob:.*",
+		},
+		{
+			name:            "echo_no_conn_reuse",
+			noConnReuse:     true,
 			method:          configpb.ProbeConf_ECHO.Enum(),
 			validationRegex: "blob:.*",
 		},
@@ -156,7 +192,7 @@ func TestGRPCSuccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
+			startCount := global.listener.ConnCount()
 			iters := 5
 			statsExportInterval := time.Duration(iters) * interval
 
@@ -184,6 +220,10 @@ func TestGRPCSuccess(t *testing.T) {
 				NumConns:          proto.Int32(2),
 				Method:            tt.method,
 				InsecureTransport: proto.Bool(true),
+			}
+
+			if tt.noConnReuse {
+				cfg.DisableReuseConn = proto.Bool(true)
 			}
 
 			if tt.method.String() == "GENERIC" {
@@ -224,6 +264,15 @@ func TestGRPCSuccess(t *testing.T) {
 					gotLabels[k] = em.Label(k)
 				}
 				assert.Equal(t, expectedLabels, gotLabels)
+			}
+
+			endCount := global.listener.ConnCount()
+			baseWantEndCount := startCount + int64(cfg.GetNumConns())
+			if !tt.noConnReuse {
+				assert.Equal(t, baseWantEndCount, endCount, "conn count mismatch")
+			} else {
+				minEndCount := baseWantEndCount + int64(iters)*int64(cfg.GetNumConns())
+				assert.GreaterOrEqual(t, endCount, minEndCount, "conn count mismatch")
 			}
 
 			cancel()
