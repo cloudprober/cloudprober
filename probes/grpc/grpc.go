@@ -195,10 +195,10 @@ func (p *Probe) transportCredentials() (credentials.TransportCredentials, error)
 	return credentials.NewClientTLSFromCert(nil, ""), nil
 }
 
-// ListEndpoints denoramlizes the targets list by connection index before
+// listEndpoints denoramlizes the targets list by connection index before
 // returning it. This is required because 'sched' schedules one probe loop per
 // target and we want to have one probe loop per target per connection.
-func (p *Probe) ListEndpoints() []endpoint.Endpoint {
+func (p *Probe) listEndpoints() []endpoint.Endpoint {
 	targets := p.opts.Targets.ListEndpoints()
 
 	if p.numConns == 1 {
@@ -393,8 +393,8 @@ type targetState struct {
 	targetKey string
 }
 
-// runProbeForTargetAndConn runs a single probe for a target + connection index.
-func (p *Probe) runProbeForTargetAndConn(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+// runProbeForTargetAndConnIndex runs a single probe for a target + connection index.
+func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
 	if runReq.TargetState == nil {
 		runReq.TargetState = &targetState{targetKey: runReq.Target.Key()}
 	}
@@ -423,6 +423,9 @@ func (p *Probe) runProbeForTargetAndConn(ctx context.Context, runReq *sched.RunP
 		result.connectErrors.Inc()
 		result.Unlock()
 		return
+	}
+	if p.c.GetDisableReuseConn() {
+		defer conn.Close()
 	}
 
 	client := spb.NewProberClient(conn)
@@ -512,8 +515,8 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		ListEndpoints:     p.ListEndpoints,
-		RunProbeForTarget: p.runProbeForTargetAndConn,
+		ListEndpoints:     p.listEndpoints,
+		RunProbeForTarget: p.runProbeForTargetAndConnIndex,
 	}
 
 	s.UpdateTargetsAndStartProbes(ctx)
