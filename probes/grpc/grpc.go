@@ -66,8 +66,6 @@ import (
 	_ "google.golang.org/grpc/balancer/grpclb"
 )
 
-const loadBalancingPolicy = `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
-
 const connIndexLabel = "conn_index"
 
 // TargetsUpdateInterval controls frequency of target updates.
@@ -218,6 +216,21 @@ func (p *Probe) listEndpoints() []endpoint.Endpoint {
 	return out
 }
 
+func (p *Probe) defaultServiceConfig() string {
+	if p.c.GetDefaultLbConfig() != "" {
+		return fmt.Sprintf(`{"loadBalancingConfig":%s}`, p.c.GetDefaultLbConfig())
+	}
+	if p.c.GetUriScheme() == "grpclb" {
+		// We've kept it here for backward compatibility with Google's internal
+		// deployment. Typically service config is provided by the resolver.
+		// See: https://github.com/grpc/grpc/blob/master/doc/service_config.md
+		// Here is an example of our own resolver implementation:
+		// https://github.com/cloudprober/cloudprober/blob/d1f62e55672c793cac00363d6847b7b23c60da09/internal/rds/client/srvlist.go#L98
+		return `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
+	}
+	return ""
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -245,8 +258,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.creds = transportCreds
 
-	// Initialize dial options.
-	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
+	if defaultServiceConfig := p.defaultServiceConfig(); defaultServiceConfig != "" {
+		p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(defaultServiceConfig))
+	}
+
 	oauthCfg := p.c.GetOauthConfig()
 	if oauthCfg != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(oauthCfg, p.l)
