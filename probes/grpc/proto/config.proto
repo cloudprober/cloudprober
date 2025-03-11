@@ -115,6 +115,19 @@ message ProbeConf {
   // different instances every probe cycle.
   optional bool disable_reuse_conn = 15;
 
+  // Default load balancing config in JSON format. This config only matters
+  // if we are using client side load balancing (less common) and LB resolver
+  // doesn't provide a service config[1](most advanced load balancers, like
+  // xds, do). This field is useful if you have a DNS based LB setup where DNS
+  // resolution simply returns a list of IPs (e.g. k8s headless service[2]).
+  //
+  // [1]: https://github.com/grpc/grpc/blob/master/doc/service_config.md
+  // [2]: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
+  //
+  // Example:
+  // default_lb_config: "[{ \"round_robin\": {} }]"
+  optional string default_lb_config = 16;
+
   // If connect_timeout is not specified, reuse probe timeout. Note that this
   // timeout will have an impact only if it is less than the probe timeout.
   optional int32 connect_timeout_msec = 7;
