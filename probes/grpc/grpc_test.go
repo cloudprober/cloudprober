@@ -739,3 +739,43 @@ func TestConnectionString(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultServiceConfig(t *testing.T) {
+	tests := []struct {
+		name                     string
+		probeConf                *configpb.ProbeConf
+		expectedServiceConfigStr string
+	}{
+		{
+			name: "default_load_balancing_config",
+			probeConf: &configpb.ProbeConf{
+				DefaultLbConfig: proto.String(`[{"round_robin":{}}]`),
+			},
+			expectedServiceConfigStr: `{"loadBalancingConfig":[{"round_robin":{}}]}`,
+		},
+		{
+			name: "uri_scheme_grpclb",
+			probeConf: &configpb.ProbeConf{
+				UriScheme: proto.String("grpclb"),
+			},
+			expectedServiceConfigStr: `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`,
+		},
+		{
+			name:                     "no_config",
+			probeConf:                &configpb.ProbeConf{},
+			expectedServiceConfigStr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				c: tt.probeConf,
+			}
+			got := p.defaultServiceConfig()
+			if got != tt.expectedServiceConfigStr {
+				t.Errorf("defaultServiceConfig() = %v, want %v", got, tt.expectedServiceConfigStr)
+			}
+		})
+	}
+}
