@@ -1,4 +1,4 @@
-// Copyright 2023 The Cloudprober Authors.
+// Copyright 2023-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,8 @@
 // limitations under the License.
 
 // To build xds support, use '-tags grpc_xds' flag.
-//go:build grpc_xds
+//go:build !grpc_xds
 
 package grpc
 
-// Register google-c2p resolver for Traffic Director
-import _ "google.golang.org/grpc/xds/googledirectpath"
-
-var xdsSupported = true
+var xdsSupported = false
