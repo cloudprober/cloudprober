@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.tlsconfig;
 
-option go_package = "github.com/cloudprober/cloudprober/internal/tlsconfig/proto";
+option go_package = "github.com/cloudprober/cloudprober/common/tlsconfig/proto";
 
 enum TLSVersion {
   TLS_AUTO = 0;
