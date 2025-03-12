@@ -301,7 +301,7 @@ func Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) (*P
 	pr.probeCancelFunc = make(map[string]context.CancelFunc)
 	for _, p := range pr.c.GetProbe() {
 		if err := pr.addProbe(p); err != nil {
-			return nil, fmt.Errorf("error while adding probe: %v", err)
+			return nil, fmt.Errorf("error while adding probe '%s': %v", p.GetName(), err)
 		}
 	}
 

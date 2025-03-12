@@ -258,6 +258,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.creds = transportCreds
 
+	if strings.HasPrefix(p.c.GetUriScheme(), "xds") && !xdsSupported {
+		return fmt.Errorf(`xds support not enabled. Compile cloudprober with "-tags grpc_xds" to add xds support`)
+	}
+
 	if defaultServiceConfig := p.defaultServiceConfig(); defaultServiceConfig != "" {
 		p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(defaultServiceConfig))
 	}
