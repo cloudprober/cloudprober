@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/internal/file"
-	configpb "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 )
 
 type cacheEntry struct {
