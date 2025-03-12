@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	configpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
+	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 )
 
 func createTempFile(t *testing.T, b []byte) string {

@@ -24,8 +24,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
-	"github.com/cloudprober/cloudprober/internal/oauth"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
