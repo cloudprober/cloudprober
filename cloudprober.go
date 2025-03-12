@@ -34,11 +34,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
-	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"

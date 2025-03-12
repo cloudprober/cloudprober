@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.surfacer.otel;
 
-import "github.com/cloudprober/cloudprober/internal/tlsconfig/proto/config.proto";
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/surfacers/internal/otel/proto";
 

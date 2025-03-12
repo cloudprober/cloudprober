@@ -25,10 +25,10 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/internal/rds/client"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
-	tlsconfigpb "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/logger"
 )
 

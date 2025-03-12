@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	pb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
-	tlsconfigpb "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	validators_configpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
