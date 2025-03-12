@@ -20,8 +20,8 @@ import (
 	"os"
 	"testing"
 
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	cpb "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
-	tlsconfigpb "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )

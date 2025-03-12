@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	configpb "github.com/cloudprober/cloudprober/internal/tlsconfig/proto"
+	configpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )

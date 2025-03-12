@@ -29,11 +29,11 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/oauth"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	spb "github.com/cloudprober/cloudprober/internal/rds/proto"
-	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	dnsRes "github.com/cloudprober/cloudprober/targets/resolver"
