@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	configpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
+	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 )

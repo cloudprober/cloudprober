@@ -35,9 +35,9 @@ import (
 	"log/slog"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/file"
-	"github.com/cloudprober/cloudprober/internal/oauth"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
