@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/file"
-	configpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"

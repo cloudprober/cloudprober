@@ -26,8 +26,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/cloudprober/cloudprober/internal/oauth"
-	oauthconfigpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
+	"github.com/cloudprober/cloudprober/common/oauth"
+	oauthconfigpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"golang.org/x/oauth2"
