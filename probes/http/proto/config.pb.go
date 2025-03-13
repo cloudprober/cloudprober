@@ -8,7 +8,7 @@ package proto
 
 import (
 	proto1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
-	proto "github.com/cloudprober/cloudprober/internal/oauth/proto"
+	proto "github.com/cloudprober/cloudprober/common/oauth/proto"
 	proto2 "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

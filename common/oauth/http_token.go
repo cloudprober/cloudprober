@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
-	configpb "github.com/cloudprober/cloudprober/internal/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
 )

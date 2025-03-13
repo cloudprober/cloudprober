@@ -7,7 +7,7 @@
 package proto
 
 import (
-	proto "github.com/cloudprober/cloudprober/internal/oauth/proto"
+	proto "github.com/cloudprober/cloudprober/common/oauth/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"

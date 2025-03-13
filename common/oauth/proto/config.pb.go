@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.5
 // 	protoc        v5.27.5
-// source: github.com/cloudprober/cloudprober/internal/oauth/proto/config.proto
+// source: github.com/cloudprober/cloudprober/common/oauth/proto/config.proto
 
 package proto
 

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package cloudprober.oauth;
 
-option go_package = "github.com/cloudprober/cloudprober/internal/oauth/proto";
+option go_package = "github.com/cloudprober/cloudprober/common/oauth/proto";
 
 message Config {
   oneof type {
