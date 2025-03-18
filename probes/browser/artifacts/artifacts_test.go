@@ -15,6 +15,7 @@
 package artifacts
 
 import (
+	"path/filepath"
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
@@ -122,7 +123,7 @@ func TestWebServerRoot(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedRoot, root)
+				assert.Equal(t, filepath.Clean(tt.expectedRoot), filepath.Clean(root))
 			}
 		})
 	}

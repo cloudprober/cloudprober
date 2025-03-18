@@ -60,7 +60,7 @@ func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string,
 
 	// User specified web server root
 	if r := opts.GetWebServerRoot(); r != "" {
-		if !slices.Contains(lsDirs, r) {
+		if !slices.Contains(lsDirs, filepath.Clean(r)) {
 			return "", fmt.Errorf("invalid web server root: %s; web server root can be either local_storage.dir or empty", r)
 		}
 		return r, nil
