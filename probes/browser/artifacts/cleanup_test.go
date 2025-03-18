@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package artifacts
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -32,7 +32,7 @@ func TestNewCleanupHandler(t *testing.T) {
 		name    string
 		opts    *configpb.CleanupOptions
 		dir     string
-		want    *cleanupHandler
+		want    *CleanupHandler
 		wantErr bool
 	}{
 		{
@@ -65,7 +65,7 @@ func TestNewCleanupHandler(t *testing.T) {
 				MaxAgeSec: proto.Int32(1),
 			},
 			dir: testDir,
-			want: &cleanupHandler{
+			want: &CleanupHandler{
 				dir:      testDir,
 				interval: time.Second,
 				maxAge:   time.Second,
@@ -74,7 +74,7 @@ func TestNewCleanupHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newCleanupHandler(tt.dir, tt.opts, nil)
+			got, err := NewCleanupHandler(tt.dir, tt.opts, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newCleanupHandler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -109,7 +109,7 @@ func TestCleanupHandlerCleanupCycle(t *testing.T) {
 	}
 
 	maxAge := 150 * time.Millisecond
-	ch := &cleanupHandler{
+	ch := &CleanupHandler{
 		dir:    dir,
 		maxAge: maxAge,
 	}
