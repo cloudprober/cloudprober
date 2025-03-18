@@ -34,6 +34,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
@@ -59,8 +60,8 @@ type Probe struct {
 	reporterPath         string
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
-	artifactsHandler     *artifactsHandler
-	cleanupHandlers      []*cleanupHandler
+	artifactsHandler     *artifacts.ArtifactsHandler
+	cleanupHandlers      []*artifacts.CleanupHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
@@ -254,12 +255,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("failed to initialize templates: %v", err)
 	}
 
-	if err := p.initArtifactsHandler(); err != nil {
+	ah, err := artifacts.InitArtifactsHandler(p.c.GetArtifactsOptions(), p.outputDir, p.name, p.l)
+	if err != nil {
 		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
 	}
+	p.artifactsHandler = ah
 
 	if p.c.GetWorkdirCleanupOptions() != nil {
-		ch, err := newCleanupHandler(p.outputDir, p.c.GetWorkdirCleanupOptions(), p.l)
+		ch, err := artifacts.NewCleanupHandler(p.outputDir, p.c.GetWorkdirCleanupOptions(), p.l)
 		if err != nil {
 			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 		}
@@ -361,7 +364,7 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.
-	p.artifactsHandler.handle(p.startCtx, reportDir)
+	p.artifactsHandler.Handle(p.startCtx, reportDir)
 
 	if err != nil {
 		p.l.Errorf("error running playwright test: %v", err)
@@ -421,7 +424,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	p.startCtx = ctx
 
 	for _, ch := range p.cleanupHandlers {
-		go ch.start(p.startCtx)
+		go ch.Start(p.startCtx)
 	}
 
 	p.dataChan = dataChan
