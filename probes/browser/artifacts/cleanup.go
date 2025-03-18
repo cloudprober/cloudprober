@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package artifacts
 
 import (
 	"context"
@@ -22,17 +22,17 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
-	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 )
 
-type cleanupHandler struct {
+type CleanupHandler struct {
 	dir      string
 	maxAge   time.Duration
 	interval time.Duration
 	l        *logger.Logger
 }
 
-func newCleanupHandler(dir string, opts *configpb.CleanupOptions, l *logger.Logger) (*cleanupHandler, error) {
+func NewCleanupHandler(dir string, opts *configpb.CleanupOptions, l *logger.Logger) (*CleanupHandler, error) {
 	if opts.GetMaxAgeSec() == 0 {
 		return nil, errors.New("max_age_sec cannot be 0")
 	}
@@ -40,7 +40,7 @@ func newCleanupHandler(dir string, opts *configpb.CleanupOptions, l *logger.Logg
 		return nil, errors.New("cleanup_interval_sec cannot be 0")
 	}
 
-	ch := &cleanupHandler{
+	ch := &CleanupHandler{
 		dir:      dir,
 		interval: time.Duration(opts.GetCleanupIntervalSec()) * time.Second,
 		maxAge:   time.Duration(opts.GetMaxAgeSec()) * time.Second,
@@ -57,7 +57,7 @@ func newCleanupHandler(dir string, opts *configpb.CleanupOptions, l *logger.Logg
 	return ch, nil
 }
 
-func (ch *cleanupHandler) cleanupCycle() {
+func (ch *CleanupHandler) cleanupCycle() {
 	oldestTime := time.Now().Add(-ch.maxAge)
 	filepath.Walk(ch.dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -84,7 +84,7 @@ func (ch *cleanupHandler) cleanupCycle() {
 	})
 }
 
-func (ch *cleanupHandler) start(ctx context.Context) {
+func (ch *CleanupHandler) Start(ctx context.Context) {
 	ticker := time.NewTicker(ch.interval)
 	for ; true; <-ticker.C {
 		select {

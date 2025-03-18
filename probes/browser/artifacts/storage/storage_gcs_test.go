@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/stretchr/testify/assert"
 )
 

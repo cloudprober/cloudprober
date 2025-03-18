@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package browser
+package artifacts
 
 import (
 	"testing"
 
-	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestPathPrefix(t *testing.T) {
+	probeName := "test_probe"
+
 	tests := []struct {
 		name           string
 		artifactsOpts  *configpb.ArtifactsOptions
@@ -31,7 +33,7 @@ func TestPathPrefix(t *testing.T) {
 		{
 			name:           "default path prefix",
 			artifactsOpts:  &configpb.ArtifactsOptions{},
-			expectedPrefix: "/artifacts/test_probe",
+			expectedPrefix: "/artifacts/" + probeName,
 		},
 		{
 			name: "custom path prefix",
@@ -44,13 +46,7 @@ func TestPathPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Probe{
-				name: "test_probe",
-				c: &configpb.ProbeConf{
-					ArtifactsOptions: tt.artifactsOpts,
-				},
-			}
-			assert.Equal(t, tt.expectedPrefix, p.pathPrefix())
+			assert.Equal(t, tt.expectedPrefix, pathPrefix(tt.artifactsOpts, probeName))
 		})
 	}
 }
@@ -94,13 +90,7 @@ func TestWebServerRoot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Probe{
-				outputDir: "/output/dir",
-				c: &configpb.ProbeConf{
-					ArtifactsOptions: tt.artifactsOpts,
-				},
-			}
-			root, err := p.webServerRoot(tt.localStorageDirs)
+			root, err := webServerRoot(tt.artifactsOpts, tt.localStorageDirs, outputDir)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

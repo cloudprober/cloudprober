@@ -24,7 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/oauth"
 	oauthconfigpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
-	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"golang.org/x/oauth2"
 )
 

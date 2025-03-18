@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.browser;
 
-import "github.com/cloudprober/cloudprober/common/oauth/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/browser/proto";
 
@@ -10,98 +10,6 @@ message TestMetricsOptions {
     optional bool disable_test_metrics = 1;
     optional bool disable_aggregation = 2;
     optional bool enable_step_metrics = 3;
-}
-
-// S3 storage backend configuration.
-message S3 {
-    optional string bucket = 1;
-    optional string path = 2;
-    optional string region = 3;
-    optional string access_key_id = 4;
-    optional string secret_access_key = 5;
-
-    // S3 endpoint. If not specified, default endpoint for the region is used.
-    optional string endpoint = 6;
-}
-
-message GCS {
-    optional string bucket = 1;
-    optional string path = 2;
-
-    // If you want to use default credentials on GCE or GKE, leave this field
-    // empty. See
-    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
-    // for more details on oauth.GoogleCredentials.
-    optional oauth.GoogleCredentials credentials = 3;
-
-    // GCS endpoint.
-    optional string endpoint = 4 [default = "https://storage.googleapis.com"];
-}
-
-message LocalStorage {
-    optional string dir = 1;
-
-    // Cleanup options for local storage. Specifying cleanup options for local
-    // enables automatic cleanup of old artifacts.
-    optional CleanupOptions cleanup_options = 2;
-}
-
-message ABS {
-    optional string container = 1;
-    optional string path = 2;
-
-    // Azure account name and key. If you want to use managed identities, leave
-    // account_key empty.
-    optional string account_name = 3;
-    optional string account_key = 4;
-
-    // Azure endpoint. Default is "https://<account>.blob.core.windows.net".
-    optional string endpoint = 5;
-
-    // OAuth2 configuration. If you want to use managed identities, leave this
-    // field empty. See
-    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
-    // for more details on oauth.Config.
-    optional oauth.Config oauth_config = 6;
-}
-
-message Storage {
-    oneof storage {
-        LocalStorage local_storage = 1;
-        S3 s3 = 2;
-        GCS gcs = 3;
-        ABS abs = 4;
-    }
-}
-
-message ArtifactsOptions {
-    // Serve test artifacts on Cloudprober's default webserver. This is
-    // disabled by default for security reasons.
-    optional bool serve_on_web = 1;
-
-    // Specify web server path to serve test artifacts on.
-    // Default is "/artifacts/<probename>".
-    optional string web_server_path = 2;
-
-    // Web server root directory. You can only set it to one of the local
-    // storage directories. Default is <workdir>/output. This option allows
-    // you to serve artifacts from a local storage directory.
-    optional string web_server_root = 4;
-
-    // Storage for test artifacts. Note that test artifacts are always
-    // written to the workdir first, and uploaded to the storage backend in a
-    // parallel goroutine. This is to make sure that uploads don't block the
-    // main probe execution.
-    repeated Storage storage = 3;
-}
-
-message CleanupOptions {
-    // Maximum age of artifacts in seconds.
-    optional int32 max_age_sec = 1 [default = 3600];
-
-    // Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
-    // is smaller.
-    optional int32 cleanup_interval_sec = 3 [default = 3600];
 }
 
 message ProbeConf {
@@ -150,10 +58,10 @@ message ProbeConf {
     optional TestMetricsOptions test_metrics_options = 8;
 
     // Artifacts options.
-    optional ArtifactsOptions artifacts_options = 9;
+    optional artifacts.ArtifactsOptions artifacts_options = 9;
 
     // Cleanup options.
-    optional CleanupOptions workdir_cleanup_options = 10;
+    optional artifacts.CleanupOptions workdir_cleanup_options = 10;
 
     // Environment variables. These are passed/set before probing starts.
     map<string, string> env_var = 11;
