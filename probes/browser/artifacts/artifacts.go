@@ -50,7 +50,7 @@ func pathPrefix(opts *configpb.ArtifactsOptions, probeName string) string {
 	return "/artifacts/" + probeName
 }
 
-func WebServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string, error) {
+func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string, error) {
 	var lsDirs []string
 	for _, storageConfig := range opts.GetStorage() {
 		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
@@ -105,7 +105,7 @@ func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options)
 func initGlobalWebServer(opts *configpb.ArtifactsOptions, l *logger.Logger) error {
 	var err error
 	initGlobalWebServerOnce.Do(func() {
-		webRoot, err := WebServerRoot(opts, "")
+		webRoot, err := webServerRoot(opts, "")
 		if err != nil {
 			l.Errorf("error getting web server root: %v", err)
 			err = err
@@ -184,7 +184,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 	}
 
 	if opts.GetServeOnWeb() {
-		webRoot, err := WebServerRoot(opts, outputDir)
+		webRoot, err := webServerRoot(opts, outputDir)
 		if err != nil {
 			return nil, fmt.Errorf("error getting web server root: %v", err)
 		}

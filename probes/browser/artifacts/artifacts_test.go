@@ -57,15 +57,31 @@ func TestWebServerRoot(t *testing.T) {
 	tests := []struct {
 		name             string
 		artifactsOpts    *configpb.ArtifactsOptions
+		outputDir        string
 		localStorageDirs []string
 		expectedRoot     string
 		expectError      bool
 	}{
 		{
-			name:             "default web server root",
+			name:          "no local storage",
+			artifactsOpts: &configpb.ArtifactsOptions{},
+			outputDir:     outputDir,
+			expectedRoot:  outputDir,
+			expectError:   false,
+		},
+		{
+			name:          "no local storage, no default",
+			artifactsOpts: &configpb.ArtifactsOptions{},
+			outputDir:     "",
+			expectedRoot:  "",
+			expectError:   true,
+		},
+		{
+			name:             "only one local storage",
 			artifactsOpts:    &configpb.ArtifactsOptions{},
 			localStorageDirs: []string{"/local/storage/dir"},
-			expectedRoot:     outputDir,
+			outputDir:        outputDir,
+			expectedRoot:     "/local/storage/dir",
 			expectError:      false,
 		},
 		{
@@ -73,6 +89,7 @@ func TestWebServerRoot(t *testing.T) {
 			artifactsOpts: &configpb.ArtifactsOptions{
 				WebServerRoot: proto.String("/local/storage/dir"),
 			},
+			outputDir:        outputDir,
 			localStorageDirs: []string{"/local/storage/dir"},
 			expectedRoot:     "/local/storage/dir",
 			expectError:      false,
@@ -83,6 +100,7 @@ func TestWebServerRoot(t *testing.T) {
 				WebServerRoot: proto.String("/invalid/storage/dir"),
 			},
 			localStorageDirs: []string{"/local/storage/dir"},
+			outputDir:        outputDir,
 			expectedRoot:     "",
 			expectError:      true,
 		},
@@ -90,7 +108,16 @@ func TestWebServerRoot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			root, err := WebServerRoot(tt.artifactsOpts, tt.localStorageDirs, outputDir)
+			for _, lsDir := range tt.localStorageDirs {
+				tt.artifactsOpts.Storage = append(tt.artifactsOpts.Storage, &configpb.Storage{
+					Storage: &configpb.Storage_LocalStorage{
+						LocalStorage: &configpb.LocalStorage{
+							Dir: proto.String(lsDir),
+						},
+					},
+				})
+			}
+			root, err := webServerRoot(tt.artifactsOpts, tt.outputDir)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
