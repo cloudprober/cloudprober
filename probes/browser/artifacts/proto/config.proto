@@ -63,6 +63,12 @@ message Storage {
         GCS gcs = 3;
         ABS abs = 4;
     }
+
+    // Storage path for test artifacts. This is the path where test artifacts
+    // are written to within the storage backend. For example, if storage is
+    // an S3 bucket, all objects will be uploaded under this path. For global
+    // artifacts options, probes append their names to this path.
+    optional string path = 90;
 }
 
 message ArtifactsOptions {
@@ -78,13 +84,6 @@ message ArtifactsOptions {
     // storage directories. Default is <workdir>/output. This option allows
     // you to serve artifacts from a local storage directory.
     optional string web_server_root = 4;
-
-    // Storage path for test artifacts. This is the path where test artifacts
-    // are written to within the storage backend. For example, if storage is
-    // an S3 bucket, all objects will be uploaded under this path. For global
-    // artifacts options, this is usually left empty and probes override this
-    // with their name.
-    optional string storage_path = 5;
 
     // Storage for test artifacts. Note that test artifacts are always
     // written to the workdir first, and uploaded to the storage backend in a

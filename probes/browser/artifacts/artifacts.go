@@ -54,7 +54,7 @@ func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string,
 	var lsDirs []string
 	for _, storageConfig := range opts.GetStorage() {
 		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
-			lsDirs = append(lsDirs, filepath.Join(localStorage.GetDir(), opts.GetStoragePath()))
+			lsDirs = append(lsDirs, filepath.Join(localStorage.GetDir(), storageConfig.GetPath()))
 		}
 	}
 
@@ -97,11 +97,16 @@ func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options)
 	if wsp := in.GetWebServerPath(); wsp != "" {
 		out.WebServerPath = proto.String(path.Join(wsp, pOpts.Name))
 	}
-	out.StoragePath = proto.String(path.Join(in.GetStoragePath(), pOpts.Name))
+	for _, storageConfig := range out.GetStorage() {
+		storageConfig.Path = proto.String(path.Join(storageConfig.GetPath(), pOpts.Name))
+	}
+	// We serve artifacts at the global level, so disable them at probe level
 	out.ServeOnWeb = proto.Bool(false)
+
 	return out
 }
 
+// initGlobalArtifactsServing initializes global artifacts serving. It is idempotent.
 func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logger) error {
 	var err error
 	initGlobalServingOnce.Do(func() {
@@ -117,7 +122,7 @@ func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logge
 	return err
 }
 
-func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOpts *options.Options, l *logger.Logger) (*ArtifactsHandler, error) {
+func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, outputDir string, pOpts *options.Options, l *logger.Logger) (*ArtifactsHandler, error) {
 	ah := &ArtifactsHandler{
 		basePath: outputDir,
 		l:        l,
@@ -135,8 +140,10 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 	}
 
 	for _, storageConfig := range opts.GetStorage() {
+		storagePath := storageConfig.GetPath()
+
 		if s3conf := storageConfig.GetS3(); s3conf != nil {
-			s3, err := storage.InitS3(context.Background(), s3conf, opts.GetStoragePath(), l)
+			s3, err := storage.InitS3(ctx, s3conf, storagePath, l)
 
 			if err != nil {
 				return nil, fmt.Errorf("error initializing S3 storage (bucket: %s): %v", s3conf.GetBucket(), err)
@@ -146,7 +153,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 		}
 
 		if gcsConf := storageConfig.GetGcs(); gcsConf != nil {
-			gcs, err := storage.InitGCS(context.Background(), gcsConf, opts.GetStoragePath(), l)
+			gcs, err := storage.InitGCS(ctx, gcsConf, storagePath, l)
 			if err != nil {
 				return nil, fmt.Errorf("error initializing GCS storage: %v", err)
 			}
@@ -154,7 +161,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 		}
 
 		if absConf := storageConfig.GetAbs(); absConf != nil {
-			abs, err := storage.InitABS(context.Background(), absConf, opts.GetStoragePath(), l)
+			abs, err := storage.InitABS(ctx, absConf, storagePath, l)
 			if err != nil {
 				return nil, fmt.Errorf("error initializing ABS storage: %v", err)
 			}
@@ -162,13 +169,13 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 		}
 
 		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
-			ls, err := storage.InitLocal(localStorage.GetDir(), opts.GetStoragePath(), l)
+			ls, err := storage.InitLocal(localStorage.GetDir(), storagePath, l)
 			if err != nil {
 				return nil, fmt.Errorf("error initializing local storage: %v", err)
 			}
 
 			if localStorage.GetCleanupOptions() != nil {
-				dirToClean := filepath.Join(localStorage.GetDir(), opts.GetStoragePath())
+				dirToClean := filepath.Join(localStorage.GetDir(), storagePath)
 				cleanupHandler, err := NewCleanupHandler(dirToClean, localStorage.GetCleanupOptions(), l)
 				if err != nil {
 					return nil, fmt.Errorf("error initializing cleanup handler for local storage: %v", err)
@@ -180,6 +187,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 		}
 	}
 
+	// Note this gets called only for probe specific artifacts options.
 	if opts.GetServeOnWeb() {
 		webRoot, err := webServerRoot(opts, outputDir)
 		if err != nil {
