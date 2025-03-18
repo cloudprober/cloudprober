@@ -31,7 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var initGlobalWebServerOnce sync.Once
+var initGlobalServingOnce sync.Once
 
 type ArtifactsHandler struct {
 	basePath        string
@@ -77,7 +77,7 @@ func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string,
 	return defaultRoot, nil
 }
 
-func ServeArtifacts(path, root string) error {
+func serveArtifacts(path, root string) error {
 	if path == "" {
 		return fmt.Errorf("artifacts web server path cannot be empty")
 	}
@@ -102,19 +102,16 @@ func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options)
 	return out
 }
 
-func initGlobalWebServer(opts *configpb.ArtifactsOptions, l *logger.Logger) error {
+func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logger) error {
 	var err error
-	initGlobalWebServerOnce.Do(func() {
-		webRoot, err := webServerRoot(opts, "")
+	initGlobalServingOnce.Do(func() {
+		var webRoot string
+		webRoot, err = webServerRoot(opts, "")
 		if err != nil {
 			l.Errorf("error getting web server root: %v", err)
-			err = err
 			return
 		}
-		if err := ServeArtifacts(pathPrefix(opts, ""), webRoot); err != nil {
-			l.Errorf("error serving artifacts: %v", err)
-			err = err
-		}
+		err = serveArtifacts(pathPrefix(opts, ""), webRoot)
 	})
 
 	return err
@@ -131,7 +128,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 		if gopts == nil {
 			return ah, nil
 		}
-		if err := initGlobalWebServer(gopts, l); err != nil {
+		if err := initGlobalArtifactsServing(gopts, l); err != nil {
 			return nil, err
 		}
 		opts = globalToLocalOptions(gopts, pOpts)
@@ -188,7 +185,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir string, pOp
 		if err != nil {
 			return nil, fmt.Errorf("error getting web server root: %v", err)
 		}
-		if err := ServeArtifacts(pathPrefix(opts, pOpts.Name), webRoot); err != nil {
+		if err := serveArtifacts(pathPrefix(opts, pOpts.Name), webRoot); err != nil {
 			return nil, err
 		}
 	}
