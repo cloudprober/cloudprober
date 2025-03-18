@@ -61,7 +61,7 @@ type Probe struct {
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
 	artifactsHandler     *artifacts.ArtifactsHandler
-	cleanupHandlers      []*artifacts.CleanupHandler
+	workdirCleanup       *artifacts.CleanupHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
@@ -266,7 +266,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		if err != nil {
 			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 		}
-		p.cleanupHandlers = append(p.cleanupHandlers, ch)
+		p.workdirCleanup = ch
 	}
 
 	return nil
@@ -423,8 +423,12 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.startCtx = ctx
 
-	for _, ch := range p.cleanupHandlers {
-		go ch.Start(p.startCtx)
+	if p.workdirCleanup != nil {
+		go p.workdirCleanup.Start(p.startCtx)
+	}
+	if p.artifactsHandler != nil {
+		// Starts cleanup handlers in goroutines.
+		p.artifactsHandler.StartCleanup(p.startCtx)
 	}
 
 	p.dataChan = dataChan
