@@ -21,6 +21,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -52,9 +53,9 @@ func pathPrefix(opts *configpb.ArtifactsOptions, probeName string) string {
 
 func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string, error) {
 	var lsDirs []string
-	for _, storageConfig := range opts.GetStorage() {
-		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
-			lsDirs = append(lsDirs, filepath.Join(localStorage.GetDir(), storageConfig.GetPath()))
+	for _, storage := range opts.GetStorage() {
+		if localStorage := storage.GetLocalStorage(); localStorage != nil {
+			lsDirs = append(lsDirs, filepath.Join(localStorage.GetDir(), storage.GetPath()))
 		}
 	}
 
@@ -78,11 +79,10 @@ func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string,
 }
 
 func serveArtifacts(path, root string) error {
+	path = strings.TrimRight(path, "/")
+
 	if path == "" {
 		return fmt.Errorf("artifacts web server path cannot be empty")
-	}
-	if path[len(path)-1] == '/' {
-		path = path[:len(path)-1]
 	}
 
 	if err := state.AddWebHandler(path+"/", http.StripPrefix(path, http.FileServer(http.Dir(root))).ServeHTTP); err != nil {
@@ -94,11 +94,8 @@ func serveArtifacts(path, root string) error {
 
 func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options) *configpb.ArtifactsOptions {
 	out := proto.Clone(in).(*configpb.ArtifactsOptions)
-	if wsp := in.GetWebServerPath(); wsp != "" {
-		out.WebServerPath = proto.String(path.Join(wsp, pOpts.Name))
-	}
-	for _, storageConfig := range out.GetStorage() {
-		storageConfig.Path = proto.String(path.Join(storageConfig.GetPath(), pOpts.Name))
+	for _, storage := range out.GetStorage() {
+		storage.Path = proto.String(path.Join(storage.GetPath(), pOpts.Name))
 	}
 	// We serve artifacts at the global level, so disable them at probe level
 	out.ServeOnWeb = proto.Bool(false)
