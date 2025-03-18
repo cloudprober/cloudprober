@@ -154,3 +154,9 @@ func (ah *ArtifactsHandler) Handle(ctx context.Context, path string) {
 		}(lStorage)
 	}
 }
+
+func (ah *ArtifactsHandler) StartCleanup(ctx context.Context) {
+	for _, ch := range ah.cleanupHandlers {
+		go ch.Start(ctx)
+	}
+}
