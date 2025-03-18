@@ -25,7 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/cloudprober/cloudprober/logger"
-	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 )
 
 type S3 struct {
