@@ -82,7 +82,9 @@ func InitLocal(destDir, storagePath string, l *logger.Logger) (*Local, error) {
 	}
 
 	// Create the storage directory if it does not exist
-	os.MkdirAll(filepath.Join(destDir, storagePath), 0755)
+	if err := os.MkdirAll(filepath.Join(destDir, storagePath), 0755); err != nil {
+		return nil, fmt.Errorf("error creating storage directory (%s): %v", filepath.Join(destDir, storagePath), err)
+	}
 
 	return s, nil
 }
