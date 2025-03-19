@@ -273,10 +273,10 @@ func TestGlobalToLocalOptions(t *testing.T) {
 								Dir: proto.String("/local/storage/dir"),
 							},
 						},
-						Path: proto.String("/storage/path1/" + probeName),
+						Path: proto.String(filepath.Join("/storage/path1", probeName)),
 					},
 					{
-						Path: proto.String("/storage/path2/" + probeName),
+						Path: proto.String(filepath.Join("/storage/path2", probeName)),
 					},
 				},
 				ServeOnWeb: proto.Bool(false),
