@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -95,7 +94,7 @@ func serveArtifacts(path, root string) error {
 func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options) *configpb.ArtifactsOptions {
 	out := proto.Clone(in).(*configpb.ArtifactsOptions)
 	for _, storage := range out.GetStorage() {
-		storage.Path = proto.String(path.Join(storage.GetPath(), pOpts.Name))
+		storage.Path = proto.String(filepath.Join(storage.GetPath(), pOpts.Name))
 	}
 	// We serve artifacts at the global level, so disable them at probe level
 	out.ServeOnWeb = proto.Bool(false)

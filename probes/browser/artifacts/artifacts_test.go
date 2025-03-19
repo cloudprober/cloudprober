@@ -287,12 +287,7 @@ func TestGlobalToLocalOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output := globalToLocalOptions(tt.inputOptions, pOpts)
-			assert.Equal(t, tt.expectedOutput.GetWebServerPath(), output.GetWebServerPath())
-			assert.Equal(t, len(tt.expectedOutput.GetStorage()), len(output.GetStorage()))
-			for i, expectedStorage := range tt.expectedOutput.GetStorage() {
-				assert.Equal(t, expectedStorage.GetPath(), output.GetStorage()[i].GetPath())
-			}
-			assert.Equal(t, tt.expectedOutput.GetServeOnWeb(), output.GetServeOnWeb())
+			assert.True(t, proto.Equal(tt.expectedOutput, output))
 		})
 	}
 }
