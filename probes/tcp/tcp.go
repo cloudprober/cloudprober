@@ -28,7 +28,6 @@ import (
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/tcp/proto"
-	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -65,7 +64,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 	return result
 }
 
-func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
@@ -76,7 +75,7 @@ func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options)
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 // Init initializes the probe with the given params.
@@ -120,9 +119,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	// Convert interface to struct type
-	result := res.(*probeResult)
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+
+	target, result := runReq.Target, runReq.Result.(*probeResult)
 
 	result.total++
 
@@ -185,7 +187,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)

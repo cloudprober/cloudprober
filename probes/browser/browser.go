@@ -29,16 +29,17 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
 )
@@ -59,8 +60,8 @@ type Probe struct {
 	reporterPath         string
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
-	artifactsHandler     *artifactsHandler
-	cleanupHandler       *cleanupHandler
+	artifactsHandler     *artifacts.ArtifactsHandler
+	workdirCleanup       *artifacts.CleanupHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
@@ -103,7 +104,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
@@ -114,7 +115,20 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
+}
+
+func (p *Probe) playwrightGlobalTimeoutMsec() int64 {
+	timeout := p.opts.Timeout.Milliseconds()
+	// For multiple requests per probe, last request's effective timeout will be less
+	timeout -= int64(p.c.GetRequestsIntervalMsec() * (p.c.GetRequestsPerProbe() - 1))
+
+	// Keep some buffer for playwright to finish up the test.
+	buffer := 0.1 * float64(timeout)
+	if buffer > 2000 {
+		buffer = 2000
+	}
+	return timeout - int64(buffer)
 }
 
 func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) (string, error) {
@@ -133,18 +147,20 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 func (p *Probe) initTemplates() error {
 	testDir := p.c.GetTestDir()
 	if p.c.TestDir == nil {
-		testDir = filepath.Dir(runconfig.ConfigFilePath())
+		testDir = filepath.Dir(state.ConfigFilePath())
 	}
 
 	// Set up playwright config in workdir
 	data := struct {
 		TestDir            string
+		GlobalTimeoutMsec  int64
 		Screenshot         string
 		Trace              string
 		EnableStepMetrics  bool
 		DisableTestMetrics bool
 	}{
 		TestDir:            testDir,
+		GlobalTimeoutMsec:  p.playwrightGlobalTimeoutMsec(),
 		Screenshot:         "only-on-failure",
 		Trace:              "off",
 		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
@@ -220,7 +236,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.outputDir = filepath.Join(p.workdir, "output")
 
 	if !p.c.GetTestMetricsOptions().GetDisableTestMetrics() {
-		omo := &payload_configpb.OutputMetricsOptions{}
+		omo := &payload_configpb.OutputMetricsOptions{
+			// All our metrics start with "test_".
+			LineAcceptRegex: proto.String(`^test_.+`),
+		}
 		if !p.c.GetTestMetricsOptions().GetDisableAggregation() {
 			omo.MetricsKind = payload_configpb.OutputMetricsOptions_CUMULATIVE.Enum()
 			omo.AggregateInCloudprober = proto.Bool(true)
@@ -236,18 +255,18 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("failed to initialize templates: %v", err)
 	}
 
-	ah, err := initArtifactsHandler(p.c.GetArtifactsOptions(), p.name, p.outputDir, p.l)
+	ah, err := artifacts.InitArtifactsHandler(p.c.GetArtifactsOptions(), p.outputDir, p.name, p.l)
 	if err != nil {
 		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
 	}
 	p.artifactsHandler = ah
 
 	if p.c.GetWorkdirCleanupOptions() != nil {
-		ch, err := newCleanupHandler(p.c.GetWorkdirCleanupOptions(), p.l)
+		ch, err := artifacts.NewCleanupHandler(p.outputDir, p.c.GetWorkdirCleanupOptions(), p.l)
 		if err != nil {
 			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 		}
-		p.cleanupHandler = ch
+		p.workdirCleanup = ch
 	}
 
 	return nil
@@ -297,6 +316,12 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
 		"PLAYWRIGHT_HTML_OPEN=never",
 	}
+	for k, v := range p.c.GetEnvVar() {
+		if v == "" {
+			v = "1" // default to a truthy value
+		}
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+	}
 	envVars = append(envVars, targetEnvVars(target)...)
 
 	cmdLine := []string{
@@ -324,7 +349,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
 				em.AddLabel("run_id", fmt.Sprintf("%d", runID))
 			}
-			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
+			p.opts.RecordMetrics(target, em, p.dataChan)
 		}
 	}
 
@@ -339,7 +364,7 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.
-	p.artifactsHandler.handle(p.startCtx, reportDir)
+	p.artifactsHandler.Handle(p.startCtx, reportDir)
 
 	if err != nil {
 		p.l.Errorf("error running playwright test: %v", err)
@@ -355,9 +380,11 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	// Convert interface to struct type
-	result := res.(*probeRunResult)
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 
 	port := target.Port
 	result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
@@ -396,8 +423,12 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.startCtx = ctx
 
-	if p.cleanupHandler != nil {
-		go p.cleanupHandler.start(p.startCtx, p.outputDir)
+	if p.workdirCleanup != nil {
+		go p.workdirCleanup.Start(p.startCtx)
+	}
+	if p.artifactsHandler != nil {
+		// Starts cleanup handlers in goroutines.
+		p.artifactsHandler.StartCleanup(p.startCtx)
 	}
 
 	p.dataChan = dataChan
@@ -406,7 +437,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)

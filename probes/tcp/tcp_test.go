@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
@@ -93,8 +94,8 @@ func TestRunProbe(t *testing.T) {
 			ds := &dialState{}
 			p.dialContext = testDialContext(ds)
 
-			res := p.newResult()
-			p.runProbe(context.Background(), endpoint.Endpoint{Name: host, Port: port}, res)
+			runReq := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: host, Port: port}}
+			p.runProbe(context.Background(), runReq)
 
 			if ds.network != test.wantNetwork {
 				t.Errorf("Got network: %s, wanted: %s", ds.network, test.wantNetwork)
@@ -103,7 +104,7 @@ func TestRunProbe(t *testing.T) {
 				t.Errorf("Got address: %s, wanted: %s", ds.address, test.wantAddr)
 			}
 
-			result := res.(*probeResult)
+			result := runReq.Result.(*probeResult)
 			if result.total != test.wantTotal {
 				t.Errorf("Got total: %d, wanted: %d", result.total, test.wantTotal)
 			}

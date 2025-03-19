@@ -17,6 +17,7 @@ package payload
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -45,7 +46,11 @@ type Parser struct {
 	aggregate         bool
 
 	jsonMetrics []*jsonMetric
-	l           *logger.Logger
+
+	lineAcceptRe *regexp.Regexp
+	lineRejectRe *regexp.Regexp
+
+	l *logger.Logger
 }
 
 type Input struct {
@@ -69,6 +74,22 @@ func NewParser(opts *configpb.OutputMetricsOptions, l *logger.Logger) (*Parser, 
 		distMetrics:       make(map[string]*metrics.Distribution),
 		aggregatedMetrics: make(map[string]*metrics.EventMetrics),
 		l:                 l,
+	}
+
+	if opts.GetLineAcceptRegex() != "" {
+		re, err := regexp.Compile(opts.GetLineAcceptRegex())
+		if err != nil {
+			return nil, fmt.Errorf("payload.NewParser: error compiling line accept regex: %v", err)
+		}
+		parser.lineAcceptRe = re
+	}
+
+	if opts.GetLineRejectRegex() != "" {
+		re, err := regexp.Compile(opts.GetLineRejectRegex())
+		if err != nil {
+			return nil, fmt.Errorf("payload.NewParser: error compiling line reject regex: %v", err)
+		}
+		parser.lineRejectRe = re
 	}
 
 	jsonMetricGroups, err := parseJSONMetricConfig(opts.GetJsonMetric())
@@ -105,9 +126,10 @@ func NewParser(opts *configpb.OutputMetricsOptions, l *logger.Logger) (*Parser, 
 	return parser, nil
 }
 
-func withTimestamp(ems []*metrics.EventMetrics, ts time.Time) []*metrics.EventMetrics {
+func withTimestampAndNoAlert(ems []*metrics.EventMetrics, ts time.Time) []*metrics.EventMetrics {
 	for _, em := range ems {
 		em.Timestamp = ts
+		em.SetNotForAlerting()
 	}
 	return ems
 }
@@ -118,7 +140,7 @@ func withTimestamp(ems []*metrics.EventMetrics, ts time.Time) []*metrics.EventMe
 func (p *Parser) PayloadMetrics(input *Input, targetKey string) []*metrics.EventMetrics {
 	ts := time.Now()
 	if p.opts.GetHeaderMetric() == nil && p.opts.GetJsonMetric() == nil {
-		return withTimestamp(p.lineBasedMetrics(input.Text, targetKey), ts)
+		return withTimestampAndNoAlert(p.lineBasedMetrics(input.Text, targetKey), ts)
 	}
 
 	var results []*metrics.EventMetrics
@@ -130,5 +152,5 @@ func (p *Parser) PayloadMetrics(input *Input, targetKey string) []*metrics.Event
 		results = append(results, p.processJSONMetric(input.Text)...)
 	}
 
-	return withTimestamp(results, ts)
+	return withTimestampAndNoAlert(results, ts)
 }

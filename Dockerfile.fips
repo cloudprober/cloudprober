@@ -4,19 +4,20 @@
 # Docker image built using this can executed in the following manner:
 #   docker run --net host -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
 #                         cloudprober/cloudprober
-FROM golang:latest as builder
-
-WORKDIR /go
-COPY . .
-RUN CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -ldflags "-linkmode external -extldflags -static"  -o cloudprober ./cmd/cloudprober
-RUN go tool nm ./cloudprober | grep crypto/internal/boring/sig.BoringCrypto.abi0 > /dev/null
-
-FROM alpine:latest as certs
+FROM alpine:latest AS temp
 RUN apk --update add ca-certificates
 
+COPY cloudprober-fips-linux-* ./
+
+ARG TARGETPLATFORM
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+  mv cloudprober-fips-linux-amd64 cloudprober && rm cloudprober-fips-linux-*; fi
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+  mv cloudprober-fips-linux-arm64 cloudprober && rm cloudprober-fips-linux-*; fi
+
 FROM scratch
-COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=builder /go/cloudprober /cloudprober
+COPY --from=temp /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=temp /cloudprober /cloudprober
 
 # Metadata params
 ARG BUILD_DATE

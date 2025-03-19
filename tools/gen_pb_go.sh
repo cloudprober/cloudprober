@@ -17,7 +17,6 @@
 # This script generates Go code for the config protobufs.
 
 PROTOC_VERSION="27.5"
-PROJECT="cloudprober"
 
 GOPATH=$(go env GOPATH)
 
@@ -31,12 +30,11 @@ echo GOPATH=${GOPATH}
 if [ -z ${PROJECTROOT+x} ]; then
   # If PROJECTROOT is not set, try to determine it from script's location
   SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  if [[ $SCRIPTDIR == *"$PROJECT/tools"* ]]; then
-    PROJECTROOT="${SCRIPTDIR}/../.."
+  if [[ $SCRIPTDIR == *"/tools"* ]]; then
+    PROJECTROOT="${SCRIPTDIR}/.."
   else
     echo "PROJECTROOT is not set and we are not able to determine PROJECTROOT"
-    echo "from script's path. PROJECTROOT should be set such that project files "
-    echo " are located at $PROJECT relative to the PROJECTROOT."
+    echo "from script's path."
     exit 1
   fi
 fi
@@ -92,8 +90,8 @@ cd $PROJECTROOT
 # Create a temporary director to generate protobuf Go files.
 TMPDIR=$(mktemp -d)
 echo $TMPDIR
-mkdir -p ${TMPDIR}/github.com/cloudprober
-rsync -mr --exclude='.git' --include='*/' --include='*.proto' --include='*.cue' --exclude='*' $PROJECT $TMPDIR/github.com/cloudprober
+mkdir -p ${TMPDIR}/github.com/cloudprober/cloudprober
+rsync -mr --exclude='.git' --include='*/' --include='*.proto' --include='*.cue' --exclude='*' . $TMPDIR/github.com/cloudprober/cloudprober
 
 cd $TMPDIR
 
@@ -108,6 +106,11 @@ find ${MODULE} -type d | \
     ${protoc_path} --go-grpc_out=. --go_out=. ${dir}/*.proto
   done
 
+# Split external config proto into a separate package.
+EXTERNAL_PROTO_DIR=${MODULE}/probes/external/proto
+echo -e "syntax = \"proto2\";\n\npackage cloudprober.probes.external;" > ${EXTERNAL_PROTO_DIR}/server.proto
+sed -n "/^\/\/ SERVER_MESSAGES_START/,\$p" \
+  ${EXTERNAL_PROTO_DIR}/config.proto > ${EXTERNAL_PROTO_DIR}/server.proto
 ${protoc_path} --python_out=. ${MODULE}/probes/external/proto/server.proto
 PY_SRC_DIR=${MODULE}/probes/external/serverutils/py/src/cloudprober/external
 mkdir -p ${PY_SRC_DIR}
@@ -117,7 +120,7 @@ mv github/com/cloudprober/cloudprober/probes/external/proto/server_pb2.py ${PY_S
 find ${MODULE} \( -name *.pb.go -o -name *.py \) | \
   while read -r pbgofile
   do
-    dst=${PROJECTROOT}/${pbgofile/github.com\/cloudprober\//}
+    dst=${PROJECTROOT}/${pbgofile/github.com\/cloudprober\/cloudprober\//}
     cp "$pbgofile" "$dst"
   done
 

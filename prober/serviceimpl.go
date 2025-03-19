@@ -17,19 +17,60 @@ package prober
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"sort"
 
+	configpb "github.com/cloudprober/cloudprober/config/proto"
 	pb "github.com/cloudprober/cloudprober/prober/proto"
+	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
+
+// saveProbesConfigToFile saves the current config to the given file path.
+// This function is called whenever we change the config in response to a gRPC
+// request.
+func (pr *Prober) saveProbesConfigToFile(filePath string) error {
+	pr.mu.RLock()
+	defer pr.mu.RUnlock()
+
+	var keys []string
+	for k := range pr.Probes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	cfg := &configpb.ProberConfig{}
+	for _, k := range keys {
+		cfg.Probe = append(cfg.Probe, pr.Probes[k].ProbeDef)
+	}
+
+	textCfg := prototext.MarshalOptions{
+		Indent: "  ",
+	}.Format(cfg)
+
+	if textCfg == "" && len(pr.Probes) != 0 {
+		err := fmt.Errorf("text marshaling of probes config returned an empty string. Config: %v", cfg)
+		pr.l.Warning(err.Error())
+		return err
+	}
+
+	if err := os.WriteFile(filePath, []byte(textCfg), 0644); err != nil {
+		pr.l.Errorf("Error saving config to disk: %v", err)
+		return err
+	}
+
+	return nil
+}
 
 // AddProbe adds the given probe to cloudprober.
 func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.AddProbeResponse, error) {
 	pr.l.Info("AddProbe called")
 
 	p := req.GetProbeConfig()
-
 	if p == nil {
 		return &pb.AddProbeResponse{}, status.Errorf(codes.InvalidArgument, "probe config cannot be nil")
 	}
@@ -38,15 +79,32 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 		return &pb.AddProbeResponse{}, err
 	}
 
-	// Send probe to the start probe channel to be started by a goroutine started
-	// at the prober start time.
-	pr.grpcStartProbeCh <- p.GetName()
+	// Start probe using the prober's start context.
+	if pr.startCtx == nil {
+		return &pb.AddProbeResponse{}, status.Errorf(codes.FailedPrecondition, "prober not started")
+	}
+	pr.startProbe(p.GetName())
 
 	if *probesConfigSavePath != "" {
-		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
+		pr.saveProbesConfigToFile(*probesConfigSavePath)
 	}
 
 	return &pb.AddProbeResponse{}, nil
+}
+
+// removeProbe removes the probe with the given name from the prober's internal
+// database and cancels the probe's context.
+func (pr *Prober) removeProbe(name string) error {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	if pr.Probes[name] == nil {
+		return fmt.Errorf("probe %s not found", name)
+	}
+
+	pr.probeCancelFunc[name]()
+	delete(pr.Probes, name)
+	return nil
 }
 
 // RemoveProbe gRPC method cancels the given probe and removes its from the
@@ -54,24 +112,17 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (*pb.RemoveProbeResponse, error) {
 	pr.l.Infof("RemoveProbe called with: %s", req.GetProbeName())
 
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
 	name := req.GetProbeName()
-
 	if name == "" {
 		return &pb.RemoveProbeResponse{}, status.Errorf(codes.InvalidArgument, "probe name cannot be empty")
 	}
 
-	if pr.Probes[name] == nil {
-		return &pb.RemoveProbeResponse{}, status.Errorf(codes.NotFound, "probe %s not found", name)
+	if err := pr.removeProbe(name); err != nil {
+		return &pb.RemoveProbeResponse{}, status.Errorf(codes.NotFound, "%v", err)
 	}
 
-	pr.probeCancelFunc[name]()
-	delete(pr.Probes, name)
-
 	if *probesConfigSavePath != "" {
-		pr.saveProbesConfigUnprotected(*probesConfigSavePath)
+		pr.saveProbesConfigToFile(*probesConfigSavePath)
 	}
 
 	return &pb.RemoveProbeResponse{}, nil
@@ -80,15 +131,15 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 // ListProbes gRPC method returns the list of probes from the in-memory database.
 func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*pb.ListProbesResponse, error) {
 	pr.l.Info("ListProbes called")
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
+	pr.mu.RLock()
+	defer pr.mu.RUnlock()
 
 	resp := &pb.ListProbesResponse{}
 
 	for name, p := range pr.Probes {
 		resp.Probe = append(resp.Probe, &pb.Probe{
 			Name:   proto.String(name),
-			Config: p.ProbeDef,
+			Config: proto.Clone(p.ProbeDef).(*probes_configpb.ProbeDef),
 		})
 	}
 
@@ -96,9 +147,6 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 }
 
 func (pr *Prober) SaveProbesConfig(ctx context.Context, req *pb.SaveProbesConfigRequest) (*pb.SaveProbesConfigResponse, error) {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
 	filePath := req.GetFilePath()
 	if filePath == "" {
 		filePath = *probesConfigSavePath
@@ -107,7 +155,7 @@ func (pr *Prober) SaveProbesConfig(ctx context.Context, req *pb.SaveProbesConfig
 		return nil, errors.New("file_path not provided and --config_save_path flag is also not set")
 	}
 
-	if err := pr.saveProbesConfigUnprotected(filePath); err != nil {
+	if err := pr.saveProbesConfigToFile(filePath); err != nil {
 		return nil, err
 	}
 
