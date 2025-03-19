@@ -267,9 +267,6 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 		}
 	}
 
-	if aopts := proberConfig.GetGlobalArtifactsOptions(); aopts != nil {
-	}
-
 	if p.GetDebugOptions().GetLogMetrics() {
 		opts.logMetricsOverride = func(em *metrics.EventMetrics) {
 			opts.Logger.Info(em.String())
