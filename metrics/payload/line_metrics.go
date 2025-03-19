@@ -16,6 +16,7 @@ package payload
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,24 +24,96 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 )
 
-func parseLabels(labelStr string) [][2]string {
-	var labels [][2]string
-	for _, l := range strings.Split(labelStr, ",") {
-		parts := strings.SplitN(strings.TrimSpace(l), "=", 2)
-		if len(parts) != 2 {
-			continue
+func isAlphanumeric(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
+func readLabelKey(s string) (string, string, error) {
+	s = strings.TrimLeft(s, " ")
+	i := 0
+	for i < len(s) && s[i] != '=' {
+		if !isAlphanumeric(s[i]) && s[i] != '_' {
+			return "", "", fmt.Errorf("invalid key char (%v), input: %s", s[i], s)
 		}
-		key, val := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-		// Unquote val if it is a quoted string. strconv returns an error if string
-		// is not quoted at all or is unproperly quoted. We use raw string in that
-		// case.
-		uval, err := strconv.Unquote(val)
-		if err == nil {
-			val = uval
-		}
-		labels = append(labels, [2]string{key, val})
+		i++
 	}
-	return labels
+	if i == len(s) || s[i] != '=' {
+		return "", "", fmt.Errorf("no value found in the input: %s", s)
+	}
+	return s[:i], s[i+1:], nil
+}
+
+func readLabelValue(s string) (string, string, error) {
+	s = strings.TrimLeft(s, " ")
+	if len(s) == 0 {
+		return "", "", nil
+	}
+
+	// Verify that we either have zero remainder or it starts with a ','
+	verifyReturn := func(val, rem string) (string, string, error) {
+		if len(rem) == 0 {
+			return val, rem, nil
+		}
+		if rem[0] != ',' {
+			return "", "", fmt.Errorf("value doesn't end with a ',' and not final value: %s", rem)
+		}
+		return val, rem[1:], nil
+	}
+
+	if s[0] == '"' {
+		// Quoted value
+		s = s[1:]
+		for i := 0; i < len(s); i++ {
+			if s[i] == '\\' {
+				i++ // skip next char
+				continue
+			}
+			if s[i] == '"' {
+				return verifyReturn(s[:i], s[i+1:])
+			}
+		}
+		// Coming out of this loop means we don't find closing quote
+		return "", "", fmt.Errorf("no closing quote found in the input: %s", s)
+	}
+
+	// Unquoted value, for unquoted value, we support only specific chars.
+	i := 0
+	for ; i < len(s) && s[i] != ','; i++ {
+		if !isAlphanumeric(s[i]) && !slices.Contains([]byte{'-', '_', '.'}, s[i]) {
+			return "", "", fmt.Errorf("invalid unquoted char (%v) in value, input: %s", s[i], s)
+		}
+	}
+	return verifyReturn(s[:i], s[i:])
+}
+
+// parseLabels parses key="value" pairs from the input string
+func parseLabels(input string) ([][2]string, error) {
+	var labels [][2]string
+	key := ""
+	s := strings.TrimSpace(input)
+	for len(s) != 0 {
+		if key == "" {
+			k, rem, err := readLabelKey(s)
+			if err != nil {
+				return nil, err
+			}
+			key = k
+			s = rem
+		} else {
+			v, rem, err := readLabelValue(s)
+			if err != nil {
+				return nil, err
+			}
+			labels = append(labels, [2]string{key, v})
+			key = ""
+			s = rem
+		}
+	}
+	if key != "" {
+		labels = append(labels, [2]string{key, ""})
+	}
+
+	return labels, nil
 }
 
 func parseLine(line string) (metricName, value string, labels [][2]string, err error) {
@@ -77,7 +150,11 @@ func parseLine(line string) (metricName, value string, labels [][2]string, err e
 	}
 
 	// Capture label string and move line-beginning forward.
-	labels, value = parseLabels(line[:eb]), strings.TrimSpace(line[eb+1:])
+	labels, err = parseLabels(line[:eb])
+	if err != nil {
+		return
+	}
+	value = strings.TrimSpace(line[eb+1:])
 	return
 }
 
@@ -171,6 +248,12 @@ func (p *Parser) processLine(line, targetKey string) *metrics.EventMetrics {
 func (p *Parser) lineBasedMetrics(text []byte, targetKey string) []*metrics.EventMetrics {
 	var results []*metrics.EventMetrics
 	for _, line := range strings.Split(string(text), "\n") {
+		if p.lineAcceptRe != nil && !p.lineAcceptRe.MatchString(line) {
+			continue
+		}
+		if p.lineRejectRe != nil && p.lineRejectRe.MatchString(line) {
+			continue
+		}
 		line = strings.TrimSpace(line)
 		if len(line) == 0 {
 			continue

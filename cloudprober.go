@@ -34,15 +34,15 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
-	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web"
 	"google.golang.org/grpc"
@@ -192,7 +192,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	}
 	srvMux := http.NewServeMux()
 	setDebugHandlers(srvMux)
-	runconfig.SetDefaultHTTPServeMux(srvMux)
+	state.SetDefaultHTTPServeMux(srvMux)
 
 	var grpcLn net.Listener
 	if cfg.GetGrpcPort() != 0 {
@@ -220,10 +220,8 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
-		runconfig.SetDefaultGRPCServer(s)
+		state.SetDefaultGRPCServer(s)
 	}
-
-	pr := &prober.Prober{}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
 	// example, user-configured servers open listeners during initialization and
@@ -232,7 +230,8 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	// close their listeners.
 	// TODO(manugarg): Plumb init context from cmd/cloudprober.
 	initCtx, cancelFunc := context.WithCancel(context.TODO())
-	if err := pr.Init(initCtx, cfg, globalLogger); err != nil {
+	pr, err := prober.Init(initCtx, cfg, globalLogger)
+	if err != nil {
 		cancelFunc()
 		ln.Close()
 		return err
@@ -254,9 +253,9 @@ func Start(ctx context.Context) {
 	defer cloudProber.Unlock()
 
 	// Default servers
-	srvMux := runconfig.DefaultHTTPServeMux()
+	srvMux := state.DefaultHTTPServeMux()
 	httpSrv := &http.Server{Handler: srvMux}
-	grpcSrv := runconfig.DefaultGRPCServer()
+	grpcSrv := state.DefaultGRPCServer()
 
 	// Set up a goroutine to cleanup if context ends.
 	go func() {

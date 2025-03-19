@@ -19,3 +19,5 @@ package grpc
 
 // Register google-c2p resolver for Traffic Director
 import _ "google.golang.org/grpc/xds/googledirectpath"
+
+var xdsSupported = true

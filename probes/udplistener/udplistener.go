@@ -170,6 +170,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 	p.echoMode = p.c.GetType() == configpb.ProbeConf_ECHO
 
 	p.fsm = udpmessage.NewFlowStateMap()

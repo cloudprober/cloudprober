@@ -35,9 +35,10 @@ import (
 	"log/slog"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
-	"github.com/cloudprober/cloudprober/internal/oauth"
+	"github.com/cloudprober/cloudprober/common/oauth"
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
-	"github.com/cloudprober/cloudprober/internal/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -64,8 +65,6 @@ import (
 	// Import grpclb module so it can be used by name for DirectPath connections.
 	_ "google.golang.org/grpc/balancer/grpclb"
 )
-
-const loadBalancingPolicy = `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
 
 const connIndexLabel = "conn_index"
 
@@ -140,7 +139,7 @@ func (p *Probe) newResult(target *endpoint.Endpoint) sched.ProbeResult {
 	return result
 }
 
-func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) *metrics.EventMetrics {
+func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics {
 	prr.Lock()
 	defer prr.Unlock()
 
@@ -163,7 +162,7 @@ func (prr *probeRunResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 func (p *Probe) transportCredentials() (credentials.TransportCredentials, error) {
@@ -194,10 +193,10 @@ func (p *Probe) transportCredentials() (credentials.TransportCredentials, error)
 	return credentials.NewClientTLSFromCert(nil, ""), nil
 }
 
-// ListEndpoints denoramlizes the targets list by connection index before
+// listEndpoints denoramlizes the targets list by connection index before
 // returning it. This is required because 'sched' schedules one probe loop per
 // target and we want to have one probe loop per target per connection.
-func (p *Probe) ListEndpoints() []endpoint.Endpoint {
+func (p *Probe) listEndpoints() []endpoint.Endpoint {
 	targets := p.opts.Targets.ListEndpoints()
 
 	if p.numConns == 1 {
@@ -215,6 +214,21 @@ func (p *Probe) ListEndpoints() []endpoint.Endpoint {
 		}
 	}
 	return out
+}
+
+func (p *Probe) defaultServiceConfig() string {
+	if p.c.GetDefaultLbConfig() != "" {
+		return fmt.Sprintf(`{"loadBalancingConfig":%s}`, p.c.GetDefaultLbConfig())
+	}
+	if p.c.GetUriScheme() == "grpclb" {
+		// We've kept it here for backward compatibility with Google's internal
+		// deployment. Typically service config is provided by the resolver.
+		// See: https://github.com/grpc/grpc/blob/master/doc/service_config.md
+		// Here is an example of our own resolver implementation:
+		// https://github.com/cloudprober/cloudprober/blob/d1f62e55672c793cac00363d6847b7b23c60da09/internal/rds/client/srvlist.go#L98
+		return `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
+	}
+	return ""
 }
 
 // Init initializes the probe with the given params.
@@ -244,8 +258,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.creds = transportCreds
 
-	// Initialize dial options.
-	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
+	if strings.HasPrefix(p.c.GetUriScheme(), "xds") && !xdsSupported {
+		return fmt.Errorf(`xds support not enabled. Compile cloudprober with "-tags grpc_xds" to add xds support`)
+	}
+
+	if defaultServiceConfig := p.defaultServiceConfig(); defaultServiceConfig != "" {
+		p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(defaultServiceConfig))
+	}
+
 	oauthCfg := p.c.GetOauthConfig()
 	if oauthCfg != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(oauthCfg, p.l)
@@ -271,6 +291,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.c.GetMethod() == configpb.ProbeConf_GENERIC {
 		if err := p.initDescriptorSource(); err != nil {
 			return err
+		}
+		if filePath := p.c.GetRequest().GetBodyFile(); filePath != "" {
+			if p.c.GetRequest().GetBody() != "" {
+				return errors.New("bad config: both body and body_file are set")
+			}
+			var opts []file.ReadOption
+			if p.c.GetRequest().GetBodyFileSubstituteEnv() {
+				opts = append(opts, file.WithEnvSubstitution())
+			}
+			b, err := file.ReadFile(context.Background(), filePath, opts...)
+			if err != nil {
+				return fmt.Errorf("error reading request body from file (%s): %v", filePath, err)
+			}
+			p.c.Request.Body = proto.String(string(b))
+			fmt.Println("--", p.c.Request.GetBody(), "--")
 		}
 	}
 
@@ -328,13 +363,14 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 	return grpcurl.BlockingDial(ctx, "tcp", p.connectionString(target), p.creds, p.dialOpts...)
 }
 
-func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
-	key := target.Key()
-
+func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey string, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
+	if p.c.GetDisableReuseConn() {
+		return p.connect(ctx, target)
+	}
 	p.connsMu.Lock()
 	defer p.connsMu.Unlock()
 
-	if conn := p.conns[key]; conn != nil {
+	if conn := p.conns[targetKey]; conn != nil {
 		return conn, nil
 	}
 
@@ -344,7 +380,7 @@ func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, logAttrs 
 		return nil, err
 	}
 	p.l.InfoAttrs("Connection established", logAttrs...)
-	p.conns[key] = conn
+	p.conns[targetKey] = conn
 	return conn, nil
 }
 
@@ -372,28 +408,43 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, log
 	return resp, nil
 }
 
-// runProbeForTargetAndConn runs a single probe for a target + connection index.
-func (p *Probe) runProbeForTargetAndConn(ctx context.Context, tgt endpoint.Endpoint, probeResult sched.ProbeResult) {
-	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), tgt.Name, tgt.Labels[connIndexLabel])
+type targetState struct {
+	targetKey string
+}
+
+// runProbeForTargetAndConnIndex runs a single probe for a target + connection index.
+func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.TargetState == nil {
+		runReq.TargetState = &targetState{targetKey: runReq.Target.Key()}
+	}
+	tgtState := runReq.TargetState.(*targetState)
+
+	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), runReq.Target.Name, runReq.Target.Labels[connIndexLabel])
 	logAttrs := []slog.Attr{
 		slog.String("probeId", msgPattern),
 		slog.String("request_type", p.c.GetMethod().String()),
 	}
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTarget(tgt, "", 0)
+		al.UpdateForTarget(runReq.Target, "", 0)
 	}
 
-	result := probeResult.(*probeRunResult)
+	if runReq.Result == nil {
+		runReq.Result = p.newResult(&runReq.Target)
+	}
+	result := runReq.Result.(*probeRunResult)
 
 	// On connection failure, this is where probe will end.
-	conn, err := p.getConn(ctx, tgt, logAttrs...)
+	conn, err := p.getConn(ctx, runReq.Target, tgtState.targetKey, logAttrs...)
 	if err != nil {
 		result.Lock()
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
 		return
+	}
+	if p.c.GetDisableReuseConn() {
+		defer conn.Close()
 	}
 
 	client := spb.NewProberClient(conn)
@@ -483,9 +534,8 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		ListEndpoints:     p.ListEndpoints,
-		NewResult:         p.newResult,
-		RunProbeForTarget: p.runProbeForTargetAndConn,
+		ListEndpoints:     p.listEndpoints,
+		RunProbeForTarget: p.runProbeForTargetAndConnIndex,
 	}
 
 	s.UpdateTargetsAndStartProbes(ctx)

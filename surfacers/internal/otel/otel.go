@@ -31,7 +31,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/internal/tlsconfig"
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"

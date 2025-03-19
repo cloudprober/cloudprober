@@ -127,7 +127,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
@@ -139,7 +139,7 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 // Init initializes the probe with the given params.
@@ -268,9 +268,11 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	// Convert interface to struct type
-	result := res.(*probeRunResult)
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 
 	port := defaultPort
 	if target.Port != 0 {
@@ -331,7 +333,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)

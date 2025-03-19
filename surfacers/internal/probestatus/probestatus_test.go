@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto"
 	"github.com/stretchr/testify/assert"
@@ -34,11 +35,14 @@ func testEM(t *testing.T, tm time.Time, probe, target string, total, success int
 		AddLabel("probe", probe).
 		AddLabel("dst", target).
 		AddMetric("total", metrics.NewInt(int64(total))).
-		AddMetric("success", metrics.NewInt(int64(total))).
+		AddMetric("success", metrics.NewInt(int64(success))).
 		AddMetric("latency", metrics.NewFloat(latency))
 }
 
 func TestNewAndRecord(t *testing.T) {
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
+	defer state.SetDefaultHTTPServeMux(nil)
+
 	total, success := 200, 180
 	latency := float64(2000)
 
@@ -47,7 +51,7 @@ func TestNewAndRecord(t *testing.T) {
 	ps, _ := New(ctx, &configpb.SurfacerConf{
 		TimeseriesSize:     proto.Int32(10),
 		MaxTargetsPerProbe: proto.Int32(2),
-	}, &options.Options{HTTPServeMux: http.NewServeMux()}, nil)
+	}, &options.Options{}, nil)
 
 	probeTargets := map[string][]string{
 		"p":  {"t1", "t2"},
@@ -120,7 +124,9 @@ func TestDisabledAndHandlers(t *testing.T) {
 		{
 			desc: "default",
 			patternMatch: map[string]string{
-				"/status": "/status",
+				"/":        "/",
+				"/status2": "/",
+				"/status":  "/status",
 			},
 		},
 		{
@@ -138,14 +144,19 @@ func TestDisabledAndHandlers(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			defer cancelFunc()
 
+			httpServerMux := http.NewServeMux()
+			state.SetDefaultHTTPServeMux(httpServerMux)
+
 			conf := &configpb.SurfacerConf{
 				Disable: proto.Bool(test.disabled),
 			}
 			if test.url != "" {
 				conf.Url = proto.String(test.url)
 			}
-			opts := &options.Options{HTTPServeMux: http.NewServeMux()}
-			ps, _ := New(ctx, conf, opts, nil)
+			ps, err := New(ctx, conf, &options.Options{}, nil)
+			if err != nil {
+				t.Fatalf("Error creating surfacer: %v", err)
+			}
 
 			if test.disabled {
 				if ps != nil {
@@ -156,7 +167,7 @@ func TestDisabledAndHandlers(t *testing.T) {
 			}
 
 			for url, pattern := range test.patternMatch {
-				_, matchedPattern := opts.HTTPServeMux.Handler(httptest.NewRequest("", url, nil))
+				_, matchedPattern := httpServerMux.Handler(httptest.NewRequest("", url, nil))
 				assert.Equal(t, pattern, matchedPattern)
 			}
 		})

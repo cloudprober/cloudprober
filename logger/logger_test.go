@@ -88,7 +88,7 @@ func TestEnvVarSet(t *testing.T) {
 				os.Setenv(varName, row.v)
 			}
 
-			got := envVarSet(varName)
+			got := isEnvSet(varName)
 			if got != row.expected {
 				t.Errorf("Variable set: got=%v, expected=%v", got, row.expected)
 			}

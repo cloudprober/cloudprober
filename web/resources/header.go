@@ -17,12 +17,18 @@ package resources
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
+	"strings"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
+	"github.com/cloudprober/cloudprober/state"
 )
+
+type headerTmplData struct {
+	Version, BuiltAt, StartTime, Uptime, StatusLink, LinksPrefix, IncludeMetricsLink, IncludeArtifactsLink, RightDiv interface{}
+}
 
 var t = template.Must(template.New("header").Parse(`
 <header>
@@ -33,26 +39,60 @@ var t = template.Must(template.New("header").Parse(`
   <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
   <b>Version</b>: {{.Version}}<br>
   <b>Built at</b>: {{.BuiltAt}}<br>
-  <b>Other Links</b>: <a href="/status">/status</a>, <a href="/config-running">/config</a> (<a href="/config-parsed">parsed</a> | <a href="/config">raw</a>), <a href="/alerts">/alerts</a>, <a href="/health">/health</a><br>
+  <b>Other Links </b>(<a href="{{.LinksPrefix}}links">all</a>):
+  	<a href="{{.LinksPrefix}}{{.StatusLink}}">/status</a>,
+	<a href="{{.LinksPrefix}}config-running">/config</a> (<a href="{{.LinksPrefix}}config-parsed">parsed</a> | <a href="{{.LinksPrefix}}config">raw</a>),
+	{{if .IncludeMetricsLink -}} <a href="{{.LinksPrefix}}metrics">/metrics</a>,{{ end }}
+	{{if .IncludeArtifactsLink -}} <a href="{{.LinksPrefix}}artifacts">/artifacts</a>,{{ end }}
+	<a href="{{.LinksPrefix}}alerts">/alerts</a>
 </div>
 `))
 
-func Header() template.HTML {
-	var buf bytes.Buffer
-
+func headerData(linksPrefix string) headerTmplData {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
-	if err := t.Execute(&buf, struct {
-		Version, BuiltAt, StartTime, Uptime, RightDiv interface{}
-	}{
-		Version:   runconfig.Version(),
-		BuiltAt:   runconfig.BuildTimestamp(),
-		StartTime: startTime,
-		Uptime:    uptime,
-	}); err != nil {
-		panic("Error rendering header")
+	includeMetrics := false
+	includeArtifacts := false
+	statusLink := "status"
+	allLinks := state.AllLinks()
+	for _, link := range allLinks {
+		if strings.Contains(link, "/artifacts") {
+			includeArtifacts = true
+		}
+		if link == "/metrics" {
+			includeMetrics = true
+		}
+		if strings.HasSuffix(link, "/status") {
+			statusLink = strings.TrimLeft(link, "/")
+		}
 	}
 
+	return headerTmplData{
+		Version:              state.Version(),
+		BuiltAt:              state.BuildTimestamp(),
+		StartTime:            startTime,
+		Uptime:               uptime,
+		StatusLink:           statusLink,
+		LinksPrefix:          linksPrefix,
+		IncludeMetricsLink:   includeMetrics,
+		IncludeArtifactsLink: includeArtifacts,
+	}
+}
+
+func Header(linksPrefix string) template.HTML {
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, headerData(linksPrefix)); err != nil {
+		panic(fmt.Sprintf("Error rendering header: %v", err))
+	}
 	return template.HTML(buf.String())
+}
+
+func LinkPrefixFromCurrentPath(path string) string {
+	pathParts := strings.Split(path, "/")
+	linkPrefix := ""
+	for i := 2; i < len(pathParts); i++ {
+		linkPrefix += "../"
+	}
+	return linkPrefix
 }

@@ -1,4 +1,4 @@
-// Copyright 2017-2023 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,11 +31,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/file"
 	"github.com/cloudprober/cloudprober/targets/gce"
@@ -49,8 +49,16 @@ import (
 // resolver by targets. It is a singleton because dnsRes.Resolver provides a
 // cache layer that is best shared by all probes.
 var (
-	globalResolver dnsRes.Resolver
+	globalRes     dnsRes.Resolver
+	globalResOnce sync.Once
 )
+
+func globalResolver() dnsRes.Resolver {
+	globalResOnce.Do(func() {
+		globalRes = dnsRes.New()
+	})
+	return globalRes
+}
 
 // Targets must have refreshed this much time after the lameduck for them to
 // become valid again. This is to take care of the following race between
@@ -219,7 +227,7 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 	}
 	tgts := &targets{
 		l:        l,
-		resolver: globalResolver,
+		resolver: globalResolver(),
 		ldLister: ldLister,
 	}
 
@@ -280,7 +288,7 @@ func rdsClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 	// If rds_server_address is not given in both, local options and in global
 	// options, look for the locally running RDS server.
 	if serverOpts == nil {
-		localRDSServer := runconfig.LocalRDSServer()
+		localRDSServer := state.LocalRDSServer()
 		if localRDSServer == nil {
 			return nil, nil, fmt.Errorf("rds_server_address not given and found no local RDS server")
 		}
@@ -322,7 +330,6 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
 
-	t.resolver = globalResolver
 	opts, err := dnsRes.GetResolverOptions(targetsDef, l)
 	if err != nil {
 		return nil, fmt.Errorf("targets.New(): error creating resolver: %v", err)
@@ -436,9 +443,4 @@ func SetSharedTargets(name string, tgts Targets) {
 	sharedTargetsMu.Lock()
 	defer sharedTargetsMu.Unlock()
 	sharedTargets[name] = tgts
-}
-
-// init initializes the package by creating a new global resolver.
-func init() {
-	globalResolver = dnsRes.New()
 }

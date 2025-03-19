@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.browser;
 
-import "github.com/cloudprober/cloudprober/internal/oauth/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/browser/proto";
 
@@ -10,60 +10,6 @@ message TestMetricsOptions {
     optional bool disable_test_metrics = 1;
     optional bool disable_aggregation = 2;
     optional bool enable_step_metrics = 3;
-}
-
-// S3 storage backend configuration.
-message S3 {
-    optional string bucket = 1;
-    optional string path = 2;
-    optional string region = 3;
-    optional string access_key_id = 4;
-    optional string secret_access_key = 5;
-
-    // S3 endpoint. If not specified, default endpoint for the region is used.
-    optional string endpoint = 6;
-}
-
-message GCS {
-    optional string bucket = 1;
-    optional string path = 2;
-    optional oauth.GoogleCredentials credentials = 3;
-
-    // GCS endpoint.
-    optional string endpoint = 4 [default = "https://storage.googleapis.com"];
-}
-
-message Storage {
-    oneof storage {
-        string local_storage_dir = 1;
-        S3 s3 = 2;
-        GCS gcs = 3;
-    }
-}
-
-message ArtifactsOptions {
-    // Serve test artifacts on Cloudprober's default webserver. This is
-    // disabled by default for security reasons.
-    optional bool serve_on_web = 1;
-
-    // Specify web server path to serve test artifacts on.
-    // Default is "/artifacts/<probename>".
-    optional string web_server_path = 2;
-
-    // Storage for test artifacts. Note that test artifacts are always
-    // written to the workdir first, and uploaded to the storage backend in a
-    // parallel goroutine. This is to make sure that uploads don't block the
-    // main probe execution.
-    repeated Storage storage = 3;
-}
-
-message CleanupOptions {
-    // Maximum age of artifacts in seconds.
-    optional int32 max_age_sec = 1;
-
-    // Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
-    // is smaller.
-    optional int32 cleanup_interval_sec = 3 [default = 3600];
 }
 
 message ProbeConf {
@@ -112,10 +58,13 @@ message ProbeConf {
     optional TestMetricsOptions test_metrics_options = 8;
 
     // Artifacts options.
-    optional ArtifactsOptions artifacts_options = 9;
+    optional artifacts.ArtifactsOptions artifacts_options = 9;
 
     // Cleanup options.
-    optional CleanupOptions workdir_cleanup_options = 10;
+    optional artifacts.CleanupOptions workdir_cleanup_options = 10;
+
+    // Environment variables. These are passed/set before probing starts.
+    map<string, string> env_var = 11;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and

@@ -122,7 +122,7 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"github.com/Masterminds/sprig/v3"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/config/runconfig"
+	"github.com/cloudprober/cloudprober/state"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
@@ -186,7 +186,7 @@ func parseTemplate(config string, tmplVars map[string]any, getGCECustomMetadata 
 			return matches[n], nil
 		},
 		"envSecret": func(s string) string { return "**$" + s + "**" },
-		"configDir": func() string { return filepath.Dir(runconfig.ConfigFilePath()) },
+		"configDir": func() string { return filepath.Dir(state.ConfigFilePath()) },
 	}
 
 	for name, f := range sprig.TxtFuncMap() {
