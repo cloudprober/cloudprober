@@ -66,8 +66,9 @@ message Storage {
 
     // Storage path for test artifacts. This is the path where test artifacts
     // are written to within the storage backend. For example, if storage is
-    // an S3 bucket, all objects will be uploaded under this path. For global
-    // artifacts options, probes append their names to this path.
+    // an S3 bucket, all objects will be uploaded under this path within that
+    // bucket. For global artifacts options, probes append their names to this
+    // path.
     optional string path = 90;
 }
 

@@ -318,8 +318,9 @@ type Storage struct {
 	Storage isStorage_Storage `protobuf_oneof:"storage"`
 	// Storage path for test artifacts. This is the path where test artifacts
 	// are written to within the storage backend. For example, if storage is
-	// an S3 bucket, all objects will be uploaded under this path. For global
-	// artifacts options, probes append their names to this path.
+	// an S3 bucket, all objects will be uploaded under this path within that
+	// bucket. For global artifacts options, probes append their names to this
+	// path.
 	Path          *string `protobuf:"bytes,90,opt,name=path" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
