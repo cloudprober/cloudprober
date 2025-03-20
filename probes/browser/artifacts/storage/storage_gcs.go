@@ -39,7 +39,7 @@ func gcsBaseURL(cfg *configpb.GCS) string {
 	return fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=media&name=", cfg.GetEndpoint(), cfg.GetBucket())
 }
 
-func InitGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*GCS, error) {
+func InitGCS(ctx context.Context, cfg *configpb.GCS, storagePath string, l *logger.Logger) (*GCS, error) {
 	if cfg.GetBucket() == "" {
 		return nil, fmt.Errorf("GCS bucket name is required")
 	}
@@ -61,7 +61,7 @@ func InitGCS(ctx context.Context, cfg *configpb.GCS, l *logger.Logger) (*GCS, er
 
 	return &GCS{
 		client:  client,
-		path:    cfg.GetPath(),
+		path:    storagePath,
 		baseURL: gcsBaseURL(cfg),
 		l:       l,
 	}, nil

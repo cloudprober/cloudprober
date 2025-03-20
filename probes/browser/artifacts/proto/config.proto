@@ -9,27 +9,25 @@ option go_package = "github.com/cloudprober/cloudprober/probes/browser/artifacts
 // S3 storage backend configuration.
 message S3 {
     optional string bucket = 1;
-    optional string path = 2;
-    optional string region = 3;
-    optional string access_key_id = 4;
-    optional string secret_access_key = 5;
+    optional string region = 2;
+    optional string access_key_id = 3;
+    optional string secret_access_key = 4;
 
     // S3 endpoint. If not specified, default endpoint for the region is used.
-    optional string endpoint = 6;
+    optional string endpoint = 5;
 }
 
 message GCS {
     optional string bucket = 1;
-    optional string path = 2;
 
     // If you want to use default credentials on GCE or GKE, leave this field
     // empty. See
     // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
     // for more details on oauth.GoogleCredentials.
-    optional oauth.GoogleCredentials credentials = 3;
+    optional oauth.GoogleCredentials credentials = 2;
 
     // GCS endpoint.
-    optional string endpoint = 4 [default = "https://storage.googleapis.com"];
+    optional string endpoint = 3 [default = "https://storage.googleapis.com"];
 }
 
 message LocalStorage {
@@ -42,21 +40,20 @@ message LocalStorage {
 
 message ABS {
     optional string container = 1;
-    optional string path = 2;
 
     // Azure account name and key. If you want to use managed identities, leave
     // account_key empty.
-    optional string account_name = 3;
-    optional string account_key = 4;
+    optional string account_name = 2;
+    optional string account_key = 3;
 
     // Azure endpoint. Default is "https://<account>.blob.core.windows.net".
-    optional string endpoint = 5;
+    optional string endpoint = 4;
 
     // OAuth2 configuration. If you want to use managed identities, leave this
     // field empty. See
     // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
     // for more details on oauth.Config.
-    optional oauth.Config oauth_config = 6;
+    optional oauth.Config oauth_config = 5;
 }
 
 message Storage {
@@ -66,6 +63,13 @@ message Storage {
         GCS gcs = 3;
         ABS abs = 4;
     }
+
+    // Storage path for test artifacts. This is the path where test artifacts
+    // are written to within the storage backend. For example, if storage is
+    // an S3 bucket, all objects will be uploaded under this path within that
+    // bucket. For global artifacts options, probes append their names to this
+    // path.
+    optional string path = 90;
 }
 
 message ArtifactsOptions {
@@ -77,9 +81,11 @@ message ArtifactsOptions {
     // Default is "/artifacts/<probename>".
     optional string web_server_path = 2;
 
-    // Web server root directory. You can only set it to one of the local
-    // storage directories. Default is <workdir>/output. This option allows
-    // you to serve artifacts from a local storage directory.
+    // Web server root directory. If not provided (recommended), we just use
+    // the first local storage directory if configured, and if provided, we
+    // verify that it is one of the local storages directories. If no local
+    // storage is configured, we return an error for global options and use
+    // <workdir>/output for probe level artifacts options.
     optional string web_server_root = 4;
 
     // Storage for test artifacts. Note that test artifacts are always

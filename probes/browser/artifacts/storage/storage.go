@@ -65,25 +65,33 @@ func walkAndSave(ctx context.Context, localPath, basePath string, fn func(contex
 }
 
 type Local struct {
-	destDir string
-	l       *logger.Logger
+	destDir     string
+	storagePath string
+	l           *logger.Logger
 }
 
-func InitLocal(destDir string, l *logger.Logger) (*Local, error) {
+func InitLocal(destDir, storagePath string, l *logger.Logger) (*Local, error) {
 	s := &Local{
-		destDir: destDir,
-		l:       l,
+		destDir:     destDir,
+		storagePath: storagePath,
+		l:           l,
 	}
 	// Verify that the destination directory exists
 	if _, err := os.Stat(destDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("destination directory %s does not exist", destDir)
 	}
 
+	// Create the storage directory if it does not exist
+	// We create it here as cleanup handler starts right after initialization.
+	if err := os.MkdirAll(filepath.Join(destDir, storagePath), 0755); err != nil {
+		return nil, fmt.Errorf("error creating storage directory (%s): %v", filepath.Join(destDir, storagePath), err)
+	}
+
 	return s, nil
 }
 
 func (s *Local) saveFile(r io.Reader, relPath string) error {
-	filePath := filepath.Join(s.destDir, relPath)
+	filePath := filepath.Join(s.destDir, s.storagePath, relPath)
 
 	// Create the destination directory and all necessary parent directories
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {

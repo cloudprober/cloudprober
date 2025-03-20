@@ -134,7 +134,7 @@ func TestGetSourceIPFromConfig(t *testing.T) {
 			mockInterfaceByName(r.intf, r.intfAddrs)
 		}
 
-		source, err := getSourceIPFromConfig(p, &logger.Logger{})
+		source, err := getSourceIPFromConfig(p)
 
 		if (err != nil) != r.wantError {
 			t.Errorf("Row %q: getSourceIPFromConfig() gave error %q, want error is %v", r.name, err, r.wantError)

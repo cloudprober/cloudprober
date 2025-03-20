@@ -111,7 +111,7 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 		return status.Errorf(codes.AlreadyExists, "probe %s is already defined", p.GetName())
 	}
 
-	opts, err := options.BuildProbeOptions(p, pr.ldLister, pr.c.GetGlobalTargetsOptions(), pr.l)
+	opts, err := options.BuildProbeOptions(p, pr.ldLister, pr.c, pr.l)
 	if err != nil {
 		return status.Errorf(codes.Unknown, err.Error())
 	}

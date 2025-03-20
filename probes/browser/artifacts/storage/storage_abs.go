@@ -100,7 +100,7 @@ func (s *ABS) initAuth(ctx context.Context, cfg *configpb.ABS) error {
 	return nil
 }
 
-func InitABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*ABS, error) {
+func InitABS(ctx context.Context, cfg *configpb.ABS, storagePath string, l *logger.Logger) (*ABS, error) {
 	if cfg.GetContainer() == "" {
 		return nil, fmt.Errorf("ABS container name is required")
 	}
@@ -108,7 +108,7 @@ func InitABS(ctx context.Context, cfg *configpb.ABS, l *logger.Logger) (*ABS, er
 	abs := &ABS{
 		container:   cfg.GetContainer(),
 		accountName: cfg.GetAccountName(),
-		path:        cfg.GetPath(),
+		path:        storagePath,
 		endpoint:    cfg.GetEndpoint(),
 		client:      &http.Client{},
 		l:           l,
