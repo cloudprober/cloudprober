@@ -46,7 +46,6 @@ func TestStringToSign(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			abs := &ABS{
 				accountName: tt.accountName,
-				path:        tt.path,
 			}
 
 			req, err := http.NewRequest(tt.method, "https://example.com"+tt.path, nil)
@@ -84,7 +83,6 @@ func TestUploadRequest(t *testing.T) {
 			abs := &ABS{
 				container:   "test-container",
 				accountName: "test-account",
-				path:        "",
 				endpoint:    "https://test-account.blob.core.windows.net",
 			}
 

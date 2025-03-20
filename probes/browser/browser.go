@@ -255,7 +255,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("failed to initialize templates: %v", err)
 	}
 
-	ah, err := artifacts.InitArtifactsHandler(p.c.GetArtifactsOptions(), p.outputDir, p.name, p.l)
+	ah, err := artifacts.InitArtifactsHandler(context.Background(), p.c.GetArtifactsOptions(), p.outputDir, p.opts, p.l)
 	if err != nil {
 		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
 	}

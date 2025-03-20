@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	proberconfigpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
@@ -37,6 +38,7 @@ import (
 
 // Options encapsulates common probe options.
 type Options struct {
+	Name                string
 	Targets             targets.Targets
 	Interval, Timeout   time.Duration
 	Logger              *logger.Logger
@@ -52,7 +54,11 @@ type Options struct {
 	Schedule            *Schedule
 	NegativeTest        bool
 	AlertHandlers       []*alerting.AlertHandler
-	logMetricsOverride  func(*metrics.EventMetrics)
+	// Prober config at the prober initialization time. This config is not
+	// reliable for things that may change after initialization, e.g. probes
+	// that can be added or removed through gRPC.
+	ProberConfig       *proberconfigpb.ProberConfig
+	logMetricsOverride func(*metrics.EventMetrics)
 }
 
 // StatsExportFrequency returns how often to export metrics (in probe counts),
@@ -115,7 +121,7 @@ func ipv(v *configpb.ProbeDef_IPVersion) int {
 
 // getSourceFromConfig returns the source IP from the config either directly
 // or by resolving the network interface to an IP, depending on which is provided.
-func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, error) {
+func getSourceIPFromConfig(p *configpb.ProbeDef) (net.IP, error) {
 	switch p.SourceIpConfig.(type) {
 
 	case *configpb.ProbeDef_SourceIp:
@@ -141,7 +147,7 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 
 // BuildProbeOptions builds probe's options using the provided config and some
 // global params.
-func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
+func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberConfig *proberconfigpb.ProberConfig, l *logger.Logger) (*Options, error) {
 	intervalDuration := defaultIntervalPeriod
 	timeoutDuration := defaultTimeoutPeriod
 	var err error
@@ -177,10 +183,12 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	}
 
 	opts := &Options{
+		Name:              p.GetName(),
 		Interval:          intervalDuration,
 		Timeout:           timeoutDuration,
 		IPVersion:         ipv(p.IpVersion),
 		LatencyMetricName: p.GetLatencyMetricName(),
+		ProberConfig:      proberConfig,
 		NegativeTest:      p.GetNegativeTest(),
 		Logger:            logger.NewWithAttrs(slog.String("probe", p.GetName())),
 	}
@@ -201,7 +209,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		}
 	}
 
-	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, globalTargetsOpts, l, opts.Logger); err != nil {
+	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, proberConfig.GetGlobalTargetsOptions(), l, opts.Logger); err != nil {
 		return nil, err
 	}
 
@@ -226,7 +234,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 	}
 
 	if p.GetSourceIpConfig() != nil {
-		opts.SourceIP, err = getSourceIPFromConfig(p, l)
+		opts.SourceIP, err = getSourceIPFromConfig(p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get source address for the probe: %v", err)
 		}

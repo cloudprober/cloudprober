@@ -57,7 +57,9 @@ message ProbeConf {
     // metrics are exported by setting the following options.
     optional TestMetricsOptions test_metrics_options = 8;
 
-    // Artifacts options.
+    // Artifacts options. If probe level artifacts options are not specified,
+    // we use global artifacts options if available. Note: it typically makes
+    // more sense to specify artifacts options at the global level.
     optional artifacts.ArtifactsOptions artifacts_options = 9;
 
     // Cleanup options.
