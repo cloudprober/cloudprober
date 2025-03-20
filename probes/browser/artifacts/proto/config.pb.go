@@ -442,9 +442,11 @@ type ArtifactsOptions struct {
 	// Specify web server path to serve test artifacts on.
 	// Default is "/artifacts/<probename>".
 	WebServerPath *string `protobuf:"bytes,2,opt,name=web_server_path,json=webServerPath" json:"web_server_path,omitempty"`
-	// Web server root directory. You can only set it to one of the local
-	// storage directories. Default is <workdir>/output. This option allows
-	// you to serve artifacts from a local storage directory.
+	// Web server root directory. If not provided (recommended), we just use
+	// the first local storage directory if configured, and if provided, we
+	// verify that it is one of the local storages directories. If no local
+	// storage is configured, we return an error for global options and use
+	// <workdir>/output for probe level artifacts options.
 	WebServerRoot *string `protobuf:"bytes,4,opt,name=web_server_root,json=webServerRoot" json:"web_server_root,omitempty"`
 	// Storage for test artifacts. Note that test artifacts are always
 	// written to the workdir first, and uploaded to the storage backend in a
