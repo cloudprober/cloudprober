@@ -104,6 +104,10 @@ func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options)
 
 // initGlobalArtifactsServing initializes global artifacts serving. It is idempotent.
 func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logger) error {
+	if !opts.GetServeOnWeb() {
+		return nil
+	}
+
 	var err error
 	initGlobalServingOnce.Do(func() {
 		var webRoot string

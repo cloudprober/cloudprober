@@ -306,51 +306,63 @@ func TestInitGlobalArtifactsServing(t *testing.T) {
 	state.SetDefaultHTTPServeMux(mux)
 	state.AddWebHandler("/oldartifacts/", func(w http.ResponseWriter, r *http.Request) {})
 
+	storageConfig := []*configpb.Storage{
+		{
+			Storage: &configpb.Storage_LocalStorage{
+				LocalStorage: &configpb.LocalStorage{
+					Dir: proto.String(tmpDir),
+				},
+			},
+		},
+	}
+
 	tests := []struct {
 		name          string
 		artifactsOpts *configpb.ArtifactsOptions
-		setup         func()
 		expectedPath  string
 		expectError   bool
 	}{
 		{
+			name: "valid configuration - no serve on web",
+			artifactsOpts: &configpb.ArtifactsOptions{
+				Storage:    storageConfig,
+				ServeOnWeb: proto.Bool(false),
+			},
+			expectedPath: "",
+			expectError:  false,
+		},
+		{
 			name: "valid configuration",
 			artifactsOpts: &configpb.ArtifactsOptions{
-				Storage: []*configpb.Storage{
-					{
-						Storage: &configpb.Storage_LocalStorage{
-							LocalStorage: &configpb.LocalStorage{
-								Dir: proto.String(tmpDir),
-							},
-						},
-					},
-				},
+				Storage:    storageConfig,
+				ServeOnWeb: proto.Bool(true),
 			},
-			setup:        func() {},
 			expectedPath: "/artifacts/",
 			expectError:  false,
 		},
 		{
 			name: "invalid web server root",
 			artifactsOpts: &configpb.ArtifactsOptions{
-				WebServerRoot: proto.String("/invalid/dir"),
+				Storage:       storageConfig,
+				ServeOnWeb:    proto.Bool(true),
+				WebServerRoot: proto.String("/invalid/dir"), // not in storage
 			},
-			setup:       func() {},
+			expectError: true,
+		},
+		{
+			name: "invalid web server root - no storage",
+			artifactsOpts: &configpb.ArtifactsOptions{
+				ServeOnWeb:    proto.Bool(true),
+				WebServerRoot: proto.String("/invalid/dir"), // not in storage
+			},
 			expectError: true,
 		},
 		{
 			name: "error in serveArtifacts",
 			artifactsOpts: &configpb.ArtifactsOptions{
-				WebServerPath: proto.String("/oldartifacts"),
-				Storage: []*configpb.Storage{
-					{
-						Storage: &configpb.Storage_LocalStorage{
-							LocalStorage: &configpb.LocalStorage{
-								Dir: proto.String(tmpDir),
-							},
-						},
-					},
-				},
+				Storage:       storageConfig,
+				ServeOnWeb:    proto.Bool(true),
+				WebServerPath: proto.String("/oldartifacts"), // already exists
 			},
 			expectError: true,
 		},
@@ -379,7 +391,13 @@ func TestInitGlobalArtifactsServing(t *testing.T) {
 			assert.Equal(t, tt.expectedPath, pattern)
 
 			// Check if the file is served correctly
-			verifyWebServerResponse(t, mux, path.Join(tt.expectedPath, "/test.txt"), http.StatusOK, "test")
+			expectedCode := http.StatusOK
+			expectedBody := "test"
+			if tt.expectedPath == "" {
+				expectedCode = http.StatusNotFound
+				expectedBody = "404 page not found\n"
+			}
+			verifyWebServerResponse(t, mux, path.Join(tt.expectedPath, "/test.txt"), expectedCode, expectedBody)
 		})
 	}
 }
