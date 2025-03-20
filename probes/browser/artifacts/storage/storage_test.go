@@ -110,8 +110,8 @@ func TestLocalStorageSaveFile(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(tmpDir, "date"), 0755); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-
-	localStorage, err := InitLocal(tmpDir, nil)
+	storagePath := "myprobe"
+	localStorage, err := InitLocal(tmpDir, storagePath, nil)
 	if err != nil {
 		t.Fatalf("Failed to initialize local storage: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestLocalStorageSaveFile(t *testing.T) {
 	}
 
 	// Verify the file content
-	content, err := os.ReadFile(filepath.Join(tmpDir, "date", "ts1", "report", "file.txt"))
+	content, err := os.ReadFile(filepath.Join(tmpDir, storagePath, "date", "ts1", "report", "file.txt"))
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}

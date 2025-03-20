@@ -3,6 +3,7 @@ syntax = "proto2";
 package cloudprober;
 
 import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/server/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/servers/proto/config.proto";
@@ -126,6 +127,25 @@ message ProberConfig {
   // Global targets options. Per-probe options are specified within the probe
   // stanza.
   optional targets.GlobalTargetsOptions global_targets_options = 100;
+
+  // Artifacts options, applicable to probes that generate artifacts. There is
+  // only one such probe type right now (2025/03/16) -- BROWSER. These options
+  // specify where artifacts will be stored and if they will be served on
+  // Cloudprober's default webserver. Example:
+  //
+  // global_artifacts_options {
+  //   serve_on_web: true
+  //   web_server_root: "/output" # local storage's dir
+  //   storage {
+  //     local_storage {
+  //       dir: "/output"
+  //     }
+  //     s3 {
+  //       bucket: "my-bucket"
+  //     }
+  //   }
+  // }
+  optional probes.browser.artifacts.ArtifactsOptions global_artifacts_options = 103;
 }
 
 message SharedTargets {
