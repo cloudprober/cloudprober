@@ -50,7 +50,7 @@ func pathPrefix(opts *configpb.ArtifactsOptions, probeName string) string {
 	return "/artifacts/" + probeName
 }
 
-func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string, error) {
+func webServerRoot(opts *configpb.ArtifactsOptions, probeWorkDir string) (string, error) {
 	var lsDirs []string
 	for _, storage := range opts.GetStorage() {
 		if localStorage := storage.GetLocalStorage(); localStorage != nil {
@@ -70,11 +70,12 @@ func webServerRoot(opts *configpb.ArtifactsOptions, defaultRoot string) (string,
 		return lsDirs[0], nil
 	}
 
-	if defaultRoot == "" {
-		return "", fmt.Errorf("no local storage directories configured, cannot determine web server root")
+	// probeWorkDir is only set when called from probe level artifacts.
+	if probeWorkDir != "" {
+		return probeWorkDir, nil
 	}
 
-	return defaultRoot, nil
+	return "", fmt.Errorf("no local storage directories configured, cannot determine web server root")
 }
 
 func serveArtifacts(path, root string) error {
