@@ -120,7 +120,9 @@ type ProbeConf struct {
 	// By default, we export all test metrica as counters. You can change how
 	// metrics are exported by setting the following options.
 	TestMetricsOptions *TestMetricsOptions `protobuf:"bytes,8,opt,name=test_metrics_options,json=testMetricsOptions" json:"test_metrics_options,omitempty"`
-	// Artifacts options.
+	// Artifacts options. If probe level artifacts options are not specified,
+	// we use global artifacts options if available. Note: it typically makes
+	// more sense to specify artifacts options at the global level.
 	ArtifactsOptions *proto.ArtifactsOptions `protobuf:"bytes,9,opt,name=artifacts_options,json=artifactsOptions" json:"artifacts_options,omitempty"`
 	// Cleanup options.
 	WorkdirCleanupOptions *proto.CleanupOptions `protobuf:"bytes,10,opt,name=workdir_cleanup_options,json=workdirCleanupOptions" json:"workdir_cleanup_options,omitempty"`

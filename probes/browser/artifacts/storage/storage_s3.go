@@ -35,7 +35,7 @@ type S3 struct {
 	l      *logger.Logger
 }
 
-func InitS3(ctx context.Context, s3config *configpb.S3, l *logger.Logger) (*S3, error) {
+func InitS3(ctx context.Context, s3config *configpb.S3, storagePath string, l *logger.Logger) (*S3, error) {
 	region := s3config.GetRegion()
 	if region == "" && os.Getenv("AWS_REGION") != "" {
 		region = os.Getenv("AWS_REGION")
@@ -68,7 +68,7 @@ func InitS3(ctx context.Context, s3config *configpb.S3, l *logger.Logger) (*S3, 
 	s3Storage := &S3{
 		client: s3Client,
 		bucket: s3config.GetBucket(),
-		path:   s3config.GetPath(),
+		path:   storagePath,
 		l:      l,
 	}
 

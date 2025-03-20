@@ -18,13 +18,20 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"slices"
+	"strings"
+	"sync"
 
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
+	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/state"
+	"google.golang.org/protobuf/proto"
 )
+
+var initGlobalServingOnce sync.Once
 
 type ArtifactsHandler struct {
 	basePath        string
@@ -43,27 +50,101 @@ func pathPrefix(opts *configpb.ArtifactsOptions, probeName string) string {
 	return "/artifacts/" + probeName
 }
 
-func webServerRoot(opts *configpb.ArtifactsOptions, localStorageDirs []string, outputDir string) (string, error) {
+func webServerRoot(opts *configpb.ArtifactsOptions, probeWorkDir string) (string, error) {
+	var lsDirs []string
+	for _, storage := range opts.GetStorage() {
+		if localStorage := storage.GetLocalStorage(); localStorage != nil {
+			lsDirs = append(lsDirs, filepath.Join(localStorage.GetDir(), storage.GetPath()))
+		}
+	}
+
+	// User specified web server root
 	if r := opts.GetWebServerRoot(); r != "" {
-		if !slices.Contains(localStorageDirs, r) {
+		if !slices.Contains(lsDirs, filepath.Clean(r)) {
 			return "", fmt.Errorf("invalid web server root: %s; web server root can be either local_storage.dir or empty", r)
 		}
 		return r, nil
 	}
-	return outputDir, nil
+
+	if len(lsDirs) >= 1 {
+		return lsDirs[0], nil
+	}
+
+	// probeWorkDir is only set when called from probe level artifacts.
+	if probeWorkDir != "" {
+		return probeWorkDir, nil
+	}
+
+	return "", fmt.Errorf("no local storage directories configured, cannot determine web server root")
 }
 
-func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir, probeName string, l *logger.Logger) (*ArtifactsHandler, error) {
+func serveArtifacts(path, root string) error {
+	path = strings.TrimRight(path, "/")
+
+	if path == "" {
+		return fmt.Errorf("artifacts web server path cannot be empty")
+	}
+
+	if err := state.AddWebHandler(path+"/", http.StripPrefix(path, http.FileServer(http.Dir(root))).ServeHTTP); err != nil {
+		return fmt.Errorf("error adding web handler for artifacts web server: %v", err)
+	}
+
+	return nil
+}
+
+func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options) *configpb.ArtifactsOptions {
+	out := proto.Clone(in).(*configpb.ArtifactsOptions)
+	for _, storage := range out.GetStorage() {
+		storage.Path = proto.String(filepath.Join(storage.GetPath(), pOpts.Name))
+	}
+	// We serve artifacts at the global level, so disable them at probe level
+	out.ServeOnWeb = proto.Bool(false)
+
+	return out
+}
+
+// initGlobalArtifactsServing initializes global artifacts serving. It is idempotent.
+func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logger) error {
+	if !opts.GetServeOnWeb() {
+		return nil
+	}
+
+	var err error
+	initGlobalServingOnce.Do(func() {
+		var webRoot string
+		webRoot, err = webServerRoot(opts, "")
+		if err != nil {
+			l.Errorf("error getting web server root: %v", err)
+			return
+		}
+		err = serveArtifacts(pathPrefix(opts, ""), webRoot)
+	})
+
+	return err
+}
+
+func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, outputDir string, pOpts *options.Options, l *logger.Logger) (*ArtifactsHandler, error) {
 	ah := &ArtifactsHandler{
 		basePath: outputDir,
 		l:        l,
 	}
 
-	var localStorageDirs []string
+	if opts == nil {
+		gopts := pOpts.ProberConfig.GetGlobalArtifactsOptions()
+		if gopts == nil {
+			return ah, nil
+		}
+		if err := initGlobalArtifactsServing(gopts, l); err != nil {
+			return nil, err
+		}
+		opts = globalToLocalOptions(gopts, pOpts)
+	}
 
 	for _, storageConfig := range opts.GetStorage() {
+		storagePath := storageConfig.GetPath()
+
 		if s3conf := storageConfig.GetS3(); s3conf != nil {
-			s3, err := storage.InitS3(context.Background(), s3conf, l)
+			s3, err := storage.InitS3(ctx, s3conf, storagePath, l)
 
 			if err != nil {
 				return nil, fmt.Errorf("error initializing S3 storage (bucket: %s): %v", s3conf.GetBucket(), err)
@@ -73,7 +154,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir, probeName 
 		}
 
 		if gcsConf := storageConfig.GetGcs(); gcsConf != nil {
-			gcs, err := storage.InitGCS(context.Background(), gcsConf, l)
+			gcs, err := storage.InitGCS(ctx, gcsConf, storagePath, l)
 			if err != nil {
 				return nil, fmt.Errorf("error initializing GCS storage: %v", err)
 			}
@@ -81,7 +162,7 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir, probeName 
 		}
 
 		if absConf := storageConfig.GetAbs(); absConf != nil {
-			abs, err := storage.InitABS(context.Background(), absConf, l)
+			abs, err := storage.InitABS(ctx, absConf, storagePath, l)
 			if err != nil {
 				return nil, fmt.Errorf("error initializing ABS storage: %v", err)
 			}
@@ -89,32 +170,32 @@ func InitArtifactsHandler(opts *configpb.ArtifactsOptions, outputDir, probeName 
 		}
 
 		if localStorage := storageConfig.GetLocalStorage(); localStorage != nil {
+			ls, err := storage.InitLocal(localStorage.GetDir(), storagePath, l)
+			if err != nil {
+				return nil, fmt.Errorf("error initializing local storage: %v", err)
+			}
+
 			if localStorage.GetCleanupOptions() != nil {
-				cleanupHandler, err := NewCleanupHandler(localStorage.GetDir(), localStorage.GetCleanupOptions(), l)
+				dirToClean := filepath.Join(localStorage.GetDir(), storagePath)
+				cleanupHandler, err := NewCleanupHandler(dirToClean, localStorage.GetCleanupOptions(), l)
 				if err != nil {
 					return nil, fmt.Errorf("error initializing cleanup handler for local storage: %v", err)
 				}
 				ah.cleanupHandlers = append(ah.cleanupHandlers, cleanupHandler)
 			}
 
-			ls, err := storage.InitLocal(localStorage.GetDir(), l)
-			if err != nil {
-				return nil, fmt.Errorf("error initializing local storage: %v", err)
-			}
-			localStorageDirs = append(localStorageDirs, localStorage.GetDir())
 			ah.localStorage = append(ah.localStorage, ls)
 		}
 	}
 
+	// Note this gets called only for probe specific artifacts options.
 	if opts.GetServeOnWeb() {
-		webRoot, err := webServerRoot(opts, localStorageDirs, outputDir)
+		webRoot, err := webServerRoot(opts, outputDir)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error getting web server root: %v", err)
 		}
-		fileServer := http.FileServer(http.Dir(webRoot))
-		pathPrefix := pathPrefix(opts, probeName)
-		if err := state.AddWebHandler(pathPrefix+"/", http.StripPrefix(pathPrefix, fileServer).ServeHTTP); err != nil {
-			return nil, fmt.Errorf("error adding web handler for artifacts web server: %v", err)
+		if err := serveArtifacts(pathPrefix(opts, pOpts.Name), webRoot); err != nil {
+			return nil, err
 		}
 	}
 
