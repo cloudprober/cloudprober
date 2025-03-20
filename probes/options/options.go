@@ -54,8 +54,11 @@ type Options struct {
 	Schedule            *Schedule
 	NegativeTest        bool
 	AlertHandlers       []*alerting.AlertHandler
-	ProberConfig        *proberconfigpb.ProberConfig
-	logMetricsOverride  func(*metrics.EventMetrics)
+	// Prober config at the prober initialization time. This config is not
+	// reliable for things that may change after initialization, e.g. probes
+	// that can be added or removed through gRPC.
+	ProberConfig       *proberconfigpb.ProberConfig
+	logMetricsOverride func(*metrics.EventMetrics)
 }
 
 // StatsExportFrequency returns how often to export metrics (in probe counts),
