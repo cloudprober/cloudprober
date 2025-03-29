@@ -9,6 +9,13 @@ on:
     paths:
       - "probes/external/serverutils/py/**"
       - ".github/workflows/py_serverutils.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to run workflow for"
+        required: true
+  release:
+    types: [published]
 
 jobs:
   test_and_build:
