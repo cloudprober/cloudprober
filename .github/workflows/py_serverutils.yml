@@ -24,9 +24,17 @@ jobs:
 
     steps:
       - name: Checkout repository
+        if: github.event_name != 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Check out code into the Go module directory
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,9 +71,17 @@ jobs:
 
     steps:
       - name: Check out repo hosting code
+        if: github.event_name != 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Check out code into the Go module directory
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: dorny/paths-filter@v2
         id: filter
