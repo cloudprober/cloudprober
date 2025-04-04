@@ -17,6 +17,7 @@ package oauth
 import (
 	"errors"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -350,6 +351,10 @@ func TestReadFromFile(t *testing.T) {
 }
 
 func TestReadFromCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping on Windows")
+	}
+
 	tests := []struct {
 		name      string
 		cmd       string
