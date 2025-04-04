@@ -101,7 +101,7 @@ func testK8SToken(c *configpb.Config) (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: "k8s_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
-func TestNewTokenSource(t *testing.T) {
+func testNewTokenSource(t *testing.T, useDeprecatedBearerTokenInterface bool) {
 	oldTokenFunctions := tokenFunctions
 	tokenFunctions.fromFile = testTokenFromFile
 	tokenFunctions.fromCmd = testTokenFromCmd
@@ -166,14 +166,22 @@ func TestNewTokenSource(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name+":"+test.config, func(t *testing.T) {
 			resetCallCounter()
-			testC := &configpb.Config{}
-			assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
 
 			testRefreshExpiryBuffer := 10 * time.Second
 
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
-			cts, err := newTokenSource(testC, testRefreshExpiryBuffer, nil)
+			var cts oauth2.TokenSource
+			var err error
+			if useDeprecatedBearerTokenInterface {
+				testC := &configpb.BearerToken{}
+				assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
+				cts, err = newBearerTokenSource(testC, testRefreshExpiryBuffer, nil)
+			} else {
+				testC := &configpb.Config{}
+				assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
+				cts, err = newTokenSource(testC, testRefreshExpiryBuffer, nil)
+			}
 			if (err != nil) != test.wantErr {
 				t.Errorf("newTokenSource() error = %v, wantErr %v", err, test.wantErr)
 			}
@@ -199,6 +207,16 @@ func TestNewTokenSource(t *testing.T) {
 			assert.Equal(t, test.wantToken, tok.AccessToken, "Token mismatch")
 		})
 	}
+}
+
+func TestNewTokenSource(t *testing.T) {
+	testNewTokenSource(t, false)
+}
+
+// This test is to make sure that existing configs with bearer_token continue
+// to work.
+func TestNewBearerTokenSource(t *testing.T) {
+	testNewTokenSource(t, true)
 }
 
 func testFileWithContent(t *testing.T, content string) string {

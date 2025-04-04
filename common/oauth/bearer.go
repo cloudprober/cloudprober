@@ -20,10 +20,13 @@ import (
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"golang.org/x/oauth2"
+	"google.golang.org/protobuf/proto"
 )
 
 func newBearerTokenSource(btc *configpb.BearerToken, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
-	c := &configpb.Config{}
+	c := &configpb.Config{
+		RefreshIntervalSec: proto.Float32(btc.GetRefreshIntervalSec()),
+	}
 	switch btc.GetSource().(type) {
 	case *configpb.BearerToken_File:
 		c.Source = &configpb.Config_File{

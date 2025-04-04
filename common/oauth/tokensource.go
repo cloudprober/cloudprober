@@ -185,8 +185,8 @@ func (ts *genericTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func K8STokenSource(l *logger.Logger) (oauth2.TokenSource, error) {
-	return newBearerTokenSource(&configpb.BearerToken{
-		Source: &configpb.BearerToken_K8SLocalToken{
+	return newTokenSource(&configpb.Config{
+		Source: &configpb.Config_K8SLocalToken{
 			K8SLocalToken: true,
 		},
 		RefreshIntervalSec: proto.Float32(60),
