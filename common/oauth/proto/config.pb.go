@@ -23,19 +23,29 @@ const (
 
 type Config struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Type:
+	// Types that are valid to be assigned to Source:
 	//
+	//	*Config_File
 	//	*Config_HttpRequest
-	//	*Config_BearerToken
+	//	*Config_Cmd
+	//	*Config_GceServiceAccount
+	//	*Config_K8SLocalToken
 	//	*Config_GoogleCredentials
-	Type isConfig_Type `protobuf_oneof:"type"`
+	//	*Config_BearerToken
+	Source isConfig_Source `protobuf_oneof:"source"`
 	// How long before the expiry do we refresh. Default is 60 (1m). This applies
 	// only to http_request and bearer_token types, and only if token presents
 	// expiry in some way.
 	// TODO(manugarg): Consider setting default based on probe interval.
 	RefreshExpiryBufferSec *int32 `protobuf:"varint,20,opt,name=refresh_expiry_buffer_sec,json=refreshExpiryBufferSec,proto3,oneof" json:"refresh_expiry_buffer_sec,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// If above sources return a JSON token with an expiry, we use that info to
+	// determine when to refresh tokens and refresh_interval_sec is completely
+	// ignored. If above sources return a string, we refresh from the source
+	// every 30s by default. To disable this behavior set refresh_interval_sec to
+	// zero.
+	RefreshIntervalSec *float32 `protobuf:"fixed32,21,opt,name=refresh_interval_sec,json=refreshIntervalSec,proto3,oneof" json:"refresh_interval_sec,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Config) Reset() {
@@ -68,17 +78,62 @@ func (*Config) Descriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Config) GetType() isConfig_Type {
+func (x *Config) GetSource() isConfig_Source {
 	if x != nil {
-		return x.Type
+		return x.Source
 	}
 	return nil
 }
 
+func (x *Config) GetFile() string {
+	if x != nil {
+		if x, ok := x.Source.(*Config_File); ok {
+			return x.File
+		}
+	}
+	return ""
+}
+
 func (x *Config) GetHttpRequest() *HTTPRequest {
 	if x != nil {
-		if x, ok := x.Type.(*Config_HttpRequest); ok {
+		if x, ok := x.Source.(*Config_HttpRequest); ok {
 			return x.HttpRequest
+		}
+	}
+	return nil
+}
+
+func (x *Config) GetCmd() string {
+	if x != nil {
+		if x, ok := x.Source.(*Config_Cmd); ok {
+			return x.Cmd
+		}
+	}
+	return ""
+}
+
+func (x *Config) GetGceServiceAccount() string {
+	if x != nil {
+		if x, ok := x.Source.(*Config_GceServiceAccount); ok {
+			return x.GceServiceAccount
+		}
+	}
+	return ""
+}
+
+func (x *Config) GetK8SLocalToken() bool {
+	if x != nil {
+		if x, ok := x.Source.(*Config_K8SLocalToken); ok {
+			return x.K8SLocalToken
+		}
+	}
+	return false
+}
+
+func (x *Config) GetGoogleCredentials() *GoogleCredentials {
+	if x != nil {
+		if x, ok := x.Source.(*Config_GoogleCredentials); ok {
+			return x.GoogleCredentials
 		}
 	}
 	return nil
@@ -86,17 +141,8 @@ func (x *Config) GetHttpRequest() *HTTPRequest {
 
 func (x *Config) GetBearerToken() *BearerToken {
 	if x != nil {
-		if x, ok := x.Type.(*Config_BearerToken); ok {
+		if x, ok := x.Source.(*Config_BearerToken); ok {
 			return x.BearerToken
-		}
-	}
-	return nil
-}
-
-func (x *Config) GetGoogleCredentials() *GoogleCredentials {
-	if x != nil {
-		if x, ok := x.Type.(*Config_GoogleCredentials); ok {
-			return x.GoogleCredentials
 		}
 	}
 	return nil
@@ -109,27 +155,70 @@ func (x *Config) GetRefreshExpiryBufferSec() int32 {
 	return 0
 }
 
-type isConfig_Type interface {
-	isConfig_Type()
+func (x *Config) GetRefreshIntervalSec() float32 {
+	if x != nil && x.RefreshIntervalSec != nil {
+		return *x.RefreshIntervalSec
+	}
+	return 0
+}
+
+type isConfig_Source interface {
+	isConfig_Source()
+}
+
+type Config_File struct {
+	// Path to token file.
+	File string `protobuf:"bytes,1,opt,name=file,proto3,oneof"`
 }
 
 type Config_HttpRequest struct {
-	HttpRequest *HTTPRequest `protobuf:"bytes,3,opt,name=http_request,json=httpRequest,proto3,oneof"`
+	// Get token by making an HTTP request.
+	HttpRequest *HTTPRequest `protobuf:"bytes,2,opt,name=http_request,json=httpRequest,proto3,oneof"`
 }
 
-type Config_BearerToken struct {
-	BearerToken *BearerToken `protobuf:"bytes,1,opt,name=bearer_token,json=bearerToken,proto3,oneof"`
+type Config_Cmd struct {
+	// Run a comand to obtain the token, e.g.
+	// cat /var/lib/myapp/token, or
+	// /var/lib/run/get_token.sh
+	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3,oneof"`
+}
+
+type Config_GceServiceAccount struct {
+	// GCE metadata token
+	GceServiceAccount string `protobuf:"bytes,4,opt,name=gce_service_account,json=gceServiceAccount,proto3,oneof"`
+}
+
+type Config_K8SLocalToken struct {
+	// K8s service account token file:
+	// /var/run/secrets/kubernetes.io/serviceaccount/token
+	K8SLocalToken bool `protobuf:"varint,5,opt,name=k8s_local_token,json=k8sLocalToken,proto3,oneof"`
 }
 
 type Config_GoogleCredentials struct {
-	GoogleCredentials *GoogleCredentials `protobuf:"bytes,2,opt,name=google_credentials,json=googleCredentials,proto3,oneof"`
+	// Google credentials, either from a default source or a JSON file.
+	GoogleCredentials *GoogleCredentials `protobuf:"bytes,8,opt,name=google_credentials,json=googleCredentials,proto3,oneof"`
 }
 
-func (*Config_HttpRequest) isConfig_Type() {}
+type Config_BearerToken struct {
+	// Bearer token (deprecated)
+	// This field is deprecated. Use one of the other source directly. This
+	// layer turned out to be unnecessary.
+	BearerToken *BearerToken `protobuf:"bytes,7,opt,name=bearer_token,json=bearerToken,proto3,oneof"`
+}
 
-func (*Config_BearerToken) isConfig_Type() {}
+func (*Config_File) isConfig_Source() {}
 
-func (*Config_GoogleCredentials) isConfig_Type() {}
+func (*Config_HttpRequest) isConfig_Source() {}
+
+func (*Config_Cmd) isConfig_Source() {}
+
+func (*Config_GceServiceAccount) isConfig_Source() {}
+
+func (*Config_K8SLocalToken) isConfig_Source() {}
+
+func (*Config_GoogleCredentials) isConfig_Source() {}
+
+func (*Config_BearerToken) isConfig_Source() {}
 
 type HTTPRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
@@ -208,6 +297,8 @@ func (x *HTTPRequest) GetHeader() map[string]string {
 
 // Bearer token is added to the HTTP request through an HTTP header:
 // "Authorization: Bearer <access_token>"
+//
+// This message is deprecated. Use these sources directly in Config instead.
 type BearerToken struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Source:
@@ -419,14 +510,20 @@ var File_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto prot
 
 const file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Bgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x12\x11cloudprober.oauth\"\xcf\x02\n" +
-	"\x06Config\x12C\n" +
-	"\fhttp_request\x18\x03 \x01(\v2\x1e.cloudprober.oauth.HTTPRequestH\x00R\vhttpRequest\x12C\n" +
-	"\fbearer_token\x18\x01 \x01(\v2\x1e.cloudprober.oauth.BearerTokenH\x00R\vbearerToken\x12U\n" +
-	"\x12google_credentials\x18\x02 \x01(\v2$.cloudprober.oauth.GoogleCredentialsH\x00R\x11googleCredentials\x12>\n" +
-	"\x19refresh_expiry_buffer_sec\x18\x14 \x01(\x05H\x01R\x16refreshExpiryBufferSec\x88\x01\x01B\x06\n" +
-	"\x04typeB\x1c\n" +
-	"\x1a_refresh_expiry_buffer_sec\"\xd5\x01\n" +
+	"Bgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x12\x11cloudprober.oauth\"\xa7\x04\n" +
+	"\x06Config\x12\x14\n" +
+	"\x04file\x18\x01 \x01(\tH\x00R\x04file\x12C\n" +
+	"\fhttp_request\x18\x02 \x01(\v2\x1e.cloudprober.oauth.HTTPRequestH\x00R\vhttpRequest\x12\x12\n" +
+	"\x03cmd\x18\x03 \x01(\tH\x00R\x03cmd\x120\n" +
+	"\x13gce_service_account\x18\x04 \x01(\tH\x00R\x11gceServiceAccount\x12(\n" +
+	"\x0fk8s_local_token\x18\x05 \x01(\bH\x00R\rk8sLocalToken\x12U\n" +
+	"\x12google_credentials\x18\b \x01(\v2$.cloudprober.oauth.GoogleCredentialsH\x00R\x11googleCredentials\x12C\n" +
+	"\fbearer_token\x18\a \x01(\v2\x1e.cloudprober.oauth.BearerTokenH\x00R\vbearerToken\x12>\n" +
+	"\x19refresh_expiry_buffer_sec\x18\x14 \x01(\x05H\x01R\x16refreshExpiryBufferSec\x88\x01\x01\x125\n" +
+	"\x14refresh_interval_sec\x18\x15 \x01(\x02H\x02R\x12refreshIntervalSec\x88\x01\x01B\b\n" +
+	"\x06sourceB\x1c\n" +
+	"\x1a_refresh_expiry_buffer_secB\x17\n" +
+	"\x15_refresh_interval_sec\"\xd5\x01\n" +
 	"\vHTTPRequest\x12\x1b\n" +
 	"\ttoken_url\x18\x01 \x01(\tR\btokenUrl\x12\x16\n" +
 	"\x06method\x18\x02 \x01(\tR\x06method\x12\x12\n" +
@@ -471,8 +568,8 @@ var file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_goTy
 }
 var file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.oauth.Config.http_request:type_name -> cloudprober.oauth.HTTPRequest
-	2, // 1: cloudprober.oauth.Config.bearer_token:type_name -> cloudprober.oauth.BearerToken
-	3, // 2: cloudprober.oauth.Config.google_credentials:type_name -> cloudprober.oauth.GoogleCredentials
+	3, // 1: cloudprober.oauth.Config.google_credentials:type_name -> cloudprober.oauth.GoogleCredentials
+	2, // 2: cloudprober.oauth.Config.bearer_token:type_name -> cloudprober.oauth.BearerToken
 	4, // 3: cloudprober.oauth.HTTPRequest.header:type_name -> cloudprober.oauth.HTTPRequest.HeaderEntry
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
@@ -487,9 +584,13 @@ func file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_ini
 		return
 	}
 	file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[0].OneofWrappers = []any{
+		(*Config_File)(nil),
 		(*Config_HttpRequest)(nil),
-		(*Config_BearerToken)(nil),
+		(*Config_Cmd)(nil),
+		(*Config_GceServiceAccount)(nil),
+		(*Config_K8SLocalToken)(nil),
 		(*Config_GoogleCredentials)(nil),
+		(*Config_BearerToken)(nil),
 	}
 	file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[2].OneofWrappers = []any{
 		(*BearerToken_File)(nil),

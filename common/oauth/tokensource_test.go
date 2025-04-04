@@ -1,4 +1,4 @@
-// Copyright 2019-2023 The Cloudprober Authors.
+// Copyright 2019-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@ package oauth
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -52,7 +52,7 @@ func callCounter() int {
 	return global.callCounter
 }
 
-func testTokenFromFile(c *configpb.BearerToken) (*oauth2.Token, error) {
+func testTokenFromFile(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
 	if callCounter() > 0 {
 		if strings.HasSuffix(c.GetFile(), "fail") {
@@ -69,7 +69,7 @@ func testTokenFromFile(c *configpb.BearerToken) (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: c.GetFile() + "_file_token" + suffix, Expiry: exp}, nil
 }
 
-func testTokenFromCmd(c *configpb.BearerToken) (*oauth2.Token, error) {
+func testTokenFromCmd(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
 	if callCounter() > 0 {
 		suffix = "_new"
@@ -84,7 +84,7 @@ func testTokenFromCmd(c *configpb.BearerToken) (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: c.GetCmd() + "_cmd_token" + suffix, Expiry: exp}, nil
 }
 
-func testTokenFromGCEMetadata(c *configpb.BearerToken) (*oauth2.Token, error) {
+func testTokenFromGCEMetadata(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
 	if callCounter() > 0 {
 		suffix = "_new"
@@ -93,7 +93,7 @@ func testTokenFromGCEMetadata(c *configpb.BearerToken) (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: c.GetGceServiceAccount() + "_gce_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
-func testK8SToken(c *configpb.BearerToken) (*oauth2.Token, error) {
+func testK8SToken(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
 	if callCounter() > 0 {
 		suffix = "_new"
@@ -102,7 +102,7 @@ func testK8SToken(c *configpb.BearerToken) (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: "k8s_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
-func TestNewBearerToken(t *testing.T) {
+func testNewTokenSource(t *testing.T, useDeprecatedBearerTokenInterface bool) {
 	oldTokenFunctions := tokenFunctions
 	tokenFunctions.fromFile = testTokenFromFile
 	tokenFunctions.fromCmd = testTokenFromCmd
@@ -167,23 +167,31 @@ func TestNewBearerToken(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name+":"+test.config, func(t *testing.T) {
 			resetCallCounter()
-			testC := &configpb.BearerToken{}
-			assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
 
 			testRefreshExpiryBuffer := 10 * time.Second
 
 			// Call counter should always increase during token source creation.
 			expectedC := callCounter() + 1
-			cts, err := newBearerTokenSource(testC, testRefreshExpiryBuffer, nil)
+			var cts oauth2.TokenSource
+			var err error
+			if useDeprecatedBearerTokenInterface {
+				testC := &configpb.BearerToken{}
+				assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
+				cts, err = newBearerTokenSource(testC, testRefreshExpiryBuffer, nil)
+			} else {
+				testC := &configpb.Config{}
+				assert.NoError(t, prototext.Unmarshal([]byte(test.config), testC), "error parsing test config")
+				cts, err = newTokenSource(testC, testRefreshExpiryBuffer, nil)
+			}
 			if (err != nil) != test.wantErr {
-				t.Errorf("newBearerTokenSource() error = %v, wantErr %v", err, test.wantErr)
+				t.Errorf("newTokenSource() error = %v, wantErr %v", err, test.wantErr)
 			}
 			if err != nil {
 				return
 			}
 
 			// verify token cache
-			tc := cts.(*bearerTokenSource).cache
+			tc := cts.(*genericTokenSource).cache
 			assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
 			assert.Equal(t, tc.ignoreExpiryIfZero, true)
 
@@ -193,6 +201,7 @@ func TestNewBearerToken(t *testing.T) {
 			if test.wantNewToken {
 				time.Sleep(test.wait) // Wait for refresh
 				test.wantToken += "_new"
+				expectedC++
 			}
 			tok, err := cts.Token()
 			assert.NoError(t, err, "error getting token")
@@ -201,19 +210,30 @@ func TestNewBearerToken(t *testing.T) {
 	}
 }
 
+func TestNewTokenSource(t *testing.T) {
+	testNewTokenSource(t, false)
+}
+
+// This test is to make sure that existing configs with bearer_token continue
+// to work.
+func TestNewBearerTokenSource(t *testing.T) {
+	testNewTokenSource(t, true)
+}
+
 func testFileWithContent(t *testing.T, content string) string {
-	f, err := ioutil.TempFile("", "")
+	f, err := os.CreateTemp(t.TempDir(), "")
 	if err != nil {
 		t.Fatalf("Error creating temporary file for testing: %v", err)
 		return ""
 	}
 
 	if _, err := f.Write([]byte(content)); err != nil {
-		os.Remove(f.Name()) // clean up
+		f.Close()
 		t.Fatalf("Error writing %s to temporary file: %s", content, f.Name())
 		return ""
 	}
 
+	f.Close()
 	return f.Name()
 }
 
@@ -258,6 +278,130 @@ func TestK8STokenSource(t *testing.T) {
 
 			gotToken, _ := ts.Token()
 			assert.Equal(t, tt.testToken, gotToken.AccessToken, "access token")
+		})
+	}
+}
+
+func TestReadFromFile(t *testing.T) {
+	tests := []struct {
+		name      string
+		fileData  string
+		wantToken *oauth2.Token
+		wantErr   bool
+	}{
+		{
+			name:     "Valid token in plain text",
+			fileData: "plain-text-token",
+			wantToken: &oauth2.Token{
+				AccessToken: "plain-text-token",
+			},
+		},
+		{
+			name: "Valid token in JSON format",
+			fileData: `{
+				"access_token": "json-token",
+				"expires_in": 3600
+			}`,
+			wantToken: &oauth2.Token{
+				AccessToken: "json-token",
+				Expiry:      time.Now().Add(time.Hour).Truncate(time.Second),
+			},
+		},
+		{
+			name:     "Invalid file content",
+			fileData: `invalid-json`,
+			wantToken: &oauth2.Token{
+				AccessToken: "invalid-json",
+			},
+		},
+		{
+			name:    "File does not exist",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var filePath string
+			if tt.fileData != "" {
+				filePath = testFileWithContent(t, tt.fileData)
+			} else {
+				filePath = "/nonexistent/file/path"
+			}
+
+			testConfig := &configpb.Config{
+				Source: &configpb.Config_File{
+					File: filePath,
+				},
+			}
+
+			gotToken, err := readFromFile(testConfig)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readFromFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				assert.Equal(t, tt.wantToken.AccessToken, gotToken.AccessToken, "Access token mismatch")
+				if !tt.wantToken.Expiry.IsZero() {
+					assert.WithinDuration(t, tt.wantToken.Expiry, gotToken.Expiry, time.Second, "Token expiry mismatch")
+				}
+			}
+		})
+	}
+}
+
+func TestReadFromCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping on Windows")
+	}
+
+	tests := []struct {
+		name      string
+		cmd       string
+		wantToken *oauth2.Token
+		wantErr   bool
+	}{
+		{
+			name: "Valid command with plain text token",
+			cmd:  "echo -n plain-text-token",
+			wantToken: &oauth2.Token{
+				AccessToken: "plain-text-token",
+			},
+		},
+		{
+			name: "Valid command with JSON token",
+			cmd:  `echo {"access_token": "json-token", "expires_in": 3600}`,
+			wantToken: &oauth2.Token{
+				AccessToken: "json-token",
+				Expiry:      time.Now().Add(time.Hour).Truncate(time.Second),
+			},
+		},
+		{
+			name:    "Invalid command",
+			cmd:     "invalid-command",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testConfig := &configpb.Config{
+				Source: &configpb.Config_Cmd{
+					Cmd: tt.cmd,
+				},
+			}
+
+			gotToken, err := readFromCommand(testConfig)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readFromCommand() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				assert.Equal(t, tt.wantToken.AccessToken, gotToken.AccessToken, "Access token mismatch")
+				if !tt.wantToken.Expiry.IsZero() {
+					assert.WithinDuration(t, tt.wantToken.Expiry, gotToken.Expiry, time.Second, "Token expiry mismatch")
+				}
+			}
 		})
 	}
 }
