@@ -48,7 +48,7 @@ func InitGCS(ctx context.Context, cfg *configpb.GCS, storagePath string, l *logg
 		cfg.Credentials.Scope = []string{"https://www.googleapis.com/auth/devstorage.read_write"}
 	}
 	oauthCfg := oauthconfigpb.Config{
-		Type: &oauthconfigpb.Config_GoogleCredentials{
+		Source: &oauthconfigpb.Config_GoogleCredentials{
 			GoogleCredentials: cfg.Credentials,
 		},
 	}

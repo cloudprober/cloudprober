@@ -80,7 +80,7 @@ func (s *ABS) initAuth(ctx context.Context, cfg *configpb.ABS) error {
 	// If account key and auth config are not provided, we will use the metadata
 	// service to get the bearer token.
 	oauthTS, err := oauth.TokenSourceFromConfig(&oauthconfigpb.Config{
-		Type: &oauthconfigpb.Config_HttpRequest{
+		Source: &oauthconfigpb.Config_HttpRequest{
 			HttpRequest: &oauthconfigpb.HTTPRequest{
 				TokenUrl: identityEndpoint,
 				Header: map[string]string{

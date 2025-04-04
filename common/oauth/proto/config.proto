@@ -5,10 +5,32 @@ package cloudprober.oauth;
 option go_package = "github.com/cloudprober/cloudprober/common/oauth/proto";
 
 message Config {
-  oneof type {
-    HTTPRequest http_request = 3;
-    BearerToken bearer_token = 1;
-    GoogleCredentials google_credentials = 2;
+  oneof source {
+    // Path to token file.
+    string file = 1;
+
+    // Get token by making an HTTP request.
+    HTTPRequest http_request = 2;
+
+    // Run a comand to obtain the token, e.g.
+    // cat /var/lib/myapp/token, or
+    // /var/lib/run/get_token.sh
+    string cmd = 3;
+
+    // GCE metadata token
+    string gce_service_account = 4;
+
+    // K8s service account token file:
+    // /var/run/secrets/kubernetes.io/serviceaccount/token
+    bool k8s_local_token = 5;
+
+    // Google credentials, either from a default source or a JSON file.
+    GoogleCredentials google_credentials = 8;
+
+    // Bearer token (deprecated)
+    // This field is deprecated. Use one of the other source directly. This
+    // layer turned out to be unnecessary.
+    BearerToken bearer_token = 7;
   }
 
   // How long before the expiry do we refresh. Default is 60 (1m). This applies
@@ -16,6 +38,13 @@ message Config {
   // expiry in some way.
   // TODO(manugarg): Consider setting default based on probe interval.
   optional int32 refresh_expiry_buffer_sec = 20;
+
+  // If above sources return a JSON token with an expiry, we use that info to
+  // determine when to refresh tokens and refresh_interval_sec is completely
+  // ignored. If above sources return a string, we refresh from the source
+  // every 30s by default. To disable this behavior set refresh_interval_sec to
+  // zero.
+  optional float refresh_interval_sec = 21;
 }
 
 message HTTPRequest {
@@ -37,6 +66,8 @@ message HTTPRequest {
 
 // Bearer token is added to the HTTP request through an HTTP header:
 // "Authorization: Bearer <access_token>"
+//
+// This message is deprecated. Use these sources directly in Config instead.
 message BearerToken {
   oneof source {
     // Path to token file.
