@@ -73,7 +73,7 @@ func TestGoogleCredentials(t *testing.T) {
 	}
 
 	c := &configpb.Config{
-		Type: &configpb.Config_GoogleCredentials{
+		Source: &configpb.Config_GoogleCredentials{
 			GoogleCredentials: googleC,
 		},
 	}
