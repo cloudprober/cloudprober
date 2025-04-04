@@ -44,13 +44,10 @@ func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSo
 		refreshExpiryBuffer = time.Duration(c.GetRefreshExpiryBufferSec()) * time.Second
 	}
 
-	switch c.Type.(type) {
-
+	switch c.Source.(type) {
 	case *configpb.Config_BearerToken:
+		l.Warningf("oauth.TokenSourceFromConfig: BearerToken is deprecated. Move bearer token source config to directly under oauth_config.")
 		return newBearerTokenSource(c.GetBearerToken(), refreshExpiryBuffer, l)
-
-	case *configpb.Config_HttpRequest:
-		return newHTTPTokenSource(c.GetHttpRequest(), refreshExpiryBuffer, l)
 
 	case *configpb.Config_GoogleCredentials:
 		f := c.GetGoogleCredentials().GetJsonFile()
@@ -84,5 +81,5 @@ func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSo
 		return creds.TokenSource, nil
 	}
 
-	return nil, fmt.Errorf("unknown oauth credentials type: %v", c.Type)
+	return newTokenSource(c, refreshExpiryBuffer, l)
 }
