@@ -365,7 +365,7 @@ func TestReadFromCommand(t *testing.T) {
 		},
 		{
 			name: "Valid command with JSON token",
-			cmd:  `echo -e {"access_token": "json-token", "expires_in": 3600}`,
+			cmd:  `echo {"access_token": "json-token", "expires_in": 3600}`,
 			wantToken: &oauth2.Token{
 				AccessToken: "json-token",
 				Expiry:      time.Now().Add(time.Hour).Truncate(time.Second),
