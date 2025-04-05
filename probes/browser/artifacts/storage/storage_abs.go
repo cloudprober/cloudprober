@@ -31,6 +31,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"golang.org/x/oauth2"
+	"google.golang.org/protobuf/proto"
 )
 
 type ABS struct {
@@ -82,7 +83,7 @@ func (s *ABS) initAuth(ctx context.Context, cfg *configpb.ABS) error {
 	oauthTS, err := oauth.TokenSourceFromConfig(&oauthconfigpb.Config{
 		Source: &oauthconfigpb.Config_HttpRequest{
 			HttpRequest: &oauthconfigpb.HTTPRequest{
-				TokenUrl: identityEndpoint,
+				TokenUrl: proto.String(identityEndpoint),
 				Header: map[string]string{
 					"Metadata": "true",
 				},
