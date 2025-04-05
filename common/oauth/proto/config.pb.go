@@ -33,20 +33,31 @@ type Config struct {
 	//	*Config_GoogleCredentials
 	//	*Config_BearerToken
 	Source isConfig_Source `protobuf_oneof:"source"`
-	// How long before the expiry do we refresh. Default is 60 (1m). This applies
-	// only to http_request and bearer_token types, and only if token presents
-	// expiry in some way.
+	// If auto-refreshing based on token's expiry, how long before the expiry do we
+	// refresh.
+	//
 	// TODO(manugarg): Consider setting default based on probe interval.
-	RefreshExpiryBufferSec *int32 `protobuf:"varint,20,opt,name=refresh_expiry_buffer_sec,json=refreshExpiryBufferSec,proto3,oneof" json:"refresh_expiry_buffer_sec,omitempty"`
-	// If above sources return a JSON token with an expiry, we use that info to
-	// determine when to refresh tokens and refresh_interval_sec is completely
-	// ignored. If above sources return a string, we refresh from the source
-	// every 30s by default. To disable this behavior set refresh_interval_sec to
-	// zero.
-	RefreshIntervalSec *float32 `protobuf:"fixed32,21,opt,name=refresh_interval_sec,json=refreshIntervalSec,proto3,oneof" json:"refresh_interval_sec,omitempty"`
+	RefreshExpiryBufferSec *int32 `protobuf:"varint,20,opt,name=refresh_expiry_buffer_sec,json=refreshExpiryBufferSec,def=60" json:"refresh_expiry_buffer_sec,omitempty"`
+	// If set explicitly, we'll refresh token at this interval regardless of
+	// token's expiry value.
+	//
+	// If not set explicitly, we don't refresh at regular interval if token's
+	// expiry is set, otherwise we refresh at the default interval (30s).
+	//
+	// To disable refresh on interval even if expiry is not set, set this to 0.
+	//
+	// In most cases, Cloudprober does the right thing based on the retrieved
+	// token and you don't need to set this field.
+	RefreshIntervalSec *float32 `protobuf:"fixed32,21,opt,name=refresh_interval_sec,json=refreshIntervalSec,def=30" json:"refresh_interval_sec,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
+
+// Default values for Config fields.
+const (
+	Default_Config_RefreshExpiryBufferSec = int32(60)
+	Default_Config_RefreshIntervalSec     = float32(30)
+)
 
 func (x *Config) Reset() {
 	*x = Config{}
@@ -152,14 +163,14 @@ func (x *Config) GetRefreshExpiryBufferSec() int32 {
 	if x != nil && x.RefreshExpiryBufferSec != nil {
 		return *x.RefreshExpiryBufferSec
 	}
-	return 0
+	return Default_Config_RefreshExpiryBufferSec
 }
 
 func (x *Config) GetRefreshIntervalSec() float32 {
 	if x != nil && x.RefreshIntervalSec != nil {
 		return *x.RefreshIntervalSec
 	}
-	return 0
+	return Default_Config_RefreshIntervalSec
 }
 
 type isConfig_Source interface {
@@ -168,42 +179,42 @@ type isConfig_Source interface {
 
 type Config_File struct {
 	// Path to token file.
-	File string `protobuf:"bytes,1,opt,name=file,proto3,oneof"`
+	File string `protobuf:"bytes,1,opt,name=file,oneof"`
 }
 
 type Config_HttpRequest struct {
 	// Get token by making an HTTP request.
-	HttpRequest *HTTPRequest `protobuf:"bytes,2,opt,name=http_request,json=httpRequest,proto3,oneof"`
+	HttpRequest *HTTPRequest `protobuf:"bytes,2,opt,name=http_request,json=httpRequest,oneof"`
 }
 
 type Config_Cmd struct {
 	// Run a comand to obtain the token, e.g.
 	// cat /var/lib/myapp/token, or
 	// /var/lib/run/get_token.sh
-	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3,oneof"`
+	Cmd string `protobuf:"bytes,3,opt,name=cmd,oneof"`
 }
 
 type Config_GceServiceAccount struct {
 	// GCE metadata token
-	GceServiceAccount string `protobuf:"bytes,4,opt,name=gce_service_account,json=gceServiceAccount,proto3,oneof"`
+	GceServiceAccount string `protobuf:"bytes,4,opt,name=gce_service_account,json=gceServiceAccount,oneof"`
 }
 
 type Config_K8SLocalToken struct {
 	// K8s service account token file:
 	// /var/run/secrets/kubernetes.io/serviceaccount/token
-	K8SLocalToken bool `protobuf:"varint,5,opt,name=k8s_local_token,json=k8sLocalToken,proto3,oneof"`
+	K8SLocalToken bool `protobuf:"varint,5,opt,name=k8s_local_token,json=k8sLocalToken,oneof"`
 }
 
 type Config_GoogleCredentials struct {
 	// Google credentials, either from a default source or a JSON file.
-	GoogleCredentials *GoogleCredentials `protobuf:"bytes,8,opt,name=google_credentials,json=googleCredentials,proto3,oneof"`
+	GoogleCredentials *GoogleCredentials `protobuf:"bytes,8,opt,name=google_credentials,json=googleCredentials,oneof"`
 }
 
 type Config_BearerToken struct {
 	// Bearer token (deprecated)
 	// This field is deprecated. Use one of the other source directly. This
 	// layer turned out to be unnecessary.
-	BearerToken *BearerToken `protobuf:"bytes,7,opt,name=bearer_token,json=bearerToken,proto3,oneof"`
+	BearerToken *BearerToken `protobuf:"bytes,7,opt,name=bearer_token,json=bearerToken,oneof"`
 }
 
 func (*Config_File) isConfig_Source() {}
@@ -222,17 +233,17 @@ func (*Config_BearerToken) isConfig_Source() {}
 
 type HTTPRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
-	TokenUrl string                 `protobuf:"bytes,1,opt,name=token_url,json=tokenUrl,proto3" json:"token_url,omitempty"`
-	Method   string                 `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`
+	TokenUrl *string                `protobuf:"bytes,1,req,name=token_url,json=tokenUrl" json:"token_url,omitempty"`
+	Method   *string                `protobuf:"bytes,2,opt,name=method" json:"method,omitempty"`
 	// Data to be sent as request body. If there are multiple "data" fields, we combine
 	// their values with a '&' in between. Note: 1) If data appears to be a valid json,
 	// we automatically set the content-type header to "application/json", 2) If data
 	// appears to be a query string we set content-type to
 	// "application/x-www-form-urlencoded". Content type header can still be overridden
 	// using the header field below.
-	Data []string `protobuf:"bytes,3,rep,name=data,proto3" json:"data,omitempty"`
+	Data []string `protobuf:"bytes,3,rep,name=data" json:"data,omitempty"`
 	// HTTP request headers
-	Header        map[string]string `protobuf:"bytes,8,rep,name=header,proto3" json:"header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Header        map[string]string `protobuf:"bytes,8,rep,name=header" json:"header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -268,15 +279,15 @@ func (*HTTPRequest) Descriptor() ([]byte, []int) {
 }
 
 func (x *HTTPRequest) GetTokenUrl() string {
-	if x != nil {
-		return x.TokenUrl
+	if x != nil && x.TokenUrl != nil {
+		return *x.TokenUrl
 	}
 	return ""
 }
 
 func (x *HTTPRequest) GetMethod() string {
-	if x != nil {
-		return x.Method
+	if x != nil && x.Method != nil {
+		return *x.Method
 	}
 	return ""
 }
@@ -313,7 +324,7 @@ type BearerToken struct {
 	// ignored. If above sources return a string, we refresh from the source
 	// every 30s by default. To disable this behavior set refresh_interval_sec to
 	// zero.
-	RefreshIntervalSec *float32 `protobuf:"fixed32,90,opt,name=refresh_interval_sec,json=refreshIntervalSec,proto3,oneof" json:"refresh_interval_sec,omitempty"`
+	RefreshIntervalSec *float32 `protobuf:"fixed32,90,opt,name=refresh_interval_sec,json=refreshIntervalSec" json:"refresh_interval_sec,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -404,25 +415,25 @@ type isBearerToken_Source interface {
 
 type BearerToken_File struct {
 	// Path to token file.
-	File string `protobuf:"bytes,1,opt,name=file,proto3,oneof"`
+	File string `protobuf:"bytes,1,opt,name=file,oneof"`
 }
 
 type BearerToken_Cmd struct {
 	// Run a comand to obtain the token, e.g.
 	// cat /var/lib/myapp/token, or
 	// /var/lib/run/get_token.sh
-	Cmd string `protobuf:"bytes,2,opt,name=cmd,proto3,oneof"`
+	Cmd string `protobuf:"bytes,2,opt,name=cmd,oneof"`
 }
 
 type BearerToken_GceServiceAccount struct {
 	// GCE metadata token
-	GceServiceAccount string `protobuf:"bytes,3,opt,name=gce_service_account,json=gceServiceAccount,proto3,oneof"`
+	GceServiceAccount string `protobuf:"bytes,3,opt,name=gce_service_account,json=gceServiceAccount,oneof"`
 }
 
 type BearerToken_K8SLocalToken struct {
 	// K8s service account token file:
 	// /var/run/secrets/kubernetes.io/serviceaccount/token
-	K8SLocalToken bool `protobuf:"varint,4,opt,name=k8s_local_token,json=k8sLocalToken,proto3,oneof"`
+	K8SLocalToken bool `protobuf:"varint,4,opt,name=k8s_local_token,json=k8sLocalToken,oneof"`
 }
 
 func (*BearerToken_File) isBearerToken_Source() {}
@@ -437,13 +448,13 @@ func (*BearerToken_K8SLocalToken) isBearerToken_Source() {}
 // use these credentials.
 type GoogleCredentials struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
-	JsonFile string                 `protobuf:"bytes,1,opt,name=json_file,json=jsonFile,proto3" json:"json_file,omitempty"`
-	Scope    []string               `protobuf:"bytes,2,rep,name=scope,proto3" json:"scope,omitempty"`
+	JsonFile *string                `protobuf:"bytes,1,opt,name=json_file,json=jsonFile" json:"json_file,omitempty"`
+	Scope    []string               `protobuf:"bytes,2,rep,name=scope" json:"scope,omitempty"`
 	// Use encoded JWT directly as access token, instead of implementing the whole
 	// OAuth2.0 flow.
-	JwtAsAccessToken bool `protobuf:"varint,4,opt,name=jwt_as_access_token,json=jwtAsAccessToken,proto3" json:"jwt_as_access_token,omitempty"`
+	JwtAsAccessToken *bool `protobuf:"varint,4,opt,name=jwt_as_access_token,json=jwtAsAccessToken" json:"jwt_as_access_token,omitempty"`
 	// Audience works only if jwt_as_access_token is true.
-	Audience      string `protobuf:"bytes,3,opt,name=audience,proto3" json:"audience,omitempty"`
+	Audience      *string `protobuf:"bytes,3,opt,name=audience" json:"audience,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -479,8 +490,8 @@ func (*GoogleCredentials) Descriptor() ([]byte, []int) {
 }
 
 func (x *GoogleCredentials) GetJsonFile() string {
-	if x != nil {
-		return x.JsonFile
+	if x != nil && x.JsonFile != nil {
+		return *x.JsonFile
 	}
 	return ""
 }
@@ -493,15 +504,15 @@ func (x *GoogleCredentials) GetScope() []string {
 }
 
 func (x *GoogleCredentials) GetJwtAsAccessToken() bool {
-	if x != nil {
-		return x.JwtAsAccessToken
+	if x != nil && x.JwtAsAccessToken != nil {
+		return *x.JwtAsAccessToken
 	}
 	return false
 }
 
 func (x *GoogleCredentials) GetAudience() string {
-	if x != nil {
-		return x.Audience
+	if x != nil && x.Audience != nil {
+		return *x.Audience
 	}
 	return ""
 }
@@ -510,7 +521,7 @@ var File_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto prot
 
 const file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Bgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x12\x11cloudprober.oauth\"\xa7\x04\n" +
+	"Bgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x12\x11cloudprober.oauth\"\xee\x03\n" +
 	"\x06Config\x12\x14\n" +
 	"\x04file\x18\x01 \x01(\tH\x00R\x04file\x12C\n" +
 	"\fhttp_request\x18\x02 \x01(\v2\x1e.cloudprober.oauth.HTTPRequestH\x00R\vhttpRequest\x12\x12\n" +
@@ -518,33 +529,30 @@ const file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_ra
 	"\x13gce_service_account\x18\x04 \x01(\tH\x00R\x11gceServiceAccount\x12(\n" +
 	"\x0fk8s_local_token\x18\x05 \x01(\bH\x00R\rk8sLocalToken\x12U\n" +
 	"\x12google_credentials\x18\b \x01(\v2$.cloudprober.oauth.GoogleCredentialsH\x00R\x11googleCredentials\x12C\n" +
-	"\fbearer_token\x18\a \x01(\v2\x1e.cloudprober.oauth.BearerTokenH\x00R\vbearerToken\x12>\n" +
-	"\x19refresh_expiry_buffer_sec\x18\x14 \x01(\x05H\x01R\x16refreshExpiryBufferSec\x88\x01\x01\x125\n" +
-	"\x14refresh_interval_sec\x18\x15 \x01(\x02H\x02R\x12refreshIntervalSec\x88\x01\x01B\b\n" +
-	"\x06sourceB\x1c\n" +
-	"\x1a_refresh_expiry_buffer_secB\x17\n" +
-	"\x15_refresh_interval_sec\"\xd5\x01\n" +
+	"\fbearer_token\x18\a \x01(\v2\x1e.cloudprober.oauth.BearerTokenH\x00R\vbearerToken\x12=\n" +
+	"\x19refresh_expiry_buffer_sec\x18\x14 \x01(\x05:\x0260R\x16refreshExpiryBufferSec\x124\n" +
+	"\x14refresh_interval_sec\x18\x15 \x01(\x02:\x0230R\x12refreshIntervalSecB\b\n" +
+	"\x06source\"\xd5\x01\n" +
 	"\vHTTPRequest\x12\x1b\n" +
-	"\ttoken_url\x18\x01 \x01(\tR\btokenUrl\x12\x16\n" +
+	"\ttoken_url\x18\x01 \x02(\tR\btokenUrl\x12\x16\n" +
 	"\x06method\x18\x02 \x01(\tR\x06method\x12\x12\n" +
 	"\x04data\x18\x03 \x03(\tR\x04data\x12B\n" +
 	"\x06header\x18\b \x03(\v2*.cloudprober.oauth.HTTPRequest.HeaderEntryR\x06header\x1a9\n" +
 	"\vHeaderEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xed\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xcf\x01\n" +
 	"\vBearerToken\x12\x14\n" +
 	"\x04file\x18\x01 \x01(\tH\x00R\x04file\x12\x12\n" +
 	"\x03cmd\x18\x02 \x01(\tH\x00R\x03cmd\x120\n" +
 	"\x13gce_service_account\x18\x03 \x01(\tH\x00R\x11gceServiceAccount\x12(\n" +
-	"\x0fk8s_local_token\x18\x04 \x01(\bH\x00R\rk8sLocalToken\x125\n" +
-	"\x14refresh_interval_sec\x18Z \x01(\x02H\x01R\x12refreshIntervalSec\x88\x01\x01B\b\n" +
-	"\x06sourceB\x17\n" +
-	"\x15_refresh_interval_sec\"\x91\x01\n" +
+	"\x0fk8s_local_token\x18\x04 \x01(\bH\x00R\rk8sLocalToken\x120\n" +
+	"\x14refresh_interval_sec\x18Z \x01(\x02R\x12refreshIntervalSecB\b\n" +
+	"\x06source\"\x91\x01\n" +
 	"\x11GoogleCredentials\x12\x1b\n" +
 	"\tjson_file\x18\x01 \x01(\tR\bjsonFile\x12\x14\n" +
 	"\x05scope\x18\x02 \x03(\tR\x05scope\x12-\n" +
 	"\x13jwt_as_access_token\x18\x04 \x01(\bR\x10jwtAsAccessToken\x12\x1a\n" +
-	"\baudience\x18\x03 \x01(\tR\baudienceB7Z5github.com/cloudprober/cloudprober/common/oauth/protob\x06proto3"
+	"\baudience\x18\x03 \x01(\tR\baudienceB7Z5github.com/cloudprober/cloudprober/common/oauth/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDescOnce sync.Once

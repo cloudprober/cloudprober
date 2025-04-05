@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 var global struct {
@@ -193,7 +194,6 @@ func testNewTokenSource(t *testing.T, useDeprecatedBearerTokenInterface bool) {
 			// verify token cache
 			tc := cts.(*genericTokenSource).cache
 			assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
-			assert.Equal(t, tc.ignoreExpiryIfZero, true)
 
 			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")
 
@@ -402,6 +402,56 @@ func TestReadFromCommand(t *testing.T) {
 					assert.WithinDuration(t, tt.wantToken.Expiry, gotToken.Expiry, time.Second, "Token expiry mismatch")
 				}
 			}
+		})
+	}
+}
+
+func TestRefreshOnInterval(t *testing.T) {
+	tests := []struct {
+		name                  string
+		config                *configpb.Config
+		initToken             *oauth2.Token
+		wantRefreshOnInterval bool
+	}{
+		{
+			name: "No refresh interval set",
+			config: &configpb.Config{
+				RefreshIntervalSec: proto.Float32(0),
+			},
+			initToken:             nil,
+			wantRefreshOnInterval: false,
+		},
+		{
+			name: "Explicit non-zero refresh interval",
+			config: &configpb.Config{
+				RefreshIntervalSec: proto.Float32(60),
+			},
+			initToken:             nil,
+			wantRefreshOnInterval: true,
+		},
+		{
+			name:   "Token without expiry, default interval",
+			config: &configpb.Config{},
+			initToken: &oauth2.Token{
+				Expiry: time.Time{},
+			},
+			wantRefreshOnInterval: true,
+		},
+		{
+			name:                  "No initial token, no explicit refresh interval (default http case)",
+			config:                &configpb.Config{},
+			initToken:             nil,
+			wantRefreshOnInterval: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := &genericTokenSource{
+				c: tt.config,
+			}
+			result := ts.refreshOnInterval(tt.initToken)
+			assert.Equal(t, tt.wantRefreshOnInterval, result, "Unexpected refreshOnInterval result")
 		})
 	}
 }
