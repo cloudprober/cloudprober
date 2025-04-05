@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -32,6 +33,7 @@ import (
 )
 
 var k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+var httpClient = http.DefaultClient
 
 type genericTokenSource struct {
 	c                   *configpb.Config
@@ -75,7 +77,7 @@ func readFromCommand(c *configpb.Config) (*oauth2.Token, error) {
 }
 
 var tokenFunctions = struct {
-	fromFile, fromCmd, fromGCEMetadata, fromK8sTokenFile func(c *configpb.Config) (*oauth2.Token, error)
+	fromFile, fromCmd, fromGCEMetadata, fromK8sTokenFile, fromHTTP func(c *configpb.Config) (*oauth2.Token, error)
 }{
 	fromFile: readFromFile,
 	fromCmd:  readFromCommand,
@@ -94,71 +96,98 @@ var tokenFunctions = struct {
 		}
 		return &oauth2.Token{AccessToken: string(b)}, nil
 	},
+	fromHTTP: func(c *configpb.Config) (*oauth2.Token, error) {
+		hc := c.GetHttpRequest()
+		req, err := newRequest(hc)
+		if err != nil {
+			return nil, err
+		}
+		return tokenFromHTTP(httpClient, req, &logger.Logger{})
+	},
+}
+
+func (ts *genericTokenSource) verifyTokenSource(c *configpb.Config) (*oauth2.Token, error) {
+	// For HTTP request, only verify that request parameters are correct.
+	if c.GetHttpRequest() != nil {
+		_, err := newRequest(c.GetHttpRequest())
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+	return ts.getTokenFromBackend(c)
+}
+
+func (ts *genericTokenSource) refreshOnInterval(initToken *oauth2.Token) bool {
+	if ts.c.GetRefreshIntervalSec() == 0 {
+		return false
+	}
+
+	// Set explicitly to non-zero value, we want to refresh regardless
+	if ts.c.RefreshIntervalSec != nil {
+		return true
+	}
+
+	// If we got a non-nil token but it doesn't have expiry, we refresh at
+	// default interval
+	if initToken != nil && initToken.Expiry.IsZero() {
+		return true
+	}
+
+	// This should handle the http request case, where we don't have initial
+	// token, but we don't want to refresh on interval as well, unless
+	// explicitly specified (covered in the first case).
+	return false
 }
 
 func newTokenSource(c *configpb.Config, refreshExpiryBuffer time.Duration, l *logger.Logger) (oauth2.TokenSource, error) {
-	// HTTP Request token source has its own implementation.
-	if c.GetHttpRequest() != nil {
-		return newHTTPTokenSource(c.GetHttpRequest(), refreshExpiryBuffer, l)
-	}
-
 	ts := &genericTokenSource{
 		c: c,
 		l: l,
 	}
 
-	var tokenBackendFunc func(*configpb.Config) (*oauth2.Token, error)
-
 	switch c.Source.(type) {
 	case *configpb.Config_File:
-		tokenBackendFunc = tokenFunctions.fromFile
+		ts.getTokenFromBackend = tokenFunctions.fromFile
+
+	case *configpb.Config_HttpRequest:
+		ts.getTokenFromBackend = tokenFunctions.fromHTTP
 
 	case *configpb.Config_Cmd:
-		tokenBackendFunc = tokenFunctions.fromCmd
+		ts.getTokenFromBackend = tokenFunctions.fromCmd
 
 	case *configpb.Config_GceServiceAccount:
-		tokenBackendFunc = tokenFunctions.fromGCEMetadata
+		ts.getTokenFromBackend = tokenFunctions.fromGCEMetadata
 
 	case *configpb.Config_K8SLocalToken:
 		if !c.GetK8SLocalToken() {
 			return nil, fmt.Errorf("k8s_local_token cannot be false, config: <%v>", c.String())
 		}
-		tokenBackendFunc = tokenFunctions.fromK8sTokenFile
+		ts.getTokenFromBackend = tokenFunctions.fromK8sTokenFile
 
 	default:
 		return nil, fmt.Errorf("unknown source: %v", c.Source)
 	}
 
-	ts.getTokenFromBackend = func(c *configpb.Config) (*oauth2.Token, error) {
-		l.Debugf("oauth.genericTokenSource: Getting a new token using config: %s", c.String())
-		return tokenBackendFunc(c)
-	}
-
-	tok, err := ts.getTokenFromBackend(c)
-	if err != nil {
-		return nil, err
-	}
 	ts.cache = &tokenCache{
-		tok:                 tok,
 		refreshExpiryBuffer: refreshExpiryBuffer,
-		ignoreExpiryIfZero:  true,
 		getToken:            func() (*oauth2.Token, error) { return ts.getTokenFromBackend(c) },
 		l:                   l,
 	}
 
-	// For JSON token that have expiry return now.
-	if tok != nil && !tok.Expiry.IsZero() {
+	// Verify and get initial token if available.
+	tok, err := ts.verifyTokenSource(c)
+	if err != nil {
+		return nil, err
+	}
+	ts.cache.tok = tok
+
+	if !ts.refreshOnInterval(tok) {
 		return ts, nil
 	}
 
-	// Default refresh interval
-	if ts.c.RefreshIntervalSec == nil {
-		ts.c.RefreshIntervalSec = proto.Float32(30)
-	}
-	// Explicitly set to zero, so no refreshing.
-	if ts.c.GetRefreshIntervalSec() == 0 {
-		return ts, nil
-	}
+	// Since we're refreshing at regular interval, disable refreshing in cache.
+	ts.cache.refreshingOnInterval = true
 
 	go func() {
 		interval := time.Duration(ts.c.GetRefreshIntervalSec()) * time.Second

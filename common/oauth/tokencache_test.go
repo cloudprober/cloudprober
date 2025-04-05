@@ -55,15 +55,14 @@ func getTokenFunc(exp time.Time, failSecond bool) func() (*oauth2.Token, error) 
 	}
 }
 
-func Test_tokenCache_Token(t *testing.T) {
+func TestTokenCacheToken(t *testing.T) {
 	tests := []struct {
-		name               string
-		expiresIn          time.Duration
-		buffer             time.Duration
-		wait               time.Duration
-		ignoreExpiryIfZero bool
-		failSecond         bool
-		wantNewToken       bool
+		name         string
+		expiresIn    time.Duration
+		buffer       time.Duration
+		wait         time.Duration
+		failSecond   bool
+		wantNewToken bool
 	}{
 		{
 			name:         "expired_token_1ms_expiry",
@@ -76,14 +75,7 @@ func Test_tokenCache_Token(t *testing.T) {
 			name:         "zero_expiry",
 			expiresIn:    -1, // Sets expiry to 0.
 			wait:         1 * time.Millisecond,
-			wantNewToken: true,
-		},
-		{
-			name:               "zero_expiry_but_ignore",
-			expiresIn:          -1, // Sets expiry to 0.
-			ignoreExpiryIfZero: true,
-			wait:               1 * time.Millisecond,
-			wantNewToken:       false,
+			wantNewToken: false,
 		},
 		{
 			name:         "unexpired_but_out_of_default_expiry_buffer_60s",
@@ -107,12 +99,11 @@ func Test_tokenCache_Token(t *testing.T) {
 			wantNewToken: true,
 		},
 		{
-			name:               "renew_fails_return_cached_token",
-			failSecond:         true,
-			ignoreExpiryIfZero: true,
-			expiresIn:          time.Millisecond,
-			wait:               10 * time.Millisecond,
-			wantNewToken:       false,
+			name:         "renew_fails_return_cached_token",
+			failSecond:   true,
+			expiresIn:    time.Millisecond,
+			wait:         10 * time.Millisecond,
+			wantNewToken: false,
 		},
 	}
 	for _, tt := range tests {
@@ -126,7 +117,7 @@ func Test_tokenCache_Token(t *testing.T) {
 			tc := &tokenCache{
 				getToken:            getTokenFunc(exp, tt.failSecond),
 				refreshExpiryBuffer: tt.buffer,
-				ignoreExpiryIfZero:  tt.ignoreExpiryIfZero,
+				//ignoreExpiryIfZero:  tt.ignoreExpiryIfZero,
 			}
 
 			got, err := tc.Token()

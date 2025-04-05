@@ -1,4 +1,4 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package cloudprober.oauth;
 
@@ -33,24 +33,29 @@ message Config {
     BearerToken bearer_token = 7;
   }
 
-  // How long before the expiry do we refresh. Default is 60 (1m). This applies
-  // only to http_request and bearer_token types, and only if token presents
-  // expiry in some way.
+  // If auto-refreshing based on token's expiry, how long before the expiry do we
+  // refresh.
+  //
   // TODO(manugarg): Consider setting default based on probe interval.
-  optional int32 refresh_expiry_buffer_sec = 20;
+  optional int32 refresh_expiry_buffer_sec = 20 [default = 60];
 
-  // If above sources return a JSON token with an expiry, we use that info to
-  // determine when to refresh tokens and refresh_interval_sec is completely
-  // ignored. If above sources return a string, we refresh from the source
-  // every 30s by default. To disable this behavior set refresh_interval_sec to
-  // zero.
-  optional float refresh_interval_sec = 21;
+  // If set explicitly, we'll refresh token at this interval regardless of
+  // token's expiry value.
+  //
+  // If not set explicitly, we don't refresh at regular interval if token's
+  // expiry is set, otherwise we refresh at the default interval (30s).
+  //
+  // To disable refresh on interval even if expiry is not set, set this to 0.
+  //
+  // In most cases, Cloudprober does the right thing based on the retrieved
+  // token and you don't need to set this field.
+  optional float refresh_interval_sec = 21 [default = 30];
 }
 
 message HTTPRequest {
-  string token_url = 1;
+  required string token_url = 1;
   
-  string method = 2;
+  optional string method = 2;
 
   // Data to be sent as request body. If there are multiple "data" fields, we combine
   // their values with a '&' in between. Note: 1) If data appears to be a valid json,
@@ -97,13 +102,13 @@ message BearerToken {
 // Google credentials in JSON format. We simply use oauth2/google package to
 // use these credentials.
 message GoogleCredentials {
-  string json_file = 1;
+  optional string json_file = 1;
   repeated string scope = 2;
 
   // Use encoded JWT directly as access token, instead of implementing the whole
   // OAuth2.0 flow.
-  bool jwt_as_access_token = 4;
+  optional bool jwt_as_access_token = 4;
 
   // Audience works only if jwt_as_access_token is true.
-  string audience = 3;
+  optional string audience = 3;
 }
