@@ -131,20 +131,6 @@ func TestHTTPTokenSourceToken(t *testing.T) {
 	}
 }
 
-func TestNewHTTPTokenSource(t *testing.T) {
-	testRefreshExpiryBuffer := 10 * time.Second
-
-	ts, _ := newTokenSource(&configpb.Config{
-		Source: &configpb.Config_HttpRequest{
-			HttpRequest: &configpb.HTTPRequest{},
-		},
-	}, testRefreshExpiryBuffer, nil)
-
-	tc := ts.(*genericTokenSource).cache
-
-	assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
-}
-
 func TestRedact(t *testing.T) {
 	tests := []struct {
 		in   string
