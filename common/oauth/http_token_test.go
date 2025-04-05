@@ -1,4 +1,4 @@
-// Copyright 2023 The Cloudprober Authors.
+// Copyright 2023-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,15 +78,21 @@ func TestHTTPTokenSourceToken(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			param := `{"grant_type":"client_credentials"}`
-			ots, err := newHTTPTokenSource(&configpb.HTTPRequest{
-				Data: []string{param},
+			ots, err := newTokenSource(&configpb.Config{
+				Source: &configpb.Config_HttpRequest{
+					HttpRequest: &configpb.HTTPRequest{
+						Data: []string{param},
+					},
+				},
 			}, 0, nil)
 			if err != nil {
-				t.Errorf("error creating httpTokenSource: %v", err)
+				t.Errorf("error creating HTTP token source: %v", err)
 			}
-			ts := ots.(*httpTokenSource)
+			ts := ots.(*genericTokenSource)
 
-			ts.httpClient = &http.Client{
+			oldHTTPClient := httpClient
+			defer func() { httpClient = oldHTTPClient }()
+			httpClient = &http.Client{
 				Transport: &testTransport{
 					t:       t,
 					respMap: map[string]string{param: tt.httpResp},
@@ -123,16 +129,6 @@ func TestHTTPTokenSourceToken(t *testing.T) {
 			assert.LessOrEqual(t, got.Expiry, time.Now().Add(time.Duration(tt.wantExpiry)*time.Second), "expiry")
 		})
 	}
-}
-
-func TestNewHTTPTokenSource(t *testing.T) {
-	testRefreshExpiryBuffer := 10 * time.Second
-
-	ts, _ := newHTTPTokenSource(&configpb.HTTPRequest{}, testRefreshExpiryBuffer, nil)
-	tc := ts.(*httpTokenSource).cache
-
-	assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
-	assert.Equal(t, tc.ignoreExpiryIfZero, false)
 }
 
 func TestRedact(t *testing.T) {
