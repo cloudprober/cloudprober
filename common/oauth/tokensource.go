@@ -187,7 +187,7 @@ func newTokenSource(c *configpb.Config, refreshExpiryBuffer time.Duration, l *lo
 	}
 
 	// Since we're refreshing at regular interval, disable refreshing in cache.
-	ts.cache.disableRefresh = true
+	ts.cache.refreshingOnInterval = true
 
 	go func() {
 		interval := time.Duration(ts.c.GetRefreshIntervalSec()) * time.Second

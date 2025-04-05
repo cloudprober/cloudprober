@@ -29,9 +29,10 @@ type tokenCache struct {
 	getToken            func() (*oauth2.Token, error)
 	l                   *logger.Logger
 
-	// disableRefresh disables token refresh. It's used when token is getting
-	// refreshed at a regular interval, through refresh_interval_sec option.
-	disableRefresh bool
+	// refreshingOnInterval means token is getting refreshed at a regular
+	// interval, through refresh_interval_sec option. Cache doesn't refresh the
+	// token in this case.
+	refreshingOnInterval bool
 }
 
 func (tc *tokenCache) setToken(tok *oauth2.Token) {
@@ -45,12 +46,14 @@ func (tc *tokenCache) Token() (*oauth2.Token, error) {
 	tok := tc.tok
 	tc.mu.RUnlock()
 
-	if tc.disableRefresh {
+	if tc.refreshingOnInterval {
 		return tok, nil
 	}
 
 	if tok != nil {
-		// Dealing with simple non-JSON tokens. They are refreshed elsewhere.
+		// Dealing with simple non-JSON tokens. We (cache) don't refresh them.
+		// We'll mostly not be here in this case, as refreshingOnInterval will
+		// be set to true for such token sources.
 		if tok.Expiry.IsZero() {
 			return tok, nil
 		}
