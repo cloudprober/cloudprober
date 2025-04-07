@@ -13,6 +13,7 @@ weight: 100
 - [Running on Kubernetes]({{< ref "run-on-kubernetes" >}})
 - [Additional Labels]({{< ref "additional-labels" >}})
 - [Validators]({{< ref "validators" >}})
+- [OAuth Based Authentication]({{< ref "oauth" >}})
 - [Percentiles and Histograms]({{< ref "percentiles" >}})
 - [Extending Cloudprober]({{< ref "extensions" >}})
 - [Built-in Servers]({{< ref "built-in-servers" >}})
