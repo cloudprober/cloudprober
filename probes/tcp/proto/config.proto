@@ -13,6 +13,8 @@ message ProbeConf {
   optional int32 port = 1;
 
   // Whether to perform a TLS handshake after TCP connection is established.
+  // When TLS handshake is enabled, we export two additional metrics:
+  // - connect_latency and tls_handshake_latency.
   optional bool tls_handshake = 2 [default = false];
   
   // TLS configuration for TLS handshake.
