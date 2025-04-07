@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.probes.tcp;
 
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+
 option go_package = "github.com/cloudprober/cloudprober/probes/tcp/proto";
 
 // Next tag: 4
@@ -10,13 +12,21 @@ message ProbeConf {
   // targets (e.g. kubernetes endpoint or service), that port is used.
   optional int32 port = 1;
 
+  // Whether to perform a TLS handshake after TCP connection is established.
+  // When TLS handshake is enabled, we export two additional metrics:
+  // - connect_latency and tls_handshake_latency.
+  optional bool tls_handshake = 2 [default = false];
+  
+  // TLS configuration for TLS handshake.
+  optional tlsconfig.TLSConfig tls_config = 3;
+
   // Whether to resolve the target before making the request. If set to false,
   // we hand over the target golang's net.Dial module, Otherwise, we resolve
   // the target first to an IP address and make a request using that. By
   // default we resolve first if it's a discovered resource, e.g., a k8s
   // endpoint.
-  optional bool resolve_first = 2;
+  optional bool resolve_first = 4;
 
   // Interval between targets.
-  optional int32 interval_between_targets_msec = 3 [default = 10];
+  optional int32 interval_between_targets_msec = 5 [default = 10];
 }
