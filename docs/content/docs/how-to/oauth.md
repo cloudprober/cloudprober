@@ -9,9 +9,9 @@ date: 2025-03-31T16:46:15-07:00
 ---
 
 OAuth is the most ubiquitous authentication method used by services today. 
-Cloudprober supports OAuth based authentication for HTTP and gRPC probes. You
-can add OAuth based authentication to your probes by adding `oauth_config`
-stanza to your probe configuration, like this:
+Cloudprober supports OAuth based authentication for HTTP and gRPC probes right
+out of the box. You can add OAuth based authentication to your probes by
+adding `oauth_config` stanza to your probe configuration, like this:
 
 ```bash
 probe {
@@ -55,10 +55,10 @@ oauth_config: {
 ### Token Refresh Behavior
 
 If you specify `refresh_interval_sec`, Cloudprober will refresh the token from
-the same source at the specified interval. Otherwise, Cloudprober will decide
-the refresh mechanism based on token's expiry. If token has an expiry Cloudprober
-will simply refresh based on that (most common scenario), otherwise Cloudprober
-will refresh the token every 30 seconds by default.
+the same source at the specified interval. Otherwise, Cloudprober determines
+the refresh mechanism based on token's expiry. If the token has an expiry
+Cloudprober will simply refresh based on that (most common scenario), otherwise
+Cloudprober will refresh the token every 30 seconds by default.
 
 ### HTTP Request
 
@@ -103,5 +103,5 @@ oauth_config: {
 
 ## Config Reference
 
-For more details on the config options, see the reference documentation here:
-[cloudprober_oauth_Config](/docs/config/main/oauth/#cloudprober_oauth_Config)
+See the [OAuth Config reference](/docs/config/main/oauth/#cloudprober_oauth_Config)
+for all available options.
