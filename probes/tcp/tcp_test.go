@@ -178,6 +178,7 @@ func TestConnectAndHandshake(t *testing.T) {
 			}
 
 			p.dialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				time.Sleep(1 * time.Millisecond)
 				if addr == test.addr && test.dialError == nil {
 					return &net.TCPConn{}, nil
 				}
@@ -185,6 +186,7 @@ func TestConnectAndHandshake(t *testing.T) {
 			}
 
 			p.handshakeContext = func(ctx context.Context, tlsClient *tls.Conn) error {
+				time.Sleep(1 * time.Millisecond)
 				return test.handshakeError
 			}
 
