@@ -127,8 +127,8 @@ func TestConnectAndHandshake(t *testing.T) {
 		desc                   string
 		addr                   string
 		tlsHandshakeEnabled    bool
+		tlsConfig              *tls.Config
 		dialError              error
-		handshakeError         error
 		wantSuccess            bool
 		wantNonZeroConnLatency bool
 		wantNonZeroTLSLatency  bool
@@ -158,7 +158,7 @@ func TestConnectAndHandshake(t *testing.T) {
 			desc:                   "handshake-error",
 			addr:                   "test.com:443",
 			tlsHandshakeEnabled:    true,
-			handshakeError:         fmt.Errorf("handshake error"),
+			tlsConfig:              &tls.Config{ServerName: "error.com"},
 			wantSuccess:            false,
 			wantNonZeroConnLatency: true,
 		},
@@ -166,12 +166,15 @@ func TestConnectAndHandshake(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			p := &Probe{}
-			opts := options.DefaultOptions()
-			p.opts = opts
-			p.network = "tcp"
-			p.c = &configpb.ProbeConf{}
-			p.tlsConfig = &tls.Config{}
+			p := &Probe{
+				c:         &configpb.ProbeConf{},
+				opts:      options.DefaultOptions(),
+				network:   "tcp",
+				tlsConfig: test.tlsConfig,
+			}
+
+			// Extract host from addr
+			host, _, _ := net.SplitHostPort(test.addr)
 
 			if test.tlsHandshakeEnabled {
 				p.c.TlsHandshake = proto.Bool(true)
@@ -185,9 +188,13 @@ func TestConnectAndHandshake(t *testing.T) {
 				return nil, test.dialError
 			}
 
-			p.handshakeContext = func(ctx context.Context, tlsClient *tls.Conn) error {
+			p.handshakeContext = func(ctx context.Context, _ net.Conn, tlsConfig *tls.Config) error {
+				if tlsConfig.ServerName == "error.com" {
+					return fmt.Errorf("handshake error")
+				}
+				assert.Equal(t, host, tlsConfig.ServerName)
 				time.Sleep(1 * time.Millisecond)
-				return test.handshakeError
+				return nil
 			}
 
 			result := &probeResult{
@@ -195,14 +202,11 @@ func TestConnectAndHandshake(t *testing.T) {
 				tlsHandshakeLatency: metrics.NewFloat(0),
 			}
 
-			conn, err := p.connectAndHandshake(context.Background(), test.addr, result)
+			err := p.connectAndHandshake(context.Background(), test.addr, host, result)
 
 			if test.wantSuccess {
 				if err != nil {
 					t.Errorf("Expected success, but got error: %v", err)
-				}
-				if conn == nil {
-					t.Errorf("Expected a valid connection, but got nil")
 				}
 			} else {
 				if err == nil {
