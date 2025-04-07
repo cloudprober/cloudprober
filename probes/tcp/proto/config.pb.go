@@ -7,6 +7,7 @@
 package proto
 
 import (
+	proto "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -27,20 +28,27 @@ type ProbeConf struct {
 	// Port for TCP requests. If not specfied, and port is provided by the
 	// targets (e.g. kubernetes endpoint or service), that port is used.
 	Port *int32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
+	// Whether to perform a TLS handshake after TCP connection is established.
+	// When TLS handshake is enabled, we export two additional metrics:
+	// - connect_latency and tls_handshake_latency.
+	TlsHandshake *bool `protobuf:"varint,2,opt,name=tls_handshake,json=tlsHandshake,def=0" json:"tls_handshake,omitempty"`
+	// TLS configuration for TLS handshake.
+	TlsConfig *proto.TLSConfig `protobuf:"bytes,3,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
 	// Whether to resolve the target before making the request. If set to false,
 	// we hand over the target golang's net.Dial module, Otherwise, we resolve
 	// the target first to an IP address and make a request using that. By
 	// default we resolve first if it's a discovered resource, e.g., a k8s
 	// endpoint.
-	ResolveFirst *bool `protobuf:"varint,2,opt,name=resolve_first,json=resolveFirst" json:"resolve_first,omitempty"`
+	ResolveFirst *bool `protobuf:"varint,4,opt,name=resolve_first,json=resolveFirst" json:"resolve_first,omitempty"`
 	// Interval between targets.
-	IntervalBetweenTargetsMsec *int32 `protobuf:"varint,3,opt,name=interval_between_targets_msec,json=intervalBetweenTargetsMsec,def=10" json:"interval_between_targets_msec,omitempty"`
+	IntervalBetweenTargetsMsec *int32 `protobuf:"varint,5,opt,name=interval_between_targets_msec,json=intervalBetweenTargetsMsec,def=10" json:"interval_between_targets_msec,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
 
 // Default values for ProbeConf fields.
 const (
+	Default_ProbeConf_TlsHandshake               = bool(false)
 	Default_ProbeConf_IntervalBetweenTargetsMsec = int32(10)
 )
 
@@ -81,6 +89,20 @@ func (x *ProbeConf) GetPort() int32 {
 	return 0
 }
 
+func (x *ProbeConf) GetTlsHandshake() bool {
+	if x != nil && x.TlsHandshake != nil {
+		return *x.TlsHandshake
+	}
+	return Default_ProbeConf_TlsHandshake
+}
+
+func (x *ProbeConf) GetTlsConfig() *proto.TLSConfig {
+	if x != nil {
+		return x.TlsConfig
+	}
+	return nil
+}
+
 func (x *ProbeConf) GetResolveFirst() bool {
 	if x != nil && x.ResolveFirst != nil {
 		return *x.ResolveFirst
@@ -99,11 +121,14 @@ var File_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto protor
 
 const file_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x12\x16cloudprober.probes.tcp\"\x8b\x01\n" +
+	"@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x12\x16cloudprober.probes.tcp\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\"\xf8\x01\n" +
 	"\tProbeConf\x12\x12\n" +
-	"\x04port\x18\x01 \x01(\x05R\x04port\x12#\n" +
-	"\rresolve_first\x18\x02 \x01(\bR\fresolveFirst\x12E\n" +
-	"\x1dinterval_between_targets_msec\x18\x03 \x01(\x05:\x0210R\x1aintervalBetweenTargetsMsecB5Z3github.com/cloudprober/cloudprober/probes/tcp/proto"
+	"\x04port\x18\x01 \x01(\x05R\x04port\x12*\n" +
+	"\rtls_handshake\x18\x02 \x01(\b:\x05falseR\ftlsHandshake\x12?\n" +
+	"\n" +
+	"tls_config\x18\x03 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfig\x12#\n" +
+	"\rresolve_first\x18\x04 \x01(\bR\fresolveFirst\x12E\n" +
+	"\x1dinterval_between_targets_msec\x18\x05 \x01(\x05:\x0210R\x1aintervalBetweenTargetsMsecB5Z3github.com/cloudprober/cloudprober/probes/tcp/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto_rawDescOnce sync.Once
@@ -119,14 +144,16 @@ func file_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto_rawDe
 
 var file_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto_goTypes = []any{
-	(*ProbeConf)(nil), // 0: cloudprober.probes.tcp.ProbeConf
+	(*ProbeConf)(nil),       // 0: cloudprober.probes.tcp.ProbeConf
+	(*proto.TLSConfig)(nil), // 1: cloudprober.tlsconfig.TLSConfig
 }
 var file_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: cloudprober.probes.tcp.ProbeConf.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_tcp_proto_config_proto_init() }
