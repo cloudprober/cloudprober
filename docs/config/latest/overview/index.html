@@ -334,6 +334,40 @@ Language: <button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-l
 <div class=comment>  # Lame duck options. If provided, targets module checks for the lame duck
   # targets and removes them from the targets list.</div>  lame_duck_options: &lt;<a href=../targets#cloudprober_targets_lameduck_Options>cloudprober.targets.lameduck.Options</a>>
 
+<div class=comment># Artifacts options, applicable to probes that generate artifacts. There is
+# only one such probe type right now (2025/03/16) -- BROWSER. These options
+# specify where artifacts will be stored and if they will be served on
+# Cloudprober&#39;s default webserver. Example:
+#
+# global_artifacts_options {
+#   serve_on_web: true
+#   web_server_root: &#34;/output&#34; # local storage&#39;s dir
+#   storage {
+#     local_storage {
+#       dir: &#34;/output&#34;
+#     }
+#     s3 {
+#       bucket: &#34;my-bucket&#34;
+#     }
+#   }
+# }</div>global_artifacts_options &lt;<a href=../probes#cloudprober_probes_browser_artifacts_ArtifactsOptions>cloudprober.probes.browser.artifacts.ArtifactsOptions</a>>:
+<div class=comment>  # Serve test artifacts on Cloudprober&#39;s default webserver. This is
+  # disabled by default for security reasons.</div>  serve_on_web: &lt;bool>
+
+<div class=comment>  # Specify web server path to serve test artifacts on.
+  # Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>  web_server_path: &lt;string>
+
+<div class=comment>  # Web server root directory. If not provided (recommended), we just use
+  # the first local storage directory if configured, and if provided, we
+  # verify that it is one of the local storages directories. If no local
+  # storage is configured, we return an error for global options and use
+  # &lt;workdir&gt;/output for probe level artifacts options.</div>  web_server_root: &lt;string>
+
+<div class=comment>  # Storage for test artifacts. Note that test artifacts are always
+  # written to the workdir first, and uploaded to the storage backend in a
+  # parallel goroutine. This is to make sure that uploads don&#39;t block the
+  # main probe execution.</div>  storage: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_Storage>cloudprober.probes.browser.artifacts.Storage</a>>
+
 </pre></div><div id=content-lang-textpb class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><pre class=protodoc>
 
 <div class=comment># Probes to run.</div>probe &lt;<a href=../probes#cloudprober_probes_ProbeDef>cloudprober.probes.ProbeDef</a>> {
@@ -670,7 +704,42 @@ Language: <button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-l
   # targets and removes them from the targets list.</div>  lame_duck_options: &lt;<a href=../targets#cloudprober_targets_lameduck_Options>cloudprober.targets.lameduck.Options</a>>
 }
 
+<div class=comment># Artifacts options, applicable to probes that generate artifacts. There is
+# only one such probe type right now (2025/03/16) -- BROWSER. These options
+# specify where artifacts will be stored and if they will be served on
+# Cloudprober&#39;s default webserver. Example:
+#
+# global_artifacts_options {
+#   serve_on_web: true
+#   web_server_root: &#34;/output&#34; # local storage&#39;s dir
+#   storage {
+#     local_storage {
+#       dir: &#34;/output&#34;
+#     }
+#     s3 {
+#       bucket: &#34;my-bucket&#34;
+#     }
+#   }
+# }</div>global_artifacts_options &lt;<a href=../probes#cloudprober_probes_browser_artifacts_ArtifactsOptions>cloudprober.probes.browser.artifacts.ArtifactsOptions</a>> {
+<div class=comment>  # Serve test artifacts on Cloudprober&#39;s default webserver. This is
+  # disabled by default for security reasons.</div>  serve_on_web: &lt;bool>
+
+<div class=comment>  # Specify web server path to serve test artifacts on.
+  # Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>  web_server_path: &lt;string>
+
+<div class=comment>  # Web server root directory. If not provided (recommended), we just use
+  # the first local storage directory if configured, and if provided, we
+  # verify that it is one of the local storages directories. If no local
+  # storage is configured, we return an error for global options and use
+  # &lt;workdir&gt;/output for probe level artifacts options.</div>  web_server_root: &lt;string>
+
+<div class=comment>  # Storage for test artifacts. Note that test artifacts are always
+  # written to the workdir first, and uploaded to the storage backend in a
+  # parallel goroutine. This is to make sure that uploads don&#39;t block the
+  # main probe execution.</div>  storage: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_Storage>cloudprober.probes.browser.artifacts.Storage</a>>
+}
+
 </pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/overview/cloudprober/><div class="card my-1"><div class="card-body py-2">&larr; Overview</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/overview/><div class="card my-1"><div class="card-body py-2">Overview Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.16182cd3f88b7e2b271d46130c1333fcc3ad5b1cd1f4e029e5d219dbe5ef06f3b9c81a8c50d49302b765058347f6127745134b8ca7bf85f437c51bfb3a15bb5a.js integrity="sha512-Fhgs0/iLfisnHUYTDBMz/MOtWxzR9OAp5dIZ2+XvBvO5yBqMUNSTArdlBYNH9hJ3RRNLjKe/hfQ3xRv7OhW7Wg==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.3ae38f0550ff442c51275be592e95559dfe22495076054660187449970e46cf8c3a721f0f2d4fd79870370ce6b9dc063b301228938d9823ceaf6cefeb7dc8a2c.js integrity="sha512-OuOPBVD/RCxRJ1vlkulVWd/iJJUHYFRmAYdEmXDkbPjDpyHw8tT9eYcDcM5rncBjswEiiTjZgjzq9s7+t9yKLA==" crossorigin=anonymous defer></script></body></html>

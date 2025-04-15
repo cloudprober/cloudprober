@@ -168,64 +168,6 @@ type: (ScheduleType_UNSPECIFIED|ENABLE|DISABLE): &lt;enum>
 <div class=comment># Timezone in which the probe should run. If not specified, it defaults to
 # UTC. Example: &#34;America/New_York&#34;</div>timezone: &lt;string> | default: UTC
 
-</pre><h3 id=cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS <a class=anchor href=#cloudprober_probes_browser_ABS>#</a></h3><pre class=protodoc>
-
-container: &lt;string>
-
-path: &lt;string>
-
-<div class=comment># Azure account name and key. If you want to use managed identities, leave
-# account_key empty.</div>account_name: &lt;string>
-
-account_key: &lt;string>
-
-<div class=comment># Azure endpoint. Default is &#34;https://&lt;account&gt;.blob.core.windows.net&#34;.</div>endpoint: &lt;string>
-
-<div class=comment># OAuth2 configuration. If you want to use managed identities, leave this
-# field empty. See
-# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
-# for more details on oauth.Config.</div>oauth_config: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
-
-</pre><h3 id=cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions <a class=anchor href=#cloudprober_probes_browser_ArtifactsOptions>#</a></h3><pre class=protodoc>
-
-<div class=comment># Serve test artifacts on Cloudprober&#39;s default webserver. This is
-# disabled by default for security reasons.</div>serve_on_web: &lt;bool>
-
-<div class=comment># Specify web server path to serve test artifacts on.
-# Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>web_server_path: &lt;string>
-
-<div class=comment># Storage for test artifacts. Note that test artifacts are always
-# written to the workdir first, and uploaded to the storage backend in a
-# parallel goroutine. This is to make sure that uploads don&#39;t block the
-# main probe execution.</div>storage: &lt;<a href=../probes#cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage</a>>
-
-</pre><h3 id=cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions <a class=anchor href=#cloudprober_probes_browser_CleanupOptions>#</a></h3><pre class=protodoc>
-
-<div class=comment># Maximum age of artifacts in seconds.</div>max_age_sec: &lt;int32> | default: 3600
-
-<div class=comment># Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
-# is smaller.</div>cleanup_interval_sec: &lt;int32> | default: 3600
-
-</pre><h3 id=cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS <a class=anchor href=#cloudprober_probes_browser_GCS>#</a></h3><pre class=protodoc>
-
-bucket: &lt;string>
-
-path: &lt;string>
-
-<div class=comment># If you want to use default credentials on GCE or GKE, leave this field
-# empty. See
-# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
-# for more details on oauth.GoogleCredentials.</div>credentials: &lt;<a href=../oauth#cloudprober_oauth_GoogleCredentials>cloudprober.oauth.GoogleCredentials</a>>
-
-<div class=comment># GCS endpoint.</div>endpoint: &lt;string> | default: https://storage.googleapis.com
-
-</pre><h3 id=cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage <a class=anchor href=#cloudprober_probes_browser_LocalStorage>#</a></h3><pre class=protodoc>
-
-dir: &lt;string>
-
-<div class=comment># Cleanup options for local storage. Specifying cleanup options for local
-# enables automatic cleanup of old artifacts.</div>cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
-
 </pre><h3 id=cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf <a class=anchor href=#cloudprober_probes_browser_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Playwright test specs. These are passed to playwright as it is. This
@@ -264,9 +206,11 @@ dir: &lt;string>
 <div class=comment># By default, we export all test metrica as counters. You can change how
 # metrics are exported by setting the following options.</div>test_metrics_options: &lt;<a href=../probes#cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions</a>>
 
-<div class=comment># Artifacts options.</div>artifacts_options: &lt;<a href=../probes#cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions</a>>
+<div class=comment># Artifacts options. If probe level artifacts options are not specified,
+# we use global artifacts options if available. Note: it typically makes
+# more sense to specify artifacts options at the global level.</div>artifacts_options: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_ArtifactsOptions>cloudprober.probes.browser.artifacts.ArtifactsOptions</a>>
 
-<div class=comment># Cleanup options.</div>workdir_cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
+<div class=comment># Cleanup options.</div>workdir_cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_CleanupOptions>cloudprober.probes.browser.artifacts.CleanupOptions</a>>
 
 <div class=comment># Environment variables. These are passed/set before probing starts.</div>env_var: &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf_EnvVarEntry>cloudprober.probes.browser.ProbeConf.EnvVarEntry</a>>
 
@@ -290,11 +234,77 @@ key: &lt;string>
 
 value: &lt;string>
 
-</pre><h3 id=cloudprober_probes_browser_S3>cloudprober.probes.browser.S3 <a class=anchor href=#cloudprober_probes_browser_S3>#</a></h3><pre class=protodoc>
+</pre><h3 id=cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions <a class=anchor href=#cloudprober_probes_browser_TestMetricsOptions>#</a></h3><pre class=protodoc>
+
+disable_test_metrics: &lt;bool>
+
+disable_aggregation: &lt;bool>
+
+enable_step_metrics: &lt;bool>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_ABS>cloudprober.probes.browser.artifacts.ABS <a class=anchor href=#cloudprober_probes_browser_artifacts_ABS>#</a></h3><pre class=protodoc>
+
+container: &lt;string>
+
+<div class=comment># Azure account name and key. If you want to use managed identities, leave
+# account_key empty.</div>account_name: &lt;string>
+
+account_key: &lt;string>
+
+<div class=comment># Azure endpoint. Default is &#34;https://&lt;account&gt;.blob.core.windows.net&#34;.</div>endpoint: &lt;string>
+
+<div class=comment># OAuth2 configuration. If you want to use managed identities, leave this
+# field empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
+# for more details on oauth.Config.</div>oauth_config: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_ArtifactsOptions>cloudprober.probes.browser.artifacts.ArtifactsOptions <a class=anchor href=#cloudprober_probes_browser_artifacts_ArtifactsOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Serve test artifacts on Cloudprober&#39;s default webserver. This is
+# disabled by default for security reasons.</div>serve_on_web: &lt;bool>
+
+<div class=comment># Specify web server path to serve test artifacts on.
+# Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>web_server_path: &lt;string>
+
+<div class=comment># Web server root directory. If not provided (recommended), we just use
+# the first local storage directory if configured, and if provided, we
+# verify that it is one of the local storages directories. If no local
+# storage is configured, we return an error for global options and use
+# &lt;workdir&gt;/output for probe level artifacts options.</div>web_server_root: &lt;string>
+
+<div class=comment># Storage for test artifacts. Note that test artifacts are always
+# written to the workdir first, and uploaded to the storage backend in a
+# parallel goroutine. This is to make sure that uploads don&#39;t block the
+# main probe execution.</div>storage: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_Storage>cloudprober.probes.browser.artifacts.Storage</a>>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_CleanupOptions>cloudprober.probes.browser.artifacts.CleanupOptions <a class=anchor href=#cloudprober_probes_browser_artifacts_CleanupOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Maximum age of artifacts in seconds.</div>max_age_sec: &lt;int32> | default: 3600
+
+<div class=comment># Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
+# is smaller.</div>cleanup_interval_sec: &lt;int32> | default: 3600
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_GCS>cloudprober.probes.browser.artifacts.GCS <a class=anchor href=#cloudprober_probes_browser_artifacts_GCS>#</a></h3><pre class=protodoc>
 
 bucket: &lt;string>
 
-path: &lt;string>
+<div class=comment># If you want to use default credentials on GCE or GKE, leave this field
+# empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
+# for more details on oauth.GoogleCredentials.</div>credentials: &lt;<a href=../oauth#cloudprober_oauth_GoogleCredentials>cloudprober.oauth.GoogleCredentials</a>>
+
+<div class=comment># GCS endpoint.</div>endpoint: &lt;string> | default: https://storage.googleapis.com
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_LocalStorage>cloudprober.probes.browser.artifacts.LocalStorage <a class=anchor href=#cloudprober_probes_browser_artifacts_LocalStorage>#</a></h3><pre class=protodoc>
+
+dir: &lt;string>
+
+<div class=comment># Cleanup options for local storage. Specifying cleanup options for local
+# enables automatic cleanup of old artifacts.</div>cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_CleanupOptions>cloudprober.probes.browser.artifacts.CleanupOptions</a>>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_S3>cloudprober.probes.browser.artifacts.S3 <a class=anchor href=#cloudprober_probes_browser_artifacts_S3>#</a></h3><pre class=protodoc>
+
+bucket: &lt;string>
 
 region: &lt;string>
 
@@ -304,18 +314,16 @@ secret_access_key: &lt;string>
 
 <div class=comment># S3 endpoint. If not specified, default endpoint for the region is used.</div>endpoint: &lt;string>
 
-</pre><h3 id=cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage <a class=anchor href=#cloudprober_probes_browser_Storage>#</a></h3><pre class=protodoc>
+</pre><h3 id=cloudprober_probes_browser_artifacts_Storage>cloudprober.probes.browser.artifacts.Storage <a class=anchor href=#cloudprober_probes_browser_artifacts_Storage>#</a></h3><pre class=protodoc>
 
-[local_storage &lt;<a href=../probes#cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage</a>&gt; | s3 &lt;<a href=../probes#cloudprober_probes_browser_S3>cloudprober.probes.browser.S3</a>&gt; | 
-&nbsp;gcs &lt;<a href=../probes#cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS</a>&gt; | abs &lt;<a href=../probes#cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS</a>&gt;]: &lt;oneof>
+[local_storage &lt;<a href=../probes#cloudprober_probes_browser_artifacts_LocalStorage>cloudprober.probes.browser.artifacts.LocalStorage</a>&gt; | s3 &lt;<a href=../probes#cloudprober_probes_browser_artifacts_S3>cloudprober.probes.browser.artifacts.S3</a>&gt; | 
+&nbsp;gcs &lt;<a href=../probes#cloudprober_probes_browser_artifacts_GCS>cloudprober.probes.browser.artifacts.GCS</a>&gt; | abs &lt;<a href=../probes#cloudprober_probes_browser_artifacts_ABS>cloudprober.probes.browser.artifacts.ABS</a>&gt;]: &lt;oneof>
 
-</pre><h3 id=cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions <a class=anchor href=#cloudprober_probes_browser_TestMetricsOptions>#</a></h3><pre class=protodoc>
-
-disable_test_metrics: &lt;bool>
-
-disable_aggregation: &lt;bool>
-
-enable_step_metrics: &lt;bool>
+<div class=comment># Storage path for test artifacts. This is the path where test artifacts
+# are written to within the storage backend. For example, if storage is
+# an S3 bucket, all objects will be uploaded under this path within that
+# bucket. For global artifacts options, probes append their names to this
+# path.</div>path: &lt;string>
 
 </pre><h3 id=cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf <a class=anchor href=#cloudprober_probes_dns_ProbeConf>#</a></h3><pre class=protodoc>
 
@@ -410,6 +418,12 @@ value: &lt;string>
 
 <div class=comment># Request data (in JSON format) for the call_service_method request.</div>body: &lt;string>
 
+<div class=comment># Request body from file. This field is similar to the body field above, but
+# value is read from a file.</div>body_file: &lt;string>
+
+<div class=comment># Substitute env variables in body file. It will expand environment
+# variables if you refer to them as ${VARIABLE} or $VARIABLE in the file. </div>body_file_substitute_env: &lt;bool>
+
 </pre><h3 id=cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf <a class=anchor href=#cloudprober_probes_grpc_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Port for gRPC requests (Corresponding target field: port)
@@ -444,6 +458,22 @@ method: (ECHO|READ|WRITE|HEALTH_CHECK|GENERIC): &lt;enum>
 <div class=comment># Number of connections to use. Default is 2 for ECHO, READ and WRITE
 # methods for backward compatibility. For HEALTH_CHECK and GENERIC, default
 # is 1.</div>num_conns: &lt;int32>
+
+<div class=comment># If disable_reuse_conn is set to true, connections will not be reused. This
+# is useful when you service is behind a loadbalancer and you want to hit
+# different instances every probe cycle.</div>disable_reuse_conn: &lt;bool>
+
+<div class=comment># Default load balancing config in JSON format. This config only matters
+# if we are using client side load balancing (less common) and LB resolver
+# doesn&#39;t provide a service config[1](most advanced load balancers, like
+# xds, do). This field is useful if you have a DNS based LB setup where DNS
+# resolution simply returns a list of IPs (e.g. k8s headless service[2]).
+#
+# [1]: https://github.com/grpc/grpc/blob/master/doc/service_config.md
+# [2]: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
+#
+# Example:
+# default_lb_config: &#34;[{ \&#34;round_robin\&#34;: {} }]&#34;</div>default_lb_config: &lt;string>
 
 <div class=comment># If connect_timeout is not specified, reuse probe timeout. Note that this
 # timeout will have an impact only if it is less than the probe timeout.</div>connect_timeout_msec: &lt;int32>
@@ -642,6 +672,12 @@ value: &lt;string>
 
 <div class=comment># Port for TCP requests. If not specfied, and port is provided by the
 # targets (e.g. kubernetes endpoint or service), that port is used.</div>port: &lt;int32>
+
+<div class=comment># Whether to perform a TLS handshake after TCP connection is established.
+# When TLS handshake is enabled, we export two additional metrics:
+# - connect_latency and tls_handshake_latency.</div>tls_handshake: &lt;bool> | default: false
+
+<div class=comment># TLS configuration for TLS handshake.</div>tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
 
 <div class=comment># Whether to resolve the target before making the request. If set to false,
 # we hand over the target golang&#39;s net.Dial module, Otherwise, we resolve
@@ -853,64 +889,6 @@ type: (ScheduleType_UNSPECIFIED|ENABLE|DISABLE): &lt;enum>
 <div class=comment># Timezone in which the probe should run. If not specified, it defaults to
 # UTC. Example: &#34;America/New_York&#34;</div>timezone: &lt;string> | default: UTC
 
-</pre><h3 id=cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS <a class=anchor href=#cloudprober_probes_browser_ABS>#</a></h3><pre class=protodoc>
-
-container: &lt;string>
-
-path: &lt;string>
-
-<div class=comment># Azure account name and key. If you want to use managed identities, leave
-# account_key empty.</div>account_name: &lt;string>
-
-account_key: &lt;string>
-
-<div class=comment># Azure endpoint. Default is &#34;https://&lt;account&gt;.blob.core.windows.net&#34;.</div>endpoint: &lt;string>
-
-<div class=comment># OAuth2 configuration. If you want to use managed identities, leave this
-# field empty. See
-# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
-# for more details on oauth.Config.</div>oauth_config: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
-
-</pre><h3 id=cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions <a class=anchor href=#cloudprober_probes_browser_ArtifactsOptions>#</a></h3><pre class=protodoc>
-
-<div class=comment># Serve test artifacts on Cloudprober&#39;s default webserver. This is
-# disabled by default for security reasons.</div>serve_on_web: &lt;bool>
-
-<div class=comment># Specify web server path to serve test artifacts on.
-# Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>web_server_path: &lt;string>
-
-<div class=comment># Storage for test artifacts. Note that test artifacts are always
-# written to the workdir first, and uploaded to the storage backend in a
-# parallel goroutine. This is to make sure that uploads don&#39;t block the
-# main probe execution.</div>storage: &lt;<a href=../probes#cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage</a>>
-
-</pre><h3 id=cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions <a class=anchor href=#cloudprober_probes_browser_CleanupOptions>#</a></h3><pre class=protodoc>
-
-<div class=comment># Maximum age of artifacts in seconds.</div>max_age_sec: &lt;int32> | default: 3600
-
-<div class=comment># Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
-# is smaller.</div>cleanup_interval_sec: &lt;int32> | default: 3600
-
-</pre><h3 id=cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS <a class=anchor href=#cloudprober_probes_browser_GCS>#</a></h3><pre class=protodoc>
-
-bucket: &lt;string>
-
-path: &lt;string>
-
-<div class=comment># If you want to use default credentials on GCE or GKE, leave this field
-# empty. See
-# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
-# for more details on oauth.GoogleCredentials.</div>credentials: &lt;<a href=../oauth#cloudprober_oauth_GoogleCredentials>cloudprober.oauth.GoogleCredentials</a>>
-
-<div class=comment># GCS endpoint.</div>endpoint: &lt;string> | default: https://storage.googleapis.com
-
-</pre><h3 id=cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage <a class=anchor href=#cloudprober_probes_browser_LocalStorage>#</a></h3><pre class=protodoc>
-
-dir: &lt;string>
-
-<div class=comment># Cleanup options for local storage. Specifying cleanup options for local
-# enables automatic cleanup of old artifacts.</div>cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
-
 </pre><h3 id=cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf <a class=anchor href=#cloudprober_probes_browser_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Playwright test specs. These are passed to playwright as it is. This
@@ -949,9 +927,11 @@ dir: &lt;string>
 <div class=comment># By default, we export all test metrica as counters. You can change how
 # metrics are exported by setting the following options.</div>test_metrics_options: &lt;<a href=../probes#cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions</a>>
 
-<div class=comment># Artifacts options.</div>artifacts_options: &lt;<a href=../probes#cloudprober_probes_browser_ArtifactsOptions>cloudprober.probes.browser.ArtifactsOptions</a>>
+<div class=comment># Artifacts options. If probe level artifacts options are not specified,
+# we use global artifacts options if available. Note: it typically makes
+# more sense to specify artifacts options at the global level.</div>artifacts_options: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_ArtifactsOptions>cloudprober.probes.browser.artifacts.ArtifactsOptions</a>>
 
-<div class=comment># Cleanup options.</div>workdir_cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_CleanupOptions>cloudprober.probes.browser.CleanupOptions</a>>
+<div class=comment># Cleanup options.</div>workdir_cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_CleanupOptions>cloudprober.probes.browser.artifacts.CleanupOptions</a>>
 
 <div class=comment># Environment variables. These are passed/set before probing starts.</div>env_var: &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf_EnvVarEntry>cloudprober.probes.browser.ProbeConf.EnvVarEntry</a>>
 
@@ -975,11 +955,77 @@ key: &lt;string>
 
 value: &lt;string>
 
-</pre><h3 id=cloudprober_probes_browser_S3>cloudprober.probes.browser.S3 <a class=anchor href=#cloudprober_probes_browser_S3>#</a></h3><pre class=protodoc>
+</pre><h3 id=cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions <a class=anchor href=#cloudprober_probes_browser_TestMetricsOptions>#</a></h3><pre class=protodoc>
+
+disable_test_metrics: &lt;bool>
+
+disable_aggregation: &lt;bool>
+
+enable_step_metrics: &lt;bool>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_ABS>cloudprober.probes.browser.artifacts.ABS <a class=anchor href=#cloudprober_probes_browser_artifacts_ABS>#</a></h3><pre class=protodoc>
+
+container: &lt;string>
+
+<div class=comment># Azure account name and key. If you want to use managed identities, leave
+# account_key empty.</div>account_name: &lt;string>
+
+account_key: &lt;string>
+
+<div class=comment># Azure endpoint. Default is &#34;https://&lt;account&gt;.blob.core.windows.net&#34;.</div>endpoint: &lt;string>
+
+<div class=comment># OAuth2 configuration. If you want to use managed identities, leave this
+# field empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
+# for more details on oauth.Config.</div>oauth_config: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_ArtifactsOptions>cloudprober.probes.browser.artifacts.ArtifactsOptions <a class=anchor href=#cloudprober_probes_browser_artifacts_ArtifactsOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Serve test artifacts on Cloudprober&#39;s default webserver. This is
+# disabled by default for security reasons.</div>serve_on_web: &lt;bool>
+
+<div class=comment># Specify web server path to serve test artifacts on.
+# Default is &#34;/artifacts/&lt;probename&gt;&#34;.</div>web_server_path: &lt;string>
+
+<div class=comment># Web server root directory. If not provided (recommended), we just use
+# the first local storage directory if configured, and if provided, we
+# verify that it is one of the local storages directories. If no local
+# storage is configured, we return an error for global options and use
+# &lt;workdir&gt;/output for probe level artifacts options.</div>web_server_root: &lt;string>
+
+<div class=comment># Storage for test artifacts. Note that test artifacts are always
+# written to the workdir first, and uploaded to the storage backend in a
+# parallel goroutine. This is to make sure that uploads don&#39;t block the
+# main probe execution.</div>storage: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_Storage>cloudprober.probes.browser.artifacts.Storage</a>>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_CleanupOptions>cloudprober.probes.browser.artifacts.CleanupOptions <a class=anchor href=#cloudprober_probes_browser_artifacts_CleanupOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># Maximum age of artifacts in seconds.</div>max_age_sec: &lt;int32> | default: 3600
+
+<div class=comment># Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
+# is smaller.</div>cleanup_interval_sec: &lt;int32> | default: 3600
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_GCS>cloudprober.probes.browser.artifacts.GCS <a class=anchor href=#cloudprober_probes_browser_artifacts_GCS>#</a></h3><pre class=protodoc>
 
 bucket: &lt;string>
 
-path: &lt;string>
+<div class=comment># If you want to use default credentials on GCE or GKE, leave this field
+# empty. See
+# https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
+# for more details on oauth.GoogleCredentials.</div>credentials: &lt;<a href=../oauth#cloudprober_oauth_GoogleCredentials>cloudprober.oauth.GoogleCredentials</a>>
+
+<div class=comment># GCS endpoint.</div>endpoint: &lt;string> | default: https://storage.googleapis.com
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_LocalStorage>cloudprober.probes.browser.artifacts.LocalStorage <a class=anchor href=#cloudprober_probes_browser_artifacts_LocalStorage>#</a></h3><pre class=protodoc>
+
+dir: &lt;string>
+
+<div class=comment># Cleanup options for local storage. Specifying cleanup options for local
+# enables automatic cleanup of old artifacts.</div>cleanup_options: &lt;<a href=../probes#cloudprober_probes_browser_artifacts_CleanupOptions>cloudprober.probes.browser.artifacts.CleanupOptions</a>>
+
+</pre><h3 id=cloudprober_probes_browser_artifacts_S3>cloudprober.probes.browser.artifacts.S3 <a class=anchor href=#cloudprober_probes_browser_artifacts_S3>#</a></h3><pre class=protodoc>
+
+bucket: &lt;string>
 
 region: &lt;string>
 
@@ -989,18 +1035,16 @@ secret_access_key: &lt;string>
 
 <div class=comment># S3 endpoint. If not specified, default endpoint for the region is used.</div>endpoint: &lt;string>
 
-</pre><h3 id=cloudprober_probes_browser_Storage>cloudprober.probes.browser.Storage <a class=anchor href=#cloudprober_probes_browser_Storage>#</a></h3><pre class=protodoc>
+</pre><h3 id=cloudprober_probes_browser_artifacts_Storage>cloudprober.probes.browser.artifacts.Storage <a class=anchor href=#cloudprober_probes_browser_artifacts_Storage>#</a></h3><pre class=protodoc>
 
-[local_storage &lt;<a href=../probes#cloudprober_probes_browser_LocalStorage>cloudprober.probes.browser.LocalStorage</a>&gt; | s3 &lt;<a href=../probes#cloudprober_probes_browser_S3>cloudprober.probes.browser.S3</a>&gt; | 
-&nbsp;gcs &lt;<a href=../probes#cloudprober_probes_browser_GCS>cloudprober.probes.browser.GCS</a>&gt; | abs &lt;<a href=../probes#cloudprober_probes_browser_ABS>cloudprober.probes.browser.ABS</a>&gt;]: &lt;oneof>
+[local_storage &lt;<a href=../probes#cloudprober_probes_browser_artifacts_LocalStorage>cloudprober.probes.browser.artifacts.LocalStorage</a>&gt; | s3 &lt;<a href=../probes#cloudprober_probes_browser_artifacts_S3>cloudprober.probes.browser.artifacts.S3</a>&gt; | 
+&nbsp;gcs &lt;<a href=../probes#cloudprober_probes_browser_artifacts_GCS>cloudprober.probes.browser.artifacts.GCS</a>&gt; | abs &lt;<a href=../probes#cloudprober_probes_browser_artifacts_ABS>cloudprober.probes.browser.artifacts.ABS</a>&gt;]: &lt;oneof>
 
-</pre><h3 id=cloudprober_probes_browser_TestMetricsOptions>cloudprober.probes.browser.TestMetricsOptions <a class=anchor href=#cloudprober_probes_browser_TestMetricsOptions>#</a></h3><pre class=protodoc>
-
-disable_test_metrics: &lt;bool>
-
-disable_aggregation: &lt;bool>
-
-enable_step_metrics: &lt;bool>
+<div class=comment># Storage path for test artifacts. This is the path where test artifacts
+# are written to within the storage backend. For example, if storage is
+# an S3 bucket, all objects will be uploaded under this path within that
+# bucket. For global artifacts options, probes append their names to this
+# path.</div>path: &lt;string>
 
 </pre><h3 id=cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf <a class=anchor href=#cloudprober_probes_dns_ProbeConf>#</a></h3><pre class=protodoc>
 
@@ -1095,6 +1139,12 @@ value: &lt;string>
 
 <div class=comment># Request data (in JSON format) for the call_service_method request.</div>body: &lt;string>
 
+<div class=comment># Request body from file. This field is similar to the body field above, but
+# value is read from a file.</div>body_file: &lt;string>
+
+<div class=comment># Substitute env variables in body file. It will expand environment
+# variables if you refer to them as ${VARIABLE} or $VARIABLE in the file. </div>body_file_substitute_env: &lt;bool>
+
 </pre><h3 id=cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf <a class=anchor href=#cloudprober_probes_grpc_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Port for gRPC requests (Corresponding target field: port)
@@ -1129,6 +1179,22 @@ method: (ECHO|READ|WRITE|HEALTH_CHECK|GENERIC): &lt;enum>
 <div class=comment># Number of connections to use. Default is 2 for ECHO, READ and WRITE
 # methods for backward compatibility. For HEALTH_CHECK and GENERIC, default
 # is 1.</div>num_conns: &lt;int32>
+
+<div class=comment># If disable_reuse_conn is set to true, connections will not be reused. This
+# is useful when you service is behind a loadbalancer and you want to hit
+# different instances every probe cycle.</div>disable_reuse_conn: &lt;bool>
+
+<div class=comment># Default load balancing config in JSON format. This config only matters
+# if we are using client side load balancing (less common) and LB resolver
+# doesn&#39;t provide a service config[1](most advanced load balancers, like
+# xds, do). This field is useful if you have a DNS based LB setup where DNS
+# resolution simply returns a list of IPs (e.g. k8s headless service[2]).
+#
+# [1]: https://github.com/grpc/grpc/blob/master/doc/service_config.md
+# [2]: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
+#
+# Example:
+# default_lb_config: &#34;[{ \&#34;round_robin\&#34;: {} }]&#34;</div>default_lb_config: &lt;string>
 
 <div class=comment># If connect_timeout is not specified, reuse probe timeout. Note that this
 # timeout will have an impact only if it is less than the probe timeout.</div>connect_timeout_msec: &lt;int32>
@@ -1328,6 +1394,12 @@ value: &lt;string>
 <div class=comment># Port for TCP requests. If not specfied, and port is provided by the
 # targets (e.g. kubernetes endpoint or service), that port is used.</div>port: &lt;int32>
 
+<div class=comment># Whether to perform a TLS handshake after TCP connection is established.
+# When TLS handshake is enabled, we export two additional metrics:
+# - connect_latency and tls_handshake_latency.</div>tls_handshake: &lt;bool> | default: false
+
+<div class=comment># TLS configuration for TLS handshake.</div>tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
 <div class=comment># Whether to resolve the target before making the request. If set to false,
 # we hand over the target golang&#39;s net.Dial module, Otherwise, we resolve
 # the target first to an IP address and make a request using that. By
@@ -1375,7 +1447,7 @@ type: (INVALID|ECHO|DISCARD): &lt;enum>
 
 <div class=comment># Number of packets sent in a single probe.</div>packets_per_probe: &lt;int32> | default: 1
 
-</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/latest/probes/><div class="card my-1"><div class="card-body py-2">&larr; Probes Config</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/v0.13.7/probes/><div class="card my-1"><div class="card-body py-2">Probes Config (v0.13.7) &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
+</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/latest/probes/><div class="card my-1"><div class="card-body py-2">&larr; Probes Config</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/v0.14.0/probes/><div class="card my-1"><div class="card-body py-2">Probes Config (v0.14.0) &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.16182cd3f88b7e2b271d46130c1333fcc3ad5b1cd1f4e029e5d219dbe5ef06f3b9c81a8c50d49302b765058347f6127745134b8ca7bf85f437c51bfb3a15bb5a.js integrity="sha512-Fhgs0/iLfisnHUYTDBMz/MOtWxzR9OAp5dIZ2+XvBvO5yBqMUNSTArdlBYNH9hJ3RRNLjKe/hfQ3xRv7OhW7Wg==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.3ae38f0550ff442c51275be592e95559dfe22495076054660187449970e46cf8c3a721f0f2d4fd79870370ce6b9dc063b301228938d9823ceaf6cefeb7dc8a2c.js integrity="sha512-OuOPBVD/RCxRJ1vlkulVWd/iJJUHYFRmAYdEmXDkbPjDpyHw8tT9eYcDcM5rncBjswEiiTjZgjzq9s7+t9yKLA==" crossorigin=anonymous defer></script></body></html>
