@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net"
 	"runtime"
-	"strings"
 
 	configpb "github.com/cloudprober/cloudprober/internal/servers/udp/proto"
 	"github.com/cloudprober/cloudprober/logger"
@@ -58,6 +57,37 @@ type Server struct {
 	p6                *ipv6.PacketConn
 }
 
+// ipv6Available returns true if the kernel supports IPv6 sockets.
+func ipv6Available() bool {
+	ln, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
+}
+
+func (s *Server) configureAdvancedReadWrite() error {
+	// Control messages are not supported on Windows and since we depend on
+	// ipv6 kernel data structures for setting control messages, we skip
+	// advanced read write if OS is windows or ipv6 is not available.
+	if runtime.GOOS == "windows" || !ipv6Available() {
+		return nil
+	}
+
+	s.advancedReadWrite = true
+	// We use an IPv6 connection wrapper to receive both IPv4 and IPv6 packets.
+	// ipv6.PacketConn lets us use control messages (non-Windows only) to:
+	//  -- receive packet destination IP (FlagDst)
+	//  -- set source IP (Src).
+	s.p6 = ipv6.NewPacketConn(s.conn)
+	if err := s.p6.SetControlMessage(ipv6.FlagDst, true); err != nil {
+		return fmt.Errorf("SetControlMessage(ipv6.FlagDst, true) failed: %v", err)
+	}
+
+	return nil
+}
+
 // New returns an UDP server.
 func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Server, error) {
 	conn, err := Listen(&net.UDPAddr{Port: int(c.GetPort())}, l)
@@ -75,22 +105,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		l:    l,
 	}
 
-	switch runtime.GOOS {
-	case "windows":
-		// Control messages are not supported.
-	default:
-		s.advancedReadWrite = true
-		// We use an IPv6 connection wrapper to receive both IPv4 and IPv6 packets.
-		// ipv6.PacketConn lets us use control messages (non-Windows only) to:
-		//  -- receive packet destination IP (FlagDst)
-		//  -- set source IP (Src).
-		s.p6 = ipv6.NewPacketConn(conn)
-		if err := s.p6.SetControlMessage(ipv6.FlagDst, true); err != nil {
-			return nil, fmt.Errorf("SetControlMessage(ipv6.FlagDst, true) failed: %v", err)
-		}
-	}
-
-	return s, nil
+	return s, s.configureAdvancedReadWrite()
 }
 
 // Listen opens a UDP socket on the given port. It also attempts to set recv
@@ -190,12 +205,6 @@ func (s *Server) readAndEchoSimple(buf []byte) *readWriteErr {
 		s.l.Warningf("Reply truncated! Got %d bytes but only sent %d bytes", inLen, n)
 	}
 	return nil
-}
-
-func connClosed(err error) bool {
-	// TODO(manugarg): Replace this by errors.Is(err, net.ErrClosed) once Go 1.16
-	// is more widely available.
-	return strings.Contains(err.Error(), "use of closed network connection")
 }
 
 // Start starts the UDP server. It returns only when context is canceled.
