@@ -19,6 +19,7 @@ package servers
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"log/slog"
 
@@ -70,11 +71,15 @@ type ServerInfo struct {
 }
 
 // Init initializes cloudprober servers, based on the provided config.
-func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []*ServerInfo, err error) {
+func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) ([]*ServerInfo, error) {
+	var servers []*ServerInfo
+
 	for _, serverDef := range serverDefs {
 		l := logger.NewWithAttrs(slog.String("server_type", serverDef.GetType().String()))
 
 		var server Server
+
+		var err error
 
 		switch serverDef.GetType() {
 		case configpb.ServerDef_HTTP:
@@ -87,7 +92,7 @@ func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []
 			server, err = external.New(initCtx, serverDef.GetExternalServer(), l)
 		}
 		if err != nil {
-			return
+			return nil, fmt.Errorf("error while initializing server %s: %v", serverDef.GetType().String(), err)
 		}
 
 		servers = append(servers, &ServerInfo{
@@ -97,5 +102,6 @@ func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []
 			Conf:      formatutils.ConfToString(serverDef),
 		})
 	}
-	return
+
+	return servers, nil
 }
