@@ -139,22 +139,31 @@ func (pr *Prober) startProbe(name string) {
 	go pr.Probes[name].Start(probeCtx, pr.dataChan)
 }
 
-func randomDuration(duration, ceiling time.Duration) time.Duration {
+func randomDuration(duration time.Duration) time.Duration {
 	if duration == 0 {
 		return 0
 	}
-	if duration > ceiling {
-		duration = ceiling
+	if duration > time.Minute {
+		duration = time.Minute
 	}
 	return time.Duration(randGenerator.Int63n(duration.Milliseconds())) * time.Millisecond
 }
 
-// interProbeWait returns the wait time between probes. It's not beneficial for
-// this interval to be too large, so we cap it at 2 seconds.
+// interProbeWait returns the wait time between probes that are in the same
+// interval bucket.
 func interProbeWait(interval time.Duration, numProbes int) time.Duration {
 	d := interval / time.Duration(numProbes)
-	if d > 2*time.Second {
-		return 2 * time.Second
+	// Cap the interval at 1 minute. This is to make sure that for large
+	// intervals, probes don't get delayed too much (esp last one).
+	// Some examples:
+	//   5 probes in 30s interval, gap=6s, last probe starts at 24s
+	//   12 probes in 1m interval, gap=5s, last probe starts at 55s
+	//   12 probes in 2m interval, gap=10s, last probe starts at 1m50s
+	//   12 probes in 5m interval, gap=25s, last probe starts at 4m35s
+	//   8 probes in 10m interval, gap=1m, last probe starts at 7m
+	// TODO(manugarg): Make this configurable.
+	if d > 1*time.Minute {
+		return 1 * time.Minute
 	}
 	return d
 }
@@ -181,12 +190,17 @@ func (pr *Prober) startProbesWithJitter() {
 	}
 
 	iter := 0
+
 	for interval, probeInfos := range intervalBuckets {
 		// Note that we introduce jitter within the goroutine instead of in the
 		// loop here. This is to make sure this function returns quickly.
 		go func(interval time.Duration, probeInfos []*probes.ProbeInfo, iter int) {
 			if iter > 0 {
-				time.Sleep(randomDuration(interval, 10*time.Second))
+				// Except for the first interval bucket, we sleep before
+				// starting probes in this bucket. This sleep is for a random
+				// duration <= min(interval, 1min). Note that unlike inter-probe
+				// gap this one doesn't add up.
+				time.Sleep(randomDuration(interval))
 			}
 
 			for _, p := range probeInfos {
