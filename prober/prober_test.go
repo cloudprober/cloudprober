@@ -103,7 +103,7 @@ func TestInterProbeWait(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s:%d", tt.interval, tt.numProbes), func(t *testing.T) {
-			assert.Equal(t, tt.wantGap, interProbeWait(tt.interval, tt.numProbes))
+			assert.Equal(t, tt.wantGap, interProbeGap(tt.interval, tt.numProbes))
 		})
 	}
 }

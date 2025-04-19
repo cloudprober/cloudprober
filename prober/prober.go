@@ -149,19 +149,21 @@ func randomDuration(duration time.Duration) time.Duration {
 	return time.Duration(randGenerator.Int63n(duration.Milliseconds())) * time.Millisecond
 }
 
-// interProbeWait returns the wait time between probes that are in the same
+// interProbeGap returns the wait time between probes that are in the same
 // interval bucket.
-func interProbeWait(interval time.Duration, numProbes int) time.Duration {
+//
+// Overall goal is to start all probes by the end of 1st interval. But to avoid
+// waiting for too long for large intervals, we cap the gap at 1 minute.
+// Some examples:
+//
+//	30 probes in 30s interval, gap=1s, last probe starts at 29s
+//	12 probes in 1m interval, gap=5s, last probe starts at 55s
+//	12 probes in 5m interval, gap=25s, last probe starts at 4m35s
+//	8 probes in 10m interval, gap=1m, last probe starts at 7m
+//
+// TODO(manugarg): Allow this to be overridden with config.
+func interProbeGap(interval time.Duration, numProbes int) time.Duration {
 	d := interval / time.Duration(numProbes)
-	// Cap the interval at 1 minute. This is to make sure that for large
-	// intervals, probes don't get delayed too much (esp last one).
-	// Some examples:
-	//   5 probes in 30s interval, gap=6s, last probe starts at 24s
-	//   12 probes in 1m interval, gap=5s, last probe starts at 55s
-	//   12 probes in 2m interval, gap=10s, last probe starts at 1m50s
-	//   12 probes in 5m interval, gap=25s, last probe starts at 4m35s
-	//   8 probes in 10m interval, gap=1m, last probe starts at 7m
-	// TODO(manugarg): Make this configurable.
 	if d > 1*time.Minute {
 		return 1 * time.Minute
 	}
@@ -206,7 +208,7 @@ func (pr *Prober) startProbesWithJitter() {
 			for _, p := range probeInfos {
 				pr.l.Info("Starting probe: ", p.Name)
 				go pr.startProbe(p.Name)
-				time.Sleep(interProbeWait(interval, len(probeInfos)))
+				time.Sleep(interProbeGap(interval, len(probeInfos)))
 			}
 		}(interval, probeInfos, iter)
 		iter++
