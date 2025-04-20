@@ -33,27 +33,33 @@ import (
 
 func TestRandomDuration(t *testing.T) {
 	tests := []struct {
-		duration time.Duration
-		ceiling  time.Duration
+		duration        time.Duration
+		wantMaxDuration time.Duration
 	}{
 		{
-			duration: 0,
-			ceiling:  10 * time.Second,
+			duration:        0,
+			wantMaxDuration: 0,
 		},
 		{
-			duration: 5 * time.Second,
-			ceiling:  10 * time.Second,
+			duration:        5 * time.Second,
+			wantMaxDuration: 5 * time.Second,
 		},
 		{
-			duration: 30 * time.Second,
-			ceiling:  10 * time.Second,
+			duration:        30 * time.Second,
+			wantMaxDuration: 30 * time.Second,
+		},
+		{
+			duration:        10 * time.Minute,
+			wantMaxDuration: 1 * time.Minute,
+		},
+		{
+			duration:        1 * time.Hour,
+			wantMaxDuration: 1 * time.Minute,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v", tt), func(t *testing.T) {
-			got := randomDuration(tt.duration, tt.ceiling)
-			assert.LessOrEqual(t, got, tt.duration)
-			assert.LessOrEqual(t, got, tt.ceiling)
+			assert.LessOrEqual(t, randomDuration(tt.duration), tt.wantMaxDuration)
 		})
 	}
 }
@@ -62,22 +68,42 @@ func TestInterProbeWait(t *testing.T) {
 	tests := []struct {
 		interval  time.Duration
 		numProbes int
-		want      time.Duration
+		wantGap   time.Duration
 	}{
 		{
-			interval:  2 * time.Second,
-			numProbes: 16,
-			want:      125 * time.Millisecond,
+			interval:  5 * time.Second,
+			numProbes: 20,
+			wantGap:   250 * time.Millisecond, // Last at 4.75s
 		},
 		{
 			interval:  30 * time.Second,
 			numProbes: 12,
-			want:      2 * time.Second,
+			wantGap:   2500 * time.Millisecond, // Last at 29.5s
+		},
+		{
+			interval:  5 * time.Minute,
+			numProbes: 4,
+			wantGap:   1 * time.Minute, // Last at 3m
+		},
+		{
+			interval:  10 * time.Minute,
+			numProbes: 6,
+			wantGap:   1 * time.Minute, // Last at 5m
+		},
+		{
+			interval:  1 * time.Hour,
+			numProbes: 12,
+			wantGap:   1 * time.Minute, // Last at 11m
+		},
+		{
+			interval:  24 * time.Hour,
+			numProbes: 3,
+			wantGap:   1 * time.Minute,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s:%d", tt.interval, tt.numProbes), func(t *testing.T) {
-			assert.Equal(t, tt.want, interProbeWait(tt.interval, tt.numProbes))
+			assert.Equal(t, tt.wantGap, interProbeGap(tt.interval, tt.numProbes))
 		})
 	}
 }
