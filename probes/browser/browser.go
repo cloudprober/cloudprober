@@ -259,7 +259,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	// We strip unnecessary /_playwright_report/ subdirectory from the path.
-	destPathFn := storage.StripPathPartFn(p.outputDir, playwrightReportDir)
+	destPathFn := storage.RemovePathSegmentFn(p.outputDir, playwrightReportDir)
 
 	ah, err := artifacts.InitArtifactsHandler(context.Background(), p.c.GetArtifactsOptions(), p.outputDir, p.opts, destPathFn, p.l)
 	if err != nil {

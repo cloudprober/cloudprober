@@ -25,13 +25,14 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-// StripPathPartFn returns a function that strips a part from the path.
+// RemovePathSegmentFn returns a function that removes a segment from the path
+// and returns the relative path.
 // basePath is the base path to which the relative path is computed.
-// part is the part to be stripped from the path.
-func StripPathPartFn(basePath, part string) func(string) (string, error) {
+// segment is the segment to be removed from the path.
+func RemovePathSegmentFn(basePath, segment string) func(string) (string, error) {
 	return func(localPath string) (string, error) {
 		sep := string(filepath.Separator) // / on Unix, \ on Windows
-		return filepath.Rel(basePath, strings.Replace(localPath, sep+part+sep, sep, 1))
+		return filepath.Rel(basePath, strings.Replace(localPath, sep+segment+sep, sep, 1))
 	}
 }
 

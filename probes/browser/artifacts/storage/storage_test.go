@@ -67,7 +67,7 @@ func TestWalkAndSave(t *testing.T) {
 		{
 			name:       "Valid walk and save - with stripPathFn",
 			localPath:  filepath.Join(tempDir, "date1/ts1/report"),
-			destPathFn: StripPathPartFn(tempDir, "report"),
+			destPathFn: RemovePathSegmentFn(tempDir, "report"),
 			wantFiles: map[string]string{
 				"date1/ts1/data/file.png": "image1",
 				"date1/ts1/index.html":    "report1",
@@ -76,7 +76,7 @@ func TestWalkAndSave(t *testing.T) {
 		{
 			name:       "Valid walk and save - with stripPathFn - 2",
 			localPath:  filepath.Join(tempDir, "date1/ts1/report"),
-			destPathFn: StripPathPartFn(tempDir, "date1"),
+			destPathFn: RemovePathSegmentFn(tempDir, "date1"),
 			wantFiles: map[string]string{
 				"ts1/report/data/file.png": "image1",
 				"ts1/report/index.html":    "report1",
