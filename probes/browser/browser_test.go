@@ -37,7 +37,7 @@ func TestProbePrepareCommand(t *testing.T) {
 	defer os.Unsetenv("PLAYWRIGHT_DIR")
 
 	baseEnvVars := func(pwDir string) []string {
-		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/report", "PLAYWRIGHT_HTML_OPEN=never"}
+		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/" + playwrightReportDir, "PLAYWRIGHT_HTML_OPEN=never"}
 	}
 
 	cmdLine := func(npxPath string) []string {

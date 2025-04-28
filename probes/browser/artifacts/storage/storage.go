@@ -20,11 +20,27 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-func walkAndSave(ctx context.Context, localPath, basePath string, fn func(context.Context, io.Reader, string) error) error {
+// RemovePathSegmentFn returns a function that removes a segment and prefix
+// from the path.
+func RemovePathSegmentFn(prefix, segment string) func(string) string {
+	return func(path string) string {
+		path = filepath.Clean(path)
+		sep := string(filepath.Separator) // / on Unix, \ on Windows
+		path = strings.Replace(path, sep+segment+sep, sep, 1)
+		// Make sure prefix ends with separator
+		if prefix != "" && !strings.HasSuffix(prefix, sep) {
+			prefix += sep
+		}
+		return strings.TrimPrefix(path, prefix)
+	}
+}
+
+func walkAndSave(ctx context.Context, localPath string, destPathFn func(string) string, fn func(context.Context, io.Reader, string) error) error {
 	// Check if the local directory exists
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		return fmt.Errorf("local directory %s does not exist", localPath)
@@ -46,19 +62,13 @@ func walkAndSave(ctx context.Context, localPath, basePath string, fn func(contex
 			return nil
 		}
 
-		// Get the relative path of the file
-		relPath, err := filepath.Rel(basePath, localFilePath)
-		if err != nil {
-			return err
-		}
-
 		file, err := os.Open(localFilePath)
 		if err != nil {
 			return err
 		}
 		defer file.Close()
 
-		return fn(ctx, file, relPath)
+		return fn(ctx, file, destPathFn(localFilePath))
 	})
 
 	return err
@@ -112,10 +122,10 @@ func (s *Local) saveFile(r io.Reader, relPath string) error {
 }
 
 // store saves the local directory to the destination directory.
-func (s *Local) Store(ctx context.Context, localPath, basePath string) error {
+func (s *Local) Store(ctx context.Context, localPath string, destPathFn func(string) string) error {
 	s.l.Infof("Saving artifacts from %s at: %s", localPath, s.destDir)
 
-	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
+	return walkAndSave(ctx, localPath, destPathFn, func(ctx context.Context, r io.Reader, relPath string) error {
 		return s.saveFile(r, relPath)
 	})
 }
