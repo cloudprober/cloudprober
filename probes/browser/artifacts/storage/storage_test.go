@@ -50,10 +50,11 @@ func TestWalkAndSave(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		localPath string
-		wantFiles map[string]string
-		wantErr   bool
+		name       string
+		localPath  string
+		destPathFn func(string) string
+		wantFiles  map[string]string
+		wantErr    bool
 	}{
 		{
 			name:      "Valid walk and save - 1",
@@ -61,6 +62,24 @@ func TestWalkAndSave(t *testing.T) {
 			wantFiles: map[string]string{
 				"date1/ts1/report/data/file.png": "image1",
 				"date1/ts1/report/index.html":    "report1",
+			},
+		},
+		{
+			name:       "Valid walk and save - with stripPathFn",
+			localPath:  filepath.Join(tempDir, "date1/ts1/report"),
+			destPathFn: RemovePathSegmentFn(tempDir, "report"),
+			wantFiles: map[string]string{
+				"date1/ts1/data/file.png": "image1",
+				"date1/ts1/index.html":    "report1",
+			},
+		},
+		{
+			name:       "Valid walk and save - with stripPathFn - 2",
+			localPath:  filepath.Join(tempDir, "date1/ts1/report"),
+			destPathFn: RemovePathSegmentFn(tempDir, "date1"),
+			wantFiles: map[string]string{
+				"ts1/report/data/file.png": "image1",
+				"ts1/report/index.html":    "report1",
 			},
 		},
 		{
@@ -90,7 +109,14 @@ func TestWalkAndSave(t *testing.T) {
 				return nil
 			}
 
-			err := walkAndSave(context.TODO(), tt.localPath, tempDir, fn)
+			if tt.destPathFn == nil {
+				tt.destPathFn = func(in string) string {
+					path, _ := filepath.Rel(tempDir, in)
+					return path
+				}
+			}
+
+			err := walkAndSave(context.TODO(), tt.localPath, tt.destPathFn, fn)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("walkAndSave() error = %v, wantErr %v", err, tt.wantErr)
 				return
