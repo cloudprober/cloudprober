@@ -20,11 +20,22 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-func walkAndSave(ctx context.Context, localPath, basePath string, fn func(context.Context, io.Reader, string) error) error {
+// StripPathPartFn returns a function that strips a part from the path.
+// basePath is the base path to which the relative path is computed.
+// part is the part to be stripped from the path.
+func StripPathPartFn(basePath, part string) func(string) (string, error) {
+	return func(localPath string) (string, error) {
+		sep := string(filepath.Separator) // / on Unix, \ on Windows
+		return filepath.Rel(basePath, strings.Replace(localPath, sep+part+sep, sep, 1))
+	}
+}
+
+func walkAndSave(ctx context.Context, localPath string, destPathFn func(string) (string, error), fn func(context.Context, io.Reader, string) error) error {
 	// Check if the local directory exists
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		return fmt.Errorf("local directory %s does not exist", localPath)
@@ -47,7 +58,7 @@ func walkAndSave(ctx context.Context, localPath, basePath string, fn func(contex
 		}
 
 		// Get the relative path of the file
-		relPath, err := filepath.Rel(basePath, localFilePath)
+		relPath, err := destPathFn(localFilePath)
 		if err != nil {
 			return err
 		}
@@ -112,10 +123,10 @@ func (s *Local) saveFile(r io.Reader, relPath string) error {
 }
 
 // store saves the local directory to the destination directory.
-func (s *Local) Store(ctx context.Context, localPath, basePath string) error {
+func (s *Local) Store(ctx context.Context, localPath string, destPathFn func(string) (string, error)) error {
 	s.l.Infof("Saving artifacts from %s at: %s", localPath, s.destDir)
 
-	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
+	return walkAndSave(ctx, localPath, destPathFn, func(ctx context.Context, r io.Reader, relPath string) error {
 		return s.saveFile(r, relPath)
 	})
 }
