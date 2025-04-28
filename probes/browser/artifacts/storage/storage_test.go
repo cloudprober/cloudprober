@@ -52,7 +52,7 @@ func TestWalkAndSave(t *testing.T) {
 	tests := []struct {
 		name       string
 		localPath  string
-		destPathFn func(string) (string, error)
+		destPathFn func(string) string
 		wantFiles  map[string]string
 		wantErr    bool
 	}{
@@ -110,8 +110,9 @@ func TestWalkAndSave(t *testing.T) {
 			}
 
 			if tt.destPathFn == nil {
-				tt.destPathFn = func(in string) (string, error) {
-					return filepath.Rel(tempDir, in)
+				tt.destPathFn = func(in string) string {
+					path, _ := filepath.Rel(tempDir, in)
+					return path
 				}
 			}
 

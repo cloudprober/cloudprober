@@ -182,7 +182,7 @@ func (s *ABS) upload(ctx context.Context, r io.Reader, relPath string) error {
 }
 
 // store syncs a local directory to an S3 path
-func (s *ABS) Store(ctx context.Context, localPath string, destPathFn func(string) (string, error)) error {
+func (s *ABS) Store(ctx context.Context, localPath string, destPathFn func(string) string) error {
 	s.l.Infof("Uploading artifacts from %s to: %s", localPath, s.endpoint)
 
 	return walkAndSave(ctx, localPath, destPathFn, func(ctx context.Context, r io.Reader, relPath string) error {

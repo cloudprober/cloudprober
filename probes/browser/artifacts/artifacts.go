@@ -34,7 +34,7 @@ import (
 var initGlobalServingOnce sync.Once
 
 type ArtifactsHandler struct {
-	destPathFn func(string) (string, error)
+	destPathFn func(string) string
 
 	s3Storage       []*storage.S3
 	gcsStorage      []*storage.GCS
@@ -124,7 +124,7 @@ func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logge
 	return err
 }
 
-func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, outputDir string, pOpts *options.Options, destPathFn func(string) (string, error), l *logger.Logger) (*ArtifactsHandler, error) {
+func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, outputDir string, pOpts *options.Options, destPathFn func(string) string, l *logger.Logger) (*ArtifactsHandler, error) {
 	ah := &ArtifactsHandler{
 		destPathFn: destPathFn,
 		l:          l,
