@@ -83,10 +83,10 @@ func InitS3(ctx context.Context, s3config *configpb.S3, storagePath string, l *l
 }
 
 // store syncs a local directory to an S3 path
-func (s *S3) Store(ctx context.Context, localPath, basePath string) error {
+func (s *S3) Store(ctx context.Context, localPath string, destPathFn func(string) string) error {
 	s.l.Infof("Uploading artifacts from %s to: s3://%s/%s", localPath, s.bucket, s.path)
 
-	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
+	return walkAndSave(ctx, localPath, destPathFn, func(ctx context.Context, r io.Reader, relPath string) error {
 		s3Key := filepath.Join(s.path, relPath)
 
 		if _, err := s.client.PutObject(ctx, &s3.PutObjectInput{

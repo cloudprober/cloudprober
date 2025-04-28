@@ -34,7 +34,8 @@ import (
 var initGlobalServingOnce sync.Once
 
 type ArtifactsHandler struct {
-	basePath        string
+	destPathFn func(string) string
+
 	s3Storage       []*storage.S3
 	gcsStorage      []*storage.GCS
 	absStorage      []*storage.ABS
@@ -123,10 +124,10 @@ func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logge
 	return err
 }
 
-func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, outputDir string, pOpts *options.Options, l *logger.Logger) (*ArtifactsHandler, error) {
+func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, outputDir string, pOpts *options.Options, destPathFn func(string) string, l *logger.Logger) (*ArtifactsHandler, error) {
 	ah := &ArtifactsHandler{
-		basePath: outputDir,
-		l:        l,
+		destPathFn: destPathFn,
+		l:          l,
 	}
 
 	if opts == nil {
@@ -205,7 +206,7 @@ func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, 
 func (ah *ArtifactsHandler) Handle(ctx context.Context, path string) {
 	for _, s3 := range ah.s3Storage {
 		go func(s3 *storage.S3) {
-			if err := s3.Store(ctx, path, ah.basePath); err != nil {
+			if err := s3.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error uploading artifacts to S3: %v", err)
 			}
 		}(s3)
@@ -213,7 +214,7 @@ func (ah *ArtifactsHandler) Handle(ctx context.Context, path string) {
 
 	for _, gcs := range ah.gcsStorage {
 		go func(gcs *storage.GCS) {
-			if err := gcs.Store(ctx, path, ah.basePath); err != nil {
+			if err := gcs.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error uploading artifacts to GCS: %v", err)
 			}
 		}(gcs)
@@ -221,7 +222,7 @@ func (ah *ArtifactsHandler) Handle(ctx context.Context, path string) {
 
 	for _, abs := range ah.absStorage {
 		go func(abs *storage.ABS) {
-			if err := abs.Store(ctx, path, ah.basePath); err != nil {
+			if err := abs.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error uploading artifacts to ABS: %v", err)
 			}
 		}(abs)
@@ -229,7 +230,7 @@ func (ah *ArtifactsHandler) Handle(ctx context.Context, path string) {
 
 	for _, lStorage := range ah.localStorage {
 		go func(lStorage *storage.Local) {
-			if err := lStorage.Store(ctx, path, ah.basePath); err != nil {
+			if err := lStorage.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error saving artifacts locally: %v", err)
 			}
 		}(lStorage)
