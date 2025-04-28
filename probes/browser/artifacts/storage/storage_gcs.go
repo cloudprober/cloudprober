@@ -88,10 +88,10 @@ func (s *GCS) upload(ctx context.Context, r io.Reader, relPath string) error {
 }
 
 // store syncs a local directory to an S3 path
-func (s *GCS) Store(ctx context.Context, localPath, basePath string) error {
+func (s *GCS) Store(ctx context.Context, localPath string, destPathFn func(string) string) error {
 	s.l.Infof("Uploading artifacts from %s to: %s", localPath, s.baseURL)
 
-	return walkAndSave(ctx, localPath, basePath, func(ctx context.Context, r io.Reader, relPath string) error {
+	return walkAndSave(ctx, localPath, destPathFn, func(ctx context.Context, r io.Reader, relPath string) error {
 		return s.upload(ctx, r, relPath)
 	})
 }

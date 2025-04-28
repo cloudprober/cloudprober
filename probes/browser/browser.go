@@ -35,6 +35,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
@@ -43,6 +44,8 @@ import (
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
 )
+
+const playwrightReportDir = "_playwright_report"
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
@@ -255,7 +258,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("failed to initialize templates: %v", err)
 	}
 
-	ah, err := artifacts.InitArtifactsHandler(context.Background(), p.c.GetArtifactsOptions(), p.outputDir, p.opts, p.l)
+	// We strip unnecessary /_playwright_report/ subdirectory from the path.
+	destPathFn := storage.RemovePathSegmentFn(p.outputDir, playwrightReportDir)
+
+	ah, err := artifacts.InitArtifactsHandler(context.Background(), p.c.GetArtifactsOptions(), p.outputDir, p.opts, destPathFn, p.l)
 	if err != nil {
 		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
 	}
@@ -309,7 +315,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	runID := p.generateRunID(target)
 
 	outputDir := p.outputDirPath(target, ts)
-	reportDir := filepath.Join(outputDir, "report")
+	reportDir := filepath.Join(outputDir, playwrightReportDir)
 
 	envVars := []string{
 		fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.playwrightDir, "node_modules")),
