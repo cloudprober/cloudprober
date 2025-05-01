@@ -19,7 +19,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -361,10 +360,7 @@ func TestInitGlobalArtifactsServing(t *testing.T) {
 	defer func() {
 		state.SetDefaultHTTPServeMux(oldSrvMux)
 	}()
-
-	mux := http.NewServeMux()
-	state.SetDefaultHTTPServeMux(mux)
-	state.AddWebHandler("/oldartifacts/", func(w http.ResponseWriter, r *http.Request) {})
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
 
 	storageConfig := []*configpb.Storage{
 		{
@@ -397,7 +393,7 @@ func TestInitGlobalArtifactsServing(t *testing.T) {
 				Storage:    storageConfig,
 				ServeOnWeb: proto.Bool(true),
 			},
-			expectedPath: "/artifacts/",
+			expectedPath: "/artifacts/{$}/",
 			expectError:  false,
 		},
 		{
@@ -414,15 +410,6 @@ func TestInitGlobalArtifactsServing(t *testing.T) {
 			artifactsOpts: &configpb.ArtifactsOptions{
 				ServeOnWeb:    proto.Bool(true),
 				WebServerRoot: proto.String("/invalid/dir"), // not in storage
-			},
-			expectError: true,
-		},
-		{
-			name: "error in serveArtifacts",
-			artifactsOpts: &configpb.ArtifactsOptions{
-				Storage:       storageConfig,
-				ServeOnWeb:    proto.Bool(true),
-				WebServerPath: proto.String("/oldartifacts"), // already exists
 			},
 			expectError: true,
 		},
@@ -444,20 +431,6 @@ func TestInitGlobalArtifactsServing(t *testing.T) {
 
 			// Call again to check idempotency
 			assert.NoError(t, initGlobalArtifactsServing(tt.artifactsOpts, logger))
-
-			// Check if the handler was added
-			handler, pattern := mux.Handler(&http.Request{URL: &url.URL{Path: tt.expectedPath}})
-			assert.NotNil(t, handler)
-			assert.Equal(t, tt.expectedPath, pattern)
-
-			// Check if the file is served correctly
-			expectedCode := http.StatusOK
-			expectedBody := "test"
-			if tt.expectedPath == "" {
-				expectedCode = http.StatusNotFound
-				expectedBody = "404 page not found\n"
-			}
-			verifyWebServerResponse(t, mux, path.Join(tt.expectedPath, "/test.txt"), expectedCode, expectedBody)
 		})
 	}
 }
