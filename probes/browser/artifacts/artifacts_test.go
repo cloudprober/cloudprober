@@ -146,12 +146,17 @@ func verifyWebServerResponse(t *testing.T, mux *http.ServeMux, path string, expe
 	mux.ServeHTTP(rr, req)
 
 	assert.Equal(t, expectedStatus, rr.Code)
-	assert.Equal(t, expectedBody, rr.Body.String())
+	if expectedBody != "-" {
+		assert.Equal(t, expectedBody, rr.Body.String(), "path: %s", path)
+	}
 }
 
 func TestServeArtifacts(t *testing.T) {
 	tmpDir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("test"), 0644))
+	assert.NoError(t, os.Mkdir(filepath.Join(tmpDir, "probe1"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(tmpDir, "probe1", "test.txt"), []byte("test"), 0644))
+	assert.NoError(t, os.Mkdir(filepath.Join(tmpDir, "probe2"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(tmpDir, "probe2", "test.txt"), []byte("test"), 0644))
 
 	oldSrvMux := state.DefaultHTTPServeMux()
 	defer func() {
@@ -162,7 +167,7 @@ func TestServeArtifacts(t *testing.T) {
 	state.SetDefaultHTTPServeMux(mux)
 
 	// Serve a simple status endpoint
-	state.AddWebHandler("/status/", func(w http.ResponseWriter, r *http.Request) {
+	state.AddWebHandler("/status/{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("status"))
 	})
@@ -170,8 +175,12 @@ func TestServeArtifacts(t *testing.T) {
 	tests := []struct {
 		name            string
 		path            string
+		globalPath      string
 		root            string
-		expectedPattern string
+		globalRoot      string
+		url             []string
+		expectedPattern []string
+		expectedBody    []string
 		expectError     bool
 	}{
 		{
@@ -182,49 +191,100 @@ func TestServeArtifacts(t *testing.T) {
 		},
 		{
 			name:        "existing path",
-			path:        "/status",
+			path:        "/status/",
 			root:        tmpDir,
 			expectError: true,
 		},
 		{
-			name:            "valid path and root",
-			path:            "/artifacts",
-			root:            tmpDir,
-			expectedPattern: "/artifacts/",
-			expectError:     false,
+			name:       "valid path and root",
+			path:       "/artifacts/probe1",
+			globalPath: "/artifacts",
+			root:       filepath.Join(tmpDir, "probe1"),
+			globalRoot: tmpDir,
+			url: []string{
+				"/artifacts/probe1/tree/test.txt",
+				"/artifacts/probe1/",
+				"/artifacts/probe2/tree/test.txt", // handled by global
+				"/artifacts/probe2/",              // handled by global
+			},
+			expectedPattern: []string{
+				"/artifacts/probe1/tree/",
+				"/artifacts/probe1/{$}",
+				"/artifacts/{probeName}/tree/", // handled by global
+				"/artifacts/{probeName}/{$}",   // handled by global
+			},
+			expectedBody: []string{"test", "-", "test", "-"},
+			expectError:  false,
 		},
 		{
 			name:        "same path, existing handler",
-			path:        "/artifacts",
+			path:        "/artifacts/probe1/",
 			root:        tmpDir,
 			expectError: true,
 		},
 		{
 			name:            "path with trailing slash",
-			path:            "/artifacts2/",
-			root:            tmpDir,
-			expectedPattern: "/artifacts2/",
+			path:            "/artifacts2/probe1/",
+			root:            filepath.Join(tmpDir, "probe1"),
+			url:             []string{"/artifacts2/probe1/tree/test.txt", "/artifacts2/probe1/"},
+			expectedPattern: []string{"/artifacts2/probe1/tree/", "/artifacts2/probe1/{$}"},
+			expectedBody:    []string{"test", "-"},
 			expectError:     false,
+		},
+		{
+			name:       "valid path and root - deeper",
+			path:       "/x/y/probe1",
+			globalPath: "/z/a",
+			root:       filepath.Join(tmpDir, "probe1"),
+			globalRoot: tmpDir,
+			url: []string{
+				"/x/y/probe1/tree/test.txt",
+				"/x/y/probe1/",
+				"/z/a/probe2/tree/test.txt", // handled by global
+				"/z/a/probe2/",              // handled by global
+			},
+			expectedPattern: []string{
+				"/x/y/probe1/tree/",
+				"/x/y/probe1/{$}",
+				"/z/a/{probeName}/tree/", // handled by global
+				"/z/a/{probeName}/{$}",   // handled by global
+			},
+			expectedBody: []string{"test", "-", "test", "-"},
+			expectError:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := serveArtifacts(tt.path, tt.root)
+			err := serveArtifacts(tt.path, tt.root, false)
 			if tt.expectError {
 				assert.Error(t, err)
+				t.Log(err)
+				return
+			}
+
+			if tt.globalPath != "" {
+				err = serveArtifacts(tt.globalPath, tt.globalRoot, true)
+			}
+			if tt.expectError {
+				assert.Error(t, err)
+				t.Log(err)
 				return
 			}
 
 			assert.NoError(t, err)
 
 			// Check if the handler was added
-			handler, pattern := mux.Handler(&http.Request{URL: &url.URL{Path: tt.path}})
-			assert.NotNil(t, handler)
-			assert.Equal(t, tt.expectedPattern, pattern)
+			for i, u := range tt.url {
+				handler, pattern := mux.Handler(&http.Request{URL: &url.URL{Path: u}})
+				assert.NotNil(t, handler)
+				assert.Equal(t, tt.expectedPattern[i], pattern)
+			}
 
 			// Check if the file is served correctly
-			verifyWebServerResponse(t, mux, path.Join(tt.path, "test.txt"), http.StatusOK, "test")
+			for i, u := range tt.url {
+				verifyWebServerResponse(t, mux, u, http.StatusOK, tt.expectedBody[i])
+			}
 		})
 	}
 }
