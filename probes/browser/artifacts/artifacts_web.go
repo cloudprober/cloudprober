@@ -37,6 +37,9 @@ type dateDir struct {
 }
 
 func rootLinkPrefix(currentPath string) string {
+	if currentPath == "" || currentPath == "/" {
+		return ""
+	}
 	numSegments := len(strings.Split(strings.Trim(currentPath, "/"), "/"))
 	linkPrefix := ""
 	for range numSegments {
@@ -75,39 +78,38 @@ func tsDirTmpl(currentPath string) *template.Template {
 </ul></div></body></html>`, linkPrefix, resources.Header(linkPrefix))))
 }
 
+// substitutionForTreePath computes URL path substitutions for tree view.
+// e.g. /artifacts/probe1/tree/test.txt -> /probe1/tree/test.txt for global
+// e.g. /artifacts/probe1/tree/test.txt -> /tree/test.txt for probe level
+func substitutionForTreePath(urlPath, basePath string, global bool) (string, string, error) {
+	relURLPath := strings.TrimPrefix(urlPath, basePath)
+
+	urlParts := strings.Split(strings.TrimPrefix(relURLPath, "/"), "/")
+	if global {
+		// After removing basePath, path will look like probe1/tree/test.txt
+		if len(urlParts) < 2 || urlParts[1] != "tree" {
+			return "", "", fmt.Errorf("invalid path: %s", urlPath)
+		}
+		return path.Join(basePath, urlParts[0], "tree"), "/" + urlParts[0], nil
+	}
+
+	// For probe level, path will look like /tree/test.txt
+	if len(urlParts) < 1 || urlParts[0] != "tree" {
+		return "", "", fmt.Errorf("invalid path: %s", urlPath)
+	}
+	return path.Join(basePath, "tree"), "", nil
+}
+
+// stripTreePrefix is based on how Go's http.StripPrefix works. We're not using
+// http.StripPrefix because we've to handle cases when 'tree' is not the 1st
+// segment of the path -- based on the config, 1st segment can be the probe name.
 func stripTreePrefix(basePath string, global bool, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// strip upto basePath
-		// e.g. /artifacts/probe1/tree/test.txt -> /probe1/tree/test.txt for
-		// global where basePath is typically /artifacts
-		// e.g. /artifacts/probe1/tree/test.txt -> /tree/test.txt for probe
-		// level where basePath is /artifacts/probe1
-		relURLPath := strings.TrimPrefix(r.URL.Path, basePath)
-
-		urlParts := strings.Split(strings.TrimPrefix(relURLPath, "/"), "/")
-		from, to := "", ""
-		if global {
-			// For global, after removing basePath, path will look like
-			// probe1/tree/test.txt
-			if len(urlParts) < 2 || urlParts[1] != "tree" {
-				http.NotFound(w, r)
-				return
-			}
-			from, to = path.Join(basePath, urlParts[0], "tree"), "/"+urlParts[0]
-		} else {
-			// For probe level, after removing basePath, path will look like
-			// /tree/test.txt
-			if len(urlParts) < 1 || urlParts[0] != "tree" {
-				http.NotFound(w, r)
-				return
-			}
-			from, to = path.Join(basePath, "tree"), ""
+		from, to, err := substitutionForTreePath(r.URL.Path, basePath, global)
+		if err != nil {
+			http.NotFound(w, r)
+			return
 		}
-
-		// Following is based on Go's http.StripPrefix works. We're not using
-		// http.StripPrefix because we've to handle cases when 'tree' is not
-		// the 1st segment of the path -- based on the config, 1st segment can
-		// be the probe name.
 		p := strings.Replace(r.URL.Path, from, to, 1)
 		rp := strings.Replace(r.URL.RawPath, from, to, 1)
 		if len(p) < len(r.URL.Path) && (r.URL.RawPath == "" || len(rp) < len(r.URL.RawPath)) {
