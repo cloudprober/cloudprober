@@ -78,9 +78,10 @@ func tsDirTmpl(currentPath string) *template.Template {
 </ul></div></body></html>`, linkPrefix, resources.Header(linkPrefix))))
 }
 
-// substitutionForTreePath computes URL path substitutions for tree view.
-// e.g. /artifacts/probe1/tree/test.txt -> /probe1/tree/test.txt for global
-// e.g. /artifacts/probe1/tree/test.txt -> /tree/test.txt for probe level
+// substitutionForTreePath computes URL substitutions (from, to) for tree view.
+// e.g. for urlPath "/artifacts/probe1/tree/test.txt",
+// for global,      from:"/artifacts/probe1/tree", to: "/probe1"
+// for probe-level, from:"/artifacts/probe1/tree", to: "/"
 func substitutionForTreePath(urlPath, basePath string, global bool) (string, string, error) {
 	relURLPath := strings.TrimPrefix(urlPath, basePath)
 
@@ -88,16 +89,16 @@ func substitutionForTreePath(urlPath, basePath string, global bool) (string, str
 	if global {
 		// After removing basePath, path will look like probe1/tree/test.txt
 		if len(urlParts) < 2 || urlParts[1] != "tree" {
-			return "", "", fmt.Errorf("invalid path: %s", urlPath)
+			return "", "", fmt.Errorf("invalid path: %s, expected format: /{basePath}/{probeName}/tree/{filepath}", urlPath)
 		}
 		return path.Join(basePath, urlParts[0], "tree"), "/" + urlParts[0], nil
 	}
 
 	// For probe level, path will look like /tree/test.txt
 	if len(urlParts) < 1 || urlParts[0] != "tree" {
-		return "", "", fmt.Errorf("invalid path: %s", urlPath)
+		return "", "", fmt.Errorf("invalid path: %s, expected format: /{basePath}/tree/{filepath}", urlPath)
 	}
-	return path.Join(basePath, "tree"), "", nil
+	return path.Join(basePath, "tree"), "/", nil
 }
 
 // stripTreePrefix is based on how Go's http.StripPrefix works. We're not using

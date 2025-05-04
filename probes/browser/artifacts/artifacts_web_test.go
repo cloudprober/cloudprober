@@ -65,7 +65,7 @@ func TestSubstitutionForTreePath(t *testing.T) {
 			basePath: "/artifacts/probe1",
 			global:   false,
 			expFrom:  "/artifacts/probe1/tree",
-			expTo:    "",
+			expTo:    "/",
 			expErr:   false,
 		},
 		{
