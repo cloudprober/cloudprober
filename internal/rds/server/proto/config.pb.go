@@ -171,6 +171,13 @@ func (x *Provider) GetAwsConfig() *proto3.ProviderConfig {
 	return nil
 }
 
+func (x *Provider) GetAwsConfig() *proto3.ProviderConfig {
+	if x, ok := x.GetConfig().(*Provider_AwsConfig); ok {
+		return x.AwsConfig
+	}
+	return nil
+}
+
 type isProvider_Config interface {
 	isProvider_Config()
 }
