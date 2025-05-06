@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	versionFlag      = flag.Bool("version", false, "Print version and exit")
+	versionFlag      = flag.Bool(" version", false, "Print version and exit")
 	buildInfoFlag    = flag.Bool("buildinfo", false, "Print build info and exit")
 	stopTime         = flag.Duration("stop_time", 0, "How long to wait for cleanup before process exits on SIGINT and SIGTERM")
 	cpuprofile       = flag.String("cpuprof", "", "Write cpu profile to file")
