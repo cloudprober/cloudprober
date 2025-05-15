@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package artifacts
+package web
 
 import (
 	"os"
@@ -41,19 +41,22 @@ func getTimestampDirectories(root string, startTime, endTime time.Time, max int)
 			continue
 		}
 
-		// Get date directory info for time checking
-		dateInfo, err := dateDir.Info()
-		if err != nil {
-			return nil, err
-		}
-
-		dateModTime := dateInfo.ModTime()
-
-		// Skip date directory if it's entirely outside the time range
-		if !startTime.IsZero() && dateModTime.Before(startTime) {
+		// Parse date directory name to get date
+		dateStr := dateDir.Name()
+		if !dateDirFormat.MatchString(dateStr) {
 			continue
 		}
-		if !endTime.IsZero() && dateModTime.After(endTime) {
+
+		dateDirTime, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			continue
+		}
+
+		// Skip date directory if it's entirely outside the time range
+		if !startTime.IsZero() && dateDirTime.Before(startTime.Truncate(24*time.Hour)) {
+			continue
+		}
+		if !endTime.IsZero() && dateDirTime.After(endTime.Truncate(24*time.Hour)) {
 			continue
 		}
 

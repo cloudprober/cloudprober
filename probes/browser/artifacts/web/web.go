@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package artifacts
+package web
 
 import (
 	"fmt"
@@ -21,12 +21,11 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/cloudprober/cloudprober/state"
-	"github.com/cloudprober/cloudprober/web/resources"
 )
 
 var dateDirFormat = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
@@ -46,36 +45,6 @@ func rootLinkPrefix(currentPath string) string {
 		linkPrefix += "../"
 	}
 	return linkPrefix
-}
-
-func tsDirTmpl(currentPath string) *template.Template {
-	linkPrefix := rootLinkPrefix(currentPath)
-	return template.Must(template.New("tsDirTmpl").Parse(fmt.Sprintf(`
-<html>
-<head>
-  <link href="%sstatic/cloudprober.css" rel="stylesheet">
-  <style>
-    ul {
-	  padding-left: 20px;
-	  line-height: 1.6;
-	}
-  </style>
-</head>
-<body>
-%s
-<div style="display: block; clear: both; padding-top: 10px">
-<hr>
-<ul>
-{{ range . }}
- {{ $dateDir := .DateDir }}
- <li><a href="tree/{{ $dateDir }}">{{ $dateDir }}</a></li>
-<ul>
-{{ range .Timestamp }}
-<li><a href="tree/{{ $dateDir }}/{{.}}">{{.}}</a></li>
-{{ end }}
-</ul>
-{{ end }}
-</ul></div></body></html>`, linkPrefix, resources.Header(linkPrefix))))
 }
 
 // substitutionForTreePath computes URL substitutions (from, to) for tree view.
@@ -128,7 +97,28 @@ func stripTreePrefix(basePath string, global bool, h http.Handler) http.Handler 
 }
 
 func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
-	tsDirs, err := getTimestampDirectories(rootDir, time.Time{}, time.Time{}, 0)
+	startTime, endTime := time.Time{}, time.Time{}
+	if r.URL.Query().Has("startTime") {
+		startTimeInt, err := strconv.ParseInt(r.URL.Query().Get("startTime"), 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid startTime: " + r.URL.Query().Get("startTime")))
+			return
+		}
+		startTime = time.UnixMilli(startTimeInt)
+		fmt.Println("startTime: " + startTime.String())
+	}
+	if r.URL.Query().Has("endTime") {
+		endTimeInt, err := strconv.ParseInt(r.URL.Query().Get("endTime"), 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid endTime: " + r.URL.Query().Get("endTime")))
+			return
+		}
+		endTime = time.UnixMilli(endTimeInt)
+		fmt.Println("endTime: " + endTime.String())
+	}
+	tsDirs, err := getTimestampDirectories(rootDir, startTime, endTime, 0)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
@@ -155,7 +145,7 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 	return
 }
 
-func serveArtifacts(path, root string, global bool) error {
+func ServeArtifacts(path, root string, global bool) error {
 	path = strings.TrimRight(path, "/")
 
 	if path == "" {
