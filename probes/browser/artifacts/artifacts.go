@@ -24,7 +24,6 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
-	"github.com/cloudprober/cloudprober/probes/browser/artifacts/web"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"google.golang.org/protobuf/proto"
 )
@@ -97,7 +96,7 @@ func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logge
 			l.Errorf("error getting web server root: %v", err)
 			return
 		}
-		err = web.ServeArtifacts(pathPrefix(opts, ""), webRoot, true)
+		err = serveArtifacts(pathPrefix(opts, ""), webRoot, true)
 	})
 
 	return err
@@ -179,7 +178,7 @@ func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, 
 		if err != nil {
 			return nil, fmt.Errorf("error getting web server root: %v", err)
 		}
-		if err := web.ServeArtifacts(pathPrefix(opts, pOpts.Name), webRoot, false); err != nil {
+		if err := serveArtifacts(pathPrefix(opts, pOpts.Name), webRoot, false); err != nil {
 			return nil, err
 		}
 	}
