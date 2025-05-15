@@ -17,17 +17,14 @@ package artifacts
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
 	"github.com/cloudprober/cloudprober/probes/options"
-	"github.com/cloudprober/cloudprober/state"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -79,20 +76,6 @@ func webServerRoot(opts *configpb.ArtifactsOptions, probeWorkDir string) (string
 	return "", fmt.Errorf("no local storage directories configured, cannot determine web server root")
 }
 
-func serveArtifacts(path, root string) error {
-	path = strings.TrimRight(path, "/")
-
-	if path == "" {
-		return fmt.Errorf("artifacts web server path cannot be empty")
-	}
-
-	if err := state.AddWebHandler(path+"/", http.StripPrefix(path, http.FileServer(http.Dir(root))).ServeHTTP); err != nil {
-		return fmt.Errorf("error adding web handler for artifacts web server: %v", err)
-	}
-
-	return nil
-}
-
 func globalToLocalOptions(in *configpb.ArtifactsOptions, pOpts *options.Options) *configpb.ArtifactsOptions {
 	out := proto.Clone(in).(*configpb.ArtifactsOptions)
 	for _, storage := range out.GetStorage() {
@@ -118,7 +101,7 @@ func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logge
 			l.Errorf("error getting web server root: %v", err)
 			return
 		}
-		err = serveArtifacts(pathPrefix(opts, ""), webRoot)
+		err = serveArtifacts(pathPrefix(opts, ""), webRoot, true)
 	})
 
 	return err
@@ -195,7 +178,7 @@ func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, 
 		if err != nil {
 			return nil, fmt.Errorf("error getting web server root: %v", err)
 		}
-		if err := serveArtifacts(pathPrefix(opts, pOpts.Name), webRoot); err != nil {
+		if err := serveArtifacts(pathPrefix(opts, pOpts.Name), webRoot, false); err != nil {
 			return nil, err
 		}
 	}
