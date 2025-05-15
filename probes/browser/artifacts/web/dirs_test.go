@@ -17,6 +17,7 @@ package web
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -46,6 +47,10 @@ func createTestDirStructure(t *testing.T, root string, structure map[string][]in
 }
 
 func TestGetTimestampDirectories(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows as changing modtime doesn't work reliably")
+	}
+
 	root := t.TempDir()
 
 	// Structure: map[date][]timestamps
