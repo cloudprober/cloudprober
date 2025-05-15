@@ -50,7 +50,13 @@ func IsHandled(url string) bool {
 	return matchedPattern == url
 }
 
-func AddWebHandler(path string, f func(w http.ResponseWriter, r *http.Request)) error {
+func AddWebHandler(path string, f func(w http.ResponseWriter, r *http.Request)) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+
 	st.Lock()
 	defer st.Unlock()
 
