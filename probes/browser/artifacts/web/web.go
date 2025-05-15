@@ -106,7 +106,6 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 			return
 		}
 		startTime = time.UnixMilli(startTimeInt)
-		fmt.Println("startTime: " + startTime.String())
 	}
 	if r.URL.Query().Has("endTime") {
 		endTimeInt, err := strconv.ParseInt(r.URL.Query().Get("endTime"), 10, 64)
@@ -116,7 +115,6 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 			return
 		}
 		endTime = time.UnixMilli(endTimeInt)
-		fmt.Println("endTime: " + endTime.String())
 	}
 	tsDirs, err := getTimestampDirectories(rootDir, startTime, endTime, 0)
 	if err != nil {
