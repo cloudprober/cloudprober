@@ -15,19 +15,42 @@
 package web
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"time"
 )
+
+var dateDirFormat = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 type DirEntry struct {
 	Path    string
 	ModTime time.Time
 }
 
-func getTimestampDirectories(root string, startTime, endTime time.Time, max int) ([]DirEntry, error) {
+func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEntry, error) {
+	startTime, endTime := time.Time{}, time.Time{}
+
+	if reqQuery.Has("startTime") {
+		startTimeInt, err := strconv.ParseInt(reqQuery.Get("startTime"), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid startTime: %s", reqQuery.Get("startTime"))
+		}
+		startTime = time.UnixMilli(startTimeInt)
+	}
+
+	if reqQuery.Has("endTime") {
+		endTimeInt, err := strconv.ParseInt(reqQuery.Get("endTime"), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid endTime: %s", reqQuery.Get("endTime"))
+		}
+		endTime = time.UnixMilli(endTimeInt)
+	}
+
 	var timestampDirs []DirEntry
 
 	// Get first level directories (dates)

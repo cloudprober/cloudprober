@@ -20,15 +20,10 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/cloudprober/cloudprober/state"
 )
-
-var dateDirFormat = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 type dateDir struct {
 	DateDir   string
@@ -97,26 +92,7 @@ func stripTreePrefix(basePath string, global bool, h http.Handler) http.Handler 
 }
 
 func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
-	startTime, endTime := time.Time{}, time.Time{}
-	if r.URL.Query().Has("startTime") {
-		startTimeInt, err := strconv.ParseInt(r.URL.Query().Get("startTime"), 10, 64)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Invalid startTime: " + r.URL.Query().Get("startTime")))
-			return
-		}
-		startTime = time.UnixMilli(startTimeInt)
-	}
-	if r.URL.Query().Has("endTime") {
-		endTimeInt, err := strconv.ParseInt(r.URL.Query().Get("endTime"), 10, 64)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Invalid endTime: " + r.URL.Query().Get("endTime")))
-			return
-		}
-		endTime = time.UnixMilli(endTimeInt)
-	}
-	tsDirs, err := getTimestampDirectories(rootDir, startTime, endTime, 0)
+	tsDirs, err := getTimestampDirectories(rootDir, r.URL.Query(), 0)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))

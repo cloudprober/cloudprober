@@ -15,6 +15,7 @@
 package web
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -149,7 +150,14 @@ func TestGetTimestampDirectories(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dirs, err := getTimestampDirectories(root, tc.startTime, tc.endTime, tc.max)
+			query := url.Values{}
+			if !tc.startTime.IsZero() {
+				query.Set("startTime", strconv.FormatInt(tc.startTime.UnixMilli(), 10))
+			}
+			if !tc.endTime.IsZero() {
+				query.Set("endTime", strconv.FormatInt(tc.endTime.UnixMilli(), 10))
+			}
+			dirs, err := getTimestampDirectories(root, query, tc.max)
 			assert.NoError(t, err)
 			var got []string
 			for _, d := range dirs {
