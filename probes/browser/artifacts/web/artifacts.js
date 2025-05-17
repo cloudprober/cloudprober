@@ -125,9 +125,5 @@ function failureOnlyChange() {
 startDatetimeInput.addEventListener('change', onChange);
 endDatetimeInput.addEventListener('change', onChange);
 
-const failureOnlyInput = document.getElementById('failure-only');
-failureOnlyInput.checked = urlParams.get('failureOnly') === 'true';
-failureOnlyInput.addEventListener('change', failureOnlyChange);
-
 // Initial validation
 validate();
