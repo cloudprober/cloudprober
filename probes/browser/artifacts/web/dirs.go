@@ -12,22 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package artifacts
+package web
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"time"
 )
+
+var dateDirFormat = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 type DirEntry struct {
 	Path    string
 	ModTime time.Time
 }
 
-func getTimestampDirectories(root string, startTime, endTime time.Time, max int) ([]DirEntry, error) {
+func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEntry, error) {
+	startTime, endTime := time.Now().Add(-24*time.Hour), time.Now()
+
+	if reqQuery.Has("startTime") {
+		startTimeInt, err := strconv.ParseInt(reqQuery.Get("startTime"), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid startTime: %s", reqQuery.Get("startTime"))
+		}
+		startTime = time.UnixMilli(startTimeInt)
+	}
+
+	if reqQuery.Has("endTime") {
+		endTimeInt, err := strconv.ParseInt(reqQuery.Get("endTime"), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid endTime: %s", reqQuery.Get("endTime"))
+		}
+		endTime = time.UnixMilli(endTimeInt)
+	}
+
 	var timestampDirs []DirEntry
 
 	// Get first level directories (dates)
@@ -41,19 +64,28 @@ func getTimestampDirectories(root string, startTime, endTime time.Time, max int)
 			continue
 		}
 
-		// Get date directory info for time checking
-		dateInfo, err := dateDir.Info()
-		if err != nil {
-			return nil, err
-		}
-
-		dateModTime := dateInfo.ModTime()
-
-		// Skip date directory if it's entirely outside the time range
-		if !startTime.IsZero() && dateModTime.Before(startTime) {
+		// Parse date directory name to get date
+		dateStr := dateDir.Name()
+		if !dateDirFormat.MatchString(dateStr) {
 			continue
 		}
-		if !endTime.IsZero() && dateModTime.After(endTime) {
+
+		// Parse date directory name to get date in local timezone as we always
+		// use local timezone for date directory names.
+		dateDirTime, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
+		if err != nil {
+			continue
+		}
+
+		// Sort of a roundabout way to get date from time in current location.
+		startTimeDate, _ := time.ParseInLocation("2006-01-02", startTime.Format("2006-01-02"), time.Local)
+		endTimeDate, _ := time.ParseInLocation("2006-01-02", endTime.Format("2006-01-02"), time.Local)
+
+		// Skip date directory if it's entirely outside the time range
+		if !startTime.IsZero() && dateDirTime.Before(startTimeDate) {
+			continue
+		}
+		if !endTime.IsZero() && dateDirTime.After(endTimeDate) {
 			continue
 		}
 
