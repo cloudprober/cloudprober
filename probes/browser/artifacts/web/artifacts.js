@@ -74,20 +74,16 @@ function validate() {
 }
 
 function updateUrlParams() {
-    const startValue = startDatetimeInput.value;
-    const endValue = endDatetimeInput.value;
-    const start = new Date(startValue);
-    const end = new Date(endValue);
+    const start = new Date(startDatetimeInput.value);
+    const end = new Date(endDatetimeInput.value);
 
     const params = new URLSearchParams(window.location.search);
     let changed = false;
     if (params.get('endTime') != end.getTime().toString()) {
-        console.log("Setting endTime to " + end.getTime().toString());
         params.set('endTime', end.getTime().toString());
         changed = true;
     }
     if (params.get('startTime') != start.getTime().toString()) {
-        console.log("Setting startTime to " + start.getTime().toString());
         params.set('startTime', start.getTime().toString());
         changed = true;
     }
@@ -97,8 +93,9 @@ function updateUrlParams() {
 }
 
 function onChange() {
-    validate();
-    updateUrlParams();
+    if (validate()) {
+        updateUrlParams();
+    }
 }
 
 startDatetimeInput.addEventListener('change', onChange);
