@@ -303,8 +303,7 @@ func targetEnvVars(target endpoint.Endpoint) []string {
 }
 
 func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
-	nowUTC := ts.UTC()
-	outputDirPath := []string{p.outputDir, nowUTC.Format("2006-01-02"), strconv.FormatInt(nowUTC.UnixMilli(), 10)}
+	outputDirPath := []string{p.outputDir, ts.Format("2006-01-02"), strconv.FormatInt(ts.UnixMilli(), 10)}
 	if target.Name != "" {
 		outputDirPath = append(outputDirPath, target.Name)
 	}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package artifacts
+package web
 
 import (
 	"fmt"
@@ -20,16 +20,10 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"text/template"
-	"time"
 
 	"github.com/cloudprober/cloudprober/state"
-	"github.com/cloudprober/cloudprober/web/resources"
 )
-
-var dateDirFormat = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 type dateDir struct {
 	DateDir   string
@@ -46,36 +40,6 @@ func rootLinkPrefix(currentPath string) string {
 		linkPrefix += "../"
 	}
 	return linkPrefix
-}
-
-func tsDirTmpl(currentPath string) *template.Template {
-	linkPrefix := rootLinkPrefix(currentPath)
-	return template.Must(template.New("tsDirTmpl").Parse(fmt.Sprintf(`
-<html>
-<head>
-  <link href="%sstatic/cloudprober.css" rel="stylesheet">
-  <style>
-    ul {
-	  padding-left: 20px;
-	  line-height: 1.6;
-	}
-  </style>
-</head>
-<body>
-%s
-<div style="display: block; clear: both; padding-top: 10px">
-<hr>
-<ul>
-{{ range . }}
- {{ $dateDir := .DateDir }}
- <li><a href="tree/{{ $dateDir }}">{{ $dateDir }}</a></li>
-<ul>
-{{ range .Timestamp }}
-<li><a href="tree/{{ $dateDir }}/{{.}}">{{.}}</a></li>
-{{ end }}
-</ul>
-{{ end }}
-</ul></div></body></html>`, linkPrefix, resources.Header(linkPrefix))))
 }
 
 // substitutionForTreePath computes URL substitutions (from, to) for tree view.
@@ -128,7 +92,7 @@ func stripTreePrefix(basePath string, global bool, h http.Handler) http.Handler 
 }
 
 func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
-	tsDirs, err := getTimestampDirectories(rootDir, time.Time{}, time.Time{}, 0)
+	tsDirs, err := getTimestampDirectories(rootDir, r.URL.Query(), 0)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
@@ -155,7 +119,7 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 	return
 }
 
-func serveArtifacts(path, root string, global bool) error {
+func ServeArtifacts(path, root string, global bool) error {
 	path = strings.TrimRight(path, "/")
 
 	if path == "" {
