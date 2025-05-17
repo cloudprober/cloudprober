@@ -54,52 +54,61 @@ func TestGetTimestampDirectories(t *testing.T) {
 
 	root := t.TempDir()
 
+	now := time.Now()
+	currDateDir := now.Format("2006-01-02")
+
 	// Structure: map[date][]timestamps
 	structure := map[string][]int64{
 		"2025-05-14": {1111, 2222},
 		"2025-05-15": {3333},
-		"invalid":    {4444}, // Should be ignored
+		currDateDir:  {4444},
+		"invalid":    {5555}, // Should be ignored
 	}
 	modTimes := map[string]time.Time{
-		"2025-05-14/1111": time.Date(2025, 5, 14, 10, 0, 0, 0, time.UTC),
-		"2025-05-14/2222": time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC),
-		"2025-05-15/3333": time.Date(2025, 5, 15, 9, 0, 0, 0, time.UTC),
-		"invalid/4444":    time.Date(2025, 5, 13, 8, 0, 0, 0, time.UTC),
+		"2025-05-14/1111":     time.Date(2025, 5, 14, 10, 0, 0, 0, time.UTC),
+		"2025-05-14/2222":     time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC),
+		"2025-05-15/3333":     time.Date(2025, 5, 15, 9, 0, 0, 0, time.UTC),
+		currDateDir + "/4444": now,
+		"invalid/5555":        time.Date(2025, 5, 13, 8, 0, 0, 0, time.UTC),
 	}
 	createTestDirStructure(t, root, structure, modTimes)
 
 	tests := []struct {
 		name      string
-		startTime time.Time
-		endTime   time.Time
+		startTime string
+		endTime   string
 		max       int
 		expect    []string // Expected paths, sorted by modtime desc
 	}{
 		{
-			name:      "all entries, no bounds",
-			startTime: time.Time{},
-			endTime:   time.Time{},
-			max:       0,
+			name:      "all entries",
+			startTime: "0",
 			expect: []string{
+				filepath.Join(root, currDateDir, "4444"),
 				filepath.Join(root, "2025-05-15", "3333"),
 				filepath.Join(root, "2025-05-14", "2222"),
 				filepath.Join(root, "2025-05-14", "1111"),
 			},
 		},
 		{
-			name:      "start bound",
-			startTime: time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC),
-			endTime:   time.Time{},
-			max:       0,
+			name: "default bounds",
 			expect: []string{
+				filepath.Join(root, currDateDir, "4444"),
+			},
+		},
+		{
+			name:      "start bound",
+			startTime: strconv.FormatInt(time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC).UnixMilli(), 10),
+			expect: []string{
+				filepath.Join(root, currDateDir, "4444"),
 				filepath.Join(root, "2025-05-15", "3333"),
 				filepath.Join(root, "2025-05-14", "2222"),
 			},
 		},
 		{
 			name:      "end bound",
-			startTime: time.Time{},
-			endTime:   time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC),
+			startTime: "0",
+			endTime:   strconv.FormatInt(time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC).UnixMilli(), 10),
 			max:       0,
 			expect: []string{
 				filepath.Join(root, "2025-05-14", "2222"),
@@ -108,8 +117,8 @@ func TestGetTimestampDirectories(t *testing.T) {
 		},
 		{
 			name:      "start and end bounds",
-			startTime: time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC),
-			endTime:   time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC),
+			startTime: strconv.FormatInt(time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC).UnixMilli(), 10),
+			endTime:   strconv.FormatInt(time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC).UnixMilli(), 10),
 			max:       0,
 			expect: []string{
 				filepath.Join(root, "2025-05-14", "2222"),
@@ -117,33 +126,30 @@ func TestGetTimestampDirectories(t *testing.T) {
 		},
 		{
 			name:      "start and end bounds - no match",
-			startTime: time.Date(2025, 5, 14, 11, 20, 0, 0, time.UTC),
-			endTime:   time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC),
+			startTime: strconv.FormatInt(time.Date(2025, 5, 14, 11, 20, 0, 0, time.UTC).UnixMilli(), 10),
+			endTime:   strconv.FormatInt(time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC).UnixMilli(), 10),
 			max:       0,
 			expect:    nil,
 		},
 		{
 			name:      "start and end bounds - no match - startTime after endTime",
-			startTime: time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC),
-			endTime:   time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC),
+			startTime: strconv.FormatInt(time.Date(2025, 5, 14, 12, 0, 0, 0, time.UTC).UnixMilli(), 10),
+			endTime:   strconv.FormatInt(time.Date(2025, 5, 14, 11, 0, 0, 0, time.UTC).UnixMilli(), 10),
 			max:       0,
 			expect:    nil,
 		},
 		{
 			name:      "max limit",
-			startTime: time.Time{},
-			endTime:   time.Time{},
+			startTime: "0",
 			max:       2,
 			expect: []string{
+				filepath.Join(root, currDateDir, "4444"),
 				filepath.Join(root, "2025-05-15", "3333"),
-				filepath.Join(root, "2025-05-14", "2222"),
 			},
 		},
 		{
 			name:      "no matches",
-			startTime: time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC),
-			endTime:   time.Time{},
-			max:       0,
+			startTime: strconv.FormatInt(time.Now().Add(time.Hour).UnixMilli(), 10),
 			expect:    nil,
 		},
 	}
@@ -151,11 +157,11 @@ func TestGetTimestampDirectories(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			query := url.Values{}
-			if !tc.startTime.IsZero() {
-				query.Set("startTime", strconv.FormatInt(tc.startTime.UnixMilli(), 10))
+			if tc.startTime != "" {
+				query.Set("startTime", tc.startTime)
 			}
-			if !tc.endTime.IsZero() {
-				query.Set("endTime", strconv.FormatInt(tc.endTime.UnixMilli(), 10))
+			if tc.endTime != "" {
+				query.Set("endTime", tc.endTime)
 			}
 			dirs, err := getTimestampDirectories(root, query, tc.max)
 			assert.NoError(t, err)

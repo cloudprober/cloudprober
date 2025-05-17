@@ -33,7 +33,7 @@ type DirEntry struct {
 }
 
 func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEntry, error) {
-	startTime, endTime := time.Time{}, time.Time{}
+	startTime, endTime := time.Now().Add(-24*time.Hour), time.Now()
 
 	if reqQuery.Has("startTime") {
 		startTimeInt, err := strconv.ParseInt(reqQuery.Get("startTime"), 10, 64)
@@ -70,16 +70,22 @@ func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEn
 			continue
 		}
 
-		dateDirTime, err := time.Parse("2006-01-02", dateStr)
+		// Parse date directory name to get date in local timezone as we always
+		// use local timezone for date directory names.
+		dateDirTime, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
 		if err != nil {
 			continue
 		}
 
+		// Sort of a roundabout way to get date from time in current location.
+		startTimeDate, _ := time.ParseInLocation("2006-01-02", startTime.Format("2006-01-02"), time.Local)
+		endTimeDate, _ := time.ParseInLocation("2006-01-02", endTime.Format("2006-01-02"), time.Local)
+
 		// Skip date directory if it's entirely outside the time range
-		if !startTime.IsZero() && dateDirTime.Before(startTime.Truncate(24*time.Hour)) {
+		if !startTime.IsZero() && dateDirTime.Before(startTimeDate) {
 			continue
 		}
-		if !endTime.IsZero() && dateDirTime.After(endTime.Truncate(24*time.Hour)) {
+		if !endTime.IsZero() && dateDirTime.After(endTimeDate) {
 			continue
 		}
 
