@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package artifacts
+package web
 
 import (
 	"net/http"
@@ -238,7 +238,7 @@ func TestServeArtifacts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := serveArtifacts(tt.path, tt.root, false)
+			err := ServeArtifacts(tt.path, tt.root, false)
 			if tt.expectError {
 				assert.Error(t, err)
 				t.Log(err)
@@ -246,7 +246,7 @@ func TestServeArtifacts(t *testing.T) {
 			}
 
 			if tt.globalPath != "" {
-				err = serveArtifacts(tt.globalPath, tt.globalRoot, true)
+				err = ServeArtifacts(tt.globalPath, tt.globalRoot, true)
 			}
 			if tt.expectError {
 				assert.Error(t, err)
