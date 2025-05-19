@@ -23,6 +23,7 @@ package prober
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -31,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/singlerun"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
@@ -213,6 +215,42 @@ func (pr *Prober) startProbesWithJitter() {
 		}(interval, probeInfos, iter)
 		iter++
 	}
+}
+
+func (pr *Prober) Run(ctx context.Context) (map[string][]*singlerun.ProbeRunResult, error) {
+	pr.mu.RLock()
+	defer pr.mu.RUnlock()
+
+	out := make(map[string][]*singlerun.ProbeRunResult)
+	var errs error
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+	for name := range pr.Probes {
+		p, ok := pr.Probes[name].Probe.(probes.ProbeWithRun)
+		if !ok {
+			pr.l.Warningf("probe %s doesn't support single run", name)
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			prrs := p.Run(ctx)
+
+			outMu.Lock()
+			defer outMu.Unlock()
+
+			for _, prr := range prrs {
+				if prr.Error != nil {
+					pr.l.Errorf("probe (%s) failure for target %s: %v", name, prr.Target.Dst(), prr.Error)
+					errs = errors.Join(errs, prr.Error)
+				}
+			}
+			out[name] = append(out[name], prrs...)
+		}()
+	}
+	wg.Wait()
+	return out, errs
 }
 
 // Start starts a previously initialized Cloudprober.

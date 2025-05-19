@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cloudprober/cloudprober/common/singlerun"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/browser"
 	"github.com/cloudprober/cloudprober/probes/dns"
@@ -58,6 +59,14 @@ var (
 type Probe interface {
 	Init(name string, opts *options.Options) error
 	Start(ctx context.Context, dataChan chan *metrics.EventMetrics)
+}
+
+// ProbeWithRun interface represents a probe that reports single run.
+//
+// Run() method runs the probe one time.
+type ProbeWithRun interface {
+	Probe
+	Run(ctx context.Context) []*singlerun.ProbeRunResult
 }
 
 // ProbeInfo encapsulates the probe and associated information.

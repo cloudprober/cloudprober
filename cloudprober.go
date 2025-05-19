@@ -34,6 +34,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cloudprober/cloudprober/common/singlerun"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
@@ -245,6 +246,17 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	cloudProber.cancelInitCtx = cancelFunc
 
 	return nil
+}
+
+// RunOnce runs a single probe.
+func RunOnce(ctx context.Context, format, indent string) error {
+	cloudProber.RLock()
+	defer cloudProber.RUnlock()
+
+	prrs, err := cloudProber.prober.Run(ctx)
+
+	fmt.Println(singlerun.FormatProbeRunResults(prrs, singlerun.Format(format), indent))
+	return err
 }
 
 // Start starts a previously initialized Cloudprober.
