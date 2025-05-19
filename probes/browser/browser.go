@@ -362,30 +362,24 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	return cmd, reportDir
 }
 
-func (p *Probe) writeStatusFile(dir string, err error) {
-	if err == nil {
-		return
-	}
-	statusFilePath := filepath.Join(dir, web.FailureMarkerFile)
-	if err := os.WriteFile(statusFilePath, []byte("1"), 0644); err != nil {
-		p.l.Errorf("error writing status file: %v", err)
-	}
-}
-
 func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
 	startTime := time.Now()
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
 	_, err := cmd.Execute(ctx, p.l)
 
-	p.writeStatusFile(reportDir, err)
+	if err != nil {
+		p.l.Errorf("error running playwright test: %v", err)
+		if err := os.WriteFile(filepath.Join(reportDir, web.FailureMarkerFile), []byte("1"), 0644); err != nil {
+			p.l.Errorf("error writing failure marker in %s: %v", reportDir, err)
+		}
+	}
 
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.
 	p.artifactsHandler.Handle(p.startCtx, reportDir)
 
 	if err != nil {
-		p.l.Errorf("error running playwright test: %v", err)
 		return
 	}
 
