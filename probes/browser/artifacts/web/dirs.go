@@ -76,7 +76,7 @@ func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEn
 	}
 
 	failureOnly := false
-	if reqQuery.Has("failure_only") && reqQuery.Get("failure_only") != "false" {
+	if reqQuery.Has("failureOnly") && reqQuery.Get("failureOnly") != "false" {
 		failureOnly = true
 	}
 

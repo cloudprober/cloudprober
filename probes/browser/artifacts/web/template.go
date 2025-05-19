@@ -36,7 +36,7 @@ func tsDirTmpl(currentPath string) *template.Template {
 	  padding-left: 20px;
 	  line-height: 1.6;
 	}
-	.datetime-selector {
+	.selectors {
       background: #fff;
       padding: 2px;
       max-width: 600px;
@@ -49,20 +49,20 @@ func tsDirTmpl(currentPath string) *template.Template {
       flex: 1;
       min-width: 200px;
     }
-    .datetime-selector label {
+    .selectors label {
       font-size: 14px;
       color: #333;
       margin-bottom: 5px;
       display: block;
     }
-    .datetime-selector input[type="datetime-local"] {
+    .selectors input[type="datetime-local"] {
       padding: 4px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 14px;
       box-sizing: border-box;
     }
-    .datetime-selector input[type="datetime-local"]:focus {
+    .selectors input[type="datetime-local"]:focus {
       outline: none;
       border-color: #007bff;
       box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
@@ -85,7 +85,7 @@ func tsDirTmpl(currentPath string) *template.Template {
 %s
 <div style="display: block; clear: both; padding-top: 10px">
   <hr>
-  <div class="datetime-selector">
+  <div class="selectors">
     <div class="datetime-group">
       <div class="datetime-field">
         <label for="start-datetime">Start Date and Time</label>
@@ -95,6 +95,10 @@ func tsDirTmpl(currentPath string) *template.Template {
         <label for="end-datetime">End Date and Time</label>
         <input type="datetime-local" id="end-datetime" required>
         <span class="error" id="error-message">End date and time must be after start</span>
+      </div>
+      <div>
+        <label for="failure-only">Failure Only</label>
+        <input type="checkbox" id="failure-only">
       </div>
     </div>
   </div>
