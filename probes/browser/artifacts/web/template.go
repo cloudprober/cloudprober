@@ -76,6 +76,9 @@ func tsDirTmpl(currentPath string) *template.Template {
     .error.show {
       display: block;
     }
+    .failed {
+      font-size: 10px;
+    }
   </style>
 </head>
 <body>
@@ -100,8 +103,11 @@ func tsDirTmpl(currentPath string) *template.Template {
  {{ $dateDir := .DateDir }}
  <li><a href="tree/{{ $dateDir }}">{{ $dateDir }}</a></li>
 <ul>
-{{ range .Timestamp }}
-<li><a href="tree/{{ $dateDir }}/{{.}}">{{.}}</a></li>
+{{ range .TSDirs }}
+<li>
+  <a href="tree/{{ $dateDir }}/{{.Timestamp}}">{{.Timestamp}} ({{.TimeStr}})</a>
+  {{if .Failed}}<small class="failed">❌</small>{{end}}
+</li>
 {{ end }}
 </ul>
 {{ end }}

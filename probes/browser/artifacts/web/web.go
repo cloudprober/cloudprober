@@ -25,11 +25,6 @@ import (
 	"github.com/cloudprober/cloudprober/state"
 )
 
-type dateDir struct {
-	DateDir   string
-	Timestamp []string
-}
-
 func rootLinkPrefix(currentPath string) string {
 	if currentPath == "" || currentPath == "/" {
 		return ""
@@ -91,6 +86,17 @@ func stripTreePrefix(basePath string, global bool, h http.Handler) http.Handler 
 	})
 }
 
+type tsDir struct {
+	Timestamp string
+	TimeStr   string
+	Failed    bool
+}
+
+type dateDir struct {
+	DateDir string
+	TSDirs  []tsDir
+}
+
 func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 	tsDirs, err := getTimestampDirectories(rootDir, r.URL.Query(), 0)
 	if err != nil {
@@ -105,12 +111,16 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 		ddKey := filepath.Base(filepath.Dir(dir.Path))
 		if dirsMap[ddKey] == nil {
 			dirsMap[ddKey] = &dateDir{
-				DateDir:   ddKey,
-				Timestamp: []string{},
+				DateDir: ddKey,
+				TSDirs:  []tsDir{},
 			}
 			dirsList = append(dirsList, dirsMap[ddKey])
 		}
-		dirsMap[ddKey].Timestamp = append(dirsMap[ddKey].Timestamp, filepath.Base(dir.Path))
+		dirsMap[ddKey].TSDirs = append(dirsMap[ddKey].TSDirs, tsDir{
+			Timestamp: filepath.Base(dir.Path),
+			TimeStr:   dir.ModTime.Format("15:04:05 MST"),
+			Failed:    dir.Failed,
+		})
 	}
 	if err := tsDirTmpl(r.URL.Path).ExecuteTemplate(w, "tsDirTmpl", dirsList); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

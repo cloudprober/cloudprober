@@ -36,6 +36,7 @@ import (
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts/web"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
@@ -361,11 +362,23 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	return cmd, reportDir
 }
 
+func (p *Probe) writeStatusFile(dir string, err error) {
+	if err == nil {
+		return
+	}
+	statusFilePath := filepath.Join(dir, web.FailureMarkerFile)
+	if err := os.WriteFile(statusFilePath, []byte("1"), 0644); err != nil {
+		p.l.Errorf("error writing status file: %v", err)
+	}
+}
+
 func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
 	startTime := time.Now()
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
 	_, err := cmd.Execute(ctx, p.l)
+
+	p.writeStatusFile(reportDir, err)
 
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.

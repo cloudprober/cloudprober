@@ -27,9 +27,33 @@ import (
 
 var dateDirFormat = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
+const FailureMarkerFile = "cloudprober_probe_failed"
+
 type DirEntry struct {
 	Path    string
 	ModTime time.Time
+	Failed  bool
+}
+
+func probeFailed(path string) bool {
+	_, err := os.Stat(filepath.Join(path, FailureMarkerFile))
+	if err == nil {
+		return true
+	}
+	// Check in subdirectories
+	subDirs, err := os.ReadDir(path)
+	if err != nil {
+		return false
+	}
+	for _, subDir := range subDirs {
+		if subDir.IsDir() {
+			_, err = os.Stat(filepath.Join(path, subDir.Name(), FailureMarkerFile))
+			if err == nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEntry, error) {
@@ -49,6 +73,11 @@ func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEn
 			return nil, fmt.Errorf("invalid endTime: %s", reqQuery.Get("endTime"))
 		}
 		endTime = time.UnixMilli(endTimeInt)
+	}
+
+	failureOnly := false
+	if reqQuery.Has("failure_only") && reqQuery.Get("failure_only") != "false" {
+		failureOnly = true
 	}
 
 	var timestampDirs []DirEntry
@@ -107,6 +136,11 @@ func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEn
 				continue
 			}
 
+			failed := probeFailed(filepath.Join(datePath, tsDir.Name()))
+			if failureOnly && !failed {
+				continue
+			}
+
 			info, err := tsDir.Info()
 			if err != nil {
 				return nil, err
@@ -126,6 +160,7 @@ func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEn
 			timestampDirs = append(timestampDirs, DirEntry{
 				Path:    fullPath,
 				ModTime: modTime,
+				Failed:  failed,
 			})
 		}
 	}
