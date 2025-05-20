@@ -35,7 +35,7 @@ type DirEntry struct {
 	Failed  bool
 }
 
-func probeFailed(path string) bool {
+func containsFailureMarker(path string) bool {
 	_, err := os.Stat(filepath.Join(path, FailureMarkerFile))
 	if err == nil {
 		return true
@@ -136,7 +136,7 @@ func getTimestampDirectories(root string, reqQuery url.Values, max int) ([]DirEn
 				continue
 			}
 
-			failed := probeFailed(filepath.Join(datePath, tsDir.Name()))
+			failed := containsFailureMarker(filepath.Join(datePath, tsDir.Name()))
 			if failureOnly && !failed {
 				continue
 			}
