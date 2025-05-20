@@ -86,15 +86,36 @@ func stripTreePrefix(basePath string, global bool, h http.Handler) http.Handler 
 	})
 }
 
-type tsDir struct {
+type tmplTSDir struct {
 	Timestamp string
 	TimeStr   string
 	Failed    bool
 }
 
-type dateDir struct {
+type tmplDateData struct {
 	DateDir string
-	TSDirs  []tsDir
+	TSDirs  []tmplTSDir
+}
+
+func tmplData(tsDirs []DirEntry) []*tmplDateData {
+	dirsMap := make(map[string]*tmplDateData)
+	var dirsList []*tmplDateData
+	for _, dir := range tsDirs {
+		ddKey := filepath.Base(filepath.Dir(dir.Path))
+		if dirsMap[ddKey] == nil {
+			dirsMap[ddKey] = &tmplDateData{
+				DateDir: ddKey,
+				TSDirs:  []tmplTSDir{},
+			}
+			dirsList = append(dirsList, dirsMap[ddKey])
+		}
+		dirsMap[ddKey].TSDirs = append(dirsMap[ddKey].TSDirs, tmplTSDir{
+			Timestamp: filepath.Base(dir.Path),
+			TimeStr:   dir.ModTime.Format("15:04:05 MST"),
+			Failed:    dir.Failed,
+		})
+	}
+	return dirsList
 }
 
 func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
@@ -105,24 +126,7 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 		return
 	}
 
-	dirsMap := make(map[string]*dateDir)
-	var dirsList []*dateDir
-	for _, dir := range tsDirs {
-		ddKey := filepath.Base(filepath.Dir(dir.Path))
-		if dirsMap[ddKey] == nil {
-			dirsMap[ddKey] = &dateDir{
-				DateDir: ddKey,
-				TSDirs:  []tsDir{},
-			}
-			dirsList = append(dirsList, dirsMap[ddKey])
-		}
-		dirsMap[ddKey].TSDirs = append(dirsMap[ddKey].TSDirs, tsDir{
-			Timestamp: filepath.Base(dir.Path),
-			TimeStr:   dir.ModTime.Format("15:04:05 MST"),
-			Failed:    dir.Failed,
-		})
-	}
-	if err := tsDirTmpl(r.URL.Path).ExecuteTemplate(w, "tsDirTmpl", dirsList); err != nil {
+	if err := tsDirTmpl(r.URL.Path).ExecuteTemplate(w, "tsDirTmpl", tmplData(tsDirs)); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 	}
