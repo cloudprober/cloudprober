@@ -36,6 +36,7 @@ import (
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts/web"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
@@ -367,12 +368,18 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	cmd, reportDir := p.prepareCommand(target, startTime)
 	_, err := cmd.Execute(ctx, p.l)
 
+	if err != nil {
+		p.l.Errorf("error running playwright test: %v", err)
+		if err := os.WriteFile(filepath.Join(reportDir, web.FailureMarkerFile), []byte("1"), 0644); err != nil {
+			p.l.Errorf("error writing failure marker in %s: %v", reportDir, err)
+		}
+	}
+
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.
 	p.artifactsHandler.Handle(p.startCtx, reportDir)
 
 	if err != nil {
-		p.l.Errorf("error running playwright test: %v", err)
 		return
 	}
 

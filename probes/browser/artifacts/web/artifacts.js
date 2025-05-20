@@ -98,8 +98,22 @@ function onChange() {
     }
 }
 
+function failureOnlyChange() {
+    const params = new URLSearchParams(window.location.search);
+    if (failureOnlyInput.checked) {
+        params.set('failureOnly', 'true');
+    } else {
+        params.delete('failureOnly');
+    }
+    window.location.search = params.toString();
+}
+
 startDatetimeInput.addEventListener('change', onChange);
 endDatetimeInput.addEventListener('change', onChange);
+
+const failureOnlyInput = document.getElementById('failure-only');
+failureOnlyInput.checked = urlParams.get('failureOnly') === 'true';
+failureOnlyInput.addEventListener('change', failureOnlyChange);
 
 // Initial validation
 validate();
