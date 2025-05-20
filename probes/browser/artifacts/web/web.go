@@ -25,11 +25,6 @@ import (
 	"github.com/cloudprober/cloudprober/state"
 )
 
-type dateDir struct {
-	DateDir   string
-	Timestamp []string
-}
-
 func rootLinkPrefix(currentPath string) string {
 	if currentPath == "" || currentPath == "/" {
 		return ""
@@ -91,6 +86,38 @@ func stripTreePrefix(basePath string, global bool, h http.Handler) http.Handler 
 	})
 }
 
+type tmplTSDir struct {
+	Timestamp string
+	TimeStr   string
+	Failed    bool
+}
+
+type tmplDateData struct {
+	DateDir string
+	TSDirs  []tmplTSDir
+}
+
+func tmplData(tsDirs []DirEntry) []*tmplDateData {
+	dirsMap := make(map[string]*tmplDateData)
+	var dirsList []*tmplDateData
+	for _, dir := range tsDirs {
+		ddKey := filepath.Base(filepath.Dir(dir.Path))
+		if dirsMap[ddKey] == nil {
+			dirsMap[ddKey] = &tmplDateData{
+				DateDir: ddKey,
+				TSDirs:  []tmplTSDir{},
+			}
+			dirsList = append(dirsList, dirsMap[ddKey])
+		}
+		dirsMap[ddKey].TSDirs = append(dirsMap[ddKey].TSDirs, tmplTSDir{
+			Timestamp: filepath.Base(dir.Path),
+			TimeStr:   dir.ModTime.Format("15:04:05 MST"),
+			Failed:    dir.Failed,
+		})
+	}
+	return dirsList
+}
+
 func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 	tsDirs, err := getTimestampDirectories(rootDir, r.URL.Query(), 0)
 	if err != nil {
@@ -99,20 +126,7 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 		return
 	}
 
-	dirsMap := make(map[string]*dateDir)
-	var dirsList []*dateDir
-	for _, dir := range tsDirs {
-		ddKey := filepath.Base(filepath.Dir(dir.Path))
-		if dirsMap[ddKey] == nil {
-			dirsMap[ddKey] = &dateDir{
-				DateDir:   ddKey,
-				Timestamp: []string{},
-			}
-			dirsList = append(dirsList, dirsMap[ddKey])
-		}
-		dirsMap[ddKey].Timestamp = append(dirsMap[ddKey].Timestamp, filepath.Base(dir.Path))
-	}
-	if err := tsDirTmpl(r.URL.Path).ExecuteTemplate(w, "tsDirTmpl", dirsList); err != nil {
+	if err := tsDirTmpl(r.URL.Path).ExecuteTemplate(w, "tsDirTmpl", tmplData(tsDirs)); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 	}

@@ -173,3 +173,42 @@ func TestGetTimestampDirectories(t *testing.T) {
 		})
 	}
 }
+
+func TestContainsFailureMarker(t *testing.T) {
+	root := t.TempDir()
+
+	// Case 1: No failure marker
+	dir1 := filepath.Join(root, "dir1")
+	if err := os.Mkdir(dir1, 0o755); err != nil {
+		t.Fatalf("Failed to create dir1: %v", err)
+	}
+	assert.False(t, containsFailureMarker(dir1), "probeFailed should be false when no marker exists")
+
+	// Case 2: Failure marker in root
+	marker := filepath.Join(dir1, FailureMarkerFile)
+	if f, err := os.Create(marker); err != nil {
+		t.Fatalf("Failed to create failure marker: %v", err)
+	} else {
+		f.Close()
+	}
+	assert.True(t, containsFailureMarker(dir1), "probeFailed should be true when marker exists in root")
+
+	// Case 3: Failure marker in subdirectory
+	dir2 := filepath.Join(root, "dir2")
+	subdir := filepath.Join(dir2, "sub")
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
+		t.Fatalf("Failed to create subdir: %v", err)
+	}
+	assert.False(t, containsFailureMarker(dir2), "probeFailed should be false when no marker exists anywhere")
+	marker2 := filepath.Join(subdir, FailureMarkerFile)
+	if f, err := os.Create(marker2); err != nil {
+		t.Fatalf("Failed to create failure marker in subdir: %v", err)
+	} else {
+		f.Close()
+	}
+	assert.True(t, containsFailureMarker(dir2), "probeFailed should be true when marker exists in subdir")
+
+	// Case 4: Directory does not exist
+	nonexistent := filepath.Join(root, "doesnotexist")
+	assert.False(t, containsFailureMarker(nonexistent), "probeFailed should be false for nonexistent directory")
+}
