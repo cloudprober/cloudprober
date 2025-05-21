@@ -33,13 +33,13 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/oauth"
-	"github.com/cloudprober/cloudprober/common/singlerun"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -643,6 +643,7 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 			out = append(out, &singlerun.ProbeRunResult{
 				Target:  target,
 				Metrics: result.Metrics(time.Now(), 1, p.opts),
+				Success: result.success > 0,
 				Error:   err,
 			})
 			outMu.Unlock()

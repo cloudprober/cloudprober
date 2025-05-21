@@ -56,7 +56,7 @@ func textFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent
 	return strings.Join(out, "\n")
 }
 
-func jsonFormatProbeRunResults(probeResults map[string][]*ProbeRunResult) string {
+func jsonFormatProbeRunResults(_ map[string][]*ProbeRunResult) string {
 	return "json format not supported yet"
 }
 
