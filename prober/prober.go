@@ -32,13 +32,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/singlerun"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	spb "github.com/cloudprober/cloudprober/prober/proto"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -227,7 +227,7 @@ func (pr *Prober) Run(ctx context.Context) (map[string][]*singlerun.ProbeRunResu
 
 	var wg sync.WaitGroup
 	for name := range pr.Probes {
-		p, ok := pr.Probes[name].Probe.(probes.ProbeWithRun)
+		p, ok := pr.Probes[name].Probe.(probes.ProbeWithRunOnce)
 		if !ok {
 			pr.l.Warningf("probe %s doesn't support single run", name)
 			continue
@@ -235,7 +235,7 @@ func (pr *Prober) Run(ctx context.Context) (map[string][]*singlerun.ProbeRunResu
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			prrs := p.Run(ctx)
+			prrs := p.RunOnce(ctx)
 
 			outMu.Lock()
 			defer outMu.Unlock()
