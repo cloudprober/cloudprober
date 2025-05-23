@@ -12,20 +12,54 @@ message TestMetricsOptions {
     optional bool enable_step_metrics = 3;
 }
 
-message ProbeConf {
-    // Playwright test specs. These are passed to playwright as it is. This
-    // field works in conjunction with test_dir -- test specs should be under
-    // test directory.
+message TestSpecFilter {
+    // Tests to include. Default is to include all tests matched by test spec.
+    // This corresponds to the playwright --grep flag.
     //
-    // If test_spec is not specified, all test specs in the test directory are
-    // executed, and since default test directory is config file's directory,
-    // if you leave both the fields unspecified, all test specs co-located with
-    // the config file are executed.
+    // Example:
+    // include: "login|logout"  // include tests with login or logout in title
+    // include: "@smoke"        // include tests with @smoke tag
+    optional string include = 1;
+
+    // Tests to exclude.
+    // This corresponds to the playwright --grep-invert flag.
+    //
+    // Example:
+    // exclude: "@draft|@debug"  // exclude tests with @draft or @debug tag
+    optional string exclude = 2;
+}
+
+message ProbeConf {
+    // Playwright test specs to run.
+    //
+    // Each entry in test_spec is interpreted as follows:
+    //   - If it contains any of the regex characters (^, $, *), it is treated
+    //     as a regex pattern and passed directly to Playwright.
+    //   - Otherwise, it is treated as a filename (relative to test_dir or as
+    //     an absolute path if specified), and will be wrapped as a regex
+    //     matching the full path to that file.
+    //
+    // Examples:
+    //   test_spec: "test_login.ts" // runs tests in file {test_dir}/test_login.ts
+    //   test_spec: "sm*.ts"        // runs tests in files matching {test_dir}/sm*.ts
+    //
+    // If test_spec is not set, all test files in test_dir (default: config
+    // file directory) are executed.
     repeated string test_spec = 1;
 
     // Test directory. This is the directory where test specs are located.
     // Default test_dir is config file directory ("{{configDir}}").
     optional string test_dir = 2;
+
+    // Test spec filter. This field corresponds to the grep functionality of
+    // playwright.
+    //
+    // Example:
+    //   {
+    //     include: "web|ui"  // include tests with "web" or "ui" in title
+    //     exclude: "@draft"  // exclude tests with @draft tag
+    //   }
+    optional TestSpecFilter test_spec_filter = 3;
 
     // Workdir is path to the working directory. It should be writable. If not
     // specified, we try to create a temporary directory. All the output files
@@ -33,40 +67,40 @@ message ProbeConf {
     // If you need to be able access the output files, you should set this 
     // field to a persistent location, e.g. a persistent volume, or configure
     // artifact options.
-    optional string workdir = 3;
+    optional string workdir = 4;
 
     // Path to the playwright installation. We execute tests from this location.
     // If not specified, we'll use the value of environment variable
     // $PLAYWRIGHT_DIR, which is automatically set by the official cloudprober
     // playwright image (tag: "<version>-pw").
-    optional string playwright_dir = 4;
+    optional string playwright_dir = 5;
 
     // NPX path. Default is to assume npx is in the PATH.
-    optional string npx_path = 5 [default = "npx"];
+    optional string npx_path = 6 [default = "npx"];
 
     // Whether to enable screenshots for successful tests as well.
     // Note that screenshots are always enabled for failed tests, and you can
     // always save screenshots explicitly in the test spec.
-    optional bool save_screenshots_for_success = 6 [default = false];
+    optional bool save_screenshots_for_success = 7 [default = false];
 
     // Traces are expensive and can slow down the test. We recommend to enable
     // this only when needed.
-    optional bool save_traces = 7 [default = false];
+    optional bool save_traces = 8 [default = false];
 
     // By default, we export all test metrica as counters. You can change how
     // metrics are exported by setting the following options.
-    optional TestMetricsOptions test_metrics_options = 8;
+    optional TestMetricsOptions test_metrics_options = 9;
 
     // Artifacts options. If probe level artifacts options are not specified,
     // we use global artifacts options if available. Note: it typically makes
     // more sense to specify artifacts options at the global level.
-    optional artifacts.ArtifactsOptions artifacts_options = 9;
+    optional artifacts.ArtifactsOptions artifacts_options = 10;
 
     // Cleanup options.
-    optional artifacts.CleanupOptions workdir_cleanup_options = 10;
+    optional artifacts.CleanupOptions workdir_cleanup_options = 11;
 
     // Environment variables. These are passed/set before probing starts.
-    map<string, string> env_var = 11;
+    map<string, string> env_var = 12;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and
