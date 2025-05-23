@@ -139,7 +139,8 @@ func TestProbePrepareCommand(t *testing.T) {
 				tt.wantCmdLine[i] = strings.ReplaceAll(arg, "{WORKDIR}", p.workdir)
 				tt.wantCmdLine[i] = filepath.FromSlash(strings.ReplaceAll(tt.wantCmdLine[i], "${OUTPUT_DIR}", outputDir))
 				if runtime.GOOS == "windows" {
-					tt.wantCmdLine[i] = strings.ReplaceAll(tt.wantCmdLine[i], `\`, `\\`)
+					// For test specs, backslashes get escaped again by regexp.QuoteMeta.
+					tt.wantCmdLine[i] = strings.ReplaceAll(tt.wantCmdLine[i], `\tests\`, `\\tests\\`)
 				}
 			}
 			for i, envVar := range tt.wantEnvVars {
