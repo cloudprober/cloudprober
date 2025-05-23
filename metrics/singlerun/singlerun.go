@@ -18,6 +18,7 @@ package singlerun
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -37,7 +38,15 @@ type ProbeRunResult struct {
 	Target  endpoint.Endpoint
 	Metrics []*metrics.EventMetrics
 	Success bool // Did probe run succeed?
+	Latency time.Duration
 	Error   error
+}
+
+func statusString(success bool, latency time.Duration) string {
+	if !success {
+		return "failed"
+	}
+	return fmt.Sprintf("ok (latency: %s)", latency)
 }
 
 func textFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent string) string {
@@ -45,13 +54,21 @@ func textFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent
 	for name, prrs := range probeResults {
 		out = append(out, fmt.Sprintf("Probe: %s", name))
 		for _, prr := range prrs {
+			out = append(out, fmt.Sprintf("%sTarget: %s", indent, prr.Target.Dst()))
+			out = append(out, fmt.Sprintf("%sStatus: %s", indent+indent, statusString(prr.Success, prr.Latency)))
+			if !prr.Success {
+				out = append(out, fmt.Sprintf("%sError: %v", indent+indent, prr.Error))
+			}
+
 			var metricLines []string
 			for _, m := range prr.Metrics {
 				metricLines = append(metricLines, m.String())
 			}
-			out = append(out, fmt.Sprintf("%sTarget: %s: \n%s%s", indent, prr.Target.Dst(), indent+indent, strings.Join(metricLines, "\n"+indent+indent)))
+			if len(metricLines) > 0 {
+				out = append(out, fmt.Sprintf("%sMetrics: \n%s%s", indent+indent, indent+indent+indent, strings.Join(metricLines, "\n"+indent+indent+indent)))
+			}
+			out = append(out, "\n")
 		}
-		out = append(out, "\n")
 	}
 	return strings.Join(out, "\n")
 }
