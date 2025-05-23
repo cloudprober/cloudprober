@@ -162,7 +162,7 @@ func (p *Probe) initTemplates() error {
 		EnableStepMetrics  bool
 		DisableTestMetrics bool
 	}{
-		TestDir:            p.testDir,
+		TestDir:            p.testDirPath(),
 		GlobalTimeoutMsec:  p.playwrightGlobalTimeoutMsec(),
 		Screenshot:         "only-on-failure",
 		Trace:              "off",
@@ -211,12 +211,23 @@ func (p *Probe) computeTestSpecArgs() []string {
 			continue
 		}
 		if !filepath.IsAbs(ts) {
-			ts = filepath.Join(p.testDir, ts)
+			ts = filepath.Join(p.testDirPath(), ts)
 		}
 		args = append(args, "^"+regexp.QuoteMeta(ts)+"$")
 	}
 
 	return args
+}
+
+func (p *Probe) testDirPath() string {
+	if p.testDir != "" {
+		return p.testDir
+	}
+	p.testDir = p.c.GetTestDir()
+	if p.c.TestDir == nil {
+		p.testDir = filepath.Dir(state.ConfigFilePath())
+	}
+	return p.testDir
 }
 
 // Init initializes the probe with the given params.
@@ -236,12 +247,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.runID = make(map[string]int64)
-
-	// initialize testDir early as it's used by other functions below
-	p.testDir = p.c.GetTestDir()
-	if p.c.TestDir == nil {
-		p.testDir = filepath.Dir(state.ConfigFilePath())
-	}
 
 	p.testSpecArgs = p.computeTestSpecArgs()
 
