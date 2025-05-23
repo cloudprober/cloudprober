@@ -469,11 +469,9 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 				testDir: tt.testDir,
 			}
 			got := p.computeTestSpecArgs()
-			for i, arg := range tt.wantArgs {
-				if runtime.GOOS == "windows" {
-					arg = filepath.FromSlash(arg)
-					arg = strings.Join(strings.Split(arg, `\`), `\\`)
-					tt.wantArgs[i] = arg
+			if runtime.GOOS == "windows" {
+				for i, arg := range tt.wantArgs {
+					tt.wantArgs[i] = strings.ReplaceAll(arg, `/`, `\\`)
 				}
 			}
 			assert.Equal(t, tt.wantArgs, got)
