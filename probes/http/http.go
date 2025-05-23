@@ -625,28 +625,36 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 		go func(target endpoint.Endpoint) {
 			defer wg.Done()
 
+			updateOut := func(result *singlerun.ProbeRunResult) {
+				outMu.Lock()
+				defer outMu.Unlock()
+				result.Target = target
+				out = append(out, result)
+			}
+
 			result := p.newResult()
 
 			req, err := p.httpRequestForTarget(target)
 			if err != nil {
-				p.l.Error("Error creating HTTP request for target: ", target.Name, ", err: ", err.Error())
-				result.total++
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("error creating HTTP request for target: %s, err: %v", target.Name, err),
+				})
 				return
 			}
 
+			start := time.Now()
 			if err := p.doHTTPRequest(req.WithContext(ctx), p.httpClient(target), target, result, nil); err != nil {
-				p.l.Error("Error making HTTP request for target: ", target.Name, ", err: ", err.Error())
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("error making HTTP request for target: %s, err: %v", target.Name, err),
+				})
 				return
 			}
 
-			outMu.Lock()
-			out = append(out, &singlerun.ProbeRunResult{
-				Target:  target,
+			updateOut(&singlerun.ProbeRunResult{
 				Metrics: result.Metrics(time.Now(), 1, p.opts),
 				Success: result.success > 0,
-				Error:   err,
+				Latency: time.Since(start),
 			})
-			outMu.Unlock()
 		}(target)
 	}
 	wg.Wait()
