@@ -469,6 +469,9 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 				testDir: tt.testDir,
 			}
 			got := p.computeTestSpecArgs()
+			for i, arg := range tt.wantArgs {
+				tt.wantArgs[i] = filepath.FromSlash(arg)
+			}
 			assert.Equal(t, tt.wantArgs, got)
 		})
 	}
