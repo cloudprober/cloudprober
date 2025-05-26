@@ -24,7 +24,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -57,6 +59,8 @@ type Probe struct {
 
 	// book-keeping params
 	targets              []endpoint.Endpoint
+	testDir              string
+	testSpecArgs         []string
 	workdir              string
 	outputDir            string
 	playwrightDir        string
@@ -149,11 +153,6 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 }
 
 func (p *Probe) initTemplates() error {
-	testDir := p.c.GetTestDir()
-	if p.c.TestDir == nil {
-		testDir = filepath.Dir(state.ConfigFilePath())
-	}
-
 	// Set up playwright config in workdir
 	data := struct {
 		TestDir            string
@@ -163,7 +162,7 @@ func (p *Probe) initTemplates() error {
 		EnableStepMetrics  bool
 		DisableTestMetrics bool
 	}{
-		TestDir:            testDir,
+		TestDir:            p.testDirPath(),
 		GlobalTimeoutMsec:  p.playwrightGlobalTimeoutMsec(),
 		Screenshot:         "only-on-failure",
 		Trace:              "off",
@@ -193,6 +192,48 @@ func (p *Probe) initTemplates() error {
 	return nil
 }
 
+func (p *Probe) computeTestSpecArgs() []string {
+	args := []string{}
+
+	if p.c.GetTestSpecFilter() != nil {
+		if p.c.GetTestSpecFilter().GetInclude() != "" {
+			args = append(args, "--grep="+p.c.GetTestSpecFilter().GetInclude())
+		}
+		if p.c.GetTestSpecFilter().GetExclude() != "" {
+			args = append(args, "--grep-invert="+p.c.GetTestSpecFilter().GetExclude())
+		}
+	}
+
+	for _, ts := range p.c.GetTestSpec() {
+		// If test spec is a regex, skip modifying it.
+		if strings.ContainsAny(ts, "^$*|?+()[]{}") {
+			args = append(args, ts)
+			continue
+		}
+		if !filepath.IsAbs(ts) {
+			ts = filepath.Join(p.testDirPath(), ts)
+		}
+		args = append(args, "^"+regexp.QuoteMeta(ts)+"$")
+	}
+
+	return args
+}
+
+// testDirPath returns the test directory. If not specified, it returns the
+// directory of the config file.
+// Note that this function is not concurrency-safe, which is fine since it is
+// called only during initialization.
+func (p *Probe) testDirPath() string {
+	if p.testDir != "" {
+		return p.testDir
+	}
+	p.testDir = p.c.GetTestDir()
+	if p.c.TestDir == nil {
+		p.testDir = filepath.Dir(state.ConfigFilePath())
+	}
+	return p.testDir
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -210,6 +251,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.runID = make(map[string]int64)
+
+	p.testSpecArgs = p.computeTestSpecArgs()
 
 	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
 	if totalDuration > p.opts.Interval {
@@ -338,7 +381,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		"--output=" + filepath.Join(outputDir, "results"),
 		"--reporter=html," + p.reporterPath,
 	}
-	cmdLine = append(cmdLine, p.c.GetTestSpec()...)
+	cmdLine = append(cmdLine, p.testSpecArgs...)
 
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := &command.Command{
