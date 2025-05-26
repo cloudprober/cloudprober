@@ -82,52 +82,134 @@ func (x *TestMetricsOptions) GetEnableStepMetrics() bool {
 	return false
 }
 
+type TestSpecFilter struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Tests to include. Default is to include all tests matched by test spec.
+	// This corresponds to the playwright --grep flag.
+	//
+	// Example:
+	// include: "login|logout"  // include tests with login or logout in title
+	// include: "@smoke"        // include tests with @smoke tag
+	Include *string `protobuf:"bytes,1,opt,name=include" json:"include,omitempty"`
+	// Tests to exclude.
+	// This corresponds to the playwright --grep-invert flag.
+	//
+	// Example:
+	// exclude: "@draft|@debug"  // exclude tests with @draft or @debug tag
+	Exclude       *string `protobuf:"bytes,2,opt,name=exclude" json:"exclude,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestSpecFilter) Reset() {
+	*x = TestSpecFilter{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSpecFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSpecFilter) ProtoMessage() {}
+
+func (x *TestSpecFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSpecFilter.ProtoReflect.Descriptor instead.
+func (*TestSpecFilter) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *TestSpecFilter) GetInclude() string {
+	if x != nil && x.Include != nil {
+		return *x.Include
+	}
+	return ""
+}
+
+func (x *TestSpecFilter) GetExclude() string {
+	if x != nil && x.Exclude != nil {
+		return *x.Exclude
+	}
+	return ""
+}
+
 type ProbeConf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Playwright test specs. These are passed to playwright as it is. This
-	// field works in conjunction with test_dir -- test specs should be under
-	// test directory.
+	// Playwright test specs to run.
 	//
-	// If test_spec is not specified, all test specs in the test directory are
-	// executed, and since default test directory is config file's directory,
-	// if you leave both the fields unspecified, all test specs co-located with
-	// the config file are executed.
+	// Each entry in test_spec is interpreted as follows:
+	//   - If it contains one of the following regex characters:
+	//     ^,$,*,|,?,+,(),[],{}, it is treated as a regex pattern and passed
+	//     directly to Playwright.
+	//   - Otherwise, it is treated as a filename (relative to test_dir or as
+	//     an absolute path if specified), and will be wrapped as a regex
+	//     matching the full path to that file.
+	//
+	// Examples:
+	//
+	//	test_spec: "test_login.ts" // runs tests in file {test_dir}/test_login.ts
+	//	test_spec: "sm*.ts"        // runs tests in files matching {test_dir}/sm*.ts
+	//
+	// If test_spec is not set, all test files in test_dir (default: config
+	// file directory) are executed.
 	TestSpec []string `protobuf:"bytes,1,rep,name=test_spec,json=testSpec" json:"test_spec,omitempty"`
 	// Test directory. This is the directory where test specs are located.
 	// Default test_dir is config file directory ("{{configDir}}").
 	TestDir *string `protobuf:"bytes,2,opt,name=test_dir,json=testDir" json:"test_dir,omitempty"`
+	// Test spec filter. This field corresponds to the grep functionality of
+	// playwright.
+	//
+	// Example:
+	//
+	//	{
+	//	  include: "web|ui"  // include tests with "web" or "ui" in title
+	//	  exclude: "@draft"  // exclude tests with @draft tag
+	//	}
+	TestSpecFilter *TestSpecFilter `protobuf:"bytes,3,opt,name=test_spec_filter,json=testSpecFilter" json:"test_spec_filter,omitempty"`
 	// Workdir is path to the working directory. It should be writable. If not
 	// specified, we try to create a temporary directory. All the output files
 	// and reports are stored under <workdir>/output/.
 	// If you need to be able access the output files, you should set this
 	// field to a persistent location, e.g. a persistent volume, or configure
 	// artifact options.
-	Workdir *string `protobuf:"bytes,3,opt,name=workdir" json:"workdir,omitempty"`
+	Workdir *string `protobuf:"bytes,4,opt,name=workdir" json:"workdir,omitempty"`
 	// Path to the playwright installation. We execute tests from this location.
 	// If not specified, we'll use the value of environment variable
 	// $PLAYWRIGHT_DIR, which is automatically set by the official cloudprober
 	// playwright image (tag: "<version>-pw").
-	PlaywrightDir *string `protobuf:"bytes,4,opt,name=playwright_dir,json=playwrightDir" json:"playwright_dir,omitempty"`
+	PlaywrightDir *string `protobuf:"bytes,5,opt,name=playwright_dir,json=playwrightDir" json:"playwright_dir,omitempty"`
 	// NPX path. Default is to assume npx is in the PATH.
-	NpxPath *string `protobuf:"bytes,5,opt,name=npx_path,json=npxPath,def=npx" json:"npx_path,omitempty"`
+	NpxPath *string `protobuf:"bytes,6,opt,name=npx_path,json=npxPath,def=npx" json:"npx_path,omitempty"`
 	// Whether to enable screenshots for successful tests as well.
 	// Note that screenshots are always enabled for failed tests, and you can
 	// always save screenshots explicitly in the test spec.
-	SaveScreenshotsForSuccess *bool `protobuf:"varint,6,opt,name=save_screenshots_for_success,json=saveScreenshotsForSuccess,def=0" json:"save_screenshots_for_success,omitempty"`
+	SaveScreenshotsForSuccess *bool `protobuf:"varint,7,opt,name=save_screenshots_for_success,json=saveScreenshotsForSuccess,def=0" json:"save_screenshots_for_success,omitempty"`
 	// Traces are expensive and can slow down the test. We recommend to enable
 	// this only when needed.
-	SaveTraces *bool `protobuf:"varint,7,opt,name=save_traces,json=saveTraces,def=0" json:"save_traces,omitempty"`
+	SaveTraces *bool `protobuf:"varint,8,opt,name=save_traces,json=saveTraces,def=0" json:"save_traces,omitempty"`
 	// By default, we export all test metrica as counters. You can change how
 	// metrics are exported by setting the following options.
-	TestMetricsOptions *TestMetricsOptions `protobuf:"bytes,8,opt,name=test_metrics_options,json=testMetricsOptions" json:"test_metrics_options,omitempty"`
+	TestMetricsOptions *TestMetricsOptions `protobuf:"bytes,9,opt,name=test_metrics_options,json=testMetricsOptions" json:"test_metrics_options,omitempty"`
 	// Artifacts options. If probe level artifacts options are not specified,
 	// we use global artifacts options if available. Note: it typically makes
 	// more sense to specify artifacts options at the global level.
-	ArtifactsOptions *proto.ArtifactsOptions `protobuf:"bytes,9,opt,name=artifacts_options,json=artifactsOptions" json:"artifacts_options,omitempty"`
+	ArtifactsOptions *proto.ArtifactsOptions `protobuf:"bytes,10,opt,name=artifacts_options,json=artifactsOptions" json:"artifacts_options,omitempty"`
 	// Cleanup options.
-	WorkdirCleanupOptions *proto.CleanupOptions `protobuf:"bytes,10,opt,name=workdir_cleanup_options,json=workdirCleanupOptions" json:"workdir_cleanup_options,omitempty"`
+	WorkdirCleanupOptions *proto.CleanupOptions `protobuf:"bytes,11,opt,name=workdir_cleanup_options,json=workdirCleanupOptions" json:"workdir_cleanup_options,omitempty"`
 	// Environment variables. These are passed/set before probing starts.
-	EnvVar map[string]string `protobuf:"bytes,11,rep,name=env_var,json=envVar" json:"env_var,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	EnvVar map[string]string `protobuf:"bytes,12,rep,name=env_var,json=envVar" json:"env_var,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Requests per probe.
 	// Number of DNS requests per probe. Requests are executed concurrently and
 	// each DNS request contributes to probe results. For example, if you run two
@@ -157,7 +239,7 @@ const (
 
 func (x *ProbeConf) Reset() {
 	*x = ProbeConf{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[1]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -169,7 +251,7 @@ func (x *ProbeConf) String() string {
 func (*ProbeConf) ProtoMessage() {}
 
 func (x *ProbeConf) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[1]
+	mi := &file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -182,7 +264,7 @@ func (x *ProbeConf) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeConf.ProtoReflect.Descriptor instead.
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{1}
+	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ProbeConf) GetTestSpec() []string {
@@ -197,6 +279,13 @@ func (x *ProbeConf) GetTestDir() string {
 		return *x.TestDir
 	}
 	return ""
+}
+
+func (x *ProbeConf) GetTestSpecFilter() *TestSpecFilter {
+	if x != nil {
+		return x.TestSpecFilter
+	}
+	return nil
 }
 
 func (x *ProbeConf) GetWorkdir() string {
@@ -284,21 +373,25 @@ const file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_
 	"\x12TestMetricsOptions\x120\n" +
 	"\x14disable_test_metrics\x18\x01 \x01(\bR\x12disableTestMetrics\x12/\n" +
 	"\x13disable_aggregation\x18\x02 \x01(\bR\x12disableAggregation\x12.\n" +
-	"\x13enable_step_metrics\x18\x03 \x01(\bR\x11enableStepMetrics\"\xba\x06\n" +
+	"\x13enable_step_metrics\x18\x03 \x01(\bR\x11enableStepMetrics\"D\n" +
+	"\x0eTestSpecFilter\x12\x18\n" +
+	"\ainclude\x18\x01 \x01(\tR\ainclude\x12\x18\n" +
+	"\aexclude\x18\x02 \x01(\tR\aexclude\"\x90\a\n" +
 	"\tProbeConf\x12\x1b\n" +
 	"\ttest_spec\x18\x01 \x03(\tR\btestSpec\x12\x19\n" +
-	"\btest_dir\x18\x02 \x01(\tR\atestDir\x12\x18\n" +
-	"\aworkdir\x18\x03 \x01(\tR\aworkdir\x12%\n" +
-	"\x0eplaywright_dir\x18\x04 \x01(\tR\rplaywrightDir\x12\x1e\n" +
-	"\bnpx_path\x18\x05 \x01(\t:\x03npxR\anpxPath\x12F\n" +
-	"\x1csave_screenshots_for_success\x18\x06 \x01(\b:\x05falseR\x19saveScreenshotsForSuccess\x12&\n" +
-	"\vsave_traces\x18\a \x01(\b:\x05falseR\n" +
+	"\btest_dir\x18\x02 \x01(\tR\atestDir\x12T\n" +
+	"\x10test_spec_filter\x18\x03 \x01(\v2*.cloudprober.probes.browser.TestSpecFilterR\x0etestSpecFilter\x12\x18\n" +
+	"\aworkdir\x18\x04 \x01(\tR\aworkdir\x12%\n" +
+	"\x0eplaywright_dir\x18\x05 \x01(\tR\rplaywrightDir\x12\x1e\n" +
+	"\bnpx_path\x18\x06 \x01(\t:\x03npxR\anpxPath\x12F\n" +
+	"\x1csave_screenshots_for_success\x18\a \x01(\b:\x05falseR\x19saveScreenshotsForSuccess\x12&\n" +
+	"\vsave_traces\x18\b \x01(\b:\x05falseR\n" +
 	"saveTraces\x12`\n" +
-	"\x14test_metrics_options\x18\b \x01(\v2..cloudprober.probes.browser.TestMetricsOptionsR\x12testMetricsOptions\x12c\n" +
-	"\x11artifacts_options\x18\t \x01(\v26.cloudprober.probes.browser.artifacts.ArtifactsOptionsR\x10artifactsOptions\x12l\n" +
-	"\x17workdir_cleanup_options\x18\n" +
-	" \x01(\v24.cloudprober.probes.browser.artifacts.CleanupOptionsR\x15workdirCleanupOptions\x12J\n" +
-	"\aenv_var\x18\v \x03(\v21.cloudprober.probes.browser.ProbeConf.EnvVarEntryR\x06envVar\x12/\n" +
+	"\x14test_metrics_options\x18\t \x01(\v2..cloudprober.probes.browser.TestMetricsOptionsR\x12testMetricsOptions\x12c\n" +
+	"\x11artifacts_options\x18\n" +
+	" \x01(\v26.cloudprober.probes.browser.artifacts.ArtifactsOptionsR\x10artifactsOptions\x12l\n" +
+	"\x17workdir_cleanup_options\x18\v \x01(\v24.cloudprober.probes.browser.artifacts.CleanupOptionsR\x15workdirCleanupOptions\x12J\n" +
+	"\aenv_var\x18\f \x03(\v21.cloudprober.probes.browser.ProbeConf.EnvVarEntryR\x06envVar\x12/\n" +
 	"\x12requests_per_probe\x18b \x01(\x05:\x011R\x10requestsPerProbe\x127\n" +
 	"\x16requests_interval_msec\x18c \x01(\x05:\x010R\x14requestsIntervalMsec\x1a9\n" +
 	"\vEnvVarEntry\x12\x10\n" +
@@ -317,24 +410,26 @@ func file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_r
 	return file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_goTypes = []any{
 	(*TestMetricsOptions)(nil),     // 0: cloudprober.probes.browser.TestMetricsOptions
-	(*ProbeConf)(nil),              // 1: cloudprober.probes.browser.ProbeConf
-	nil,                            // 2: cloudprober.probes.browser.ProbeConf.EnvVarEntry
-	(*proto.ArtifactsOptions)(nil), // 3: cloudprober.probes.browser.artifacts.ArtifactsOptions
-	(*proto.CleanupOptions)(nil),   // 4: cloudprober.probes.browser.artifacts.CleanupOptions
+	(*TestSpecFilter)(nil),         // 1: cloudprober.probes.browser.TestSpecFilter
+	(*ProbeConf)(nil),              // 2: cloudprober.probes.browser.ProbeConf
+	nil,                            // 3: cloudprober.probes.browser.ProbeConf.EnvVarEntry
+	(*proto.ArtifactsOptions)(nil), // 4: cloudprober.probes.browser.artifacts.ArtifactsOptions
+	(*proto.CleanupOptions)(nil),   // 5: cloudprober.probes.browser.artifacts.CleanupOptions
 }
 var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_depIdxs = []int32{
-	0, // 0: cloudprober.probes.browser.ProbeConf.test_metrics_options:type_name -> cloudprober.probes.browser.TestMetricsOptions
-	3, // 1: cloudprober.probes.browser.ProbeConf.artifacts_options:type_name -> cloudprober.probes.browser.artifacts.ArtifactsOptions
-	4, // 2: cloudprober.probes.browser.ProbeConf.workdir_cleanup_options:type_name -> cloudprober.probes.browser.artifacts.CleanupOptions
-	2, // 3: cloudprober.probes.browser.ProbeConf.env_var:type_name -> cloudprober.probes.browser.ProbeConf.EnvVarEntry
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	1, // 0: cloudprober.probes.browser.ProbeConf.test_spec_filter:type_name -> cloudprober.probes.browser.TestSpecFilter
+	0, // 1: cloudprober.probes.browser.ProbeConf.test_metrics_options:type_name -> cloudprober.probes.browser.TestMetricsOptions
+	4, // 2: cloudprober.probes.browser.ProbeConf.artifacts_options:type_name -> cloudprober.probes.browser.artifacts.ArtifactsOptions
+	5, // 3: cloudprober.probes.browser.ProbeConf.workdir_cleanup_options:type_name -> cloudprober.probes.browser.artifacts.CleanupOptions
+	3, // 4: cloudprober.probes.browser.ProbeConf.env_var:type_name -> cloudprober.probes.browser.ProbeConf.EnvVarEntry
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_init() }
@@ -348,7 +443,7 @@ func file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_i
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

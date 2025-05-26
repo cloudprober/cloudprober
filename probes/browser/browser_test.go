@@ -46,6 +46,8 @@ func TestProbePrepareCommand(t *testing.T) {
 
 	baseWantEMLabels := [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}}
 
+	testDir := "/tests"
+
 	tests := []struct {
 		name               string
 		disableAggregation bool
@@ -100,7 +102,7 @@ func TestProbePrepareCommand(t *testing.T) {
 		{
 			name:         "with_test_spec",
 			testSpec:     []string{"test_spec_1", "test_spec_2"},
-			wantCmdLine:  append(cmdLine("npx"), "test_spec_1", "test_spec_2"),
+			wantCmdLine:  append(cmdLine("npx"), "^/tests/test_spec_1$", "^/tests/test_spec_2$"),
 			wantEnvVars:  baseEnvVars("/playwright"),
 			wantWorkDir:  "/playwright",
 			wantEMLabels: baseWantEMLabels,
@@ -110,6 +112,7 @@ func TestProbePrepareCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.ProbeConf{
 				TestSpec: tt.testSpec,
+				TestDir:  &testDir,
 				TestMetricsOptions: &configpb.TestMetricsOptions{
 					DisableAggregation: &tt.disableAggregation,
 				},
@@ -135,6 +138,10 @@ func TestProbePrepareCommand(t *testing.T) {
 			for i, arg := range tt.wantCmdLine {
 				tt.wantCmdLine[i] = strings.ReplaceAll(arg, "{WORKDIR}", p.workdir)
 				tt.wantCmdLine[i] = filepath.FromSlash(strings.ReplaceAll(tt.wantCmdLine[i], "${OUTPUT_DIR}", outputDir))
+				if runtime.GOOS == "windows" {
+					// For test specs, backslashes get escaped again by regexp.QuoteMeta.
+					tt.wantCmdLine[i] = strings.ReplaceAll(tt.wantCmdLine[i], `\tests\`, `\\tests\\`)
+				}
 			}
 			for i, envVar := range tt.wantEnvVars {
 				tt.wantEnvVars[i] = filepath.FromSlash(strings.ReplaceAll(envVar, "{OUTPUT_DIR}", outputDir))
@@ -357,6 +364,119 @@ func TestPlaywrightGlobalTimeoutMsec(t *testing.T) {
 			if got := p.playwrightGlobalTimeoutMsec(); got != tt.want {
 				t.Errorf("playwrightGlobalTimeoutMsec() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestProbeComputeTestSpecArgs(t *testing.T) {
+	tests := []struct {
+		name          string
+		testDir       string
+		testSpec      []string
+		filterInclude string
+		filterExclude string
+		wantArgs      []string
+	}{
+		{
+			name:     "no_spec_no_filter",
+			testDir:  "/tests",
+			testSpec: nil,
+			wantArgs: []string{},
+		},
+		{
+			name:     "single_spec_relative",
+			testDir:  "/tests",
+			testSpec: []string{"myspec.js"},
+			wantArgs: []string{`^/tests/myspec\.js$`},
+		},
+		{
+			name:     "single_spec_absolute",
+			testDir:  "/tests",
+			testSpec: []string{"/abs/path/spec.js"},
+			wantArgs: []string{`^/abs/path/spec\.js$`},
+		},
+		{
+			name:     "multiple_specs_mixed",
+			testDir:  "/dir",
+			testSpec: []string{"foo.js", "/bar/baz.js"},
+			wantArgs: []string{
+				`^/dir/foo\.js$`,
+				`^/bar/baz\.js$`,
+			},
+		},
+		{
+			name:     "regex_spec",
+			testDir:  "/dir",
+			testSpec: []string{`^foo.*\.js$`},
+			wantArgs: []string{`^foo.*\.js$`},
+		},
+		{
+			name:          "with_include_filter",
+			testDir:       "/dir",
+			testSpec:      []string{"foo.js"},
+			filterInclude: "mytest",
+			wantArgs: []string{
+				"--grep=mytest",
+				`^/dir/foo\.js$`,
+			},
+		},
+		{
+			name:          "with_exclude_filter",
+			testDir:       "/dir",
+			testSpec:      []string{"foo.js"},
+			filterExclude: "skipme",
+			wantArgs: []string{
+				"--grep-invert=skipme",
+				`^/dir/foo\.js$`,
+			},
+		},
+		{
+			name:          "with_both_filters",
+			testDir:       "/dir",
+			testSpec:      []string{"foo.js"},
+			filterInclude: "mytest",
+			filterExclude: "skipme",
+			wantArgs: []string{
+				"--grep=mytest",
+				"--grep-invert=skipme",
+				`^/dir/foo\.js$`,
+			},
+		},
+		{
+			name:     "multiple_specs_with_regex",
+			testDir:  "/dir",
+			testSpec: []string{"foo.js", `^bar.*\.js$`},
+			wantArgs: []string{
+				`^/dir/foo\.js$`,
+				`^bar.*\.js$`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		if runtime.GOOS == "windows" {
+			t.Skip("Skipping test on Windows, path issues - not worth it")
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			conf := &configpb.ProbeConf{}
+			if tt.testSpec != nil {
+				conf.TestSpec = tt.testSpec
+			}
+			if tt.filterInclude != "" || tt.filterExclude != "" {
+				conf.TestSpecFilter = &configpb.TestSpecFilter{}
+				if tt.filterInclude != "" {
+					conf.TestSpecFilter.Include = &tt.filterInclude
+				}
+				if tt.filterExclude != "" {
+					conf.TestSpecFilter.Exclude = &tt.filterExclude
+				}
+			}
+			p := &Probe{
+				c:       conf,
+				testDir: tt.testDir,
+			}
+			got := p.computeTestSpecArgs()
+			assert.Equal(t, tt.wantArgs, got)
 		})
 	}
 }
