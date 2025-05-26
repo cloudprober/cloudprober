@@ -206,7 +206,7 @@ func (p *Probe) computeTestSpecArgs() []string {
 
 	for _, ts := range p.c.GetTestSpec() {
 		// If test spec is a regex, skip modifying it.
-		if strings.ContainsAny(ts, "^$*") {
+		if strings.ContainsAny(ts, "^$*|?+()[]{}") {
 			args = append(args, ts)
 			continue
 		}

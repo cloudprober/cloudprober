@@ -150,8 +150,9 @@ type ProbeConf struct {
 	// Playwright test specs to run.
 	//
 	// Each entry in test_spec is interpreted as follows:
-	//   - If it contains any of the regex characters (^, $, *), it is treated
-	//     as a regex pattern and passed directly to Playwright.
+	//   - If it contains one of the following regex characters:
+	//     ^,$,*,|,?,+,(),[],{}, it is treated as a regex pattern and passed
+	//     directly to Playwright.
 	//   - Otherwise, it is treated as a filename (relative to test_dir or as
 	//     an absolute path if specified), and will be wrapped as a regex
 	//     matching the full path to that file.
