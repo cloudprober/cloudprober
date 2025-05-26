@@ -219,6 +219,10 @@ func (p *Probe) computeTestSpecArgs() []string {
 	return args
 }
 
+// testDirPath returns the test directory. If not specified, it returns the
+// directory of the config file.
+// Note that this function is not concurrency-safe, which is fine since it is
+// called only during initialization.
 func (p *Probe) testDirPath() string {
 	if p.testDir != "" {
 		return p.testDir
