@@ -480,6 +480,9 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			}
 			got := p.computeTestSpecArgs()
 			if runtime.GOOS == "windows" {
+				if tt.wantArgsWin == nil {
+					tt.wantArgsWin = tt.wantArgs
+				}
 				assert.Equal(t, tt.wantArgsWin, got)
 			} else {
 				assert.Equal(t, tt.wantArgs, got)
