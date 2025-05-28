@@ -210,10 +210,15 @@ func (p *Probe) computeTestSpecArgs() []string {
 			args = append(args, ts)
 			continue
 		}
+		ts = regexp.QuoteMeta(ts)
 		if !filepath.IsAbs(ts) {
-			ts = filepath.Join(p.testDirPath(), ts)
+			pathSep := string(filepath.Separator)
+			if pathSep == `\` {
+				pathSep = `\\`
+			}
+			ts = ".*" + pathSep + ts
 		}
-		args = append(args, "^"+regexp.QuoteMeta(ts)+"$")
+		args = append(args, "^"+ts+"$")
 	}
 
 	return args

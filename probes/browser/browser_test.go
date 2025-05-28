@@ -102,7 +102,7 @@ func TestProbePrepareCommand(t *testing.T) {
 		{
 			name:         "with_test_spec",
 			testSpec:     []string{"test_spec_1", "test_spec_2"},
-			wantCmdLine:  append(cmdLine("npx"), "^/tests/test_spec_1$", "^/tests/test_spec_2$"),
+			wantCmdLine:  append(cmdLine("npx"), "^.*/test_spec_1$", "^.*/test_spec_2$"),
 			wantEnvVars:  baseEnvVars("/playwright"),
 			wantWorkDir:  "/playwright",
 			wantEMLabels: baseWantEMLabels,
@@ -387,7 +387,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			name:     "single_spec_relative",
 			testDir:  "/tests",
 			testSpec: []string{"myspec.js"},
-			wantArgs: []string{`^/tests/myspec\.js$`},
+			wantArgs: []string{`^.*/myspec\.js$`},
 		},
 		{
 			name:     "single_spec_absolute",
@@ -400,7 +400,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			testDir:  "/dir",
 			testSpec: []string{"foo.js", "/bar/baz.js"},
 			wantArgs: []string{
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
 				`^/bar/baz\.js$`,
 			},
 		},
@@ -417,7 +417,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			filterInclude: "mytest",
 			wantArgs: []string{
 				"--grep=mytest",
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
 			},
 		},
 		{
@@ -427,7 +427,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			filterExclude: "skipme",
 			wantArgs: []string{
 				"--grep-invert=skipme",
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
 			},
 		},
 		{
@@ -439,7 +439,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			wantArgs: []string{
 				"--grep=mytest",
 				"--grep-invert=skipme",
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
 			},
 		},
 		{
@@ -447,16 +447,13 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			testDir:  "/dir",
 			testSpec: []string{"foo.js", `^bar.*\.js$`},
 			wantArgs: []string{
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
 				`^bar.*\.js$`,
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test on Windows, path issues - not worth it")
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.ProbeConf{}
 			if tt.testSpec != nil {
