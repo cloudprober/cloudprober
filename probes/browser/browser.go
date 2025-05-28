@@ -210,10 +210,14 @@ func (p *Probe) computeTestSpecArgs() []string {
 			args = append(args, ts)
 			continue
 		}
+		// If test spec is not a regex, make it a regex that matches the given
+		// test spec. This is important because playwright treats test specs as
+		// regexes.
 		ts = regexp.QuoteMeta(ts)
 		if !filepath.IsAbs(ts) {
 			pathSep := string(filepath.Separator)
 			if pathSep == `\` {
+				// "/" needs to be escaped in regex
 				pathSep = `\\`
 			}
 			ts = ".*" + pathSep + ts
