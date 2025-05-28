@@ -102,7 +102,7 @@ func TestProbePrepareCommand(t *testing.T) {
 		{
 			name:         "with_test_spec",
 			testSpec:     []string{"test_spec_1", "test_spec_2"},
-			wantCmdLine:  append(cmdLine("npx"), "^/tests/test_spec_1$", "^/tests/test_spec_2$"),
+			wantCmdLine:  append(cmdLine("npx"), "^.*/test_spec_1$", "^.*/test_spec_2$"),
 			wantEnvVars:  baseEnvVars("/playwright"),
 			wantWorkDir:  "/playwright",
 			wantEMLabels: baseWantEMLabels,
@@ -140,7 +140,7 @@ func TestProbePrepareCommand(t *testing.T) {
 				tt.wantCmdLine[i] = filepath.FromSlash(strings.ReplaceAll(tt.wantCmdLine[i], "${OUTPUT_DIR}", outputDir))
 				if runtime.GOOS == "windows" {
 					// For test specs, backslashes get escaped again by regexp.QuoteMeta.
-					tt.wantCmdLine[i] = strings.ReplaceAll(tt.wantCmdLine[i], `\tests\`, `\\tests\\`)
+					tt.wantCmdLine[i] = strings.ReplaceAll(tt.wantCmdLine[i], `.*\`, `.*\\`)
 				}
 			}
 			for i, envVar := range tt.wantEnvVars {
@@ -376,6 +376,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 		filterInclude string
 		filterExclude string
 		wantArgs      []string
+		wantArgsWin   []string
 	}{
 		{
 			name:     "no_spec_no_filter",
@@ -384,24 +385,30 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			wantArgs: []string{},
 		},
 		{
-			name:     "single_spec_relative",
-			testDir:  "/tests",
-			testSpec: []string{"myspec.js"},
-			wantArgs: []string{`^/tests/myspec\.js$`},
+			name:        "single_spec_relative",
+			testDir:     "/tests",
+			testSpec:    []string{"myspec.js"},
+			wantArgs:    []string{`^.*/myspec\.js$`},
+			wantArgsWin: []string{`^.*\\myspec\.js$`},
 		},
 		{
-			name:     "single_spec_absolute",
-			testDir:  "/tests",
-			testSpec: []string{"/abs/path/spec.js"},
-			wantArgs: []string{`^/abs/path/spec\.js$`},
+			name:        "single_spec_absolute",
+			testDir:     "/tests",
+			testSpec:    []string{"/abs/path/spec.js"},
+			wantArgs:    []string{`^/abs/path/spec\.js$`},
+			wantArgsWin: []string{`^\\abs\\path\\spec\.js$`},
 		},
 		{
 			name:     "multiple_specs_mixed",
 			testDir:  "/dir",
 			testSpec: []string{"foo.js", "/bar/baz.js"},
 			wantArgs: []string{
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
 				`^/bar/baz\.js$`,
+			},
+			wantArgsWin: []string{
+				`^.*\\foo\.js$`,
+				`^\\bar\\baz\.js$`,
 			},
 		},
 		{
@@ -417,7 +424,11 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			filterInclude: "mytest",
 			wantArgs: []string{
 				"--grep=mytest",
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep=mytest",
+				`^.*\\foo\.js$`,
 			},
 		},
 		{
@@ -427,7 +438,11 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			filterExclude: "skipme",
 			wantArgs: []string{
 				"--grep-invert=skipme",
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep-invert=skipme",
+				`^.*\\foo\.js$`,
 			},
 		},
 		{
@@ -439,7 +454,12 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			wantArgs: []string{
 				"--grep=mytest",
 				"--grep-invert=skipme",
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep=mytest",
+				"--grep-invert=skipme",
+				`^.*\\foo\.js$`,
 			},
 		},
 		{
@@ -447,20 +467,21 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			testDir:  "/dir",
 			testSpec: []string{"foo.js", `^bar.*\.js$`},
 			wantArgs: []string{
-				`^/dir/foo\.js$`,
+				`^.*/foo\.js$`,
+				`^bar.*\.js$`,
+			},
+			wantArgsWin: []string{
+				`^.*\\foo\.js$`,
 				`^bar.*\.js$`,
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test on Windows, path issues - not worth it")
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.ProbeConf{}
-			if tt.testSpec != nil {
-				conf.TestSpec = tt.testSpec
+			for _, spec := range tt.testSpec {
+				conf.TestSpec = append(conf.TestSpec, filepath.FromSlash(spec))
 			}
 			if tt.filterInclude != "" || tt.filterExclude != "" {
 				conf.TestSpecFilter = &configpb.TestSpecFilter{}
@@ -476,7 +497,14 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 				testDir: tt.testDir,
 			}
 			got := p.computeTestSpecArgs()
-			assert.Equal(t, tt.wantArgs, got)
+			if runtime.GOOS == "windows" {
+				if tt.wantArgsWin == nil {
+					tt.wantArgsWin = tt.wantArgs
+				}
+				assert.Equal(t, tt.wantArgsWin, got)
+			} else {
+				assert.Equal(t, tt.wantArgs, got)
+			}
 		})
 	}
 }
