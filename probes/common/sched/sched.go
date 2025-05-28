@@ -142,7 +142,7 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 			continue
 		}
 
-		ctx, cancelCtx := context.WithTimeout(ctx, s.Opts.Timeout)
+		ctx, cancelCtx := context.WithTimeout(context.Background(), s.Opts.Timeout)
 		s.RunProbeForTarget(ctx, target, result)
 		cancelCtx()
 
