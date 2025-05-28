@@ -396,7 +396,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			testDir:     "/tests",
 			testSpec:    []string{"/abs/path/spec.js"},
 			wantArgs:    []string{`^/abs/path/spec\.js$`},
-			wantArgsWin: []string{`^abs/path/spec\.js$`},
+			wantArgsWin: []string{`^\\abs\\path\\spec\.js$`},
 		},
 		{
 			name:     "multiple_specs_mixed",
@@ -472,7 +472,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			},
 			wantArgsWin: []string{
 				`^.*\\foo\.js$`,
-				`^bar.*\\js$`,
+				`^bar.*\.js$`,
 			},
 		},
 	}
