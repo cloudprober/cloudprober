@@ -17,18 +17,20 @@ package tcp
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/tcp/proto"
-	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"google.golang.org/protobuf/proto"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -39,14 +41,18 @@ type Probe struct {
 	l    *logger.Logger
 
 	// book-keeping params
-	network     string
-	dialContext func(context.Context, string, string) (net.Conn, error) // Keeps some dialing related config
+	network          string
+	tlsConfig        *tls.Config
+	dialContext      func(context.Context, string, string) (net.Conn, error) // Keeps some dialing related config
+	handshakeContext func(context.Context, net.Conn, *tls.Config) error
 }
 
 type probeResult struct {
-	total, success    int64
-	latency           metrics.LatencyValue
-	validationFailure *metrics.Map[int64]
+	total, success      int64
+	latency             metrics.LatencyValue
+	connLatency         metrics.LatencyValue
+	tlsHandshakeLatency metrics.LatencyValue
+	validationFailure   *metrics.Map[int64]
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
@@ -62,21 +68,37 @@ func (p *Probe) newResult() sched.ProbeResult {
 		result.latency = metrics.NewFloat(0)
 	}
 
+	if p.c.GetTlsHandshake() {
+		if p.opts.LatencyDist != nil {
+			result.connLatency = p.opts.LatencyDist.CloneDist()
+			result.tlsHandshakeLatency = p.opts.LatencyDist.CloneDist()
+		} else {
+			result.connLatency = metrics.NewFloat(0)
+			result.tlsHandshakeLatency = metrics.NewFloat(0)
+		}
+	}
+
 	return result
 }
 
-func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric(opts.LatencyMetricName, result.latency.Clone()).
 		AddLabel("ptype", "tcp")
 
+	// If TLS handshake is enabled, add conn and tls_handshake latency metrics.
+	if result.tlsHandshakeLatency != nil {
+		em.AddMetric("connect_latency", result.connLatency.Clone())
+		em.AddMetric("tls_handshake_latency", result.tlsHandshakeLatency.Clone())
+	}
+
 	if result.validationFailure != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
 }
 
 // Init initializes the probe with the given params.
@@ -117,12 +139,67 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.dialContext = dialer.DialContext
 
+	if p.c.GetTlsConfig() != nil {
+		if p.c.TlsHandshake == nil {
+			p.c.TlsHandshake = proto.Bool(true)
+		}
+
+		// tls_handshake is explicitly set to false, return error
+		if !p.c.GetTlsHandshake() {
+			return fmt.Errorf("tls_config is set, but tls_handshake is false")
+		}
+
+		p.tlsConfig = &tls.Config{}
+		if err := tlsconfig.UpdateTLSConfig(p.tlsConfig, p.c.GetTlsConfig()); err != nil {
+			return fmt.Errorf("tls_config error: %v", err)
+		}
+	}
+
 	return nil
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	// Convert interface to struct type
-	result := res.(*probeResult)
+func (p *Probe) connectAndHandshake(ctx context.Context, addr, targetName string, result *probeResult) error {
+	start := time.Now()
+	conn, err := p.dialContext(ctx, p.network, addr)
+	if err != nil {
+		return err
+	}
+
+	if p.c.GetTlsHandshake() {
+		result.connLatency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
+		start = time.Now()
+
+		// ServerName is required for TLS handshake
+		if p.tlsConfig == nil {
+			p.tlsConfig = &tls.Config{}
+		}
+		if p.tlsConfig.ServerName == "" {
+			p.tlsConfig.ServerName = targetName
+		}
+
+		if p.handshakeContext == nil {
+			p.handshakeContext = func(ctx context.Context, nc net.Conn, tlsConfig *tls.Config) error {
+				return tls.Client(nc, tlsConfig).HandshakeContext(ctx)
+			}
+		}
+		if err := p.handshakeContext(ctx, conn, p.tlsConfig); err != nil {
+			return err
+		}
+		result.tlsHandshakeLatency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
+	}
+
+	if conn != nil {
+		conn.Close()
+	}
+	return nil
+}
+
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+
+	target, result := runReq.Target, runReq.Result.(*probeResult)
 
 	result.total++
 
@@ -156,11 +233,8 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	start := time.Now()
-	conn, err := p.dialContext(ctx, p.network, addr)
+	err := p.connectAndHandshake(ctx, addr, target.Name, result)
 	latency := time.Since(start)
-	if conn != nil {
-		defer conn.Close()
-	}
 
 	if p.opts.NegativeTest {
 		if err == nil {
@@ -185,7 +259,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)

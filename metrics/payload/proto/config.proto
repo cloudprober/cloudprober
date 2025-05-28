@@ -70,6 +70,12 @@ message OutputMetricsOptions {
   // Note: This option doesn't work on header_metric and json_metric.
   map<string, metrics.Dist> dist_metric = 4;
 
+  // If provided we process only lines that match this regex.
+  optional string line_accept_regex = 7;
+
+  // If provided we skip lines that match this regex.
+  optional string line_reject_regex = 8;
+
   // Header to metric mapping. If this mapping is defined and probe's response
   // is an HTTP response, we will extract the header value and create a metric
   // from it.

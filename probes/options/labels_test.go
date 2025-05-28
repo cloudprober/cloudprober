@@ -15,6 +15,7 @@
 package options
 
 import (
+	"net"
 	"reflect"
 	"testing"
 
@@ -117,7 +118,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 	aLabels := parseAdditionalLabels(configWithAdditionalLabels)
 
 	endpoints := map[string]endpoint.Endpoint{
-		"target1": {Name: "target1", Labels: map[string]string{}, Port: 80},
+		"target1": {Name: "target1", Labels: map[string]string{}, IP: net.ParseIP("1.2.3.4"), Port: 80},
 		"target2": {Name: "target2", Labels: map[string]string{"zone": "zoneB"}, Port: 8080},
 		"target3": {Name: "target3", Port: 8080},
 	}
@@ -127,7 +128,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 	for _, al := range aLabels {
 		al.UpdateForTarget(endpoints["target1"], "", 0)
 		al.UpdateForTarget(endpoints["target2"], "", 0)
-		al.UpdateForTarget(endpoints["target3"], "target3-ip", 9000)
+		al.UpdateForTarget(endpoints["target3"], "2.3.4.5", 9000)
 	}
 
 	expectedLabels := map[string][][2]string{
@@ -137,7 +138,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 			{"dst_zone_label", "zone:"},
 			{"dst_name", "target1"},
 			{"dst", ":target1:80"},
-			{"dst_ip_port", ":80"},
+			{"dst_ip_port", "1.2.3.4:80"},
 			{"bad_label", "@target.metadata@:@unknown@"},
 			{"incomplete_label", ":@target.name"},
 		},
@@ -157,7 +158,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 			{"dst_zone_label", "zone:"},
 			{"dst_name", "target3"},
 			{"dst", ":target3:9000"},
-			{"dst_ip_port", "target3-ip:9000"},
+			{"dst_ip_port", "2.3.4.5:9000"},
 			{"bad_label", "@target.metadata@:@unknown@"},
 			{"incomplete_label", ":@target.name"},
 		},

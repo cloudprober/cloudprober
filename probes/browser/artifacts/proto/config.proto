@@ -1,0 +1,105 @@
+syntax = "proto2";
+
+package cloudprober.probes.browser.artifacts;
+
+import "github.com/cloudprober/cloudprober/common/oauth/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto";
+
+// S3 storage backend configuration.
+message S3 {
+    optional string bucket = 1;
+    optional string region = 2;
+    optional string access_key_id = 3;
+    optional string secret_access_key = 4;
+
+    // S3 endpoint. If not specified, default endpoint for the region is used.
+    optional string endpoint = 5;
+}
+
+message GCS {
+    optional string bucket = 1;
+
+    // If you want to use default credentials on GCE or GKE, leave this field
+    // empty. See
+    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
+    // for more details on oauth.GoogleCredentials.
+    optional oauth.GoogleCredentials credentials = 2;
+
+    // GCS endpoint.
+    optional string endpoint = 3 [default = "https://storage.googleapis.com"];
+}
+
+message LocalStorage {
+    optional string dir = 1;
+
+    // Cleanup options for local storage. Specifying cleanup options for local
+    // enables automatic cleanup of old artifacts.
+    optional CleanupOptions cleanup_options = 2;
+}
+
+message ABS {
+    optional string container = 1;
+
+    // Azure account name and key. If you want to use managed identities, leave
+    // account_key empty.
+    optional string account_name = 2;
+    optional string account_key = 3;
+
+    // Azure endpoint. Default is "https://<account>.blob.core.windows.net".
+    optional string endpoint = 4;
+
+    // OAuth2 configuration. If you want to use managed identities, leave this
+    // field empty. See
+    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
+    // for more details on oauth.Config.
+    optional oauth.Config oauth_config = 5;
+}
+
+message Storage {
+    oneof storage {
+        LocalStorage local_storage = 1;
+        S3 s3 = 2;
+        GCS gcs = 3;
+        ABS abs = 4;
+    }
+
+    // Storage path for test artifacts. This is the path where test artifacts
+    // are written to within the storage backend. For example, if storage is
+    // an S3 bucket, all objects will be uploaded under this path within that
+    // bucket. For global artifacts options, probes append their names to this
+    // path.
+    optional string path = 90;
+}
+
+message ArtifactsOptions {
+    // Serve test artifacts on Cloudprober's default webserver. This is
+    // disabled by default for security reasons.
+    optional bool serve_on_web = 1;
+
+    // Specify web server path to serve test artifacts on.
+    // Default is "/artifacts/<probename>".
+    optional string web_server_path = 2;
+
+    // Web server root directory. If not provided (recommended), we just use
+    // the first local storage directory if configured, and if provided, we
+    // verify that it is one of the local storages directories. If no local
+    // storage is configured, we return an error for global options and use
+    // <workdir>/output for probe level artifacts options.
+    optional string web_server_root = 4;
+
+    // Storage for test artifacts. Note that test artifacts are always
+    // written to the workdir first, and uploaded to the storage backend in a
+    // parallel goroutine. This is to make sure that uploads don't block the
+    // main probe execution.
+    repeated Storage storage = 3;
+}
+
+message CleanupOptions {
+    // Maximum age of artifacts in seconds.
+    optional int32 max_age_sec = 1 [default = 3600];
+
+    // Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
+    // is smaller.
+    optional int32 cleanup_interval_sec = 3 [default = 3600];
+}

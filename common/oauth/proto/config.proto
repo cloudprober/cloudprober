@@ -1,0 +1,114 @@
+syntax = "proto2";
+
+package cloudprober.oauth;
+
+option go_package = "github.com/cloudprober/cloudprober/common/oauth/proto";
+
+message Config {
+  oneof source {
+    // Path to token file.
+    string file = 1;
+
+    // Get token by making an HTTP request.
+    HTTPRequest http_request = 2;
+
+    // Run a comand to obtain the token, e.g.
+    // cat /var/lib/myapp/token, or
+    // /var/lib/run/get_token.sh
+    string cmd = 3;
+
+    // GCE metadata token
+    string gce_service_account = 4;
+
+    // K8s service account token file:
+    // /var/run/secrets/kubernetes.io/serviceaccount/token
+    bool k8s_local_token = 5;
+
+    // Google credentials, either from a default source or a JSON file.
+    GoogleCredentials google_credentials = 8;
+
+    // Bearer token (deprecated)
+    // This field is deprecated. Use one of the other source directly. This
+    // layer turned out to be unnecessary.
+    BearerToken bearer_token = 7;
+  }
+
+  // If auto-refreshing based on token's expiry, how long before the expiry do we
+  // refresh.
+  //
+  // TODO(manugarg): Consider setting default based on probe interval.
+  optional int32 refresh_expiry_buffer_sec = 20 [default = 60];
+
+  // If set explicitly, we'll refresh token at this interval regardless of
+  // token's expiry value.
+  //
+  // If not set explicitly, we don't refresh at regular interval if token's
+  // expiry is set, otherwise we refresh at the default interval (30s).
+  //
+  // To disable refresh on interval even if expiry is not set, set this to 0.
+  //
+  // In most cases, Cloudprober does the right thing based on the retrieved
+  // token and you don't need to set this field.
+  optional float refresh_interval_sec = 21 [default = 30];
+}
+
+message HTTPRequest {
+  required string token_url = 1;
+  
+  optional string method = 2;
+
+  // Data to be sent as request body. If there are multiple "data" fields, we combine
+  // their values with a '&' in between. Note: 1) If data appears to be a valid json,
+  // we automatically set the content-type header to "application/json", 2) If data
+  // appears to be a query string we set content-type to
+  // "application/x-www-form-urlencoded". Content type header can still be overridden
+  // using the header field below.
+  repeated string data = 3;
+
+  // HTTP request headers
+  map<string,string> header = 8;
+}
+
+// Bearer token is added to the HTTP request through an HTTP header:
+// "Authorization: Bearer <access_token>"
+//
+// This message is deprecated. Use these sources directly in Config instead.
+message BearerToken {
+  oneof source {
+    // Path to token file.
+    string file = 1;
+
+    // Run a comand to obtain the token, e.g.
+    // cat /var/lib/myapp/token, or
+    // /var/lib/run/get_token.sh
+    string cmd = 2;
+
+    // GCE metadata token
+    string gce_service_account = 3;
+
+    // K8s service account token file:
+    // /var/run/secrets/kubernetes.io/serviceaccount/token
+    bool k8s_local_token = 4;
+  }
+
+  // If above sources return JSON tokens with an expiry, we use that info to
+  // determine when to refresh tokens and refresh_interval_sec is completely
+  // ignored. If above sources return a string, we refresh from the source
+  // every 30s by default. To disable this behavior set refresh_interval_sec to
+  // zero.
+  optional float refresh_interval_sec = 90;
+}
+
+// Google credentials in JSON format. We simply use oauth2/google package to
+// use these credentials.
+message GoogleCredentials {
+  optional string json_file = 1;
+  repeated string scope = 2;
+
+  // Use encoded JWT directly as access token, instead of implementing the whole
+  // OAuth2.0 flow.
+  optional bool jwt_as_access_token = 4;
+
+  // Audience works only if jwt_as_access_token is true.
+  optional string audience = 3;
+}

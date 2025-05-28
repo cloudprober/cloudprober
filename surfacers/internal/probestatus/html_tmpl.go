@@ -30,8 +30,7 @@ var htmlTmpl = `
 </script>
 
 <link href="{{.BaseURL}}/static/c3.min.css" rel="stylesheet">
-<link href="/static/cloudprober.css" rel="stylesheet">
-
+<link href="{{.LinkPrefix}}static/cloudprober.css" rel="stylesheet">
 <script src="{{.BaseURL}}/static/jquery-3.6.0.min.js" charset="utf-8"></script>
 <script src="{{.BaseURL}}/static/d3.v5.min.js" charset="utf-8"></script>
 <script src="{{.BaseURL}}/static/c3.min.js" charset="utf-8"></script>

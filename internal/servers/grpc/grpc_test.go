@@ -24,11 +24,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	configpb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	pb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	spb "github.com/cloudprober/cloudprober/internal/servers/grpc/proto"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/state"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
@@ -38,9 +38,9 @@ var once sync.Once
 // globalGRPCServer sets up runconfig and returns a gRPC server.
 func globalGRPCServer() (*grpc.Server, error) {
 	once.Do(func() {
-		runconfig.SetDefaultGRPCServer(grpc.NewServer())
+		state.SetDefaultGRPCServer(grpc.NewServer())
 	})
-	srv := runconfig.DefaultGRPCServer()
+	srv := state.DefaultGRPCServer()
 	if srv == nil {
 		return nil, errors.New("runconfig gRPC server not setup properly")
 	}

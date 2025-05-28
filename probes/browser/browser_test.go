@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -37,7 +37,7 @@ func TestProbePrepareCommand(t *testing.T) {
 	defer os.Unsetenv("PLAYWRIGHT_DIR")
 
 	baseEnvVars := func(pwDir string) []string {
-		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/report", "PLAYWRIGHT_HTML_OPEN=never"}
+		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/" + playwrightReportDir, "PLAYWRIGHT_HTML_OPEN=never"}
 	}
 
 	cmdLine := func(npxPath string) []string {
@@ -45,6 +45,8 @@ func TestProbePrepareCommand(t *testing.T) {
 	}
 
 	baseWantEMLabels := [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}}
+
+	testDir := "/tests"
 
 	tests := []struct {
 		name               string
@@ -100,7 +102,7 @@ func TestProbePrepareCommand(t *testing.T) {
 		{
 			name:         "with_test_spec",
 			testSpec:     []string{"test_spec_1", "test_spec_2"},
-			wantCmdLine:  append(cmdLine("npx"), "test_spec_1", "test_spec_2"),
+			wantCmdLine:  append(cmdLine("npx"), "^.*/test_spec_1$", "^.*/test_spec_2$"),
 			wantEnvVars:  baseEnvVars("/playwright"),
 			wantWorkDir:  "/playwright",
 			wantEMLabels: baseWantEMLabels,
@@ -110,6 +112,7 @@ func TestProbePrepareCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.ProbeConf{
 				TestSpec: tt.testSpec,
+				TestDir:  &testDir,
 				TestMetricsOptions: &configpb.TestMetricsOptions{
 					DisableAggregation: &tt.disableAggregation,
 				},
@@ -135,6 +138,10 @@ func TestProbePrepareCommand(t *testing.T) {
 			for i, arg := range tt.wantCmdLine {
 				tt.wantCmdLine[i] = strings.ReplaceAll(arg, "{WORKDIR}", p.workdir)
 				tt.wantCmdLine[i] = filepath.FromSlash(strings.ReplaceAll(tt.wantCmdLine[i], "${OUTPUT_DIR}", outputDir))
+				if runtime.GOOS == "windows" {
+					// For test specs, backslashes get escaped again by regexp.QuoteMeta.
+					tt.wantCmdLine[i] = strings.ReplaceAll(tt.wantCmdLine[i], `.*\`, `.*\\`)
+				}
 			}
 			for i, envVar := range tt.wantEnvVars {
 				tt.wantEnvVars[i] = filepath.FromSlash(strings.ReplaceAll(envVar, "{OUTPUT_DIR}", outputDir))
@@ -192,9 +199,9 @@ func TestProbeInitTemplates(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	oldConfigFilePath := runconfig.ConfigFilePath()
-	defer runconfig.SetConfigFilePath(oldConfigFilePath)
-	runconfig.SetConfigFilePath("/cfg/cloudprober.cfg")
+	oldConfigFilePath := state.ConfigFilePath()
+	defer state.SetConfigFilePath(oldConfigFilePath)
+	state.SetConfigFilePath("/cfg/cloudprober.cfg")
 
 	defaultConfigContains := []string{
 		"testDir: \"/cfg\"",
@@ -283,6 +290,7 @@ func TestProbeInitTemplates(t *testing.T) {
 			p := &Probe{
 				name:    "test_probe",
 				c:       tt.conf,
+				opts:    options.DefaultOptions(),
 				workdir: tmpDir,
 			}
 
@@ -310,6 +318,192 @@ func TestProbeInitTemplates(t *testing.T) {
 			}
 			for _, want := range tt.reporterNotContains {
 				assert.NotContains(t, string(got), want, "reporter file should not contain: %s", want)
+			}
+		})
+	}
+}
+
+func TestPlaywrightGlobalTimeoutMsec(t *testing.T) {
+	tests := []struct {
+		name                 string
+		timeout              time.Duration
+		requestsPerProbe     int
+		requestsIntervalMsec int
+		want                 int64
+	}{
+		{
+			name:    "single_request",
+			timeout: 10 * time.Second,
+			want:    9000,
+		},
+		{
+			name:                 "multiple_requests",
+			timeout:              20 * time.Second,
+			requestsPerProbe:     3,
+			requestsIntervalMsec: 1000,
+			want:                 16200, // (20s - (3-1)*1s) - 0.9s (buffer)
+		},
+		{
+			name:    "large_buffer",
+			timeout: 120 * time.Second,
+			want:    118000,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Probe{
+				opts: &options.Options{
+					Timeout: tt.timeout,
+				},
+				c: &configpb.ProbeConf{
+					RequestsPerProbe:     proto.Int32(int32(tt.requestsPerProbe)),
+					RequestsIntervalMsec: proto.Int32(int32(tt.requestsIntervalMsec)),
+				},
+			}
+			if got := p.playwrightGlobalTimeoutMsec(); got != tt.want {
+				t.Errorf("playwrightGlobalTimeoutMsec() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProbeComputeTestSpecArgs(t *testing.T) {
+	tests := []struct {
+		name          string
+		testDir       string
+		testSpec      []string
+		filterInclude string
+		filterExclude string
+		wantArgs      []string
+		wantArgsWin   []string
+	}{
+		{
+			name:     "no_spec_no_filter",
+			testDir:  "/tests",
+			testSpec: nil,
+			wantArgs: []string{},
+		},
+		{
+			name:        "single_spec_relative",
+			testDir:     "/tests",
+			testSpec:    []string{"myspec.js"},
+			wantArgs:    []string{`^.*/myspec\.js$`},
+			wantArgsWin: []string{`^.*\\myspec\.js$`},
+		},
+		{
+			name:        "single_spec_absolute",
+			testDir:     "/tests",
+			testSpec:    []string{"/abs/path/spec.js"},
+			wantArgs:    []string{`^/abs/path/spec\.js$`},
+			wantArgsWin: []string{`^\\abs\\path\\spec\.js$`},
+		},
+		{
+			name:     "multiple_specs_mixed",
+			testDir:  "/dir",
+			testSpec: []string{"foo.js", "/bar/baz.js"},
+			wantArgs: []string{
+				`^.*/foo\.js$`,
+				`^/bar/baz\.js$`,
+			},
+			wantArgsWin: []string{
+				`^.*\\foo\.js$`,
+				`^\\bar\\baz\.js$`,
+			},
+		},
+		{
+			name:     "regex_spec",
+			testDir:  "/dir",
+			testSpec: []string{`^foo.*\.js$`},
+			wantArgs: []string{`^foo.*\.js$`},
+		},
+		{
+			name:          "with_include_filter",
+			testDir:       "/dir",
+			testSpec:      []string{"foo.js"},
+			filterInclude: "mytest",
+			wantArgs: []string{
+				"--grep=mytest",
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep=mytest",
+				`^.*\\foo\.js$`,
+			},
+		},
+		{
+			name:          "with_exclude_filter",
+			testDir:       "/dir",
+			testSpec:      []string{"foo.js"},
+			filterExclude: "skipme",
+			wantArgs: []string{
+				"--grep-invert=skipme",
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep-invert=skipme",
+				`^.*\\foo\.js$`,
+			},
+		},
+		{
+			name:          "with_both_filters",
+			testDir:       "/dir",
+			testSpec:      []string{"foo.js"},
+			filterInclude: "mytest",
+			filterExclude: "skipme",
+			wantArgs: []string{
+				"--grep=mytest",
+				"--grep-invert=skipme",
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep=mytest",
+				"--grep-invert=skipme",
+				`^.*\\foo\.js$`,
+			},
+		},
+		{
+			name:     "multiple_specs_with_regex",
+			testDir:  "/dir",
+			testSpec: []string{"foo.js", `^bar.*\.js$`},
+			wantArgs: []string{
+				`^.*/foo\.js$`,
+				`^bar.*\.js$`,
+			},
+			wantArgsWin: []string{
+				`^.*\\foo\.js$`,
+				`^bar.*\.js$`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conf := &configpb.ProbeConf{}
+			for _, spec := range tt.testSpec {
+				conf.TestSpec = append(conf.TestSpec, filepath.FromSlash(spec))
+			}
+			if tt.filterInclude != "" || tt.filterExclude != "" {
+				conf.TestSpecFilter = &configpb.TestSpecFilter{}
+				if tt.filterInclude != "" {
+					conf.TestSpecFilter.Include = &tt.filterInclude
+				}
+				if tt.filterExclude != "" {
+					conf.TestSpecFilter.Exclude = &tt.filterExclude
+				}
+			}
+			p := &Probe{
+				c:       conf,
+				testDir: tt.testDir,
+			}
+			got := p.computeTestSpecArgs()
+			if runtime.GOOS == "windows" {
+				if tt.wantArgsWin == nil {
+					tt.wantArgsWin = tt.wantArgs
+				}
+				assert.Equal(t, tt.wantArgsWin, got)
+			} else {
+				assert.Equal(t, tt.wantArgs, got)
 			}
 		})
 	}

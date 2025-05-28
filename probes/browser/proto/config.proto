@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.browser;
 
-import "github.com/cloudprober/cloudprober/internal/oauth/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/browser/proto";
 
@@ -12,107 +12,55 @@ message TestMetricsOptions {
     optional bool enable_step_metrics = 3;
 }
 
-// S3 storage backend configuration.
-message S3 {
-    optional string bucket = 1;
-    optional string path = 2;
-    optional string region = 3;
-    optional string access_key_id = 4;
-    optional string secret_access_key = 5;
+message TestSpecFilter {
+    // Tests to include. Default is to include all tests matched by test spec.
+    // This corresponds to the playwright --grep flag.
+    //
+    // Example:
+    // include: "login|logout"  // include tests with login or logout in title
+    // include: "@smoke"        // include tests with @smoke tag
+    optional string include = 1;
 
-    // S3 endpoint. If not specified, default endpoint for the region is used.
-    optional string endpoint = 6;
-}
-
-message GCS {
-    optional string bucket = 1;
-    optional string path = 2;
-
-    // If you want to use default credentials on GCE or GKE, leave this field
-    // empty. See
-    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_GoogleCredentials
-    // for more details on oauth.GoogleCredentials.
-    optional oauth.GoogleCredentials credentials = 3;
-
-    // GCS endpoint.
-    optional string endpoint = 4 [default = "https://storage.googleapis.com"];
-}
-
-message LocalStorage {
-    optional string dir = 1;
-
-    // Cleanup options for local storage. Specifying cleanup options for local
-    // enables automatic cleanup of old artifacts.
-    optional CleanupOptions cleanup_options = 2;
-}
-
-message ABS {
-    optional string container = 1;
-    optional string path = 2;
-
-    // Azure account name and key. If you want to use managed identities, leave
-    // account_key empty.
-    optional string account_name = 3;
-    optional string account_key = 4;
-
-    // Azure endpoint. Default is "https://<account>.blob.core.windows.net".
-    optional string endpoint = 5;
-
-    // OAuth2 configuration. If you want to use managed identities, leave this
-    // field empty. See
-    // https://cloudprober.org/docs/config/latest/oauth/#cloudprober_oauth_Config
-    // for more details on oauth.Config.
-    optional oauth.Config oauth_config = 6;
-}
-
-message Storage {
-    oneof storage {
-        LocalStorage local_storage = 1;
-        S3 s3 = 2;
-        GCS gcs = 3;
-        ABS abs = 4;
-    }
-}
-
-message ArtifactsOptions {
-    // Serve test artifacts on Cloudprober's default webserver. This is
-    // disabled by default for security reasons.
-    optional bool serve_on_web = 1;
-
-    // Specify web server path to serve test artifacts on.
-    // Default is "/artifacts/<probename>".
-    optional string web_server_path = 2;
-
-    // Storage for test artifacts. Note that test artifacts are always
-    // written to the workdir first, and uploaded to the storage backend in a
-    // parallel goroutine. This is to make sure that uploads don't block the
-    // main probe execution.
-    repeated Storage storage = 3;
-}
-
-message CleanupOptions {
-    // Maximum age of artifacts in seconds.
-    optional int32 max_age_sec = 1 [default = 3600];
-
-    // Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
-    // is smaller.
-    optional int32 cleanup_interval_sec = 3 [default = 3600];
+    // Tests to exclude.
+    // This corresponds to the playwright --grep-invert flag.
+    //
+    // Example:
+    // exclude: "@draft|@debug"  // exclude tests with @draft or @debug tag
+    optional string exclude = 2;
 }
 
 message ProbeConf {
-    // Playwright test specs. These are passed to playwright as it is. This
-    // field works in conjunction with test_dir -- test specs should be under
-    // test directory.
+    // Playwright test specs to run.
     //
-    // If test_spec is not specified, all test specs in the test directory are
-    // executed, and since default test directory is config file's directory,
-    // if you leave both the fields unspecified, all test specs co-located with
-    // the config file are executed.
+    // Each entry in test_spec is interpreted as follows:
+    //   - If it contains one of the following regex characters:
+    //     ^,$,*,|,?,+,(),[],{}, it is treated as a regex pattern and passed
+    //     directly to Playwright.
+    //   - Otherwise, it is treated as a filename (relative to test_dir or as
+    //     an absolute path if specified), and will be wrapped as a regex
+    //     matching the full path to that file.
+    //
+    // Examples:
+    //   test_spec: "test_login.ts" // runs tests in file {test_dir}/test_login.ts
+    //   test_spec: "sm*.ts"        // runs tests in files matching {test_dir}/sm*.ts
+    //
+    // If test_spec is not set, all test files in test_dir (default: config
+    // file directory) are executed.
     repeated string test_spec = 1;
 
     // Test directory. This is the directory where test specs are located.
     // Default test_dir is config file directory ("{{configDir}}").
     optional string test_dir = 2;
+
+    // Test spec filter. This field corresponds to the grep functionality of
+    // playwright.
+    //
+    // Example:
+    //   {
+    //     include: "web|ui"  // include tests with "web" or "ui" in title
+    //     exclude: "@draft"  // exclude tests with @draft tag
+    //   }
+    optional TestSpecFilter test_spec_filter = 3;
 
     // Workdir is path to the working directory. It should be writable. If not
     // specified, we try to create a temporary directory. All the output files
@@ -120,35 +68,40 @@ message ProbeConf {
     // If you need to be able access the output files, you should set this 
     // field to a persistent location, e.g. a persistent volume, or configure
     // artifact options.
-    optional string workdir = 3;
+    optional string workdir = 4;
 
     // Path to the playwright installation. We execute tests from this location.
     // If not specified, we'll use the value of environment variable
     // $PLAYWRIGHT_DIR, which is automatically set by the official cloudprober
     // playwright image (tag: "<version>-pw").
-    optional string playwright_dir = 4;
+    optional string playwright_dir = 5;
 
     // NPX path. Default is to assume npx is in the PATH.
-    optional string npx_path = 5 [default = "npx"];
+    optional string npx_path = 6 [default = "npx"];
 
     // Whether to enable screenshots for successful tests as well.
     // Note that screenshots are always enabled for failed tests, and you can
     // always save screenshots explicitly in the test spec.
-    optional bool save_screenshots_for_success = 6 [default = false];
+    optional bool save_screenshots_for_success = 7 [default = false];
 
     // Traces are expensive and can slow down the test. We recommend to enable
     // this only when needed.
-    optional bool save_traces = 7 [default = false];
+    optional bool save_traces = 8 [default = false];
 
     // By default, we export all test metrica as counters. You can change how
     // metrics are exported by setting the following options.
-    optional TestMetricsOptions test_metrics_options = 8;
+    optional TestMetricsOptions test_metrics_options = 9;
 
-    // Artifacts options.
-    optional ArtifactsOptions artifacts_options = 9;
+    // Artifacts options. If probe level artifacts options are not specified,
+    // we use global artifacts options if available. Note: it typically makes
+    // more sense to specify artifacts options at the global level.
+    optional artifacts.ArtifactsOptions artifacts_options = 10;
 
     // Cleanup options.
-    optional CleanupOptions workdir_cleanup_options = 10;
+    optional artifacts.CleanupOptions workdir_cleanup_options = 11;
+
+    // Environment variables. These are passed/set before probing starts.
+    map<string, string> env_var = 12;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and

@@ -9,6 +9,13 @@ on:
     paths:
       - "probes/external/serverutils/py/**"
       - ".github/workflows/py_serverutils.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to run workflow for"
+        required: true
+  release:
+    types: [published]
 
 jobs:
   test_and_build:
@@ -17,12 +24,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Check out code into the Go module directory
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
+
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.x
 
@@ -40,7 +55,7 @@ jobs:
         run: make py_serverutils
 
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: probes/external/serverutils/py/dist/
@@ -56,9 +71,17 @@ jobs:
 
     steps:
       - name: Check out repo hosting code
-        uses: actions/checkout@v3
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Check out code into the Go module directory
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: dorny/paths-filter@v2
         id: filter
@@ -71,7 +94,7 @@ jobs:
 
       - name: Download all the dists
         if: steps.filter.outputs.py == 'true'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/

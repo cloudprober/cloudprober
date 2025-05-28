@@ -20,17 +20,19 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/cloudprober/cloudprober/config"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web/resources"
-	"github.com/cloudprober/cloudprober/web/webutils"
 )
 
 //go:embed static/*
@@ -39,7 +41,7 @@ var content embed.FS
 var htmlTmpl = string(`
 <html>
 <head>
-  <link href="/static/cloudprober.css" rel="stylesheet">
+  <link href="static/cloudprober.css" rel="stylesheet">
 </head>
 
 <body>
@@ -61,6 +63,28 @@ var runningConfigTmpl = template.Must(template.New("runningConfig").Parse(`
 {{.ServersStatus}}
 `))
 
+type linksData struct {
+	Title string
+	Links []string
+}
+
+var allLinksTmpl = template.Must(template.New("allLinks").Parse(`
+<html>
+<h3>{{.Title}}:</h3>
+<ul>
+  {{ range .Links}}
+  <li><a href="{{.}}">/{{.}}</a></li>
+  {{ end }}
+</ul>
+</html>
+`))
+
+func writeWithHeader(w io.Writer, body template.HTML) {
+	// All links here are served at the root.
+	linkPrefix := ""
+	fmt.Fprint(w, fmt.Sprintf(htmlTmpl, resources.Header(linkPrefix), body))
+}
+
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 	var statusBuf bytes.Buffer
 	err := tmpl.Execute(&statusBuf, v)
@@ -71,7 +95,7 @@ func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
 }
 
 // runningConfig returns cloudprober's running config.
-func runningConfig(fn DataFuncs) string {
+func runningConfig(w io.Writer, fn DataFuncs) {
 	var statusBuf bytes.Buffer
 
 	probeInfo, surfacerInfo, serverInfo := fn.GetInfo()
@@ -85,18 +109,34 @@ func runningConfig(fn DataFuncs) string {
 	})
 
 	if err != nil {
-		return fmt.Sprintf(htmlTmpl, err.Error())
+		writeWithHeader(w, template.HTML(err.Error()))
+		return
 	}
 
-	return fmt.Sprintf(htmlTmpl, resources.Header(), statusBuf.String())
+	writeWithHeader(w, template.HTML(statusBuf.String()))
 }
 
-func alertsState() string {
-	status, err := alerting.StatusHTML()
-	if err != nil {
-		return fmt.Sprintf(htmlTmpl, err.Error())
+func allLinksPageLinks(links []string) []string {
+	var out []string
+	for _, link := range links {
+		if strings.Contains(link, "/static/") {
+			continue
+		}
+		out = append(out, strings.TrimLeft(link, "/"))
 	}
-	return fmt.Sprintf(htmlTmpl, resources.Header(), status)
+	sort.Strings(out)
+	return out
+}
+
+func artifactsLinks(links []string) []string {
+	var out []string
+	for _, link := range links {
+		if strings.Contains(link, "/artifacts/") {
+			out = append(out, strings.TrimLeft(link, "/"))
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 type DataFuncs struct {
@@ -118,36 +158,55 @@ var secretConfigRunningMsg = `
 
 // InitWithDataFuncs initializes cloudprober web interface handler.
 func InitWithDataFuncs(fn DataFuncs) error {
-	srvMux := runconfig.DefaultHTTPServeMux()
-	for _, url := range []string{"/config", "/config-running", "/static/"} {
-		if webutils.IsHandled(srvMux, url) {
-			return fmt.Errorf("url %s is already handled", url)
+	if err := state.AddWebHandler("/config", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, fn.GetRawConfig())
+	}); err != nil {
+		return err
+	}
+
+	if err := state.AddWebHandler("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, fn.GetParsedConfig())
+	}); err != nil {
+		return err
+	}
+
+	if err := state.AddWebHandler("/config-running", func(w http.ResponseWriter, r *http.Request) {
+		parsedConfig := fn.GetParsedConfig()
+		if !config.EnvRegex.MatchString(parsedConfig) {
+			runningConfig(w, fn)
+			return
+		} else {
+			writeWithHeader(w, template.HTML(secretConfigRunningMsg))
+		}
+	}); err != nil {
+		return err
+	}
+
+	if err := state.AddWebHandler("/alerts", func(w http.ResponseWriter, r *http.Request) {
+		status, err := alerting.StatusHTML()
+		if err != nil {
+			writeWithHeader(w, template.HTML(err.Error()))
+		} else {
+			writeWithHeader(w, template.HTML(status))
+		}
+	}); err != nil {
+		return err
+	}
+
+	if err := state.AddWebHandler("/links", func(w http.ResponseWriter, r *http.Request) {
+		writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "All Links", Links: allLinksPageLinks(state.AllLinks())}))
+	}); err != nil {
+		return err
+	}
+
+	artifactsL := artifactsLinks(state.AllLinks())
+	if len(artifactsL) > 0 {
+		if err := state.AddWebHandler("/artifacts", func(w http.ResponseWriter, r *http.Request) {
+			writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: artifactsLinks(state.AllLinks())}))
+		}); err != nil {
+			return err
 		}
 	}
 
-	srvMux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, fn.GetRawConfig())
-	})
-
-	srvMux.HandleFunc("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, fn.GetParsedConfig())
-	})
-
-	srvMux.HandleFunc("/config-running", func(w http.ResponseWriter, r *http.Request) {
-		parsedConfig := fn.GetParsedConfig()
-		var configRunning string
-		if !config.EnvRegex.MatchString(parsedConfig) {
-			configRunning = runningConfig(fn)
-		} else {
-			configRunning = secretConfigRunningMsg
-		}
-
-		fmt.Fprint(w, configRunning)
-	})
-
-	srvMux.HandleFunc("/alerts", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, alertsState())
-	})
-	srvMux.Handle("/static/", http.FileServer(http.FS(content)))
-	return nil
+	return state.AddWebHandler("/static/", http.FileServer(http.FS(content)).ServeHTTP)
 }

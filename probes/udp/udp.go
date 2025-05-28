@@ -139,6 +139,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.src = sysvars.GetVar("hostname")
 	p.c = c
+	if p.c == nil {
+		p.c = &configpb.ProbeConf{}
+	}
 	p.fsm = udpmessage.NewFlowStateMap()
 	p.res = make(map[flow]*probeResult)
 
@@ -219,6 +222,26 @@ func (p *Probe) initProbeRunResults() error {
 			}
 		}
 	}
+
+	// Delete results for targets that are no longer in the target list.
+	var keysToDelete []flow
+	for f := range p.res {
+		found := false
+		for _, target := range p.targets {
+			if f.target == target.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			keysToDelete = append(keysToDelete, f)
+		}
+	}
+
+	// Delete keys after the loop
+	for _, key := range keysToDelete {
+		delete(p.res, key)
+	}
 	return nil
 }
 
@@ -261,6 +284,9 @@ func (p *Probe) processRcvdPacket(rpkt packetID) {
 
 func (p *Probe) processSentPacket(spkt packetID) {
 	p.l.Debugf("spkt seq: %d, flow: %v", spkt.seq, spkt.f)
+	if spkt.seq > p.highestSeq[spkt.f] {
+		p.highestSeq[spkt.f] = spkt.seq
+	}
 	res, ok := p.res[p.resultsKey(spkt.f)]
 	if !ok {
 		return
@@ -293,25 +319,22 @@ func (p *Probe) processPackets() {
 	for i := 0; i < lenSentPackets; i++ {
 		pkt := <-p.sentPackets
 		if now.Sub(pkt.txTS) < p.opts.Timeout {
-			p.l.Debugf("Inserting spacket (seq %d) for late processing", pkt.seq)
+			p.l.Debugf("Inserting spacket (seq %d, flow %v) for late processing", pkt.seq, pkt.f)
 			p.sPackets = append(p.sPackets, pkt)
 			continue
 		}
 		p.processSentPacket(pkt)
-		if pkt.seq > p.highestSeq[pkt.f] {
-			p.highestSeq[pkt.f] = pkt.seq
-		}
 	}
 
 	for i := 0; i < lenRcvdPackets; i++ {
 		pkt := <-p.rcvdPackets
 		if now.Sub(pkt.txTS) < p.opts.Timeout {
-			p.l.Debugf("Inserting rpacket (seq %d) for late processing", pkt.seq)
+			p.l.Debugf("Inserting rpacket (seq %d, flow %v) for late processing", pkt.seq, pkt.f)
 			p.rPackets = append(p.rPackets, pkt)
 			continue
 		}
 		if pkt.seq > p.highestSeq[pkt.f] {
-			p.l.Debugf("Inserting rpacket for late processing as seq (%d) > highestSeq (%d)", pkt.seq, p.highestSeq[pkt.f])
+			p.l.Debugf("Inserting rpacket for late processing as seq (%d) > highestSeq (%d),flow: %v", pkt.seq, p.highestSeq[pkt.f], pkt.f)
 			p.rPackets = append(p.rPackets, pkt)
 			continue
 		}
@@ -405,13 +428,11 @@ func (p *Probe) runProbe() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(p.targets) * packetsPerTarget)
-
 	for _, conn := range p.connList {
 		conn.SetWriteDeadline(time.Now().Add(p.opts.Interval / 2))
 	}
 	for _, target := range p.targets {
-		ip, err := p.opts.Targets.Resolve(target.Name, p.ipVer)
+		ip, err := target.Resolve(p.ipVer, p.opts.Targets)
 		if err != nil {
 			p.l.Errorf("unable to resolve %s: %v", target.Name, err)
 			continue
@@ -429,6 +450,7 @@ func (p *Probe) runProbe() {
 		for i := 0; i < packetsPerTarget; i++ {
 			connID := (initialConn + i) % len(p.connList)
 			conn := p.connList[connID]
+			wg.Add(1)
 			go func(conn *net.UDPConn, f flow) {
 				defer wg.Done()
 				if err := p.runSingleProbe(f, conn, maxLen, &net.UDPAddr{IP: ip, Port: dstPort}); err != nil {

@@ -27,14 +27,11 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
-	"os"
 	"regexp"
-	"sort"
 	"sync"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
@@ -44,13 +41,13 @@ import (
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/lameduck"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var randGenerator = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -65,9 +62,13 @@ type Prober struct {
 	Servers   []*servers.ServerInfo
 	c         *configpb.ProberConfig
 	l         *logger.Logger
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	ldLister  endpoint.Lister
 	Surfacers []*surfacers.SurfacerInfo
+
+	// We need this to start probes in response to API trigger. We still want
+	// these probes to exit if prober's start context gets canceled.
+	startCtx context.Context
 
 	// Probe channel to handle starting of the new probes.
 	grpcStartProbeCh chan string
@@ -110,7 +111,7 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 		return status.Errorf(codes.AlreadyExists, "probe %s is already defined", p.GetName())
 	}
 
-	opts, err := options.BuildProbeOptions(p, pr.ldLister, pr.c.GetGlobalTargetsOptions(), pr.l)
+	opts, err := options.BuildProbeOptions(p, pr.ldLister, pr.c, pr.l)
 	if err != nil {
 		return status.Errorf(codes.Unknown, err.Error())
 	}
@@ -125,15 +126,146 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 	return nil
 }
 
+// startProbe starts the probe with the given name.
+// startProbe is protected and can be called concurrently. It's called
+// from Start() at the very beginning, and then every time a new probe is
+// added through a gRPC request.
+func (pr *Prober) startProbe(name string) {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	probeCtx, cancelFunc := context.WithCancel(pr.startCtx)
+	pr.probeCancelFunc[name] = cancelFunc
+	go pr.Probes[name].Start(probeCtx, pr.dataChan)
+}
+
+func randomDuration(duration time.Duration) time.Duration {
+	if duration == 0 {
+		return 0
+	}
+	if duration > time.Minute {
+		duration = time.Minute
+	}
+	return time.Duration(randGenerator.Int63n(duration.Milliseconds())) * time.Millisecond
+}
+
+// interProbeGap returns the wait time between probes that are in the same
+// interval bucket.
+//
+// Overall goal is to start all probes by the end of 1st interval. But to avoid
+// waiting for too long for large intervals, we cap the gap at 1 minute.
+// Some examples:
+//
+//	30 probes in 30s interval, gap=1s, last probe starts at 29s
+//	12 probes in 1m interval, gap=5s, last probe starts at 55s
+//	12 probes in 5m interval, gap=25s, last probe starts at 4m35s
+//	8 probes in 10m interval, gap=1m, last probe starts at 7m
+//
+// TODO(manugarg): Allow this to be overridden with config.
+func interProbeGap(interval time.Duration, numProbes int) time.Duration {
+	d := interval / time.Duration(numProbes)
+	if d > 1*time.Minute {
+		return 1 * time.Minute
+	}
+	return d
+}
+
+// startProbesWithJitter try to space out probes over time, as much as
+// possible, without making it too complicated.
+//
+// We arrange probes into interval buckets - all probes with the same interval
+// will be part of the same bucket. We spread out probes within an interval,
+// and also the overall interval-buckets themselves.
+//
+//	[probe1 <gap> probe2 <gap> probe3 <gap> ...]    interval1 (30s)
+//	<interval-bucket-gap> [probe4 <gap> probe5 ...] interval2 (10s)
+//	<interval-bucket-gap> [probe6 <gap> probe7 ...] interval3 (1m)
+//
+// Note this function is not concurrency safe, which is fine, because it's only
+// called from Start(), which is never called concurrently itself.
+func (pr *Prober) startProbesWithJitter() {
+	// Make interval -> [probe1, probe2, probe3..] map
+	intervalBuckets := make(map[time.Duration][]*probes.ProbeInfo)
+
+	for _, p := range pr.Probes {
+		intervalBuckets[p.Options.Interval] = append(intervalBuckets[p.Options.Interval], p)
+	}
+
+	iter := 0
+
+	for interval, probeInfos := range intervalBuckets {
+		// Note that we introduce jitter within the goroutine instead of in the
+		// loop here. This is to make sure this function returns quickly.
+		go func(interval time.Duration, probeInfos []*probes.ProbeInfo, iter int) {
+			if iter > 0 {
+				// Except for the first interval bucket, we sleep before
+				// starting probes in this bucket. This sleep is for a random
+				// duration <= min(interval, 1min). Note that unlike inter-probe
+				// gap this one doesn't add up.
+				time.Sleep(randomDuration(interval))
+			}
+
+			for _, p := range probeInfos {
+				pr.l.Info("Starting probe: ", p.Name)
+				go pr.startProbe(p.Name)
+				time.Sleep(interProbeGap(interval, len(probeInfos)))
+			}
+		}(interval, probeInfos, iter)
+		iter++
+	}
+}
+
+// Start starts a previously initialized Cloudprober.
+// Start is unprotected and should never be called concurrently. It's called
+// once from the main function, never in response to a gRPC request.
+func (pr *Prober) Start(ctx context.Context) {
+	pr.startCtx = ctx
+
+	pr.dataChan = make(chan *metrics.EventMetrics, 100000)
+
+	go func() {
+		var em *metrics.EventMetrics
+		for {
+			em = <-pr.dataChan
+
+			// Replicate the surfacer message to every surfacer we have
+			// registered. Note that s.Write() is expected to be
+			// non-blocking to avoid blocking of EventMetrics message
+			// processing.
+			for _, surfacer := range pr.Surfacers {
+				surfacer.Write(pr.startCtx, em)
+			}
+		}
+	}()
+
+	// Start a goroutine to export system variables
+	go sysvars.Start(ctx, pr.dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
+
+	// Start servers, each in its own goroutine
+	for _, s := range pr.Servers {
+		go s.Start(ctx, pr.dataChan)
+	}
+
+	if pr.c.GetDisableJitter() {
+		for name := range pr.Probes {
+			go pr.startProbe(name)
+		}
+	} else {
+		pr.startProbesWithJitter()
+	}
+}
+
 // Init initialize prober with the given config file.
-func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) error {
-	pr.c = cfg
-	pr.l = l
+func Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) (*Prober, error) {
+	pr := &Prober{
+		c: cfg,
+		l: l,
+	}
 
 	// Initialize cloudprober gRPC service if configured.
-	srv := runconfig.DefaultGRPCServer()
+	srv := state.DefaultGRPCServer()
 	if srv != nil {
-		pr.grpcStartProbeCh = make(chan string)
+		pr.grpcStartProbeCh = make(chan string, 10)
 		spb.RegisterCloudproberServer(srv, pr)
 	}
 
@@ -143,10 +275,10 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	if c := pr.c.GetRdsServer(); c != nil {
 		rdsServer, err := rdsserver.New(ctx, c, nil, logger.NewWithAttrs(slog.String("component", "rds-server")))
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		runconfig.SetLocalRDSServer(rdsServer)
+		state.SetLocalRDSServer(rdsServer)
 		if srv != nil {
 			rdsServer.RegisterWithGRPC(srv)
 		}
@@ -159,7 +291,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 		ldLogger := logger.NewWithAttrs(slog.String("component", "lame-duck"))
 
 		if err := lameduck.InitDefaultLister(globalTargetsOpts, nil, ldLogger); err != nil {
-			return err
+			return nil, err
 		}
 
 		var err error
@@ -175,7 +307,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	for _, st := range pr.c.GetSharedTargets() {
 		tgts, err := targets.New(st.GetTargets(), pr.ldLister, globalTargetsOpts, pr.l, pr.l)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		targets.SetSharedTargets(st.GetName(), tgts)
 	}
@@ -185,165 +317,20 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	pr.probeCancelFunc = make(map[string]context.CancelFunc)
 	for _, p := range pr.c.GetProbe() {
 		if err := pr.addProbe(p); err != nil {
-			return err
+			return nil, fmt.Errorf("error while adding probe '%s': %v", p.GetName(), err)
 		}
 	}
 
 	// Initialize servers
 	pr.Servers, err = servers.Init(ctx, pr.c.GetServer())
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("error while initializing servers: %v", err)
 	}
 
 	pr.Surfacers, err = surfacers.Init(ctx, pr.c.GetSurfacer())
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("error while initializing surfacers: %v", err)
 	}
 
-	return nil
-}
-
-// Start starts a previously initialized Cloudprober.
-func (pr *Prober) Start(ctx context.Context) {
-	pr.dataChan = make(chan *metrics.EventMetrics, 100000)
-
-	go func() {
-		var em *metrics.EventMetrics
-		for {
-			em = <-pr.dataChan
-
-			// Replicate the surfacer message to every surfacer we have
-			// registered. Note that s.Write() is expected to be
-			// non-blocking to avoid blocking of EventMetrics message
-			// processing.
-			for _, surfacer := range pr.Surfacers {
-				surfacer.Write(context.Background(), em)
-			}
-		}
-	}()
-
-	// Start a goroutine to export system variables
-	go sysvars.Start(ctx, pr.dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
-
-	// Start servers, each in its own goroutine
-	for _, s := range pr.Servers {
-		go s.Start(ctx, pr.dataChan)
-	}
-
-	if pr.c.GetDisableJitter() {
-		for name := range pr.Probes {
-			go pr.startProbe(ctx, name)
-		}
-	} else {
-		pr.startProbesWithJitter(ctx)
-	}
-	if runconfig.DefaultGRPCServer() != nil {
-		// Start a goroutine to handle starting of the probes added through gRPC.
-		// AddProbe adds new probes to the pr.grpcStartProbeCh channel and this
-		// goroutine reads from that channel and starts the probe using the overall
-		// Start context.
-		go func() {
-			for {
-				select {
-				case name := <-pr.grpcStartProbeCh:
-					pr.startProbe(ctx, name)
-				}
-			}
-		}()
-	}
-}
-
-func (pr *Prober) startProbe(ctx context.Context, name string) {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
-	probeCtx, cancelFunc := context.WithCancel(ctx)
-	pr.probeCancelFunc[name] = cancelFunc
-	go pr.Probes[name].Start(probeCtx, pr.dataChan)
-}
-
-func randomDuration(duration, ceiling time.Duration) time.Duration {
-	if duration == 0 {
-		return 0
-	}
-	if duration > ceiling {
-		duration = ceiling
-	}
-	return time.Duration(randGenerator.Int63n(duration.Milliseconds())) * time.Millisecond
-}
-
-// interProbeWait returns the wait time between probes. It's not beneficial for
-// this interval to be too large, so we cap it at 2 seconds.
-func interProbeWait(interval time.Duration, numProbes int) time.Duration {
-	d := interval / time.Duration(numProbes)
-	if d > 2*time.Second {
-		return 2 * time.Second
-	}
-	return d
-}
-
-// startProbesWithJitter try to space out probes over time, as much as
-// possible, without making it too complicated.
-//
-// We arrange probes into interval buckets - all probes with the same interval
-// will be part of the same bucket. We spread out probes within an interval,
-// and also the overall interval-buckets themselves.
-//
-//	[probe1 <gap> probe2 <gap> probe3 <gap> ...]    interval1 (30s)
-//	<interval-bucket-gap> [probe4 <gap> probe5 ...] interval2 (10s)
-//	<interval-bucket-gap> [probe6 <gap> probe7 ...] interval3 (1m)
-func (pr *Prober) startProbesWithJitter(ctx context.Context) {
-	// Make interval -> [probe1, probe2, probe3..] map
-	intervalBuckets := make(map[time.Duration][]*probes.ProbeInfo)
-	for _, p := range pr.Probes {
-		intervalBuckets[p.Options.Interval] = append(intervalBuckets[p.Options.Interval], p)
-	}
-
-	iter := 0
-	for interval, probeInfos := range intervalBuckets {
-		// Note that we introduce jitter within the goroutine instead of in the
-		// loop here. This is to make sure this function returns quickly.
-		go func(interval time.Duration, probeInfos []*probes.ProbeInfo, iter int) {
-			if iter > 0 {
-				time.Sleep(randomDuration(interval, 10*time.Second))
-			}
-
-			for _, p := range probeInfos {
-				pr.l.Info("Starting probe: ", p.Name)
-				go pr.startProbe(ctx, p.Name)
-				time.Sleep(interProbeWait(interval, len(probeInfos)))
-			}
-		}(interval, probeInfos, iter)
-		iter++
-	}
-}
-
-func (pr *Prober) saveProbesConfigUnprotected(filePath string) error {
-	var keys []string
-	for k := range pr.Probes {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	cfg := &configpb.ProberConfig{}
-	for _, k := range keys {
-		cfg.Probe = append(cfg.Probe, pr.Probes[k].ProbeDef)
-	}
-
-	textCfg := prototext.MarshalOptions{
-		Indent: "  ",
-	}.Format(cfg)
-
-	if textCfg == "" && len(pr.Probes) != 0 {
-		err := fmt.Errorf("text marshaling of probes config returned an empty string. Config: %v", cfg)
-		pr.l.Warning(err.Error())
-		return err
-	}
-
-	if err := os.WriteFile(filePath, []byte(textCfg), 0644); err != nil {
-		pr.l.Errorf("Error saving config to disk: %v", err)
-		return err
-	}
-
-	return nil
+	return pr, nil
 }

@@ -33,10 +33,10 @@ import (
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto"
 	"github.com/cloudprober/cloudprober/web/resources"
-	"github.com/cloudprober/cloudprober/web/webutils"
 )
 
 //go:embed static/*
@@ -128,13 +128,13 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		return nil, nil
 	}
 
-	if webutils.IsHandled(opts.HTTPServeMux, config.GetUrl()) {
-		return nil, fmt.Errorf("probestatus surfacer URL (%s) is already registered", config.GetUrl())
-	}
-
 	res := time.Duration(config.GetResolutionSec()) * time.Second
 	if res == 0 {
 		res = time.Minute
+	}
+
+	if config.GetUrl() != "/status" {
+		l.Warningf("Setting status page url is deprecated. In future versions, url will always be fixed at /status and setting it to anything else will result in an error")
 	}
 
 	ps := &Surfacer{
@@ -171,7 +171,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
-	opts.HTTPServeMux.HandleFunc(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
+	state.AddWebHandler(config.GetUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
 		doneChan := make(chan struct{}, 1)
@@ -179,23 +179,35 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		<-doneChan
 	})
 
-	if !webutils.IsHandled(opts.HTTPServeMux, "/probestatus") {
-		opts.HTTPServeMux.Handle("/probestatus", http.RedirectHandler(config.GetUrl(), http.StatusFound))
+	redirectHTML := fmt.Sprintf(`<html><meta http-equiv="refresh" content="0; url=%s"></html>`, strings.TrimLeft(config.GetUrl(), "/"))
+
+	// Make sure older path /probestatus is redirected to the new path.
+	if !state.IsHandled("/probestatus") {
+		if err := state.AddWebHandler("/probestatus", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, redirectHTML)
+		}); err != nil {
+			return nil, fmt.Errorf("error setting up /probestatus redirect: %v", err)
+		}
 	}
 
-	opts.HTTPServeMux.Handle(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))))
-
-	if !webutils.IsHandled(opts.HTTPServeMux, "/") {
-		opts.HTTPServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	if !state.IsHandled("/") {
+		err := state.AddWebHandler("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/" {
 				http.NotFound(w, r)
 				return
 			}
-			http.Redirect(w, r, "/probestatus", http.StatusFound)
+			fmt.Fprintf(w, redirectHTML)
 		})
+		if err != nil {
+			return nil, fmt.Errorf("error adding / handler: %v", err)
+		}
 	}
 
-	l.Infof("Initialized status surfacer at the URL: %s", "probesstatus")
+	if err := state.AddWebHandler(config.GetUrl()+"/static/", http.StripPrefix(config.GetUrl(), http.FileServer(http.FS(content))).ServeHTTP); err != nil {
+		return nil, fmt.Errorf("error adding static file handler: %v", err)
+	}
+
+	l.Infof("Initialized status surfacer at the URL: %s", config.GetUrl())
 	return ps, nil
 }
 
@@ -370,6 +382,10 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	var statusBuf bytes.Buffer
 
+	// TODO(manugarg): We should stop supporting custom URL for the status
+	// page and always use /status. We'll not need this linkPrefix then.
+	linkPrefix := resources.LinkPrefixFromCurrentPath(ps.c.GetUrl())
+
 	err := statusTmpl.Execute(&statusBuf, struct {
 		BaseURL     string
 		Durations   []string
@@ -379,16 +395,18 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		GraphData   map[string]template.JS
 		DebugData   map[string]template.HTML
 		Header      template.HTML
+		LinkPrefix  string
 		StartTime   fmt.Stringer
 	}{
-		BaseURL:     ps.c.GetUrl(),
+		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
 		Durations:   ps.dashDurationsText,
 		ProbeNames:  probes,
 		AllProbes:   ps.probeNames,
 		StatusTable: statusTable,
 		GraphData:   graphData,
 		DebugData:   debugData,
-		Header:      resources.Header(),
+		Header:      resources.Header(linkPrefix),
+		LinkPrefix:  linkPrefix,
 		StartTime:   ps.startTime,
 	})
 	if err != nil {

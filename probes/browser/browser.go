@@ -24,24 +24,31 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config/runconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts/web"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
 )
+
+const playwrightReportDir = "_playwright_report"
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
@@ -52,6 +59,8 @@ type Probe struct {
 
 	// book-keeping params
 	targets              []endpoint.Endpoint
+	testDir              string
+	testSpecArgs         []string
 	workdir              string
 	outputDir            string
 	playwrightDir        string
@@ -59,8 +68,8 @@ type Probe struct {
 	reporterPath         string
 	payloadParser        *payload.Parser
 	dataChan             chan *metrics.EventMetrics
-	artifactsHandler     *artifactsHandler
-	cleanupHandlers      []*cleanupHandler
+	artifactsHandler     *artifacts.ArtifactsHandler
+	workdirCleanup       *artifacts.CleanupHandler
 
 	runID   map[string]int64
 	runIDMu sync.Mutex
@@ -103,7 +112,7 @@ func (p *Probe) newResult() sched.ProbeResult {
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
-func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) *metrics.EventMetrics {
+func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
@@ -114,7 +123,20 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return em
+	return []*metrics.EventMetrics{em}
+}
+
+func (p *Probe) playwrightGlobalTimeoutMsec() int64 {
+	timeout := p.opts.Timeout.Milliseconds()
+	// For multiple requests per probe, last request's effective timeout will be less
+	timeout -= int64(p.c.GetRequestsIntervalMsec() * (p.c.GetRequestsPerProbe() - 1))
+
+	// Keep some buffer for playwright to finish up the test.
+	buffer := 0.1 * float64(timeout)
+	if buffer > 2000 {
+		buffer = 2000
+	}
+	return timeout - int64(buffer)
 }
 
 func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) (string, error) {
@@ -131,20 +153,17 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 }
 
 func (p *Probe) initTemplates() error {
-	testDir := p.c.GetTestDir()
-	if p.c.TestDir == nil {
-		testDir = filepath.Dir(runconfig.ConfigFilePath())
-	}
-
 	// Set up playwright config in workdir
 	data := struct {
 		TestDir            string
+		GlobalTimeoutMsec  int64
 		Screenshot         string
 		Trace              string
 		EnableStepMetrics  bool
 		DisableTestMetrics bool
 	}{
-		TestDir:            testDir,
+		TestDir:            p.testDirPath(),
+		GlobalTimeoutMsec:  p.playwrightGlobalTimeoutMsec(),
 		Screenshot:         "only-on-failure",
 		Trace:              "off",
 		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
@@ -173,6 +192,57 @@ func (p *Probe) initTemplates() error {
 	return nil
 }
 
+func (p *Probe) computeTestSpecArgs() []string {
+	args := []string{}
+
+	if p.c.GetTestSpecFilter() != nil {
+		if p.c.GetTestSpecFilter().GetInclude() != "" {
+			args = append(args, "--grep="+p.c.GetTestSpecFilter().GetInclude())
+		}
+		if p.c.GetTestSpecFilter().GetExclude() != "" {
+			args = append(args, "--grep-invert="+p.c.GetTestSpecFilter().GetExclude())
+		}
+	}
+
+	for _, ts := range p.c.GetTestSpec() {
+		// If test spec is a regex, skip modifying it.
+		if strings.ContainsAny(ts, "^$*|?+()[]{}") {
+			args = append(args, ts)
+			continue
+		}
+		// If test spec is not a regex, make it a regex that matches the given
+		// test spec. This is important because playwright treats test specs as
+		// regexes.
+		ts = regexp.QuoteMeta(ts)
+		if !filepath.IsAbs(ts) {
+			pathSep := string(filepath.Separator)
+			if pathSep == `\` {
+				// "/" needs to be escaped in regex
+				pathSep = `\\`
+			}
+			ts = ".*" + pathSep + ts
+		}
+		args = append(args, "^"+ts+"$")
+	}
+
+	return args
+}
+
+// testDirPath returns the test directory. If not specified, it returns the
+// directory of the config file.
+// Note that this function is not concurrency-safe, which is fine since it is
+// called only during initialization.
+func (p *Probe) testDirPath() string {
+	if p.testDir != "" {
+		return p.testDir
+	}
+	p.testDir = p.c.GetTestDir()
+	if p.c.TestDir == nil {
+		p.testDir = filepath.Dir(state.ConfigFilePath())
+	}
+	return p.testDir
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -190,6 +260,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.runID = make(map[string]int64)
+
+	p.testSpecArgs = p.computeTestSpecArgs()
 
 	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
 	if totalDuration > p.opts.Interval {
@@ -220,7 +292,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.outputDir = filepath.Join(p.workdir, "output")
 
 	if !p.c.GetTestMetricsOptions().GetDisableTestMetrics() {
-		omo := &payload_configpb.OutputMetricsOptions{}
+		omo := &payload_configpb.OutputMetricsOptions{
+			// All our metrics start with "test_".
+			LineAcceptRegex: proto.String(`^test_.+`),
+		}
 		if !p.c.GetTestMetricsOptions().GetDisableAggregation() {
 			omo.MetricsKind = payload_configpb.OutputMetricsOptions_CUMULATIVE.Enum()
 			omo.AggregateInCloudprober = proto.Bool(true)
@@ -236,16 +311,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("failed to initialize templates: %v", err)
 	}
 
-	if err := p.initArtifactsHandler(); err != nil {
+	// We strip unnecessary /_playwright_report/ subdirectory from the path.
+	destPathFn := storage.RemovePathSegmentFn(p.outputDir, playwrightReportDir)
+
+	ah, err := artifacts.InitArtifactsHandler(context.Background(), p.c.GetArtifactsOptions(), p.outputDir, p.opts, destPathFn, p.l)
+	if err != nil {
 		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
 	}
+	p.artifactsHandler = ah
 
 	if p.c.GetWorkdirCleanupOptions() != nil {
-		ch, err := newCleanupHandler(p.c.GetWorkdirCleanupOptions(), p.l)
+		ch, err := artifacts.NewCleanupHandler(p.outputDir, p.c.GetWorkdirCleanupOptions(), p.l)
 		if err != nil {
 			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 		}
-		p.cleanupHandlers = append(p.cleanupHandlers, ch)
+		p.workdirCleanup = ch
 	}
 
 	return nil
@@ -276,8 +356,7 @@ func targetEnvVars(target endpoint.Endpoint) []string {
 }
 
 func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
-	nowUTC := ts.UTC()
-	outputDirPath := []string{p.outputDir, nowUTC.Format("2006-01-02"), strconv.FormatInt(nowUTC.UnixMilli(), 10)}
+	outputDirPath := []string{p.outputDir, ts.Format("2006-01-02"), strconv.FormatInt(ts.UnixMilli(), 10)}
 	if target.Name != "" {
 		outputDirPath = append(outputDirPath, target.Name)
 	}
@@ -288,12 +367,18 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	runID := p.generateRunID(target)
 
 	outputDir := p.outputDirPath(target, ts)
-	reportDir := filepath.Join(outputDir, "report")
+	reportDir := filepath.Join(outputDir, playwrightReportDir)
 
 	envVars := []string{
 		fmt.Sprintf("NODE_PATH=%s", filepath.Join(p.playwrightDir, "node_modules")),
 		fmt.Sprintf("PLAYWRIGHT_HTML_REPORT=%s", reportDir),
 		"PLAYWRIGHT_HTML_OPEN=never",
+	}
+	for k, v := range p.c.GetEnvVar() {
+		if v == "" {
+			v = "1" // default to a truthy value
+		}
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
 	envVars = append(envVars, targetEnvVars(target)...)
 
@@ -305,7 +390,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		"--output=" + filepath.Join(outputDir, "results"),
 		"--reporter=html," + p.reporterPath,
 	}
-	cmdLine = append(cmdLine, p.c.GetTestSpec()...)
+	cmdLine = append(cmdLine, p.testSpecArgs...)
 
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := &command.Command{
@@ -322,7 +407,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
 				em.AddLabel("run_id", fmt.Sprintf("%d", runID))
 			}
-			p.opts.RecordMetrics(target, em, p.dataChan, options.WithNoAlert())
+			p.opts.RecordMetrics(target, em, p.dataChan)
 		}
 	}
 
@@ -335,12 +420,18 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	cmd, reportDir := p.prepareCommand(target, startTime)
 	_, err := cmd.Execute(ctx, p.l)
 
-	// We use startCtx here to make sure artifactsHandler keeps running (if
-	// required) even after this probe run.
-	p.artifactsHandler.handle(p.startCtx, reportDir)
-
 	if err != nil {
 		p.l.Errorf("error running playwright test: %v", err)
+		if err := os.WriteFile(filepath.Join(reportDir, web.FailureMarkerFile), []byte("1"), 0644); err != nil {
+			p.l.Errorf("error writing failure marker in %s: %v", reportDir, err)
+		}
+	}
+
+	// We use startCtx here to make sure artifactsHandler keeps running (if
+	// required) even after this probe run.
+	p.artifactsHandler.Handle(p.startCtx, reportDir)
+
+	if err != nil {
 		return
 	}
 
@@ -353,9 +444,11 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
-func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sched.ProbeResult) {
-	// Convert interface to struct type
-	result := res.(*probeRunResult)
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 
 	port := target.Port
 	result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
@@ -394,8 +487,12 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, res sche
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.startCtx = ctx
 
-	for _, ch := range p.cleanupHandlers {
-		go ch.start(p.startCtx, p.outputDir)
+	if p.workdirCleanup != nil {
+		go p.workdirCleanup.Start(p.startCtx)
+	}
+	if p.artifactsHandler != nil {
+		// Starts cleanup handlers in goroutines.
+		p.artifactsHandler.StartCleanup(p.startCtx)
 	}
 
 	p.dataChan = dataChan
@@ -404,7 +501,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		ProbeName:         p.name,
 		DataChan:          dataChan,
 		Opts:              p.opts,
-		NewResult:         func(_ *endpoint.Endpoint) sched.ProbeResult { return p.newResult() },
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)

@@ -46,7 +46,21 @@ type ProbeResult interface {
 	// This EventMetrics object should not be reused for further accounting
 	// because it's modified by the scheduler and later on when it's pushed
 	// to the data channel.
-	Metrics(timeStamp time.Time, runID int64, opts *options.Options) *metrics.EventMetrics
+	Metrics(timeStamp time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics
+}
+
+// RunProbeForTargetRequest is used to pass information to RunProbeForTarget
+// function. It's created once per target and its address is passed to
+// the successive RunProbeForTarget calls.
+type RunProbeForTargetRequest struct {
+	Target endpoint.Endpoint
+	Result ProbeResult
+
+	// TargetState is an optional field that is used to pass around and retain
+	// state across probe runs. It's typically filled by the individual probe
+	// type. For example, http probe uses this field to cache HTTP request and
+	// clients.
+	TargetState any
 }
 
 type Scheduler struct {
@@ -67,9 +81,8 @@ type Scheduler struct {
 	StartForTarget func(ctx context.Context, target endpoint.Endpoint)
 
 	// RunProbeForTarget is called per probe cycle for each target.
-	RunProbeForTarget func(context.Context, endpoint.Endpoint, ProbeResult)
+	RunProbeForTarget func(context.Context, *RunProbeForTargetRequest)
 
-	statsExportFrequency  int64
 	targetsUpdateInterval time.Duration
 	targets               []endpoint.Endpoint
 	waitGroup             sync.WaitGroup
@@ -79,11 +92,6 @@ type Scheduler struct {
 func (s *Scheduler) init() {
 	if s.cancelFuncs == nil {
 		s.cancelFuncs = make(map[string]context.CancelFunc)
-	}
-
-	s.statsExportFrequency = s.Opts.StatsExportInterval.Nanoseconds() / s.Opts.Interval.Nanoseconds()
-	if s.statsExportFrequency == 0 {
-		s.statsExportFrequency = 1
 	}
 
 	s.targetsUpdateInterval = DefaultTargetsUpdateInterval
@@ -128,10 +136,13 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	// We use this counter to decide when to export stats.
 	var runCnt int64
 
-	result := s.NewResult(&target)
-
 	ticker := time.NewTicker(s.Opts.Interval)
 	defer ticker.Stop()
+
+	runReq := &RunProbeForTargetRequest{Target: target}
+	if s.NewResult != nil {
+		runReq.Result = s.NewResult(&target)
+	}
 
 	for ts := time.Now(); true; ts = <-ticker.C {
 		// Don't run another probe if context is canceled already.
@@ -142,21 +153,22 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 			continue
 		}
 
+		runCnt++
 		ctx, cancelCtx := context.WithTimeout(context.Background(), s.Opts.Timeout)
-		s.RunProbeForTarget(ctx, target, result)
+		s.RunProbeForTarget(ctx, runReq)
 		cancelCtx()
 
 		// Export stats if it's the time to do so.
-		runCnt++
-		if (runCnt % s.statsExportFrequency) == 0 {
-			em := result.Metrics(ts, runCnt, s.Opts)
-			// Returning nil is a way to skip this target. Used by grpc probe.
-			if em == nil {
-				continue
+		if (runCnt % s.Opts.StatsExportFrequency()) == 0 {
+			for _, em := range runReq.Result.Metrics(ts, runCnt, s.Opts) {
+				// Returning nil is a way to skip this target. Used by grpc probe.
+				if em == nil {
+					continue
+				}
+				em.AddLabel("probe", s.ProbeName).
+					AddLabel("dst", target.Dst())
+				s.Opts.RecordMetrics(target, em, s.DataChan)
 			}
-			em.AddLabel("probe", s.ProbeName).
-				AddLabel("dst", target.Dst())
-			s.Opts.RecordMetrics(target, em, s.DataChan)
 		}
 	}
 }

@@ -45,6 +45,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
 	configpb "github.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto"
 )
@@ -189,13 +190,16 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}()
 
-	opts.HTTPServeMux.HandleFunc(ps.c.GetMetricsUrl(), func(w http.ResponseWriter, r *http.Request) {
+	err := state.AddWebHandler(ps.c.GetMetricsUrl(), func(w http.ResponseWriter, r *http.Request) {
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
 		doneChan := make(chan struct{}, 1)
 		ps.queryChan <- &httpWriter{w, doneChan}
 		<-doneChan
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	l.Infof("Initialized prometheus exporter at the URL: %s", ps.c.GetMetricsUrl())
 	return ps, nil

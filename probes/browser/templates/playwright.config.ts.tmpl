@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
     testDir: "{{ .TestDir }}",
     outputDir: "./results",
+    globalTimeout: {{ .GlobalTimeoutMsec }},
     retries: 0,
 
     use: {

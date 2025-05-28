@@ -145,7 +145,7 @@ backend monitoring system:
    surfacer {
       type: ...
 
-      add_failure_metric = true
+      add_failure_metric: true
       ..
    }
    ```
@@ -164,7 +164,7 @@ backend monitoring system:
    surfacer {
       type: ...
 
-      export_as_gauge = true
+      export_as_gauge: true
       ..
    }
    ```

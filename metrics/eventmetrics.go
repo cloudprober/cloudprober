@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +36,10 @@ const (
 	GAUGE
 )
 
+type EventMetricsOptions struct {
+	NotForAlerting bool
+}
+
 // EventMetrics respresents metrics associated with a particular time event.
 type EventMetrics struct {
 	mu        sync.RWMutex
@@ -51,6 +56,9 @@ type EventMetrics struct {
 	labelsKeys []string
 
 	LatencyUnit time.Duration
+
+	// EventMetricsOptions are additional options for the EventMetrics.
+	Options *EventMetricsOptions
 }
 
 // NewEventMetrics return a new EventMetrics object with internals maps initialized.
@@ -120,6 +128,18 @@ func (em *EventMetrics) AddLabel(name string, val string) *EventMetrics {
 	em.labels[name] = val
 	em.labelsKeys = append(em.labelsKeys, name)
 	return em
+}
+
+func (em *EventMetrics) SetNotForAlerting() *EventMetrics {
+	if em.Options == nil {
+		em.Options = &EventMetricsOptions{}
+	}
+	em.Options.NotForAlerting = true
+	return em
+}
+
+func (em *EventMetrics) IsForAlerting() bool {
+	return em.Options == nil || !em.Options.NotForAlerting
 }
 
 // Label returns an EventMetrics label value by name. Label will return a
@@ -272,4 +292,44 @@ func LatencyUnitToString(latencyUnit time.Duration) string {
 		return "us"
 	}
 	return latencyUnit.String()[1:]
+}
+
+type equalOptions struct {
+	noTimestamp bool
+}
+
+type EqualOption func(opts *equalOptions)
+
+func EqualNoTimestamp() EqualOption {
+	return func(o *equalOptions) {
+		o.noTimestamp = true
+	}
+}
+
+func (em *EventMetrics) Equal(other *EventMetrics, opts ...EqualOption) (bool, string) {
+	o := &equalOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	if !o.noTimestamp && em.Timestamp != other.Timestamp {
+		return false, fmt.Sprintf("mismatch in timestamp: %v vs %v", em.Timestamp, other.Timestamp)
+	}
+
+	if em.Kind != other.Kind {
+		return false, fmt.Sprintf("mismatch in kind: %v vs %v", em.Kind, other.Kind)
+	}
+	if !reflect.DeepEqual(em.Options, other.Options) {
+		return false, fmt.Sprintf("mismatch in options: %v vs %v", em.Options, other.Options)
+	}
+	if em.LatencyUnit != other.LatencyUnit {
+		return false, fmt.Sprintf("mismatch in latency unit: %v vs %v", em.LatencyUnit, other.LatencyUnit)
+	}
+	if !reflect.DeepEqual(em.metrics, other.metrics) || !reflect.DeepEqual(em.metricsKeys, other.metricsKeys) {
+		return false, fmt.Sprintf("mismatch in metrics: %v vs %v", em.metrics, other.metrics)
+	}
+	if !reflect.DeepEqual(em.labels, other.labels) || !reflect.DeepEqual(em.labelsKeys, other.labelsKeys) {
+		return false, fmt.Sprintf("mismatch in labels: %v vs %v", em.labels, other.labels)
+	}
+	return true, ""
 }

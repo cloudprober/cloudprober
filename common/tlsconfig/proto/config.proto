@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package cloudprober.tlsconfig;
+
+option go_package = "github.com/cloudprober/cloudprober/common/tlsconfig/proto";
+
+enum TLSVersion {
+  TLS_AUTO = 0;
+  TLS_1_0 = 1;
+  TLS_1_1 = 2;
+  TLS_1_2 = 3;
+  TLS_1_3 = 4;
+}
+
+message TLSConfig {
+  // CA certificate file to verify certificates provided by the other party.
+  optional string ca_cert_file = 1;
+
+  // Local certificate file.
+  optional string tls_cert_file = 2;
+
+  // Private key file corresponding to the certificate above.
+  optional string tls_key_file = 3;
+
+  // Whether to ignore the cert validation.
+  optional bool disable_cert_validation = 4;
+
+  // ServerName override
+  optional string server_name = 5;
+
+  optional TLSVersion min_tls_version = 7;
+
+  optional TLSVersion max_tls_version = 8;
+
+  // Certificate reload interval in seconds. If configured, the TLS cert will
+  // be reloaded every reload_interval_sec seconds. This is useful when
+  // certificates are generated and refreshed dynamically.
+  optional int32 reload_interval_sec = 6;
+}
