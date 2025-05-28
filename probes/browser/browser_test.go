@@ -392,10 +392,11 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			wantArgsWin: []string{`^.*\\myspec\.js$`},
 		},
 		{
-			name:     "single_spec_absolute",
-			testDir:  "/tests",
-			testSpec: []string{"/abs/path/spec.js"},
-			wantArgs: []string{`^/abs/path/spec\.js$`},
+			name:        "single_spec_absolute",
+			testDir:     "/tests",
+			testSpec:    []string{"/abs/path/spec.js"},
+			wantArgs:    []string{`^/abs/path/spec\.js$`},
+			wantArgsWin: []string{`^abs/path/spec\.js$`},
 		},
 		{
 			name:     "multiple_specs_mixed",
@@ -407,7 +408,7 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			},
 			wantArgsWin: []string{
 				`^.*\\foo\.js$`,
-				`^/bar/baz\.js$`,
+				`^\\bar\\baz\.js$`,
 			},
 		},
 		{
@@ -423,6 +424,10 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			filterInclude: "mytest",
 			wantArgs: []string{
 				"--grep=mytest",
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep=mytest",
 				`^.*\\foo\.js$`,
 			},
 		},
@@ -432,6 +437,10 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			testSpec:      []string{"foo.js"},
 			filterExclude: "skipme",
 			wantArgs: []string{
+				"--grep-invert=skipme",
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
 				"--grep-invert=skipme",
 				`^.*\\foo\.js$`,
 			},
@@ -445,6 +454,11 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			wantArgs: []string{
 				"--grep=mytest",
 				"--grep-invert=skipme",
+				`^.*/foo\.js$`,
+			},
+			wantArgsWin: []string{
+				"--grep=mytest",
+				"--grep-invert=skipme",
 				`^.*\\foo\.js$`,
 			},
 		},
@@ -453,8 +467,12 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			testDir:  "/dir",
 			testSpec: []string{"foo.js", `^bar.*\.js$`},
 			wantArgs: []string{
-				`^.*\\foo\.js$`,
+				`^.*/foo\.js$`,
 				`^bar.*\.js$`,
+			},
+			wantArgsWin: []string{
+				`^.*\\foo\.js$`,
+				`^bar.*\\js$`,
 			},
 		},
 	}
@@ -462,8 +480,8 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.ProbeConf{}
-			if tt.testSpec != nil {
-				conf.TestSpec = tt.testSpec
+			for _, spec := range tt.testSpec {
+				conf.TestSpec = append(conf.TestSpec, filepath.FromSlash(spec))
 			}
 			if tt.filterInclude != "" || tt.filterExclude != "" {
 				conf.TestSpecFilter = &configpb.TestSpecFilter{}
