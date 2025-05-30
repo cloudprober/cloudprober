@@ -89,11 +89,11 @@ func tsDirTmpl(currentPath string) *template.Template {
   <div class="selectors">
     <div class="datetime-group">
       <div class="datetime-field">
-        <label for="start-datetime">Start Date and Time</label>
+        <label for="start-datetime">Start Date and Time (<span class="time-zone-abbr">Local</span>)</label>
         <input type="datetime-local" id="start-datetime" required>
       </div>
       <div class="datetime-field">
-        <label for="end-datetime">End Date and Time</label>
+        <label for="end-datetime">End Date and Time (<span class="time-zone-abbr">Local</span>)</label>
         <input type="datetime-local" id="end-datetime" required>
         <span class="error" id="error-message">End date and time must be after start</span>
       </div>
