@@ -29,7 +29,21 @@ function stringToTime(s) {
     }
     return new Date(n);
 }
-    
+
+function getLocalTimeZoneAbbreviation() {
+    const date = new Date();
+    const timeZoneName = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")
+      .value;
+    return timeZoneName;
+}
+
+const timeZoneAbbrElements = document.getElementsByClassName('time-zone-abbr');
+for (let i = 0; i < timeZoneAbbrElements.length; i++) {
+    timeZoneAbbrElements[i].textContent = getLocalTimeZoneAbbreviation();
+}
+
 const startDatetimeInput = document.getElementById('start-datetime');
 const endDatetimeInput = document.getElementById('end-datetime');
 const errorMessage = document.getElementById('error-message');
@@ -98,8 +112,22 @@ function onChange() {
     }
 }
 
+function failureOnlyChange() {
+    const params = new URLSearchParams(window.location.search);
+    if (failureOnlyInput.checked) {
+        params.set('failureOnly', 'true');
+    } else {
+        params.delete('failureOnly');
+    }
+    window.location.search = params.toString();
+}
+
 startDatetimeInput.addEventListener('change', onChange);
 endDatetimeInput.addEventListener('change', onChange);
+
+const failureOnlyInput = document.getElementById('failure-only');
+failureOnlyInput.checked = urlParams.get('failureOnly') === 'true';
+failureOnlyInput.addEventListener('change', failureOnlyChange);
 
 // Initial validation
 validate();

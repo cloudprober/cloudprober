@@ -24,7 +24,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -36,6 +38,7 @@ import (
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
+	"github.com/cloudprober/cloudprober/probes/browser/artifacts/web"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
@@ -56,6 +59,8 @@ type Probe struct {
 
 	// book-keeping params
 	targets              []endpoint.Endpoint
+	testDir              string
+	testSpecArgs         []string
 	workdir              string
 	outputDir            string
 	playwrightDir        string
@@ -148,11 +153,6 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 }
 
 func (p *Probe) initTemplates() error {
-	testDir := p.c.GetTestDir()
-	if p.c.TestDir == nil {
-		testDir = filepath.Dir(state.ConfigFilePath())
-	}
-
 	// Set up playwright config in workdir
 	data := struct {
 		TestDir            string
@@ -162,7 +162,7 @@ func (p *Probe) initTemplates() error {
 		EnableStepMetrics  bool
 		DisableTestMetrics bool
 	}{
-		TestDir:            testDir,
+		TestDir:            p.testDirPath(),
 		GlobalTimeoutMsec:  p.playwrightGlobalTimeoutMsec(),
 		Screenshot:         "only-on-failure",
 		Trace:              "off",
@@ -192,6 +192,57 @@ func (p *Probe) initTemplates() error {
 	return nil
 }
 
+func (p *Probe) computeTestSpecArgs() []string {
+	args := []string{}
+
+	if p.c.GetTestSpecFilter() != nil {
+		if p.c.GetTestSpecFilter().GetInclude() != "" {
+			args = append(args, "--grep="+p.c.GetTestSpecFilter().GetInclude())
+		}
+		if p.c.GetTestSpecFilter().GetExclude() != "" {
+			args = append(args, "--grep-invert="+p.c.GetTestSpecFilter().GetExclude())
+		}
+	}
+
+	for _, ts := range p.c.GetTestSpec() {
+		// If test spec is a regex, skip modifying it.
+		if strings.ContainsAny(ts, "^$*|?+()[]{}") {
+			args = append(args, ts)
+			continue
+		}
+		// If test spec is not a regex, make it a regex that matches the given
+		// test spec. This is important because playwright treats test specs as
+		// regexes.
+		ts = regexp.QuoteMeta(ts)
+		if !filepath.IsAbs(ts) {
+			pathSep := string(filepath.Separator)
+			if pathSep == `\` {
+				// "/" needs to be escaped in regex
+				pathSep = `\\`
+			}
+			ts = ".*" + pathSep + ts
+		}
+		args = append(args, "^"+ts+"$")
+	}
+
+	return args
+}
+
+// testDirPath returns the test directory. If not specified, it returns the
+// directory of the config file.
+// Note that this function is not concurrency-safe, which is fine since it is
+// called only during initialization.
+func (p *Probe) testDirPath() string {
+	if p.testDir != "" {
+		return p.testDir
+	}
+	p.testDir = p.c.GetTestDir()
+	if p.c.TestDir == nil {
+		p.testDir = filepath.Dir(state.ConfigFilePath())
+	}
+	return p.testDir
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -209,6 +260,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.runID = make(map[string]int64)
+
+	p.testSpecArgs = p.computeTestSpecArgs()
 
 	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
 	if totalDuration > p.opts.Interval {
@@ -337,7 +390,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		"--output=" + filepath.Join(outputDir, "results"),
 		"--reporter=html," + p.reporterPath,
 	}
-	cmdLine = append(cmdLine, p.c.GetTestSpec()...)
+	cmdLine = append(cmdLine, p.testSpecArgs...)
 
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := &command.Command{
@@ -367,12 +420,18 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	cmd, reportDir := p.prepareCommand(target, startTime)
 	_, err := cmd.Execute(ctx, p.l)
 
+	if err != nil {
+		p.l.Errorf("error running playwright test: %v", err)
+		if err := os.WriteFile(filepath.Join(reportDir, web.FailureMarkerFile), []byte("1"), 0644); err != nil {
+			p.l.Errorf("error writing failure marker in %s: %v", reportDir, err)
+		}
+	}
+
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.
 	p.artifactsHandler.Handle(p.startCtx, reportDir)
 
 	if err != nil {
-		p.l.Errorf("error running playwright test: %v", err)
 		return
 	}
 

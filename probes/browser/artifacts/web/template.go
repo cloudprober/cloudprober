@@ -76,6 +76,10 @@ func tsDirTmpl(currentPath string) *template.Template {
     .error.show {
       display: block;
     }
+    .failed {
+      font-size: 10px;
+      color: #d32f2f;
+    }
   </style>
 </head>
 <body>

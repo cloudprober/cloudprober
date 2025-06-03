@@ -21,10 +21,48 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestTmplData(t *testing.T) {
+	// 2025-05-19T18:28:15-07:00 is the current time reference
+	tsDirs := []DirEntry{
+		{Path: "/tmp/2025-05-18/1234", ModTime: time.Date(2025, 5, 18, 10, 11, 12, 0, time.FixedZone("PDT", -7*3600)), Failed: false},
+		{Path: "/tmp/2025-05-18/5678", ModTime: time.Date(2025, 5, 18, 11, 22, 33, 0, time.FixedZone("PDT", -7*3600)), Failed: true},
+		{Path: "/tmp/2025-05-19/9999", ModTime: time.Date(2025, 5, 19, 9, 0, 0, 0, time.FixedZone("PDT", -7*3600)), Failed: false},
+	}
+
+	result := tmplData(tsDirs)
+	assert.Equal(t, 2, len(result), "should group by date directories")
+
+	// Find 2025-05-18 group
+	var group18, group19 *tmplDateData
+	for _, g := range result {
+		if g.DateDir == "2025-05-18" {
+			group18 = g
+		} else if g.DateDir == "2025-05-19" {
+			group19 = g
+		}
+	}
+	if assert.NotNil(t, group18, "2025-05-18 group exists") {
+		assert.Equal(t, 2, len(group18.TSDirs), "should have 2 entries for 2025-05-18")
+		assert.Equal(t, "1234", group18.TSDirs[0].Timestamp)
+		assert.Equal(t, "10:11:12 PDT", group18.TSDirs[0].TimeStr)
+		assert.False(t, group18.TSDirs[0].Failed)
+		assert.Equal(t, "5678", group18.TSDirs[1].Timestamp)
+		assert.Equal(t, "11:22:33 PDT", group18.TSDirs[1].TimeStr)
+		assert.True(t, group18.TSDirs[1].Failed)
+	}
+	if assert.NotNil(t, group19, "2025-05-19 group exists") {
+		assert.Equal(t, 1, len(group19.TSDirs), "should have 1 entry for 2025-05-19")
+		assert.Equal(t, "9999", group19.TSDirs[0].Timestamp)
+		assert.Equal(t, "09:00:00 PDT", group19.TSDirs[0].TimeStr)
+		assert.False(t, group19.TSDirs[0].Failed)
+	}
+}
 
 func TestRootLinkPrefix(t *testing.T) {
 	urlToExpLinkPrefix := map[string]string{

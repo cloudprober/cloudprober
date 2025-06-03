@@ -26,6 +26,9 @@ what's broken in your system (see
 
 <img width="460" src="https://cloudprober.org/homepage.png"/>
 
+## Trusted by Leading Organizations
+_Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart, Robinhood, Okta, Goldman Sachs, JPMorganChase, Hostinger, DigitalOcean, Disney+, Yahoo Japan, and more._
+
 ## Features
 
 - Out of the box, config based, integration with many popular monitoring
