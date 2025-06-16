@@ -273,6 +273,10 @@ func (em *EventMetrics) String(opts ...StringerOption) string {
 	return b.String()
 }
 
+func (em *EventMetrics) StringJSON() string {
+	return ""
+}
+
 // Key returns a string key that uniquely identifies an eventmetrics.
 func (em *EventMetrics) Key() string {
 	em.mu.RLock()
