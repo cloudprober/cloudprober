@@ -26,6 +26,7 @@ package external
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -216,7 +217,12 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				p.l.Error(ctx.Err().Error())
+				err := ctx.Err()
+				if errors.Is(err, context.DeadlineExceeded) {
+					p.l.Errorf("deadline exceeded at %d out of %d targets (%s)", expectedRepliesReceived, len(p.targets), err.Error())
+				} else {
+					p.l.Error(ctx.Err().Error())
+				}
 				return
 			case rep := <-p.replyChan:
 				outstandingReqsMu.Lock()
@@ -247,6 +253,7 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 			// We send a total if len(p.targets) requests. We can exit if we've
 			// seen replies for all of them.
 			if expectedRepliesReceived == len(p.targets) {
+				p.l.Debugf("External server probe completed for all targets for %s probe.", p.name)
 				return
 			}
 		}
