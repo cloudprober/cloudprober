@@ -144,7 +144,18 @@ func serve(ctx context.Context, probeFunc func(*serverpb.ProbeRequest, *serverpb
 				repliesChan <- reply
 			case <-timeout:
 				// drop the request on the floor.
-				fmt.Fprintf(stderr, "Timeout for request %v\n", *reply.RequestId)
+				if len(request.GetOptions()) > 0 {
+					var sb strings.Builder
+
+					for _, option := range request.Options {
+						sb.WriteString(fmt.Sprintf("%s: %s,", *option.Name, *option.Value))
+					}
+
+					fmt.Fprintf(stderr, "Timeout for request %v (%s)\n", *reply.RequestId, sb.String())
+				} else {
+					fmt.Fprintf(stderr, "Timeout for request %v\n", *reply.RequestId)
+				}
+
 			}
 		}()
 	}
