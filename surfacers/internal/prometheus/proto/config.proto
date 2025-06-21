@@ -19,6 +19,14 @@ message SurfacerConf {
   // scrape timestamp.
   optional bool include_timestamp = 2 [default = true];
 
+  // We automatically delete metrics that haven't been updated for more than
+  // 10 min. We do that because prometheus generates warnings while scraping
+  // metrics that are more than 10m old and prometheus knows that metrics are
+  // more than 10m old because we include timestamp in metrics (by default).
+  // This option controls that behavior.
+  // It's automatically set to true if include_timestamp is false.
+  optional bool disable_metrics_expiration = 5;
+
   // URL that prometheus scrapes metrics from.
   optional string metrics_url = 3 [default = "/metrics"];
 

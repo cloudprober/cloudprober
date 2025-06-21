@@ -185,7 +185,9 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 				ps.writeData(hw.w)
 				close(hw.doneChan)
 			case <-staleMetricDeleteTimer.C:
-				ps.deleteExpiredMetrics()
+				if !ps.disableMetricsExpiration() {
+					ps.deleteExpiredMetrics()
+				}
 			}
 		}
 	}()
@@ -214,6 +216,18 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 	default:
 		ps.l.Errorf("PromSurfacer's write channel is full, dropping new data.")
 	}
+}
+
+func (ps *PromSurfacer) disableMetricsExpiration() bool {
+	if ps.c.DisableMetricsExpiration != nil {
+		return ps.c.GetDisableMetricsExpiration()
+	}
+
+	if !ps.c.GetIncludeTimestamp() {
+		return true
+	}
+
+	return false
 }
 
 func promType(em *metrics.EventMetrics) string {
