@@ -379,3 +379,67 @@ func TestMain(m *testing.M) {
 
 	m.Run()
 }
+func TestDisableMetricsExpiration(t *testing.T) {
+	tests := []struct {
+		name                      string
+		includeTimestamp          *bool
+		disableMetricsExpiration  *bool
+		want                      bool
+	}{
+		{
+			name:                     "DisableMetricsExpiration unset, IncludeTimestamp true",
+			includeTimestamp:         proto.Bool(true),
+			disableMetricsExpiration: nil,
+			want:                     false,
+		},
+		{
+			name:                     "DisableMetricsExpiration unset, IncludeTimestamp false",
+			includeTimestamp:         proto.Bool(false),
+			disableMetricsExpiration: nil,
+			want:                     true,
+		},
+		{
+			name:                     "DisableMetricsExpiration true, IncludeTimestamp true",
+			includeTimestamp:         proto.Bool(true),
+			disableMetricsExpiration: proto.Bool(true),
+			want:                     true,
+		},
+		{
+			name:                     "DisableMetricsExpiration false, IncludeTimestamp true",
+			includeTimestamp:         proto.Bool(true),
+			disableMetricsExpiration: proto.Bool(false),
+			want:                     false,
+		},
+		{
+			name:                     "DisableMetricsExpiration true, IncludeTimestamp false",
+			includeTimestamp:         proto.Bool(false),
+			disableMetricsExpiration: proto.Bool(true),
+			want:                     true,
+		},
+		{
+			name:                     "DisableMetricsExpiration false, IncludeTimestamp false",
+			includeTimestamp:         proto.Bool(false),
+			disableMetricsExpiration: proto.Bool(false),
+			want:                     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conf := &configpb.SurfacerConf{}
+			if tt.includeTimestamp != nil {
+				conf.IncludeTimestamp = tt.includeTimestamp
+			}
+			if tt.disableMetricsExpiration != nil {
+				conf.DisableMetricsExpiration = tt.disableMetricsExpiration
+			}
+			ps := &PromSurfacer{
+				c: conf,
+			}
+			got := ps.disableMetricsExpiration()
+			if got != tt.want {
+				t.Errorf("disableMetricsExpiration() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
