@@ -182,14 +182,13 @@ func TestInvalidNames(t *testing.T) {
 	verify(t, ps, expectedMetrics)
 }
 
-func testWebOutput(t *testing.T, config *configpb.SurfacerConf, expectTimestamp bool) {
-	t.Helper()
-
-	ps := testPromSurfacerNoErr(t, config)
+func TestScrapeOutput(t *testing.T) {
+	ps := testPromSurfacerNoErr(t, nil)
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
 	ts := time.Now()
+	promTS := fmt.Sprintf("%d", ts.UnixNano()/(1000*1000))
 	ps.record(metrics.NewEventMetrics(ts).
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd", metrics.NewInt(22)).
@@ -199,53 +198,58 @@ func testWebOutput(t *testing.T, config *configpb.SurfacerConf, expectTimestamp 
 	var b bytes.Buffer
 	ps.writeData(&b)
 	data := b.String()
-	var tsSuffix string
-	if expectTimestamp {
-		tsSuffix = " " + fmt.Sprintf("%d", ts.UnixNano()/(1000*1000))
-	}
 	for _, d := range []string{
 		"# TYPE sent counter",
 		"# TYPE rcvd counter",
 		"# TYPE resp_code counter",
 		"# TYPE latency histogram",
-		"sent{ptype=\"http\"} 32" + tsSuffix,
-		"rcvd{ptype=\"http\"} 22" + tsSuffix,
-		"resp_code{ptype=\"http\",code=\"200\"} 19" + tsSuffix,
-		"latency_sum{ptype=\"http\"} 5.5" + tsSuffix,
-		"latency_count{ptype=\"http\"} 2" + tsSuffix,
-		"latency_bucket{ptype=\"http\",le=\"1\"} 1" + tsSuffix,
-		"latency_bucket{ptype=\"http\",le=\"4\"} 1" + tsSuffix,
-		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2" + tsSuffix,
+		"sent{ptype=\"http\"} 32 " + promTS,
+		"rcvd{ptype=\"http\"} 22 " + promTS,
+		"resp_code{ptype=\"http\",code=\"200\"} 19 " + promTS,
+		"latency_sum{ptype=\"http\"} 5.5 " + promTS,
+		"latency_count{ptype=\"http\"} 2 " + promTS,
+		"latency_bucket{ptype=\"http\",le=\"1\"} 1 " + promTS,
+		"latency_bucket{ptype=\"http\",le=\"4\"} 1 " + promTS,
+		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2 " + promTS,
 	} {
-		if !strings.Contains(data, d+"\n") {
+		if !strings.Contains(data, d) {
 			t.Errorf("String \"%s\" not found in output data: %s", d, data)
 		}
 	}
 }
 
-func TestScrapeOutput(t *testing.T) {
-	// Save and restore the global flag
-	oldIncludeTimestampFlag := *includeTimestampFlag
-
-	t.Run("IncludeTimestamp config default", func(t *testing.T) {
-		testWebOutput(t, nil, true)
-	})
-
-	t.Run("IncludeTimestamp config true", func(t *testing.T) {
-		defer func() { *includeTimestampFlag = oldIncludeTimestampFlag }()
-		*includeTimestampFlag = false
-		testWebOutput(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(true)}, true)
-	})
-
-	t.Run("IncludeTimestamp config false", func(t *testing.T) {
-		testWebOutput(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false)}, false)
-	})
-
-	t.Run("IncludeTimestamp flag false", func(t *testing.T) {
-		defer func() { *includeTimestampFlag = oldIncludeTimestampFlag }()
-		*includeTimestampFlag = false
-		testWebOutput(t, nil, false)
-	})
+func TestScrapeOutputNoTimestamp(t *testing.T) {
+	ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false)})
+	latencyVal := metrics.NewDistribution([]float64{1, 4})
+	latencyVal.AddSample(0.5)
+	latencyVal.AddSample(5)
+	ps.record(metrics.NewEventMetrics(time.Now()).
+		AddMetric("sent", metrics.NewInt(32)).
+		AddMetric("rcvd", metrics.NewInt(22)).
+		AddMetric("latency", latencyVal).
+		AddMetric("resp_code", metrics.NewMap("code").IncKeyBy("200", 19)).
+		AddLabel("ptype", "http"))
+	var b bytes.Buffer
+	ps.writeData(&b)
+	data := b.String()
+	for _, d := range []string{
+		"# TYPE sent counter",
+		"# TYPE rcvd counter",
+		"# TYPE resp_code counter",
+		"# TYPE latency histogram",
+		"sent{ptype=\"http\"} 32",
+		"rcvd{ptype=\"http\"} 22",
+		"resp_code{ptype=\"http\",code=\"200\"} 19",
+		"latency_sum{ptype=\"http\"} 5.5",
+		"latency_count{ptype=\"http\"} 2",
+		"latency_bucket{ptype=\"http\",le=\"1\"} 1",
+		"latency_bucket{ptype=\"http\",le=\"4\"} 1",
+		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2",
+	} {
+		if !strings.Contains(data, d) {
+			t.Errorf("String \"%s\" not found in output data: %s", d, data)
+		}
+	}
 }
 
 func TestScrapeOutputWithExpiredTimeMetrics(t *testing.T) {
@@ -318,13 +322,19 @@ func TestMetricsPrefix(t *testing.T) {
 			flagPrefix: "cloudprober_f_",
 			wantPrefix: "cloudprober_f_",
 		},
+		{
+			name:       "conf and flag prefix",
+			confPrefix: "cloudprober_c_",
+			flagPrefix: "cloudprober_f_",
+			wantErr:    true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			*metricsPrefixFlag = tt.flagPrefix
+			*metricsPrefix = tt.flagPrefix
 			defer func() {
-				*metricsPrefixFlag = ""
+				*metricsPrefix = ""
 			}()
 
 			c := &configpb.SurfacerConf{}
@@ -369,47 +379,46 @@ func TestMain(m *testing.M) {
 
 	m.Run()
 }
-
 func TestDisableMetricsExpiration(t *testing.T) {
 	tests := []struct {
-		name                     string
-		includeTimestamp         bool
-		disableMetricsExpiration *bool
-		want                     bool
+		name                      string
+		includeTimestamp          *bool
+		disableMetricsExpiration  *bool
+		want                      bool
 	}{
 		{
 			name:                     "DisableMetricsExpiration unset, IncludeTimestamp true",
-			includeTimestamp:         true,
+			includeTimestamp:         proto.Bool(true),
 			disableMetricsExpiration: nil,
 			want:                     false,
 		},
 		{
 			name:                     "DisableMetricsExpiration unset, IncludeTimestamp false",
-			includeTimestamp:         false,
+			includeTimestamp:         proto.Bool(false),
 			disableMetricsExpiration: nil,
 			want:                     true,
 		},
 		{
 			name:                     "DisableMetricsExpiration true, IncludeTimestamp true",
-			includeTimestamp:         true,
+			includeTimestamp:         proto.Bool(true),
 			disableMetricsExpiration: proto.Bool(true),
 			want:                     true,
 		},
 		{
 			name:                     "DisableMetricsExpiration false, IncludeTimestamp true",
-			includeTimestamp:         true,
+			includeTimestamp:         proto.Bool(true),
 			disableMetricsExpiration: proto.Bool(false),
 			want:                     false,
 		},
 		{
 			name:                     "DisableMetricsExpiration true, IncludeTimestamp false",
-			includeTimestamp:         false,
+			includeTimestamp:         proto.Bool(false),
 			disableMetricsExpiration: proto.Bool(true),
 			want:                     true,
 		},
 		{
 			name:                     "DisableMetricsExpiration false, IncludeTimestamp false",
-			includeTimestamp:         false,
+			includeTimestamp:         proto.Bool(false),
 			disableMetricsExpiration: proto.Bool(false),
 			want:                     false,
 		},
@@ -418,98 +427,18 @@ func TestDisableMetricsExpiration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &configpb.SurfacerConf{}
+			if tt.includeTimestamp != nil {
+				conf.IncludeTimestamp = tt.includeTimestamp
+			}
 			if tt.disableMetricsExpiration != nil {
 				conf.DisableMetricsExpiration = tt.disableMetricsExpiration
 			}
 			ps := &PromSurfacer{
-				c:                conf,
-				includeTimestamp: tt.includeTimestamp,
+				c: conf,
 			}
 			got := ps.disableMetricsExpiration()
 			if got != tt.want {
 				t.Errorf("disableMetricsExpiration() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNew(t *testing.T) {
-	tests := []struct {
-		name                 string
-		config               *configpb.SurfacerConf
-		includeTimestampFlag bool
-		metricsPrefixFlag    string
-		notInitServeMux      bool
-		wantIncludeTimestamp bool
-		wantMetricsPrefix    string
-		wantErr              bool
-	}{
-		{
-			name:                 "Default",
-			config:               nil,
-			includeTimestampFlag: configpb.Default_SurfacerConf_IncludeTimestamp,
-			metricsPrefixFlag:    "",
-			wantIncludeTimestamp: configpb.Default_SurfacerConf_IncludeTimestamp,
-			wantMetricsPrefix:    "",
-		},
-		{
-			name:                 "Flags",
-			config:               nil,
-			includeTimestampFlag: true,
-			metricsPrefixFlag:    "cloudprober_f_",
-			wantIncludeTimestamp: true,
-			wantMetricsPrefix:    "cloudprober_f_",
-		},
-		{
-			name:                 "Config override",
-			config:               &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false), MetricsPrefix: proto.String("cloudprober_")},
-			includeTimestampFlag: true,
-			metricsPrefixFlag:    "cloudprober_f_",
-			wantIncludeTimestamp: false,
-			wantMetricsPrefix:    "cloudprober_",
-		},
-		{
-			name:            "ServeMux not initialized",
-			config:          nil,
-			notInitServeMux: true,
-			wantErr:         true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			oldHTTPMux := state.DefaultHTTPServeMux()
-			if tt.notInitServeMux {
-				state.SetDefaultHTTPServeMux(nil)
-			} else {
-				state.SetDefaultHTTPServeMux(http.NewServeMux())
-			}
-			defer state.SetDefaultHTTPServeMux(oldHTTPMux)
-
-			*includeTimestampFlag = tt.includeTimestampFlag
-			*metricsPrefixFlag = tt.metricsPrefixFlag
-			defer func() {
-				*includeTimestampFlag = configpb.Default_SurfacerConf_IncludeTimestamp
-				*metricsPrefixFlag = ""
-			}()
-
-			got, err := New(context.Background(), tt.config, nil, nil)
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("New() error = %v, want non-nil", err)
-					return
-				}
-				return
-			}
-			if err != nil {
-				t.Errorf("New() error = %v, want nil", err)
-				return
-			}
-			if got.includeTimestamp != tt.wantIncludeTimestamp {
-				t.Errorf("includeTimestamp = %v, want %v", got.includeTimestamp, tt.wantIncludeTimestamp)
-			}
-			if got.prefix != tt.wantMetricsPrefix {
-				t.Errorf("prefix = %v, want %v", got.prefix, tt.wantMetricsPrefix)
 			}
 		})
 	}

@@ -222,11 +222,11 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 }
 
 func (ps *PromSurfacer) disableMetricsExpiration() bool {
-	if ps.c != nil && ps.c.DisableMetricsExpiration != nil {
+	if ps.c.DisableMetricsExpiration != nil {
 		return ps.c.GetDisableMetricsExpiration()
 	}
 
-	if !ps.includeTimestamp {
+	if !ps.c.GetIncludeTimestamp() {
 		return true
 	}
 
