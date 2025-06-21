@@ -35,6 +35,13 @@ type SurfacerConf struct {
 	// i.e. timestamps are not exported, prometheus associates scraped values with
 	// scrape timestamp.
 	IncludeTimestamp *bool `protobuf:"varint,2,opt,name=include_timestamp,json=includeTimestamp,def=1" json:"include_timestamp,omitempty"`
+	// We automatically delete metrics that haven't been updated for more than
+	// 10 min. We do that because prometheus generates warnings while scraping
+	// metrics that are more than 10m old and prometheus knows that metrics are
+	// more than 10m old because we include timestamp in metrics (by default).
+	// This option controls that behavior.
+	// It's automatically set to true if include_timestamp is false.
+	DisableMetricsExpiration *bool `protobuf:"varint,5,opt,name=disable_metrics_expiration,json=disableMetricsExpiration" json:"disable_metrics_expiration,omitempty"`
 	// URL that prometheus scrapes metrics from.
 	MetricsUrl *string `protobuf:"bytes,3,opt,name=metrics_url,json=metricsUrl,def=/metrics" json:"metrics_url,omitempty"`
 	// Prefix to add to all metric names. For example setting this field to
@@ -99,6 +106,13 @@ func (x *SurfacerConf) GetIncludeTimestamp() bool {
 	return Default_SurfacerConf_IncludeTimestamp
 }
 
+func (x *SurfacerConf) GetDisableMetricsExpiration() bool {
+	if x != nil && x.DisableMetricsExpiration != nil {
+		return *x.DisableMetricsExpiration
+	}
+	return false
+}
+
 func (x *SurfacerConf) GetMetricsUrl() string {
 	if x != nil && x.MetricsUrl != nil {
 		return *x.MetricsUrl
@@ -117,10 +131,11 @@ var File_github_com_cloudprober_cloudprober_surfacers_internal_prometheus_proto_
 
 const file_github_com_cloudprober_cloudprober_surfacers_internal_prometheus_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Sgithub.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto/config.proto\x12\x1fcloudprober.surfacer.prometheus\"\xca\x01\n" +
+	"Sgithub.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto/config.proto\x12\x1fcloudprober.surfacer.prometheus\"\x88\x02\n" +
 	"\fSurfacerConf\x125\n" +
 	"\x13metrics_buffer_size\x18\x01 \x01(\x03:\x0510000R\x11metricsBufferSize\x121\n" +
-	"\x11include_timestamp\x18\x02 \x01(\b:\x04trueR\x10includeTimestamp\x12)\n" +
+	"\x11include_timestamp\x18\x02 \x01(\b:\x04trueR\x10includeTimestamp\x12<\n" +
+	"\x1adisable_metrics_expiration\x18\x05 \x01(\bR\x18disableMetricsExpiration\x12)\n" +
 	"\vmetrics_url\x18\x03 \x01(\t:\b/metricsR\n" +
 	"metricsUrl\x12%\n" +
 	"\x0emetrics_prefix\x18\x04 \x01(\tR\rmetricsPrefixBHZFgithub.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto"
