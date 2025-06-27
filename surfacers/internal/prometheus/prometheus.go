@@ -52,6 +52,7 @@ import (
 
 var (
 	metricsPrefix = flag.String("prometheus_metrics_prefix", "", "Metrics prefix")
+	incTimestamp  = flag.Bool("prometheus_include_timestamp", configpb.Default_SurfacerConf_IncludeTimestamp, "Include timestamp in metrics")
 )
 
 // Prometheus metric and label names should match the following regular
@@ -130,6 +131,13 @@ type PromSurfacer struct {
 	labelNameRe  *regexp.Regexp
 }
 
+func includeTimestamp(config *configpb.SurfacerConf) bool {
+	if config.IncludeTimestamp != nil {
+		return config.GetIncludeTimestamp()
+	}
+	return *incTimestamp
+}
+
 // New returns a prometheus surfacer based on the config provided. It sets up a
 // goroutine to process both the incoming EventMetrics and the web requests for
 // the URL handler /metrics.
@@ -157,7 +165,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		ps.prefix = ps.c.GetMetricsPrefix()
 	}
 
-	if ps.c.GetIncludeTimestamp() {
+	if includeTimestamp(ps.c) {
 		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
 			fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
 		}
