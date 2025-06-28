@@ -190,7 +190,6 @@ func testWebOutput(t *testing.T, config *configpb.SurfacerConf, expectTimestamp 
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
 	ts := time.Now()
-	promTS := fmt.Sprintf("%d", ts.UnixNano()/(1000*1000))
 	ps.record(metrics.NewEventMetrics(ts).
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd", metrics.NewInt(22)).
