@@ -51,8 +51,8 @@ import (
 )
 
 var (
-	metricsPrefix = flag.String("prometheus_metrics_prefix", "", "Metrics prefix")
-	incTimestamp  = flag.Bool("prometheus_include_timestamp", configpb.Default_SurfacerConf_IncludeTimestamp, "Include timestamp in metrics")
+	metricsPrefixFlag    = flag.String("prometheus_metrics_prefix", "", "Metrics prefix")
+	includeTimestampFlag = flag.Bool("prometheus_include_timestamp", configpb.Default_SurfacerConf_IncludeTimestamp, "Include timestamp in metrics")
 )
 
 // Prometheus metric and label names should match the following regular
@@ -135,7 +135,7 @@ func includeTimestamp(config *configpb.SurfacerConf) bool {
 	if config.IncludeTimestamp != nil {
 		return config.GetIncludeTimestamp()
 	}
-	return *incTimestamp
+	return *includeTimestampFlag
 }
 
 // New returns a prometheus surfacer based on the config provided. It sets up a
@@ -156,11 +156,11 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		l:            l,
 	}
 
-	if *metricsPrefix != "" && ps.c.MetricsPrefix != nil {
+	if *metricsPrefixFlag != "" && ps.c.MetricsPrefix != nil {
 		return nil, fmt.Errorf("both --prometheus_metrics_prefix and config metrics_prefix are set, you can set only one of them")
 	}
-	if *metricsPrefix != "" {
-		ps.prefix = *metricsPrefix
+	if *metricsPrefixFlag != "" {
+		ps.prefix = *metricsPrefixFlag
 	} else {
 		ps.prefix = ps.c.GetMetricsPrefix()
 	}

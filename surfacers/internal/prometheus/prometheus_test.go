@@ -332,9 +332,9 @@ func TestMetricsPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			*metricsPrefix = tt.flagPrefix
+			*metricsPrefixFlag = tt.flagPrefix
 			defer func() {
-				*metricsPrefix = ""
+				*metricsPrefixFlag = ""
 			}()
 
 			c := &configpb.SurfacerConf{}
@@ -381,10 +381,10 @@ func TestMain(m *testing.M) {
 }
 func TestDisableMetricsExpiration(t *testing.T) {
 	tests := []struct {
-		name                      string
-		includeTimestamp          *bool
-		disableMetricsExpiration  *bool
-		want                      bool
+		name                     string
+		includeTimestamp         *bool
+		disableMetricsExpiration *bool
+		want                     bool
 	}{
 		{
 			name:                     "DisableMetricsExpiration unset, IncludeTimestamp true",
