@@ -469,16 +469,9 @@ func TestNew(t *testing.T) {
 			name:                 "Config override",
 			config:               &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false), MetricsPrefix: proto.String("cloudprober_")},
 			includeTimestampFlag: true,
-			metricsPrefixFlag:    "",
+			metricsPrefixFlag:    "cloudprober_f_",
 			wantIncludeTimestamp: false,
 			wantMetricsPrefix:    "cloudprober_",
-		},
-		{
-			name:                 "Metrics prefix flag and config",
-			config:               &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false), MetricsPrefix: proto.String("cloudprober_")},
-			includeTimestampFlag: true,
-			metricsPrefixFlag:    "cloudprober_f_",
-			wantErr:              true,
 		},
 	}
 

@@ -140,28 +140,23 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		config = &configpb.SurfacerConf{}
 	}
 	ps := &PromSurfacer{
-		c:            config,
-		opts:         opts,
-		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
-		queryChan:    make(chan *httpWriter, queriesQueueSize),
-		metrics:      make(map[string]*promMetric),
-		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
-		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
-		l:            l,
+		c:                config,
+		opts:             opts,
+		emChan:           make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
+		queryChan:        make(chan *httpWriter, queriesQueueSize),
+		metrics:          make(map[string]*promMetric),
+		metricNameRe:     regexp.MustCompile(ValidMetricNameRegex),
+		labelNameRe:      regexp.MustCompile(ValidLabelNameRegex),
+		includeTimestamp: *includeTimestampFlag,
+		prefix:           *metricsPrefixFlag,
+		l:                l,
 	}
 
 	if ps.c.IncludeTimestamp != nil {
 		ps.includeTimestamp = ps.c.GetIncludeTimestamp()
-	} else {
-		ps.includeTimestamp = *includeTimestampFlag
 	}
 
-	if *metricsPrefixFlag != "" && ps.c.MetricsPrefix != nil {
-		return nil, fmt.Errorf("both --prometheus_metrics_prefix and config metrics_prefix are set, you can set only one of them")
-	}
-	if *metricsPrefixFlag != "" {
-		ps.prefix = *metricsPrefixFlag
-	} else {
+	if ps.c.MetricsPrefix != nil {
 		ps.prefix = ps.c.GetMetricsPrefix()
 	}
 
