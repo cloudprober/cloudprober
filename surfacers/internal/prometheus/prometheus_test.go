@@ -445,6 +445,7 @@ func TestNew(t *testing.T) {
 		config               *configpb.SurfacerConf
 		includeTimestampFlag bool
 		metricsPrefixFlag    string
+		notInitServeMux      bool
 		wantIncludeTimestamp bool
 		wantMetricsPrefix    string
 		wantErr              bool
@@ -473,12 +474,22 @@ func TestNew(t *testing.T) {
 			wantIncludeTimestamp: false,
 			wantMetricsPrefix:    "cloudprober_",
 		},
+		{
+			name:            "ServeMux not initialized",
+			config:          nil,
+			notInitServeMux: true,
+			wantErr:         true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			oldHTTPMux := state.DefaultHTTPServeMux()
-			state.SetDefaultHTTPServeMux(http.NewServeMux())
+			if tt.notInitServeMux {
+				state.SetDefaultHTTPServeMux(nil)
+			} else {
+				state.SetDefaultHTTPServeMux(http.NewServeMux())
+			}
 			defer state.SetDefaultHTTPServeMux(oldHTTPMux)
 
 			*includeTimestampFlag = tt.includeTimestampFlag
