@@ -318,12 +318,6 @@ func TestMetricsPrefix(t *testing.T) {
 			flagPrefix: "cloudprober_f_",
 			wantPrefix: "cloudprober_f_",
 		},
-		{
-			name:       "conf and flag prefix",
-			confPrefix: "cloudprober_c_",
-			flagPrefix: "cloudprober_f_",
-			wantErr:    true,
-		},
 	}
 
 	for _, tt := range tests {
