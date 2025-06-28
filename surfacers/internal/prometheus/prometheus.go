@@ -51,7 +51,8 @@ import (
 )
 
 var (
-	metricsPrefix = flag.String("prometheus_metrics_prefix", "", "Metrics prefix")
+	metricsPrefixFlag    = flag.String("prometheus_metrics_prefix", "", "Metrics prefix")
+	includeTimestampFlag = flag.Bool("prometheus_include_timestamp", configpb.Default_SurfacerConf_IncludeTimestamp, "Include timestamp in metrics")
 )
 
 // Prometheus metric and label names should match the following regular
@@ -112,14 +113,15 @@ type httpWriter struct {
 //
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
-	c           *configpb.SurfacerConf // Configuration
-	opts        *options.Options
-	prefix      string                     // Metrics prefix, e.g. "cloudprober_"
-	emChan      chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
-	metrics     map[string]*promMetric     // Metric name to promMetric mapping
-	metricNames []string                   // Metric names, to keep names ordered.
-	queryChan   chan *httpWriter           // Query channel
-	l           *logger.Logger
+	c                *configpb.SurfacerConf // Configuration
+	opts             *options.Options
+	includeTimestamp bool
+	prefix           string                     // Metrics prefix, e.g. "cloudprober_"
+	emChan           chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
+	metrics          map[string]*promMetric     // Metric name to promMetric mapping
+	metricNames      []string                   // Metric names, to keep names ordered.
+	queryChan        chan *httpWriter           // Query channel
+	l                *logger.Logger
 
 	// A handler that takes a promMetric and a dataKey and writes the
 	// corresponding metric string to the provided io.Writer.
@@ -138,26 +140,27 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		config = &configpb.SurfacerConf{}
 	}
 	ps := &PromSurfacer{
-		c:            config,
-		opts:         opts,
-		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
-		queryChan:    make(chan *httpWriter, queriesQueueSize),
-		metrics:      make(map[string]*promMetric),
-		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
-		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
-		l:            l,
+		c:                config,
+		opts:             opts,
+		emChan:           make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
+		queryChan:        make(chan *httpWriter, queriesQueueSize),
+		metrics:          make(map[string]*promMetric),
+		metricNameRe:     regexp.MustCompile(ValidMetricNameRegex),
+		labelNameRe:      regexp.MustCompile(ValidLabelNameRegex),
+		includeTimestamp: *includeTimestampFlag,
+		prefix:           *metricsPrefixFlag,
+		l:                l,
 	}
 
-	if *metricsPrefix != "" && ps.c.MetricsPrefix != nil {
-		return nil, fmt.Errorf("both --prometheus_metrics_prefix and config metrics_prefix are set, you can set only one of them")
+	if ps.c.IncludeTimestamp != nil {
+		ps.includeTimestamp = ps.c.GetIncludeTimestamp()
 	}
-	if *metricsPrefix != "" {
-		ps.prefix = *metricsPrefix
-	} else {
+
+	if ps.c.MetricsPrefix != nil {
 		ps.prefix = ps.c.GetMetricsPrefix()
 	}
 
-	if ps.c.GetIncludeTimestamp() {
+	if ps.includeTimestamp {
 		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
 			fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
 		}
@@ -219,11 +222,11 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 }
 
 func (ps *PromSurfacer) disableMetricsExpiration() bool {
-	if ps.c.DisableMetricsExpiration != nil {
+	if ps.c != nil && ps.c.DisableMetricsExpiration != nil {
 		return ps.c.GetDisableMetricsExpiration()
 	}
 
-	if !ps.c.GetIncludeTimestamp() {
+	if !ps.includeTimestamp {
 		return true
 	}
 
