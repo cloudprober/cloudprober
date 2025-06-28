@@ -34,6 +34,10 @@ type SurfacerConf struct {
 	// Prometheus associates the scraped values with this timestamp. If disabled,
 	// i.e. timestamps are not exported, prometheus associates scraped values with
 	// scrape timestamp.
+	//
+	// As it's typically useful to set this across the deployment, this field can
+	// also be set through the command line flag --prometheus_include_timestamp.
+	// If both are set, the config value takes precedence.
 	IncludeTimestamp *bool `protobuf:"varint,2,opt,name=include_timestamp,json=includeTimestamp,def=1" json:"include_timestamp,omitempty"`
 	// We automatically delete metrics that haven't been updated for more than
 	// 10 min. We do that because prometheus generates warnings while scraping
@@ -49,7 +53,8 @@ type SurfacerConf struct {
 	// cloudprober_total, cloudprober_success, cloudprober_latency, ..
 	//
 	// As it's typically useful to set this across the deployment, this field can
-	// also be set through the command line flag --prometheus_metrics_prefix.
+	// also be set through the command line flag --prometheus_metrics_prefix. If
+	// both are set, the config value takes precedence.
 	MetricsPrefix *string `protobuf:"bytes,4,opt,name=metrics_prefix,json=metricsPrefix" json:"metrics_prefix,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

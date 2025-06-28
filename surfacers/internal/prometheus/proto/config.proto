@@ -17,6 +17,10 @@ message SurfacerConf {
   // Prometheus associates the scraped values with this timestamp. If disabled,
   // i.e. timestamps are not exported, prometheus associates scraped values with
   // scrape timestamp.
+  //
+  // As it's typically useful to set this across the deployment, this field can
+  // also be set through the command line flag --prometheus_include_timestamp.
+  // If both are set, the config value takes precedence.
   optional bool include_timestamp = 2 [default = true];
 
   // We automatically delete metrics that haven't been updated for more than
@@ -35,6 +39,7 @@ message SurfacerConf {
   // cloudprober_total, cloudprober_success, cloudprober_latency, ..
   //
   // As it's typically useful to set this across the deployment, this field can
-  // also be set through the command line flag --prometheus_metrics_prefix.
+  // also be set through the command line flag --prometheus_metrics_prefix. If
+  // both are set, the config value takes precedence.
   optional string metrics_prefix = 4;
 }
