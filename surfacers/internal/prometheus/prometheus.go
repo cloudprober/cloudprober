@@ -113,14 +113,15 @@ type httpWriter struct {
 //
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
-	c           *configpb.SurfacerConf // Configuration
-	opts        *options.Options
-	prefix      string                     // Metrics prefix, e.g. "cloudprober_"
-	emChan      chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
-	metrics     map[string]*promMetric     // Metric name to promMetric mapping
-	metricNames []string                   // Metric names, to keep names ordered.
-	queryChan   chan *httpWriter           // Query channel
-	l           *logger.Logger
+	c                *configpb.SurfacerConf // Configuration
+	opts             *options.Options
+	includeTimestamp bool
+	prefix           string                     // Metrics prefix, e.g. "cloudprober_"
+	emChan           chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
+	metrics          map[string]*promMetric     // Metric name to promMetric mapping
+	metricNames      []string                   // Metric names, to keep names ordered.
+	queryChan        chan *httpWriter           // Query channel
+	l                *logger.Logger
 
 	// A handler that takes a promMetric and a dataKey and writes the
 	// corresponding metric string to the provided io.Writer.
@@ -129,13 +130,6 @@ type PromSurfacer struct {
 	// Regexes for metric and label names.
 	metricNameRe *regexp.Regexp
 	labelNameRe  *regexp.Regexp
-}
-
-func includeTimestamp(config *configpb.SurfacerConf) bool {
-	if config.IncludeTimestamp != nil {
-		return config.GetIncludeTimestamp()
-	}
-	return *includeTimestampFlag
 }
 
 // New returns a prometheus surfacer based on the config provided. It sets up a
@@ -156,6 +150,12 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		l:            l,
 	}
 
+	if ps.c.IncludeTimestamp != nil {
+		ps.includeTimestamp = ps.c.GetIncludeTimestamp()
+	} else {
+		ps.includeTimestamp = *includeTimestampFlag
+	}
+
 	if *metricsPrefixFlag != "" && ps.c.MetricsPrefix != nil {
 		return nil, fmt.Errorf("both --prometheus_metrics_prefix and config metrics_prefix are set, you can set only one of them")
 	}
@@ -165,7 +165,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		ps.prefix = ps.c.GetMetricsPrefix()
 	}
 
-	if includeTimestamp(ps.c) {
+	if ps.includeTimestamp {
 		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
 			fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
 		}
@@ -227,11 +227,11 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 }
 
 func (ps *PromSurfacer) disableMetricsExpiration() bool {
-	if ps.c.DisableMetricsExpiration != nil {
+	if ps.c != nil && ps.c.DisableMetricsExpiration != nil {
 		return ps.c.GetDisableMetricsExpiration()
 	}
 
-	if !ps.c.GetIncludeTimestamp() {
+	if !ps.includeTimestamp {
 		return true
 	}
 
