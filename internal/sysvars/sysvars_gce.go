@@ -24,6 +24,7 @@ import (
 	md "github.com/cloudprober/cloudprober/common/metadata"
 	"github.com/cloudprober/cloudprober/logger"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/option"
 )
 
 // maxNICs is the number of NICs allowed on a VM. Used by addGceNicInfo.
@@ -65,7 +66,7 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 	// Kubernetes use case.
 	if md.IsKubernetes() {
 		// TODO(manugarg): See if we want to try setting variables on Kubernetes,
-		// e.g. pod-name, cluster-name, cluser-location, etc.
+		// e.g. pod-name, cluster-name, cluster-location, etc.
 		vars["namespace"] = md.KubernetesNamespace()
 		return onGCE, nil
 	}
@@ -162,7 +163,11 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 
 func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
 	ctx := context.Background()
-	computeService, err := compute.NewService(ctx)
+	var opts []option.ClientOption
+	if *logger.GCPUniverseDomain != "" {
+		opts = append(opts, option.WithUniverseDomain(*logger.GCPUniverseDomain))
+	}
+	computeService, err := compute.NewService(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("error creating compute service to get instance labels: %v", err)
 	}
