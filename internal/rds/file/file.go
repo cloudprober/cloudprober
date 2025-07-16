@@ -207,6 +207,8 @@ func (ls *lister) refresh() error {
 		}
 		if e.IP != nil {
 			epRes.Ip = proto.String(e.IP.String())
+		} else {
+			epRes.Ip = proto.String(e.Name)
 		}
 		if e.Port != 0 {
 			epRes.Port = proto.Int32(int32(e.Port))
