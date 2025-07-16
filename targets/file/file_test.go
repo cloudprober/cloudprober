@@ -15,13 +15,13 @@
 package file
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/cloudprober/cloudprober/internal/rds/file/testdata"
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	configpb "github.com/cloudprober/cloudprober/targets/file/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -64,25 +64,14 @@ func TestListEndpointsWithFilter(t *testing.T) {
 			if len(got) != len(test.wantEndpoints) {
 				t.Fatalf("Got endpoints: %d, expected: %d", len(got), len(test.wantEndpoints))
 			}
+
 			for i := range test.wantEndpoints {
 				want := test.wantEndpoints[i]
 
-				if got[i].Name != want.Name || got[i].Port != want.Port || !reflect.DeepEqual(got[i].Labels, want.Labels) {
-					t.Errorf("ListResources: got:\n%v\nexpected:\n%v", got[i], want)
-				}
-			}
-
-			for _, ep := range got {
-				if testExpectedIP[ep.Name] != "" {
-					resolvedIP, err := ft.Resolve(ep.Name, 0)
-					if err != nil {
-						t.Errorf("unexpected error while resolving %s: %v", ep.Name, err)
-					}
-					ip := resolvedIP.String()
-					if ip != testExpectedIP[ep.Name] {
-						t.Errorf("ft.Resolve(%s): got=%s, expected=%s", ep.Name, ip, testExpectedIP[ep.Name])
-					}
-				}
+				assert.Equal(t, got[i].Name, want.Name)
+				assert.Equal(t, got[i].Port, want.Port)
+				assert.Equal(t, got[i].Labels, want.Labels)
+				assert.Equal(t, got[i].IP.String(), want.IP.String())
 			}
 		})
 	}
