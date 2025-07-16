@@ -52,6 +52,7 @@ var ExpectedResources = []*rdspb.Resource{
 	},
 	{
 		Name: proto.String("web-1"),
+		Ip:   proto.String("web-1"),
 		Port: proto.Int32(80),
 		Labels: map[string]string{
 			"__cp_host__":   "cloudprober.org",
