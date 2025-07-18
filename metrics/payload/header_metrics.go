@@ -18,14 +18,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 )
 
 func (p *Parser) processHeaderMetrics(resp interface{}) *metrics.EventMetrics {
-	em := metrics.NewEventMetrics(time.Now())
+	em := p.newEM(nil)
 
 	httpResp, ok := resp.(*http.Response)
 	if !ok {
