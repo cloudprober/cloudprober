@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
@@ -91,9 +90,7 @@ func jqValToMetricValue(v any) (metrics.Value, error) {
 	}
 }
 
-func (jm *jsonMetric) process(input any) (*metrics.EventMetrics, error) {
-	em := metrics.NewEventMetrics(time.Now())
-
+func (jm *jsonMetric) process(input any, em *metrics.EventMetrics) (*metrics.EventMetrics, error) {
 	metrics, err := runJQFilter(jm.metricsJQ, input)
 	if err != nil {
 		return nil, err
@@ -139,7 +136,7 @@ func (p *Parser) processJSONMetric(text []byte) []*metrics.EventMetrics {
 	var ems []*metrics.EventMetrics
 
 	for _, jm := range p.jsonMetrics {
-		em, err := jm.process(input)
+		em, err := jm.process(input, p.newEM(nil))
 		if err != nil {
 			p.l.Warning(err.Error())
 			continue
