@@ -29,6 +29,14 @@ message TestSpecFilter {
     optional string exclude = 2;
 }
 
+enum SaveOption {
+    NEVER = 0;
+    ALWAYS = 1;
+    ON_FIRST_RETRY = 2;
+    ON_ALL_RETRIES = 3;
+    RETAIN_ON_FAILURE = 4;
+}
+
 message ProbeConf {
     // Playwright test specs to run.
     //
@@ -86,22 +94,25 @@ message ProbeConf {
 
     // Traces are expensive and can slow down the test. We recommend to enable
     // this only when needed.
-    optional bool save_traces = 8 [default = false];
+    optional SaveOption save_traces = 8 [default = NEVER];
+
+    // Number of retries to run for each test.
+    optional int32 retries = 9 [default = 0];
 
     // By default, we export all test metrica as counters. You can change how
     // metrics are exported by setting the following options.
-    optional TestMetricsOptions test_metrics_options = 9;
+    optional TestMetricsOptions test_metrics_options = 10;
 
     // Artifacts options. If probe level artifacts options are not specified,
     // we use global artifacts options if available. Note: it typically makes
     // more sense to specify artifacts options at the global level.
-    optional artifacts.ArtifactsOptions artifacts_options = 10;
+    optional artifacts.ArtifactsOptions artifacts_options = 11;
 
     // Cleanup options.
-    optional artifacts.CleanupOptions workdir_cleanup_options = 11;
+    optional artifacts.CleanupOptions workdir_cleanup_options = 12;
 
     // Environment variables. These are passed/set before probing starts.
-    map<string, string> env_var = 12;
+    map<string, string> env_var = 13;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and

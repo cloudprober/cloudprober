@@ -4,7 +4,7 @@ export default defineConfig({
     testDir: "{{ .TestDir }}",
     outputDir: "./results",
     globalTimeout: {{ .GlobalTimeoutMsec }},
-    retries: 0,
+    retries: {{ .Retries }},
 
     use: {
         baseURL: "",
