@@ -253,7 +253,7 @@ func TestProbeInitTemplates(t *testing.T) {
 			conf: &configpb.ProbeConf{
 				Workdir:                   proto.String(tmpDir),
 				SaveScreenshotsForSuccess: proto.Bool(true),
-				SaveTraces:                configpb.SaveOption_ALWAYS.Enum(),
+				SaveTrace:                 configpb.SaveOption_ALWAYS.Enum(),
 			},
 			configContains: []string{
 				"screenshot: \"on\"",
@@ -265,14 +265,37 @@ func TestProbeInitTemplates(t *testing.T) {
 		{
 			name: "with_retries",
 			conf: &configpb.ProbeConf{
-				Workdir:    proto.String(tmpDir),
-				Retries:    proto.Int32(2),
-				SaveTraces: configpb.SaveOption_ON_FIRST_RETRY.Enum(),
+				Workdir:   proto.String(tmpDir),
+				Retries:   proto.Int32(2),
+				SaveTrace: configpb.SaveOption_ON_FIRST_RETRY.Enum(),
 			},
 			configContains: []string{
 				"screenshot: \"only-on-failure\"",
 				"trace: \"on-first-retry\"",
 				"retries: 2",
+			},
+			reporterContains:    reporterContainTestLevel,
+			reporterNotContains: reporterContainStepLevel,
+		},
+		{
+			name: "with_deprecated_save_traces",
+			conf: &configpb.ProbeConf{
+				SaveTraces: proto.Bool(true),
+			},
+			configContains: []string{
+				"trace: \"on\"",
+			},
+			reporterContains:    reporterContainTestLevel,
+			reporterNotContains: reporterContainStepLevel,
+		},
+		{
+			name: "save_trace_priority",
+			conf: &configpb.ProbeConf{
+				SaveTraces: proto.Bool(true),
+				SaveTrace:  configpb.SaveOption_ON_FIRST_RETRY.Enum(),
+			},
+			configContains: []string{
+				"trace: \"on-first-retry\"",
 			},
 			reporterContains:    reporterContainTestLevel,
 			reporterNotContains: reporterContainStepLevel,

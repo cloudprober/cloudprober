@@ -263,20 +263,24 @@ type ProbeConf struct {
 	SaveScreenshotsForSuccess *bool `protobuf:"varint,7,opt,name=save_screenshots_for_success,json=saveScreenshotsForSuccess,def=0" json:"save_screenshots_for_success,omitempty"`
 	// Traces are expensive and can slow down the test. We recommend to enable
 	// this only when needed.
-	SaveTraces *SaveOption `protobuf:"varint,8,opt,name=save_traces,json=saveTraces,enum=cloudprober.probes.browser.SaveOption,def=0" json:"save_traces,omitempty"`
+	// Note save_traces is deprecated. Use save_trace instead.
+	//
+	// Deprecated: Marked as deprecated in github.com/cloudprober/cloudprober/probes/browser/proto/config.proto.
+	SaveTraces *bool       `protobuf:"varint,8,opt,name=save_traces,json=saveTraces" json:"save_traces,omitempty"`
+	SaveTrace  *SaveOption `protobuf:"varint,9,opt,name=save_trace,json=saveTrace,enum=cloudprober.probes.browser.SaveOption,def=0" json:"save_trace,omitempty"`
 	// Number of retries to run for each test.
-	Retries *int32 `protobuf:"varint,9,opt,name=retries,def=0" json:"retries,omitempty"`
+	Retries *int32 `protobuf:"varint,10,opt,name=retries,def=0" json:"retries,omitempty"`
 	// By default, we export all test metrica as counters. You can change how
 	// metrics are exported by setting the following options.
-	TestMetricsOptions *TestMetricsOptions `protobuf:"bytes,10,opt,name=test_metrics_options,json=testMetricsOptions" json:"test_metrics_options,omitempty"`
+	TestMetricsOptions *TestMetricsOptions `protobuf:"bytes,11,opt,name=test_metrics_options,json=testMetricsOptions" json:"test_metrics_options,omitempty"`
 	// Artifacts options. If probe level artifacts options are not specified,
 	// we use global artifacts options if available. Note: it typically makes
 	// more sense to specify artifacts options at the global level.
-	ArtifactsOptions *proto.ArtifactsOptions `protobuf:"bytes,11,opt,name=artifacts_options,json=artifactsOptions" json:"artifacts_options,omitempty"`
+	ArtifactsOptions *proto.ArtifactsOptions `protobuf:"bytes,12,opt,name=artifacts_options,json=artifactsOptions" json:"artifacts_options,omitempty"`
 	// Cleanup options.
-	WorkdirCleanupOptions *proto.CleanupOptions `protobuf:"bytes,12,opt,name=workdir_cleanup_options,json=workdirCleanupOptions" json:"workdir_cleanup_options,omitempty"`
+	WorkdirCleanupOptions *proto.CleanupOptions `protobuf:"bytes,13,opt,name=workdir_cleanup_options,json=workdirCleanupOptions" json:"workdir_cleanup_options,omitempty"`
 	// Environment variables. These are passed/set before probing starts.
-	EnvVar map[string]string `protobuf:"bytes,13,rep,name=env_var,json=envVar" json:"env_var,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	EnvVar map[string]string `protobuf:"bytes,14,rep,name=env_var,json=envVar" json:"env_var,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Requests per probe.
 	// Number of DNS requests per probe. Requests are executed concurrently and
 	// each DNS request contributes to probe results. For example, if you run two
@@ -299,7 +303,7 @@ type ProbeConf struct {
 const (
 	Default_ProbeConf_NpxPath                   = string("npx")
 	Default_ProbeConf_SaveScreenshotsForSuccess = bool(false)
-	Default_ProbeConf_SaveTraces                = SaveOption_NEVER
+	Default_ProbeConf_SaveTrace                 = SaveOption_NEVER
 	Default_ProbeConf_Retries                   = int32(0)
 	Default_ProbeConf_RequestsPerProbe          = int32(1)
 	Default_ProbeConf_RequestsIntervalMsec      = int32(0)
@@ -384,11 +388,19 @@ func (x *ProbeConf) GetSaveScreenshotsForSuccess() bool {
 	return Default_ProbeConf_SaveScreenshotsForSuccess
 }
 
-func (x *ProbeConf) GetSaveTraces() SaveOption {
+// Deprecated: Marked as deprecated in github.com/cloudprober/cloudprober/probes/browser/proto/config.proto.
+func (x *ProbeConf) GetSaveTraces() bool {
 	if x != nil && x.SaveTraces != nil {
 		return *x.SaveTraces
 	}
-	return Default_ProbeConf_SaveTraces
+	return false
+}
+
+func (x *ProbeConf) GetSaveTrace() SaveOption {
+	if x != nil && x.SaveTrace != nil {
+		return *x.SaveTrace
+	}
+	return Default_ProbeConf_SaveTrace
 }
 
 func (x *ProbeConf) GetRetries() int32 {
@@ -451,7 +463,7 @@ const file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_
 	"\x13enable_step_metrics\x18\x03 \x01(\bR\x11enableStepMetrics\"D\n" +
 	"\x0eTestSpecFilter\x12\x18\n" +
 	"\ainclude\x18\x01 \x01(\tR\ainclude\x12\x18\n" +
-	"\aexclude\x18\x02 \x01(\tR\aexclude\"\xd5\a\n" +
+	"\aexclude\x18\x02 \x01(\tR\aexclude\"\xf8\a\n" +
 	"\tProbeConf\x12\x1b\n" +
 	"\ttest_spec\x18\x01 \x03(\tR\btestSpec\x12\x19\n" +
 	"\btest_dir\x18\x02 \x01(\tR\atestDir\x12T\n" +
@@ -459,15 +471,17 @@ const file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_
 	"\aworkdir\x18\x04 \x01(\tR\aworkdir\x12%\n" +
 	"\x0eplaywright_dir\x18\x05 \x01(\tR\rplaywrightDir\x12\x1e\n" +
 	"\bnpx_path\x18\x06 \x01(\t:\x03npxR\anpxPath\x12F\n" +
-	"\x1csave_screenshots_for_success\x18\a \x01(\b:\x05falseR\x19saveScreenshotsForSuccess\x12N\n" +
-	"\vsave_traces\x18\b \x01(\x0e2&.cloudprober.probes.browser.SaveOption:\x05NEVERR\n" +
-	"saveTraces\x12\x1b\n" +
-	"\aretries\x18\t \x01(\x05:\x010R\aretries\x12`\n" +
-	"\x14test_metrics_options\x18\n" +
-	" \x01(\v2..cloudprober.probes.browser.TestMetricsOptionsR\x12testMetricsOptions\x12c\n" +
-	"\x11artifacts_options\x18\v \x01(\v26.cloudprober.probes.browser.artifacts.ArtifactsOptionsR\x10artifactsOptions\x12l\n" +
-	"\x17workdir_cleanup_options\x18\f \x01(\v24.cloudprober.probes.browser.artifacts.CleanupOptionsR\x15workdirCleanupOptions\x12J\n" +
-	"\aenv_var\x18\r \x03(\v21.cloudprober.probes.browser.ProbeConf.EnvVarEntryR\x06envVar\x12/\n" +
+	"\x1csave_screenshots_for_success\x18\a \x01(\b:\x05falseR\x19saveScreenshotsForSuccess\x12#\n" +
+	"\vsave_traces\x18\b \x01(\bB\x02\x18\x01R\n" +
+	"saveTraces\x12L\n" +
+	"\n" +
+	"save_trace\x18\t \x01(\x0e2&.cloudprober.probes.browser.SaveOption:\x05NEVERR\tsaveTrace\x12\x1b\n" +
+	"\aretries\x18\n" +
+	" \x01(\x05:\x010R\aretries\x12`\n" +
+	"\x14test_metrics_options\x18\v \x01(\v2..cloudprober.probes.browser.TestMetricsOptionsR\x12testMetricsOptions\x12c\n" +
+	"\x11artifacts_options\x18\f \x01(\v26.cloudprober.probes.browser.artifacts.ArtifactsOptionsR\x10artifactsOptions\x12l\n" +
+	"\x17workdir_cleanup_options\x18\r \x01(\v24.cloudprober.probes.browser.artifacts.CleanupOptionsR\x15workdirCleanupOptions\x12J\n" +
+	"\aenv_var\x18\x0e \x03(\v21.cloudprober.probes.browser.ProbeConf.EnvVarEntryR\x06envVar\x12/\n" +
 	"\x12requests_per_probe\x18b \x01(\x05:\x011R\x10requestsPerProbe\x127\n" +
 	"\x16requests_interval_msec\x18c \x01(\x05:\x010R\x14requestsIntervalMsec\x1a9\n" +
 	"\vEnvVarEntry\x12\x10\n" +
@@ -507,7 +521,7 @@ var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_go
 }
 var file_github_com_cloudprober_cloudprober_probes_browser_proto_config_proto_depIdxs = []int32{
 	2, // 0: cloudprober.probes.browser.ProbeConf.test_spec_filter:type_name -> cloudprober.probes.browser.TestSpecFilter
-	0, // 1: cloudprober.probes.browser.ProbeConf.save_traces:type_name -> cloudprober.probes.browser.SaveOption
+	0, // 1: cloudprober.probes.browser.ProbeConf.save_trace:type_name -> cloudprober.probes.browser.SaveOption
 	1, // 2: cloudprober.probes.browser.ProbeConf.test_metrics_options:type_name -> cloudprober.probes.browser.TestMetricsOptions
 	5, // 3: cloudprober.probes.browser.ProbeConf.artifacts_options:type_name -> cloudprober.probes.browser.artifacts.ArtifactsOptions
 	6, // 4: cloudprober.probes.browser.ProbeConf.workdir_cleanup_options:type_name -> cloudprober.probes.browser.artifacts.CleanupOptions

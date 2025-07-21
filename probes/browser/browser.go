@@ -174,7 +174,20 @@ func (p *Probe) initTemplates() error {
 	if p.c.GetSaveScreenshotsForSuccess() {
 		data.Screenshot = "on"
 	}
-	switch p.c.GetSaveTraces() {
+
+	// Handle deprecated save_traces option
+	if p.c.SaveTraces != nil {
+		p.l.Warningf("save_traces is deprecated. Use save_trace instead.")
+		if p.c.SaveTrace == nil {
+			if p.c.GetSaveTraces() {
+				p.c.SaveTrace = configpb.SaveOption_ALWAYS.Enum()
+			} else {
+				p.c.SaveTrace = configpb.SaveOption_NEVER.Enum()
+			}
+		}
+	}
+
+	switch p.c.GetSaveTrace() {
 	case configpb.SaveOption_ALWAYS:
 		data.Trace = "on"
 	case configpb.SaveOption_ON_ALL_RETRIES:

@@ -94,25 +94,27 @@ message ProbeConf {
 
     // Traces are expensive and can slow down the test. We recommend to enable
     // this only when needed.
-    optional SaveOption save_traces = 8 [default = NEVER];
+    // Note save_traces is deprecated. Use save_trace instead.
+    optional bool save_traces = 8 [deprecated = true];
+    optional SaveOption save_trace = 9 [default = NEVER];
 
     // Number of retries to run for each test.
-    optional int32 retries = 9 [default = 0];
+    optional int32 retries = 10 [default = 0];
 
     // By default, we export all test metrica as counters. You can change how
     // metrics are exported by setting the following options.
-    optional TestMetricsOptions test_metrics_options = 10;
+    optional TestMetricsOptions test_metrics_options = 11;
 
     // Artifacts options. If probe level artifacts options are not specified,
     // we use global artifacts options if available. Note: it typically makes
     // more sense to specify artifacts options at the global level.
-    optional artifacts.ArtifactsOptions artifacts_options = 11;
+    optional artifacts.ArtifactsOptions artifacts_options = 12;
 
     // Cleanup options.
-    optional artifacts.CleanupOptions workdir_cleanup_options = 12;
+    optional artifacts.CleanupOptions workdir_cleanup_options = 13;
 
     // Environment variables. These are passed/set before probing starts.
-    map<string, string> env_var = 13;
+    map<string, string> env_var = 14;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and
