@@ -1,4 +1,4 @@
-// Copyright 2024 The Cloudprober Authors.
+// Copyright 2024-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -161,6 +161,7 @@ func (p *Probe) initTemplates() error {
 		Trace              string
 		EnableStepMetrics  bool
 		DisableTestMetrics bool
+		Retries            int32
 	}{
 		TestDir:            p.testDirPath(),
 		GlobalTimeoutMsec:  p.playwrightGlobalTimeoutMsec(),
@@ -168,12 +169,33 @@ func (p *Probe) initTemplates() error {
 		Trace:              "off",
 		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
 		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
+		Retries:            p.c.GetRetries(),
 	}
 	if p.c.GetSaveScreenshotsForSuccess() {
 		data.Screenshot = "on"
 	}
-	if p.c.GetSaveTraces() {
+
+	// Handle deprecated save_traces option
+	if p.c.SaveTraces != nil {
+		p.l.Warningf("save_traces is deprecated. Use save_trace instead.")
+		if p.c.SaveTrace == nil {
+			if p.c.GetSaveTraces() {
+				p.c.SaveTrace = configpb.SaveOption_ALWAYS.Enum()
+			} else {
+				p.c.SaveTrace = configpb.SaveOption_NEVER.Enum()
+			}
+		}
+	}
+
+	switch p.c.GetSaveTrace() {
+	case configpb.SaveOption_ALWAYS:
 		data.Trace = "on"
+	case configpb.SaveOption_ON_ALL_RETRIES:
+		data.Trace = "on-all-retries"
+	case configpb.SaveOption_ON_FIRST_RETRY:
+		data.Trace = "on-first-retry"
+	case configpb.SaveOption_RETAIN_ON_FAILURE:
+		data.Trace = "retain-on-failure"
 	}
 
 	configPath, err := p.initTemplateFile(templates, "playwright.config.ts", data)
