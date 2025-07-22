@@ -9,9 +9,9 @@ This directory contains various examples demonstrating different features and us
 | External Probes | Examples of external probes in different languages | `external/` |
 | File-based Targets | Configuring targets using files | `file_based_targets/` |
 | gRPC | Examples of gRPC probes and servers | `grpc/` |
-| Include Files | How to use include files for configuration | `include/` |
+| Include Files | Splitting configuration into multiple files | `include/` |
 | OAuth | Authentication examples using OAuth | `oauth/` |
-| Scheduling | Examples of probe scheduling configurations | `schedule/` |
+| Scheduling | Run probes at specific times of the day | `schedule/` |
 | Surfacers | Different ways to export metrics | `surfacers/` |
 | Targets | Various target configurations | `targets/` |
 | Templates | Using Go templates in configurations | `templates/` |
