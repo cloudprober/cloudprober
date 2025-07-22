@@ -121,7 +121,7 @@ func initDefaultServer(c *configpb.ProberConfig, l *logger.Logger) (net.Listener
 		return nil, err
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, serverPort))
+	ln, err := net.Listen("tcp", net.JoinHostPort(serverHost, strconv.Itoa(serverPort)))
 	if err != nil {
 		return nil, fmt.Errorf("error while creating listener for default HTTP server: %v", err)
 	}
@@ -198,7 +198,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	if cfg.GetGrpcPort() != 0 {
 		serverHost := getServerHost(cfg)
 
-		grpcLn, err = net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, cfg.GetGrpcPort()))
+		grpcLn, err = net.Listen("tcp", net.JoinHostPort(serverHost, strconv.Itoa(int(cfg.GetGrpcPort()))))
 		if err != nil {
 			return fmt.Errorf("error while creating listener for default gRPC server: %v", err)
 		}
