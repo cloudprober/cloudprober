@@ -23,4 +23,4 @@ Each subdirectory contains example configurations and, where applicable, additio
 
 ## Contributing
 
-If you'd like to contribute additional examples, please follow the existing directory structure and include a README.md file explaining the example.
+If you'd like to contribute additional examples, please follow the existing directory structure, include a README.md file explaining the example, and update the table above.
