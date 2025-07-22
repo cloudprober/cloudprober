@@ -9,5 +9,7 @@
 #
 # See https://github.com/cloudprober/cloudprober/tree/main/config/testdata/include_test 
 # for more include examples.
-include "cloudprober.d/team1.cfg"
-include "cloudprober.d/team2.cfg"
+include "teams/team1.jsonnet"
+include "teams/team2.jsonnet"
+
+{ probe: team1_probes + team2_probes }
