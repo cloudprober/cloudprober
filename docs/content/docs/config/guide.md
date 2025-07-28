@@ -203,4 +203,4 @@ curl http://localhost:9313/config-parsed
 
 ## Conclusion
 
-Cloudprober's configuration system, built on protobufs, offers flexibility through multiple formats (textproto, YAML, Jsonnet) and powerful programmability via Go text templates and Jsonnet. The integration of Sprig and Cloudprober-specific extensions, like `configDir`, enhances dynamic configuration capabilities. Splitting configs into multiple files using the `include` directive further improves modularity and maintainability. For more examples, refer to the [Cloudprober documentation](https://cloudprober.org) and the [examples/include](https://github.com/cloudprober/cloudprober/tree/main/examples/include) directory on GitHub.
+Cloudprober's configuration system, built on protobufs, offers flexibility through multiple formats (textproto, YAML, Jsonnet) and powerful programmability via Go text templates and Jsonnet. The integration of Sprig and Cloudprober-specific extensions, like `configDir`, enhances dynamic configuration capabilities. Splitting configs into multiple files using the `include` directive further improves modularity and maintainability.
