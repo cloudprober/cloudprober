@@ -2,4 +2,4 @@
 title: "Configuration"
 ---
 
-{{% redirect dest="overview" %}}
+{{% redirect dest="guide" %}}
