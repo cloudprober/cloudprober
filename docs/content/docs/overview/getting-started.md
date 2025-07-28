@@ -15,13 +15,13 @@ following command:
 go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest
 ```
 
-###### Other Methods:
+##### Other Installation Methods:
 
 | Method             | Instructions                                                                                                                            | Platform              |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | Brew               | `brew install cloudprober`                                                                                                              | MacOS, Linux          |
 | Docker Image       | `docker run ghcr.io/cloudprober/cloudprober` ([other docker versions](https://github.com/cloudprober/cloudprober/wiki/Docker-versions)) | Docker                |
-| Helm chart         | [See here for instructions](https://github.com/cloudprober/helm-charts)                                                                 | Kubernetes            |
+| Helm chart         | [See instructions](https://github.com/cloudprober/helm-charts)                                                                            | Kubernetes            |
 | Pre-built binaries | Download from the [releases page](http://github.com/cloudprober/cloudprober/releases).                                                  | MacOS, Linux, Windows |
 
 See
@@ -56,9 +56,8 @@ EOF
 ```
 
 This config adds an HTTP probe that accesses the homepage of the target
-"www.google.com" every 5s with a timeout of 1s. Cloudprober configuration is
-specified in the text protobuf format, with config schema described by the proto
-file: [config.proto](/docs/config/overview/).
+"www.google.com" every 5s with a timeout of 1s. For more details on configs,
+see the [config guide](/config/guide) and [reference](/config/latest/overview).
 
 Assuming that you saved this file at `/tmp/cloudprober.cfg` (following the
 command above), you can have cloudprober use this config file using the
@@ -155,3 +154,13 @@ Grafana dashboards from Cloudprober's probe results.
 
 To get started with Grafana, follow the Grafana-Prometheus
 [integration guide](https://prometheus.io/docs/visualization/grafana/).
+
+## What's Next?
+
+Explore Cloudprober's capabilities through the [configuration guide](
+  /docs/config/guide) and [how to](/docs/how-to/list) pages. Checkout the
+[example configs](
+  https://github.com/cloudprober/cloudprober/tree/main/examples#cloudprober-examples)
+in the Cloudprober GitHub repository. Finally, since not every feature is
+documented, be sure to check out the [reference](
+  /docs/config/latest/overview) documentation for complete details.
