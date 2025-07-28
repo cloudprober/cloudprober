@@ -26,6 +26,19 @@
   name = "Config"
   weight = 40
   identifier = "config"
+
+[[main]]
+  name = "Config Guide"
+  weight = 41
+  identifier = "config-guide"
+  parent = "config"
+  url = "/docs/config/guide"
+
+[[main]]
+  name = "Config Reference"
+  weight = 42
+  identifier = "config-reference"
+  parent = "config"
   url = "/docs/config/latest/overview"
 
 [[main]]
@@ -92,8 +105,6 @@
   identifier = "config"
   url = "/docs/config/guide"
   weight = 20
-  [docs.params]
-    collapsible = true
 
 [[docs]]
   name = "Config Reference"
