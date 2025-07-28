@@ -90,10 +90,17 @@
 [[docs]]
   name = "Configuration"
   identifier = "config"
-  url = "/docs/config/latest/overview"
+  url = "/docs/config/guide"
   weight = 20
   [docs.params]
     collapsible = true
+
+[[docs]]
+  name = "Config Reference"
+  identifier = "latest-config"
+  url = "/docs/config/latest/overview"
+  weight = 22
+  parent = "config"
 
 [[docs]]
   name = "How-To"
