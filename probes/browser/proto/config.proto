@@ -43,6 +43,15 @@ message ArtifactsOptions {
     repeated Storage storage = 3;
 }
 
+message CleanupOptions {
+    // Maximum age of artifacts in seconds.
+    optional int32 max_age_sec = 1;
+
+    // Cleanup interval in seconds. Default is 1 hour or max_age_sec, whichever
+    // is smaller.
+    optional int32 cleanup_interval_sec = 3 [default = 3600];
+}
+
 message ProbeConf {
     // Path to the playwright test spec file. We'll search for it in the the
     // current working directory and the workdir directory.
@@ -55,7 +64,8 @@ message ProbeConf {
     // specified, we try to create a temporary directory. All the output files
     // and reports are stored under <workdir>/output/.
     // If you need to be able access the output files, you should set this 
-    // field to a persistent location, e.g. a persistent volume.
+    // field to a persistent location, e.g. a persistent volume, or configure
+    // artifact options.
     optional string workdir = 3;
 
     // Path to the playwright installation. We execute tests from this location.
@@ -76,6 +86,9 @@ message ProbeConf {
 
     // Artifacts options.
     optional ArtifactsOptions artifacts_options = 8;
+
+    // Cleanup options.
+    optional CleanupOptions workdir_cleanup_options = 9;
     
     // Requests per probe.
     // Number of DNS requests per probe. Requests are executed concurrently and
