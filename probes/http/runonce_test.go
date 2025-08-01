@@ -52,8 +52,9 @@ func TestRunOnce(t *testing.T) {
 		{
 			name: "multiple_targets_mixed_status",
 			targets: []endpoint.Endpoint{
-				{Name: "test-target-1"},
-				{Name: "test-target-2"},
+				{Name: "test-bad-target"}, // Invalid scheme
+				{Name: "test-target-1"},   // Success
+				{Name: "test-target-2"},   // Bad status code
 			},
 			setupServer: func(t *testing.T) *httptest.Server {
 				handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +66,7 @@ func TestRunOnce(t *testing.T) {
 				})
 				return httptest.NewServer(handler)
 			},
-			expectedSuccess: []bool{true, false}, // At least one target will fail
+			expectedSuccess: []bool{false, true, false},
 		},
 	}
 
@@ -92,6 +93,9 @@ func TestRunOnce(t *testing.T) {
 			opts.ProbeConf = &configpb.ProbeConf{}
 			for i := range tt.targets {
 				tt.targets[i].IP, tt.targets[i].Port = serverAddr.IP, serverAddr.Port
+				if tt.targets[i].Name == "test-bad-target" {
+					tt.targets[i].Labels = map[string]string{"__cp_scheme__": "ftp"}
+				}
 			}
 			opts.Targets = targets.StaticEndpoints(tt.targets)
 
@@ -103,14 +107,14 @@ func TestRunOnce(t *testing.T) {
 			results := p.RunOnce(ctx)
 
 			assert.Equal(t, len(tt.targets), len(results), "Number of results should match number of targets")
-			for i, result := range results {
-				assert.NotNil(t, result, "Result should not be nil")
-				assert.Equal(t, tt.targets[i].Name, result.Target.Name, "Target name should match")
+			for i, target := range tt.targets {
+				assert.NotNil(t, results[i], "Result should not be nil")
+				assert.Equal(t, target.Name, results[i].Target.Name, "Target name should match")
 
 				if tt.expectedSuccess[i] {
-					assert.NotNil(t, result.Metrics, "Metrics should not be nil")
+					assert.NotNil(t, results[i].Metrics, "Metrics for target %s should not be nil", target.Name)
 				}
-				assert.Equal(t, tt.expectedSuccess[i], result.Success, "Target %s success", tt.targets[i].Name)
+				assert.Equal(t, tt.expectedSuccess[i], results[i].Success, "Target %s success", target.Name)
 			}
 		})
 	}
