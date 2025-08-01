@@ -61,7 +61,7 @@ type Probe interface {
 	Start(ctx context.Context, dataChan chan *metrics.EventMetrics)
 }
 
-// ProbeWithRunOnce interface represents a probe that reports single run.
+// ProbeWithRunOnce interface represents a probe that support single run.
 //
 // RunOnce() method runs the probe one time.
 type ProbeWithRunOnce interface {

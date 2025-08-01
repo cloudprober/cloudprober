@@ -613,7 +613,7 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 	p.l.Info("Running HTTP probe once.")
 
 	if p.c.GetRequestsPerProbe() > 1 {
-		p.l.Warningf("requests_per_probe > 1 is not supported in the single run mode, ignoring it.")
+		p.l.Warningf("requests_per_probe > 1 is not supported in single run mode, ignoring it.")
 	}
 
 	var out []*singlerun.ProbeRunResult
@@ -645,7 +645,7 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 			start := time.Now()
 			if err := p.doHTTPRequest(req.WithContext(ctx), p.httpClient(target), target, result, nil); err != nil {
 				updateOut(&singlerun.ProbeRunResult{
-					Error: fmt.Errorf("error making HTTP request for target: %s, err: %v", target.Name, err),
+					Error: fmt.Errorf("error doing HTTP request for target: %s, err: %v", target.Name, err),
 				})
 				return
 			}
