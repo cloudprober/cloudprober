@@ -27,6 +27,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -658,6 +659,11 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 		}(target)
 	}
 	wg.Wait()
+
+	// Sort the results by target name
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Target.Name < out[j].Target.Name
+	})
 
 	return out
 }

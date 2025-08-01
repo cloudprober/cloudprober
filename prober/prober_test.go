@@ -218,7 +218,7 @@ func (f *fakeProbe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 	}
 }
 
-func TestProberRun_Success(t *testing.T) {
+func TestProberRun(t *testing.T) {
 	// Probe that does not implement ProbeWithRunOnce
 	type dummyProbe struct{}
 
