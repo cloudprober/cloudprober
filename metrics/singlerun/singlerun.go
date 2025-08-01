@@ -17,6 +17,7 @@ package singlerun
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -51,9 +52,17 @@ func statusString(success bool, latency time.Duration) string {
 
 func textFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent string) string {
 	out := make([]string, 0, len(probeResults))
-	for name, prrs := range probeResults {
+
+	// Make sure order is deterministic.
+	probeNameKeys := make([]string, 0, len(probeResults))
+	for name := range probeResults {
+		probeNameKeys = append(probeNameKeys, name)
+	}
+	sort.Strings(probeNameKeys)
+
+	for _, name := range probeNameKeys {
 		out = append(out, fmt.Sprintf("Probe: %s", name))
-		for _, prr := range prrs {
+		for _, prr := range probeResults[name] {
 			out = append(out, fmt.Sprintf("%sTarget: %s", indent, prr.Target.Dst()))
 			out = append(out, fmt.Sprintf("%sStatus: %s", indent+indent, statusString(prr.Success, prr.Latency)))
 			if !prr.Success {
