@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/browser"
 	"github.com/cloudprober/cloudprober/probes/dns"
 	"github.com/cloudprober/cloudprober/probes/external"
@@ -58,6 +59,14 @@ var (
 type Probe interface {
 	Init(name string, opts *options.Options) error
 	Start(ctx context.Context, dataChan chan *metrics.EventMetrics)
+}
+
+// ProbeWithRunOnce interface represents a probe that support single run.
+//
+// RunOnce() method runs the probe one time.
+type ProbeWithRunOnce interface {
+	Probe
+	RunOnce(ctx context.Context) []*singlerun.ProbeRunResult
 }
 
 // ProbeInfo encapsulates the probe and associated information.
