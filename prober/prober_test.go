@@ -21,11 +21,15 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
+	"github.com/cloudprober/cloudprober/probes/ping"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	testdatapb "github.com/cloudprober/cloudprober/probes/testdata"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -189,4 +193,58 @@ func TestStartProbesWithJitter(t *testing.T) {
 		delay = -delay
 	}
 	assert.GreaterOrEqual(t, delay, time.Second)
+}
+
+// Fake ProbeWithRunOnce implementation
+type fakeProbe struct {
+	runOnceCalled bool
+}
+
+func (f *fakeProbe) Init(name string, opts *options.Options) error {
+	return nil
+}
+
+func (f *fakeProbe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {}
+
+func (f *fakeProbe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	f.runOnceCalled = true
+	return []*singlerun.ProbeRunResult{
+		{
+			Target:  endpoint.Endpoint{Name: "1.2.3.4"},
+			Success: true,
+			Latency: time.Second,
+			Error:   nil,
+		},
+	}
+}
+
+func TestProberRun(t *testing.T) {
+	// Probe that does not implement ProbeWithRunOnce
+	type dummyProbe struct{}
+
+	pr := &Prober{
+		Probes: map[string]*probes.ProbeInfo{
+			"probe1": {
+				Probe: &fakeProbe{},
+			},
+			"probe2": {
+				Probe: &ping.Probe{}, // this probe will not be run
+			},
+		},
+		l: logger.New(),
+	}
+	ctx := context.Background()
+	out, err := pr.Run(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, out, 1)
+	assert.Equal(t, []*singlerun.ProbeRunResult{
+		{
+			Target:  endpoint.Endpoint{Name: "1.2.3.4"},
+			Success: true,
+			Latency: time.Second,
+			Error:   nil,
+		},
+	}, out["probe1"])
+	assert.True(t, pr.Probes["probe1"].Probe.(*fakeProbe).runOnceCalled)
+	assert.Len(t, out["probe2"], 0)
 }

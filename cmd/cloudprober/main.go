@@ -48,6 +48,9 @@ var (
 	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
 	dumpConfig       = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
 	dumpConfigFormat = flag.String("dumpconfig_fmt", "textpb", "Dump config format (textpb, json, yaml)")
+	runOnce          = flag.Bool("run_once", false, "Run a single probe and exit")
+	runOnceOutFormat = flag.String("run_once_out_fmt", "text", "Run once output format (text, json)")
+	runOnceOutIndent = flag.String("run_once_out_indent", "  ", "Run once output indent")
 )
 
 // These variables get overwritten by using -ldflags="-X main.<var>=<value?" at
@@ -171,6 +174,14 @@ func main() {
 			time.Sleep(*stopTime)
 			os.Exit(0)
 		}()
+	}
+
+	if *runOnce {
+		err := cloudprober.RunOnce(startCtx, *runOnceOutFormat, *runOnceOutIndent)
+		if err != nil {
+			l.Criticalf("Error running run-once probe. Err: %v", err)
+		}
+		return
 	}
 	cloudprober.Start(startCtx)
 
