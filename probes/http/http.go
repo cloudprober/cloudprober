@@ -27,6 +27,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -507,6 +509,29 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 	return ems
 }
 
+func (p *Probe) httpClient(target endpoint.Endpoint) *http.Client {
+	// We check for http.Transport because tests use a custom
+	// RoundTripper implementation.
+	if ht, ok := p.baseTransport.(*http.Transport); ok {
+		t := ht.Clone()
+
+		// If we're resolving target first, url.Host will be an IP address.
+		// In that case, we need to set ServerName in TLSClientConfig to
+		// the actual hostname.
+		if p.schemeForTarget(target) == "https" && p.resolveFirst(target) {
+			if t.TLSClientConfig == nil {
+				t.TLSClientConfig = &tls.Config{}
+			}
+			if t.TLSClientConfig.ServerName == "" {
+				t.TLSClientConfig.ServerName = hostForTarget(target)
+			}
+		}
+
+		return &http.Client{Transport: t}
+	}
+	return &http.Client{Transport: p.baseTransport}
+}
+
 // Returns clients for a target. We use a different HTTP client (transport) for
 // each request within a probe cycle. For example, if you configure
 // requests_per_probe as 100, we'll create and use 100 HTTP clients. This
@@ -517,29 +542,7 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 func (p *Probe) clientsForTarget(target endpoint.Endpoint) []*http.Client {
 	clients := make([]*http.Client, p.c.GetRequestsPerProbe())
 	for i := range clients {
-		// We check for http.Transport because tests use a custom
-		// RoundTripper implementation.
-		if ht, ok := p.baseTransport.(*http.Transport); ok {
-			t := ht.Clone()
-
-			// If we're resolving target first, url.Host will be an IP address.
-			// In that case, we need to set ServerName in TLSClientConfig to
-			// the actual hostname.
-			if p.schemeForTarget(target) == "https" && p.resolveFirst(target) {
-				if t.TLSClientConfig == nil {
-					t.TLSClientConfig = &tls.Config{}
-				}
-				if t.TLSClientConfig.ServerName == "" {
-					t.TLSClientConfig.ServerName = hostForTarget(target)
-				}
-			}
-
-			clients[i] = &http.Client{Transport: t}
-		} else {
-			clients[i] = &http.Client{Transport: p.baseTransport}
-		}
-
-		clients[i].CheckRedirect = p.redirectFunc
+		clients[i] = p.httpClient(target)
 	}
 	return clients
 }
@@ -604,6 +607,65 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running HTTP probe once.")
+
+	if p.c.GetRequestsPerProbe() > 1 {
+		p.l.Warningf("requests_per_probe > 1 is not supported in single run mode, ignoring it.")
+	}
+
+	var out []*singlerun.ProbeRunResult
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+	for _, target := range p.opts.Targets.ListEndpoints() {
+		wg.Add(1)
+		go func(target endpoint.Endpoint) {
+			defer wg.Done()
+
+			updateOut := func(result *singlerun.ProbeRunResult) {
+				outMu.Lock()
+				defer outMu.Unlock()
+				result.Target = target
+				out = append(out, result)
+			}
+
+			result := p.newResult()
+
+			req, err := p.httpRequestForTarget(target)
+			if err != nil {
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("error creating HTTP request for target: %s, err: %v", target.Name, err),
+				})
+				return
+			}
+
+			start := time.Now()
+			if err := p.doHTTPRequest(req.WithContext(ctx), p.httpClient(target), target, result, nil); err != nil {
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("error doing HTTP request for target: %s, err: %v", target.Name, err),
+				})
+				return
+			}
+
+			updateOut(&singlerun.ProbeRunResult{
+				Metrics: result.Metrics(time.Now(), 1, p.opts),
+				Success: result.success > 0,
+				Latency: time.Since(start),
+			})
+		}(target)
+	}
+	wg.Wait()
+
+	// Sort the results by target name
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Target.Name < out[j].Target.Name
+	})
+
+	return out
 }
 
 // Start starts and runs the probe indefinitely.
