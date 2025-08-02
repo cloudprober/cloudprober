@@ -998,13 +998,14 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 	ts := time.Unix(1711090290, 0)
 
 	tests := []struct {
-		name        string
-		tls         bool
-		lb          []configpb.ProbeConf_LatencyBreakdown
-		wantNil     []string
-		wantNonNil  []string
-		wantZero    string
-		wantMetrics []string
+		name              string
+		tls               bool
+		lb                []configpb.ProbeConf_LatencyBreakdown
+		latencyMetricName string
+		wantNil           []string
+		wantNonNil        []string
+		wantZero          string
+		wantMetrics       []string
 	}{
 		{
 			name: "all",
@@ -1026,6 +1027,18 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 			wantNil:     []string{"connect", "req_write", "first_byte"},
 			wantMetrics: []string{"dns_latency", "tls_handshake_latency"},
 		},
+		{
+			name: "dns_tls_with_latency_metric_name",
+			tls:  true,
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_DNS_LATENCY,
+				configpb.ProbeConf_TLS_HANDSHAKE_LATENCY,
+			},
+			latencyMetricName: "latency_dist",
+			wantNonNil:        []string{"dns", "tls_handshake"},
+			wantNil:           []string{"connect", "req_write", "first_byte"},
+			wantMetrics:       []string{"dns_latency_dist", "tls_handshake_latency_dist"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1041,6 +1054,9 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 
 			opts := options.DefaultOptions()
 			opts.ProbeConf = cfg
+			if tt.latencyMetricName != "" {
+				opts.LatencyMetricName = tt.latencyMetricName
+			}
 
 			p := &Probe{}
 			if err := p.Init("http_test", opts); err != nil {
@@ -1082,7 +1098,7 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 			em := result.Metrics(ts, 0, p.opts)[0]
 			for _, m := range tt.wantMetrics {
 				assert.NotNil(t, em.Metric(m), fmt.Sprintf("%s: metric not exported", m))
-				wantValue := latenciesMap[strings.TrimSuffix(m, "_latency")]
+				wantValue := latenciesMap[strings.TrimSuffix(m, "_"+opts.LatencyMetricName)]
 				assert.Equal(t, wantValue.String(), em.Metric(m).String(), fmt.Sprintf("%s: metric value not as expected", m))
 			}
 

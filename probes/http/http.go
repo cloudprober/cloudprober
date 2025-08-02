@@ -472,19 +472,19 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 
 	if result.latencyBreakdown != nil {
 		if dl := result.latencyBreakdown.dnsLatency; dl != nil {
-			em.AddMetric("dns_latency", dl.Clone())
+			em.AddMetric("dns_"+opts.LatencyMetricName, dl.Clone())
 		}
 		if cl := result.latencyBreakdown.connectLatency; cl != nil {
-			em.AddMetric("connect_latency", cl.Clone())
+			em.AddMetric("connect_"+opts.LatencyMetricName, cl.Clone())
 		}
 		if tl := result.latencyBreakdown.tlsLatency; tl != nil {
-			em.AddMetric("tls_handshake_latency", tl.Clone())
+			em.AddMetric("tls_handshake_"+opts.LatencyMetricName, tl.Clone())
 		}
 		if rwl := result.latencyBreakdown.reqWriteLatency; rwl != nil {
-			em.AddMetric("req_write_latency", rwl.Clone())
+			em.AddMetric("req_write_"+opts.LatencyMetricName, rwl.Clone())
 		}
 		if fbl := result.latencyBreakdown.firstByteLatency; fbl != nil {
-			em.AddMetric("first_byte_latency", fbl.Clone())
+			em.AddMetric("first_byte_"+opts.LatencyMetricName, fbl.Clone())
 		}
 	}
 
