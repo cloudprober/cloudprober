@@ -59,12 +59,9 @@ func TestPathPrefix(t *testing.T) {
 }
 
 func TestWebServerRoot(t *testing.T) {
-	outputDir := "/output/dir"
-
 	tests := []struct {
 		name             string
 		artifactsOpts    *configpb.ArtifactsOptions
-		outputDir        string
 		localStorageDirs []string
 		expectedRoot     string
 		expectError      bool
@@ -72,22 +69,12 @@ func TestWebServerRoot(t *testing.T) {
 		{
 			name:          "no local storage",
 			artifactsOpts: &configpb.ArtifactsOptions{},
-			outputDir:     outputDir,
-			expectedRoot:  outputDir,
-			expectError:   false,
-		},
-		{
-			name:          "no local storage, no default",
-			artifactsOpts: &configpb.ArtifactsOptions{},
-			outputDir:     "",
-			expectedRoot:  "",
 			expectError:   true,
 		},
 		{
 			name:             "only one local storage",
 			artifactsOpts:    &configpb.ArtifactsOptions{},
 			localStorageDirs: []string{"/local/storage/dir"},
-			outputDir:        outputDir,
 			expectedRoot:     "/local/storage/dir",
 			expectError:      false,
 		},
@@ -96,7 +83,6 @@ func TestWebServerRoot(t *testing.T) {
 			artifactsOpts: &configpb.ArtifactsOptions{
 				WebServerRoot: proto.String("/local/storage/dir"),
 			},
-			outputDir:        outputDir,
 			localStorageDirs: []string{"/local/storage/dir"},
 			expectedRoot:     "/local/storage/dir",
 			expectError:      false,
@@ -107,8 +93,6 @@ func TestWebServerRoot(t *testing.T) {
 				WebServerRoot: proto.String("/invalid/storage/dir"),
 			},
 			localStorageDirs: []string{"/local/storage/dir"},
-			outputDir:        outputDir,
-			expectedRoot:     "",
 			expectError:      true,
 		},
 	}
@@ -124,7 +108,7 @@ func TestWebServerRoot(t *testing.T) {
 					},
 				})
 			}
-			root, err := webServerRoot(tt.artifactsOpts, tt.outputDir)
+			root, err := webServerRoot(tt.artifactsOpts)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
