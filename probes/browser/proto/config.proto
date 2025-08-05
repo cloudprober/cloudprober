@@ -112,7 +112,8 @@ message ProbeConf {
     // more sense to specify artifacts options at the global level.
     optional artifacts.ArtifactsOptions artifacts_options = 12;
 
-    // Cleanup options.
+    // Workdir cleanup options.
+    // If left unspecified, we clean up workdir every hour.
     optional artifacts.CleanupOptions workdir_cleanup_options = 13;
 
     // Environment variables. These are passed/set before probing starts.
