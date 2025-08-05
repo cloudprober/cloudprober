@@ -75,9 +75,11 @@ message ProbeConf {
     // writable. If left unset (recommended), we try to create a temporary
     // directory.
     //
-    // If you need to be able access the output files, you should set this field
-    // to a persistent location, e.g. a persistent volume, or configure artifact
-    // options.
+    // You can set this field to a persistent location, e.g. a persistent
+    // volume, and configure a large max_age in workdir_cleanup_options to
+    // retain workdir files for a long time (default is 1 hour), but it's
+    // recommended to use artifacts_options to store artifacts for longer
+    // term access.
     optional string workdir = 4;
 
     // Path to the playwright installation. We execute tests from this location.
