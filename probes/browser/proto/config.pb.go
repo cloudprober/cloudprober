@@ -248,9 +248,11 @@ type ProbeConf struct {
 	// writable. If left unset (recommended), we try to create a temporary
 	// directory.
 	//
-	// If you need to be able access the output files, you should set this field
-	// to a persistent location, e.g. a persistent volume, or configure artifact
-	// options.
+	// You can set this field to a persistent location, e.g. a persistent
+	// volume, and configure a large max_age in workdir_cleanup_options to
+	// retain workdir files for a long time (default is 1 hour), but it's
+	// recommended to use artifacts_options to store artifacts for longer
+	// term access.
 	Workdir *string `protobuf:"bytes,4,opt,name=workdir" json:"workdir,omitempty"`
 	// Path to the playwright installation. We execute tests from this location.
 	// If not specified, we'll use the value of environment variable
@@ -279,7 +281,8 @@ type ProbeConf struct {
 	// we use global artifacts options if available. Note: it typically makes
 	// more sense to specify artifacts options at the global level.
 	ArtifactsOptions *proto.ArtifactsOptions `protobuf:"bytes,12,opt,name=artifacts_options,json=artifactsOptions" json:"artifacts_options,omitempty"`
-	// Cleanup options.
+	// Workdir cleanup options.
+	// If left unspecified, we clean up workdir every hour.
 	WorkdirCleanupOptions *proto.CleanupOptions `protobuf:"bytes,13,opt,name=workdir_cleanup_options,json=workdirCleanupOptions" json:"workdir_cleanup_options,omitempty"`
 	// Environment variables. These are passed/set before probing starts.
 	EnvVar map[string]string `protobuf:"bytes,14,rep,name=env_var,json=envVar" json:"env_var,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
