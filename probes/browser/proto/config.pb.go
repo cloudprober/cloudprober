@@ -243,12 +243,14 @@ type ProbeConf struct {
 	//	  exclude: "@draft"  // exclude tests with @draft tag
 	//	}
 	TestSpecFilter *TestSpecFilter `protobuf:"bytes,3,opt,name=test_spec_filter,json=testSpecFilter" json:"test_spec_filter,omitempty"`
-	// Workdir is path to the working directory. It should be writable. If not
-	// specified, we try to create a temporary directory. All the output files
-	// and reports are stored under <workdir>/output/.
-	// If you need to be able access the output files, you should set this
-	// field to a persistent location, e.g. a persistent volume, or configure
-	// artifact options.
+	// Path to the working directory for this probe. It has no impact on the
+	// test execution except for the fact that this directory should be
+	// writable. If left unset (recommended), we try to create a temporary
+	// directory.
+	//
+	// If you need to be able access the output files, you should set this field
+	// to a persistent location, e.g. a persistent volume, or configure artifact
+	// options.
 	Workdir *string `protobuf:"bytes,4,opt,name=workdir" json:"workdir,omitempty"`
 	// Path to the playwright installation. We execute tests from this location.
 	// If not specified, we'll use the value of environment variable
