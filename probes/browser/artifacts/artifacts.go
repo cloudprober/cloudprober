@@ -49,7 +49,7 @@ func pathPrefix(opts *configpb.ArtifactsOptions, probeName string) string {
 	return "/artifacts/" + probeName
 }
 
-func webServerRoot(opts *configpb.ArtifactsOptions, probeWorkDir string) (string, error) {
+func webServerRoot(opts *configpb.ArtifactsOptions) (string, error) {
 	var lsDirs []string
 	for _, storage := range opts.GetStorage() {
 		if localStorage := storage.GetLocalStorage(); localStorage != nil {
@@ -67,11 +67,6 @@ func webServerRoot(opts *configpb.ArtifactsOptions, probeWorkDir string) (string
 
 	if len(lsDirs) >= 1 {
 		return lsDirs[0], nil
-	}
-
-	// probeWorkDir is only set when called from probe level artifacts.
-	if probeWorkDir != "" {
-		return probeWorkDir, nil
 	}
 
 	return "", fmt.Errorf("no local storage directories configured, cannot determine web server root")
@@ -97,7 +92,7 @@ func initGlobalArtifactsServing(opts *configpb.ArtifactsOptions, l *logger.Logge
 	var err error
 	initGlobalServingOnce.Do(func() {
 		var webRoot string
-		webRoot, err = webServerRoot(opts, "")
+		webRoot, err = webServerRoot(opts)
 		if err != nil {
 			l.Errorf("error getting web server root: %v", err)
 			return
@@ -113,6 +108,10 @@ func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, 
 		destPathFn: destPathFn,
 		l:          l,
 	}
+
+	// Following variable will be false, if opts is nil (no local artifacts
+	// options) or if field is actually set to false
+	probeLevelServeOnWeb := opts.GetServeOnWeb()
 
 	if opts == nil {
 		gopts := pOpts.ProberConfig.GetGlobalArtifactsOptions()
@@ -173,9 +172,10 @@ func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, 
 		}
 	}
 
-	// Note this gets called only for probe specific artifacts options.
-	if opts.GetServeOnWeb() {
-		webRoot, err := webServerRoot(opts, outputDir)
+	// probeLevelServeOnWeb will be true only if we're working with local
+	// artifacts options and serve_on_web is set to true.
+	if probeLevelServeOnWeb {
+		webRoot, err := webServerRoot(opts)
 		if err != nil {
 			return nil, fmt.Errorf("error getting web server root: %v", err)
 		}
