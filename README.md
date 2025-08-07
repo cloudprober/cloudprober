@@ -27,6 +27,33 @@ what's broken in your system (see
 <img width="460" src="https://cloudprober.org/homepage.png"/>
 
 ## Trusted by Leading Organizations
+<table>
+  <tr>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/google.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/tesla.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/snowflake.svg"></td>
+    <td width="120" align="center"><img height=40 src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/apple.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/doordash.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/uber.svg"></td>
+  </tr>
+  <tr>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/cloudflare.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/walmart.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/robinhood.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/okta.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/gs.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/jpm.svg"></td>
+  </tr>
+  <tr>
+    <td width="120" align="center"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/hostinger.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/digitalocean.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/disneyplus.svg"></td>
+    <td width="120" align="center"><img src="https://raw.githubusercontent.com/cloudprober/cloudprober/trusted-by-logos/docs/static/trusted-by-logos/yahoo-japan.svg"></td>
+    <td width="120" align="center"></td>
+  </tr>
+</table>
+
 _Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart, Robinhood, Okta, Goldman Sachs, JPMorganChase, Hostinger, DigitalOcean, Disney+, Yahoo Japan, and more._
 
 ## Features
