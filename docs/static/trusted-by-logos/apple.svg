@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.2"
+   viewBox="0 0 1263 1500"
+   width="1263"
+   height="1500"
+   id="svg1"
+   sodipodi:docname="AAPL.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <title
+     id="title1">AAPL-svg</title>
+  <style
+     id="style1">
+		.s0 { fill: #000000 } 
+	</style>
+  <path
+     id="Layer"
+     class="s0"
+     d="m 1053,1440 c -81.3,78.9 -171,66.6 -256.5,29.4 -90.9,-37.9 -174,-40.4 -270,0 C 406.9,1521 343.5,1506 271.5,1440 -135,1021.5 -75,384 387,360 c 112.1,6 190.5,61.9 256.5,66.6 98.1,-20 192,-77.1 297,-69.6 126.2,10.2 220.5,60 283.5,149.6 -259.5,155.9 -198,497.9 40.3,594 -47.6,125.2 -108.8,249 -211.5,340.5 z M 634.5,355.5 c -12.1,-186 138.6,-339 312,-354 23.9,214.5 -195,375 -312,354 z" />
+</svg>
