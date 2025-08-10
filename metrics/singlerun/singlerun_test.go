@@ -64,7 +64,6 @@ Probe: ping
 var expectedJsonFormatOutput = `{
   "http": {
     "1.2.3.4": {
-      "target": "1.2.3.4",
       "success": false,
       "latency": "123ms",
       "error": "connection timeout"
@@ -72,16 +71,14 @@ var expectedJsonFormatOutput = `{
   },
   "ping": {
     "1.2.3.4": {
-      "target": "1.2.3.4",
       "success": true,
       "latency": "123ms",
       "metrics": [
-        %s
+        "%s"
       ]
     }
   }
-}
-`
+}`
 
 func TestTextFormatProbeRunResults(t *testing.T) {
 	em := metrics.NewEventMetrics(time.Now()).AddMetric("rtt", metrics.NewFloat(123))

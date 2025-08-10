@@ -85,7 +85,6 @@ func textFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent
 
 func jsonFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent string) string {
 	type probeTargetResult struct {
-		Target  string   `json:"target"`
 		Success bool     `json:"success"`
 		Latency string   `json:"latency,omitempty"`
 		Error   string   `json:"error,omitempty"`
@@ -99,7 +98,6 @@ func jsonFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent
 
 		for _, prr := range probeResults[name] {
 			tr := probeTargetResult{
-				Target:  prr.Target.Dst(),
 				Success: prr.Success,
 			}
 
