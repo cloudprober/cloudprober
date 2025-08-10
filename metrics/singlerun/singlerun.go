@@ -16,6 +16,7 @@
 package singlerun
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -82,8 +83,53 @@ func textFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent
 	return strings.Join(out, "\n")
 }
 
-func jsonFormatProbeRunResults(_ map[string][]*ProbeRunResult) string {
-	return "json format not supported yet"
+func jsonFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent string) string {
+	type probeTargetResult struct {
+		Target  string   `json:"target"`
+		Success bool     `json:"success"`
+		Latency string   `json:"latency,omitempty"`
+		Error   string   `json:"error,omitempty"`
+		Metrics []string `json:"metrics,omitempty"`
+	}
+
+	results := make(map[string]map[string]probeTargetResult)
+
+	for name := range probeResults {
+		results[name] = make(map[string]probeTargetResult)
+
+		for _, prr := range probeResults[name] {
+			tr := probeTargetResult{
+				Target:  prr.Target.Dst(),
+				Success: prr.Success,
+			}
+
+			if prr.Latency > 0 {
+				tr.Latency = prr.Latency.String()
+			}
+
+			if prr.Error != nil {
+				tr.Error = prr.Error.Error()
+			}
+
+			if len(prr.Metrics) > 0 {
+				tr.Metrics = make([]string, 0, len(prr.Metrics))
+				for _, m := range prr.Metrics {
+					tr.Metrics = append(tr.Metrics, m.String())
+				}
+			}
+
+			results[name][prr.Target.Dst()] = tr
+		}
+	}
+
+	// TODO(manugarg): Migrate to encoding/json/v2 once it's available.
+	// v2's marshaler provides an option to make output deterministic.
+	jsonData, err := json.MarshalIndent(results, "", indent)
+	if err != nil {
+		return fmt.Sprintf("{\"error\": \"%v\"}", err)
+	}
+
+	return string(jsonData)
 }
 
 func FormatProbeRunResults(probeResults map[string][]*ProbeRunResult, format Format, indent string) string {
@@ -91,7 +137,7 @@ func FormatProbeRunResults(probeResults map[string][]*ProbeRunResult, format For
 	case FormatText:
 		return textFormatProbeRunResults(probeResults, indent)
 	case FormatJSON:
-		return jsonFormatProbeRunResults(probeResults)
+		return jsonFormatProbeRunResults(probeResults, indent)
 	}
 	return ""
 }
