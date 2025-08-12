@@ -35,17 +35,21 @@ const (
 type Type int32
 
 const (
-	Type_NONE         Type = 0
-	Type_PROMETHEUS   Type = 1
-	Type_STACKDRIVER  Type = 2
-	Type_FILE         Type = 3
-	Type_POSTGRES     Type = 4
-	Type_PUBSUB       Type = 5
-	Type_CLOUDWATCH   Type = 6 // Experimental mode.
-	Type_DATADOG      Type = 7 // Experimental mode.
-	Type_PROBESTATUS  Type = 8
-	Type_BIGQUERY     Type = 9 // Experimental mode.
-	Type_OTEL         Type = 10
+	Type_NONE        Type = 0
+	Type_PROMETHEUS  Type = 1
+	Type_STACKDRIVER Type = 2
+	Type_FILE        Type = 3
+	Type_POSTGRES    Type = 4
+	Type_PUBSUB      Type = 5
+	Type_CLOUDWATCH  Type = 6 // Experimental mode.
+	Type_DATADOG     Type = 7 // Experimental mode.
+	Type_PROBESTATUS Type = 8
+	Type_BIGQUERY    Type = 9 // Experimental mode.
+	Type_OTEL        Type = 10
+	// One of the extension surfacer types. See "extensions" below for more
+	// details.
+	Type_EXTENSION Type = 98
+	// User defined surfacer type.
 	Type_USER_DEFINED Type = 99
 )
 
@@ -63,6 +67,7 @@ var (
 		8:  "PROBESTATUS",
 		9:  "BIGQUERY",
 		10: "OTEL",
+		98: "EXTENSION",
 		99: "USER_DEFINED",
 	}
 	Type_value = map[string]int32{
@@ -77,6 +82,7 @@ var (
 		"PROBESTATUS":  8,
 		"BIGQUERY":     9,
 		"OTEL":         10,
+		"EXTENSION":    98,
 		"USER_DEFINED": 99,
 	}
 )
@@ -245,9 +251,10 @@ type SurfacerDef struct {
 	//	*SurfacerDef_ProbestatusSurfacer
 	//	*SurfacerDef_BigquerySurfacer
 	//	*SurfacerDef_OtelSurfacer
-	Surfacer      isSurfacerDef_Surfacer `protobuf_oneof:"surfacer"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Surfacer        isSurfacerDef_Surfacer `protobuf_oneof:"surfacer"`
+	extensionFields protoimpl.ExtensionFields
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 // Default values for SurfacerDef fields.
@@ -533,7 +540,7 @@ const file_github_com_cloudprober_cloudprober_surfacers_proto_config_proto_rawDe
 	"?github.com/cloudprober/cloudprober/surfacers/proto/config.proto\x12\x14cloudprober.surfacer\x1aSgithub.com/cloudprober/cloudprober/surfacers/internal/cloudwatch/proto/config.proto\x1aPgithub.com/cloudprober/cloudprober/surfacers/internal/datadog/proto/config.proto\x1aMgithub.com/cloudprober/cloudprober/surfacers/internal/file/proto/config.proto\x1aMgithub.com/cloudprober/cloudprober/surfacers/internal/otel/proto/config.proto\x1aQgithub.com/cloudprober/cloudprober/surfacers/internal/postgres/proto/config.proto\x1aTgithub.com/cloudprober/cloudprober/surfacers/internal/probestatus/proto/config.proto\x1aSgithub.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto/config.proto\x1aOgithub.com/cloudprober/cloudprober/surfacers/internal/pubsub/proto/config.proto\x1aTgithub.com/cloudprober/cloudprober/surfacers/internal/stackdriver/proto/config.proto\x1aQgithub.com/cloudprober/cloudprober/surfacers/internal/bigquery/proto/config.proto\"5\n" +
 	"\vLabelFilter\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xd0\f\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xdb\f\n" +
 	"\vSurfacerDef\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x1a.cloudprober.surfacer.TypeR\x04type\x125\n" +
@@ -556,9 +563,9 @@ const file_github_com_cloudprober_cloudprober_surfacers_proto_config_proto_rawDe
 	"\x10datadog_surfacer\x18\x10 \x01(\v2*.cloudprober.surfacer.datadog.SurfacerConfH\x00R\x0fdatadogSurfacer\x12c\n" +
 	"\x14probestatus_surfacer\x18\x11 \x01(\v2..cloudprober.surfacer.probestatus.SurfacerConfH\x00R\x13probestatusSurfacer\x12Z\n" +
 	"\x11bigquery_surfacer\x18\x12 \x01(\v2+.cloudprober.surfacer.bigquery.SurfacerConfH\x00R\x10bigquerySurfacer\x12N\n" +
-	"\rotel_surfacer\x18\x13 \x01(\v2'.cloudprober.surfacer.otel.SurfacerConfH\x00R\fotelSurfacerB\n" +
+	"\rotel_surfacer\x18\x13 \x01(\v2'.cloudprober.surfacer.otel.SurfacerConfH\x00R\fotelSurfacer*\t\b\xc8\x01\x10\x80\x80\x80\x80\x02B\n" +
 	"\n" +
-	"\bsurfacer*\xad\x01\n" +
+	"\bsurfacer*\xbc\x01\n" +
 	"\x04Type\x12\b\n" +
 	"\x04NONE\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -574,7 +581,8 @@ const file_github_com_cloudprober_cloudprober_surfacers_proto_config_proto_rawDe
 	"\vPROBESTATUS\x10\b\x12\f\n" +
 	"\bBIGQUERY\x10\t\x12\b\n" +
 	"\x04OTEL\x10\n" +
-	"\x12\x10\n" +
+	"\x12\r\n" +
+	"\tEXTENSION\x10b\x12\x10\n" +
 	"\fUSER_DEFINED\x10cB4Z2github.com/cloudprober/cloudprober/surfacers/proto"
 
 var (

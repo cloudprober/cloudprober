@@ -28,6 +28,12 @@ enum Type {
   PROBESTATUS = 8;
   BIGQUERY = 9;    // Experimental mode.
   OTEL = 10;
+
+  // One of the extension surfacer types. See "extensions" below for more
+  // details.
+  EXTENSION = 98;
+
+  // User defined surfacer type.
   USER_DEFINED = 99;
 }
 
@@ -116,4 +122,8 @@ message SurfacerDef {
     bigquery.SurfacerConf bigquery_surfacer = 18;
     otel.SurfacerConf otel_surfacer = 19;
   }
+
+  // Extensions allow users to to add new surfacer types (for example, a
+  // surfacer type that utilizes a custom protocol) in a systematic manner.
+  extensions 200 to max;
 }

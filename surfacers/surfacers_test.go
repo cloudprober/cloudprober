@@ -16,6 +16,7 @@ package surfacers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/state"
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
+	testdatapb "github.com/cloudprober/cloudprober/surfacers/testdata"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -76,7 +78,7 @@ func TestInferType(t *testing.T) {
 	}
 
 	for k := range surfacerpb.Type_value {
-		if k == "NONE" || k == "USER_DEFINED" {
+		if k == "NONE" || k == "USER_DEFINED" || k == "EXTENSION" {
 			continue
 		}
 		if typeToConf[k] == nil {
@@ -93,7 +95,8 @@ func TestInferType(t *testing.T) {
 }
 
 type testSurfacer struct {
-	received []*metrics.EventMetrics
+	privateName string // Used only in extension surfacer tests.
+	received    []*metrics.EventMetrics
 }
 
 func (ts *testSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
@@ -290,5 +293,72 @@ func TestAdditionalLabel(t *testing.T) {
 		for i, em := range wantEMs {
 			assert.Equal(t, em.String(), ts.received[i].String())
 		}
+	}
+}
+
+func TestExtensionSurfacer(t *testing.T) {
+	// This is required for Init to succeed (for PROBESTATUS surfacer)
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
+
+	surfacerDef := &surfacerpb.SurfacerDef{
+		Name: proto.String("ext-surfacer"),
+		Type: surfacerpb.Type_EXTENSION.Enum(),
+	}
+
+	// This has the same effect as using the following in your config:
+	// surfacer {
+	//    name: "ext-surfacer"
+	//    [cloudprober.surfacer.testdata.fancy_surfacer] {
+	//      name: "fancy"
+	//    }
+	// }
+	proto.SetExtension(surfacerDef, testdatapb.E_FancySurfacer, &testdatapb.FancySurfacer{Name: proto.String("fancy")})
+	surfacerInfo, err := Init(context.Background(), []*surfacerpb.SurfacerDef{surfacerDef})
+	if err == nil {
+		t.Errorf("Expected error in building surfacer from extensions, got surfacer: %v", surfacerInfo)
+	}
+	t.Log(err.Error())
+
+	// Register our test surfacer type and try again.
+	// Declare ts here so that we can use ts.received for verification below.
+	ts := &testSurfacer{}
+	RegisterSurfacerType(200, func(conf any) (Surfacer, error) {
+		fancyConf, ok := conf.(*testdatapb.FancySurfacer)
+		if !ok {
+			return nil, fmt.Errorf("expected *testdatapb.FancySurfacer, got %T", conf)
+		}
+		ts.privateName = *fancyConf.Name
+		return ts, nil
+	})
+
+	surfacerInfo, err = Init(context.Background(), []*surfacerpb.SurfacerDef{surfacerDef})
+	if err != nil {
+		t.Errorf("Got error in building surfacer from extensions: %v", err)
+	}
+
+	foundIndex := -1
+	for i, s := range surfacerInfo {
+		if s.Name == "ext-surfacer" {
+			foundIndex = i
+			break
+		}
+	}
+	if foundIndex == -1 {
+		t.Errorf("Extension surfacer not found")
+	}
+
+	// This name is set in the Init() -> registration surfacerFunc() above.
+	assert.Equal(t, "fancy", ts.privateName)
+
+	// Write some metrics to all surfacers.
+	for _, em := range testEventMetrics {
+		for _, s := range surfacerInfo {
+			s.Surfacer.Write(context.Background(), em)
+		}
+	}
+
+	assert.Equal(t, len(testEventMetrics), len(ts.received))
+	for i, em := range testEventMetrics {
+		assert.Equal(t, em.String(), ts.received[i].String())
 	}
 }
