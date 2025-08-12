@@ -61,13 +61,31 @@ Probe: ping
 
 `
 
-func TestTextFormatProbeRunResults(t *testing.T) {
-	t.Helper()
+var expectedJsonFormatOutput = `{
+  "http": {
+    "1.2.3.4": {
+      "success": false,
+      "latency": "123ms",
+      "error": "connection timeout"
+    }
+  },
+  "ping": {
+    "1.2.3.4": {
+      "success": true,
+      "latency": "123ms",
+      "metrics": [
+        "%s"
+      ]
+    }
+  }
+}`
 
+func TestTextFormatProbeRunResults(t *testing.T) {
 	em := metrics.NewEventMetrics(time.Now()).AddMetric("rtt", metrics.NewFloat(123))
 	assert.Equal(t, fmt.Sprintf(expectedTextFormatOutput, em.String()), textFormatProbeRunResults(testPrrs(em), "  "))
 }
 
 func TestJsonFormatProbeRunResults(t *testing.T) {
-	assert.Equal(t, jsonFormatProbeRunResults(nil), "json format not supported yet")
+	em := metrics.NewEventMetrics(time.Now()).AddMetric("rtt", metrics.NewFloat(123))
+	assert.Equal(t, fmt.Sprintf(expectedJsonFormatOutput, em.String()), jsonFormatProbeRunResults(testPrrs(em), "  "))
 }
