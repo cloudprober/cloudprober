@@ -377,7 +377,7 @@ func Register(name string, s Surfacer) {
 //		return s, nil
 //	})
 //
-//	pr, err := cloudprober.InitFromConfig(*configFile)
+//	pr, err := cloudprober.Init()
 //	if err != nil {
 //		log.Exitf("Error initializing cloudprober. Err: %v", err)
 //	}
