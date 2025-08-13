@@ -7,8 +7,11 @@
 
 # Cloudprober: Reliable System Monitoring, Simplified!
 
-Cloudprober supercharges your monitoring with active probes (see
-[why probers](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e)) to ensure your systems—homelabs, microservices, APIs, websites, or cloud-to-on-prem connections—run smoothly. Detect failures before your users do.
+Cloudprober supercharges your monitoring with active probes (a.k.a. synthetic monitoring) to ensure your systems—homelabs,
+microservices, APIs, websites, or cloud-to-on-prem connections—run smoothly.
+See
+[this post](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e) for why probers provide one of the most reliable
+monitoring signals.
 
 <img width="460" src="https://cloudprober.org/homepage.png"/>
 
@@ -46,7 +49,7 @@ Cloudprober supercharges your monitoring with active probes (see
 
 * [Auto-Discover Targets](https://cloudprober.org/docs/how-to/targets/): Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
 
-* Seamless Integrations: Out-of-the-box integration with Prometheus, Grafana, DataDog, AWS CloudWatch, PostgreSQL, and Google Cloud Monitoring.
+* Integrate with Existing Systems: Out-of-the-box integration with Prometheus, Grafana, DataDog, AWS CloudWatch, PostgreSQL, and Google Cloud Monitoring.
 
 * [Easy Alerts](https://cloudprober.org/docs/how-to/alerting/): Stay informed via email, Slack, PagerDuty, OpsGenie, or any other HTTP based system.
 
