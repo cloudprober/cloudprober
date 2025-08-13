@@ -365,15 +365,18 @@ func Register(name string, s Surfacer) {
 //		"github.com/cloudprober/cloudprober/surfacers"
 //	)
 //
-//	s := &FancySurfacer{}
 //	surfacers.RegisterSurfacerType(200, func(conf any) (Surfacer, error) {
 //		fancyConf, ok := conf.(*testdatapb.FancySurfacer)
 //		if !ok {
 //			return nil, fmt.Errorf("expected *testdatapb.FancySurfacer, got %T", conf)
 //		}
-//		ts.privateName = *fancyConf.Name
-//		return ts, nil
+//		s, err := NewFancySurfacer(fancyConf)
+//		if err != nil {
+//			return nil, err
+//		}
+//		return s, nil
 //	})
+//
 //	pr, err := cloudprober.InitFromConfig(*configFile)
 //	if err != nil {
 //		log.Exitf("Error initializing cloudprober. Err: %v", err)
