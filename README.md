@@ -3,26 +3,15 @@
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 
-Homepage and documentation: [cloudprober.org](https://cloudprober.org)
+[cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/getting-started)
 
-_NOTE: Cloudprober's active development moved from
-~~[google/cloudprober](https://github.com/google/cloudprober)~~ to
-[cloudprober/cloudprober](https://github.com/cloudprober/cloudprober) in
-Nov, 2021. We lost a bunch of Github stars (1400) in the process. See
-[story of cloudprober](https://medium.com/@manugarg/story-of-cloudprober-5ac1dbc0066c)
-to learn more about the history of Cloudprober._
+# Cloudprober: Reliable System Monitoring, Simplified!
 
-
-Cloudprober is a monitoring software that makes it super-easy to monitor
-availability and performance of various components of your system. Cloudprober
-employs the "active" monitoring model. It runs probes against (or on) your
-components to verify that they are working as expected. For example, it can run
-a probe to verify that your frontends can reach your backends. Similarly it can
-run a probe to verify that your in-Cloud VMs can actually reach your on-premise
-systems. This kind of monitoring makes it possible to monitor your systems'
-interfaces regardless of the implementation and helps you quickly pin down
-what's broken in your system (see
-[why probers](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e)).
+Cloudprober supercharges your monitoring with active probes (a.k.a. synthetic monitoring) to ensure your systems—homelabs,
+microservices, APIs, websites, or cloud-to-on-prem connections—run smoothly.
+See
+[this post](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e) for why probers provide one of the most reliable
+monitoring signals.
 
 <img width="460" src="https://cloudprober.org/homepage.png"/>
 
@@ -54,71 +43,36 @@ what's broken in your system (see
   </tr>
 </table>
 
-_Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart, Robinhood, Okta, Goldman Sachs, JPMorganChase, Hostinger, DigitalOcean, Disney+, Yahoo Japan, and more._
+## Why Cloudprober?
 
-## Features
+* Versatile Probes: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom checks via external probes.
 
-- Out of the box, config based, integration with many popular monitoring
-  systems:
+* [Auto-Discover Targets](https://cloudprober.org/docs/how-to/targets/): Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
 
-  - [Prometheus/Grafana](https://prometheus.io)
-  - [DataDog](https://www.datadoghq.com/)
-  - [PostgreSQL](https://www.postgresql.org/)
-  - [AWS CloudWatch](https://aws.amazon.com/cloudwatch/)
-  - [StackDriver / Google Cloud Monitoring](https://cloud.google.com/stackdriver/)
+* Integrate with Existing Systems: Out-of-the-box integration with Prometheus, Grafana, DataDog, AWS CloudWatch, PostgreSQL, and Google Cloud Monitoring.
 
-- Multiple options for checks:
+* [Easy Alerts](https://cloudprober.org/docs/how-to/alerting/): Stay informed via email, Slack, PagerDuty, OpsGenie, or any other HTTP based system.
 
-  - _Efficient, highly scalable_, built-in probes:
-    [HTTP](https://github.com/cloudprober/cloudprober/blob/master/probes/http/proto/config.proto),
-    [PING](https://github.com/cloudprober/cloudprober/blob/master/probes/ping/proto/config.proto),
-    [TCP](https://github.com/cloudprober/cloudprober/blob/master/probes/tcp/proto/config.proto),
-    [DNS](https://github.com/cloudprober/cloudprober/blob/master/probes/dns/proto/config.proto),
-    [gRPC](https://github.com/cloudprober/cloudprober/blob/master/probes/grpc/proto/config.proto),
-    [UDP](https://github.com/cloudprober/cloudprober/blob/master/probes/udp/proto/config.proto).
-  - Run custom checks through the
-    _"[external](https://cloudprober.org/how-to/external-probe/)"_ probe type.
+* Lightweight & Scalable: Written in Go, compiles to a single binary, and runs efficiently as a standalone app or Docker container.
 
-- Automated targets discovery to make Cloud deployments as painless as possible:
+* Custom Metrics: Flexible latency histograms and configurable labels for precise insights.
 
-  - _[Kubernetes](https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets)_
-    resources.
-  - _[GCP](https://github.com/cloudprober/cloudprober/blob/master/internal/rds/gcp/proto/config.proto)_
-    instances, forwarding rules, and pub/sub messages.
-  - _[File](https://github.com/cloudprober/cloudprober/blob/master/internal/rds/file/proto/config.proto#L34)_
-    based targets.
+* Extensible: Easily add new probe types, targets, or monitoring systems.
 
-- Deployment friendly:
 
-  - Written entirely in Go, and compiles into a static binary.
-  - Deploy as a standalone binary, or through docker containers.
-  - Continuous, automated target discovery, to ensure that most infrastructure
-    changes don't require re-deployment.
+## Get Started
 
-- Low footprint. Cloudprober takes advantage of the Go's concurrency paradigms,
-  and makes most of the available processing power.
-- Configurable metrics:
+Jump in with our [Getting Started](https://cloudprober.org/docs/overview/getting-started/) guide and start monitoring your systems in minutes.
 
-  - Configurable metrics labels, based on the resource labels.
-  - Latency histograms for percentile calculations.
+## Join the Community
 
-- Extensible architecture. Cloudprober can be easily extended along most of the
-  dimensions. Adding support for other Cloud targets, monitoring systems and
-  even a new probe type, is straight-forward and fairly easy.
+Join our [Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE), or discuss on [Github](https://github.com/cloudprober/cloudprober/discussions). Help shape Cloudprober's future by commenting
+[here](https://github.com/cloudprober/cloudprober/discussions/121).
 
-## Getting Started
 
-Visit [Getting Started](http://cloudprober.org/getting-started) page to get
-started with Cloudprober.
-
-## Feedback
-
-We'd love to hear your feedback. If you're using Cloudprober, would you please
-mind sharing how you use it by adding a comment
-[here](https://github.com/cloudprober/cloudprober/discussions/121). It will be a
-great help in planning Cloudprober's future progression.
-
-Join
-[Cloudprober Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE)
-or [Github discussions](https://github.com/cloudprober/cloudprober/discussions)
-for questions and discussion about Cloudprober.
+_NOTE: Cloudprober's active development moved from
+~~[google/cloudprober](https://github.com/google/cloudprober)~~ to
+[cloudprober/cloudprober](https://github.com/cloudprober/cloudprober) in
+Nov, 2021. We lost a bunch of Github stars (1400) in the process. See
+[story of cloudprober](https://medium.com/@manugarg/story-of-cloudprober-5ac1dbc0066c)
+to learn more about the history of Cloudprober._
