@@ -5,10 +5,10 @@
 
 [cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/getting-started)
 
-# Cloudprober: Monitor Your Systems with Ease!
+# Cloudprober: Reliable System Monitoring, Simplified!
 
 Cloudprober supercharges your monitoring with active probes (see
-[why probers](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e)) to ensure your systems—homelabs, microservices, APIs, websites, or cloud-to-on-prem connections—run smoothly. Spot issues fast and stay ahead, just like Google, Tesla, Apple, Uber, and more!
+[why probers](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e)) to ensure your systems—homelabs, microservices, APIs, websites, or cloud-to-on-prem connections—run smoothly. Detect failures before your users do.
 
 <img width="460" src="https://cloudprober.org/homepage.png"/>
 
