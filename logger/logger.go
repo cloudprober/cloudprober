@@ -53,6 +53,9 @@ var (
 	// Override the GCP cloud logging endpoint.
 	gcpLoggingEndpoint = flag.String("gcp_logging_endpoint", "", "GCP logging endpoint")
 
+	// GCPUniverseDomain overrides the GCP universe domain.
+	GCPUniverseDomain = flag.String("gcp_universe_domain", "", "GCP universe domain")
+
 	// LogPrefixEnvVar environment variable is used to determine the stackdriver
 	// log name prefix. Default prefix is "cloudprober".
 	LogPrefixEnvVar = "CLOUDPROBER_LOG_PREFIX"
@@ -61,7 +64,7 @@ var (
 // EnvVars defines environment variables that can be used to modify the logging
 // behavior.
 var EnvVars = struct {
-	DisableCloudLogging, DebugLog, GCPLoggingEndpoint string
+	DisableCloudLogging, DebugLog, GCPLoggingEndpoint, GCPUniverseDomain string
 }{
 	"CLOUDPROBER_DISABLE_CLOUD_LOGGING",
 	"CLOUDPROBER_DEBUG_LOG",
@@ -322,6 +325,9 @@ func (l *Logger) EnableStackdriverLogging() {
 	if l.gcpLoggingEndpoint != "" {
 		l.Infof("Setting logging endpoint to %s", l.gcpLoggingEndpoint)
 		o = append(o, option.WithEndpoint(l.gcpLoggingEndpoint))
+		if *GCPUniverseDomain != "" {
+			o = append(o, option.WithUniverseDomain(*GCPUniverseDomain))
+		}
 	}
 
 	l.gcpLogc, err = logging.NewClient(context.Background(), projectID, o...)
