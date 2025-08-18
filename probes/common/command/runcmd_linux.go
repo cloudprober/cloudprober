@@ -29,7 +29,13 @@ import (
 	"time"
 )
 
-func runCommand(ctx context.Context, cmd *exec.Cmd) error {
+var defaultChildProcessWaitTime = 10 * time.Second
+
+func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Duration) error {
+	if childProcessWaitTime == 0 {
+		childProcessWaitTime = defaultChildProcessWaitTime
+	}
+
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if err := cmd.Start(); err != nil {
@@ -57,7 +63,7 @@ func runCommand(ctx context.Context, cmd *exec.Cmd) error {
 	go func() {
 		var err error
 
-		timeout := time.NewTimer(time.Second)
+		timeout := time.NewTimer(childProcessWaitTime)
 		defer timeout.Stop()
 		for err == nil {
 			select {
