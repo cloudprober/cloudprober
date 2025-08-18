@@ -57,7 +57,7 @@ func runCommand(ctx context.Context, cmd *exec.Cmd) error {
 	go func() {
 		var err error
 
-		timeout := time.NewTimer(time.Second)
+		timeout := time.NewTimer(10 * time.Second)
 		defer timeout.Stop()
 		for err == nil {
 			select {
