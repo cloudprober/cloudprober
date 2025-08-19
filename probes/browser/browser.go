@@ -421,9 +421,10 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := &command.Command{
-		CmdLine: cmdLine,
-		WorkDir: p.playwrightDir,
-		EnvVars: envVars,
+		CmdLine:              cmdLine,
+		WorkDir:              p.playwrightDir,
+		EnvVars:              envVars,
+		ChildProcessWaitTime: p.opts.Interval / 2,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
 		if p.payloadParser == nil {
