@@ -29,7 +29,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 )
@@ -55,12 +54,6 @@ type Command struct {
 	EnvVars                []string
 	WorkDir                string
 	ProcessStreamingOutput func([]byte)
-
-	// We create a goroutine to wait for child processes to finish. This field
-	// dictates how long will that goroutine wait for child processes to finish
-	// before giving up. This is to avoid unbounded number of goroutines in case
-	// child processes misbehave.
-	ChildProcessWaitTime time.Duration
 }
 
 func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
@@ -138,7 +131,7 @@ func (c *Command) Execute(ctx context.Context, l *logger.Logger) (string, error)
 	}
 
 	l.Debugf("Running command: %v", cmd)
-	err := runCommand(ctx, cmd, c.ChildProcessWaitTime)
+	err := runCommand(ctx, cmd)
 
 	if err != nil {
 		stdout, stderr := stdoutBuf.String(), stderrBuf.String()
