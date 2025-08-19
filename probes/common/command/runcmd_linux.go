@@ -24,16 +24,34 @@ package command
 
 import (
 	"context"
+	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 )
 
-var defaultChildProcessWaitTime = 10 * time.Second
+var zombieReaperOnce sync.Once
 
-func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Duration) error {
-	if childProcessWaitTime == 0 {
-		childProcessWaitTime = defaultChildProcessWaitTime
+func runCommand(ctx context.Context, cmd *exec.Cmd) error {
+	// If we are running as PID 1 (typical on k8s and docker), we start a
+	// zombie reaper goroutine to clean up any child processes left behind.
+	// This is like built-in init process.
+	if os.Getpid() == 1 {
+		// We use a sync.Once to make sure we only start one zombie reaper per
+		// cloudprober process.
+		zombieReaperOnce.Do(func() {
+			go func() {
+				for {
+					time.Sleep(1 * time.Minute)
+					// Run a loop to reap any zombies.
+					var err error
+					for err == nil {
+						_, err = syscall.Wait4(-1, nil, syscall.WNOHANG, nil)
+					}
+				}
+			}()
+		})
 	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -55,25 +73,5 @@ func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Du
 			return
 		}
 	}()
-	err := cmd.Wait()
-
-	// Start a goroutine to wait on the processes in the process group, to
-	// avoid zombies. We use a timer to make sure we don't create an
-	// unbounded number of goroutines in case a command hangs even on SIGKILL.
-	go func() {
-		var err error
-
-		timeout := time.NewTimer(childProcessWaitTime)
-		defer timeout.Stop()
-		for err == nil {
-			select {
-			case <-timeout.C:
-				return
-			default:
-			}
-			_, err = syscall.Wait4(-cmd.Process.Pid, nil, syscall.WNOHANG, nil)
-		}
-	}()
-
-	return err
+	return cmd.Wait()
 }
