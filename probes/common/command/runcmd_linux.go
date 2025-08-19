@@ -31,7 +31,26 @@ import (
 	"time"
 )
 
-var zombieReaperOnce sync.Once
+var (
+	zombieReaperOnce sync.Once
+	zombieReaperMu   sync.RWMutex
+)
+
+func zombieReaper() {
+	for {
+		time.Sleep(1 * time.Minute)
+		// This lock is to prevent reaper from running while we are running
+		// the external process and are waiting for results. Note this
+		// lock-section should never take long.
+		zombieReaperMu.Lock()
+		// Run a loop to reap any zombies.
+		var err error
+		for err == nil {
+			_, err = syscall.Wait4(-1, nil, syscall.WNOHANG, nil)
+		}
+		zombieReaperMu.Unlock()
+	}
+}
 
 func runCommand(ctx context.Context, cmd *exec.Cmd) error {
 	// If we are running as PID 1 (typical on k8s and docker), we start a
@@ -41,21 +60,16 @@ func runCommand(ctx context.Context, cmd *exec.Cmd) error {
 		// We use a sync.Once to make sure we only start one zombie reaper per
 		// cloudprober process.
 		zombieReaperOnce.Do(func() {
-			go func() {
-				for {
-					time.Sleep(1 * time.Minute)
-					// Run a loop to reap any zombies.
-					var err error
-					for err == nil {
-						_, err = syscall.Wait4(-1, nil, syscall.WNOHANG, nil)
-					}
-				}
-			}()
+			go zombieReaper()
 		})
 	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
+	// We take read lock here so that multiple external processes from different
+	// probes can run concurrently. We just need to make sure that the zombie
+	// reaper doesn't run while we are running the external process.
+	zombieReaperMu.RLock()
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -73,5 +87,7 @@ func runCommand(ctx context.Context, cmd *exec.Cmd) error {
 			return
 		}
 	}()
-	return cmd.Wait()
+	err := cmd.Wait()
+	zombieReaperMu.RUnlock()
+	return err
 }
