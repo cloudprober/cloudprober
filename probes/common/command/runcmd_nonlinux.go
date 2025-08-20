@@ -19,8 +19,9 @@ package command
 import (
 	"context"
 	"os/exec"
+	"time"
 )
 
-func runCommand(_ context.Context, cmd *exec.Cmd) error {
+func runCommand(_ context.Context, cmd *exec.Cmd, _ time.Duration) error {
 	return cmd.Run()
 }
