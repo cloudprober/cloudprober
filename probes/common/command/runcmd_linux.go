@@ -24,52 +24,20 @@ package command
 
 import (
 	"context"
-	"os"
 	"os/exec"
-	"sync"
 	"syscall"
 	"time"
 )
 
-var (
-	zombieReaperOnce sync.Once
-	zombieReaperMu   sync.RWMutex
-)
+var defaultChildProcessWaitTime = 10 * time.Second
 
-func zombieReaper() {
-	for {
-		time.Sleep(1 * time.Minute)
-		// This lock is to prevent reaper from running while we are running
-		// the external process and are waiting for results. Note this
-		// lock-section should never take long.
-		zombieReaperMu.Lock()
-		// Run a loop to reap any zombies.
-		var err error
-		for err == nil {
-			_, err = syscall.Wait4(-1, nil, syscall.WNOHANG, nil)
-		}
-		zombieReaperMu.Unlock()
-	}
-}
-
-func runCommand(ctx context.Context, cmd *exec.Cmd) error {
-	// If we are running as PID 1 (typical on k8s and docker), we start a
-	// zombie reaper goroutine to clean up any child processes left behind.
-	// This is like built-in init process.
-	if os.Getpid() == 1 {
-		// We use a sync.Once to make sure we only start one zombie reaper per
-		// cloudprober process.
-		zombieReaperOnce.Do(func() {
-			go zombieReaper()
-		})
+func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Duration) error {
+	if childProcessWaitTime == 0 {
+		childProcessWaitTime = defaultChildProcessWaitTime
 	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	// We take read lock here so that multiple external processes from different
-	// probes can run concurrently. We just need to make sure that the zombie
-	// reaper doesn't run while we are running the external process.
-	zombieReaperMu.RLock()
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -88,6 +56,24 @@ func runCommand(ctx context.Context, cmd *exec.Cmd) error {
 		}
 	}()
 	err := cmd.Wait()
-	zombieReaperMu.RUnlock()
+
+	// Start a goroutine to wait on the processes in the process group, to
+	// avoid zombies. We use a timer to make sure we don't create an
+	// unbounded number of goroutines in case a command hangs even on SIGKILL.
+	go func() {
+		var err error
+
+		timeout := time.NewTimer(childProcessWaitTime)
+		defer timeout.Stop()
+		for err == nil {
+			select {
+			case <-timeout.C:
+				return
+			default:
+			}
+			_, err = syscall.Wait4(-cmd.Process.Pid, nil, syscall.WNOHANG, nil)
+		}
+	}()
+
 	return err
 }
