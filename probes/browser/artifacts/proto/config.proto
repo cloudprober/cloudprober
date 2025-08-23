@@ -74,7 +74,8 @@ message Storage {
 
 message ArtifactsOptions {
     // Serve test artifacts on Cloudprober's default webserver. This is
-    // disabled by default for security reasons.
+    // disabled by default for security reasons. If it's set to true and no
+    // local storage is configured, we return an error.
     optional bool serve_on_web = 1;
 
     // Specify web server path to serve test artifacts on.
@@ -83,9 +84,7 @@ message ArtifactsOptions {
 
     // Web server root directory. If not provided (recommended), we just use
     // the first local storage directory if configured, and if provided, we
-    // verify that it is one of the local storages directories. If no local
-    // storage is configured, we return an error for global options and use
-    // <workdir>/output for probe level artifacts options.
+    // verify that it is one of the local storages directories.
     optional string web_server_root = 4;
 
     // Storage for test artifacts. Note that test artifacts are always

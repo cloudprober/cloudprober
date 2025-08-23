@@ -49,8 +49,8 @@ var (
 	dumpConfig       = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
 	dumpConfigFormat = flag.String("dumpconfig_fmt", "textpb", "Dump config format (textpb, json, yaml)")
 	runOnce          = flag.Bool("run_once", false, "Run a single probe and exit")
-	runOnceOutFormat = flag.String("run_once_out_fmt", "text", "Run once output format (text, json)")
-	runOnceOutIndent = flag.String("run_once_out_indent", "  ", "Run once output indent")
+	runOnceOutFormat = flag.String("run_once_output_format", "text", "Run once output format (text, json)")
+	runOnceOutIndent = flag.String("run_once_output_indent", "  ", "Run once output indent")
 )
 
 // These variables get overwritten by using -ldflags="-X main.<var>=<value?" at

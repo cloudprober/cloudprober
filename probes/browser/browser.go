@@ -37,6 +37,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
+	artifactsconfigpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/web"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
@@ -342,13 +343,17 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.artifactsHandler = ah
 
-	if p.c.GetWorkdirCleanupOptions() != nil {
-		ch, err := artifacts.NewCleanupHandler(p.outputDir, p.c.GetWorkdirCleanupOptions(), p.l)
-		if err != nil {
-			return fmt.Errorf("failed to initialize cleanup handler: %v", err)
+	workdirCleanupOpts := p.c.GetWorkdirCleanupOptions()
+	if workdirCleanupOpts == nil {
+		workdirCleanupOpts = &artifactsconfigpb.CleanupOptions{
+			MaxAgeSec: proto.Int32(3600),
 		}
-		p.workdirCleanup = ch
 	}
+	ch, err := artifacts.NewCleanupHandler(p.outputDir, workdirCleanupOpts, p.l)
+	if err != nil {
+		return fmt.Errorf("failed to initialize cleanup handler: %v", err)
+	}
+	p.workdirCleanup = ch
 
 	return nil
 }
@@ -416,9 +421,10 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 
 	p.l.Infof("Running command line: %v", cmdLine)
 	cmd := &command.Command{
-		CmdLine: cmdLine,
-		WorkDir: p.playwrightDir,
-		EnvVars: envVars,
+		CmdLine:              cmdLine,
+		WorkDir:              p.playwrightDir,
+		EnvVars:              envVars,
+		ChildProcessWaitTime: p.opts.Interval / 2,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
 		if p.payloadParser == nil {

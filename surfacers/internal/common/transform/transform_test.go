@@ -22,9 +22,6 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 )
 
-func TestXxx(t *testing.T) {
-}
-
 func TestFailureCountForDefaultMetrics(t *testing.T) {
 	var tests = []struct {
 		total, success, failure metrics.Value
@@ -96,6 +93,103 @@ func TestFailureCountForDefaultMetrics(t *testing.T) {
 
 			if gotFailure.(metrics.NumValue).Int64() != test.wantFailure.Int64() {
 				t.Errorf("Failure count=%v, want=%v", test.wantFailure.Int64(), test.wantFailure.Int64())
+			}
+		})
+	}
+}
+
+func TestCumulativeToGauge(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func() (*metrics.EventMetrics, map[string]*metrics.EventMetrics)
+		wantVal   int64
+		wantCache bool
+		wantErr   bool
+	}{
+		{
+			name: "first_reading",
+			setup: func() (*metrics.EventMetrics, map[string]*metrics.EventMetrics) {
+				em := metrics.NewEventMetrics(time.Now())
+				em.AddMetric("test_metric", metrics.NewInt(100))
+				em.Kind = metrics.CUMULATIVE
+				return em, make(map[string]*metrics.EventMetrics)
+			},
+			wantVal:   100,
+			wantCache: true,
+		},
+		{
+			name: "subsequent_reading",
+			setup: func() (*metrics.EventMetrics, map[string]*metrics.EventMetrics) {
+				// First reading
+				firstEM := metrics.NewEventMetrics(time.Now().Add(-time.Second))
+				firstEM.AddMetric("test_metric", metrics.NewInt(100))
+				firstEM.Kind = metrics.CUMULATIVE
+
+				// Current reading
+				currentEM := metrics.NewEventMetrics(time.Now())
+				currentEM.AddMetric("test_metric", metrics.NewInt(150))
+				currentEM.Kind = metrics.CUMULATIVE
+
+				// Setup cache with first reading
+				cache := make(map[string]*metrics.EventMetrics)
+				cache[firstEM.Key()] = firstEM
+
+				return currentEM, cache
+			},
+			wantVal:   50, // 150 - 100
+			wantCache: true,
+		},
+		{
+			name: "error_different_metrics",
+			setup: func() (*metrics.EventMetrics, map[string]*metrics.EventMetrics) {
+				// Cached metrics with different type
+				cachedEM := metrics.NewEventMetrics(time.Now().Add(-time.Second))
+				cachedEM.AddMetric("test_metric", metrics.NewString("100"))
+				cachedEM.Kind = metrics.CUMULATIVE
+
+				// Current metrics
+				currentEM := metrics.NewEventMetrics(time.Now())
+				currentEM.AddMetric("test_metric", metrics.NewInt(150))
+				currentEM.Kind = metrics.CUMULATIVE
+
+				cache := make(map[string]*metrics.EventMetrics)
+				cache[cachedEM.Key()] = cachedEM
+
+				return currentEM, cache
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			em, cache := tt.setup()
+
+			result, err := CumulativeToGauge(em, cache, nil)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("CumulativeToGauge() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr {
+				return
+			}
+
+			// Check the result
+			if result.Kind != metrics.GAUGE {
+				t.Errorf("Expected result kind to be GAUGE, got %v", result.Kind)
+			}
+
+			// Check the metric value
+			val := result.Metric("test_metric").(metrics.NumValue).Int64()
+			if val != tt.wantVal {
+				t.Errorf("Expected metric value %d, got %d", tt.wantVal, val)
+			}
+
+			// Check cache was updated
+			_, exists := cache[em.Key()]
+			if exists != tt.wantCache {
+				t.Errorf("Cache update check failed: exists=%v, wantCache=%v", exists, tt.wantCache)
 			}
 		})
 	}

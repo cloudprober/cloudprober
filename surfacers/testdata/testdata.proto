@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+package cloudprober.surfacer.testdata;
+
+import "github.com/cloudprober/cloudprober/surfacers/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/surfacers/testdata";
+
+message FancySurfacer {
+  optional string name = 1;
+}
+
+message AnotherFancySurfacer {
+  optional string name = 1;
+}
+
+extend surfacer.SurfacerDef {
+  optional FancySurfacer fancy_surfacer = 200;
+  optional AnotherFancySurfacer another_fancy_surfacer = 201;
+}

@@ -1,4 +1,4 @@
-// Copyright 2017-2021 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,13 +47,19 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers/internal/stackdriver"
 	"github.com/cloudprober/cloudprober/web/formatutils"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 )
 
+type surfacerFunc func(any) (Surfacer, error)
+
 var (
 	userDefinedSurfacers   = make(map[string]Surfacer)
-	userDefinedSurfacersMu sync.Mutex
+	userDefinedSurfacersMu sync.RWMutex
+
+	extensionMap   = make(map[int]surfacerFunc)
+	extensionMapMu sync.RWMutex
 )
 
 // StatusTmpl variable stores the HTML template suitable to generate the
@@ -228,6 +234,8 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		if surfacer == nil {
 			return nil, fmt.Errorf("unregistered user defined surfacer: %s", s.GetName())
 		}
+	case surfacerpb.Type_EXTENSION:
+		surfacer, _, err = getExtensionSurfacer(s)
 	default:
 		return nil, fmt.Errorf("unknown surfacer type: %s", s.GetType())
 	}
@@ -237,6 +245,33 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		opts:     opts,
 		lvCache:  make(map[string]*metrics.EventMetrics),
 	}, err
+}
+
+func getExtensionSurfacer(p *surfacerpb.SurfacerDef) (Surfacer, any, error) {
+	extensionMapMu.RLock()
+	defer extensionMapMu.RUnlock()
+
+	var newSurfacerFunc surfacerFunc
+	var value any
+
+	proto.RangeExtensions(p, func(xt protoreflect.ExtensionType, val any) bool {
+		newSurfacerFunc = extensionMap[int(xt.TypeDescriptor().Number())]
+		if newSurfacerFunc != nil {
+			value = val
+			return false
+		}
+		return true
+	})
+
+	if newSurfacerFunc == nil {
+		return nil, nil, fmt.Errorf("no extension surfacer found in the surfacer config")
+	}
+
+	surfacer, err := newSurfacerFunc(value)
+	if err != nil {
+		return nil, nil, err
+	}
+	return surfacer, value, nil
 }
 
 // Init initializes the surfacers from the config protobufs and returns them as
@@ -318,4 +353,36 @@ func Register(name string, s Surfacer) {
 	userDefinedSurfacersMu.Lock()
 	defer userDefinedSurfacersMu.Unlock()
 	userDefinedSurfacers[name] = s
+}
+
+// RegisterSurfacerType registers a new surfacer-type. New surfacer types are
+// integrated with the config subsystem using the protobuf extensions.
+//
+// Example usage:
+//
+//	import (
+//		"github.com/cloudprober/cloudprober"
+//		"github.com/cloudprober/cloudprober/surfacers"
+//	)
+//
+//	surfacers.RegisterSurfacerType(200, func(conf any) (Surfacer, error) {
+//		fancyConf, ok := conf.(*testdatapb.FancySurfacer)
+//		if !ok {
+//			return nil, fmt.Errorf("expected *testdatapb.FancySurfacer, got %T", conf)
+//		}
+//		s, err := NewFancySurfacer(fancyConf)
+//		if err != nil {
+//			return nil, err
+//		}
+//		return s, nil
+//	})
+//
+//	pr, err := cloudprober.Init()
+//	if err != nil {
+//		log.Exitf("Error initializing cloudprober. Err: %v", err)
+//	}
+func RegisterSurfacerType(extensionFieldNo int, newSurfacerFunc surfacerFunc) {
+	extensionMapMu.Lock()
+	defer extensionMapMu.Unlock()
+	extensionMap[extensionFieldNo] = newSurfacerFunc
 }

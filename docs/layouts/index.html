@@ -1,4 +1,35 @@
 {{ define "main" }}
+<style>
+.logo-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 20px;
+  justify-items: center;
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .logo-grid {
+    display: none;
+  }
+}
+.logo-grid img {
+  max-height: 40px;
+  max-width: 120px;
+  object-fit: contain;
+  filter: grayscale(100%);
+  transition: filter 0.3s ease;
+}
+.logo-grid .darker {
+  filter: grayscale(100%) brightness(40%);
+}
+.logo-grid .lighter {
+  filter: grayscale(100%) contrast(50%);
+}
+.logo-grid img:hover {
+  filter: grayscale(0%);
+}
+</style>
+
 <section class="section container-fluid mt-n3 pb-3" style="padding: 40px 50px">
   <div class="row justify-content-center mt-2">
     <div class="col-lg-8 text-center mt-1">
@@ -31,17 +62,36 @@
 <section class="section section-sm">
   <div class="container">
     <div class="row justify-content-center py-3">
-      <div class="col-lg-12 text-center" style="border:1px solid #176bab !important; margin-bottom: 1rem">
-        <h3 class="h3" style="font-weight: 700; margin-top: 1rem" id="trusted-by">
+      <div class="col-lg-12 text-center" style="margin-bottom: 3rem">
+        <h3 class="h3" style="font-weight: 700; margin-top: 1rem; margin-bottom: 2rem" id="trusted-by">
           Trusted by Leading Organizations
         </h3>
-        <p style="font-weight: 400">
+        <div style="font-weight: 400" class="d-block d-md-none">
           <span class="emphasize">
             Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart, Robinhood,
             Okta, Goldman Sachs, JPMorganChase, Hostinger, DigitalOcean, Disney+,
             Yahoo Japan</span
           >, and more.
-        </p>
+        </div>
+        <div class="logo-grid">
+          <img src="/trusted-by-logos/google.svg" alt="Google"/>
+          <img src="/trusted-by-logos/tesla.svg" alt="Tesla" />
+          <img src="/trusted-by-logos/snowflake.svg" alt="Snowflake" class="darker"/>
+          <img src="/trusted-by-logos/doordash.svg" alt="DoorDash" class="darker"/>
+          <img src="/trusted-by-logos/apple.svg" alt="Apple" title="Apple" class="lighter"/>
+          <img src="/trusted-by-logos/uber.svg" alt="Uber" height="30px" class="lighter"/>
+          <img src="/trusted-by-logos/cloudflare.svg" alt="Cloudflare" />
+          <img src="/trusted-by-logos/walmart.svg" alt="Walmart" />
+          <img src="/trusted-by-logos/robinhood.svg" alt="Robinhood" />
+          <img src="/trusted-by-logos/okta.svg" alt="Okta" class="lighter"/>
+          <img src="/trusted-by-logos/gs.svg" alt="Goldman Sachs" class="lighter"/>
+          <img src="/trusted-by-logos/jpm.svg" alt="JPMorgan Chase" />
+          <br>
+          <img src="/trusted-by-logos/hostinger.svg" alt="Hostinger"/>
+          <img src="/trusted-by-logos/digitalocean.svg" alt="DigitalOcean" />
+          <img src="/trusted-by-logos/disneyplus.svg" alt="Disney+" />
+          <img src="/trusted-by-logos/yahoo-japan.svg" alt="Yahoo Japan" />
+        </div>
       </div>
     </div>
     <div class="row justify-content-center text-center">
