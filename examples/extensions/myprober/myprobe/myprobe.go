@@ -124,7 +124,7 @@ func (p *Probe) runProbe(ctx context.Context) {
 			em.Metric("total").(*metrics.Int).Inc()
 			err := p.runProbeForTarget(ctx, target) // run probe just for a single target
 			if err != nil {
-				p.l.Errorf(err.Error())
+				p.l.Error(err.Error())
 				return
 			}
 			em.Metric("success").(*metrics.Int).Inc()
