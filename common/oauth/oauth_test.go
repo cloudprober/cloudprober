@@ -39,15 +39,23 @@ func createTempFile(t *testing.T, b []byte) string {
 	return tmpfile.Name()
 }
 
-var testPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIBPAIBAAJBAN6ErRPkzBWt+R+kMtbbAgmFal+ZbVoWSJDzsLFwdzfy0QaI6Svq
-g4zpfn/H7lXi5MPJ+OWWhFy2DRD0L01PF8kCAwEAAQJBAM59MF+Vog08NEI4jTT0
-Zx+OvveX2PIQW6anfQAr7XXsEo910bPjb9YdfFaHyQCS8aIYeQ7vXD8tV6Vlu93B
-LkECIQD77dd8JWEZp2ZCt0SpN6mPcNOvVoXhvdKp9SiqMorn0wIhAOIdK5hbx/d+
-rextXrNWAeT2PrWxYN7FX1neuAzebrxzAiEA9b9vuQlZa8XwqdnOX2cNvv+nbt1u
-4eLiMaoVDdkZyMMCIQDRXslbTsEevsI1RiCGVoFyjUEL5K8aGBBumvg5kk1fWQIg
-X5mM0KsPPfa9wLSGj6CPt2c3skhQu/k2FjMASmaQbZw=
------END RSA PRIVATE KEY-----`
+// This is of course a test key with access to nothing.
+var testPrivateKey = `-----BEGIN PRIVATE KEY-----
+MIICeAIBADANBgkqhkiG9w0BAQEFAASCAmIwggJeAgEAAoGBAN8WnorOX4fqt/1I
+prU0eaCw9KiLuv5lSyv2Niq7lkqM2vPlCHv5DLOJJwfhhidzmpOtmR+pt3p/2ecM
+ocH2Gnqq3OxfVObA7pEJPrHfSL7v6tEmleDEytfziog2vYwwGcPrIWZ6tPrY5GiI
++1w2+cw34GOwk6EqqTOOLYsuFH5VAgMBAAECgYEAyh+CUZ0drNWbEd7rPC5pLJBn
+evXu3GMGMrSG6zy+tJjeIDAY+cnyGhBfzqIknEX/fWHB5JAubsy7rr0hKc1CusPK
+4TQbVJLTj0rAlRs65X5QERTxmN93wyru4Ps7AJub/KPI3t98Pj7g6ozgSFUUoCYu
+Bm1tFQgopCmH+vJGo1kCQQD7iX3g6nKvqwU70k2bvjAmC+/ef32GA/U7NPk8mXbz
+gDfJGFupN5mdt9J6rnI38zt9CM9q5PMLcyuacuLWznljAkEA4wvpFCxH1z/l7zUw
+iXRKcIy745zRE62DzFJMqvwDjIM7ECdmaEd0V8eDWG9dgBPqqU+1VYY/CeWoQ9Vn
+OJQS5wJAapdtHG69guu6IAuSj7kctkLAt0zXaH8s4JYmOCPgYHepLDKCRUcmdct8
+Cjj6dfNA9k9Rdj7nL6byh1TAA78jeQJBANGXxiNkOTGAgC+RZ2wMWUeK80vMEMnc
+jOWKN9JD8La+0kA4TvYGuGTr/dkefS7ls+N2fIwl8H2fbvSnxLDbKJMCQQDa7PzK
+Y5Zr3MnCwUj2H5mmpTVpj59zj+uf3SJWCx3Fr7TqIHe1O77xkHRo2ZDIUKskwoL/
+MZFXww9EJVpAgX2a
+-----END PRIVATE KEY-----`
 
 func testJSONKey() string {
 	keyTmpl := `{

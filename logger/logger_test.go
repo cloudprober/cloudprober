@@ -1,4 +1,4 @@
-// Copyright 2017-2023 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -179,23 +179,23 @@ func testLog(t *testing.T, funcName string, msg string, logAttr slog.Attr, strAt
 	case "Debug":
 		l.Debug(msg)
 	case "Debugf":
-		l.Debugf(msg)
+		l.Debugf("%s", msg)
 	case "DebugAttrs":
 		l.DebugAttrs(msg, attrs...)
 	case "Infof":
-		l.Infof(msg)
+		l.Infof("%s", msg)
 	case "InfoAttrs":
 		l.InfoAttrs(msg, attrs...)
 	case "Warning":
 		l.Warning(msg)
 	case "Warningf":
-		l.Warningf(msg)
+		l.Warningf("%s", msg)
 	case "WarningAttrs":
 		l.WarningAttrs(msg, attrs...)
 	case "Error":
 		l.Error(msg)
 	case "Errorf":
-		l.Errorf(msg)
+		l.Errorf("%s", msg)
 	case "ErrorAttrs":
 		l.ErrorAttrs(msg, attrs...)
 	default:
