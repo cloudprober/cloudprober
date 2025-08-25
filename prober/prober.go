@@ -1,4 +1,4 @@
-// Copyright 2017-2023 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,13 +115,13 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 
 	opts, err := options.BuildProbeOptions(p, pr.ldLister, pr.c, pr.l)
 	if err != nil {
-		return status.Errorf(codes.Unknown, err.Error())
+		return status.Error(codes.Unknown, err.Error())
 	}
 
 	pr.l.Infof("Creating a %s probe: %s", p.GetType(), p.GetName())
 	probeInfo, err := probes.CreateProbe(p, opts)
 	if err != nil {
-		return status.Errorf(codes.Unknown, err.Error())
+		return status.Error(codes.Unknown, err.Error())
 	}
 	pr.Probes[p.GetName()] = probeInfo
 

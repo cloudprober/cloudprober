@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -184,7 +184,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	// Make sure older path /probestatus is redirected to the new path.
 	if !state.IsHandled("/probestatus") {
 		if err := state.AddWebHandler("/probestatus", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, redirectHTML)
+			fmt.Fprint(w, redirectHTML)
 		}); err != nil {
 			return nil, fmt.Errorf("error setting up /probestatus redirect: %v", err)
 		}
@@ -196,7 +196,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 				http.NotFound(w, r)
 				return
 			}
-			fmt.Fprintf(w, redirectHTML)
+			fmt.Fprint(w, redirectHTML)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error adding / handler: %v", err)
