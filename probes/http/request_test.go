@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -219,11 +220,18 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 	}
 	opts.ProbeConf = c
 	opts.Targets = targets.StaticTargets(td.targetName)
-	opts.AdditionalLabels = []*options.AdditionalLabel{
-		options.ParseAdditionalLabel(&probesconfigpb.AdditionalLabel{
-			Key:   proto.String("target_name"),
-			Value: proto.String("@target.name@"),
-		}),
+
+	// Configure additional labels.
+	for _, pair := range [][2]string{
+		{"fixed_label", "fixed_value"},
+		{"target_name", "@target.name@"},
+		{"target_port", "@target.port@"},
+		{"target_ip", "@target.ip@"},
+	} {
+		opts.AdditionalLabels = append(opts.AdditionalLabels, options.ParseAdditionalLabel(&probesconfigpb.AdditionalLabel{
+			Key:   proto.String(pair[0]),
+			Value: proto.String(pair[1]),
+		}))
 	}
 	assert.NoError(t, p.Init("test", opts), "Error initializing probe")
 
@@ -242,14 +250,22 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 		assert.NoError(t, err, "Error creating request")
 	}
 
-	var targetNameLabel string
+	wantIPLabel := ""
+	if target.IP != nil {
+		wantIPLabel = target.IP.String()
+	}
+	wantLabels := [][2]string{
+		{"fixed_label", "fixed_value"},
+		{"target_name", td.targetName},
+		{"target_port", strconv.Itoa(expectedPort)},
+		{"target_ip", wantIPLabel},
+	}
+	var gotLabels [][2]string
 	for _, al := range opts.AdditionalLabels {
 		key, val := al.KeyValueForTarget(target)
-		if key == "target_name" {
-			targetNameLabel = val
-		}
+		gotLabels = append(gotLabels, [2]string{key, val})
 	}
-	assert.Equal(t, td.targetName, targetNameLabel, "Additional labels mismatch")
+	assert.Equal(t, wantLabels, gotLabels, "Additional labels mismatch")
 
 	if !td.wantError {
 		wantURL := fmt.Sprintf("http://%s", hostWithPort(td.wantURLHost, expectedPort))
