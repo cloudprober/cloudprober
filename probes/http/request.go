@@ -156,12 +156,12 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) (*http.Request, e
 	host := hostForTarget(target)
 
 	urlHost, ipForLabel, err := p.urlHostAndIPLabel(target, host)
-	if err != nil {
-		return nil, err
-	}
-
+	// Make sure we update additional labels even if there is an error.
 	for _, al := range p.opts.AdditionalLabels {
 		al.UpdateForTarget(target, ipForLabel, port)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	url := fmt.Sprintf("%s://%s%s", p.schemeForTarget(target), hostWithPort(urlHost, port), pathForTarget(target, p.url))
