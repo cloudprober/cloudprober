@@ -23,6 +23,8 @@ import (
 
 	"github.com/cloudprober/cloudprober/internal/httpreq"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
+	probesconfigpb "github.com/cloudprober/cloudprober/probes/proto"
+
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -181,14 +183,16 @@ func TestPathforTarget(t *testing.T) {
 
 // Following tests are more comprehensive tests for request URL and host header.
 type testData struct {
-	desc       string
-	targetName string
-	targetFQDN string // Make target have this "fqdn" label.
-	resolvedIP string // IP that will be returned by the test resolve function.
+	desc         string
+	targetName   string
+	targetFQDN   string // Make target have this "fqdn" label.
+	resolvedIP   string // IP that will be returned by the test resolve function.
+	resolveFirst bool
 
 	// Probe configuration parameters
 	probeHost string
 
+	wantError bool
 	// Used by TestURLHostAndHeaderForTarget to verify URL host, and
 	// TestRequestHostAndURL to build URL to verify.
 	wantURLHost    string
@@ -207,29 +211,52 @@ func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, ex
 			"X-Probe-Name": "probe1",
 		},
 	}
+	if td.resolveFirst {
+		c.ResolveFirst = proto.Bool(true)
+	}
 	if td.probeHost != "" {
 		c.Header["Host"] = td.probeHost
 	}
 	opts.ProbeConf = c
 	opts.Targets = targets.StaticTargets(td.targetName)
+	opts.AdditionalLabels = []*options.AdditionalLabel{
+		options.ParseAdditionalLabel(&probesconfigpb.AdditionalLabel{
+			Key:   proto.String("target_name"),
+			Value: proto.String("@target.name@"),
+		}),
+	}
 	assert.NoError(t, p.Init("test", opts), "Error initializing probe")
 
 	target := endpoint.Endpoint{
 		Name: td.targetName,
-		Port: targetPort,
 		IP:   net.ParseIP(td.resolvedIP),
+		Port: targetPort,
 		Labels: map[string]string{
 			"fqdn": td.targetFQDN,
 		},
 	}
 	req, err := p.httpRequestForTarget(target)
-	assert.NoError(t, err, "Error creating request")
+	if td.wantError {
+		assert.Error(t, err, "No error creating request", req)
+	} else {
+		assert.NoError(t, err, "Error creating request")
+	}
 
-	wantURL := fmt.Sprintf("http://%s", hostWithPort(td.wantURLHost, expectedPort))
-	assert.Equal(t, wantURL, req.URL.String(), "URL mismatch")
+	var targetNameLabel string
+	for _, al := range opts.AdditionalLabels {
+		key, val := al.KeyValueForTarget(target)
+		if key == "target_name" {
+			targetNameLabel = val
+		}
+	}
+	assert.Equal(t, td.targetName, targetNameLabel, "Additional labels mismatch")
 
-	assert.Equal(t, td.wantHostHeader, req.Host, "host header mismatch")
-	assert.Equal(t, "probe1", req.Header.Get("X-Probe-Name"), "probe name header mismatch")
+	if !td.wantError {
+		wantURL := fmt.Sprintf("http://%s", hostWithPort(td.wantURLHost, expectedPort))
+		assert.Equal(t, wantURL, req.URL.String(), "URL mismatch")
+		assert.Equal(t, td.wantHostHeader, req.Host, "host header mismatch")
+		assert.Equal(t, "probe1", req.Header.Get("X-Probe-Name"), "probe name header mismatch")
+	}
 }
 
 func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
@@ -299,7 +326,7 @@ func TestRequestHostAndURL(t *testing.T) {
 		{
 			desc:           "resolve_first,no_probe_host_header",
 			targetName:     "localhost",
-			resolvedIP:     "127.0.0.1",
+			resolvedIP:     "127.0.0.1", // Automatic resolve-first
 			wantURLHost:    "127.0.0.1",
 			wantHostHeader: "localhost",
 		},
@@ -317,6 +344,12 @@ func TestRequestHostAndURL(t *testing.T) {
 			resolvedIP:     "127.0.0.1",
 			wantURLHost:    "127.0.0.1",
 			wantHostHeader: "test-host",
+		},
+		{
+			desc:         "resolve_first,error_resolving",
+			targetName:   "localhost_error_resolving",
+			resolveFirst: true,
+			wantError:    true,
 		},
 	}
 
