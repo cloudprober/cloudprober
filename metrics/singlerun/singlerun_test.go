@@ -61,6 +61,9 @@ Probe: ping
 
 `
 
+func TestTextFormatProbeRunResults(t *testing.T) {
+	t.Helper()
+
 var expectedJsonFormatOutput = `{
   "http": {
     "1.2.3.4": {
@@ -86,6 +89,7 @@ func TestTextFormatProbeRunResults(t *testing.T) {
 }
 
 func TestJsonFormatProbeRunResults(t *testing.T) {
+	assert.Equal(t, jsonFormatProbeRunResults(nil), "json format not supported yet")
 	em := metrics.NewEventMetrics(time.Now()).AddMetric("rtt", metrics.NewFloat(123))
 	assert.Equal(t, fmt.Sprintf(expectedJsonFormatOutput, em.String()), jsonFormatProbeRunResults(testPrrs(em), "  "))
 }
