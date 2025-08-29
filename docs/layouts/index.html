@@ -13,7 +13,7 @@
   }
 }
 .logo-grid img {
-  max-height: 40px;
+  max-height: 35px;
   max-width: 120px;
   object-fit: contain;
   filter: grayscale(100%);
@@ -32,24 +32,27 @@
 
 <section class="section container-fluid mt-n3 pb-3" style="padding: 40px 50px">
   <div class="row justify-content-center mt-2">
-    <div class="col-lg-8 text-center mt-1">
-      <h3 class="h2 fw-bold mb-4">{{ .Params.lead | safeHTML }}</h3>
+    <div class="col-lg-9 text-center mt-1">
+      <h3 class="h1 fw-bold mb-4">{{ .Params.lead | safeHTML }}</h3>
       <div class="mb-5" style="font-size: 1.05rem">
         Cloudprober is an open-source active monitoring tool designed to detect failures in software systems and services in real-time.
       </div>
       <a
-        class="btn btn-lg btn-primary mb-2"
+        class="btn btn-lg btn-primary mb-2 me-2"
         style="font-size: 1.16rem"
         href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/cloudprober"
         role="button"
         >Get Started</a
       >
-      <br />
-      (<a href="https://medium.com/@manugarg/story-of-cloudprober-5ac1dbc0066c"
-        >About Cloudprober</a
-      >, <a a href="https://github.com/cloudprober/cloudprober">Github</a>)
+      <a
+        class="btn btn-lg border border-primary mb-2 ms-2"
+        style="font-size: 1.16rem"
+        href="https://github.com/cloudprober/cloudprober"
+        role="button"
+        >View on Github</a
+      >
     </div>
-    <div class="col-lg-8" style="padding: 0 20px 0 0px">
+    <div class="col-lg-7" style="padding: 0 20px 0 0px">
       <img
         width="500"
         style="float: right; padding: 20px 0px 50px 0px"
@@ -78,7 +81,7 @@
           <img src="/trusted-by-logos/tesla.svg" alt="Tesla" />
           <img src="/trusted-by-logos/snowflake.svg" alt="Snowflake" class="darker"/>
           <img src="/trusted-by-logos/doordash.svg" alt="DoorDash" class="darker"/>
-          <img src="/trusted-by-logos/apple.svg" alt="Apple" title="Apple" class="lighter"/>
+          <img src="/trusted-by-logos/apple.svg" alt="Apple" title="Apple" class="lighter" style="filter: grayscale(100%) contrast(5%);"/>
           <img src="/trusted-by-logos/uber.svg" alt="Uber" height="30px" class="lighter"/>
           <img src="/trusted-by-logos/cloudflare.svg" alt="Cloudflare" />
           <img src="/trusted-by-logos/walmart.svg" alt="Walmart" />
@@ -96,7 +99,7 @@
     </div>
     <div class="row justify-content-center text-center">
       <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">Fast native checks ⚡️</h2>
+        <h2 class="h3" style="font-weight: 700">⚡️ Fast native checks</h2>
         <p style="font-weight: 400">
           Cloudprober comes with efficient, highly scalable, built-in
           <a href="https://cloudprober.org/docs/overview/probe/">probes</a> for
@@ -105,7 +108,7 @@
       </div>
       <div class="col-lg-5">
         <h2 class="h3" style="font-weight: 700">
-          Flexible custom probes and extensibility
+          🧩 Flexible custom probes and extensibility
         </h2>
         <p>
           Run any binary or script as a probe (see
@@ -115,7 +118,7 @@
         </p>
       </div>
       <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">Easy integration</h2>
+        <h2 class="h3" style="font-weight: 700">🔌 Easy integration</h2>
         <p style="font-weight: 400">
           Out of the box, config based, integration with many popular monitoring
           and alerting systems: Prometheus, Grafana, DataDog, PostgreSQL, AWS
@@ -125,7 +128,7 @@
     </div>
     <div class="row justify-content-center text-center">
       <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">Automated targets discovery</h2>
+        <h2 class="h3" style="font-weight: 700">🎯 Automated targets discovery</h2>
         <p>
           Reliable, automated
           <a href="docs/how-to/targets">targets discovery</a> for Kubernetes and
@@ -136,7 +139,7 @@
         </p>
       </div>
       <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">Open Source</h2>
+        <h2 class="h3" style="font-weight: 700">👥 Open Source</h2>
         <p>
           Cloudprober is <a href="https://github.com/cloudprober/cloudprober">
           open-source</a> and free to use. It is actively maintained, and has
@@ -144,7 +147,7 @@
         </p>
       </div>
       <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">Deployment friendly</h2>
+        <h2 class="h3" style="font-weight: 700">🚀 Deployment friendly</h2>
         <p>
           Written entirely in Go. Available as a standalone static binary,
           through a container image, or Helm charts. Multiple ways
