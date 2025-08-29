@@ -37,14 +37,14 @@ More examples and explanation:
 
 `F=failure, S=success`
 
-- ` condition { failure: 3 }` or `condition { failures: 3, total: 3} `
+- ` condition { failures: 3 }` or `condition { failures: 3, total: 3} `
 
   Trigger an alert on 3 consecutive failures. A pattern like **`F F F`** will
   immediately trigger an alert, but **`S S F F S S F F S S`** will not, even
   though failures are happening quite regularly. You could catch the second
   pattern by configuring the alert condition as `{failures: 3, total: 5}`.
 
-- `condition { failure: 3, total: 6 }`: Alert will trigger on 3 failures in the
+- `condition { failures: 3, total: 6 }`: Alert will trigger on 3 failures in the
   last 6 attempts. A pattern like **`F F F`** will immediately trigger an alert,
   so if probe interval is 10s, you'll get an alert within 20-30s of incident
   starting. A pattern like **`F S F S S F`** or **`F F S S S F`** will also
