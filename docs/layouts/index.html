@@ -25,37 +25,40 @@
 .logo-grid .lighter {
   filter: grayscale(100%) contrast(50%);
 }
+[data-dark-mode] .logo-grid img {
+  filter: grayscale(100%) brightness(120%);
+}
 .logo-grid img:hover {
   filter: grayscale(0%);
 }
 </style>
 
-<section class="section container-fluid mt-n3 pb-3" style="padding: 40px 50px">
-  <div class="row justify-content-center mt-2">
-    <div class="col-lg-9 text-center mt-1">
+<section class="section container-fluid mt-n3 pb-4 pt-5">
+  <div class="row justify-content-center mt-2 px-4">
+    <div class="col-lg-9 col-md-12 text-center mt-1">
       <h3 class="h1 fw-bold mb-4">{{ .Params.lead | safeHTML }}</h3>
       <div class="mb-5" style="font-size: 1.05rem">
         Cloudprober is an open-source active monitoring tool designed to detect failures in software systems and services in real-time.
       </div>
       <a
-        class="btn btn-lg btn-primary mb-2 me-2"
+        class="btn btn-lg btn-primary mx-2"
         style="font-size: 1.16rem"
         href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/cloudprober"
         role="button"
         >Get Started</a
       >
       <a
-        class="btn btn-lg border border-primary mb-2 ms-2"
+        class="btn btn-lg border border-primary mx-2"
         style="font-size: 1.16rem"
         href="https://github.com/cloudprober/cloudprober"
         role="button"
         >View on Github</a
       >
     </div>
-    <div class="col-lg-7" style="padding: 0 20px 0 0px">
+    <div class="col-lg-7 col-md-12 p-0">
       <img
         width="500"
-        style="float: right; padding: 20px 0px 50px 0px"
+        style="float: right; padding: 20px 0px 20px 0px"
         src="/homepage.png"
       />
     </div>
