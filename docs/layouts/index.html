@@ -3,7 +3,7 @@
 .logo-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 20px;
+  gap: 14px 16px;
   justify-items: center;
   align-items: center;
 }
@@ -13,8 +13,8 @@
   }
 }
 .logo-grid img {
-  max-height: 35px;
-  max-width: 120px;
+  max-height: 30px;
+  max-width: 140px;
   object-fit: contain;
   filter: grayscale(100%);
   transition: filter 0.3s ease;
@@ -26,14 +26,17 @@
   filter: grayscale(100%) contrast(50%);
 }
 [data-dark-mode] .logo-grid img {
-  filter: grayscale(100%) brightness(120%);
+  filter: invert(50%);
+}
+[data-dark-mode] .logo-grid img:hover {
+  filter: grayscale(0%);
 }
 .logo-grid img:hover {
   filter: grayscale(0%);
 }
 </style>
 
-<section class="section container-fluid mt-n3 pb-4 pt-5">
+<section class="section container-fluid mt-n3 pb-5 pt-4">
   <div class="row justify-content-center mt-2 px-4">
     <div class="col-lg-9 col-md-12 text-center mt-1">
       <h3 class="h1 fw-bold mb-4">{{ .Params.lead | safeHTML }}</h3>
@@ -64,11 +67,10 @@
     </div>
   </div>
 </section>
-{{ end }} {{ define "sidebar-prefooter" }}
 <section class="section section-sm">
   <div class="container">
     <div class="row justify-content-center py-3">
-      <div class="col-lg-12 text-center" style="margin-bottom: 3rem">
+      <div class="col-lg-14 text-center" style="margin-bottom: 3rem">
         <h3 class="h3" style="font-weight: 700; margin-top: 1rem; margin-bottom: 2rem" id="trusted-by">
           Trusted by Leading Organizations
         </h3>
@@ -92,7 +94,7 @@
           <img src="/trusted-by-logos/okta.svg" alt="Okta" class="lighter"/>
           <img src="/trusted-by-logos/gs.svg" alt="Goldman Sachs" class="lighter"/>
           <img src="/trusted-by-logos/jpm.svg" alt="JPMorgan Chase" />
-          <br>
+          <br/>
           <img src="/trusted-by-logos/hostinger.svg" alt="Hostinger"/>
           <img src="/trusted-by-logos/digitalocean.svg" alt="DigitalOcean" />
           <img src="/trusted-by-logos/disneyplus.svg" alt="Disney+" />
@@ -100,6 +102,10 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
+<section class="section section-sm">
+  <div class="container">
     <div class="row justify-content-center text-center">
       <div class="col-lg-5">
         <h2 class="h3" style="font-weight: 700">⚡️ Fast native checks</h2>
@@ -158,12 +164,6 @@
         </p>
       </div>
     </div>
-  </div>
-</section>
-{{ end }} {{ define "sidebar-footer" }}
-<section class="section section-sm container-fluid">
-  <div class="row justify-content-center text-center">
-    <div class="col-lg-9">{{- .Content -}}</div>
   </div>
 </section>
 {{ end }}
