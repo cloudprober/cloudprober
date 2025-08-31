@@ -36,7 +36,7 @@ func tsDirTmpl(currentPath string) *template.Template {
 	  padding-left: 20px;
 	  line-height: 1.6;
 	}
-	.selectors {
+	.datetime-selector {
       background: #fff;
       padding: 2px;
       max-width: 600px;
@@ -49,20 +49,20 @@ func tsDirTmpl(currentPath string) *template.Template {
       flex: 1;
       min-width: 200px;
     }
-    .selectors label {
+    .datetime-selector label {
       font-size: 14px;
       color: #333;
       margin-bottom: 5px;
       display: block;
     }
-    .selectors input[type="datetime-local"] {
+    .datetime-selector input[type="datetime-local"] {
       padding: 4px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 14px;
       box-sizing: border-box;
     }
-    .selectors input[type="datetime-local"]:focus {
+    .datetime-selector input[type="datetime-local"]:focus {
       outline: none;
       border-color: #007bff;
       box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
@@ -86,20 +86,16 @@ func tsDirTmpl(currentPath string) *template.Template {
 %s
 <div style="display: block; clear: both; padding-top: 10px">
   <hr>
-  <div class="selectors">
+  <div class="datetime-selector">
     <div class="datetime-group">
       <div class="datetime-field">
-        <label for="start-datetime">Start Date and Time (<span class="time-zone-abbr">Local</span>)</label>
+        <label for="start-datetime">Start Date and Time</label>
         <input type="datetime-local" id="start-datetime" required>
       </div>
       <div class="datetime-field">
-        <label for="end-datetime">End Date and Time (<span class="time-zone-abbr">Local</span>)</label>
+        <label for="end-datetime">End Date and Time</label>
         <input type="datetime-local" id="end-datetime" required>
         <span class="error" id="error-message">End date and time must be after start</span>
-      </div>
-      <div>
-        <label for="failure-only">Failure Only</label>
-        <input type="checkbox" id="failure-only">
       </div>
     </div>
   </div>
@@ -108,11 +104,8 @@ func tsDirTmpl(currentPath string) *template.Template {
  {{ $dateDir := .DateDir }}
  <li><a href="tree/{{ $dateDir }}">{{ $dateDir }}</a></li>
 <ul>
-{{ range .TSDirs }}
-<li>
-  <a href="tree/{{ $dateDir }}/{{.Timestamp}}">{{.Timestamp}} ({{.TimeStr}})</a>
-  {{if .Failed}}<span class="failed">failed</span>{{end}}
-</li>
+{{ range .Timestamp }}
+<li><a href="tree/{{ $dateDir }}/{{.}}">{{.}}</a></li>
 {{ end }}
 </ul>
 {{ end }}
