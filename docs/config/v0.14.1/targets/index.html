@@ -1,0 +1,522 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="ie=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-italic.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-italic.woff2 type=font/woff2 crossorigin><script>(()=>{var t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,e=localStorage.getItem("theme");t&&e===null&&(localStorage.setItem("theme","dark"),document.documentElement.setAttribute("data-dark-mode","")),t&&e==="dark"&&document.documentElement.setAttribute("data-dark-mode",""),e==="dark"&&document.documentElement.setAttribute("data-dark-mode","")})()</script><link rel=stylesheet href=https://cloudprober.org/main.b300fbd8bf09758454543ef1943b7fa11daa63ff97c5c212977611a8733e13c4d48fc030119ef65774d3776161304cea10ef9d4f817b6dfb680235d13b6304cd.css integrity="sha512-swD72L8JdYRUVD7xlDt/oR2qY/+XxcISl3YRqHM+E8TUj8AwEZ72V3TTd2FhMEzqEO+dT4F7bftoAjXRO2MEzQ==" crossorigin=anonymous><noscript><style>img.lazyload{display:none}</style></noscript><meta name=robots content="index, follow"><meta name=googlebot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><meta name=bingbot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><title>Targets Config (v0.14.1) - Cloudprober</title><meta name=description content="Configs:&amp;nbsp;&amp;nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.13.7 v0.13.8 v0.13.9 v0.14.0 | Language: YAML|TextPB cloudprober.targets.DNSOptions # # DNS server to use for DNS resolution, instead of system&amp;#39;s default. Server # can be specified in the following format: [network://]ip[:port] # where network is one of udp, tcp, tcp4, tcp6, udp4, udp6, tls."><link rel=canonical href=https://cloudprober.org/docs/config/v0.14.1/targets/><meta property="og:locale" content="en_US"><meta property="og:type" content="article"><meta property="og:title" content="Targets Config (v0.14.1)"><meta property="og:description" content="Configs:&nbsp;&nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.13.7 v0.13.8 v0.13.9 v0.14.0 | Language: YAML|TextPB cloudprober.targets.DNSOptions # # DNS server to use for DNS resolution, instead of system's default. Server # can be specified in the following format: [network://]ip[:port] # where network is one of udp, tcp, tcp4, tcp6, udp4, udp6, tls."><meta property="og:url" content="https://cloudprober.org/docs/config/v0.14.1/targets/"><meta property="og:site_name" content="Cloudprober"><meta name=twitter:card content="summary_large_image"><meta name=twitter:site content="@cloudprober"><meta name=twitter:creator content="@manugarg"><meta name=twitter:title content="Targets Config (v0.14.1)"><meta name=twitter:description content><meta name=twitter:card content="summary"><meta name=twitter:image:alt content="Targets Config (v0.14.1)"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://cloudprober.org/#/schema/organization/1","name":"Cloudprober","url":"https://cloudprober.org/","sameAs":["https://twitter.com/cloudprober","https://github.com/cloudprober/cloudprober"],"logo":{"@type":"ImageObject","@id":"https://cloudprober.org/#/schema/image/1","url":"https://cloudprober.org/\u003cnil\u003e","width":512,"height":512,"caption":"Cloudprober"},"image":{"@id":"https://cloudprober.org/#/schema/image/1"}},{"@type":"WebSite","@id":"https://cloudprober.org/#/schema/website/1","url":"https://cloudprober.org/","name":"Cloudprober","description":"An active\/synthetic monitoring software to reliably detect outages before your customers do.","publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"}},{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/v0.14.1/targets/","url":"https://cloudprober.org/docs/config/v0.14.1/targets/","name":"Targets Config (v0.14.1)","description":"","isPartOf":{"@id":"https://cloudprober.org/#/schema/website/1"},"about":{"@id":"https://cloudprober.org/#/schema/organization/1"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","breadcrumb":{"@id":"https://cloudprober.org/docs/config/v0.14.1/targets/#/schema/breadcrumb/1"},"primaryImageOfPage":{"@id":"https://cloudprober.org/docs/config/v0.14.1/targets/#/schema/image/2"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://cloudprober.org/docs/config/v0.14.1/targets/"]}]},{"@type":"BreadcrumbList","@id":"https://cloudprober.org/docs/config/v0.14.1/targets/#/schema/breadcrumb/1","name":"Breadcrumbs","itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"WebPage","@id":"https://cloudprober.org","url":"https://cloudprober.org","name":"Home"}},{"@type":"ListItem","position":3,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/","url":"https://cloudprober.org/docs/","name":"Docs"}},{"@type":"ListItem","position":4,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/","url":"https://cloudprober.org/docs/config/","name":"Config"}},{"@type":"ListItem","position":5,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/v0.14.1/","url":"https://cloudprober.org/docs/config/v0.14.1/","name":"V0.14.1"}},{"@type":"ListItem","position":6,"item":{"@id":"https://cloudprober.org/docs/config/v0.14.1/targets/"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://cloudprober.org/#/schema/article/1","headline":"Targets Config (v0.14.1)","description":"","isPartOf":{"@id":"https://cloudprober.org/docs/config/v0.14.1/targets/"},"mainEntityOfPage":{"@id":"https://cloudprober.org/docs/config/v0.14.1/targets/"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","author":{"@id":"https://cloudprober.org/#/schema/person/2"},"publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"},"image":{"@id":"https://cloudprober.org/docs/config/v0.14.1/targets/#/schema/image/2"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://cloudprober.org/#/schema/person/2","name":"Manu Garg","sameAs":["https://twitter.com/manugarg","https://www.linkedin.com/in/manugarg/","https://github.com/manugarg"]}]},{"@context":"https://schema.org","@graph":[{"@type":"ImageObject","@id":"https://cloudprober.org/docs/config/v0.14.1/targets/#/schema/image/2","url":null,"contentUrl":null,"caption":"Targets Config (v0.14.1)"}]}]}</script><meta name=theme-color content="#fff"><link rel=icon href=https://cloudprober.org/favicon.ico sizes=any><link rel=apple-touch-icon sizes=180x180 href=https://cloudprober.org/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=https://cloudprober.org/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=https://cloudprober.org/favicon-16x16.png><link rel=manifest crossorigin=use-credentials href=https://cloudprober.org/site.webmanifest><script async src="https://www.googletagmanager.com/gtag/js?id=G-FHHPC1TNQV"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FHHPC1TNQV")</script><script>(function(e,t,n,s,o,i,a){e.GoogleAnalyticsObject=o,e[o]=e[o]||function(){(e[o].q=e[o].q||[]).push(arguments)},e[o].l=1*new Date,i=t.createElement(n),a=t.getElementsByTagName(n)[0],i.async=1,i.src=s,a.parentNode.insertBefore(i,a)})(window,document,"script","https://www.google-analytics.com/analytics.js","ga"),ga("create","UA-79661-8","auto"),ga("set","anonymizeIp",!0),ga("send","pageview");var buttons=document.querySelectorAll("a"),query;Array.prototype.map.call(buttons,function(e){e.host!=document.location.host&&e.addEventListener("click",function(){var t=e.getAttribute("data-action")||"follow";ga("send","event","outbound",t,e.href)})}),query=document.querySelector(".query"),query&&query.addEventListener("blur",function(){if(this.value){var e=document.location.pathname;ga("send","pageview",e+"?q="+this.value)}})</script></head><body class="docs single"><div class=sticky-top><div class=header-bar></div><header class="navbar navbar-expand-lg navbar-light doks-navbar"><nav class="container-xxl flex-wrap flex-lg-nowrap" aria-label="Main navigation"><a class="navbar-brand order-0" href=https://cloudprober.org/ aria-label=Cloudprober>Cloudprober</a>
+<button class="btn btn-menu order-2 d-block d-lg-none" type=button data-bs-toggle=offcanvas data-bs-target=#offcanvasDoks aria-controls=offcanvasDoks aria-label="Open main menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="offcanvas offcanvas-end border-0 py-lg-1" tabindex=-1 id=offcanvasDoks data-bs-backdrop=true aria-labelledby=offcanvasDoksLabel><div class="header-bar d-lg-none"></div><div class="offcanvas-header d-lg-none"><h2 class="h5 offcanvas-title ps-2" id=offcanvasDoksLabel><a class=text-dark href=https://cloudprober.org/>Cloudprober</a></h2><button type=button class="btn-close text-reset me-2" data-bs-dismiss=offcanvas aria-label="Close main menu"></button></div><div class="offcanvas-body p-4 p-lg-0"><ul class="nav flex-column flex-lg-row align-items-lg-center mt-2 mt-lg-0 ms-lg-2 me-lg-auto"><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>Get Started
+<span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/getting-started>Getting Started</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/probe>What is a Probe</a></li></ul></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>Config
+<span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/config/guide>Config Guide</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/how-to/list/>How-To</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>About
+<span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/about/>Origin</a></li><li><a class=dropdown-item href=https://medium.com/cloudprober/>Blog</a></li><li><a class=dropdown-item href=https://github.com/cloudprober/cloudprober/discussions>Github Discussions</a></li><li><a class=dropdown-item href=https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE>Slack</a></li><li><a class=dropdown-item href=https://x.com/cloudprober>Twitter</a></li></ul></li></ul><hr class="text-black-50 my-4 d-lg-none"><form class="doks-search position-relative flex-grow-1 ms-lg-auto me-lg-2"><input id=search class="form-control is-search" type=search placeholder aria-label autocomplete=off><div id=suggestions class="shadow bg-white rounded d-none"></div></form><hr class="text-black-50 my-4 d-lg-none"><ul class="nav flex-column flex-lg-row"><li class=nav-item><a class="nav-link social-link" href=https://github.com/cloudprober/cloudprober><img src=https://img.shields.io/github/stars/cloudprober/cloudprober alt=GitHub><small class="ms-2 d-lg-none">GitHub</small></a></li></ul><hr class="text-black-50 my-4 d-lg-none"><button id=mode class="btn btn-link" type=button aria-label="Toggle user interface mode">
+<span class=toggle-dark><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-moon"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span><span class=toggle-light><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-sun"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span></button></div></div></nav></header></div><div class=container-xxl><aside class=doks-sidebar><nav id=doks-docs-nav class="collapse d-lg-none" aria-label="Tertiary navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></aside></div><div class="wrap container-xxl" role=document><div class=content><div class="row flex-xl-nowrap"><div class="col-lg-5 col-xl-4 docs-sidebar d-none d-lg-block"><nav id=sidebar-default class=docs-links aria-label="Main navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></div><nav class="docs-toc d-none d-xl-block col-xl-3" aria-label="Secondary navigation"></nav><main class="docs-content col-lg-11 col-xl-9 mx-xl-auto"><h1>Targets Config (v0.14.1)</h1><p class=lead></p><nav class=d-xl-none aria-label="Quaternary navigation"></nav><style>#config-doc-links{margin-bottom:.5rem;font-size:.94rem}.set-lang{border-radius:3px;font-size:smaller}.config-link-active{font-weight:bolder}.protodoc{margin:1rem 0}.btn-toggle{text-transform:none;font-weight:400}.btn-toggle::before{margin-top:.125rem;margin-bottom:0}h3[id]::before{content:'';display:block;height:5rem;margin:-5rem 0 0}</style><script src=https://cloudprober.org/configdoc.js></script><div id=config-doc-links>Configs:&nbsp;&nbsp;<a href=../overview/>main</a> | <a href=../alerting/>alerting</a> | <a href=../metrics/>metrics</a> | <a href=../oauth/>oauth</a> | <a href=../probes/>probes</a> | <a href=../rds/>rds</a> | <a href=../servers/>servers</a> | <a href=../surfacer/>surfacer</a> | <a href=../targets/>targets</a> | <a href=../tlsconfig/>tlsconfig</a> | <a href=../utils/>utils</a> | <a href=../validators/>validators</a></div><br><div style=font-size:85%><label for=config-version-selector>Version:</label>
+<select id=config-version-selector><option selected value=latest>latest</option><option value=main>main</option><option value=v0.13.7>v0.13.7</option><option value=v0.13.8>v0.13.8</option><option value=v0.13.9>v0.13.9</option><option value=v0.14.0>v0.14.0</option></select> |
+Language: <button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-lang-textpb class=set-lang>TextPB</button></div><div id=content-lang-yaml class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_targets_DNSOptions>cloudprober.targets.DNSOptions <a class=anchor href=#cloudprober_targets_DNSOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># DNS server to use for DNS resolution, instead of system&#39;s default. Server
+# can be specified in the following format: [network://]ip[:port]
+# where network is one of udp, tcp, tcp4, tcp6, udp4, udp6, tls.
+# Example:
+#  - &#34;1.1.1.1&#34;           // Use default network and port (53)
+# - &#34;tcp://1.1.1.1&#34;      // Use tcp network and default port (53)
+# - &#34;tcp://1.1.1.1:513   // Use tcp network and port 513
+# - &#34;tls://8.8.8.8&#34;     // Use tls network and default dot port (853)
+# - &#34;tls://8.8.8.8:8443&#34; // Use tls network and port 8443</div>server: &lt;string>
+
+<div class=comment># DNS TTL (time to live). This controls how often backend DNS server will be
+# queried.</div>ttl_sec: &lt;int32> | default: 300
+
+<div class=comment># This option controls for how long cached IP can be used in case of resolve
+# errors. Default value for this is set to ttl_sec. It should never be
+# lower than dns_ttl_sec.</div>max_cache_age_sec: &lt;int32>
+
+<div class=comment># Backend timeout in milliseconds. This option controls how long we&#39;ll wait
+# for the backend DNS server to respond. Note that DNS resolution happens
+# asynchronously, so DNS resolve time should never really affect the probe.
+# This timeout affects how soon DNS resolution is retried, if it&#39;s hanging.</div>backend_timeout_msec: &lt;int32> | default: 5000
+
+</pre><h3 id=cloudprober_targets_DummyTargets>cloudprober.targets.DummyTargets <a class=anchor href=#cloudprober_targets_DummyTargets>#</a></h3><pre class=protodoc>
+
+</pre><h3 id=cloudprober_targets_Endpoint>cloudprober.targets.Endpoint <a class=anchor href=#cloudprober_targets_Endpoint>#</a></h3><pre class=protodoc>
+
+<div class=comment># Endpoint name. Metrics for a target are identified by a combination of
+# endpoint name and port name, if specified.</div>name: &lt;string>
+
+<div class=comment># Optional IP address. If not specified, endpoint name is DNS resolved.</div>ip: &lt;string>
+
+<div class=comment># Endpoint port. If specified, this port will be used by the port-based
+# probes (e.g.  TCP, HTTP), if probe&#39;s configuration doesn&#39;t specify a port.</div>port: &lt;int32>
+
+<div class=comment># HTTP probe URL. If provided, this field is used by the HTTP probe, if
+# probe configuration itself doesn&#39;t specify URL fields.</div>url: &lt;string>
+
+<div class=comment># Endpoint labels. These labels can be exported as metrics labels using the
+# `additional_label` field in the probe configuration.</div>labels: &lt;<a href=../targets#cloudprober_targets_Endpoint_LabelsEntry>cloudprober.targets.Endpoint.LabelsEntry</a>>
+
+</pre><h3 id=cloudprober_targets_Endpoint_LabelsEntry>cloudprober.targets.Endpoint.LabelsEntry <a class=anchor href=#cloudprober_targets_Endpoint_LabelsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_targets_GlobalTargetsOptions>cloudprober.targets.GlobalTargetsOptions <a class=anchor href=#cloudprober_targets_GlobalTargetsOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># RDS server address
+# Deprecated: This option is now deprecated, please use rds_server_options
+# instead.</div>rds_server_address: &lt;string>
+
+<div class=comment># RDS server options, for example:
+# rds_server_options {
+#   server_address: &#34;rds-server.xyz:9314&#34;
+#   oauth_config: {
+#     ...
+#   }
+# }</div>rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+<div class=comment># GCE targets options.</div>global_gce_targets_options: &lt;<a href=../targets#cloudprober_targets_gce_GlobalOptions>cloudprober.targets.gce.GlobalOptions</a>>
+
+<div class=comment># Lame duck options. If provided, targets module checks for the lame duck
+# targets and removes them from the targets list.</div>lame_duck_options: &lt;<a href=../targets#cloudprober_targets_lameduck_Options>cloudprober.targets.lameduck.Options</a>>
+
+</pre><h3 id=cloudprober_targets_K8sTargets>cloudprober.targets.K8sTargets <a class=anchor href=#cloudprober_targets_K8sTargets>#</a></h3><pre class=protodoc>
+
+<div class=comment># Targets namespace. If this field is unset, we select resources from all
+# namespaces.</div>namespace: &lt;string>
+
+<div class=comment># labelSelector uses the same format as kubernetes API calls. 
+# Example:
+#   labelSelector: &#34;k8s-app&#34;       # label k8s-app exists
+#   labelSelector: &#34;role=frontend&#34; # label role=frontend
+#   labelSelector: &#34;!canary&#34;       # canary label doesn&#39;t exist</div>labelSelector: &lt;string>
+
+<div class=comment># Which resources to target. If value is not empty (&#34;&#34;), we use it as a
+# regex for resource names.
+# Example:
+#   services: &#34;&#34;             // All services.
+#   endpoints: &#34;.*-service&#34;  // Endpoints ending with &#34;service&#34;.</div>[services &lt;string&gt; | endpoints &lt;string&gt; | 
+&nbsp;ingresses &lt;string&gt; | pods &lt;string&gt;]: &lt;oneof>
+
+<div class=comment># portFilter can be used to filter resources by port name. This is useful
+# for resources like endpoints and services, where each resource may have
+# multiple ports, and we may hit just a subset of those ports. portFilter
+# takes a regex -- we apply it on port names if port name is available,
+# otherwise we apply it port numbers.
+# Example: &#34;.*-dns&#34;, &#34;metrics&#34;, &#34;.*-service&#34;, etc.</div>portFilter: &lt;string>
+
+<div class=comment># How often to re-check k8s API servers. Note this field will be irrelevant
+# when (and if) we move to the watch API. Default is 30s.</div>re_eval_sec: &lt;int32>
+
+rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+</pre><h3 id=cloudprober_targets_RDSTargets>cloudprober.targets.RDSTargets <a class=anchor href=#cloudprober_targets_RDSTargets>#</a></h3><pre class=protodoc>
+
+<div class=comment># RDS server options, for example:
+# rds_server_options {
+#   server_address: &#34;rds-server.xyz:9314&#34;
+#   oauth_config: {
+#     ...
+#   }
+# }</div>rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+<div class=comment># Resource path specifies the resources to return. Resources paths have the
+# following format:
+# &lt;resource_provider&gt;://&lt;resource_type&gt;/&lt;additional_params&gt;
+#
+# Examples:
+# For GCE instances in projectA: &#34;gcp://gce_instances/&lt;projectA&gt;&#34;
+# Kubernetes Pods : &#34;k8s://pods&#34;</div>resource_path: &lt;string>
+
+<div class=comment># Filters to filter resources by.</div>filter: &lt;<a href=../rds#cloudprober_rds_Filter>cloudprober.rds.Filter</a>>
+
+<div class=comment># IP config to specify the IP address to pick for a resource.</div>ip_config: &lt;<a href=../rds#cloudprober_rds_IPConfig>cloudprober.rds.IPConfig</a>>
+
+</pre><h3 id=cloudprober_targets_TargetsDef>cloudprober.targets.TargetsDef <a class=anchor href=#cloudprober_targets_TargetsDef>#</a></h3><pre class=protodoc>
+
+[host_names &lt;string&gt; | shared_targets &lt;string&gt; | 
+&nbsp;gce_targets &lt;<a href=../targets#cloudprober_targets_gce_TargetsConf>cloudprober.targets.gce.TargetsConf</a>&gt; | rds_targets &lt;<a href=../targets#cloudprober_targets_RDSTargets>cloudprober.targets.RDSTargets</a>&gt; | 
+&nbsp;file_targets &lt;<a href=../targets#cloudprober_targets_file_TargetsConf>cloudprober.targets.file.TargetsConf</a>&gt; | k8s &lt;<a href=../targets#cloudprober_targets_K8sTargets>cloudprober.targets.K8sTargets</a>&gt; | 
+&nbsp;dummy_targets &lt;<a href=../targets#cloudprober_targets_DummyTargets>cloudprober.targets.DummyTargets</a>&gt;]: &lt;oneof>
+
+<div class=comment># Static endpoints. These endpoints are merged with the resources returned
+# by the targets type above.
+# Example:
+#   endpoint {
+#     name: &#34;service-gtwy-1&#34;
+#     ip: &#34;10.1.18.121&#34;
+#     port: 8080
+#     labels {
+#       key: &#34;service&#34;
+#       value: &#34;products-service&#34;
+#     }
+#   }
+#   endpoint {
+#     name: &#34;frontend-url1&#34;
+#     url: &#34;https://frontend.example.com/url1&#34;
+#   }</div>endpoint: &lt;<a href=../targets#cloudprober_targets_Endpoint>cloudprober.targets.Endpoint</a>>
+
+<div class=comment># Regex to apply on the targets.</div>regex: &lt;string>
+
+<div class=comment># Exclude lameducks. Lameduck targets can be set through RTC (realtime
+# configurator) service. This functionality works only if lame_duck_options
+# are specified.</div>exclude_lameducks: &lt;bool> | default: true
+
+<div class=comment># Options to control DNS resolution behavior if using Cloudprober&#39;s DNS
+# resolver, which get triggered only if you&#39;re setting `resolve_first` probe
+# setting to true.</div>dns_options: &lt;<a href=../targets#cloudprober_targets_DNSOptions>cloudprober.targets.DNSOptions</a>>
+
+<div class=comment># Provide a dns resolver override instead of using the default dns resolver.
+# Deprecated: This option is now deprecated, please use dns_options instead.</div>dns_server: &lt;string>
+
+</pre><h3 id=cloudprober_targets_file_TargetsConf>cloudprober.targets.file.TargetsConf <a class=anchor href=#cloudprober_targets_file_TargetsConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># File that contains resources in either textproto or json format.
+# Example in textproto format:
+#
+# resource {
+#   name: &#34;switch-xx-01&#34;
+#   ip: &#34;10.11.112.3&#34;
+#   port: 8080
+#   labels {
+#     key: &#34;device_type&#34;
+#     value: &#34;switch&#34;
+#   }
+# }
+# resource {
+#   name: &#34;switch-yy-01&#34;
+#   ip: &#34;10.16.110.12&#34;
+#   port: 8080
+# }</div>file_path: &lt;string>
+
+filter: &lt;<a href=../rds#cloudprober_rds_Filter>cloudprober.rds.Filter</a>>
+
+format: (UNSPECIFIED|TEXTPB|JSON|YAML): &lt;enum>
+
+<div class=comment># If specified, file will be re-read at the given interval.</div>re_eval_sec: &lt;int32>
+
+</pre><h3 id=cloudprober_targets_gce_ForwardingRules>cloudprober.targets.gce.ForwardingRules <a class=anchor href=#cloudprober_targets_gce_ForwardingRules>#</a></h3><pre class=protodoc>
+
+<div class=comment># Important: if multiple probes use forwarding_rules targets, only the
+# settings in the definition will take effect.
+# TODO(manugarg): Fix this behavior.
+#
+# For regional forwarding rules, regions to return forwarding rules for.
+# Default is to return forwarding rules from the region that the VM is
+# running in. To return forwarding rules from all regions, specify region as
+# &#34;all&#34;.</div>region: &lt;string>
+
+<div class=comment># For global forwarding rules, if it is set to true,  it will ignore 
+# the value for the above region property.</div>global_rule: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_targets_gce_GlobalOptions>cloudprober.targets.gce.GlobalOptions <a class=anchor href=#cloudprober_targets_gce_GlobalOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># How often targets should be evaluated/expanded</div>re_eval_sec: &lt;int32> | default: 900
+
+<div class=comment># Compute API version.</div>api_version: &lt;string> | default: v1
+
+</pre><h3 id=cloudprober_targets_gce_Instances>cloudprober.targets.gce.Instances <a class=anchor href=#cloudprober_targets_gce_Instances>#</a></h3><pre class=protodoc>
+
+<div class=comment># Use DNS to resolve target names (instances). If set to false (default),
+# IP addresses specified in the compute.Instance resource is used. If set
+# to true all the other resolving options are ignored.</div>use_dns_to_resolve: &lt;bool> | default: false
+
+network_interface: &lt;<a href=../targets#cloudprober_targets_gce_Instances_NetworkInterface>cloudprober.targets.gce.Instances.NetworkInterface</a>>
+
+<div class=comment># Labels to filter instances by (&#34;key:value-regex&#34; format).</div>label: &lt;string>
+
+</pre><h3 id=cloudprober_targets_gce_Instances_NetworkInterface>cloudprober.targets.gce.Instances.NetworkInterface <a class=anchor href=#cloudprober_targets_gce_Instances_NetworkInterface>#</a></h3><pre class=protodoc>
+
+index: &lt;int32> | default: 0
+
+ip_type: (PRIVATE|PUBLIC|ALIAS): &lt;enum>
+
+</pre><h3 id=cloudprober_targets_gce_TargetsConf>cloudprober.targets.gce.TargetsConf <a class=anchor href=#cloudprober_targets_gce_TargetsConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># If running on GCE, this defaults to the local project.
+# Note: Multiple projects support in targets is experimental and may go away
+# with future iterations.</div>project: &lt;string>
+
+[instances &lt;<a href=../targets#cloudprober_targets_gce_Instances>cloudprober.targets.gce.Instances</a>&gt; | forwarding_rules &lt;<a href=../targets#cloudprober_targets_gce_ForwardingRules>cloudprober.targets.gce.ForwardingRules</a>&gt;]: &lt;oneof>
+
+</pre><h3 id=cloudprober_targets_lameduck_Options>cloudprober.targets.lameduck.Options <a class=anchor href=#cloudprober_targets_lameduck_Options>#</a></h3><pre class=protodoc>
+
+<div class=comment># How often to check for lame-ducked targets</div>re_eval_sec: &lt;int32> | default: 10
+
+<div class=comment># Runtime config project. If running on GCE, this defaults to the project
+# containing the VM.</div>runtimeconfig_project: &lt;string>
+
+<div class=comment># Lame duck targets runtime config name. An operator will create a variable
+# here to mark a target as lame-ducked.</div>runtimeconfig_name: &lt;string> | default: lame-duck-targets
+
+<div class=comment># Lame duck targets pubsub topic name. An operator will create a message
+# here to mark a target as lame-ducked.</div>pubsub_topic: &lt;string>
+
+<div class=comment># Lame duck expiration time. We ignore variables (targets) that have been
+# updated more than these many seconds ago. This is a safety mechanism for
+# failing to cleanup. Also, the idea is that if a target has actually
+# disappeared, automatic targets expansion will take care of that some time
+# during this expiration period.</div>expiration_sec: &lt;int32> | default: 300
+
+<div class=comment># Use an RDS client to get lame-duck-targets.
+# This option is always true now and will be removed after v0.10.7.</div>use_rds: &lt;bool>
+
+<div class=comment># RDS server options, for example:
+# rds_server_options {
+#   server_address: &#34;rds-server.xyz:9314&#34;
+#   oauth_config: {
+#     ...
+#   }</div>rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+</pre></div><div id=content-lang-textpb class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_targets_DNSOptions>cloudprober.targets.DNSOptions <a class=anchor href=#cloudprober_targets_DNSOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># DNS server to use for DNS resolution, instead of system&#39;s default. Server
+# can be specified in the following format: [network://]ip[:port]
+# where network is one of udp, tcp, tcp4, tcp6, udp4, udp6, tls.
+# Example:
+#  - &#34;1.1.1.1&#34;           // Use default network and port (53)
+# - &#34;tcp://1.1.1.1&#34;      // Use tcp network and default port (53)
+# - &#34;tcp://1.1.1.1:513   // Use tcp network and port 513
+# - &#34;tls://8.8.8.8&#34;     // Use tls network and default dot port (853)
+# - &#34;tls://8.8.8.8:8443&#34; // Use tls network and port 8443</div>server: &lt;string>
+
+<div class=comment># DNS TTL (time to live). This controls how often backend DNS server will be
+# queried.</div>ttl_sec: &lt;int32> | default: 300
+
+<div class=comment># This option controls for how long cached IP can be used in case of resolve
+# errors. Default value for this is set to ttl_sec. It should never be
+# lower than dns_ttl_sec.</div>max_cache_age_sec: &lt;int32>
+
+<div class=comment># Backend timeout in milliseconds. This option controls how long we&#39;ll wait
+# for the backend DNS server to respond. Note that DNS resolution happens
+# asynchronously, so DNS resolve time should never really affect the probe.
+# This timeout affects how soon DNS resolution is retried, if it&#39;s hanging.</div>backend_timeout_msec: &lt;int32> | default: 5000
+
+</pre><h3 id=cloudprober_targets_DummyTargets>cloudprober.targets.DummyTargets <a class=anchor href=#cloudprober_targets_DummyTargets>#</a></h3><pre class=protodoc>
+
+</pre><h3 id=cloudprober_targets_Endpoint>cloudprober.targets.Endpoint <a class=anchor href=#cloudprober_targets_Endpoint>#</a></h3><pre class=protodoc>
+
+<div class=comment># Endpoint name. Metrics for a target are identified by a combination of
+# endpoint name and port name, if specified.</div>name: &lt;string>
+
+<div class=comment># Optional IP address. If not specified, endpoint name is DNS resolved.</div>ip: &lt;string>
+
+<div class=comment># Endpoint port. If specified, this port will be used by the port-based
+# probes (e.g.  TCP, HTTP), if probe&#39;s configuration doesn&#39;t specify a port.</div>port: &lt;int32>
+
+<div class=comment># HTTP probe URL. If provided, this field is used by the HTTP probe, if
+# probe configuration itself doesn&#39;t specify URL fields.</div>url: &lt;string>
+
+<div class=comment># Endpoint labels. These labels can be exported as metrics labels using the
+# `additional_label` field in the probe configuration.</div>labels: &lt;<a href=../targets#cloudprober_targets_Endpoint_LabelsEntry>cloudprober.targets.Endpoint.LabelsEntry</a>>
+
+</pre><h3 id=cloudprober_targets_Endpoint_LabelsEntry>cloudprober.targets.Endpoint.LabelsEntry <a class=anchor href=#cloudprober_targets_Endpoint_LabelsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_targets_GlobalTargetsOptions>cloudprober.targets.GlobalTargetsOptions <a class=anchor href=#cloudprober_targets_GlobalTargetsOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># RDS server address
+# Deprecated: This option is now deprecated, please use rds_server_options
+# instead.</div>rds_server_address: &lt;string>
+
+<div class=comment># RDS server options, for example:
+# rds_server_options {
+#   server_address: &#34;rds-server.xyz:9314&#34;
+#   oauth_config: {
+#     ...
+#   }
+# }</div>rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+<div class=comment># GCE targets options.</div>global_gce_targets_options: &lt;<a href=../targets#cloudprober_targets_gce_GlobalOptions>cloudprober.targets.gce.GlobalOptions</a>>
+
+<div class=comment># Lame duck options. If provided, targets module checks for the lame duck
+# targets and removes them from the targets list.</div>lame_duck_options: &lt;<a href=../targets#cloudprober_targets_lameduck_Options>cloudprober.targets.lameduck.Options</a>>
+
+</pre><h3 id=cloudprober_targets_K8sTargets>cloudprober.targets.K8sTargets <a class=anchor href=#cloudprober_targets_K8sTargets>#</a></h3><pre class=protodoc>
+
+<div class=comment># Targets namespace. If this field is unset, we select resources from all
+# namespaces.</div>namespace: &lt;string>
+
+<div class=comment># labelSelector uses the same format as kubernetes API calls. 
+# Example:
+#   labelSelector: &#34;k8s-app&#34;       # label k8s-app exists
+#   labelSelector: &#34;role=frontend&#34; # label role=frontend
+#   labelSelector: &#34;!canary&#34;       # canary label doesn&#39;t exist</div>labelSelector: &lt;string>
+
+<div class=comment># Which resources to target. If value is not empty (&#34;&#34;), we use it as a
+# regex for resource names.
+# Example:
+#   services: &#34;&#34;             // All services.
+#   endpoints: &#34;.*-service&#34;  // Endpoints ending with &#34;service&#34;.</div>[services &lt;string&gt; | endpoints &lt;string&gt; | 
+&nbsp;ingresses &lt;string&gt; | pods &lt;string&gt;]: &lt;oneof>
+
+<div class=comment># portFilter can be used to filter resources by port name. This is useful
+# for resources like endpoints and services, where each resource may have
+# multiple ports, and we may hit just a subset of those ports. portFilter
+# takes a regex -- we apply it on port names if port name is available,
+# otherwise we apply it port numbers.
+# Example: &#34;.*-dns&#34;, &#34;metrics&#34;, &#34;.*-service&#34;, etc.</div>portFilter: &lt;string>
+
+<div class=comment># How often to re-check k8s API servers. Note this field will be irrelevant
+# when (and if) we move to the watch API. Default is 30s.</div>re_eval_sec: &lt;int32>
+
+rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+</pre><h3 id=cloudprober_targets_RDSTargets>cloudprober.targets.RDSTargets <a class=anchor href=#cloudprober_targets_RDSTargets>#</a></h3><pre class=protodoc>
+
+<div class=comment># RDS server options, for example:
+# rds_server_options {
+#   server_address: &#34;rds-server.xyz:9314&#34;
+#   oauth_config: {
+#     ...
+#   }
+# }</div>rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+<div class=comment># Resource path specifies the resources to return. Resources paths have the
+# following format:
+# &lt;resource_provider&gt;://&lt;resource_type&gt;/&lt;additional_params&gt;
+#
+# Examples:
+# For GCE instances in projectA: &#34;gcp://gce_instances/&lt;projectA&gt;&#34;
+# Kubernetes Pods : &#34;k8s://pods&#34;</div>resource_path: &lt;string>
+
+<div class=comment># Filters to filter resources by.</div>filter: &lt;<a href=../rds#cloudprober_rds_Filter>cloudprober.rds.Filter</a>>
+
+<div class=comment># IP config to specify the IP address to pick for a resource.</div>ip_config: &lt;<a href=../rds#cloudprober_rds_IPConfig>cloudprober.rds.IPConfig</a>>
+
+</pre><h3 id=cloudprober_targets_TargetsDef>cloudprober.targets.TargetsDef <a class=anchor href=#cloudprober_targets_TargetsDef>#</a></h3><pre class=protodoc>
+
+[host_names &lt;string&gt; | shared_targets &lt;string&gt; | 
+&nbsp;gce_targets &lt;<a href=../targets#cloudprober_targets_gce_TargetsConf>cloudprober.targets.gce.TargetsConf</a>&gt; | rds_targets &lt;<a href=../targets#cloudprober_targets_RDSTargets>cloudprober.targets.RDSTargets</a>&gt; | 
+&nbsp;file_targets &lt;<a href=../targets#cloudprober_targets_file_TargetsConf>cloudprober.targets.file.TargetsConf</a>&gt; | k8s &lt;<a href=../targets#cloudprober_targets_K8sTargets>cloudprober.targets.K8sTargets</a>&gt; | 
+&nbsp;dummy_targets &lt;<a href=../targets#cloudprober_targets_DummyTargets>cloudprober.targets.DummyTargets</a>&gt;]: &lt;oneof>
+
+<div class=comment># Static endpoints. These endpoints are merged with the resources returned
+# by the targets type above.
+# Example:
+#   endpoint {
+#     name: &#34;service-gtwy-1&#34;
+#     ip: &#34;10.1.18.121&#34;
+#     port: 8080
+#     labels {
+#       key: &#34;service&#34;
+#       value: &#34;products-service&#34;
+#     }
+#   }
+#   endpoint {
+#     name: &#34;frontend-url1&#34;
+#     url: &#34;https://frontend.example.com/url1&#34;
+#   }</div>endpoint: &lt;<a href=../targets#cloudprober_targets_Endpoint>cloudprober.targets.Endpoint</a>>
+
+<div class=comment># Regex to apply on the targets.</div>regex: &lt;string>
+
+<div class=comment># Exclude lameducks. Lameduck targets can be set through RTC (realtime
+# configurator) service. This functionality works only if lame_duck_options
+# are specified.</div>exclude_lameducks: &lt;bool> | default: true
+
+<div class=comment># Options to control DNS resolution behavior if using Cloudprober&#39;s DNS
+# resolver, which get triggered only if you&#39;re setting `resolve_first` probe
+# setting to true.</div>dns_options: &lt;<a href=../targets#cloudprober_targets_DNSOptions>cloudprober.targets.DNSOptions</a>>
+
+<div class=comment># Provide a dns resolver override instead of using the default dns resolver.
+# Deprecated: This option is now deprecated, please use dns_options instead.</div>dns_server: &lt;string>
+
+</pre><h3 id=cloudprober_targets_file_TargetsConf>cloudprober.targets.file.TargetsConf <a class=anchor href=#cloudprober_targets_file_TargetsConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># File that contains resources in either textproto or json format.
+# Example in textproto format:
+#
+# resource {
+#   name: &#34;switch-xx-01&#34;
+#   ip: &#34;10.11.112.3&#34;
+#   port: 8080
+#   labels {
+#     key: &#34;device_type&#34;
+#     value: &#34;switch&#34;
+#   }
+# }
+# resource {
+#   name: &#34;switch-yy-01&#34;
+#   ip: &#34;10.16.110.12&#34;
+#   port: 8080
+# }</div>file_path: &lt;string>
+
+filter: &lt;<a href=../rds#cloudprober_rds_Filter>cloudprober.rds.Filter</a>>
+
+format: (UNSPECIFIED|TEXTPB|JSON|YAML): &lt;enum>
+
+<div class=comment># If specified, file will be re-read at the given interval.</div>re_eval_sec: &lt;int32>
+
+</pre><h3 id=cloudprober_targets_gce_ForwardingRules>cloudprober.targets.gce.ForwardingRules <a class=anchor href=#cloudprober_targets_gce_ForwardingRules>#</a></h3><pre class=protodoc>
+
+<div class=comment># Important: if multiple probes use forwarding_rules targets, only the
+# settings in the definition will take effect.
+# TODO(manugarg): Fix this behavior.
+#
+# For regional forwarding rules, regions to return forwarding rules for.
+# Default is to return forwarding rules from the region that the VM is
+# running in. To return forwarding rules from all regions, specify region as
+# &#34;all&#34;.</div>region: &lt;string>
+
+<div class=comment># For global forwarding rules, if it is set to true,  it will ignore 
+# the value for the above region property.</div>global_rule: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_targets_gce_GlobalOptions>cloudprober.targets.gce.GlobalOptions <a class=anchor href=#cloudprober_targets_gce_GlobalOptions>#</a></h3><pre class=protodoc>
+
+<div class=comment># How often targets should be evaluated/expanded</div>re_eval_sec: &lt;int32> | default: 900
+
+<div class=comment># Compute API version.</div>api_version: &lt;string> | default: v1
+
+</pre><h3 id=cloudprober_targets_gce_Instances>cloudprober.targets.gce.Instances <a class=anchor href=#cloudprober_targets_gce_Instances>#</a></h3><pre class=protodoc>
+
+<div class=comment># Use DNS to resolve target names (instances). If set to false (default),
+# IP addresses specified in the compute.Instance resource is used. If set
+# to true all the other resolving options are ignored.</div>use_dns_to_resolve: &lt;bool> | default: false
+
+network_interface: &lt;<a href=../targets#cloudprober_targets_gce_Instances_NetworkInterface>cloudprober.targets.gce.Instances.NetworkInterface</a>>
+
+<div class=comment># Labels to filter instances by (&#34;key:value-regex&#34; format).</div>label: &lt;string>
+
+</pre><h3 id=cloudprober_targets_gce_Instances_NetworkInterface>cloudprober.targets.gce.Instances.NetworkInterface <a class=anchor href=#cloudprober_targets_gce_Instances_NetworkInterface>#</a></h3><pre class=protodoc>
+
+index: &lt;int32> | default: 0
+
+ip_type: (PRIVATE|PUBLIC|ALIAS): &lt;enum>
+
+</pre><h3 id=cloudprober_targets_gce_TargetsConf>cloudprober.targets.gce.TargetsConf <a class=anchor href=#cloudprober_targets_gce_TargetsConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># If running on GCE, this defaults to the local project.
+# Note: Multiple projects support in targets is experimental and may go away
+# with future iterations.</div>project: &lt;string>
+
+[instances &lt;<a href=../targets#cloudprober_targets_gce_Instances>cloudprober.targets.gce.Instances</a>&gt; | forwarding_rules &lt;<a href=../targets#cloudprober_targets_gce_ForwardingRules>cloudprober.targets.gce.ForwardingRules</a>&gt;]: &lt;oneof>
+
+</pre><h3 id=cloudprober_targets_lameduck_Options>cloudprober.targets.lameduck.Options <a class=anchor href=#cloudprober_targets_lameduck_Options>#</a></h3><pre class=protodoc>
+
+<div class=comment># How often to check for lame-ducked targets</div>re_eval_sec: &lt;int32> | default: 10
+
+<div class=comment># Runtime config project. If running on GCE, this defaults to the project
+# containing the VM.</div>runtimeconfig_project: &lt;string>
+
+<div class=comment># Lame duck targets runtime config name. An operator will create a variable
+# here to mark a target as lame-ducked.</div>runtimeconfig_name: &lt;string> | default: lame-duck-targets
+
+<div class=comment># Lame duck targets pubsub topic name. An operator will create a message
+# here to mark a target as lame-ducked.</div>pubsub_topic: &lt;string>
+
+<div class=comment># Lame duck expiration time. We ignore variables (targets) that have been
+# updated more than these many seconds ago. This is a safety mechanism for
+# failing to cleanup. Also, the idea is that if a target has actually
+# disappeared, automatic targets expansion will take care of that some time
+# during this expiration period.</div>expiration_sec: &lt;int32> | default: 300
+
+<div class=comment># Use an RDS client to get lame-duck-targets.
+# This option is always true now and will be removed after v0.10.7.</div>use_rds: &lt;bool>
+
+<div class=comment># RDS server options, for example:
+# rds_server_options {
+#   server_address: &#34;rds-server.xyz:9314&#34;
+#   oauth_config: {
+#     ...
+#   }</div>rds_server_options: &lt;<a href=../rds#cloudprober_rds_ClientConf_ServerOptions>cloudprober.rds.ClientConf.ServerOptions</a>>
+
+</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/targets/><div class="card my-1"><div class="card-body py-2">&larr; Targets Config</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/latest/tlsconfig/><div class="card my-1"><div class="card-body py-2">Tlsconfig Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
+<script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
+<script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
+<script src=https://cloudprober.org/index.min.76d4f644c3741935bf91423155ef6ee36d5b931f7a8a6a8ba7caa58b84a7b96d8ebea26fa0159f6296c1804005a58764cbe74b220d51634a37a036bd9afe9e15.js integrity="sha512-dtT2RMN0GTW/kUIxVe9u421bkx96imqLp8qli4SnuW2OvqJvoBWfYpbBgEAFpYdky+dLIg1RY0o3oDa9mv6eFQ==" crossorigin=anonymous defer></script></body></html>
