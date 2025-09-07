@@ -1,0 +1,734 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="ie=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-italic.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-italic.woff2 type=font/woff2 crossorigin><script>(()=>{var t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,e=localStorage.getItem("theme");t&&e===null&&(localStorage.setItem("theme","dark"),document.documentElement.setAttribute("data-dark-mode","")),t&&e==="dark"&&document.documentElement.setAttribute("data-dark-mode",""),e==="dark"&&document.documentElement.setAttribute("data-dark-mode","")})()</script><link rel=stylesheet href=https://cloudprober.org/main.b300fbd8bf09758454543ef1943b7fa11daa63ff97c5c212977611a8733e13c4d48fc030119ef65774d3776161304cea10ef9d4f817b6dfb680235d13b6304cd.css integrity="sha512-swD72L8JdYRUVD7xlDt/oR2qY/+XxcISl3YRqHM+E8TUj8AwEZ72V3TTd2FhMEzqEO+dT4F7bftoAjXRO2MEzQ==" crossorigin=anonymous><noscript><style>img.lazyload{display:none}</style></noscript><meta name=robots content="index, follow"><meta name=googlebot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><meta name=bingbot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><title>Surfacer Config (v0.14.1) - Cloudprober</title><meta name=description content="Configs:&amp;nbsp;&amp;nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.13.7 v0.13.8 v0.13.9 v0.14.0 | Language: YAML|TextPB cloudprober.surfacer.LabelFilter # key: &amp;lt;string> value: &amp;lt;string> cloudprober.surfacer.SurfacerDef # # This name is used for logging. If not defined, it&amp;#39;s derived from the type. # Note that this field is required for the USER_DEFINED surfacer type and # should match with the name that you used while registering the user defined # surfacer."><link rel=canonical href=https://cloudprober.org/docs/config/v0.14.1/surfacer/><meta property="og:locale" content="en_US"><meta property="og:type" content="article"><meta property="og:title" content="Surfacer Config (v0.14.1)"><meta property="og:description" content="Configs:&nbsp;&nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.13.7 v0.13.8 v0.13.9 v0.14.0 | Language: YAML|TextPB cloudprober.surfacer.LabelFilter # key: <string> value: <string> cloudprober.surfacer.SurfacerDef # # This name is used for logging. If not defined, it's derived from the type. # Note that this field is required for the USER_DEFINED surfacer type and # should match with the name that you used while registering the user defined # surfacer."><meta property="og:url" content="https://cloudprober.org/docs/config/v0.14.1/surfacer/"><meta property="og:site_name" content="Cloudprober"><meta name=twitter:card content="summary_large_image"><meta name=twitter:site content="@cloudprober"><meta name=twitter:creator content="@manugarg"><meta name=twitter:title content="Surfacer Config (v0.14.1)"><meta name=twitter:description content><meta name=twitter:card content="summary"><meta name=twitter:image:alt content="Surfacer Config (v0.14.1)"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://cloudprober.org/#/schema/organization/1","name":"Cloudprober","url":"https://cloudprober.org/","sameAs":["https://twitter.com/cloudprober","https://github.com/cloudprober/cloudprober"],"logo":{"@type":"ImageObject","@id":"https://cloudprober.org/#/schema/image/1","url":"https://cloudprober.org/\u003cnil\u003e","width":512,"height":512,"caption":"Cloudprober"},"image":{"@id":"https://cloudprober.org/#/schema/image/1"}},{"@type":"WebSite","@id":"https://cloudprober.org/#/schema/website/1","url":"https://cloudprober.org/","name":"Cloudprober","description":"An active\/synthetic monitoring software to reliably detect outages before your customers do.","publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"}},{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/","url":"https://cloudprober.org/docs/config/v0.14.1/surfacer/","name":"Surfacer Config (v0.14.1)","description":"","isPartOf":{"@id":"https://cloudprober.org/#/schema/website/1"},"about":{"@id":"https://cloudprober.org/#/schema/organization/1"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","breadcrumb":{"@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/#/schema/breadcrumb/1"},"primaryImageOfPage":{"@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/#/schema/image/2"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://cloudprober.org/docs/config/v0.14.1/surfacer/"]}]},{"@type":"BreadcrumbList","@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/#/schema/breadcrumb/1","name":"Breadcrumbs","itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"WebPage","@id":"https://cloudprober.org","url":"https://cloudprober.org","name":"Home"}},{"@type":"ListItem","position":3,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/","url":"https://cloudprober.org/docs/","name":"Docs"}},{"@type":"ListItem","position":4,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/","url":"https://cloudprober.org/docs/config/","name":"Config"}},{"@type":"ListItem","position":5,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/v0.14.1/","url":"https://cloudprober.org/docs/config/v0.14.1/","name":"V0.14.1"}},{"@type":"ListItem","position":6,"item":{"@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://cloudprober.org/#/schema/article/1","headline":"Surfacer Config (v0.14.1)","description":"","isPartOf":{"@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/"},"mainEntityOfPage":{"@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","author":{"@id":"https://cloudprober.org/#/schema/person/2"},"publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"},"image":{"@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/#/schema/image/2"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://cloudprober.org/#/schema/person/2","name":"Manu Garg","sameAs":["https://twitter.com/manugarg","https://www.linkedin.com/in/manugarg/","https://github.com/manugarg"]}]},{"@context":"https://schema.org","@graph":[{"@type":"ImageObject","@id":"https://cloudprober.org/docs/config/v0.14.1/surfacer/#/schema/image/2","url":null,"contentUrl":null,"caption":"Surfacer Config (v0.14.1)"}]}]}</script><meta name=theme-color content="#fff"><link rel=icon href=https://cloudprober.org/favicon.ico sizes=any><link rel=apple-touch-icon sizes=180x180 href=https://cloudprober.org/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=https://cloudprober.org/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=https://cloudprober.org/favicon-16x16.png><link rel=manifest crossorigin=use-credentials href=https://cloudprober.org/site.webmanifest><script async src="https://www.googletagmanager.com/gtag/js?id=G-FHHPC1TNQV"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FHHPC1TNQV")</script><script>(function(e,t,n,s,o,i,a){e.GoogleAnalyticsObject=o,e[o]=e[o]||function(){(e[o].q=e[o].q||[]).push(arguments)},e[o].l=1*new Date,i=t.createElement(n),a=t.getElementsByTagName(n)[0],i.async=1,i.src=s,a.parentNode.insertBefore(i,a)})(window,document,"script","https://www.google-analytics.com/analytics.js","ga"),ga("create","UA-79661-8","auto"),ga("set","anonymizeIp",!0),ga("send","pageview");var buttons=document.querySelectorAll("a"),query;Array.prototype.map.call(buttons,function(e){e.host!=document.location.host&&e.addEventListener("click",function(){var t=e.getAttribute("data-action")||"follow";ga("send","event","outbound",t,e.href)})}),query=document.querySelector(".query"),query&&query.addEventListener("blur",function(){if(this.value){var e=document.location.pathname;ga("send","pageview",e+"?q="+this.value)}})</script></head><body class="docs single"><div class=sticky-top><div class=header-bar></div><header class="navbar navbar-expand-lg navbar-light doks-navbar"><nav class="container-xxl flex-wrap flex-lg-nowrap" aria-label="Main navigation"><a class="navbar-brand order-0" href=https://cloudprober.org/ aria-label=Cloudprober>Cloudprober</a>
+<button class="btn btn-menu order-2 d-block d-lg-none" type=button data-bs-toggle=offcanvas data-bs-target=#offcanvasDoks aria-controls=offcanvasDoks aria-label="Open main menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="offcanvas offcanvas-end border-0 py-lg-1" tabindex=-1 id=offcanvasDoks data-bs-backdrop=true aria-labelledby=offcanvasDoksLabel><div class="header-bar d-lg-none"></div><div class="offcanvas-header d-lg-none"><h2 class="h5 offcanvas-title ps-2" id=offcanvasDoksLabel><a class=text-dark href=https://cloudprober.org/>Cloudprober</a></h2><button type=button class="btn-close text-reset me-2" data-bs-dismiss=offcanvas aria-label="Close main menu"></button></div><div class="offcanvas-body p-4 p-lg-0"><ul class="nav flex-column flex-lg-row align-items-lg-center mt-2 mt-lg-0 ms-lg-2 me-lg-auto"><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>Get Started
+<span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/getting-started>Getting Started</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/probe>What is a Probe</a></li></ul></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>Config
+<span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/config/guide>Config Guide</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/how-to/list/>How-To</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>About
+<span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/about/>Origin</a></li><li><a class=dropdown-item href=https://medium.com/cloudprober/>Blog</a></li><li><a class=dropdown-item href=https://github.com/cloudprober/cloudprober/discussions>Github Discussions</a></li><li><a class=dropdown-item href=https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE>Slack</a></li><li><a class=dropdown-item href=https://x.com/cloudprober>Twitter</a></li></ul></li></ul><hr class="text-black-50 my-4 d-lg-none"><form class="doks-search position-relative flex-grow-1 ms-lg-auto me-lg-2"><input id=search class="form-control is-search" type=search placeholder aria-label autocomplete=off><div id=suggestions class="shadow bg-white rounded d-none"></div></form><hr class="text-black-50 my-4 d-lg-none"><ul class="nav flex-column flex-lg-row"><li class=nav-item><a class="nav-link social-link" href=https://github.com/cloudprober/cloudprober><img src=https://img.shields.io/github/stars/cloudprober/cloudprober alt=GitHub><small class="ms-2 d-lg-none">GitHub</small></a></li></ul><hr class="text-black-50 my-4 d-lg-none"><button id=mode class="btn btn-link" type=button aria-label="Toggle user interface mode">
+<span class=toggle-dark><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-moon"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span><span class=toggle-light><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-sun"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span></button></div></div></nav></header></div><div class=container-xxl><aside class=doks-sidebar><nav id=doks-docs-nav class="collapse d-lg-none" aria-label="Tertiary navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></aside></div><div class="wrap container-xxl" role=document><div class=content><div class="row flex-xl-nowrap"><div class="col-lg-5 col-xl-4 docs-sidebar d-none d-lg-block"><nav id=sidebar-default class=docs-links aria-label="Main navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul></nav></div><nav class="docs-toc d-none d-xl-block col-xl-3" aria-label="Secondary navigation"></nav><main class="docs-content col-lg-11 col-xl-9 mx-xl-auto"><h1>Surfacer Config (v0.14.1)</h1><p class=lead></p><nav class=d-xl-none aria-label="Quaternary navigation"></nav><style>#config-doc-links{margin-bottom:.5rem;font-size:.94rem}.set-lang{border-radius:3px;font-size:smaller}.config-link-active{font-weight:bolder}.protodoc{margin:1rem 0}.btn-toggle{text-transform:none;font-weight:400}.btn-toggle::before{margin-top:.125rem;margin-bottom:0}h3[id]::before{content:'';display:block;height:5rem;margin:-5rem 0 0}</style><script src=https://cloudprober.org/configdoc.js></script><div id=config-doc-links>Configs:&nbsp;&nbsp;<a href=../overview/>main</a> | <a href=../alerting/>alerting</a> | <a href=../metrics/>metrics</a> | <a href=../oauth/>oauth</a> | <a href=../probes/>probes</a> | <a href=../rds/>rds</a> | <a href=../servers/>servers</a> | <a href=../surfacer/>surfacer</a> | <a href=../targets/>targets</a> | <a href=../tlsconfig/>tlsconfig</a> | <a href=../utils/>utils</a> | <a href=../validators/>validators</a></div><br><div style=font-size:85%><label for=config-version-selector>Version:</label>
+<select id=config-version-selector><option selected value=latest>latest</option><option value=main>main</option><option value=v0.13.7>v0.13.7</option><option value=v0.13.8>v0.13.8</option><option value=v0.13.9>v0.13.9</option><option value=v0.14.0>v0.14.0</option></select> |
+Language: <button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-lang-textpb class=set-lang>TextPB</button></div><div id=content-lang-yaml class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter <a class=anchor href=#cloudprober_surfacer_LabelFilter>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_SurfacerDef>cloudprober.surfacer.SurfacerDef <a class=anchor href=#cloudprober_surfacer_SurfacerDef>#</a></h3><pre class=protodoc>
+
+<div class=comment># This name is used for logging. If not defined, it&#39;s derived from the type.
+# Note that this field is required for the USER_DEFINED surfacer type and
+# should match with the name that you used while registering the user defined
+# surfacer.</div>name: &lt;string>
+
+type: (NONE|PROMETHEUS|STACKDRIVER|FILE|POSTGRES|PUBSUB|CLOUDWATCH|DATADOG|PROBESTATUS|BIGQUERY|OTEL|EXTENSION|USER_DEFINED): &lt;enum>
+
+<div class=comment># How many metrics entries (EventMetrics) to buffer. This is the buffer
+# between incoming metrics and the metrics that are being processed. Default
+# value should work in most cases. You may need to increase it on a busy
+# system, but that&#39;s usually a sign that you metrics processing pipeline is
+# slow for some reason, e.g. slow writes to a remote file.
+# Note: Only file and pubsub surfacer supports this option right now.</div>metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># If specified, only allow metrics that match any of these label filters.
+# Example:
+# allow_metrics_with_label {
+#   key: &#34;probe&#34;,
+#   value: &#34;check_homepage&#34;,
+# }</div>allow_metrics_with_label: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+
+<div class=comment># Ignore metrics that match any of these label filters. Ignore has precedence
+# over allow filters.
+# Example:
+# ignore_metrics_with_label {
+#   key: &#34;probe&#34;,
+#   value: &#34;sysvars&#34;,
+# }</div>ignore_metrics_with_label: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+
+<div class=comment># Allow and ignore metrics based on their names. You can specify regexes
+# here. Ignore has precendence over allow.
+# Examples:
+#  ignore_metrics_with_name: &#34;validation_failure&#34;
+#  allow_metrics_with_name: &#34;(total|success|latency)&#34;</div>allow_metrics_with_name: &lt;string>
+
+ignore_metrics_with_name: &lt;string>
+
+<div class=comment># Whether to add failure metric or not. This option is enabled by default.</div>add_failure_metric: &lt;bool> | default: true
+
+<div class=comment># If set to true, cloudprober will export all metrics as gauge metrics. Note
+# that cloudprober inherently generates only cumulative metrics. To create
+# gauge metrics from cumulative metrics, we keep a copy of the old metrics
+# and subtract new metrics from the previous metrics. This transformation in
+# metrics has an increased memory-overhead because extra copies required.
+# However, it should not be noticeable unless you&#39;re producing large number
+# of metrics (say &gt; 10000 metrics per second).</div>export_as_gauge: &lt;bool>
+
+<div class=comment># Latency metric name pattern, used to identify latency metrics, and add
+# EventMetric&#39;s LatencyUnit to it.</div>latency_metric_pattern: &lt;string> | default: ^(.+_|)latency$
+
+<div class=comment># Environment variable containing additional labels to be added to all
+# metrics exported by this surfacer.
+# e.g. &#34;CLOUDPROBER_ADDITIONAL_LABELS=env=prod,app=identity-service&#34;
+# You can disable this feature by setting this field to an empty string.
+# Note: These additional labels have no effect if metrics already have the
+# same label.</div>additional_labels_env_var: &lt;string> | default: CLOUDPROBER_ADDITIONAL_LABELS
+
+<div class=comment># Matching surfacer specific configuration (one for each type in the above
+# enum)</div>[prometheus_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</a>&gt; | stackdriver_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</a>&gt; | 
+&nbsp;file_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf</a>&gt; | postgres_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</a>&gt; | 
+&nbsp;pubsub_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</a>&gt; | cloudwatch_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</a>&gt; | 
+&nbsp;datadog_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</a>&gt; | probestatus_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</a>&gt; | 
+&nbsp;bigquery_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</a>&gt; | otel_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_otel_SurfacerConf>cloudprober.surfacer.otel.SurfacerConf</a>&gt;]: &lt;oneof>
+
+</pre><h3 id=cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn <a class=anchor href=#cloudprober_surfacer_bigquery_BQColumn>#</a></h3><pre class=protodoc>
+
+label: &lt;string>
+
+column_name: &lt;string>
+
+column_type: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf <a class=anchor href=#cloudprober_surfacer_bigquery_SurfacerConf>#</a></h3><pre class=protodoc>
+
+project_name: &lt;string>
+
+bigquery_dataset: &lt;string>
+
+bigquery_table: &lt;string>
+
+<div class=comment># It represents the bigquery table columns.
+#  bigquery_columns {
+#    label: &#34;id&#34;,
+#    column_name: &#34;id&#34;,
+#    column_type: &#34;string&#34;,
+#  }</div>bigquery_columns: &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn</a>>
+
+<div class=comment># It represents bigquery client timeout in seconds. So, if bigquery insertion
+# is not completed within this time period then the request will fail and the
+# failed rows will be retried later.</div>bigquery_timeout_sec: &lt;int64> | default: 30
+
+metrics_buffer_size: &lt;int64> | default: 100000
+
+<div class=comment># This denotes the time interval after which data will be inserted in
+# bigquery. Default is 10 seconds. So after every 10 seconds all the em in
+# current will be inserted in bigquery in a default batch size of 1000</div>batch_timer_sec: &lt;int64> | default: 10
+
+metrics_batch_size: &lt;int64> | default: 1000
+
+<div class=comment># Column name for metrics name, value and timestamp</div>metric_time_col_name: &lt;string> | default: metric_time
+
+metric_name_col_name: &lt;string> | default: metric_name
+
+metric_value_col_name: &lt;string> | default: metric_value
+
+</pre><h3 id=cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf <a class=anchor href=#cloudprober_surfacer_cloudwatch_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># The cloudwatch metric namespace</div>namespace: &lt;string> | default: cloudprober
+
+<div class=comment># The cloudwatch resolution value, lowering this below 60 will incur
+# additional charges as the metrics will be charged at a high resolution
+# rate.</div>resolution: &lt;int32> | default: 60
+
+<div class=comment># The AWS Region, used to create a CloudWatch session.
+# The order of fallback for evaluating the AWS Region:
+# 1. This config value.
+# 2. EC2 metadata endpoint, via cloudprober sysvars.
+# 3. AWS_REGION environment value.
+# 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
+# https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/</div>region: &lt;string>
+
+<div class=comment># The maximum number of metrics that will be published at one
+# time. Metrics will be stored locally in a cache until this 
+# limit is reached. 1000 is the maximum number of metrics
+# supported by the Cloudwatch PutMetricData API.
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first.</div>metrics_batch_size: &lt;int32> | default: 1000
+
+<div class=comment># The maximum amount of time to hold metrics in the buffer (above).
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first. </div>batch_timer_sec: &lt;int32> | default: 30
+
+</pre><h3 id=cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf <a class=anchor href=#cloudprober_surfacer_datadog_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Prefix to add to all metrics.</div>prefix: &lt;string> | default: cloudprober
+
+<div class=comment># Datadog API key. If not set, DD_API_KEY env variable is used.</div>api_key: &lt;string>
+
+<div class=comment># Datadog APP key. If not set, DD_APP_KEY env variable is used.</div>app_key: &lt;string>
+
+<div class=comment># Datadog server, default: &#34;api.datadoghq.com&#34;</div>server: &lt;string>
+
+<div class=comment># The maximum number of metrics that will be published at one
+# time. Metrics will be stored locally in a cache until this 
+# limit is reached. Datadog&#39;s SubmitMetric API has a maximum payload 
+# size of 500 kilobytes (512000 bytes). Compressed payloads must have a 
+# decompressed size of less than 5 megabytes (5242880 bytes).
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first.</div>metrics_batch_size: &lt;int32> | default: 1000
+
+<div class=comment># The maximum amount of time to hold metrics in the buffer (above).
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first. </div>batch_timer_sec: &lt;int32> | default: 30
+
+<div class=comment># Disable gzip compression of metric payload, when sending metrics to Datadog.
+# Compression is enabled by default.</div>disable_compression: &lt;bool>
+
+</pre><h3 id=cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf <a class=anchor href=#cloudprober_surfacer_file_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Where to write the results. If left unset, file surfacer writes to the
+# standard output.</div>file_path: &lt;string>
+
+prefix: &lt;string> | default: cloudprober
+
+<div class=comment># Compress data before writing to the file.</div>compression_enabled: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_surfacer_otel_GRPCExporter>cloudprober.surfacer.otel.GRPCExporter <a class=anchor href=#cloudprober_surfacer_otel_GRPCExporter>#</a></h3><pre class=protodoc>
+
+<div class=comment># If no URL is provided, OpenTelemetry SDK will use the environment variable
+# OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+# preference order.</div>endpoint: &lt;string>
+
+tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+<div class=comment># HTTP request headers. These can also be set using environment variables.</div>http_header: &lt;<a href=../surfacer#cloudprober_surfacer_otel_GRPCExporter_HttpHeaderEntry>cloudprober.surfacer.otel.GRPCExporter.HttpHeaderEntry</a>>
+
+<div class=comment># Compression algorithm to use for gRPC requests.</div>compression: (NONE|GZIP): &lt;enum>
+
+<div class=comment># Whether to use insecure gRPC connection.</div>insecure: &lt;bool>
+
+</pre><h3 id=cloudprober_surfacer_otel_GRPCExporter_HttpHeaderEntry>cloudprober.surfacer.otel.GRPCExporter.HttpHeaderEntry <a class=anchor href=#cloudprober_surfacer_otel_GRPCExporter_HttpHeaderEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_otel_HTTPExporter>cloudprober.surfacer.otel.HTTPExporter <a class=anchor href=#cloudprober_surfacer_otel_HTTPExporter>#</a></h3><pre class=protodoc>
+
+<div class=comment># If no URL is provided, OpenTelemetry SDK will use the environment variable
+# OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+# preference order.</div>endpoint_url: &lt;string>
+
+tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+<div class=comment># HTTP request headers. These can also be set using environment variables.</div>http_header: &lt;<a href=../surfacer#cloudprober_surfacer_otel_HTTPExporter_HttpHeaderEntry>cloudprober.surfacer.otel.HTTPExporter.HttpHeaderEntry</a>>
+
+<div class=comment># Compression algorithm to use for HTTP requests.</div>compression: (NONE|GZIP): &lt;enum>
+
+</pre><h3 id=cloudprober_surfacer_otel_HTTPExporter_HttpHeaderEntry>cloudprober.surfacer.otel.HTTPExporter.HttpHeaderEntry <a class=anchor href=#cloudprober_surfacer_otel_HTTPExporter_HttpHeaderEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_otel_SurfacerConf>cloudprober.surfacer.otel.SurfacerConf <a class=anchor href=#cloudprober_surfacer_otel_SurfacerConf>#</a></h3><pre class=protodoc>
+
+[otlp_http_exporter &lt;<a href=../surfacer#cloudprober_surfacer_otel_HTTPExporter>cloudprober.surfacer.otel.HTTPExporter</a>&gt; | otlp_grpc_exporter &lt;<a href=../surfacer#cloudprober_surfacer_otel_GRPCExporter>cloudprober.surfacer.otel.GRPCExporter</a>&gt;]: &lt;oneof>
+
+<div class=comment># How often metrics will be exported. Note that metrics are accumulated
+# internally and exported at this interval. Increasing this value will
+# increase the memory usage.</div>export_interval_sec: &lt;int32> | default: 10
+
+<div class=comment># Prefix to use for metrics. Defaults to &#34;cloudprober_&#34;.</div>metrics_prefix: &lt;string> | default: cloudprober_
+
+resource_attribute: &lt;<a href=../surfacer#cloudprober_surfacer_otel_SurfacerConf_Attribute>cloudprober.surfacer.otel.SurfacerConf.Attribute</a>>
+
+</pre><h3 id=cloudprober_surfacer_otel_SurfacerConf_Attribute>cloudprober.surfacer.otel.SurfacerConf.Attribute <a class=anchor href=#cloudprober_surfacer_otel_SurfacerConf_Attribute>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn <a class=anchor href=#cloudprober_surfacer_postgres_LabelToColumn>#</a></h3><pre class=protodoc>
+
+<div class=comment># Label name</div>label: &lt;string>
+
+<div class=comment># Column to map this label to:</div>column: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf <a class=anchor href=#cloudprober_surfacer_postgres_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Postgres connection string.
+# Example:
+#  &#34;postgresql://root:${PASSWORD}@localhost/cloudprober?sslmode=disable&#34;</div>connection_string: &lt;string>
+
+<div class=comment># Metrics table name.
+# To create table (when storing all labels in single column in JSON format):
+# CREATE TABLE metrics (
+#   time timestamp, metric_name varchar(80), value float8, labels jsonb
+# )</div>metrics_table_name: &lt;string>
+
+<div class=comment># Adding label_to_column fields changes how labels are stored in a Postgres
+# table. If this field is not specified at all, all the labels are stored as
+# jsonb values as the &#39;labels&#39; column (this mode impacts performance
+# negatively). If label_to_colum entries are specified for some labels,
+# those labels are stored in their dedicated columns; all the labels that
+# don&#39;t have a mapping will be dropped.</div>label_to_column: &lt;<a href=../surfacer#cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</a>>
+
+metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># The maximum number of metric events will be commited in one transaction at one
+# time. Metrics will be stored locally until this limit is reached. Metrics will
+# be commited  to postgres when the timer expires, or the buffer is full, whichever
+# happens first.</div>metrics_batch_size: &lt;int32> | default: 1
+
+<div class=comment># The maximum amount of time to hold metrics in the buffer (above).
+# Metrics will be commited  to postgres when the timer expires, or the buffer is full,
+# whichever happens first.</div>batch_timer_sec: &lt;int32> | default: 1
+
+</pre><h3 id=cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_probestatus_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># default 60s</div>resolution_sec: &lt;int32> | default: 60
+
+<div class=comment># Number of points in each timeseries. This field dictates how far back
+# can you go up to (resolution_sec * timeseries_size). Note that higher
+# this number, more memory you&#39;ll use.</div>timeseries_size: &lt;int32> | default: 4320
+
+<div class=comment># Max targets per probe.</div>max_targets_per_probe: &lt;int32> | default: 20
+
+<div class=comment># ProbeStatus URL
+# This field is now deprecated and soon setting it will result in an
+# error. 
+# Note that older default URL /probestatus forwards to this URL to avoid
+# breaking older default setups.</div>url: &lt;string> | default: /status
+
+<div class=comment># Page cache time</div>cache_time_sec: &lt;int32> | default: 2
+
+<div class=comment># Probestatus surfacer is enabled by default. To disable it, set this
+# option.</div>disable: &lt;bool>
+
+</pre><h3 id=cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_prometheus_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># How many metrics entries (EventMetrics) to buffer. Incoming metrics
+# processing is paused while serving data to prometheus. This buffer is to
+# make writes to prometheus surfacer non-blocking.
+# NOTE: This field is confusing for users and will be removed from the config
+# after v0.10.3.</div>metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># Whether to include timestamps in metrics. If enabled (default) each metric
+# string includes the metric timestamp as recorded in the EventMetric.
+# Prometheus associates the scraped values with this timestamp. If disabled,
+# i.e. timestamps are not exported, prometheus associates scraped values with
+# scrape timestamp.
+#
+# As it&#39;s typically useful to set this across the deployment, this field can
+# also be set through the command line flag --prometheus_include_timestamp.
+# If both are set, the config value takes precedence.</div>include_timestamp: &lt;bool> | default: true
+
+<div class=comment># We automatically delete metrics that haven&#39;t been updated for more than
+# 10 min. We do that because prometheus generates warnings while scraping
+# metrics that are more than 10m old and prometheus knows that metrics are
+# more than 10m old because we include timestamp in metrics (by default).
+# This option controls that behavior.
+# It&#39;s automatically set to true if include_timestamp is false.</div>disable_metrics_expiration: &lt;bool>
+
+<div class=comment># URL that prometheus scrapes metrics from.</div>metrics_url: &lt;string> | default: /metrics
+
+<div class=comment># Prefix to add to all metric names. For example setting this field to
+# &#34;cloudprober_&#34; will result in metrics with names:
+# cloudprober_total, cloudprober_success, cloudprober_latency, ..
+#
+# As it&#39;s typically useful to set this across the deployment, this field can
+# also be set through the command line flag --prometheus_metrics_prefix. If
+# both are set, the config value takes precedence.</div>metrics_prefix: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf <a class=anchor href=#cloudprober_surfacer_pubsub_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># GCP project name for pubsub. It&#39;s required if not running on GCP,
+# otherwise it&#39;s retrieved from the metadata.</div>project: &lt;string>
+
+<div class=comment># Pubsub topic name.
+# Default is cloudprober-{hostname}</div>topic_name: &lt;string>
+
+<div class=comment># Compress data before writing to pubsub.</div>compression_enabled: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf <a class=anchor href=#cloudprober_surfacer_stackdriver_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># GCP project name for stackdriver. If not specified and running on GCP,
+# project is used.</div>project: &lt;string>
+
+<div class=comment># How often to export metrics to stackdriver.</div>batch_timer_sec: &lt;uint64> | default: 10
+
+<div class=comment># If allowed_metrics_regex is specified, only metrics matching the given
+# regular expression will be exported to stackdriver. Since probe type and
+# probe name are part of the metric name, you can use this field to restrict
+# stackdriver metrics to a particular probe.
+# Example:
+# allowed_metrics_regex: &#34;.*(http|ping).*(success|validation_failure).*&#34;
+#
+# Deprecated: Please use the common surfacer options to filter metrics:
+# https://cloudprober.org/docs/surfacers/overview/#filtering-metrics</div>allowed_metrics_regex: &lt;string>
+
+<div class=comment># Monitoring URL base. Full metric URL looks like the following:
+# &lt;monitoring_url&gt;/&lt;ptype&gt;/&lt;probe&gt;/&lt;metric&gt;
+# Example:
+# custom.googleapis.com/cloudprober/http/google-homepage/latency</div>monitoring_url: &lt;string> | default: custom.googleapis.com/cloudprober/
+
+<div class=comment># How many metrics entries to buffer. Incoming metrics
+# processing is paused while serving data to Stackdriver. This buffer is to
+# make writes to Stackdriver surfacer non-blocking.</div>metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># Metric prefix to use for stackdriver metrics. If not specified, default
+# is PTYPE_PROBE.</div>metrics_prefix: (NONE|PROBE|PTYPE_PROBE): &lt;enum>
+
+</pre></div><div id=content-lang-textpb class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter <a class=anchor href=#cloudprober_surfacer_LabelFilter>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_SurfacerDef>cloudprober.surfacer.SurfacerDef <a class=anchor href=#cloudprober_surfacer_SurfacerDef>#</a></h3><pre class=protodoc>
+
+<div class=comment># This name is used for logging. If not defined, it&#39;s derived from the type.
+# Note that this field is required for the USER_DEFINED surfacer type and
+# should match with the name that you used while registering the user defined
+# surfacer.</div>name: &lt;string>
+
+type: (NONE|PROMETHEUS|STACKDRIVER|FILE|POSTGRES|PUBSUB|CLOUDWATCH|DATADOG|PROBESTATUS|BIGQUERY|OTEL|EXTENSION|USER_DEFINED): &lt;enum>
+
+<div class=comment># How many metrics entries (EventMetrics) to buffer. This is the buffer
+# between incoming metrics and the metrics that are being processed. Default
+# value should work in most cases. You may need to increase it on a busy
+# system, but that&#39;s usually a sign that you metrics processing pipeline is
+# slow for some reason, e.g. slow writes to a remote file.
+# Note: Only file and pubsub surfacer supports this option right now.</div>metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># If specified, only allow metrics that match any of these label filters.
+# Example:
+# allow_metrics_with_label {
+#   key: &#34;probe&#34;,
+#   value: &#34;check_homepage&#34;,
+# }</div>allow_metrics_with_label: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+
+<div class=comment># Ignore metrics that match any of these label filters. Ignore has precedence
+# over allow filters.
+# Example:
+# ignore_metrics_with_label {
+#   key: &#34;probe&#34;,
+#   value: &#34;sysvars&#34;,
+# }</div>ignore_metrics_with_label: &lt;<a href=../surfacer#cloudprober_surfacer_LabelFilter>cloudprober.surfacer.LabelFilter</a>>
+
+<div class=comment># Allow and ignore metrics based on their names. You can specify regexes
+# here. Ignore has precendence over allow.
+# Examples:
+#  ignore_metrics_with_name: &#34;validation_failure&#34;
+#  allow_metrics_with_name: &#34;(total|success|latency)&#34;</div>allow_metrics_with_name: &lt;string>
+
+ignore_metrics_with_name: &lt;string>
+
+<div class=comment># Whether to add failure metric or not. This option is enabled by default.</div>add_failure_metric: &lt;bool> | default: true
+
+<div class=comment># If set to true, cloudprober will export all metrics as gauge metrics. Note
+# that cloudprober inherently generates only cumulative metrics. To create
+# gauge metrics from cumulative metrics, we keep a copy of the old metrics
+# and subtract new metrics from the previous metrics. This transformation in
+# metrics has an increased memory-overhead because extra copies required.
+# However, it should not be noticeable unless you&#39;re producing large number
+# of metrics (say &gt; 10000 metrics per second).</div>export_as_gauge: &lt;bool>
+
+<div class=comment># Latency metric name pattern, used to identify latency metrics, and add
+# EventMetric&#39;s LatencyUnit to it.</div>latency_metric_pattern: &lt;string> | default: ^(.+_|)latency$
+
+<div class=comment># Environment variable containing additional labels to be added to all
+# metrics exported by this surfacer.
+# e.g. &#34;CLOUDPROBER_ADDITIONAL_LABELS=env=prod,app=identity-service&#34;
+# You can disable this feature by setting this field to an empty string.
+# Note: These additional labels have no effect if metrics already have the
+# same label.</div>additional_labels_env_var: &lt;string> | default: CLOUDPROBER_ADDITIONAL_LABELS
+
+<div class=comment># Matching surfacer specific configuration (one for each type in the above
+# enum)</div>[prometheus_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf</a>&gt; | stackdriver_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf</a>&gt; | 
+&nbsp;file_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf</a>&gt; | postgres_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf</a>&gt; | 
+&nbsp;pubsub_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf</a>&gt; | cloudwatch_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf</a>&gt; | 
+&nbsp;datadog_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf</a>&gt; | probestatus_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf</a>&gt; | 
+&nbsp;bigquery_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf</a>&gt; | otel_surfacer &lt;<a href=../surfacer#cloudprober_surfacer_otel_SurfacerConf>cloudprober.surfacer.otel.SurfacerConf</a>&gt;]: &lt;oneof>
+
+</pre><h3 id=cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn <a class=anchor href=#cloudprober_surfacer_bigquery_BQColumn>#</a></h3><pre class=protodoc>
+
+label: &lt;string>
+
+column_name: &lt;string>
+
+column_type: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf <a class=anchor href=#cloudprober_surfacer_bigquery_SurfacerConf>#</a></h3><pre class=protodoc>
+
+project_name: &lt;string>
+
+bigquery_dataset: &lt;string>
+
+bigquery_table: &lt;string>
+
+<div class=comment># It represents the bigquery table columns.
+#  bigquery_columns {
+#    label: &#34;id&#34;,
+#    column_name: &#34;id&#34;,
+#    column_type: &#34;string&#34;,
+#  }</div>bigquery_columns: &lt;<a href=../surfacer#cloudprober_surfacer_bigquery_BQColumn>cloudprober.surfacer.bigquery.BQColumn</a>>
+
+<div class=comment># It represents bigquery client timeout in seconds. So, if bigquery insertion
+# is not completed within this time period then the request will fail and the
+# failed rows will be retried later.</div>bigquery_timeout_sec: &lt;int64> | default: 30
+
+metrics_buffer_size: &lt;int64> | default: 100000
+
+<div class=comment># This denotes the time interval after which data will be inserted in
+# bigquery. Default is 10 seconds. So after every 10 seconds all the em in
+# current will be inserted in bigquery in a default batch size of 1000</div>batch_timer_sec: &lt;int64> | default: 10
+
+metrics_batch_size: &lt;int64> | default: 1000
+
+<div class=comment># Column name for metrics name, value and timestamp</div>metric_time_col_name: &lt;string> | default: metric_time
+
+metric_name_col_name: &lt;string> | default: metric_name
+
+metric_value_col_name: &lt;string> | default: metric_value
+
+</pre><h3 id=cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf <a class=anchor href=#cloudprober_surfacer_cloudwatch_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># The cloudwatch metric namespace</div>namespace: &lt;string> | default: cloudprober
+
+<div class=comment># The cloudwatch resolution value, lowering this below 60 will incur
+# additional charges as the metrics will be charged at a high resolution
+# rate.</div>resolution: &lt;int32> | default: 60
+
+<div class=comment># The AWS Region, used to create a CloudWatch session.
+# The order of fallback for evaluating the AWS Region:
+# 1. This config value.
+# 2. EC2 metadata endpoint, via cloudprober sysvars.
+# 3. AWS_REGION environment value.
+# 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
+# https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/</div>region: &lt;string>
+
+<div class=comment># The maximum number of metrics that will be published at one
+# time. Metrics will be stored locally in a cache until this 
+# limit is reached. 1000 is the maximum number of metrics
+# supported by the Cloudwatch PutMetricData API.
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first.</div>metrics_batch_size: &lt;int32> | default: 1000
+
+<div class=comment># The maximum amount of time to hold metrics in the buffer (above).
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first. </div>batch_timer_sec: &lt;int32> | default: 30
+
+</pre><h3 id=cloudprober_surfacer_datadog_SurfacerConf>cloudprober.surfacer.datadog.SurfacerConf <a class=anchor href=#cloudprober_surfacer_datadog_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Prefix to add to all metrics.</div>prefix: &lt;string> | default: cloudprober
+
+<div class=comment># Datadog API key. If not set, DD_API_KEY env variable is used.</div>api_key: &lt;string>
+
+<div class=comment># Datadog APP key. If not set, DD_APP_KEY env variable is used.</div>app_key: &lt;string>
+
+<div class=comment># Datadog server, default: &#34;api.datadoghq.com&#34;</div>server: &lt;string>
+
+<div class=comment># The maximum number of metrics that will be published at one
+# time. Metrics will be stored locally in a cache until this 
+# limit is reached. Datadog&#39;s SubmitMetric API has a maximum payload 
+# size of 500 kilobytes (512000 bytes). Compressed payloads must have a 
+# decompressed size of less than 5 megabytes (5242880 bytes).
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first.</div>metrics_batch_size: &lt;int32> | default: 1000
+
+<div class=comment># The maximum amount of time to hold metrics in the buffer (above).
+# Metrics will be published when the timer expires, or the buffer is
+# full, whichever happens first. </div>batch_timer_sec: &lt;int32> | default: 30
+
+<div class=comment># Disable gzip compression of metric payload, when sending metrics to Datadog.
+# Compression is enabled by default.</div>disable_compression: &lt;bool>
+
+</pre><h3 id=cloudprober_surfacer_file_SurfacerConf>cloudprober.surfacer.file.SurfacerConf <a class=anchor href=#cloudprober_surfacer_file_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Where to write the results. If left unset, file surfacer writes to the
+# standard output.</div>file_path: &lt;string>
+
+prefix: &lt;string> | default: cloudprober
+
+<div class=comment># Compress data before writing to the file.</div>compression_enabled: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_surfacer_otel_GRPCExporter>cloudprober.surfacer.otel.GRPCExporter <a class=anchor href=#cloudprober_surfacer_otel_GRPCExporter>#</a></h3><pre class=protodoc>
+
+<div class=comment># If no URL is provided, OpenTelemetry SDK will use the environment variable
+# OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+# preference order.</div>endpoint: &lt;string>
+
+tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+<div class=comment># HTTP request headers. These can also be set using environment variables.</div>http_header: &lt;<a href=../surfacer#cloudprober_surfacer_otel_GRPCExporter_HttpHeaderEntry>cloudprober.surfacer.otel.GRPCExporter.HttpHeaderEntry</a>>
+
+<div class=comment># Compression algorithm to use for gRPC requests.</div>compression: (NONE|GZIP): &lt;enum>
+
+<div class=comment># Whether to use insecure gRPC connection.</div>insecure: &lt;bool>
+
+</pre><h3 id=cloudprober_surfacer_otel_GRPCExporter_HttpHeaderEntry>cloudprober.surfacer.otel.GRPCExporter.HttpHeaderEntry <a class=anchor href=#cloudprober_surfacer_otel_GRPCExporter_HttpHeaderEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_otel_HTTPExporter>cloudprober.surfacer.otel.HTTPExporter <a class=anchor href=#cloudprober_surfacer_otel_HTTPExporter>#</a></h3><pre class=protodoc>
+
+<div class=comment># If no URL is provided, OpenTelemetry SDK will use the environment variable
+# OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+# preference order.</div>endpoint_url: &lt;string>
+
+tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+<div class=comment># HTTP request headers. These can also be set using environment variables.</div>http_header: &lt;<a href=../surfacer#cloudprober_surfacer_otel_HTTPExporter_HttpHeaderEntry>cloudprober.surfacer.otel.HTTPExporter.HttpHeaderEntry</a>>
+
+<div class=comment># Compression algorithm to use for HTTP requests.</div>compression: (NONE|GZIP): &lt;enum>
+
+</pre><h3 id=cloudprober_surfacer_otel_HTTPExporter_HttpHeaderEntry>cloudprober.surfacer.otel.HTTPExporter.HttpHeaderEntry <a class=anchor href=#cloudprober_surfacer_otel_HTTPExporter_HttpHeaderEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_otel_SurfacerConf>cloudprober.surfacer.otel.SurfacerConf <a class=anchor href=#cloudprober_surfacer_otel_SurfacerConf>#</a></h3><pre class=protodoc>
+
+[otlp_http_exporter &lt;<a href=../surfacer#cloudprober_surfacer_otel_HTTPExporter>cloudprober.surfacer.otel.HTTPExporter</a>&gt; | otlp_grpc_exporter &lt;<a href=../surfacer#cloudprober_surfacer_otel_GRPCExporter>cloudprober.surfacer.otel.GRPCExporter</a>&gt;]: &lt;oneof>
+
+<div class=comment># How often metrics will be exported. Note that metrics are accumulated
+# internally and exported at this interval. Increasing this value will
+# increase the memory usage.</div>export_interval_sec: &lt;int32> | default: 10
+
+<div class=comment># Prefix to use for metrics. Defaults to &#34;cloudprober_&#34;.</div>metrics_prefix: &lt;string> | default: cloudprober_
+
+resource_attribute: &lt;<a href=../surfacer#cloudprober_surfacer_otel_SurfacerConf_Attribute>cloudprober.surfacer.otel.SurfacerConf.Attribute</a>>
+
+</pre><h3 id=cloudprober_surfacer_otel_SurfacerConf_Attribute>cloudprober.surfacer.otel.SurfacerConf.Attribute <a class=anchor href=#cloudprober_surfacer_otel_SurfacerConf_Attribute>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn <a class=anchor href=#cloudprober_surfacer_postgres_LabelToColumn>#</a></h3><pre class=protodoc>
+
+<div class=comment># Label name</div>label: &lt;string>
+
+<div class=comment># Column to map this label to:</div>column: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_postgres_SurfacerConf>cloudprober.surfacer.postgres.SurfacerConf <a class=anchor href=#cloudprober_surfacer_postgres_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Postgres connection string.
+# Example:
+#  &#34;postgresql://root:${PASSWORD}@localhost/cloudprober?sslmode=disable&#34;</div>connection_string: &lt;string>
+
+<div class=comment># Metrics table name.
+# To create table (when storing all labels in single column in JSON format):
+# CREATE TABLE metrics (
+#   time timestamp, metric_name varchar(80), value float8, labels jsonb
+# )</div>metrics_table_name: &lt;string>
+
+<div class=comment># Adding label_to_column fields changes how labels are stored in a Postgres
+# table. If this field is not specified at all, all the labels are stored as
+# jsonb values as the &#39;labels&#39; column (this mode impacts performance
+# negatively). If label_to_colum entries are specified for some labels,
+# those labels are stored in their dedicated columns; all the labels that
+# don&#39;t have a mapping will be dropped.</div>label_to_column: &lt;<a href=../surfacer#cloudprober_surfacer_postgres_LabelToColumn>cloudprober.surfacer.postgres.LabelToColumn</a>>
+
+metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># The maximum number of metric events will be commited in one transaction at one
+# time. Metrics will be stored locally until this limit is reached. Metrics will
+# be commited  to postgres when the timer expires, or the buffer is full, whichever
+# happens first.</div>metrics_batch_size: &lt;int32> | default: 1
+
+<div class=comment># The maximum amount of time to hold metrics in the buffer (above).
+# Metrics will be commited  to postgres when the timer expires, or the buffer is full,
+# whichever happens first.</div>batch_timer_sec: &lt;int32> | default: 1
+
+</pre><h3 id=cloudprober_surfacer_probestatus_SurfacerConf>cloudprober.surfacer.probestatus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_probestatus_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># default 60s</div>resolution_sec: &lt;int32> | default: 60
+
+<div class=comment># Number of points in each timeseries. This field dictates how far back
+# can you go up to (resolution_sec * timeseries_size). Note that higher
+# this number, more memory you&#39;ll use.</div>timeseries_size: &lt;int32> | default: 4320
+
+<div class=comment># Max targets per probe.</div>max_targets_per_probe: &lt;int32> | default: 20
+
+<div class=comment># ProbeStatus URL
+# This field is now deprecated and soon setting it will result in an
+# error. 
+# Note that older default URL /probestatus forwards to this URL to avoid
+# breaking older default setups.</div>url: &lt;string> | default: /status
+
+<div class=comment># Page cache time</div>cache_time_sec: &lt;int32> | default: 2
+
+<div class=comment># Probestatus surfacer is enabled by default. To disable it, set this
+# option.</div>disable: &lt;bool>
+
+</pre><h3 id=cloudprober_surfacer_prometheus_SurfacerConf>cloudprober.surfacer.prometheus.SurfacerConf <a class=anchor href=#cloudprober_surfacer_prometheus_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># How many metrics entries (EventMetrics) to buffer. Incoming metrics
+# processing is paused while serving data to prometheus. This buffer is to
+# make writes to prometheus surfacer non-blocking.
+# NOTE: This field is confusing for users and will be removed from the config
+# after v0.10.3.</div>metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># Whether to include timestamps in metrics. If enabled (default) each metric
+# string includes the metric timestamp as recorded in the EventMetric.
+# Prometheus associates the scraped values with this timestamp. If disabled,
+# i.e. timestamps are not exported, prometheus associates scraped values with
+# scrape timestamp.
+#
+# As it&#39;s typically useful to set this across the deployment, this field can
+# also be set through the command line flag --prometheus_include_timestamp.
+# If both are set, the config value takes precedence.</div>include_timestamp: &lt;bool> | default: true
+
+<div class=comment># We automatically delete metrics that haven&#39;t been updated for more than
+# 10 min. We do that because prometheus generates warnings while scraping
+# metrics that are more than 10m old and prometheus knows that metrics are
+# more than 10m old because we include timestamp in metrics (by default).
+# This option controls that behavior.
+# It&#39;s automatically set to true if include_timestamp is false.</div>disable_metrics_expiration: &lt;bool>
+
+<div class=comment># URL that prometheus scrapes metrics from.</div>metrics_url: &lt;string> | default: /metrics
+
+<div class=comment># Prefix to add to all metric names. For example setting this field to
+# &#34;cloudprober_&#34; will result in metrics with names:
+# cloudprober_total, cloudprober_success, cloudprober_latency, ..
+#
+# As it&#39;s typically useful to set this across the deployment, this field can
+# also be set through the command line flag --prometheus_metrics_prefix. If
+# both are set, the config value takes precedence.</div>metrics_prefix: &lt;string>
+
+</pre><h3 id=cloudprober_surfacer_pubsub_SurfacerConf>cloudprober.surfacer.pubsub.SurfacerConf <a class=anchor href=#cloudprober_surfacer_pubsub_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># GCP project name for pubsub. It&#39;s required if not running on GCP,
+# otherwise it&#39;s retrieved from the metadata.</div>project: &lt;string>
+
+<div class=comment># Pubsub topic name.
+# Default is cloudprober-{hostname}</div>topic_name: &lt;string>
+
+<div class=comment># Compress data before writing to pubsub.</div>compression_enabled: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_surfacer_stackdriver_SurfacerConf>cloudprober.surfacer.stackdriver.SurfacerConf <a class=anchor href=#cloudprober_surfacer_stackdriver_SurfacerConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># GCP project name for stackdriver. If not specified and running on GCP,
+# project is used.</div>project: &lt;string>
+
+<div class=comment># How often to export metrics to stackdriver.</div>batch_timer_sec: &lt;uint64> | default: 10
+
+<div class=comment># If allowed_metrics_regex is specified, only metrics matching the given
+# regular expression will be exported to stackdriver. Since probe type and
+# probe name are part of the metric name, you can use this field to restrict
+# stackdriver metrics to a particular probe.
+# Example:
+# allowed_metrics_regex: &#34;.*(http|ping).*(success|validation_failure).*&#34;
+#
+# Deprecated: Please use the common surfacer options to filter metrics:
+# https://cloudprober.org/docs/surfacers/overview/#filtering-metrics</div>allowed_metrics_regex: &lt;string>
+
+<div class=comment># Monitoring URL base. Full metric URL looks like the following:
+# &lt;monitoring_url&gt;/&lt;ptype&gt;/&lt;probe&gt;/&lt;metric&gt;
+# Example:
+# custom.googleapis.com/cloudprober/http/google-homepage/latency</div>monitoring_url: &lt;string> | default: custom.googleapis.com/cloudprober/
+
+<div class=comment># How many metrics entries to buffer. Incoming metrics
+# processing is paused while serving data to Stackdriver. This buffer is to
+# make writes to Stackdriver surfacer non-blocking.</div>metrics_buffer_size: &lt;int64> | default: 10000
+
+<div class=comment># Metric prefix to use for stackdriver metrics. If not specified, default
+# is PTYPE_PROBE.</div>metrics_prefix: (NONE|PROBE|PTYPE_PROBE): &lt;enum>
+
+</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/surfacer/><div class="card my-1"><div class="card-body py-2">&larr; Surfacer Config</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/latest/targets/><div class="card my-1"><div class="card-body py-2">Targets Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
+<script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
+<script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
+<script src=https://cloudprober.org/index.min.76d4f644c3741935bf91423155ef6ee36d5b931f7a8a6a8ba7caa58b84a7b96d8ebea26fa0159f6296c1804005a58764cbe74b220d51634a37a036bd9afe9e15.js integrity="sha512-dtT2RMN0GTW/kUIxVe9u421bkx96imqLp8qli4SnuW2OvqJvoBWfYpbBgEAFpYdky+dLIg1RY0o3oDa9mv6eFQ==" crossorigin=anonymous defer></script></body></html>
