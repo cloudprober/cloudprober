@@ -47,11 +47,11 @@ monitoring signals.
 
 * Versatile Probes: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom checks via external probes.
 
-* [Auto-Discover Targets](https://cloudprober.org/docs/how-to/targets/): Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
+* Auto-Discover Targets: Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
 
 * Integrate with Existing Systems: Out-of-the-box integration with Prometheus, Grafana, DataDog, AWS CloudWatch, PostgreSQL, and Google Cloud Monitoring.
 
-* [Easy Alerts](https://cloudprober.org/docs/how-to/alerting/): Stay informed via email, Slack, PagerDuty, OpsGenie, or any other HTTP based system.
+* Easy Alerts: Stay informed via email, Slack, PagerDuty, OpsGenie, or any other HTTP based system.
 
 * Lightweight & Scalable: Written in Go, compiles to a single binary, and runs efficiently as a standalone app or Docker container.
 
@@ -59,6 +59,15 @@ monitoring signals.
 
 * Extensible: Easily add new probe types, targets, or monitoring systems.
 
+## Learn More
+
+* If you're familiar with Prometheus Blackbox Exporter, see how Cloudprober stacks against it: [Prometheus Blackbox Exporter vs Cloudprober](https://medium.com/cloudprober/prometheus-blackbox-exporter-vs-cloudprober-08a1d3beeda2).
+  
+* If you're not very familiar with the blackbox/synthetic monitoring paradigm, take a look at [why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e).
+
+* Cloudprober's [origin story](https://medium.com/cloudprober/story-of-cloudprober-5ac1dbc0066c).
+  
+* How [DoorDash](https://careersatdoordash.com/blog/infra-prober-active-infrastructure-monitor/) & [Hostinger](https://www.hostinger.com/blog/cloudprober-explained-the-way-we-use-it-at-hostinger) use Cloudprober.
 
 ## Get Started
 
