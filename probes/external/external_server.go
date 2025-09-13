@@ -120,7 +120,7 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 				scanner = bufio.NewScanner(p.cmdStderr)
 				continue
 			}
-			p.l.Warningf("Stderr reader: encountered terminal error from %s", cmd.Path, scanner.Err())
+			p.l.Warningf("Stderr reader: encountered terminal error from %s: %v", cmd.Path, scanner.Err())
 			break
 		}
 	}()
