@@ -109,8 +109,19 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 
 	go func() {
 		scanner := bufio.NewScanner(p.cmdStderr)
-		for scanner.Scan() {
-			p.l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", cmd.Path))
+		for {
+			if scanner.Scan() {
+				p.l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", cmd.Path))
+				continue
+			}
+			if scanner.Err() == bufio.ErrTooLong {
+				// Drop the associated log but otherwise continue reading.
+				p.l.Errorf("stderr reader: encountered ErrTooLong from %s", cmd.Path)
+				scanner = bufio.NewScanner(p.cmdStderr)
+				continue
+			}
+			p.l.Warningf("Stderr reader: encountered terminal error from %s: %v", cmd.Path, scanner.Err())
+			break
 		}
 	}()
 
