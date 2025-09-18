@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,12 +154,15 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		}
 
 		runCnt++
-		ctx, cancelCtx := context.WithTimeout(ctx, s.Opts.Timeout)
-		s.RunProbeForTarget(ctx, runReq)
-		cancelCtx()
+		timedCtx, cancelTimedCtx := context.WithTimeout(ctx, s.Opts.Timeout)
+		s.RunProbeForTarget(timedCtx, runReq)
+		cancelTimedCtx()
 
-		// Export stats if it's the time to do so.
-		if (runCnt % s.Opts.StatsExportFrequency()) == 0 {
+		// Export stats if it's the time to do so and context was not canceled
+		// while we were running the probe. Context is typically canceled when
+		// target is deleted after a target refresh. We don't want to export
+		// metrics in such cases.
+		if (runCnt%s.Opts.StatsExportFrequency()) == 0 && !CtxDone(ctx) {
 			for _, em := range runReq.Result.Metrics(ts, runCnt, s.Opts) {
 				// Returning nil is a way to skip this target. Used by grpc probe.
 				if em == nil {
