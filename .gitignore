@@ -23,6 +23,8 @@ vendor/
 **DS_Store
 .vscode
 .scannerwork
+.claude/
+.idea/
 
 docs/_config_docs
 docs/content/docs/config
