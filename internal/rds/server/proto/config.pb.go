@@ -27,7 +27,6 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -270,7 +269,7 @@ var (
 
 func file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDescGZIP() []byte {
 	file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDescOnce.Do(func() {
-		file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDesc)))
+		file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDescData = protoimpl.X.CompressGZIP(file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDesc)
 	})
 	return file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDescData
 }
@@ -312,7 +311,7 @@ func file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_pr
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDesc)),
+			RawDescriptor: file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,

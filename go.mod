@@ -13,9 +13,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.12
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.11
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.18.3
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.136.0
-	github.com/aws/aws-sdk-go-v2/service/elasticache v1.32.2
-	github.com/aws/aws-sdk-go-v2/service/rds v1.63.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.38.5
 	github.com/fullstorydev/grpcurl v1.9.1
 	github.com/google/go-jsonnet v0.20.0
