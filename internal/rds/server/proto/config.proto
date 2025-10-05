@@ -13,9 +13,11 @@ syntax = "proto2";
 
 package cloudprober.rds;
 
+import "github.com/cloudprober/cloudprober/internal/rds/aws/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/file/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/gcp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto/config.proto";
+
 
 option go_package = "github.com/cloudprober/cloudprober/internal/rds/server/proto";
 
@@ -33,5 +35,6 @@ message Provider {
     file.ProviderConfig file_config = 4;
     gcp.ProviderConfig gcp_config = 2;
     kubernetes.ProviderConfig kubernetes_config = 3;
+    aws.ProviderConfig aws_config = 5;
   }
 }
