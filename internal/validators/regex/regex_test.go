@@ -16,15 +16,13 @@ package regex
 
 import (
 	"testing"
-
-	"github.com/cloudprober/cloudprober/logger"
 )
 
 func TestInvalidConfig(t *testing.T) {
 	// Empty config
 	testConfig := ""
 	v := Validator{}
-	err := v.Init(testConfig, &logger.Logger{})
+	err := v.Init(testConfig)
 	if err == nil {
 		t.Errorf("v.Init(%s, l): expected error but got nil", testConfig)
 	}
@@ -32,7 +30,7 @@ func TestInvalidConfig(t *testing.T) {
 	// Invalid regex as Go regex doesn't support negative lookaheads.
 	testConfig = "(?!cloudprober)"
 	v = Validator{}
-	err = v.Init(testConfig, &logger.Logger{})
+	err = v.Init(testConfig)
 	if err == nil {
 		t.Errorf("v.Init(%s, l): expected error but got nil", testConfig)
 	}
@@ -42,12 +40,12 @@ func verifyValidate(t *testing.T, respBody []byte, regexStr string, expected boo
 	t.Helper()
 	// Test initializing with pattern string.
 	v := Validator{}
-	err := v.Init(regexStr, &logger.Logger{})
+	err := v.Init(regexStr)
 	if err != nil {
 		t.Errorf("v.Init(%s, l): got error: %v", regexStr, err)
 	}
 
-	result, err := v.Validate(respBody)
+	result, err := v.Validate(respBody, nil)
 	if err != nil {
 		t.Errorf("v.Validate(nil, %s): got error: %v", string(respBody), err)
 	}

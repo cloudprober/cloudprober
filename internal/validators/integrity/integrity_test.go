@@ -25,7 +25,7 @@ import (
 func TestInvalidConfig(t *testing.T) {
 	testConfig := &configpb.Validator{}
 	v := Validator{}
-	err := v.Init(testConfig, &logger.Logger{})
+	err := v.Init(testConfig)
 	if err == nil {
 		t.Errorf("v.Init(%v, l): expected error but got nil", testConfig)
 	}
@@ -64,7 +64,7 @@ func verifyValidate(t *testing.T, v Validator, testPattern string) {
 	}
 
 	for i, r := range rows {
-		result, err := v.Validate(r.respBody)
+		result, err := v.Validate(r.respBody, nil)
 		if (err != nil) != r.wantErr {
 			t.Errorf("v.Validate(nil, %s), row #%d: err=%v, expectedError(bool)=%v", string(r.respBody), i, err, r.wantErr)
 		}
@@ -85,7 +85,7 @@ func TestPatternString(t *testing.T) {
 	}
 
 	v := Validator{}
-	err := v.Init(testConfig, &logger.Logger{})
+	err := v.Init(testConfig)
 	if err != nil {
 		t.Errorf("v.Init(%v, l): got error: %v", testConfig, err)
 	}

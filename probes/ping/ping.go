@@ -199,8 +199,10 @@ func (p *Probe) configureIntegrityCheck() error {
 	}
 
 	v := &validators.Validator{
-		Name:     dataIntegrityKey,
-		Validate: func(input *validators.Input) (bool, error) { return iv.Validate(input.ResponseBody) },
+		Name: dataIntegrityKey,
+		Validate: func(input *validators.Input, l *logger.Logger) (bool, error) {
+			return iv.Validate(input.ResponseBody, l)
+		},
 	}
 
 	p.opts.Validators = append(p.opts.Validators, v)

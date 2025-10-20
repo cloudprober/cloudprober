@@ -213,7 +213,7 @@ func TestGRPCSuccess(t *testing.T) {
 						},
 					},
 				}
-				probeOpts.Validators, _ = validators.Init(cfg, nil)
+				probeOpts.Validators, _ = validators.Init(cfg)
 			}
 
 			cfg := &configpb.ProbeConf{
