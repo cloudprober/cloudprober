@@ -89,7 +89,7 @@ jobs:
           matrix.os == 'ubuntu-latest' &&
           github.repository == 'cloudprober/cloudprober' &&
           (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
