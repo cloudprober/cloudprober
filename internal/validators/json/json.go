@@ -58,7 +58,7 @@ func (v *Validator) Validate(responseBody []byte, l *logger.Logger) (bool, error
 	var input interface{}
 	err := json.Unmarshal(responseBody, &input)
 	if err != nil {
-		l.Warningf("JSON validation failure: response %s is not a valid JSON", string(responseBody))
+		l.Errorf("JSON validation failure: response %s is not a valid JSON", string(responseBody))
 		return false, err
 	}
 
@@ -86,7 +86,7 @@ func (v *Validator) Validate(responseBody []byte, l *logger.Logger) (bool, error
 			return false, fmt.Errorf("didn't get bool as the jq_filter output (%v)", lastItem)
 		}
 		if !b {
-			l.Warningf("JSON validation failure: response %s didn't match the jq filter %s", string(responseBody), v.jqQuery.String())
+			l.Errorf("JSON validation failure: response %s didn't match the jq filter %s", string(responseBody), v.jqQuery.String())
 		}
 		return b, nil
 	}

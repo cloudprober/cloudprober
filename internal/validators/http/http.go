@@ -207,28 +207,28 @@ func (v *Validator) Validate(input interface{}, unused []byte, l *logger.Logger)
 
 	if v.c.GetFailureStatusCodes() != "" {
 		if lookupStatusCode(res.StatusCode, v.failureStatusCodeRanges) {
-			l.Warningf("HTTP validation failure: status code %d in failure status codes: %s, status: %s", res.StatusCode, v.c.GetFailureStatusCodes(), res.Status)
+			l.Errorf("HTTP validation failure: status code %d in failure status codes: %s, status: %s", res.StatusCode, v.c.GetFailureStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if failureHeader := v.c.GetFailureHeader(); failureHeader != nil {
 		if lookupHTTPHeader(res.Header, failureHeader.GetName(), v.failureHeaderRegexp) {
-			l.Warningf("HTTP validation failure: got unexpected header %s", failureHeader.GetName())
+			l.Errorf("HTTP validation failure: got unexpected header %s", failureHeader.GetName())
 			return false, nil
 		}
 	}
 
 	if v.c.GetSuccessStatusCodes() != "" {
 		if !lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
-			l.Warningf("HTTP validation failure: status code %d not in success status codes: %s, status: %s, ", res.StatusCode, v.c.GetSuccessStatusCodes(), res.Status)
+			l.Errorf("HTTP validation failure: status code %d not in success status codes: %s, status: %s, ", res.StatusCode, v.c.GetSuccessStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if successHeader := v.c.GetSuccessHeader(); successHeader != nil {
 		if !lookupHTTPHeader(res.Header, successHeader.GetName(), v.successHeaderRegexp) {
-			l.Warningf("HTTP validation failure: header %s not found", successHeader.GetName())
+			l.Errorf("HTTP validation failure: header %s not found", successHeader.GetName())
 			return false, nil
 		}
 	}
@@ -236,12 +236,12 @@ func (v *Validator) Validate(input interface{}, unused []byte, l *logger.Logger)
 	if v.maxLastModifiedDiff != time.Duration(0) {
 		lastModified, err := time.Parse(time.RFC1123, res.Header.Get("Last-Modified"))
 		if err != nil {
-			l.Warningf("HTTP validation failure: Error parsing Last-Modified header: %v", err)
+			l.Errorf("HTTP validation failure: Error parsing Last-Modified header: %v", err)
 			return false, nil
 		}
 
 		if time.Since(lastModified) > v.maxLastModifiedDiff {
-			l.Warningf("HTTP validation failure: Last-Modified header is too old: %v", lastModified)
+			l.Errorf("HTTP validation failure: Last-Modified header is too old: %v", lastModified)
 			return false, nil
 		}
 	}
