@@ -164,6 +164,11 @@ message ProbeConf {
   // the default success/total/latency metrics.
   optional metrics.payload.OutputMetricsOptions response_metrics_options = 96;
 
+  // Merge header metrics from response_metrics_options into the main probe
+  // metrics instead of creating separate EventMetrics. Only applies when
+  // response_metrics_options is configured with header_metric.
+  optional bool merge_header_metrics = 25 [default = false];
+
   // Interval between targets.
   optional int32 interval_between_targets_msec = 97 [default = 10];
 
