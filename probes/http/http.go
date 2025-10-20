@@ -87,6 +87,7 @@ type probeResult struct {
 	latencyBreakdown             *latencyDetails
 	sslEarliestExpirationSeconds int64
 	payloadMetrics               []*metrics.EventMetrics
+	mergeHeaderMetrics           bool
 }
 
 func (p *Probe) getTransport() (*http.Transport, error) {
@@ -423,6 +424,7 @@ func (p *Probe) newResult() *probeResult {
 	result := &probeResult{
 		respCodes:                    metrics.NewMap("code"),
 		sslEarliestExpirationSeconds: -1,
+		mergeHeaderMetrics:           p.c.GetMergeHeaderMetrics(),
 	}
 
 	if p.c.GetKeepAlive() {
@@ -488,23 +490,34 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		}
 	}
 
+	if result.mergeHeaderMetrics && len(result.payloadMetrics) > 0 {
+		for _, payloadEM := range result.payloadMetrics {
+			for _, key := range payloadEM.MetricsKeys() {
+				em.AddMetric(key, payloadEM.Metric(key))
+			}
+		}
+		result.payloadMetrics = nil
+	}
+
 	em.AddLabel("ptype", "http") // Other labels are added by scheduler.
 	ems = append(ems, em)
 
 	// SSL earliest cert expiry is exported in an independent EM as it's a
 	// GAUGE metrics.
 	if result.sslEarliestExpirationSeconds >= 0 {
-		em := metrics.NewEventMetrics(ts).
+		sslEm := metrics.NewEventMetrics(ts).
 			AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(result.sslEarliestExpirationSeconds))
-		em.Kind = metrics.GAUGE
-		em.SetNotForAlerting()       // Helps with quick discard in alert path.
-		em.AddLabel("ptype", "http") // Other labels are added by scheduler.
-		ems = append(ems, em)
+		sslEm.Kind = metrics.GAUGE
+		sslEm.SetNotForAlerting()       // Helps with quick discard in alert path.
+		sslEm.AddLabel("ptype", "http") // Other labels are added by scheduler.
+		ems = append(ems, sslEm)
 	}
 
-	// Append any payload metrics and reset.
-	ems = append(ems, result.payloadMetrics...)
-	result.payloadMetrics = nil
+	// Append any remaining payload metrics and reset.
+	if len(result.payloadMetrics) > 0 {
+		ems = append(ems, result.payloadMetrics...)
+		result.payloadMetrics = nil
+	}
 
 	return ems
 }

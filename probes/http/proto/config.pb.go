@@ -336,6 +336,10 @@ type ProbeConf struct {
 	// will try to extract metrics from HTTP response and export them along with
 	// the default success/total/latency metrics.
 	ResponseMetricsOptions *proto2.OutputMetricsOptions `protobuf:"bytes,96,opt,name=response_metrics_options,json=responseMetricsOptions" json:"response_metrics_options,omitempty"`
+	// Merge header metrics from response_metrics_options into the main probe
+	// metrics instead of creating separate EventMetrics. Only applies when
+	// response_metrics_options is configured with header_metric.
+	MergeHeaderMetrics *bool `protobuf:"varint,25,opt,name=merge_header_metrics,json=mergeHeaderMetrics,def=0" json:"merge_header_metrics,omitempty"`
 	// Interval between targets.
 	IntervalBetweenTargetsMsec *int32 `protobuf:"varint,97,opt,name=interval_between_targets_msec,json=intervalBetweenTargetsMsec,def=10" json:"interval_between_targets_msec,omitempty"`
 	// Requests per probe.
@@ -363,6 +367,7 @@ const (
 	Default_ProbeConf_ExportResponseAsMetrics    = bool(false)
 	Default_ProbeConf_Method                     = ProbeConf_GET
 	Default_ProbeConf_MaxIdleConns               = int32(256)
+	Default_ProbeConf_MergeHeaderMetrics         = bool(false)
 	Default_ProbeConf_IntervalBetweenTargetsMsec = int32(10)
 	Default_ProbeConf_RequestsPerProbe           = int32(1)
 	Default_ProbeConf_RequestsIntervalMsec       = int32(0)
@@ -570,6 +575,13 @@ func (x *ProbeConf) GetResponseMetricsOptions() *proto2.OutputMetricsOptions {
 	return nil
 }
 
+func (x *ProbeConf) GetMergeHeaderMetrics() bool {
+	if x != nil && x.MergeHeaderMetrics != nil {
+		return *x.MergeHeaderMetrics
+	}
+	return Default_ProbeConf_MergeHeaderMetrics
+}
+
 func (x *ProbeConf) GetIntervalBetweenTargetsMsec() int32 {
 	if x != nil && x.IntervalBetweenTargetsMsec != nil {
 		return *x.IntervalBetweenTargetsMsec
@@ -663,7 +675,7 @@ var File_github_com_cloudprober_cloudprober_probes_http_proto_config_proto proto
 
 const file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\x9f\x0f\n" +
+	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xd8\x0f\n" +
 	"\tProbeConf\x12M\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\bprotocol\x12I\n" +
 	"\x06scheme\x18\x15 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\x06scheme\x12!\n" +
@@ -691,7 +703,8 @@ const file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_raw
 	"\x0emax_idle_conns\x18\x11 \x01(\x05:\x03256R\fmaxIdleConns\x12#\n" +
 	"\rmax_redirects\x18\x12 \x01(\x05R\fmaxRedirects\x12`\n" +
 	"\x11latency_breakdown\x18\x16 \x03(\x0e23.cloudprober.probes.http.ProbeConf.LatencyBreakdownR\x10latencyBreakdown\x12k\n" +
-	"\x18response_metrics_options\x18` \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x16responseMetricsOptions\x12E\n" +
+	"\x18response_metrics_options\x18` \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x16responseMetricsOptions\x127\n" +
+	"\x14merge_header_metrics\x18\x19 \x01(\b:\x05falseR\x12mergeHeaderMetrics\x12E\n" +
 	"\x1dinterval_between_targets_msec\x18a \x01(\x05:\x0210R\x1aintervalBetweenTargetsMsec\x12/\n" +
 	"\x12requests_per_probe\x18b \x01(\x05:\x011R\x10requestsPerProbe\x127\n" +
 	"\x16requests_interval_msec\x18c \x01(\x05:\x010R\x14requestsIntervalMsec\x1a2\n" +
