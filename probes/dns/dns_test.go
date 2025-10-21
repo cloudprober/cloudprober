@@ -311,7 +311,7 @@ func TestValidator(t *testing.T) {
 				Type: &validatorpb.Validator_Regex{Regex: tst.pattern},
 			},
 		}
-		validator, err := validators.Init(valPb, nil)
+		validator, err := validators.Init(valPb)
 		if err != nil {
 			t.Fatalf("Error initializing validator for pattern %v: %v", tst.pattern, err)
 		}

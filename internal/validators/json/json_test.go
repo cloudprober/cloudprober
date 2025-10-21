@@ -95,7 +95,7 @@ func TestValidate(t *testing.T) {
 			v := Validator{}
 			err := v.Init(&configpb.Validator{
 				JqFilter: test.jqf,
-			}, nil)
+			})
 
 			if test.parseErr {
 				assert.NotNil(t, err)
@@ -111,7 +111,7 @@ func TestValidate(t *testing.T) {
 				test.input = testInput
 			}
 
-			ret, err := v.Validate([]byte(test.input))
+			ret, err := v.Validate([]byte(test.input), nil)
 			if test.retError {
 				assert.NotNil(t, err)
 			} else {

@@ -28,13 +28,12 @@ import (
 // Validator implements a regex validator.
 type Validator struct {
 	jqQuery *gojq.Query
-	l       *logger.Logger
 }
 
 // Init initializes the JSON validator.
 // It parses the jq filter in the configuration and returns an error if it
 // doesn't parse for some reason.
-func (v *Validator) Init(config interface{}, l *logger.Logger) error {
+func (v *Validator) Init(config interface{}) error {
 	cfg, ok := config.(*configpb.Validator)
 	if !ok {
 		return fmt.Errorf("%v is not a valid json validator config", config)
@@ -49,19 +48,17 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 		v.jqQuery = q
 	}
 
-	v.l = l
-
 	return nil
 }
 
 // Validate the provided responseBody. If no jq filter is configured, it
 // returns true if responseBody is a valid JSON. If jq filter is configured,
 // validator returns true if jq filter returns true.
-func (v *Validator) Validate(responseBody []byte) (bool, error) {
+func (v *Validator) Validate(responseBody []byte, l *logger.Logger) (bool, error) {
 	var input interface{}
 	err := json.Unmarshal(responseBody, &input)
 	if err != nil {
-		v.l.Warningf("JSON validation failure: response %s is not a valid JSON", string(responseBody))
+		l.Errorf("JSON validation failure: response %s is not a valid JSON", string(responseBody))
 		return false, err
 	}
 
@@ -89,7 +86,7 @@ func (v *Validator) Validate(responseBody []byte) (bool, error) {
 			return false, fmt.Errorf("didn't get bool as the jq_filter output (%v)", lastItem)
 		}
 		if !b {
-			v.l.Warningf("JSON validation failure: response %s didn't match the jq filter %s", string(responseBody), v.jqQuery.String())
+			l.Errorf("JSON validation failure: response %s didn't match the jq filter %s", string(responseBody), v.jqQuery.String())
 		}
 		return b, nil
 	}

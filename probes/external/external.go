@@ -1,4 +1,4 @@
-// Copyright 2017-2024 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"regexp"
 	"sort"
 	"strconv"
@@ -213,12 +214,13 @@ type probeStatus struct {
 }
 
 func (p *Probe) processProbeResult(ps *probeStatus, target endpoint.Endpoint, result *result) {
+	l := p.l.WithAttributes(slog.String("target", target.Name))
 	if ps.success && p.opts.Validators != nil {
-		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: []byte(ps.payload)}, result.validationFailure, p.l)
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: []byte(ps.payload)}, result.validationFailure, l)
 
 		// If any validation failed, log and set success to false.
 		if len(failedValidations) > 0 {
-			p.l.Debug("Target:", target.Name, " failed validations: ", strings.Join(failedValidations, ","), ".")
+			l.Error("failed validations: ", strings.Join(failedValidations, ","))
 			ps.success = false
 		}
 	}

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/internal/validators/http/proto"
-	"github.com/cloudprober/cloudprober/logger"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -126,9 +125,9 @@ func TestValidateStatusCode(t *testing.T) {
 	}
 
 	v := &Validator{}
-	err := v.Init(testConfig, &logger.Logger{})
+	err := v.Init(testConfig)
 	if err != nil {
-		t.Errorf("Init(%v, l): err: %v", testConfig, err)
+		t.Errorf("Init(%v): err: %v", testConfig, err)
 	}
 
 	for _, code := range []int{200, 204, 302} {
@@ -136,9 +135,9 @@ func TestValidateStatusCode(t *testing.T) {
 		res := &http.Response{
 			StatusCode: code,
 		}
-		result, _ := v.Validate(res, nil)
+		result, _ := v.Validate(res, nil, nil)
 		if result != expected {
-			t.Errorf("v.Validate(&http.Response{StatusCode: %d}, nil): %v, expected: %v", code, result, expected)
+			t.Errorf("v.Validate(&http.Response{StatusCode: %d}, nil, nil): %v, expected: %v", code, result, expected)
 		}
 	}
 
@@ -147,9 +146,9 @@ func TestValidateStatusCode(t *testing.T) {
 		res := &http.Response{
 			StatusCode: code,
 		}
-		result, _ := v.Validate(res, nil)
+		result, _ := v.Validate(res, nil, nil)
 		if result != expected {
-			t.Errorf("v.Validate(&http.Response{StatusCode: %d}, nil): %v, expected: %v", code, result, expected)
+			t.Errorf("v.Validate(&http.Response{StatusCode: %d}, nil, nil): %v, expected: %v", code, result, expected)
 		}
 	}
 }
@@ -231,9 +230,9 @@ func TestValidateHeaders(t *testing.T) {
 			}
 
 			v := &Validator{}
-			err := v.Init(testConfig, &logger.Logger{})
+			err := v.Init(testConfig)
 			if (err != nil) != test.wantInitError {
-				t.Errorf("Init(%v, l): got err: %v, wantError: %v", testConfig, err, test.wantInitError)
+				t.Errorf("Init(%v): got err: %v, wantError: %v", testConfig, err, test.wantInitError)
 			}
 			if err != nil {
 				return
@@ -243,7 +242,7 @@ func TestValidateHeaders(t *testing.T) {
 				Header:     respHeader,
 				StatusCode: respStatus,
 			}
-			ok, err := v.Validate(resp, nil)
+			ok, err := v.Validate(resp, nil, nil)
 			if err != nil {
 				t.Errorf("Error running validate (resp: %v): %v", resp, err)
 			}
@@ -310,7 +309,7 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 			}
 
 			v := Validator{}
-			err := v.Init(testConfig, nil)
+			err := v.Init(testConfig)
 			if err != nil {
 				t.Errorf("Error initializing validator: %v", err)
 			}
@@ -322,7 +321,7 @@ func TestValidateLastModifiedHeader(t *testing.T) {
 				StatusCode: http.StatusOK,
 			}
 
-			ok, err := v.Validate(resp, nil)
+			ok, err := v.Validate(resp, nil, nil)
 			if err != nil {
 				t.Errorf("Error running validate (resp: %v): %v", resp, err)
 			}
@@ -357,7 +356,7 @@ func TestValidateLastModifiedHeaderFailure(t *testing.T) {
 			}
 
 			v := Validator{}
-			err := v.Init(testConfig, nil)
+			err := v.Init(testConfig)
 			if err != nil {
 				t.Errorf("Error initializing validator: %v", err)
 			}
@@ -369,7 +368,7 @@ func TestValidateLastModifiedHeaderFailure(t *testing.T) {
 				StatusCode: http.StatusOK,
 			}
 
-			ok, err := v.Validate(resp, nil)
+			ok, err := v.Validate(resp, nil, nil)
 			if err != nil {
 				t.Errorf("Error running validate: %s", err)
 			}
@@ -388,7 +387,7 @@ func TestValidateLastModifiedHeaderMissing(t *testing.T) {
 	}
 
 	v := Validator{}
-	err := v.Init(testConfig, nil)
+	err := v.Init(testConfig)
 	if err != nil {
 		t.Errorf("Error initializing validator: %v", err)
 	}
@@ -398,7 +397,7 @@ func TestValidateLastModifiedHeaderMissing(t *testing.T) {
 		StatusCode: http.StatusOK,
 	}
 
-	ok, err := v.Validate(resp, nil)
+	ok, err := v.Validate(resp, nil, nil)
 	if err != nil {
 		t.Errorf("Error running validate: %s", err)
 	}

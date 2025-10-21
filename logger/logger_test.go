@@ -96,6 +96,31 @@ func TestEnvVarSet(t *testing.T) {
 	}
 }
 
+func TestWithAttributes(t *testing.T) {
+	// Create a base logger with some initial attributes
+	baseLogger := New(WithAttr(slog.String("base1", "value1"), slog.String("base2", "value2")))
+
+	// Add new attributes using WithAttributes
+	newAttrs := []slog.Attr{
+		slog.String("new1", "newvalue1"),
+		slog.String("new2", "newvalue2"),
+	}
+	newLogger := baseLogger.WithAttributes(newAttrs...)
+
+	assert.Equal(t, newLogger.attrs, append(baseLogger.attrs, newAttrs...))
+
+	// Verify other fields are properly copied
+	if newLogger.minLogLevel != baseLogger.minLogLevel {
+		t.Error("minLogLevel was not properly copied")
+	}
+	if newLogger.disableCloudLogging != baseLogger.disableCloudLogging {
+		t.Error("disableCloudLogging was not properly copied")
+	}
+	if newLogger.gcpLoggingEndpoint != baseLogger.gcpLoggingEndpoint {
+		t.Error("gcpLoggingEndpoint was not properly copied")
+	}
+}
+
 func TestWithAttr(t *testing.T) {
 	tests := []struct {
 		name      string

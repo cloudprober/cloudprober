@@ -35,11 +35,11 @@ import (
 // reason (e.g. for malformed input), an error is returned.
 type Validator struct {
 	Name     string
-	Validate func(input *Input) (bool, error)
+	Validate func(input *Input, l *logger.Logger) (bool, error)
 }
 
 // Init initializes the validators defined in the config.
-func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*Validator, error) {
+func Init(validatorConfs []*configpb.Validator) ([]*Validator, error) {
 	var validators []*Validator
 	names := make(map[string]bool)
 
@@ -52,7 +52,7 @@ func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*Validator,
 			return nil, fmt.Errorf("validator %s is defined twice", vc.GetName())
 		}
 
-		v, err := initValidator(vc, l)
+		v, err := initValidator(vc)
 		if err != nil {
 			return nil, err
 		}
@@ -64,47 +64,47 @@ func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*Validator,
 	return validators, nil
 }
 
-func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validator *Validator, err error) {
+func initValidator(validatorConf *configpb.Validator) (validator *Validator, err error) {
 	validator = &Validator{Name: validatorConf.Name}
 
 	switch validatorConf.Type.(type) {
 	case *configpb.Validator_HttpValidator:
 		v := &http.Validator{}
-		if err := v.Init(validatorConf.GetHttpValidator(), l); err != nil {
+		if err := v.Init(validatorConf.GetHttpValidator()); err != nil {
 			return nil, err
 		}
-		validator.Validate = func(input *Input) (bool, error) {
-			return v.Validate(input.Response, input.ResponseBody)
+		validator.Validate = func(input *Input, l *logger.Logger) (bool, error) {
+			return v.Validate(input.Response, input.ResponseBody, l)
 		}
 		return
 
 	case *configpb.Validator_IntegrityValidator:
 		v := &integrity.Validator{}
-		if err := v.Init(validatorConf.GetIntegrityValidator(), l); err != nil {
+		if err := v.Init(validatorConf.GetIntegrityValidator()); err != nil {
 			return nil, err
 		}
-		validator.Validate = func(input *Input) (bool, error) {
-			return v.Validate(input.ResponseBody)
+		validator.Validate = func(input *Input, l *logger.Logger) (bool, error) {
+			return v.Validate(input.ResponseBody, l)
 		}
 		return
 
 	case *configpb.Validator_JsonValidator:
 		v := &json.Validator{}
-		if err := v.Init(validatorConf.GetJsonValidator(), l); err != nil {
+		if err := v.Init(validatorConf.GetJsonValidator()); err != nil {
 			return nil, err
 		}
-		validator.Validate = func(input *Input) (bool, error) {
-			return v.Validate(input.ResponseBody)
+		validator.Validate = func(input *Input, l *logger.Logger) (bool, error) {
+			return v.Validate(input.ResponseBody, l)
 		}
 		return
 
 	case *configpb.Validator_Regex:
 		v := &regex.Validator{}
-		if err := v.Init(validatorConf.GetRegex(), l); err != nil {
+		if err := v.Init(validatorConf.GetRegex()); err != nil {
 			return nil, err
 		}
-		validator.Validate = func(input *Input) (bool, error) {
-			return v.Validate(input.ResponseBody)
+		validator.Validate = func(input *Input, l *logger.Logger) (bool, error) {
+			return v.Validate(input.ResponseBody, l)
 		}
 		return
 	default:
@@ -126,7 +126,7 @@ func RunValidators(vs []*Validator, input *Input, validationFailure *metrics.Map
 	var failures []string
 
 	for _, v := range vs {
-		success, err := v.Validate(input)
+		success, err := v.Validate(input, l)
 		if err != nil {
 			l.Error("Error while running the validator ", v.Name, ": ", err.Error())
 			continue

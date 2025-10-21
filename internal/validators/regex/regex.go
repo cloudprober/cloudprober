@@ -27,13 +27,12 @@ import (
 // Validator implements a regex validator.
 type Validator struct {
 	r *regexp.Regexp
-	l *logger.Logger
 }
 
 // Init initializes the regex validator.
 // It compiles the regex in the configuration and returns an error if regex
 // doesn't compile for some reason.
-func (v *Validator) Init(config interface{}, l *logger.Logger) error {
+func (v *Validator) Init(config interface{}) error {
 	regexStr, ok := config.(string)
 	if !ok {
 		return fmt.Errorf("%v is not a valid regex validator config", config)
@@ -48,16 +47,15 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 	}
 
 	v.r = r
-	v.l = l
 	return nil
 }
 
 // Validate the provided responseBody and return true if responseBody matches
 // the configured regex.
-func (v *Validator) Validate(responseBody []byte) (bool, error) {
+func (v *Validator) Validate(responseBody []byte, l *logger.Logger) (bool, error) {
 	matched := v.r.Match(responseBody)
 	if !matched {
-		v.l.Warningf("Regex validation failure: response %s didn't match the regex %s", string(responseBody), v.r.String())
+		l.Errorf("Regex validation failure: response %s didn't match the regex %s", string(responseBody), v.r.String())
 	}
 	return matched, nil
 }

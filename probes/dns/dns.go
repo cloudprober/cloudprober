@@ -1,4 +1,4 @@
-// Copyright 2017-2024 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strconv"
 	"strings"
@@ -208,9 +209,9 @@ func isClientTimeout(err error) bool {
 // validateResponse checks status code and answer section for correctness and
 // returns true if the response is valid. In case of validation failures, it
 // also updates the result structure.
-func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunResult) bool {
+func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunResult, l *logger.Logger) bool {
 	if resp == nil || resp.Rcode != dns.RcodeSuccess {
-		p.l.Warningf("Target(%s): error in response %v", target, resp)
+		l.Warning("error in response %v", resp.String())
 		return false
 	}
 
@@ -218,8 +219,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	// TODO: Move this logic to validators.
 	minAnswers := p.c.GetMinAnswers()
 	if minAnswers > 0 && uint32(len(resp.Answer)) < minAnswers {
-		p.l.Warningf("Target(%s): too few answers - got %d want %d.\n\tAnswerBlock: %v",
-			target, len(resp.Answer), minAnswers, resp.Answer)
+		l.Warningf("too few answers - got %d want %d.\n\tAnswerBlock: %v", len(resp.Answer), minAnswers, resp.Answer)
 		return false
 	}
 
@@ -232,9 +232,9 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 		}
 		respBytes := []byte(strings.Join(answers, "\n"))
 
-		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: respBytes}, result.validationFailure, p.l)
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: respBytes}, result.validationFailure, l)
 		if len(failedValidations) > 0 {
-			p.l.Debugf("Target(%s): validators %v failed. Resp: %v", target, failedValidations, answers)
+			l.Error("failed validations: ", strings.Join(failedValidations, ","))
 			return false
 		}
 	}
@@ -243,6 +243,8 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 }
 
 func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRunResult, resultMu *sync.Mutex) {
+	l := p.l.WithAttributes(slog.String("target", target))
+
 	// Generate a new question for each probe so transaction IDs aren't repeated.
 	msg := new(dns.Msg)
 	msg.SetQuestion(p.fqdn, p.queryType)
@@ -257,12 +259,12 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 
 	if err != nil {
 		if isClientTimeout(err) {
-			p.l.Warningf("Target(%s): client.Exchange: Timeout error: %v", target, err)
+			l.Warning("client.Exchange: Timeout error: ", err.Error())
 			result.timeouts.Inc()
 		} else {
-			p.l.Warningf("Target(%s): client.Exchange: %v", target, err)
+			l.Warning("client.Exchange: ", err.Error())
 		}
-	} else if p.validateResponse(resp, target, result) {
+	} else if p.validateResponse(resp, target, result, l) {
 		result.success.Inc()
 		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	}

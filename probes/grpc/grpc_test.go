@@ -213,7 +213,7 @@ func TestGRPCSuccess(t *testing.T) {
 						},
 					},
 				}
-				probeOpts.Validators, _ = validators.Init(cfg, nil)
+				probeOpts.Validators, _ = validators.Init(cfg)
 			}
 
 			cfg := &configpb.ProbeConf{
@@ -564,7 +564,7 @@ func TestHealthCheckProbe(t *testing.T) {
 				}, nil
 			}
 
-			_, err := p.healthCheckProbe(context.Background(), nil)
+			_, err := p.healthCheckProbe(context.Background(), nil, nil)
 			if err != nil && !test.wantErr {
 				t.Errorf("Unexpected error: %v", err)
 				return

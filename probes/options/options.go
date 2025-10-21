@@ -227,7 +227,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 	}
 
 	if len(p.GetValidator()) > 0 {
-		opts.Validators, err = validators.Init(p.GetValidator(), opts.Logger)
+		opts.Validators, err = validators.Init(p.GetValidator())
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize validators: %v", err)
 		}
