@@ -1,4 +1,4 @@
-// Copyright 2017-2022 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -503,7 +503,19 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 	}
 
 	// Append any payload metrics and reset.
-	ems = append(ems, result.payloadMetrics...)
+	// If there is only one timestamp, use the same timestamp for all metrics.
+	timestamps := map[time.Time]bool{}
+	for _, em := range result.payloadMetrics {
+		timestamps[em.Timestamp] = true
+	}
+	if len(timestamps) == 1 {
+		for _, em := range result.payloadMetrics {
+			em.Timestamp = ts
+			ems = append(ems, em)
+		}
+	} else {
+		ems = append(ems, result.payloadMetrics...)
+	}
 	result.payloadMetrics = nil
 
 	return ems
