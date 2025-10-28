@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/internal/validators/proto"
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -26,11 +27,11 @@ import (
 var testValidators = []*Validator{
 	{
 		Name:     "test-v1",
-		Validate: func(input *Input) (bool, error) { return true, nil },
+		Validate: func(input *Input, l *logger.Logger) (bool, error) { return true, nil },
 	},
 	{
 		Name:     "test-v2",
-		Validate: func(input *Input) (bool, error) { return false, nil },
+		Validate: func(input *Input, l *logger.Logger) (bool, error) { return false, nil },
 	},
 }
 
@@ -124,7 +125,7 @@ func TestInit(t *testing.T) {
 				validators = append(validators, v)
 			}
 
-			got, err := Init(validators, nil)
+			got, err := Init(validators)
 			if err != nil {
 				if tt.wantErr == "" {
 					t.Errorf("Init() unexpected error: %v", err)

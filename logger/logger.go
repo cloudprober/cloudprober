@@ -237,7 +237,7 @@ func newLogger(opts ...Option) *Logger {
 	l.attrs = append([]slog.Attr{slog.String("system", l.systemAttr)}, l.attrs...)
 
 	// Initialize the traditional logger.
-	l.shandler = slogHandler(l.writer).WithAttrs(l.attrs)
+	l.shandler = slogHandler(l.writer)
 
 	if enableDebugLog(*debugLog, *debugLogList, l.attrs...) {
 		l.minLogLevel = slog.LevelDebug
@@ -266,6 +266,20 @@ func WithAttr(attrs ...slog.Attr) Option {
 func WithWriter(w io.Writer) Option {
 	return func(l *Logger) {
 		l.writer = w
+	}
+}
+
+func (l *Logger) WithAttributes(attrs ...slog.Attr) *Logger {
+	return &Logger{
+		shandler:            l.shandler,
+		gcpLogc:             l.gcpLogc,
+		gcpLogger:           l.gcpLogger,
+		minLogLevel:         l.minLogLevel,
+		disableCloudLogging: l.disableCloudLogging,
+		gcpLoggingEndpoint:  l.gcpLoggingEndpoint,
+		attrs:               append(l.attrs, attrs...),
+		systemAttr:          l.systemAttr,
+		writer:              l.writer,
 	}
 }
 
@@ -404,7 +418,7 @@ func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog
 	r.AddAttrs(attrs...)
 
 	if l != nil && l.shandler != nil {
-		l.shandler.Handle(context.Background(), r)
+		l.shandler.WithAttrs(l.attrs).Handle(context.Background(), r)
 	} else {
 		slogHandler(nil).Handle(context.Background(), r)
 	}
