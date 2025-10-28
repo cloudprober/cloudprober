@@ -28,12 +28,10 @@ import (
 type Validator struct {
 	pattern         []byte
 	patternNumBytes int32
-
-	l *logger.Logger
 }
 
 // Init initializes the integrity validator.
-func (v *Validator) Init(config interface{}, l *logger.Logger) error {
+func (v *Validator) Init(config interface{}) error {
 	c, ok := config.(*configpb.Validator)
 	if !ok {
 		return fmt.Errorf("%v is not a valid integrity validator config", config)
@@ -50,13 +48,12 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 		return fmt.Errorf("bad integrity validator config (%v): one of pattern_string and pattern_num_bytes should be set", c)
 	}
 
-	v.l = l
 	return nil
 }
 
 // Validate validates the provided responseBody for data integrity errors, for
 // example, data corruption.
-func (v *Validator) Validate(responseBody []byte) (bool, error) {
+func (v *Validator) Validate(responseBody []byte, l *logger.Logger) (bool, error) {
 	pattern := v.pattern
 	if len(pattern) == 0 {
 		if len(responseBody) < int(v.patternNumBytes) {
@@ -68,7 +65,7 @@ func (v *Validator) Validate(responseBody []byte) (bool, error) {
 	err := probeutils.VerifyPayloadPattern(responseBody, pattern)
 
 	if err != nil {
-		v.l.Error(err.Error())
+		l.Error(err.Error())
 		return false, nil
 	}
 
@@ -86,7 +83,7 @@ func PatternNumBytesValidator(patternNumbBytes int32, l *logger.Logger) (*Valida
 		},
 	}
 
-	if err := v.Init(vConfig, l); err != nil {
+	if err := v.Init(vConfig); err != nil {
 		return nil, fmt.Errorf("error initializing data integrity validator: %v", err)
 	}
 
