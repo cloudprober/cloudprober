@@ -5,12 +5,6 @@
 //   # EC2 instances
 //   ec2_instances {}
 //
-//   # ElastiCache clusters
-//   elasticache_clusters {}
-//
-//   # ElastiCache replication groups
-//   elasticache_replicationgroups {}
-//
 //   # RDS clusters
 //   rds_clusters {
 //     identifier: "arn"
@@ -31,21 +25,6 @@ message EC2Instances {
   // How often resources should be refreshed.
   optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
 }
-
-// ElastiCacheReplicationGroups discovery options.
-message ElastiCacheReplicationGroups {
-
-  // How often resources should be refreshed.
-  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
-}
-
-// ElastiCacheClusters discovery options.
-message ElastiCacheClusters {
-
-  // How often resources should be refreshed.
-  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
-}
-
 
 // RDS (Amazon Relational Databases) Clusters discovery options.
 message RDSClusters {
@@ -77,13 +56,6 @@ message RDSInstances {
   optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
 }
 
-// LoadBalancers discovery options.
-message LoadBalancers {
-  // Names of the load balancers,
-  // if specified, only the corresponding load balancer information is returned.
-  repeated string name = 1;
-}
-
 // AWS provider config.
 message ProviderConfig {
   // Profile for the session.
@@ -92,17 +64,9 @@ message ProviderConfig {
   // AWS region
   optional string region = 2;
 
-  // ECS instances discovery options. This field should be declared for the AWS
+  // EC2 instances discovery options. This field should be declared for the AWS
   // instances discovery to be enabled.
   optional EC2Instances ec2_instances = 3;
-
-  // ElastiCacheReplicationGroups discovery options. This field should be declared for the
-  // elasticache replication groups discovery to be enabled.
-  optional ElastiCacheReplicationGroups elasticache_replicationgroups = 4;
-
-  // ElastiCacheClusters discovery options. This field should be declared for the
-  // elasticache cluster discovery to be enabled.
-  optional ElastiCacheClusters elasticache_clusters = 5;
 
   // RDS instances discovery options.
   optional RDSInstances rds_instances = 6;

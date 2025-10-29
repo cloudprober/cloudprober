@@ -16,8 +16,6 @@ Before running these examples, you need:
    - `ec2:DescribeInstances` for EC2 discovery
    - `rds:DescribeDBInstances` for RDS instance discovery
    - `rds:DescribeDBClusters` for RDS cluster discovery
-   - `elasticache:DescribeCacheClusters` for ElastiCache cluster discovery
-   - `elasticache:DescribeReplicationGroups` for ElastiCache replication group discovery
 
 ## Examples
 
@@ -40,7 +38,7 @@ cloudprober --config_file=ec2_instances.cfg
 A comprehensive example demonstrating discovery of multiple AWS resource types.
 
 **Features:**
-- Discovers EC2 instances, RDS instances/clusters, and ElastiCache clusters/replication groups
+- Discovers EC2 instances, RDS instances, and RDS clusters
 - Shows different probe types (HTTP and TCP)
 - Demonstrates resource-specific configuration options
 
@@ -56,8 +54,6 @@ cloudprober --config_file=rds_all_resources.cfg
 | `aws://ec2_instances` | EC2 instances |
 | `aws://rds_instances` | RDS database instances |
 | `aws://rds_clusters` | RDS database clusters (Aurora, etc.) |
-| `aws://elasticache_clusters` | ElastiCache clusters |
-| `aws://elasticache_replicationgroups` | ElastiCache replication groups |
 
 ## Configuration Options
 

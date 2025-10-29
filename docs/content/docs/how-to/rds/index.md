@@ -135,8 +135,6 @@ filtering by name and labels.
   - [Pub/Sub Messages](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/pubsub.go#L34)
 - AWS resource types:
   - **ec2_instances**: EC2 instances
-  - **elasticache_clusters**: ElastiCache clusters
-  - **elasticache_replicationgroups**: ElastiCache replication groups
   - **rds_clusters**: RDS database clusters
   - **rds_instances**: RDS database instances
 
@@ -174,8 +172,8 @@ resource_path: "aws://ec2_instances"
 # RDS database instances
 resource_path: "aws://rds_instances"
 
-# ElastiCache clusters
-resource_path: "aws://elasticache_clusters"
+# RDS database clusters
+resource_path: "aws://rds_clusters"
 ```
 
 ## Running RDS Server
@@ -247,16 +245,6 @@ rds_server {
 
       # Discover RDS database clusters.
       rds_clusters {
-        re_eval_sec: 60
-      }
-
-      # Discover ElastiCache clusters.
-      elasticache_clusters {
-        re_eval_sec: 60
-      }
-
-      # Discover ElastiCache replication groups.
-      elasticache_replicationgroups {
         re_eval_sec: 60
       }
     }

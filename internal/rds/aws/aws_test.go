@@ -20,7 +20,7 @@ import (
 	serverconfigpb "github.com/cloudprober/cloudprober/internal/rds/server/proto"
 )
 
-func testAWSConfig(t *testing.T, pc *serverconfigpb.Provider, awsInstances bool, rdsInstancesConfig, rdsClustersConfig, elasticCacheClustersConfig, elasticCacheRGConfig string, reEvalSec int) {
+func testAWSConfig(t *testing.T, pc *serverconfigpb.Provider, awsInstances bool, rdsInstancesConfig, rdsClustersConfig string, reEvalSec int) {
 	t.Helper()
 
 	if pc.GetId() != DefaultProviderID {
@@ -34,38 +34,10 @@ func testAWSConfig(t *testing.T, pc *serverconfigpb.Provider, awsInstances bool,
 		}
 	} else {
 		if c.GetEc2Instances() == nil {
-			t.Fatal("c.GetGceInstances() is nil, wanted=not-nil")
+			t.Fatal("c.GetEc2Instances() is nil, wanted=not-nil")
 		}
 		if c.GetEc2Instances().GetReEvalSec() != int32(reEvalSec) {
 			t.Errorf("AWS instance reEvalSec=%d, wanted=%d", c.GetEc2Instances().GetReEvalSec(), reEvalSec)
-		}
-	}
-
-	// Verify that ElastiCacheClusters is set correctly.
-	if elasticCacheClustersConfig == "" {
-		if c.GetElasticacheClusters() != nil {
-			t.Errorf("c.GetElasticacheClusters()=%v, wanted=nil", c.GetElasticacheClusters())
-		}
-	} else {
-		if c.GetElasticacheClusters() == nil {
-			t.Fatalf("c.GetElasticaches()=nil, wanted=not-nil")
-		}
-		if c.GetElasticacheClusters().GetReEvalSec() != int32(reEvalSec) {
-			t.Errorf("Elasticacheclusters config reEvalSec=%d, wanted=%d", c.GetElasticacheClusters().GetReEvalSec(), reEvalSec)
-		}
-	}
-
-	// Verify that ElastiCacheReplicationGroups is set correctly.
-	if elasticCacheRGConfig == "" {
-		if c.GetElasticacheReplicationgroups() != nil {
-			t.Errorf("c.GetElasticacheReplicationgroups()=%v, wanted=nil", c.GetElasticacheReplicationgroups())
-		}
-	} else {
-		if c.GetElasticacheReplicationgroups() == nil {
-			t.Fatalf("c.GetElasticacheReplicationgroups()=nil, wanted=not-nil")
-		}
-		if c.GetElasticacheReplicationgroups().GetReEvalSec() != int32(reEvalSec) {
-			t.Errorf("Elasticachereplicationgroups config reEvalSec=%d, wanted=%d", c.GetElasticacheReplicationgroups().GetReEvalSec(), reEvalSec)
 		}
 	}
 
@@ -105,29 +77,24 @@ func TestDefaultProviderConfig(t *testing.T) {
 	}
 
 	c := DefaultProviderConfig(resTypes, 10)
-	testAWSConfig(t, c, true, "", "", "", "", 10)
+	testAWSConfig(t, c, true, "", "", 10)
 
-	// Elasticache cluster, replication groups and RDS
-	testElastiCacheClustersConfig := "elasticache_clusters"
-	testElastiCacheReplicationGroupsConfig := "elasticache_replicationgroups"
+	// RDS instances and clusters
 	testRDSInstancesConfig := "rds_instances"
 	testRDSClustersConfig := "rds_clusters"
 
 	resTypes = map[string]string{
-		ResourceTypes.ElastiCacheClusters:          testElastiCacheClustersConfig,
-		ResourceTypes.ElastiCacheReplicationGroups: testElastiCacheReplicationGroupsConfig,
-		ResourceTypes.RDSClusters:                  testRDSClustersConfig,
-		ResourceTypes.RDSInstances:                 testRDSInstancesConfig,
+		ResourceTypes.RDSClusters:  testRDSClustersConfig,
+		ResourceTypes.RDSInstances: testRDSInstancesConfig,
 	}
 	c = DefaultProviderConfig(resTypes, 10)
-	testAWSConfig(t, c, false, testRDSInstancesConfig, testRDSClustersConfig, testElastiCacheClustersConfig, testElastiCacheReplicationGroupsConfig, 10)
+	testAWSConfig(t, c, false, testRDSInstancesConfig, testRDSClustersConfig, 10)
 
 	// EC2 and RDS instances
 	resTypes = map[string]string{
-		ResourceTypes.EC2Instances:                 "",
-		ResourceTypes.ElastiCacheReplicationGroups: testElastiCacheReplicationGroupsConfig,
-		ResourceTypes.RDSInstances:                 testRDSInstancesConfig,
+		ResourceTypes.EC2Instances: "",
+		ResourceTypes.RDSInstances: testRDSInstancesConfig,
 	}
 	c = DefaultProviderConfig(resTypes, 10)
-	testAWSConfig(t, c, true, testRDSInstancesConfig, "", "", testElastiCacheReplicationGroupsConfig, 10)
+	testAWSConfig(t, c, true, testRDSInstancesConfig, "", 10)
 }

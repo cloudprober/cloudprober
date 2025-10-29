@@ -45,11 +45,9 @@ const DefaultProviderID = "aws"
 
 // ResourceTypes declares resource types supported by the AWS provider.
 var ResourceTypes = struct {
-	EC2Instances, ElastiCacheClusters, ElastiCacheReplicationGroups, RDSClusters, RDSInstances string
+	EC2Instances, RDSClusters, RDSInstances string
 }{
 	"ec2_instances",
-	"elasticache_clusters",
-	"elasticache_replicationgroups",
 	"rds_clusters",
 	"rds_instances",
 }
@@ -103,16 +101,6 @@ func DefaultProviderConfig(resTypes map[string]string, reEvalSec int) *servercon
 		switch k {
 		case ResourceTypes.EC2Instances:
 			c.Ec2Instances = &configpb.EC2Instances{
-				ReEvalSec: proto.Int32(int32(reEvalSec)),
-			}
-
-		case ResourceTypes.ElastiCacheClusters:
-			c.ElasticacheClusters = &configpb.ElastiCacheClusters{
-				ReEvalSec: proto.Int32(int32(reEvalSec)),
-			}
-
-		case ResourceTypes.ElastiCacheReplicationGroups:
-			c.ElasticacheReplicationgroups = &configpb.ElastiCacheReplicationGroups{
 				ReEvalSec: proto.Int32(int32(reEvalSec)),
 			}
 
