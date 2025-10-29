@@ -1,4 +1,4 @@
-// Copyright 2017-2022 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -308,7 +308,7 @@ func (p *Probe) requestTrace(result *probeResult) *httptrace.ClientTrace {
 
 // doHTTPRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
-	logAttrs := []slog.Attr{slog.String("target", target.Name), slog.String("url", req.URL.String())}
+	l := p.l.WithAttributes(slog.String("target", target.Name), slog.String("url", req.URL.String()))
 
 	req = p.prepareRequest(req)
 
@@ -333,17 +333,17 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		if isClientTimeout(err) {
 			result.timeouts++
 		}
-		p.l.WarningAttrs(err.Error(), logAttrs...)
+		l.Warning(err.Error())
 		return err
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		p.l.WarningAttrs(err.Error(), logAttrs...)
+		l.Warning(err.Error())
 		return err
 	}
 
-	p.l.DebugAttrs("Response: \n"+string(respBody), logAttrs...)
+	l.Debug("Response: \n" + string(respBody))
 
 	// Calling Body.Close() allows the TCP connection to be reused.
 	resp.Body.Close()
@@ -363,13 +363,13 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 	}
 
 	if p.opts.Validators != nil {
-		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{Response: resp, ResponseBody: respBody}, result.validationFailure, p.l)
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{Response: resp, ResponseBody: respBody}, result.validationFailure, l)
 
 		// If any validation failed, return now, leaving the success and latency
 		// counters unchanged.
 		if len(failedValidations) > 0 {
 			msg := fmt.Sprintf("failed validations: %s", strings.Join(failedValidations, ","))
-			p.l.DebugAttrs(msg, logAttrs...)
+			l.Error(msg)
 			return errors.New(msg)
 		}
 	}
@@ -503,7 +503,19 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 	}
 
 	// Append any payload metrics and reset.
-	ems = append(ems, result.payloadMetrics...)
+	// If there is only one timestamp, use the same timestamp for all metrics.
+	timestamps := map[time.Time]bool{}
+	for _, em := range result.payloadMetrics {
+		timestamps[em.Timestamp] = true
+	}
+	if len(timestamps) == 1 {
+		for _, em := range result.payloadMetrics {
+			em.Timestamp = ts
+			ems = append(ems, em)
+		}
+	} else {
+		ems = append(ems, result.payloadMetrics...)
+	}
 	result.payloadMetrics = nil
 
 	return ems

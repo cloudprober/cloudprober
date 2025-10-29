@@ -32,7 +32,6 @@ import (
 // Validator implements a validator for HTTP responses.
 type Validator struct {
 	c *configpb.Validator
-	l *logger.Logger
 
 	successStatusCodeRanges []*numRange
 	failureStatusCodeRanges []*numRange
@@ -163,7 +162,7 @@ func (v *Validator) initHeaderValidators(c *configpb.Validator) error {
 }
 
 // Init initializes the HTTP validator.
-func (v *Validator) Init(config interface{}, l *logger.Logger) error {
+func (v *Validator) Init(config interface{}) error {
 	c, ok := config.(*configpb.Validator)
 	if !ok {
 		return fmt.Errorf("%v is not a valid HTTP validator config", config)
@@ -174,8 +173,6 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 	}
 
 	v.c = c
-	v.l = l
-
 	var err error
 	if c.GetSuccessStatusCodes() != "" {
 		v.successStatusCodeRanges, err = parseStatusCodeConfig(c.GetSuccessStatusCodes())
@@ -202,7 +199,7 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 // expects the input to be of the type: *http.Response. Note that it doesn't
 // use the string input, it's part of the function signature to satisfy
 // Validator interface.
-func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
+func (v *Validator) Validate(input interface{}, unused []byte, l *logger.Logger) (bool, error) {
 	res, ok := input.(*nethttp.Response)
 	if !ok {
 		return false, fmt.Errorf("input %v is not of type http.Response", input)
@@ -210,28 +207,28 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 
 	if v.c.GetFailureStatusCodes() != "" {
 		if lookupStatusCode(res.StatusCode, v.failureStatusCodeRanges) {
-			v.l.Warningf("HTTP validation failure: status code %d in failure status codes: %s, status: %s", res.StatusCode, v.c.GetFailureStatusCodes(), res.Status)
+			l.Errorf("HTTP validation failure: status code %d in failure status codes: %s, status: %s", res.StatusCode, v.c.GetFailureStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if failureHeader := v.c.GetFailureHeader(); failureHeader != nil {
 		if lookupHTTPHeader(res.Header, failureHeader.GetName(), v.failureHeaderRegexp) {
-			v.l.Warningf("HTTP validation failure: got unexpected header %s", failureHeader.GetName())
+			l.Errorf("HTTP validation failure: got unexpected header %s", failureHeader.GetName())
 			return false, nil
 		}
 	}
 
 	if v.c.GetSuccessStatusCodes() != "" {
 		if !lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
-			v.l.Warningf("HTTP validation failure: status code %d not in success status codes: %s, status: %s, ", res.StatusCode, v.c.GetSuccessStatusCodes(), res.Status)
+			l.Errorf("HTTP validation failure: status code %d not in success status codes: %s, status: %s, ", res.StatusCode, v.c.GetSuccessStatusCodes(), res.Status)
 			return false, nil
 		}
 	}
 
 	if successHeader := v.c.GetSuccessHeader(); successHeader != nil {
 		if !lookupHTTPHeader(res.Header, successHeader.GetName(), v.successHeaderRegexp) {
-			v.l.Warningf("HTTP validation failure: header %s not found", successHeader.GetName())
+			l.Errorf("HTTP validation failure: header %s not found", successHeader.GetName())
 			return false, nil
 		}
 	}
@@ -239,12 +236,12 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 	if v.maxLastModifiedDiff != time.Duration(0) {
 		lastModified, err := time.Parse(time.RFC1123, res.Header.Get("Last-Modified"))
 		if err != nil {
-			v.l.Warningf("HTTP validation failure: Error parsing Last-Modified header: %v", err)
+			l.Errorf("HTTP validation failure: Error parsing Last-Modified header: %v", err)
 			return false, nil
 		}
 
 		if time.Since(lastModified) > v.maxLastModifiedDiff {
-			v.l.Warningf("HTTP validation failure: Last-Modified header is too old: %v", lastModified)
+			l.Errorf("HTTP validation failure: Last-Modified header is too old: %v", lastModified)
 			return false, nil
 		}
 	}

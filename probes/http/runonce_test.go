@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/internal/validators"
+	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
@@ -82,7 +83,7 @@ func TestRunOnce(t *testing.T) {
 			opts.Validators = []*validators.Validator{
 				{
 					Name: "statuscode-validator",
-					Validate: func(input *validators.Input) (bool, error) {
+					Validate: func(input *validators.Input, l *logger.Logger) (bool, error) {
 						if input.Response.(*http.Response).StatusCode != http.StatusOK {
 							return false, nil
 						}
