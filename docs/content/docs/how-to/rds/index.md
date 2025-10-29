@@ -151,10 +151,13 @@ follows the standard AWS credentials chain:
 
 #### AWS Resource Configuration
 
-Each AWS resource type supports the following common options:
+The AWS provider is configured at the provider level with:
 
 - **region**: AWS region to query (e.g., "us-east-1", "eu-west-1")
 - **profile_name**: Optional AWS profile name from credentials file
+
+Each AWS resource type supports:
+
 - **re_eval_sec**: How often to refresh the resource list (default: 600 seconds)
 
 RDS-specific resources (rds_instances and rds_clusters) support additional options:
