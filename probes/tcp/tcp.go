@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net"
 	"strconv"
 	"time"
@@ -200,6 +201,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 
 	target, result := runReq.Target, runReq.Result.(*probeResult)
+	l := p.l.WithAttributes(slog.String("target", target.Name))
 
 	result.total++
 
@@ -215,7 +217,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	if resolveFirst {
 		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
-			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
+			l.Error("resolve error: ", err.Error())
 			return
 		}
 		host = ip.String()
@@ -238,7 +240,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	if p.opts.NegativeTest {
 		if err == nil {
-			p.l.Warning("Negative test, but connection was successful to: ", addr)
+			l.Error("Negative test, but connection was successful to: ", addr)
 			return
 		}
 		result.success++
@@ -246,7 +248,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 
 	if err != nil {
-		p.l.Warning("Target:", target.Name, ", doTCP: ", err.Error())
+		l.Error(err.Error())
 		return
 	}
 	result.success++
