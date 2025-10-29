@@ -457,7 +457,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			// If any validation failed, return now, leaving the success and latency
 			// counters unchanged.
 			if len(failedValidations) > 0 {
-				p.l.Debug("Target:", pkt.target, " ping.recvPackets: failed validations: ", strings.Join(failedValidations, ","), ".")
+				p.l.Error("Target:", pkt.target, " ping.recvPackets: failed validations: ", strings.Join(failedValidations, ","), ".")
 				continue
 			}
 		}
