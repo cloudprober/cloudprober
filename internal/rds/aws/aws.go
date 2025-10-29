@@ -92,29 +92,39 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 	}, nil
 }
 
+// configSetter is a function type that sets a specific resource configuration
+// in the ProviderConfig.
+type configSetter func(*configpb.ProviderConfig, int32)
+
+// resourceConfigSetters maps resource types to their corresponding config setter functions.
+var resourceConfigSetters = map[string]configSetter{
+	ResourceTypes.EC2Instances: func(c *configpb.ProviderConfig, reEvalSec int32) {
+		c.Ec2Instances = &configpb.EC2Instances{
+			ReEvalSec: proto.Int32(reEvalSec),
+		}
+	},
+	ResourceTypes.RDSInstances: func(c *configpb.ProviderConfig, reEvalSec int32) {
+		c.RdsInstances = &configpb.RDSInstances{
+			ReEvalSec: proto.Int32(reEvalSec),
+		}
+	},
+	ResourceTypes.RDSClusters: func(c *configpb.ProviderConfig, reEvalSec int32) {
+		c.RdsClusters = &configpb.RDSClusters{
+			ReEvalSec: proto.Int32(reEvalSec),
+		}
+	},
+}
+
 // DefaultProviderConfig is a convenience function that builds and returns a
 // basic AWS provider config based on the given parameters.
 func DefaultProviderConfig(resTypes map[string]string, reEvalSec int) *serverconfigpb.Provider {
 	c := &configpb.ProviderConfig{}
+	reEvalSec32 := int32(reEvalSec)
 
-	for k := range resTypes {
-		switch k {
-		case ResourceTypes.EC2Instances:
-			c.Ec2Instances = &configpb.EC2Instances{
-				ReEvalSec: proto.Int32(int32(reEvalSec)),
-			}
-
-		case ResourceTypes.RDSInstances:
-			c.RdsInstances = &configpb.RDSInstances{
-				ReEvalSec: proto.Int32(int32(reEvalSec)),
-			}
-
-		case ResourceTypes.RDSClusters:
-			c.RdsClusters = &configpb.RDSClusters{
-				ReEvalSec: proto.Int32(int32(reEvalSec)),
-			}
+	for resType := range resTypes {
+		if setter, ok := resourceConfigSetters[resType]; ok {
+			setter(c, reEvalSec32)
 		}
-
 	}
 
 	return &serverconfigpb.Provider{
