@@ -95,6 +95,7 @@ func TestProcessReExports(t *testing.T) {
 	tests := []struct {
 		name      string
 		reExports map[string][]ReExport
+		protoroot string
 		want      []string
 	}{
 		{
@@ -104,25 +105,21 @@ func TestProcessReExports(t *testing.T) {
 					{Alias: "Validator"},
 					{Alias: "HttpValidator"},
 				},
-				"github.com/cloudprober/cloudprober/proto": {
+				"github.com/cloudprober/cloudprober/internal/validators/http/proto": {
 					{Alias: "ProbeDef"},
 				},
 			},
+			protoroot: "internal/validators",
 			want: []string{
-				"github.com/cloudprober/cloudprober/proto",
 				"github.com/cloudprober/cloudprober/internal/validators/proto",
+				"github.com/cloudprober/cloudprober/internal/validators/http/proto",
 			},
 		},
 	}
 
-	// Set a dummy protoroot for testing
-	saved := *protoroot
-	*protoroot = "github.com/cloudprober/cloudprober"
-	defer func() { *protoroot = saved }()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, processReExports(tt.reExports))
+			assert.Equal(t, tt.want, processReExports(tt.reExports, tt.protoroot))
 			for _, v := range tt.reExports {
 				// Verify that the aliases are sorted
 				for i := 1; i < len(v); i++ {
@@ -241,6 +238,57 @@ func TestImportAliasFromPath(t *testing.T) {
 			if got := importAliasFromPath(tt.path); got != tt.want {
 				t.Errorf("importAliasFromPath() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestOutputPackageName(t *testing.T) {
+	// Create a temporary directory
+	tempDir, err := os.MkdirTemp("", "testpkg")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create another directory
+	subDir := filepath.Join(tempDir, "subpkg")
+	if err := os.Mkdir(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subpkg: %v", err)
+	}
+
+	// Change to the subdirectory
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	if err := os.Chdir(subDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	tests := []struct {
+		name    string
+		out     string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "simple path",
+			out:  "/path/to/package/file.go",
+			want: "package",
+		},
+		{
+			name: "current directory",
+			out:  "file.go",
+			want: "subpkg",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := outputPackageName(tt.out)
+			assert.NoError(t, err)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -417,36 +465,35 @@ func TestCleanAlias(t *testing.T) {
 		name        string
 		importAlias string
 		origName    string
+		protoroot   string
 		want        string
 	}{
 		{
 			name:        "simple case",
 			importAlias: "httppb",
 			origName:    "Validator",
+			protoroot:   "internal/validators",
 			want:        "HttpValidator",
 		},
 		{
 			name:        "with underscore in name",
 			importAlias: "httppb",
 			origName:    "Validator_Header",
+			protoroot:   "internal/validators",
 			want:        "HttpValidator_Header",
 		},
 		{
 			name:        "matching protoroot",
 			importAlias: "validatorspb",
 			origName:    "Validator",
+			protoroot:   "internal/validators",
 			want:        "Validator",
 		},
 	}
 
-	// Set a dummy protoroot for testing
-	saved := *protoroot
-	*protoroot = "internal/validators"
-	defer func() { *protoroot = saved }()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := cleanAlias(tt.importAlias, tt.origName); got != tt.want {
+			if got := cleanAlias(tt.importAlias, tt.origName, tt.protoroot); got != tt.want {
 				t.Errorf("cleanAlias() = %v, want %v", got, tt.want)
 			}
 		})

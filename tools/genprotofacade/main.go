@@ -140,9 +140,9 @@ func importAliasFromPath(path string) string {
 }
 
 // cleanAlias: "httppb" + "Validator" → "HTTPValidator"
-func cleanAlias(importAlias, name string) string {
+func cleanAlias(importAlias, name, protoroot string) string {
 	prefix := strings.TrimSuffix(importAlias, "pb")
-	if prefix == filepath.Base(*protoroot) {
+	if prefix == filepath.Base(protoroot) {
 		return name
 	}
 
@@ -155,7 +155,7 @@ func cleanAlias(importAlias, name string) string {
 	return prefix + name
 }
 
-func processReExports(importReExports map[string][]ReExport) []string {
+func processReExports(importReExports map[string][]ReExport, protoroot string) []string {
 	var keys []string
 
 	for k, v := range importReExports {
@@ -166,8 +166,9 @@ func processReExports(importReExports map[string][]ReExport) []string {
 	}
 
 	// Move top-level import to the front
+	topLevelImport := filepath.Join(protoroot, "proto")
 	for i, v := range keys {
-		if strings.Contains(v, filepath.Join(*protoroot, "proto")) {
+		if strings.HasSuffix(v, topLevelImport) {
 			log.Printf("Moving %s to the front", v)
 			rest := append(keys[:i], keys[i+1:]...)
 			sort.Strings(rest)
@@ -240,7 +241,7 @@ func generateTemplateData(protoroot, module string) (*TemplateData, error) {
 				continue
 			}
 
-			alias := cleanAlias(importAlias, name)
+			alias := cleanAlias(importAlias, name, protoroot)
 			data.ImportReExports[importPath] = append(data.ImportReExports[importPath], ReExport{
 				Alias:       alias,
 				Original:    name,
@@ -253,7 +254,7 @@ func generateTemplateData(protoroot, module string) (*TemplateData, error) {
 	sort.Slice(data.Imports, func(i, j int) bool {
 		return data.Imports[i].Alias < data.Imports[j].Alias
 	})
-	data.ReExportOrder = processReExports(data.ImportReExports)
+	data.ReExportOrder = processReExports(data.ImportReExports, protoroot)
 
 	return data, nil
 }
