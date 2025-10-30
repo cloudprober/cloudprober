@@ -168,9 +168,10 @@ func processReExports(importReExports map[string][]ReExport, protoroot string) [
 		})
 	}
 
-	// Move top-level import to the front
 	sort.Strings(keys)
-	topLevelImport := filepath.Join(protoroot, "proto")
+
+	// Move top-level import to the front
+	topLevelImport := protoroot + "/proto"
 	for i, v := range keys {
 		if strings.HasSuffix(v, topLevelImport) {
 			log.Printf("Moving %s to the front", v)
