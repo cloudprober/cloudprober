@@ -125,3 +125,5 @@ find ${MODULE} \( -name *.pb.go -o -name *.py \) | \
   done
 
 cd -
+
+go generate ./pkg/protos/...
