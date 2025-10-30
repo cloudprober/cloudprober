@@ -142,19 +142,15 @@ func importAliasFromPath(path string) string {
 	return base + "pb"
 }
 
-// cleanAlias: "httppb" + "Validator" → "HTTPValidator"
+// cleanAlias: "httppb" + "Validator" → "HttpValidator"
 func cleanAlias(importAlias, name, protoroot string) string {
 	prefix := strings.TrimSuffix(importAlias, "pb")
+	// Don't add prefix to top-level protos
 	if prefix == filepath.Base(protoroot) {
 		return name
 	}
 
 	prefix = strings.ToUpper(prefix[0:1]) + prefix[1:]
-
-	if strings.Contains(name, "_") {
-		parts := strings.Split(name, "_")
-		return prefix + strings.Join(parts, "_")
-	}
 	return prefix + name
 }
 
