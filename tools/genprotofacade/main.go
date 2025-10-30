@@ -177,24 +177,26 @@ func processReExports(importReExports map[string][]ReExport) []string {
 	return keys
 }
 
-func main() {
-	flag.Parse()
-	if *protoroot == "" || *out == "" || *module == "" {
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	// Find all proto dirs
-	protoDirs, err := findProtoDirs(*protoroot, *module)
+func outputPackageName(out string) (string, error) {
+	absOut, err := filepath.Abs(out)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
+	}
+	return filepath.Base(filepath.Dir(absOut)), nil
+}
+
+func generateTemplateData(protoroot, module string) (*TemplateData, error) {
+	// Find all proto dirs
+	protoDirs, err := findProtoDirs(protoroot, module)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(protoDirs) == 0 {
-		log.Fatalf("no proto directories found under %s", *protoroot)
+		return nil, fmt.Errorf("no proto directories found under %s", protoroot)
 	}
 
-	log.Printf("Found %d proto directories under %s: %v", len(protoDirs), *protoroot, protoDirs)
+	log.Printf("Found %d proto directories under %s: %v", len(protoDirs), protoroot, protoDirs)
 
 	// Load packages
 	cfg := &packages.Config{
@@ -202,9 +204,10 @@ func main() {
 	}
 	pkgs, err := packages.Load(cfg, protoDirs...)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	data := TemplateData{
+
+	data := &TemplateData{
 		ImportReExports: map[string][]ReExport{},
 	}
 	importMap := map[string]string{}
@@ -246,27 +249,38 @@ func main() {
 		}
 	}
 
-	// Sort
+	// Sort imports
 	sort.Slice(data.Imports, func(i, j int) bool {
 		return data.Imports[i].Alias < data.Imports[j].Alias
 	})
 	data.ReExportOrder = processReExports(data.ImportReExports)
-	log.Printf("ReExportOrder: %v", data.ReExportOrder)
 
-	// Write
+	return data, nil
+}
+
+func main() {
+	flag.Parse()
+	if *protoroot == "" || *out == "" || *module == "" {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	// Create output file
 	f, err := os.Create(*out)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 
-	// Extract package name from output path
-	// Get the absolute path of the output file
-	absOut, err := filepath.Abs(*out)
+	pkgName, err := outputPackageName(*out)
 	if err != nil {
 		log.Fatal(err)
 	}
-	pkgName := filepath.Base(filepath.Dir(absOut))
+
+	data, err := generateTemplateData(*protoroot, *module)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	err = tmpl.Execute(f, map[string]interface{}{
 		"Root":            *protoroot,
@@ -281,10 +295,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	numTypes := 0
-	for _, v := range data.ImportReExports {
-		numTypes += len(v)
-	}
-
-	log.Printf("Generated %s: %d imports, %d types\n", *out, len(data.Imports), numTypes)
+	log.Printf("Generated %s: Added types from %d imports\n", *out, len(data.Imports))
 }
