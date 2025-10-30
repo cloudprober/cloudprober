@@ -339,14 +339,17 @@ type AnotherType struct {
 		name      string
 		protoroot string
 		module    string
-		want      TemplateData
+		want      *TemplateData
 		wantErr   bool
 	}{
 		{
 			name:      "successful template generation",
 			protoroot: "testpkg",
 			module:    "testmodule",
-			want: TemplateData{
+			want: &TemplateData{
+				Root:       "testpkg",
+				Module:     "testmodule",
+				OutPackage: filepath.Base(tempDir),
 				Imports: []Import{
 					{
 						Alias: "subpkg1pb",
@@ -363,12 +366,12 @@ type AnotherType struct {
 				},
 				ImportReExports: map[string][]ReExport{
 					"testmodule/testpkg/subpkg1/proto": {
-						{Alias: "Subpkg1TestMessage", Original: "TestMessage", ImportAlias: "subpkg1pb"},
 						{Alias: "Subpkg1AnotherType", Original: "AnotherType", ImportAlias: "subpkg1pb"},
+						{Alias: "Subpkg1TestMessage", Original: "TestMessage", ImportAlias: "subpkg1pb"},
 					},
 					"testmodule/testpkg/subpkg2/proto": {
-						{Alias: "Subpkg2TestMessage", Original: "TestMessage", ImportAlias: "subpkg2pb"},
 						{Alias: "Subpkg2AnotherType", Original: "AnotherType", ImportAlias: "subpkg2pb"},
+						{Alias: "Subpkg2TestMessage", Original: "TestMessage", ImportAlias: "subpkg2pb"},
 					},
 				},
 			},
@@ -378,7 +381,7 @@ type AnotherType struct {
 			name:      "non-existent directory",
 			protoroot: filepath.Join(tempDir, "nonexistent"),
 			module:    "testmodule/testpkg",
-			want:      TemplateData{},
+			want:      nil,
 			wantErr:   true,
 		},
 	}
@@ -398,7 +401,7 @@ type AnotherType struct {
 			}
 
 			// Run the function under test
-			got, err := generateTemplateData(tt.protoroot, tt.module)
+			got, err := generateTemplateData(tt.protoroot, tt.module, "validators.go")
 
 			// Check for expected errors
 			if (err != nil) != tt.wantErr {
@@ -410,52 +413,8 @@ type AnotherType struct {
 				return
 			}
 
-			// Verify the imports
-			if len(got.Imports) != len(tt.want.Imports) {
-				t.Fatalf("Expected %d imports, got %d", len(tt.want.Imports), len(got.Imports))
-			}
-
-			// Verify the import paths and aliases
-			assert.Equal(t, tt.want.Imports, got.Imports)
-
-			// Verify the re-export order
-			assert.Equal(t, tt.want.ReExportOrder, got.ReExportOrder)
-			/*
-				// Verify each import's re-exports
-				for pkg, reExports := range got.ImportReExports {
-					expectedExports, ok := tt.want.ImportReExports[pkg]
-					if !ok {
-						t.Errorf("Unexpected package in re-exports: %s", pkg)
-						continue
-					}
-
-					if len(reExports) != len(expectedExports) {
-						t.Errorf("Package %s: expected %d re-exports, got %d",
-							pkg, len(expectedExports), len(reExports))
-						continue
-					}
-
-					// Verify each re-export
-					exportMap := make(map[string]ReExport)
-					for _, exp := range reExports {
-						exportMap[exp.Original] = exp
-					}
-
-					for _, expected := range expectedExports {
-						got, exists := exportMap[expected.Original]
-						if !exists {
-							t.Errorf("Missing re-export for %s in package %s",
-								expected.Original, pkg)
-							continue
-						}
-
-						if got.Alias != expected.Alias || got.ImportAlias != expected.ImportAlias {
-							t.Errorf("Re-export for %s: got %+v, want %+v",
-								expected.Original, got, expected)
-						}
-					}
-				}
-			*/
+			// Verify the output
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
