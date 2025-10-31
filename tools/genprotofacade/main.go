@@ -38,9 +38,10 @@ var (
 )
 
 type ReExport struct {
-	Alias       string
-	Original    string
-	ImportAlias string
+	Alias        string
+	AliasKeyword string
+	Original     string
+	ImportAlias  string
 }
 
 type TemplateData struct {
@@ -70,7 +71,7 @@ import {{ .Alias }} "{{ .Path }}"
 {{ range $v := .ReExportOrder -}}
 // Symbols from {{ $v }}
 {{ range (index $importReExports $v) -}}
-type {{ .Alias }} = {{ .ImportAlias }}.{{ .Original }}
+{{ .AliasKeyword }} {{ .Alias }} = {{ .ImportAlias }}.{{ .Original }}
 {{ end }}
 {{ end }}
 `))
@@ -160,7 +161,7 @@ func processReExports(importReExports map[string][]ReExport, protoroot string) [
 	for k, v := range importReExports {
 		keys = append(keys, k)
 		sort.Slice(v, func(i, j int) bool {
-			return v[i].Alias < v[j].Alias
+			return (v[i].AliasKeyword + v[i].Alias) < (v[j].AliasKeyword + v[j].Alias)
 		})
 	}
 
@@ -184,6 +185,30 @@ func outputPackageName(out string) (string, error) {
 		return "", err
 	}
 	return filepath.Base(filepath.Dir(absOut)), nil
+}
+
+// isEnum checks if a named type is a protobuf enum by verifying:
+// 1. It's a named type
+// 2. Underlying type is int32
+// 3. Has a method called Enum()
+func isEnum(obj types.Object) bool {
+	named, ok := obj.Type().(*types.Named)
+	if !ok {
+		return false
+	}
+
+	// Check if underlying type is int32
+	if basic, ok := named.Underlying().(*types.Basic); !ok || basic.Kind() != types.Int32 {
+		return false
+	}
+
+	// Check for the Enum() method which is unique to protobuf enums
+	for i := 0; i < named.NumMethods(); i++ {
+		if named.Method(i).Name() == "Enum" {
+			return true
+		}
+	}
+	return false
 }
 
 func generateTemplateData(protoroot, module, out string) (*TemplateData, error) {
@@ -240,21 +265,37 @@ func generateTemplateData(protoroot, module, out string) (*TemplateData, error) 
 				continue
 			}
 
-			// Only message types (structs)
-			if _, ok := obj.Type().Underlying().(*types.Struct); !ok {
-				continue
-			}
-
 			if strings.HasPrefix(name, "XXX_") {
 				continue
 			}
 
-			alias := cleanAlias(importAlias, name, protoroot)
-			data.ImportReExports[importPath] = append(data.ImportReExports[importPath], ReExport{
-				Alias:       alias,
-				Original:    name,
-				ImportAlias: importAlias,
-			})
+			addReExport := func(name string, aliasKeyword string) {
+				if aliasKeyword == "" {
+					aliasKeyword = "type"
+				}
+				data.ImportReExports[importPath] = append(data.ImportReExports[importPath], ReExport{
+					Alias:        cleanAlias(importAlias, name, protoroot),
+					AliasKeyword: aliasKeyword,
+					Original:     name,
+					ImportAlias:  importAlias,
+				})
+			}
+
+			// Constants (enum values)
+			if _, ok := obj.(*types.Const); ok {
+				addReExport(name, "const")
+				continue
+			}
+
+			// Only message types (structs)
+			if _, ok := obj.Type().Underlying().(*types.Struct); ok {
+				addReExport(name, "")
+			}
+
+			// Only enum types
+			if isEnum(obj) {
+				addReExport(name, "")
+			}
 		}
 	}
 
