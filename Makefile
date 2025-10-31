@@ -15,6 +15,7 @@ BINARY_SOURCE ?= "./cmd/cloudprober/."
 
 LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
 BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)
+BINARIES_XDS := $(addprefix cloudprober-xds-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)
 
 ifeq "$(GIT_TAG)" ""
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):master -t $(DOCKER_IMAGE):main
@@ -41,10 +42,19 @@ cloudprober-fips: $(SOURCES)
 	go tool nm cloudprober-fips | grep crypto/internal/boring/sig.BoringCrypto.abi0 > /dev/null || (echo "FIPS build failed: BoringCrypto not used" && rm cloudprober-fips && exit 1)
 	strip cloudprober-fips
 
+define make-binary-target-xds
+$1: $(SOURCES)
+	GOOS=$(subst macos,darwin,$(word 3,$(subst -, ,$1))) ; \
+	GOARCH=$(subst armv7,arm,$(word 4,$(subst -, ,$1))) ; \
+	GOARM=$(subst armv7,7,$(filter armv7,$(word 4,$(subst -, ,$1)))) ; \
+	CGO_ENABLED=0 GOOS=$$$${GOOS} GOARCH=$$$${GOARCH} GOARM=$$$${GOARM} go build -tags grpc_xds -o $1 -ldflags $(LDFLAGS) $(BINARY_SOURCE)
+endef
+
 test:
 	go test -v -race -covermode=atomic ./...
 
 $(foreach bin,$(BINARIES),$(eval $(call make-binary-target,$(bin))))
+$(foreach bin,$(BINARIES_XDS),$(eval $(call make-binary-target-xds,$(bin))))
 
 $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o $@ -ldflags $(LDFLAGS) $(BINARY_SOURCE)
@@ -74,6 +84,17 @@ dist: $(BINARIES)
 	  zip -r $${bindir}.zip $${bindir}/; rm -rf $${bindir}; \
 	done
 
+dist_xds: $(BINARIES_XDS)
+	for bin in $(BINARIES_XDS) ; do \
+	  bindir=$${bin/amd64/x86_64}; \
+	  bindir=$${bindir/cloudprober-xds-/}; \
+	  bindir=cloudprober-xds-$(VERSION)-$${bindir}; \
+	  mkdir -p $${bindir}; cp $${bin} $${bindir}/cloudprober; \
+	  chmod a+rx $${bindir}/cloudprober; \
+	  [[ "$${bin}" == *"windows"* ]] && mv $${bindir}/cloudprober{,.exe}; \
+	  zip -r $${bindir}.zip $${bindir}/; rm -rf $${bindir}; \
+	done
+
 PYVERSION := $(subst v,,$(VERSION))
 PYVERSION := $(word 1,$(subst -, ,$(PYVERSION)))-$(word 2,$(subst -, ,$(PYVERSION)))
 PYVERSION := $(patsubst %-,%,$(PYVERSION))
@@ -90,4 +111,4 @@ install:
 	GOBIN=$(GOBIN) CGO_ENABLED=0 go install -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 clean:
-	rm -f cloudprober cloudprober-*
+	rm -f cloudprober cloudprober-* cloudprober-xds-*
