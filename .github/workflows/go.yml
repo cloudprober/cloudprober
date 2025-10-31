@@ -192,6 +192,47 @@ jobs:
           name: cloudprober-fips-${{ matrix.distname }}-dist
           path: cloudprober-*
         
+  build-binaries-xds:
+    name: Build XDS binaries
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Check out code into the Go module directory
+        if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Check out code into the Go module directory
+        if: ${{ contains(github.event_name, 'workflow_dispatch') }}
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+        id: go
+
+      - run: make cloudprober-xds-linux-{amd64,arm64,armv7}
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+
+      - run: make cloudprober-xds-macos-{amd64,arm64} cloudprober-xds-windows-amd64
+        if: ${{ matrix.os == 'macos-latest' }}
+
+      - name: Upload cloudprober XDS dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudprober-xds-${{ matrix.os }}-dist
+          path: cloudprober-xds-*
+
+
   build-dist:
     name: Build cloudprober release
     needs: [build-and-test, build-binaries]
@@ -228,6 +269,44 @@ jobs:
         with:
           name: cloudprober-release-binaries
           path: cloudprober-*.zip
+
+  build-dist-xds:
+    name: Build cloudprober XDS release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-and-test, build-binaries-xds]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code into the Go module directory
+        if: ${{ !contains(github.event_name, 'workflow_dispatch') }}
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Check out code into the Go module directory
+        if: ${{ contains(github.event_name, 'workflow_dispatch') }}
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
+
+      - name: Download ubuntu cloudprober XDS binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudprober-xds-ubuntu-latest-dist
+
+      - name: Download macos cloudprober XDS binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudprober-xds-macos-latest-dist
+
+      - run: make dist_xds
+
+      - name: Upload cloudprober XDS release
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudprober-xds-release-binaries
+          path: cloudprober-xds-*.zip
 
   build_and_push_docker_multiarch:
     name: Build and push multiarch docker image
@@ -343,3 +422,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             cloudprober-*.zip
+
