@@ -52,7 +52,7 @@ import (
 
 var (
 	metricsPrefixFlag    = flag.String("prometheus_metrics_prefix", "", "Metrics prefix")
-	includeTimestampFlag = flag.Bool("prometheus_include_timestamp", configpb.Default_SurfacerConf_IncludeTimestamp, "Include timestamp in metrics")
+	includeTimestampFlag = flag.Bool("prometheus_include_timestamp", false, "Include timestamp in metrics")
 )
 
 // Prometheus metric and label names should match the following regular
@@ -104,6 +104,42 @@ type httpWriter struct {
 	doneChan chan struct{}
 }
 
+// defaultBoolEnum is used to record if a boolean flag (or config option) was
+// set explicitly or not.
+type defaultBoolEnum int8
+
+const (
+	defaultBehavior defaultBoolEnum = 0 // not set explicitly
+	explicitTrue    defaultBoolEnum = 1
+	explicitFalse   defaultBoolEnum = 2
+)
+
+var defaultBoolMap = map[bool]defaultBoolEnum{
+	false: explicitFalse,
+	true:  explicitTrue,
+}
+
+func includeTimestamp(c *configpb.SurfacerConf) defaultBoolEnum {
+	// Config option has highest priority if set explicitly.
+	if c.IncludeTimestamp != nil {
+		return defaultBoolMap[c.GetIncludeTimestamp()]
+	}
+
+	// Next check if flag was set explicitly.
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "prometheus_include_timestamp" {
+			found = true
+			return
+		}
+	})
+	if found {
+		return defaultBoolMap[*includeTimestampFlag]
+	}
+
+	return defaultBehavior
+}
+
 // PromSurfacer implements a prometheus surfacer for Cloudprober. PromSurfacer
 // organizes metrics into a two-level data structure:
 //  1. Metric name -> PromMetric data structure dict.
@@ -113,15 +149,16 @@ type httpWriter struct {
 //
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
-	c                *configpb.SurfacerConf // Configuration
-	opts             *options.Options
-	includeTimestamp bool
-	prefix           string                     // Metrics prefix, e.g. "cloudprober_"
-	emChan           chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
-	metrics          map[string]*promMetric     // Metric name to promMetric mapping
-	metricNames      []string                   // Metric names, to keep names ordered.
-	queryChan        chan *httpWriter           // Query channel
-	l                *logger.Logger
+	c                        *configpb.SurfacerConf // Configuration
+	opts                     *options.Options
+	includeTimestamp         defaultBoolEnum
+	disableMetricsExpiration defaultBoolEnum
+	prefix                   string                     // Metrics prefix, e.g. "cloudprober_"
+	emChan                   chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
+	metrics                  map[string]*promMetric     // Metric name to promMetric mapping
+	metricNames              []string                   // Metric names, to keep names ordered.
+	queryChan                chan *httpWriter           // Query channel
+	l                        *logger.Logger
 
 	// A handler that takes a promMetric and a dataKey and writes the
 	// corresponding metric string to the provided io.Writer.
@@ -140,35 +177,43 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		config = &configpb.SurfacerConf{}
 	}
 	ps := &PromSurfacer{
-		c:                config,
-		opts:             opts,
-		emChan:           make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
-		queryChan:        make(chan *httpWriter, queriesQueueSize),
-		metrics:          make(map[string]*promMetric),
-		metricNameRe:     regexp.MustCompile(ValidMetricNameRegex),
-		labelNameRe:      regexp.MustCompile(ValidLabelNameRegex),
-		includeTimestamp: *includeTimestampFlag,
-		prefix:           *metricsPrefixFlag,
-		l:                l,
+		c:            config,
+		opts:         opts,
+		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
+		queryChan:    make(chan *httpWriter, queriesQueueSize),
+		metrics:      make(map[string]*promMetric),
+		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
+		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
+		prefix:       *metricsPrefixFlag,
+		l:            l,
 	}
 
-	if ps.c.IncludeTimestamp != nil {
-		ps.includeTimestamp = ps.c.GetIncludeTimestamp()
-	}
+	ps.includeTimestamp = includeTimestamp(ps.c)
 
 	if ps.c.MetricsPrefix != nil {
 		ps.prefix = ps.c.GetMetricsPrefix()
 	}
 
-	if ps.includeTimestamp {
+	switch ps.includeTimestamp {
+	case explicitTrue:
 		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
 			fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
 		}
-	} else {
+	case explicitFalse:
 		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
 			fmt.Fprintf(w, "%s %s\n", k, pm.data[k].value)
 		}
+	default:
+		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
+			if pm.typ == "gauge" {
+				fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
+				return
+			}
+			fmt.Fprintf(w, "%s %s\n", k, pm.data[k].value)
+		}
 	}
+
+	ps.disableMetricsExpiration = ps.disableMetricsExpirationF()
 
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
@@ -188,9 +233,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 				ps.writeData(hw.w)
 				close(hw.doneChan)
 			case <-staleMetricDeleteTimer.C:
-				if !ps.disableMetricsExpiration() {
-					ps.deleteExpiredMetrics()
-				}
+				ps.deleteExpiredMetrics()
 			}
 		}
 	}()
@@ -221,16 +264,18 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 	}
 }
 
-func (ps *PromSurfacer) disableMetricsExpiration() bool {
+func (ps *PromSurfacer) disableMetricsExpirationF() defaultBoolEnum {
 	if ps.c != nil && ps.c.DisableMetricsExpiration != nil {
-		return ps.c.GetDisableMetricsExpiration()
+		return defaultBoolMap[*ps.c.DisableMetricsExpiration]
 	}
 
-	if !ps.includeTimestamp {
-		return true
-	}
-
-	return false
+	// If we are never including timestamp, we disable metrics expiration
+	// and vice versa.
+	return map[defaultBoolEnum]defaultBoolEnum{
+		explicitFalse:   explicitTrue,
+		explicitTrue:    explicitFalse,
+		defaultBehavior: defaultBehavior,
+	}[ps.includeTimestamp]
 }
 
 func promType(em *metrics.EventMetrics) string {
@@ -436,10 +481,19 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 // Note from manugarg: We can possibly optimize this by recording expired
 // keys while serving the metrics, and deleting them based on the timer.
 func (ps *PromSurfacer) deleteExpiredMetrics() {
+	if ps.disableMetricsExpiration == explicitTrue {
+		return
+	}
+
 	staleTimeThreshold := promTime(time.Now()) - metricExpirationTime.Milliseconds()
 
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
+
+		// For default behavior, we don't expire counter metrics.
+		if ps.disableMetricsExpiration == defaultBehavior && pm.typ == "counter" {
+			continue
+		}
 
 		var expiredMetricsKeys []string
 		for metricKey, v := range pm.data {

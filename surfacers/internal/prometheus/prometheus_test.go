@@ -17,9 +17,11 @@ package prometheus
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -372,62 +374,119 @@ func TestMain(m *testing.M) {
 
 func TestDisableMetricsExpiration(t *testing.T) {
 	tests := []struct {
-		name                     string
-		includeTimestamp         bool
+		includeTimestamp         []defaultBoolEnum
 		disableMetricsExpiration *bool
-		want                     bool
+		want                     []defaultBoolEnum
 	}{
+		// Not explicitly set
 		{
-			name:                     "DisableMetricsExpiration unset, IncludeTimestamp true",
-			includeTimestamp:         true,
-			disableMetricsExpiration: nil,
-			want:                     false,
+			includeTimestamp: []defaultBoolEnum{defaultBehavior, explicitTrue, explicitFalse},
+			want:             []defaultBoolEnum{defaultBehavior, explicitFalse, explicitTrue},
 		},
 		{
-			name:                     "DisableMetricsExpiration unset, IncludeTimestamp false",
-			includeTimestamp:         false,
-			disableMetricsExpiration: nil,
-			want:                     true,
-		},
-		{
-			name:                     "DisableMetricsExpiration true, IncludeTimestamp true",
-			includeTimestamp:         true,
+			includeTimestamp:         []defaultBoolEnum{defaultBehavior, explicitTrue, explicitFalse},
 			disableMetricsExpiration: proto.Bool(true),
-			want:                     true,
+			want:                     []defaultBoolEnum{explicitTrue, explicitTrue, explicitTrue},
 		},
 		{
-			name:                     "DisableMetricsExpiration false, IncludeTimestamp true",
-			includeTimestamp:         true,
+			includeTimestamp:         []defaultBoolEnum{defaultBehavior, explicitTrue, explicitFalse},
 			disableMetricsExpiration: proto.Bool(false),
-			want:                     false,
-		},
-		{
-			name:                     "DisableMetricsExpiration true, IncludeTimestamp false",
-			includeTimestamp:         false,
-			disableMetricsExpiration: proto.Bool(true),
-			want:                     true,
-		},
-		{
-			name:                     "DisableMetricsExpiration false, IncludeTimestamp false",
-			includeTimestamp:         false,
-			disableMetricsExpiration: proto.Bool(false),
-			want:                     false,
+			want:                     []defaultBoolEnum{explicitFalse, explicitFalse, explicitFalse},
 		},
 	}
 
 	for _, tt := range tests {
+		for i, includeTimestamp := range tt.includeTimestamp {
+			t.Run(fmt.Sprintf("includeTimestamp=%v, disableMetricsExpiration=%v", includeTimestamp, tt.disableMetricsExpiration), func(t *testing.T) {
+				conf := &configpb.SurfacerConf{
+					DisableMetricsExpiration: tt.disableMetricsExpiration,
+				}
+				ps := &PromSurfacer{
+					c:                conf,
+					includeTimestamp: includeTimestamp,
+				}
+				assert.Equal(t, tt.want[i], ps.disableMetricsExpirationF())
+			})
+		}
+	}
+}
+
+func TestIncludeTimestamp(t *testing.T) {
+	tests := []struct {
+		name           string
+		setFlag        bool
+		flagValue      string
+		configValue    *bool
+		expectedResult defaultBoolEnum
+	}{
+		{
+			name:           "flag_true",
+			setFlag:        true,
+			flagValue:      "true",
+			expectedResult: explicitTrue,
+		},
+		{
+			name:           "flag_false",
+			setFlag:        true,
+			flagValue:      "false",
+			expectedResult: explicitFalse,
+		},
+		{
+			name:           "config_true",
+			setFlag:        true,
+			flagValue:      "false",
+			configValue:    proto.Bool(true),
+			expectedResult: explicitTrue,
+		},
+		{
+			name:           "config_false",
+			setFlag:        true,
+			flagValue:      "true",
+			configValue:    proto.Bool(false),
+			expectedResult: explicitFalse,
+		},
+		{
+			name:           "default_behavior",
+			setFlag:        false,
+			configValue:    nil,
+			expectedResult: defaultBehavior,
+		},
+	}
+
+	// Save and restore the actual command line flags
+	oldArgs := os.Args
+	oldCommandLine := flag.CommandLine
+	defer func() {
+		os.Args = oldArgs
+		flag.CommandLine = oldCommandLine
+	}()
+
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conf := &configpb.SurfacerConf{}
-			if tt.disableMetricsExpiration != nil {
-				conf.DisableMetricsExpiration = tt.disableMetricsExpiration
+			// Reset the command line flags for each test case
+			os.Args = oldArgs
+			flag.CommandLine = flag.NewFlagSet("", flag.ExitOnError)
+
+			// Set up the flag if needed
+			if tt.setFlag {
+				// Need to parse the flag from command line arguments
+				os.Args = append([]string{oldArgs[0]}, "-prometheus_include_timestamp="+tt.flagValue)
+				f := flag.Bool("prometheus_include_timestamp", false, "")
+				flag.Parse()
+				*includeTimestampFlag = *f
 			}
-			ps := &PromSurfacer{
-				c:                conf,
-				includeTimestamp: tt.includeTimestamp,
+
+			// Create a config with the test case's config value
+			conf := &configpb.SurfacerConf{
+				IncludeTimestamp: tt.configValue,
 			}
-			got := ps.disableMetricsExpiration()
-			if got != tt.want {
-				t.Errorf("disableMetricsExpiration() = %v, want %v", got, tt.want)
+
+			// Call the function under test
+			result := includeTimestamp(conf)
+
+			// Verify the result
+			if result != tt.expectedResult {
+				t.Errorf("includeTimestamp() = %v, want %v", result, tt.expectedResult)
 			}
 		})
 	}
@@ -437,35 +496,31 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name                 string
 		config               *configpb.SurfacerConf
-		includeTimestampFlag bool
 		metricsPrefixFlag    string
 		notInitServeMux      bool
-		wantIncludeTimestamp bool
+		wantIncludeTimestamp defaultBoolEnum
 		wantMetricsPrefix    string
 		wantErr              bool
 	}{
 		{
 			name:                 "Default",
 			config:               nil,
-			includeTimestampFlag: configpb.Default_SurfacerConf_IncludeTimestamp,
 			metricsPrefixFlag:    "",
-			wantIncludeTimestamp: configpb.Default_SurfacerConf_IncludeTimestamp,
+			wantIncludeTimestamp: defaultBehavior,
 			wantMetricsPrefix:    "",
 		},
 		{
 			name:                 "Flags",
 			config:               nil,
-			includeTimestampFlag: true,
 			metricsPrefixFlag:    "cloudprober_f_",
-			wantIncludeTimestamp: true,
+			wantIncludeTimestamp: defaultBehavior,
 			wantMetricsPrefix:    "cloudprober_f_",
 		},
 		{
 			name:                 "Config override",
 			config:               &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false), MetricsPrefix: proto.String("cloudprober_")},
-			includeTimestampFlag: true,
 			metricsPrefixFlag:    "cloudprober_f_",
-			wantIncludeTimestamp: false,
+			wantIncludeTimestamp: explicitFalse,
 			wantMetricsPrefix:    "cloudprober_",
 		},
 		{
@@ -486,10 +541,8 @@ func TestNew(t *testing.T) {
 			}
 			defer state.SetDefaultHTTPServeMux(oldHTTPMux)
 
-			*includeTimestampFlag = tt.includeTimestampFlag
 			*metricsPrefixFlag = tt.metricsPrefixFlag
 			defer func() {
-				*includeTimestampFlag = configpb.Default_SurfacerConf_IncludeTimestamp
 				*metricsPrefixFlag = ""
 			}()
 
