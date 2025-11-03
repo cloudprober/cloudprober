@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -184,7 +184,7 @@ func TestInvalidNames(t *testing.T) {
 	verify(t, ps, expectedMetrics)
 }
 
-func testWebOutput(t *testing.T, config *configpb.SurfacerConf, expectTimestamp bool) {
+func testWebOutput(t *testing.T, config *configpb.SurfacerConf, expectTimestamp string) {
 	t.Helper()
 
 	ps := testPromSurfacerNoErr(t, config)
@@ -192,32 +192,48 @@ func testWebOutput(t *testing.T, config *configpb.SurfacerConf, expectTimestamp 
 	latencyVal.AddSample(0.5)
 	latencyVal.AddSample(5)
 	ts := time.Now()
-	ps.record(metrics.NewEventMetrics(ts).
+	counterEM := metrics.NewEventMetrics(ts).
 		AddMetric("sent", metrics.NewInt(32)).
-		AddMetric("rcvd", metrics.NewInt(22)).
 		AddMetric("latency", latencyVal).
 		AddMetric("resp_code", metrics.NewMap("code").IncKeyBy("200", 19)).
-		AddLabel("ptype", "http"))
+		AddLabel("ptype", "http")
+	ps.record(counterEM)
+
+	gaugeEM := metrics.NewEventMetrics(ts).
+		AddMetric("num_goroutines", metrics.NewInt(22)).
+		AddLabel("system", "sysvars")
+	gaugeEM.Kind = metrics.GAUGE
+	ps.record(gaugeEM)
+
 	var b bytes.Buffer
 	ps.writeData(&b)
 	data := b.String()
-	var tsSuffix string
-	if expectTimestamp {
-		tsSuffix = " " + fmt.Sprintf("%d", ts.UnixNano()/(1000*1000))
+	var counterSuffix string
+	var gaugeSuffix string
+	tsSuffix := fmt.Sprintf(" %d", ts.UnixNano()/(1000*1000))
+	switch expectTimestamp {
+	case "default":
+		gaugeSuffix = tsSuffix
+	case "true":
+		counterSuffix = tsSuffix
+		gaugeSuffix = tsSuffix
+	case "false":
+		counterSuffix = ""
+		gaugeSuffix = ""
 	}
 	for _, d := range []string{
 		"# TYPE sent counter",
-		"# TYPE rcvd counter",
 		"# TYPE resp_code counter",
 		"# TYPE latency histogram",
-		"sent{ptype=\"http\"} 32" + tsSuffix,
-		"rcvd{ptype=\"http\"} 22" + tsSuffix,
-		"resp_code{ptype=\"http\",code=\"200\"} 19" + tsSuffix,
-		"latency_sum{ptype=\"http\"} 5.5" + tsSuffix,
-		"latency_count{ptype=\"http\"} 2" + tsSuffix,
-		"latency_bucket{ptype=\"http\",le=\"1\"} 1" + tsSuffix,
-		"latency_bucket{ptype=\"http\",le=\"4\"} 1" + tsSuffix,
-		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2" + tsSuffix,
+		"sent{ptype=\"http\"} 32" + counterSuffix,
+		"resp_code{ptype=\"http\",code=\"200\"} 19" + counterSuffix,
+		"latency_sum{ptype=\"http\"} 5.5" + counterSuffix,
+		"latency_count{ptype=\"http\"} 2" + counterSuffix,
+		"latency_bucket{ptype=\"http\",le=\"1\"} 1" + counterSuffix,
+		"latency_bucket{ptype=\"http\",le=\"4\"} 1" + counterSuffix,
+		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2" + counterSuffix,
+		"# TYPE num_goroutines gauge",
+		"num_goroutines{system=\"sysvars\"} 22" + gaugeSuffix,
 	} {
 		if !strings.Contains(data, d+"\n") {
 			t.Errorf("String \"%s\" not found in output data: %s", d, data)
@@ -230,23 +246,17 @@ func TestScrapeOutput(t *testing.T) {
 	oldIncludeTimestampFlag := *includeTimestampFlag
 
 	t.Run("IncludeTimestamp config default", func(t *testing.T) {
-		testWebOutput(t, nil, true)
+		testWebOutput(t, nil, "default")
 	})
 
 	t.Run("IncludeTimestamp config true", func(t *testing.T) {
 		defer func() { *includeTimestampFlag = oldIncludeTimestampFlag }()
 		*includeTimestampFlag = false
-		testWebOutput(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(true)}, true)
+		testWebOutput(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(true)}, "true")
 	})
 
 	t.Run("IncludeTimestamp config false", func(t *testing.T) {
-		testWebOutput(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false)}, false)
-	})
-
-	t.Run("IncludeTimestamp flag false", func(t *testing.T) {
-		defer func() { *includeTimestampFlag = oldIncludeTimestampFlag }()
-		*includeTimestampFlag = false
-		testWebOutput(t, nil, false)
+		testWebOutput(t, &configpb.SurfacerConf{IncludeTimestamp: proto.Bool(false)}, "false")
 	})
 }
 
