@@ -145,6 +145,12 @@ jobs:
       - run: make cloudprober-macos-{amd64,arm64} cloudprober-windows-amd64
         if: ${{ matrix.os == 'macos-latest' }}
 
+      - run: BUILD_WITH_XDS=true make cloudprober-xds-linux-{amd64,arm64,armv7}
+        if: ${{ matrix.os == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/v') }}
+
+      - run: BUILD_WITH_XDS=true make cloudprober-xds-macos-{amd64,arm64} cloudprober-xds-windows-amd64
+        if: ${{ matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/v') }}
+
       - name: Upload cloudprober dist
         uses: actions/upload-artifact@v4
         with:
@@ -191,7 +197,8 @@ jobs:
         with:
           name: cloudprober-fips-${{ matrix.distname }}-dist
           path: cloudprober-*
-        
+
+
   build-dist:
     name: Build cloudprober release
     needs: [build-and-test, build-binaries]
@@ -222,6 +229,9 @@ jobs:
           name: cloudprober-macos-latest-dist
 
       - run: make dist
+
+      - run: BUILD_WITH_XDS=true make dist
+        if: startsWith(github.ref, 'refs/tags/v')
 
       - name: Upload cloudprober release
         uses: actions/upload-artifact@v4
@@ -343,3 +353,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             cloudprober-*.zip
+
