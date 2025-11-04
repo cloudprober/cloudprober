@@ -415,7 +415,7 @@ func TestDisableMetricsExpiration(t *testing.T) {
 					c:                conf,
 					includeTimestamp: includeTimestamp,
 				}
-				assert.Equal(t, tt.want[i], ps.disableMetricsExpirationF())
+				assert.Equal(t, tt.want[i], ps.shouldDisableMetricsExpiration())
 			})
 		}
 	}
@@ -492,7 +492,7 @@ func TestIncludeTimestamp(t *testing.T) {
 			}
 
 			// Call the function under test
-			result := includeTimestamp(conf)
+			result := shouldIncludeTimestamp(conf)
 
 			// Verify the result
 			if result != tt.expectedResult {

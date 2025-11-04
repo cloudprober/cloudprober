@@ -119,7 +119,7 @@ var defaultBoolMap = map[bool]defaultBoolEnum{
 	true:  explicitTrue,
 }
 
-func includeTimestamp(c *configpb.SurfacerConf) defaultBoolEnum {
+func shouldIncludeTimestamp(c *configpb.SurfacerConf) defaultBoolEnum {
 	// Config option has highest priority if set explicitly.
 	if c.IncludeTimestamp != nil {
 		return defaultBoolMap[c.GetIncludeTimestamp()]
@@ -188,7 +188,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		l:            l,
 	}
 
-	ps.includeTimestamp = includeTimestamp(ps.c)
+	ps.includeTimestamp = shouldIncludeTimestamp(ps.c)
 
 	if ps.c.MetricsPrefix != nil {
 		ps.prefix = ps.c.GetMetricsPrefix()
@@ -213,7 +213,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}
 
-	ps.disableMetricsExpiration = ps.disableMetricsExpirationF()
+	ps.disableMetricsExpiration = ps.shouldDisableMetricsExpiration()
 
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
@@ -264,7 +264,7 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 	}
 }
 
-func (ps *PromSurfacer) disableMetricsExpirationF() defaultBoolEnum {
+func (ps *PromSurfacer) shouldDisableMetricsExpiration() defaultBoolEnum {
 	if ps.c != nil && ps.c.DisableMetricsExpiration != nil {
 		return defaultBoolMap[*ps.c.DisableMetricsExpiration]
 	}
