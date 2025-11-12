@@ -22,19 +22,19 @@ why probers provide one of the most reliable monitoring signals.
 
 ## Why Cloudprober?
 
-* Versatile Probes: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom checks via external probes.
+* **Versatile Probes**: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom checks via external probes.
 
-* Auto-Discover Targets: Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
+* **Auto-Discover Targets**: Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
 
-* Integrate with Existing Systems: Out-of-the-box integration with Prometheus, Grafana, DataDog, AWS CloudWatch, PostgreSQL, and Google Cloud Monitoring.
+* **Integrate with Existing Systems**: Out-of-the-box integration with Prometheus, Grafana, DataDog, AWS CloudWatch, PostgreSQL, and Google Cloud Monitoring.
 
-* Easy Alerts: Stay informed via email, Slack, PagerDuty, OpsGenie, or any other HTTP based system.
+* **Easy Alerts**: Stay informed via email, Slack, PagerDuty, OpsGenie, or any other HTTP based system.
 
-* Lightweight & Scalable: Written in Go, compiles to a single binary, and runs efficiently as a standalone app or Docker container.
+* **Lightweight & Scalable**: Written in Go, compiles to a single binary, and runs efficiently as a standalone app or Docker container.
 
-* Custom Metrics: Flexible latency histograms and configurable labels for precise insights.
+* **Custom Metrics**: Flexible latency histograms and configurable labels for precise insights.
 
-* Extensible: Easily add new probe types, targets, or monitoring systems.
+* **Extensible**: Easily add new probe types, targets, or monitoring systems.
 
 ## Learn More
 
