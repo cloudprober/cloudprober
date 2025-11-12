@@ -61,12 +61,12 @@
   url = "/docs/surfacers/overview"
 
 [[main]]
-  name = "About"
+  name = "Community"
   weight = 80
   identifier = "connect"
 
 [[main]]
-  name = "Origin"
+  name = "Origin Story"
   weight = 5
   parent = "connect"
   url = "/docs/about/"
