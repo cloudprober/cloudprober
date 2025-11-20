@@ -29,22 +29,30 @@ type SurfacerConf struct {
 	// NOTE: This field is confusing for users and will be removed from the config
 	// after v0.10.3.
 	MetricsBufferSize *int64 `protobuf:"varint,1,opt,name=metrics_buffer_size,json=metricsBufferSize,def=10000" json:"metrics_buffer_size,omitempty"`
-	// Whether to include timestamps in metrics. If enabled (default) each metric
-	// string includes the metric timestamp as recorded in the EventMetric.
-	// Prometheus associates the scraped values with this timestamp. If disabled,
-	// i.e. timestamps are not exported, prometheus associates scraped values with
-	// scrape timestamp.
+	// Whether to include timestamps in metrics. By default, we include
+	// timestamps only for gauge metrics as they represent the value at a certain
+	// point in time.
+	//
+	// If explicitly enabled, timestamp will be attached to all metrics,
+	// including counters. If explicitly disabled, timestamp will not be attached
+	// to gauges as well.
 	//
 	// As it's typically useful to set this across the deployment, this field can
 	// also be set through the command line flag --prometheus_include_timestamp.
 	// If both are set, the config value takes precedence.
-	IncludeTimestamp *bool `protobuf:"varint,2,opt,name=include_timestamp,json=includeTimestamp,def=1" json:"include_timestamp,omitempty"`
-	// We automatically delete metrics that haven't been updated for more than
-	// 10 min. We do that because prometheus generates warnings while scraping
-	// metrics that are more than 10m old and prometheus knows that metrics are
-	// more than 10m old because we include timestamp in metrics (by default).
-	// This option controls that behavior.
-	// It's automatically set to true if include_timestamp is false.
+	IncludeTimestamp *bool `protobuf:"varint,2,opt,name=include_timestamp,json=includeTimestamp" json:"include_timestamp,omitempty"`
+	// Whether to disable all metrics expiration.
+	//
+	// Default behavior (recommended):
+	// By default, our goal is to expire timestamped metrics, which are more
+	// than 10 minutes old (see why below). If include_timestamp is not explicitly
+	// set to true or false, only gauge metrics will have timestamps, and only
+	// they will be expired. Similarly, if include_timestamp is explicitly set to
+	// false, no metrics will be expired, and if include_timestamp is explicitly
+	// set to true, all metrics will be expired.
+	//
+	// Why do we expire timestamped metrics? Prometheus generates warnings while
+	// scraping metrics that have timestamps that are more than 10m old.
 	DisableMetricsExpiration *bool `protobuf:"varint,5,opt,name=disable_metrics_expiration,json=disableMetricsExpiration" json:"disable_metrics_expiration,omitempty"`
 	// URL that prometheus scrapes metrics from.
 	MetricsUrl *string `protobuf:"bytes,3,opt,name=metrics_url,json=metricsUrl,def=/metrics" json:"metrics_url,omitempty"`
@@ -63,7 +71,6 @@ type SurfacerConf struct {
 // Default values for SurfacerConf fields.
 const (
 	Default_SurfacerConf_MetricsBufferSize = int64(10000)
-	Default_SurfacerConf_IncludeTimestamp  = bool(true)
 	Default_SurfacerConf_MetricsUrl        = string("/metrics")
 )
 
@@ -108,7 +115,7 @@ func (x *SurfacerConf) GetIncludeTimestamp() bool {
 	if x != nil && x.IncludeTimestamp != nil {
 		return *x.IncludeTimestamp
 	}
-	return Default_SurfacerConf_IncludeTimestamp
+	return false
 }
 
 func (x *SurfacerConf) GetDisableMetricsExpiration() bool {
@@ -136,10 +143,10 @@ var File_github_com_cloudprober_cloudprober_surfacers_internal_prometheus_proto_
 
 const file_github_com_cloudprober_cloudprober_surfacers_internal_prometheus_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Sgithub.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto/config.proto\x12\x1fcloudprober.surfacer.prometheus\"\x88\x02\n" +
+	"Sgithub.com/cloudprober/cloudprober/surfacers/internal/prometheus/proto/config.proto\x12\x1fcloudprober.surfacer.prometheus\"\x82\x02\n" +
 	"\fSurfacerConf\x125\n" +
-	"\x13metrics_buffer_size\x18\x01 \x01(\x03:\x0510000R\x11metricsBufferSize\x121\n" +
-	"\x11include_timestamp\x18\x02 \x01(\b:\x04trueR\x10includeTimestamp\x12<\n" +
+	"\x13metrics_buffer_size\x18\x01 \x01(\x03:\x0510000R\x11metricsBufferSize\x12+\n" +
+	"\x11include_timestamp\x18\x02 \x01(\bR\x10includeTimestamp\x12<\n" +
 	"\x1adisable_metrics_expiration\x18\x05 \x01(\bR\x18disableMetricsExpiration\x12)\n" +
 	"\vmetrics_url\x18\x03 \x01(\t:\b/metricsR\n" +
 	"metricsUrl\x12%\n" +

@@ -376,7 +376,7 @@ func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey
 
 	conn, err := p.connect(ctx, target)
 	if err != nil {
-		l.Warning("Connect error: " + err.Error())
+		l.Error("Connect error: " + err.Error())
 		return nil, err
 	}
 	l.Info("Connection established")
@@ -490,7 +490,7 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 		if peer.Addr != nil {
 			peerAddr = peer.Addr.String()
 		}
-		p.l.WarningAttrs(fmt.Sprintf("Request failed: %v. ConnState: %v", err, conn.GetState()), slog.String("peer", peerAddr))
+		p.l.ErrorAttrs(fmt.Sprintf("Request failed: %v. ConnState: %v", err, conn.GetState()), slog.String("peer", peerAddr))
 	} else {
 		success = true
 		delta = time.Since(start)

@@ -12,23 +12,31 @@ message SurfacerConf {
   // after v0.10.3.
   optional int64 metrics_buffer_size = 1 [default = 10000];
 
-  // Whether to include timestamps in metrics. If enabled (default) each metric
-  // string includes the metric timestamp as recorded in the EventMetric.
-  // Prometheus associates the scraped values with this timestamp. If disabled,
-  // i.e. timestamps are not exported, prometheus associates scraped values with
-  // scrape timestamp.
+  // Whether to include timestamps in metrics. By default, we include
+  // timestamps only for gauge metrics as they represent the value at a certain
+  // point in time.
+  //
+  // If explicitly enabled, timestamp will be attached to all metrics,
+  // including counters. If explicitly disabled, timestamp will not be attached
+  // to gauges as well.
   //
   // As it's typically useful to set this across the deployment, this field can
   // also be set through the command line flag --prometheus_include_timestamp.
   // If both are set, the config value takes precedence.
-  optional bool include_timestamp = 2 [default = true];
+  optional bool include_timestamp = 2;
 
-  // We automatically delete metrics that haven't been updated for more than
-  // 10 min. We do that because prometheus generates warnings while scraping
-  // metrics that are more than 10m old and prometheus knows that metrics are
-  // more than 10m old because we include timestamp in metrics (by default).
-  // This option controls that behavior.
-  // It's automatically set to true if include_timestamp is false.
+  // Whether to disable all metrics expiration.
+  //
+  // Default behavior (recommended):
+  // By default, our goal is to expire timestamped metrics, which are more
+  // than 10 minutes old (see why below). If include_timestamp is not explicitly
+  // set to true or false, only gauge metrics will have timestamps, and only
+  // they will be expired. Similarly, if include_timestamp is explicitly set to
+  // false, no metrics will be expired, and if include_timestamp is explicitly
+  // set to true, all metrics will be expired.
+  //
+  // Why do we expire timestamped metrics? Prometheus generates warnings while
+  // scraping metrics that have timestamps that are more than 10m old.
   optional bool disable_metrics_expiration = 5;
 
   // URL that prometheus scrapes metrics from.
