@@ -55,14 +55,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-func (p *Probe) exportGlobalMetrics(em *metrics.EventMetrics) {
+func (p *Probe) exportGlobalMetrics(em, emCum *metrics.EventMetrics) {
 	if p.c.GetExportFileDescriptors() {
 		if err := p.addFileDescMetrics(em); err != nil {
 			p.l.Warningf("Error getting file descriptor metrics: %v", err)
 		}
 	}
 	if p.c.GetExportProcStats() {
-		if err := p.addProcStats(em); err != nil {
+		if err := p.addProcStats(em, emCum); err != nil {
 			p.l.Warningf("Error getting proc stats: %v", err)
 		}
 	}
@@ -177,7 +177,7 @@ func (p *Probe) addFileDescMetrics(em *metrics.EventMetrics) error {
 	return nil
 }
 
-func (p *Probe) addProcStats(em *metrics.EventMetrics) error {
+func (p *Probe) addProcStats(em, emCum *metrics.EventMetrics) error {
 	f, err := os.Open(filepath.Join(p.sysDir, "stat"))
 	if err != nil {
 		return err
@@ -201,7 +201,7 @@ func (p *Probe) addProcStats(em *metrics.EventMetrics) error {
 			em.AddMetric("system_procs_blocked", metrics.NewFloat(v))
 		case "processes":
 			v, _ := parseValue(fields[1])
-			em.AddMetric("system_procs_total", metrics.NewFloat(v))
+			emCum.AddMetric("system_procs_total", metrics.NewFloat(v))
 		}
 	}
 	return scanner.Err()
@@ -295,13 +295,21 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			return
 		case ts := <-ticker.C:
 			// Global metrics
+			// Gauge metrics
 			em := metrics.NewEventMetrics(ts).
 				AddLabel("probe", p.name).
 				AddLabel("ptype", "system")
 			em.Kind = metrics.GAUGE
 
-			p.exportGlobalMetrics(em)
+			// Cumulative metrics
+			emCum := metrics.NewEventMetrics(ts).
+				AddLabel("probe", p.name).
+				AddLabel("ptype", "system")
+			emCum.Kind = metrics.CUMULATIVE
+
+			p.exportGlobalMetrics(em, emCum)
 			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, emCum, dataChan)
 
 			// Per-interface metrics
 			if p.c.GetExportNetDevStats() {

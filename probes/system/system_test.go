@@ -88,9 +88,13 @@ func TestProbeExportMetrics(t *testing.T) {
 	p.c.ExportLoadAvg = proto.Bool(true)
 
 	em := metrics.NewEventMetrics(time.Now())
-	p.exportGlobalMetrics(em)
+	em.Kind = metrics.GAUGE
+	emCum := metrics.NewEventMetrics(time.Now())
+	emCum.Kind = metrics.CUMULATIVE
 
-	// Verify
+	p.exportGlobalMetrics(em, emCum)
+
+	// Verify Gauge Metrics
 	metricsMap := make(map[string]float64)
 	for _, m := range em.MetricsKeys() {
 		val := em.Metric(m).(*metrics.Float).Float64()
@@ -102,7 +106,7 @@ func TestProbeExportMetrics(t *testing.T) {
 
 	assert.Equal(t, 5.0, metricsMap["system_procs_running"])
 	assert.Equal(t, 1.0, metricsMap["system_procs_blocked"])
-	assert.Equal(t, 1000.0, metricsMap["system_procs_total"])
+	// system_procs_total is CUMULATIVE now
 
 	assert.Equal(t, 123.0, metricsMap["system_sockets_in_use"])
 	assert.Equal(t, 10.0, metricsMap["system_sockets_tcp_inuse"])
@@ -112,6 +116,14 @@ func TestProbeExportMetrics(t *testing.T) {
 	assert.Equal(t, 0.50, metricsMap["system_load_1m"])
 	assert.Equal(t, 0.40, metricsMap["system_load_5m"])
 	assert.Equal(t, 0.30, metricsMap["system_load_15m"])
+
+	// Verify Cumulative Metrics
+	metricsMapCum := make(map[string]float64)
+	for _, m := range emCum.MetricsKeys() {
+		val := emCum.Metric(m).(*metrics.Float).Float64()
+		metricsMapCum[m] = val
+	}
+	assert.Equal(t, 1000.0, metricsMapCum["system_procs_total"])
 }
 
 func TestInit(t *testing.T) {
