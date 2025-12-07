@@ -204,8 +204,10 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	if !*disableSysMetrics && !sysProbeConfigured {
 		// Add default system probe
 		cfg.Probe = append(cfg.Probe, &probes_configpb.ProbeDef{
-			Name: proto.String("sys_metrics"),
-			Type: probes_configpb.ProbeDef_SYSTEM.Enum(),
+			Name:     proto.String("sys_metrics"),
+			Type:     probes_configpb.ProbeDef_SYSTEM.Enum(),
+			Interval: proto.String("10s"),
+			Timeout:  proto.String("5s"),
 			Probe: &probes_configpb.ProbeDef_SystemProbe{
 				SystemProbe: &system_configpb.ProbeConf{},
 			},
