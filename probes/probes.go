@@ -32,6 +32,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/probes/ping"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/probes/system"
 	"github.com/cloudprober/cloudprober/probes/tcp"
 	"github.com/cloudprober/cloudprober/probes/udp"
 	"github.com/cloudprober/cloudprober/probes/udplistener"
@@ -166,6 +167,9 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 	case configpb.ProbeDef_BROWSER:
 		probe = &browser.Probe{}
 		probeConf = p.GetBrowserProbe()
+	case configpb.ProbeDef_SYSTEM:
+		probe = &system.Probe{}
+		probeConf = p.GetSystemProbe()
 	case configpb.ProbeDef_EXTENSION:
 		probe, probeConf, err = getExtensionProbe(p)
 		if err != nil {

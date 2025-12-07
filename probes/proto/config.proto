@@ -13,6 +13,7 @@ import "github.com/cloudprober/cloudprober/probes/ping/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/udp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/system/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
 import "github.com/cloudprober/cloudprober/internal/validators/proto/config.proto";
 
@@ -33,6 +34,7 @@ message ProbeDef {
     GRPC = 6;
     TCP = 7;
     BROWSER = 8;
+    SYSTEM = 9;
 
     // One of the extension probe types. See "extensions" below for more
     // details.
@@ -180,6 +182,7 @@ message ProbeDef {
     grpc.ProbeConf grpc_probe = 26;
     tcp.ProbeConf tcp_probe = 27;
     browser.ProbeConf browser_probe = 28;
+    system.ProbeConf system_probe = 29;
     // This field's contents are passed on to the user defined probe,
     // registered for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;
