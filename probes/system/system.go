@@ -55,32 +55,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-// Start starts and runs the probe indefinitely.
-func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	ticker := time.NewTicker(p.opts.Interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case ts := <-ticker.C:
-			// Global metrics
-			em := metrics.NewEventMetrics(ts).
-				AddLabel("probe", p.name).
-				AddLabel("ptype", "system")
-
-			p.exportGlobalMetrics(em)
-			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
-
-			// Per-interface metrics
-			if p.c.GetExportNetDevStats() {
-				p.exportNetDevStats(ts, dataChan)
-			}
-		}
-	}
-}
-
 func (p *Probe) exportGlobalMetrics(em *metrics.EventMetrics) {
 	if p.c.GetExportFileDescriptors() {
 		if err := p.addFileDescMetrics(em); err != nil {
@@ -308,4 +282,31 @@ func (p *Probe) addLoadAvg(em *metrics.EventMetrics) error {
 		em.AddMetric("system_load_15m", metrics.NewFloat(v))
 	}
 	return nil
+}
+
+// Start starts and runs the probe indefinitely.
+func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	ticker := time.NewTicker(p.opts.Interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ts := <-ticker.C:
+			// Global metrics
+			em := metrics.NewEventMetrics(ts).
+				AddLabel("probe", p.name).
+				AddLabel("ptype", "system")
+			em.Kind = metrics.GAUGE
+
+			p.exportGlobalMetrics(em)
+			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+
+			// Per-interface metrics
+			if p.c.GetExportNetDevStats() {
+				p.exportNetDevStats(ts, dataChan)
+			}
+		}
+	}
 }

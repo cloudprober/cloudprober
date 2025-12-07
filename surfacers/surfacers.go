@@ -100,6 +100,10 @@ var defaultSurfacers = []*surfacerpb.SurfacerDef{
 				Key:   proto.String("probe"),
 				Value: proto.String("sysvars"),
 			},
+			{
+				Key:   proto.String("ptype"),
+				Value: proto.String("system"),
+			},
 		},
 	},
 }
