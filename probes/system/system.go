@@ -56,27 +56,27 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 }
 
 func (p *Probe) exportGlobalMetrics(em, emCum *metrics.EventMetrics) {
-	if p.c.GetExportFileDescriptors() {
+	if !p.c.GetDisableFileDescriptors() {
 		if err := p.addFileDescMetrics(em); err != nil {
 			p.l.Warningf("Error getting file descriptor metrics: %v", err)
 		}
 	}
-	if p.c.GetExportProcStats() {
+	if !p.c.GetDisableProcStats() {
 		if err := p.addProcStats(em, emCum); err != nil {
 			p.l.Warningf("Error getting proc stats: %v", err)
 		}
 	}
-	if p.c.GetExportSockStats() {
+	if !p.c.GetDisableSockStats() {
 		if err := p.addSockStats(em); err != nil {
 			p.l.Warningf("Error getting sock stats: %v", err)
 		}
 	}
-	if p.c.GetExportUptime() {
+	if !p.c.GetDisableUptime() {
 		if err := p.addUptime(em); err != nil {
 			p.l.Warningf("Error getting uptime: %v", err)
 		}
 	}
-	if p.c.GetExportLoadAvg() {
+	if !p.c.GetDisableLoadAvg() {
 		if err := p.addLoadAvg(em); err != nil {
 			p.l.Warningf("Error getting load average: %v", err)
 		}
@@ -312,7 +312,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, emCum, dataChan)
 
 			// Per-interface metrics
-			if p.c.GetExportNetDevStats() {
+			if !p.c.GetDisableNetDevStats() {
 				p.exportNetDevStats(ts, dataChan)
 			}
 		}

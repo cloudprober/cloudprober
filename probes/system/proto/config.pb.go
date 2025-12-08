@@ -25,35 +25,25 @@ type ProbeConf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Export system-wide file descriptor stats (from /proc/sys/fs/file-nr)
 	// Metrics: system_file_descriptors_allocated, system_file_descriptors_max
-	ExportFileDescriptors *bool `protobuf:"varint,1,opt,name=export_file_descriptors,json=exportFileDescriptors,def=1" json:"export_file_descriptors,omitempty"`
+	DisableFileDescriptors *bool `protobuf:"varint,1,opt,name=disable_file_descriptors,json=disableFileDescriptors" json:"disable_file_descriptors,omitempty"`
 	// Export process metrics (from /proc/stat)
 	// Metrics: system_procs_running, system_procs_blocked, system_procs_total
-	ExportProcStats *bool `protobuf:"varint,2,opt,name=export_proc_stats,json=exportProcStats,def=1" json:"export_proc_stats,omitempty"`
+	DisableProcStats *bool `protobuf:"varint,2,opt,name=disable_proc_stats,json=disableProcStats" json:"disable_proc_stats,omitempty"`
 	// Export socket stats (from /proc/net/sockstat)
 	// Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.
-	ExportSockStats *bool `protobuf:"varint,3,opt,name=export_sock_stats,json=exportSockStats,def=1" json:"export_sock_stats,omitempty"`
-	// Export network interface stats (from /proc/net/dev)
-	// Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
-	ExportNetDevStats *bool `protobuf:"varint,4,opt,name=export_net_dev_stats,json=exportNetDevStats,def=1" json:"export_net_dev_stats,omitempty"`
+	DisableSockStats *bool `protobuf:"varint,3,opt,name=disable_sock_stats,json=disableSockStats" json:"disable_sock_stats,omitempty"`
 	// Export system uptime (from /proc/uptime)
 	// Metrics: system_uptime_sec
-	ExportUptime *bool `protobuf:"varint,5,opt,name=export_uptime,json=exportUptime,def=1" json:"export_uptime,omitempty"`
+	DisableUptime *bool `protobuf:"varint,4,opt,name=disable_uptime,json=disableUptime" json:"disable_uptime,omitempty"`
 	// Export load average (from /proc/loadavg)
 	// Metrics: system_load_1m, system_load_5m, system_load_15m
-	ExportLoadAvg *bool `protobuf:"varint,6,opt,name=export_load_avg,json=exportLoadAvg,def=1" json:"export_load_avg,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	DisableLoadAvg *bool `protobuf:"varint,5,opt,name=disable_load_avg,json=disableLoadAvg" json:"disable_load_avg,omitempty"`
+	// Export network interface stats (from /proc/net/dev)
+	// Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
+	DisableNetDevStats *bool `protobuf:"varint,6,opt,name=disable_net_dev_stats,json=disableNetDevStats" json:"disable_net_dev_stats,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
-
-// Default values for ProbeConf fields.
-const (
-	Default_ProbeConf_ExportFileDescriptors = bool(true)
-	Default_ProbeConf_ExportProcStats       = bool(true)
-	Default_ProbeConf_ExportSockStats       = bool(true)
-	Default_ProbeConf_ExportNetDevStats     = bool(true)
-	Default_ProbeConf_ExportUptime          = bool(true)
-	Default_ProbeConf_ExportLoadAvg         = bool(true)
-)
 
 func (x *ProbeConf) Reset() {
 	*x = ProbeConf{}
@@ -85,60 +75,60 @@ func (*ProbeConf) Descriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ProbeConf) GetExportFileDescriptors() bool {
-	if x != nil && x.ExportFileDescriptors != nil {
-		return *x.ExportFileDescriptors
+func (x *ProbeConf) GetDisableFileDescriptors() bool {
+	if x != nil && x.DisableFileDescriptors != nil {
+		return *x.DisableFileDescriptors
 	}
-	return Default_ProbeConf_ExportFileDescriptors
+	return false
 }
 
-func (x *ProbeConf) GetExportProcStats() bool {
-	if x != nil && x.ExportProcStats != nil {
-		return *x.ExportProcStats
+func (x *ProbeConf) GetDisableProcStats() bool {
+	if x != nil && x.DisableProcStats != nil {
+		return *x.DisableProcStats
 	}
-	return Default_ProbeConf_ExportProcStats
+	return false
 }
 
-func (x *ProbeConf) GetExportSockStats() bool {
-	if x != nil && x.ExportSockStats != nil {
-		return *x.ExportSockStats
+func (x *ProbeConf) GetDisableSockStats() bool {
+	if x != nil && x.DisableSockStats != nil {
+		return *x.DisableSockStats
 	}
-	return Default_ProbeConf_ExportSockStats
+	return false
 }
 
-func (x *ProbeConf) GetExportNetDevStats() bool {
-	if x != nil && x.ExportNetDevStats != nil {
-		return *x.ExportNetDevStats
+func (x *ProbeConf) GetDisableUptime() bool {
+	if x != nil && x.DisableUptime != nil {
+		return *x.DisableUptime
 	}
-	return Default_ProbeConf_ExportNetDevStats
+	return false
 }
 
-func (x *ProbeConf) GetExportUptime() bool {
-	if x != nil && x.ExportUptime != nil {
-		return *x.ExportUptime
+func (x *ProbeConf) GetDisableLoadAvg() bool {
+	if x != nil && x.DisableLoadAvg != nil {
+		return *x.DisableLoadAvg
 	}
-	return Default_ProbeConf_ExportUptime
+	return false
 }
 
-func (x *ProbeConf) GetExportLoadAvg() bool {
-	if x != nil && x.ExportLoadAvg != nil {
-		return *x.ExportLoadAvg
+func (x *ProbeConf) GetDisableNetDevStats() bool {
+	if x != nil && x.DisableNetDevStats != nil {
+		return *x.DisableNetDevStats
 	}
-	return Default_ProbeConf_ExportLoadAvg
+	return false
 }
 
 var File_github_com_cloudprober_cloudprober_probes_system_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Cgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x12\x19cloudprober.probes.system\"\xbd\x02\n" +
-	"\tProbeConf\x12<\n" +
-	"\x17export_file_descriptors\x18\x01 \x01(\b:\x04trueR\x15exportFileDescriptors\x120\n" +
-	"\x11export_proc_stats\x18\x02 \x01(\b:\x04trueR\x0fexportProcStats\x120\n" +
-	"\x11export_sock_stats\x18\x03 \x01(\b:\x04trueR\x0fexportSockStats\x125\n" +
-	"\x14export_net_dev_stats\x18\x04 \x01(\b:\x04trueR\x11exportNetDevStats\x12)\n" +
-	"\rexport_uptime\x18\x05 \x01(\b:\x04trueR\fexportUptime\x12,\n" +
-	"\x0fexport_load_avg\x18\x06 \x01(\b:\x04trueR\rexportLoadAvgB8Z6github.com/cloudprober/cloudprober/probes/system/proto"
+	"Cgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x12\x19cloudprober.probes.system\"\xa5\x02\n" +
+	"\tProbeConf\x128\n" +
+	"\x18disable_file_descriptors\x18\x01 \x01(\bR\x16disableFileDescriptors\x12,\n" +
+	"\x12disable_proc_stats\x18\x02 \x01(\bR\x10disableProcStats\x12,\n" +
+	"\x12disable_sock_stats\x18\x03 \x01(\bR\x10disableSockStats\x12%\n" +
+	"\x0edisable_uptime\x18\x04 \x01(\bR\rdisableUptime\x12(\n" +
+	"\x10disable_load_avg\x18\x05 \x01(\bR\x0edisableLoadAvg\x121\n" +
+	"\x15disable_net_dev_stats\x18\x06 \x01(\bR\x12disableNetDevStatsB8Z6github.com/cloudprober/cloudprober/probes/system/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDescOnce sync.Once

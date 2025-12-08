@@ -25,7 +25,6 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/system/proto"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestProbeExportMetrics(t *testing.T) {
@@ -79,13 +78,6 @@ func TestProbeExportMetrics(t *testing.T) {
 		l:      &logger.Logger{},
 		sysDir: tmpDir,
 	}
-	// Enable all
-	p.c.ExportFileDescriptors = proto.Bool(true)
-	p.c.ExportProcStats = proto.Bool(true)
-	p.c.ExportSockStats = proto.Bool(true)
-	p.c.ExportNetDevStats = proto.Bool(true)
-	p.c.ExportUptime = proto.Bool(true)
-	p.c.ExportLoadAvg = proto.Bool(true)
 
 	em := metrics.NewEventMetrics(time.Now())
 	em.Kind = metrics.GAUGE

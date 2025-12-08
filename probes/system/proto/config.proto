@@ -7,25 +7,26 @@ option go_package = "github.com/cloudprober/cloudprober/probes/system/proto";
 message ProbeConf {
   // Export system-wide file descriptor stats (from /proc/sys/fs/file-nr)
   // Metrics: system_file_descriptors_allocated, system_file_descriptors_max
-  optional bool export_file_descriptors = 1 [default = true];
+  optional bool disable_file_descriptors = 1;
 
   // Export process metrics (from /proc/stat)
   // Metrics: system_procs_running, system_procs_blocked, system_procs_total
-  optional bool export_proc_stats = 2 [default = true];
+  optional bool disable_proc_stats = 2;
 
   // Export socket stats (from /proc/net/sockstat)
   // Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.
-  optional bool export_sock_stats = 3 [default = true];
-
-  // Export network interface stats (from /proc/net/dev)
-  // Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
-  optional bool export_net_dev_stats = 4 [default = true];
+  optional bool disable_sock_stats = 3;
 
   // Export system uptime (from /proc/uptime)
   // Metrics: system_uptime_sec
-  optional bool export_uptime = 5 [default = true];
+  optional bool disable_uptime = 4;
 
   // Export load average (from /proc/loadavg)
   // Metrics: system_load_1m, system_load_5m, system_load_15m
-  optional bool export_load_avg = 6 [default = true];
+  optional bool disable_load_avg = 5;
+
+  // Export network interface stats (from /proc/net/dev)
+  // Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
+  optional bool disable_net_dev_stats = 6;
+
 }
