@@ -127,3 +127,54 @@ func TestInit(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "/proc", p.sysDir)
 }
+
+func TestExportNetDevStats(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create mock files
+	if err := os.MkdirAll(filepath.Join(tmpDir, "net"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	netDevContent := `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  eth0:    1000      10    1    2    0     0          0         0     2000      20    0    0    0     0       0          0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "net/dev"), []byte(netDevContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &Probe{
+		name:   "test_probe",
+		c:      &configpb.ProbeConf{},
+		l:      &logger.Logger{},
+		sysDir: tmpDir,
+		opts: &options.Options{
+			ProbeConf: &configpb.ProbeConf{},
+		},
+	}
+
+	dataChan := make(chan *metrics.EventMetrics, 1)
+	p.exportNetDevStats(time.Now(), dataChan)
+
+	select {
+	case em := <-dataChan:
+		assert.Equal(t, "eth0", em.Label("iface"))
+		assert.Equal(t, metrics.Kind(metrics.CUMULATIVE), em.Kind)
+
+		valMap := make(map[string]float64)
+		for _, m := range em.MetricsKeys() {
+			valMap[m] = em.Metric(m).(*metrics.Float).Float64()
+		}
+
+		assert.Equal(t, 1000.0, valMap["system_net_rx_bytes"])
+		assert.Equal(t, 10.0, valMap["system_net_rx_packets"])
+		assert.Equal(t, 1.0, valMap["system_net_rx_errors"])
+		assert.Equal(t, 2.0, valMap["system_net_rx_dropped"])
+
+		assert.Equal(t, 2000.0, valMap["system_net_tx_bytes"])
+		assert.Equal(t, 20.0, valMap["system_net_tx_packets"])
+	default:
+		t.Error("expected net dev stats")
+	}
+}
