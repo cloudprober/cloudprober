@@ -27,17 +27,21 @@ import (
 	"google.golang.org/grpc"
 )
 
+type grpcServiceRegistrarFunc func(s *grpc.Server)
+
 // state stores cloudprober config that is specific to a single invocation.
 // e.g., servers injected by external cloudprober users.
 type state struct {
 	sync.RWMutex
-	grpcSrv        *grpc.Server
-	version        string
-	buildTimestamp time.Time
-	rdsServer      *rdsserver.Server
-	httpServeMux   *http.ServeMux
-	configFilePath string
-	webURLs        []string
+	grpcSrv            *grpc.Server
+	additionalOpts     []grpc.ServerOption
+	additionalServices []grpcServiceRegistrarFunc
+	version            string
+	buildTimestamp     time.Time
+	rdsServer          *rdsserver.Server
+	httpServeMux       *http.ServeMux
+	configFilePath     string
+	webURLs            []string
 }
 
 var st state
@@ -55,6 +59,34 @@ func DefaultGRPCServer() *grpc.Server {
 	st.Lock()
 	defer st.Unlock()
 	return st.grpcSrv
+}
+
+// AddGRPCOptions adds additional gRPC server options.
+func AddGRPCOptions(opts ...grpc.ServerOption) {
+	st.Lock()
+	defer st.Unlock()
+	st.additionalOpts = append(st.additionalOpts, opts...)
+}
+
+// GRPCServerOptions returns the additional gRPC server options.
+func GRPCServerOptions() []grpc.ServerOption {
+	st.RLock()
+	defer st.RUnlock()
+	return st.additionalOpts
+}
+
+// WithGRPCServiceRegistrar adds a function to register a gRPC service.
+func AddGRPCServiceRegistrar(f grpcServiceRegistrarFunc) {
+	st.Lock()
+	defer st.Unlock()
+	st.additionalServices = append(st.additionalServices, f)
+}
+
+// GRPCServiceRegistrars returns the additional gRPC service registrars.
+func GRPCServiceRegistrars() []grpcServiceRegistrarFunc {
+	st.RLock()
+	defer st.RUnlock()
+	return st.additionalServices
 }
 
 // SetVersion sets the cloudprober version.

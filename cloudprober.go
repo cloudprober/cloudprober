@@ -237,7 +237,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 
 		// Create the default gRPC server now, so that other modules can register
 		// their services with it in the prober.Init() phase.
-		var serverOpts []grpc.ServerOption
+		serverOpts := state.GRPCServerOptions()
 
 		if cfg.GetGrpcTlsConfig() != nil {
 			tlsConfig := &tls.Config{}
@@ -252,6 +252,10 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
+
+		for _, f := range state.GRPCServiceRegistrars() {
+			f(s)
+		}
 		state.SetDefaultGRPCServer(s)
 	}
 
@@ -280,14 +284,11 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 }
 
 // RunOnce runs a single probe.
-func RunOnce(ctx context.Context, format, indent string) error {
+func RunOnce(ctx context.Context, probeNames []string) (map[string][]*singlerun.ProbeRunResult, error) {
 	cloudProber.RLock()
 	defer cloudProber.RUnlock()
 
-	prrs, err := cloudProber.prober.Run(ctx)
-
-	fmt.Println(singlerun.FormatProbeRunResults(prrs, singlerun.Format(format), indent))
-	return err
+	return cloudProber.prober.Run(ctx, probeNames)
 }
 
 // Start starts a previously initialized Cloudprober.
