@@ -1,0 +1,46 @@
+syntax = "proto2";
+
+package cloudprober.surfacer.bigquery;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto";
+
+message SurfacerConf {
+  optional string project_name = 1;
+
+  optional string bigquery_dataset = 2;
+
+  optional string bigquery_table = 3;
+
+  // It represents the bigquery table columns.
+  //  bigquery_columns {
+  //    label: "id",
+  //    column_name: "id",
+  //    column_type: "string",
+  //  }
+  repeated BQColumn bigquery_columns = 4;
+
+  // It represents bigquery client timeout in seconds. So, if bigquery insertion
+  // is not completed within this time period then the request will fail and the
+  // failed rows will be retried later.
+  optional int64 bigquery_timeout_sec = 5 [default = 30];
+
+  optional int64 metrics_buffer_size = 6 [default = 100000];
+
+  // This denotes the time interval after which data will be inserted in
+  // bigquery. Default is 10 seconds. So after every 10 seconds all the em in
+  // current will be inserted in bigquery in a default batch size of 1000
+  optional int64 batch_timer_sec = 7 [default = 10];
+
+  optional int64 metrics_batch_size = 8 [default = 1000];
+
+  // Column name for metrics name, value and timestamp
+  optional string metric_time_col_name = 9 [default = "metric_time"];
+  optional string metric_name_col_name = 10 [default = "metric_name"];
+  optional string metric_value_col_name = 11 [default = "metric_value"];
+}
+
+message BQColumn {
+  optional string label = 1;
+  optional string column_name = 2;
+  optional string column_type = 3;
+}

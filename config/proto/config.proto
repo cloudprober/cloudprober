@@ -7,7 +7,7 @@ import "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config
 import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/server/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/servers/proto/config.proto";
-import "github.com/cloudprober/cloudprober/surfacers/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/config/proto";

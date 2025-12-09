@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	surfacerspb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	probespb "github.com/cloudprober/cloudprober/probes/proto"
-	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
