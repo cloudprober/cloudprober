@@ -24,6 +24,7 @@ package cloudprober
 import (
 	"context"
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -43,6 +44,8 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"
+	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	system_configpb "github.com/cloudprober/cloudprober/probes/system/proto"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web"
@@ -50,6 +53,7 @@ import (
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -63,6 +67,10 @@ const (
 	ServerHostEnvVar    = "CLOUDPROBER_HOST"
 	ServerPortEnvVar    = "CLOUDPROBER_PORT"
 	DisableHTTPDebugVar = "CLOUDPROBER_DISABLE_HTTP_PPROF"
+)
+
+var (
+	disableSysMetrics = flag.Bool("disable_sys_metrics", false, "Disable system metrics probe")
 )
 
 // Global prober.Prober instance protected by a mutex.
@@ -181,6 +189,29 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	cfg, err := configSrc.GetConfig()
 	if err != nil {
 		return err
+	}
+
+	// Be careful about imports, we want to check if system probe is configured.
+	// We iterate over probes to see if any of them is a system probe.
+	sysProbeConfigured := false
+	for _, p := range cfg.GetProbe() {
+		if p.GetType() == probes_configpb.ProbeDef_SYSTEM {
+			sysProbeConfigured = true
+			break
+		}
+	}
+
+	if !*disableSysMetrics && !sysProbeConfigured {
+		// Add default system probe
+		cfg.Probe = append(cfg.Probe, &probes_configpb.ProbeDef{
+			Name:     proto.String("sys_metrics"),
+			Type:     probes_configpb.ProbeDef_SYSTEM.Enum(),
+			Interval: proto.String("10s"),
+			Timeout:  proto.String("5s"),
+			Probe: &probes_configpb.ProbeDef_SystemProbe{
+				SystemProbe: &system_configpb.ProbeConf{},
+			},
+		})
 	}
 
 	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))

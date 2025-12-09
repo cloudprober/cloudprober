@@ -199,6 +199,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 			configpb.ProbeDef_EXTERNAL,
 			configpb.ProbeDef_EXTENSION,
 			configpb.ProbeDef_BROWSER,
+			configpb.ProbeDef_SYSTEM,
 		}
 		if !slices.Contains(targetsNotRequired, p.GetType()) {
 			return nil, fmt.Errorf("targets requied for probe type: %s", p.GetType().String())
