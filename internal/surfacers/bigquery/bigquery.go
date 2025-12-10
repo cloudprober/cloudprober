@@ -28,7 +28,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 )
 
 type bqrow struct {

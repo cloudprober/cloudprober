@@ -35,7 +35,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"

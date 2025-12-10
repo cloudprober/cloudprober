@@ -37,7 +37,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"github.com/jackc/pgx/v5"
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/postgres/proto"

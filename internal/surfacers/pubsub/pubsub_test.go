@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/cloudprober/cloudprober/internal/surfacers/common/compress"
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/pubsub/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/compress"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"google.golang.org/api/option"
 	pb "google.golang.org/genproto/googleapis/pubsub/v1"
 	pb_grpc "google.golang.org/genproto/googleapis/pubsub/v1"

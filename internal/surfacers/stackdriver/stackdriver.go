@@ -36,7 +36,7 @@ import (
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/stackdriver/proto"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 )
 
 const (

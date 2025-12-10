@@ -23,7 +23,7 @@ import (
 	surfacerpb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/stackdriver/proto"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"github.com/stretchr/testify/assert"
 	monitoring "google.golang.org/api/monitoring/v3"
 	"google.golang.org/protobuf/proto"

@@ -25,11 +25,11 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/pubsub"
+	"github.com/cloudprober/cloudprober/internal/surfacers/common/compress"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/compress"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/pubsub/proto"
 )

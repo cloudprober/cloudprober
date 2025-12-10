@@ -31,10 +31,10 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/cloudprober/cloudprober/internal/surfacers/common/compress"
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/file/proto"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/compress"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 )
 
 func TestWrite(t *testing.T) {

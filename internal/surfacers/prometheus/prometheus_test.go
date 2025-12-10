@@ -29,7 +29,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/prometheus/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/state"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )

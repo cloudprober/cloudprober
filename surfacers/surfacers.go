@@ -33,6 +33,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/internal/surfacers/bigquery"
 	"github.com/cloudprober/cloudprober/internal/surfacers/cloudwatch"
+	"github.com/cloudprober/cloudprober/internal/surfacers/common/transform"
 	"github.com/cloudprober/cloudprober/internal/surfacers/datadog"
 	"github.com/cloudprober/cloudprober/internal/surfacers/file"
 	"github.com/cloudprober/cloudprober/internal/surfacers/otel"
@@ -43,8 +44,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/surfacers/stackdriver"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
-	"github.com/cloudprober/cloudprober/surfacers/common/transform"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"github.com/cloudprober/cloudprober/web/formatutils"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"

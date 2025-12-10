@@ -31,7 +31,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/cloudwatch/proto"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 )
 
 // The dimension named used to identify distributions

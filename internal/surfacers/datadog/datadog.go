@@ -26,7 +26,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/datadog/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/common/options"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"google.golang.org/protobuf/proto"
 )
 
