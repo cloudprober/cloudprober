@@ -23,9 +23,9 @@ import (
 	"testing"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	surfacerspb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	probespb "github.com/cloudprober/cloudprober/probes/proto"
-	surfacerspb "github.com/cloudprober/cloudprober/surfacers/proto"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/tools/txtar"

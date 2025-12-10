@@ -1,0 +1,70 @@
+syntax = "proto2";
+
+package cloudprober.surfacer.otel;
+
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto";
+
+enum Compression {
+  NONE = 0;
+  GZIP = 1;
+}
+
+message HTTPExporter{
+  // If no URL is provided, OpenTelemetry SDK will use the environment variable
+  // OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+  // preference order.
+  optional string endpoint_url = 1;
+  
+  optional tlsconfig.TLSConfig tls_config = 2;
+
+  // HTTP request headers. These can also be set using environment variables.
+  map<string, string> http_header = 3;
+
+  // Compression algorithm to use for HTTP requests.
+  optional Compression compression = 4;
+}
+
+message GRPCExporter{
+  // If no URL is provided, OpenTelemetry SDK will use the environment variable
+  // OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+  // preference order.
+  optional string endpoint = 1;
+  
+  optional tlsconfig.TLSConfig tls_config = 2;
+
+  // HTTP request headers. These can also be set using environment variables.
+  map<string, string> http_header = 3;
+
+  // Compression algorithm to use for gRPC requests.
+  optional Compression compression = 4;
+
+  // Whether to use insecure gRPC connection.
+  optional bool insecure = 5;
+}
+
+message SurfacerConf {
+  oneof exporter {
+    // OTLP HTTP exporter.
+    HTTPExporter otlp_http_exporter = 1;
+
+    // OTLP gRPC exporter.
+    GRPCExporter otlp_grpc_exporter = 2;
+  }
+
+  // How often metrics will be exported. Note that metrics are accumulated
+  // internally and exported at this interval. Increasing this value will
+  // increase the memory usage.
+  optional int32 export_interval_sec = 3 [default = 10];
+
+  // Prefix to use for metrics. Defaults to "cloudprober_".
+  optional string metrics_prefix = 4 [default = "cloudprober_"];
+
+  // Additional attributes to be added to all the metrics.
+  message Attribute {
+    optional string key = 1;
+    optional string value = 2;
+  }
+  repeated Attribute resource_attribute = 5;
+}

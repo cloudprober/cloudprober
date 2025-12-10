@@ -10,9 +10,9 @@ import (
 	proto4 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	proto3 "github.com/cloudprober/cloudprober/internal/rds/server/proto"
 	proto2 "github.com/cloudprober/cloudprober/internal/servers/proto"
+	proto1 "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	proto6 "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	proto "github.com/cloudprober/cloudprober/probes/proto"
-	proto1 "github.com/cloudprober/cloudprober/surfacers/proto"
 	proto5 "github.com/cloudprober/cloudprober/targets/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -396,7 +396,7 @@ var File_github_com_cloudprober_cloudprober_config_proto_config_proto protorefle
 
 const file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"<github.com/cloudprober/cloudprober/config/proto/config.proto\x12\vcloudprober\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aNgithub.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto\x1a<github.com/cloudprober/cloudprober/probes/proto/config.proto\x1aIgithub.com/cloudprober/cloudprober/internal/rds/server/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/internal/servers/proto/config.proto\x1a?github.com/cloudprober/cloudprober/surfacers/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\"\xdb\x06\n" +
+	"<github.com/cloudprober/cloudprober/config/proto/config.proto\x12\vcloudprober\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aNgithub.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto\x1a<github.com/cloudprober/cloudprober/probes/proto/config.proto\x1aIgithub.com/cloudprober/cloudprober/internal/rds/server/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/internal/servers/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/internal/surfacers/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\"\xdb\x06\n" +
 	"\fProberConfig\x122\n" +
 	"\x05probe\x18\x01 \x03(\v2\x1c.cloudprober.probes.ProbeDefR\x05probe\x12=\n" +
 	"\bsurfacer\x18\x02 \x03(\v2!.cloudprober.surfacer.SurfacerDefR\bsurfacer\x126\n" +
