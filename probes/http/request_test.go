@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	oauthpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	probesconfigpb "github.com/cloudprober/cloudprober/probes/proto"
@@ -390,11 +391,12 @@ func TestPrepareRequest(t *testing.T) {
 		data = append(data, fmt.Sprintf("data-%03d", i))
 	}
 	tests := []struct {
-		name         string
-		token        string
-		data         []string
-		wantIsCloned bool
-		wantNewBody  bool
+		name              string
+		token             string
+		token_type_format string
+		data              []string
+		wantIsCloned      bool
+		wantNewBody       bool
 	}{
 		{
 			name: "No token source, no body",
@@ -416,6 +418,13 @@ func TestPrepareRequest(t *testing.T) {
 			token:        "test-token",
 			wantIsCloned: true,
 			wantNewBody:  false, // Only request is cloned.
+		},
+		{
+			name:              "token source, custom token format",
+			token:             "test-token",
+			token_type_format: `Snowflake Token="%s"`,
+			wantIsCloned:      true,
+			wantNewBody:       false, // Only request is cloned.
 		},
 		{
 			name:         "token source, small body",
@@ -440,6 +449,13 @@ func TestPrepareRequest(t *testing.T) {
 			if tt.token != "" {
 				p.oauthTS = &fakeTokenSource{token: tt.token}
 			}
+			if tt.token_type_format != "" {
+				p.c = &configpb.ProbeConf{
+					OauthConfig: &oauthpb.Config{
+						TokenTypeFormat: &tt.token_type_format,
+					},
+				}
+			}
 
 			inReq, _ := httpreq.NewRequest("GET", "http://cloudprober.org", p.requestBody)
 			got := p.prepareRequest(inReq)
@@ -453,7 +469,7 @@ func TestPrepareRequest(t *testing.T) {
 			}
 
 			if tt.token != "" {
-				assert.Equal(t, "Bearer "+tt.token, got.Header.Get("Authorization"), "Token mismatch")
+				assert.Equal(t, fmt.Sprintf(p.c.GetOauthConfig().GetTokenTypeFormat(), tt.token), got.Header.Get("Authorization"), "Token mismatch")
 			}
 
 			if len(tt.data) != 0 {
