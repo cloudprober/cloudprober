@@ -28,7 +28,6 @@ import (
 	"os/signal"
 	"runtime/pprof"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -37,7 +36,6 @@ import (
 	"github.com/cloudprober/cloudprober"
 	"github.com/cloudprober/cloudprober/config"
 	"github.com/cloudprober/cloudprober/logger"
-	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/state"
 )
 
@@ -180,11 +178,9 @@ func main() {
 	}
 
 	if *runOnce {
-		prrs, err := cloudprober.RunOnce(startCtx, strings.Split(*runOnceProbeNames, ","))
+		err := cloudprober.DoRunOnce(startCtx, *runOnceProbeNames, *runOnceOutFormat, *runOnceOutIndent)
 		if err != nil {
 			l.Criticalf("Error running run-once probe. Err: %v", err)
-		} else {
-			fmt.Println(singlerun.FormatProbeRunResults(prrs, singlerun.Format(*runOnceOutFormat), *runOnceOutIndent))
 		}
 		return
 	}

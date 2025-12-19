@@ -217,6 +217,7 @@ func (pr *Prober) startProbesWithJitter() {
 	}
 }
 
+// Run runs requested 'probeNames' once.
 func (pr *Prober) Run(ctx context.Context, probeNames []string) (map[string][]*singlerun.ProbeRunResult, error) {
 	pr.mu.RLock()
 	defer pr.mu.RUnlock()

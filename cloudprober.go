@@ -24,6 +24,7 @@ package cloudprober
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -283,7 +284,22 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	return nil
 }
 
-// RunOnce runs a single probe.
+// DoRunOnce runs requested probes once and print results to stdout.
+func DoRunOnce(ctx context.Context, names, format, indent string) error {
+	prrs, err := RunOnce(ctx, strings.Split(names, ","))
+	fmt.Println(singlerun.FormatProbeRunResults(prrs, singlerun.Format(format), indent))
+
+	// In CLI case, aggregate the probe run errors, so we can more easily show to users.
+	for _, prr := range prrs {
+		for _, r := range prr {
+			err = errors.Join(err, r.Error)
+		}
+	}
+
+	return err
+}
+
+// RunOnce runs requested probes once.
 func RunOnce(ctx context.Context, probeNames []string) (map[string][]*singlerun.ProbeRunResult, error) {
 	cloudProber.RLock()
 	defer cloudProber.RUnlock()

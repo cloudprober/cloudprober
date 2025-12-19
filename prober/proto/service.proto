@@ -15,6 +15,7 @@ service Cloudprober {
   // RemoveProbe stops the probe and removes it from the in-memory database.
   rpc RemoveProbe(RemoveProbeRequest) returns (RemoveProbeResponse) {}
 
+  // EXPERIMENTAL. Support or implementation may subject to change.
   // RunProbe runs all or subset of probes this instance is configured with..
   rpc RunProbe(RunProbeRequest) returns (RunProbeResponse) {}
 
