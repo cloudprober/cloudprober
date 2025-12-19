@@ -33,15 +33,13 @@ type grpcServiceRegistrarFunc func(s *grpc.Server)
 // e.g., servers injected by external cloudprober users.
 type state struct {
 	sync.RWMutex
-	grpcSrv            *grpc.Server
-	additionalOpts     []grpc.ServerOption
-	additionalServices []grpcServiceRegistrarFunc
-	version            string
-	buildTimestamp     time.Time
-	rdsServer          *rdsserver.Server
-	httpServeMux       *http.ServeMux
-	configFilePath     string
-	webURLs            []string
+	grpcSrv        *grpc.Server
+	version        string
+	buildTimestamp time.Time
+	rdsServer      *rdsserver.Server
+	httpServeMux   *http.ServeMux
+	configFilePath string
+	webURLs        []string
 }
 
 var st state
