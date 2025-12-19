@@ -251,10 +251,9 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 				serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 			}
 
-			s := grpc.NewServer(serverOpts...)
+			s = grpc.NewServer(serverOpts...)
 			state.SetDefaultGRPCServer(s)
 		}
-
 		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
@@ -332,6 +331,9 @@ func Start(ctx context.Context) {
 		cloudProber.config = nil
 		cloudProber.configSource = nil
 		cloudProber.prober = nil
+		// prevent reuse in, for example, tests
+		state.SetDefaultGRPCServer(nil)
+		state.SetDefaultHTTPServeMux(nil)
 	}()
 
 	go httpSrv.Serve(cloudProber.defaultServerLn)
