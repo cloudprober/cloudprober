@@ -61,34 +61,6 @@ func DefaultGRPCServer() *grpc.Server {
 	return st.grpcSrv
 }
 
-// AddGRPCOptions adds additional gRPC server options.
-func AddGRPCOptions(opts ...grpc.ServerOption) {
-	st.Lock()
-	defer st.Unlock()
-	st.additionalOpts = append(st.additionalOpts, opts...)
-}
-
-// GRPCServerOptions returns the additional gRPC server options.
-func GRPCServerOptions() []grpc.ServerOption {
-	st.RLock()
-	defer st.RUnlock()
-	return st.additionalOpts
-}
-
-// WithGRPCServiceRegistrar adds a function to register a gRPC service.
-func AddGRPCServiceRegistrar(f grpcServiceRegistrarFunc) {
-	st.Lock()
-	defer st.Unlock()
-	st.additionalServices = append(st.additionalServices, f)
-}
-
-// GRPCServiceRegistrars returns the additional gRPC service registrars.
-func GRPCServiceRegistrars() []grpcServiceRegistrarFunc {
-	st.RLock()
-	defer st.RUnlock()
-	return st.additionalServices
-}
-
 // SetVersion sets the cloudprober version.
 func SetVersion(version string) {
 	st.Lock()

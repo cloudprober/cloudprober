@@ -236,28 +236,28 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 			return fmt.Errorf("error while creating listener for default gRPC server: %v", err)
 		}
 
-		// Create the default gRPC server now, so that other modules can register
-		// their services with it in the prober.Init() phase.
-		serverOpts := state.GRPCServerOptions()
+		s := state.DefaultGRPCServer()
+		if s == nil {
+			// Create the default gRPC server now, so that other modules can register
+			// their services with it in the prober.Init() phase.
+			var serverOpts []grpc.ServerOption
 
-		if cfg.GetGrpcTlsConfig() != nil {
-			tlsConfig := &tls.Config{}
-			if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig()); err != nil {
-				return err
+			if cfg.GetGrpcTlsConfig() != nil {
+				tlsConfig := &tls.Config{}
+				if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig()); err != nil {
+					return err
+				}
+				tlsConfig.ClientCAs = tlsConfig.RootCAs
+				serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 			}
-			tlsConfig.ClientCAs = tlsConfig.RootCAs
-			serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
+
+			s := grpc.NewServer(serverOpts...)
+			state.SetDefaultGRPCServer(s)
 		}
 
-		s := grpc.NewServer(serverOpts...)
 		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
-
-		for _, f := range state.GRPCServiceRegistrars() {
-			f(s)
-		}
-		state.SetDefaultGRPCServer(s)
 	}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
