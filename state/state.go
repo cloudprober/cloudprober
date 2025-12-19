@@ -27,8 +27,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-type grpcServiceRegistrarFunc func(s *grpc.Server)
-
 // state stores cloudprober config that is specific to a single invocation.
 // e.g., servers injected by external cloudprober users.
 type state struct {
