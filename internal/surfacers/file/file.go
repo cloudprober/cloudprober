@@ -22,7 +22,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/cloudprober/cloudprober/internal/surfacers/common/compress"
 	"github.com/cloudprober/cloudprober/logger"
@@ -30,6 +33,11 @@ import (
 	"github.com/cloudprober/cloudprober/surfacers/options"
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/file/proto"
+)
+
+var (
+	logLimiter         = rate.NewLimiter(rate.Every(10*time.Second), 1)
+	suppressedLogCount int64
 )
 
 // Surfacer structures for writing onto a GCE instance's serial port. Keeps
@@ -141,7 +149,12 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case s.inChan <- em:
 	default:
-		s.l.Errorf("Surfacer's write channel is full, dropping new data.")
+		if logLimiter.Allow() {
+			suppressed := atomic.SwapInt64(&suppressedLogCount, 0)
+			s.l.Errorf("Surfacer's write channel is full, dropping new data. (%d repeat messages suppressed)", suppressed)
+		} else {
+			atomic.AddInt64(&suppressedLogCount, 1)
+		}
 	}
 }
 
