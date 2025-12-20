@@ -158,6 +158,9 @@ func InitFromConfig(configFile string) error {
 }
 
 // Init initializes Cloudprober using the default config source.
+//
+// Extended cloudprober might create a different grpc server and add it to the 'state' 
+// before calling this func to initialize the cloudprober.
 func Init() error {
 	return InitWithConfigSource(config.DefaultConfigSource())
 }
