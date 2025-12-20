@@ -22,7 +22,7 @@ key: &lt;string>
 
 <div class=comment># Probe name. It should be unique across all probes.</div>name: &lt;string>
 
-type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|EXTENSION|USER_DEFINED): &lt;enum>
+type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|EXTENSION|USER_DEFINED): &lt;enum>
 
 <div class=comment># Interval between two probe runs in milliseconds.
 # Only one of &#34;interval&#34; and &#34;inteval_msec&#34; should be defined.
@@ -118,7 +118,8 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 &nbsp;dns_probe &lt;<a href=../probes#cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf</a>&gt; | external_probe &lt;<a href=../probes#cloudprober_probes_external_ProbeConf>cloudprober.probes.external.ProbeConf</a>&gt; | 
 &nbsp;udp_probe &lt;<a href=../probes#cloudprober_probes_udp_ProbeConf>cloudprober.probes.udp.ProbeConf</a>&gt; | udp_listener_probe &lt;<a href=../probes#cloudprober_probes_udplistener_ProbeConf>cloudprober.probes.udplistener.ProbeConf</a>&gt; | 
 &nbsp;grpc_probe &lt;<a href=../probes#cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf</a>&gt; | tcp_probe &lt;<a href=../probes#cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf</a>&gt; | 
-&nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | user_defined_probe &lt;string&gt;]: &lt;oneof>
+&nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | system_probe &lt;<a href=../probes#cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf</a>&gt; | 
+&nbsp;user_defined_probe &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Which machines this probe should run on. If defined, cloudprober will run
 # this probe only if machine&#39;s hostname matches this value. This is useful
@@ -709,6 +710,26 @@ value: &lt;string>
 # the reply payload matches the same format.</div>disable_integrity_check: &lt;bool> | default: false
 
 <div class=comment># Do not allow OS-level fragmentation, only works on Linux systems.</div>disable_fragmentation: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf <a class=anchor href=#cloudprober_probes_system_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Export system-wide file descriptor stats (from /proc/sys/fs/file-nr)
+# Metrics: system_file_descriptors_allocated, system_file_descriptors_max</div>disable_file_descriptors: &lt;bool>
+
+<div class=comment># Export process metrics (from /proc/stat)
+# Metrics: system_procs_running, system_procs_blocked, system_procs_total</div>disable_proc_stats: &lt;bool>
+
+<div class=comment># Export socket stats (from /proc/net/sockstat)
+# Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.</div>disable_sock_stats: &lt;bool>
+
+<div class=comment># Export system uptime (from /proc/uptime)
+# Metrics: system_uptime_sec</div>disable_uptime: &lt;bool>
+
+<div class=comment># Export load average (from /proc/loadavg)
+# Metrics: system_load_1m, system_load_5m, system_load_15m</div>disable_load_avg: &lt;bool>
+
+<div class=comment># Export network interface stats (from /proc/net/dev)
+# Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.</div>disable_net_dev_stats: &lt;bool>
 
 </pre><h3 id=cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf <a class=anchor href=#cloudprober_probes_tcp_ProbeConf>#</a></h3><pre class=protodoc>
 
@@ -784,7 +805,7 @@ key: &lt;string>
 
 <div class=comment># Probe name. It should be unique across all probes.</div>name: &lt;string>
 
-type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|EXTENSION|USER_DEFINED): &lt;enum>
+type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|EXTENSION|USER_DEFINED): &lt;enum>
 
 <div class=comment># Interval between two probe runs in milliseconds.
 # Only one of &#34;interval&#34; and &#34;inteval_msec&#34; should be defined.
@@ -880,7 +901,8 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 &nbsp;dns_probe &lt;<a href=../probes#cloudprober_probes_dns_ProbeConf>cloudprober.probes.dns.ProbeConf</a>&gt; | external_probe &lt;<a href=../probes#cloudprober_probes_external_ProbeConf>cloudprober.probes.external.ProbeConf</a>&gt; | 
 &nbsp;udp_probe &lt;<a href=../probes#cloudprober_probes_udp_ProbeConf>cloudprober.probes.udp.ProbeConf</a>&gt; | udp_listener_probe &lt;<a href=../probes#cloudprober_probes_udplistener_ProbeConf>cloudprober.probes.udplistener.ProbeConf</a>&gt; | 
 &nbsp;grpc_probe &lt;<a href=../probes#cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf</a>&gt; | tcp_probe &lt;<a href=../probes#cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf</a>&gt; | 
-&nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | user_defined_probe &lt;string&gt;]: &lt;oneof>
+&nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | system_probe &lt;<a href=../probes#cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf</a>&gt; | 
+&nbsp;user_defined_probe &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Which machines this probe should run on. If defined, cloudprober will run
 # this probe only if machine&#39;s hostname matches this value. This is useful
@@ -1472,6 +1494,26 @@ value: &lt;string>
 
 <div class=comment># Do not allow OS-level fragmentation, only works on Linux systems.</div>disable_fragmentation: &lt;bool> | default: false
 
+</pre><h3 id=cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf <a class=anchor href=#cloudprober_probes_system_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Export system-wide file descriptor stats (from /proc/sys/fs/file-nr)
+# Metrics: system_file_descriptors_allocated, system_file_descriptors_max</div>disable_file_descriptors: &lt;bool>
+
+<div class=comment># Export process metrics (from /proc/stat)
+# Metrics: system_procs_running, system_procs_blocked, system_procs_total</div>disable_proc_stats: &lt;bool>
+
+<div class=comment># Export socket stats (from /proc/net/sockstat)
+# Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.</div>disable_sock_stats: &lt;bool>
+
+<div class=comment># Export system uptime (from /proc/uptime)
+# Metrics: system_uptime_sec</div>disable_uptime: &lt;bool>
+
+<div class=comment># Export load average (from /proc/loadavg)
+# Metrics: system_load_1m, system_load_5m, system_load_15m</div>disable_load_avg: &lt;bool>
+
+<div class=comment># Export network interface stats (from /proc/net/dev)
+# Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.</div>disable_net_dev_stats: &lt;bool>
+
 </pre><h3 id=cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf <a class=anchor href=#cloudprober_probes_tcp_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Port for TCP requests. If not specfied, and port is provided by the
@@ -1533,4 +1575,4 @@ type: (INVALID|ECHO|DISCARD): &lt;enum>
 </pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/main/overview/><div class="card my-1"><div class="card-body py-2">&larr; Overview Config (main)</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/main/rds/><div class="card my-1"><div class="card-body py-2">Rds Config (main) &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.87685cf4e6585276ff9e7b5d0b97e792615af6921e77821315d1ca7c5511ac2f30667e16c0d031e680ca8b57f63f6c0f6c4a232da777cce474b501ed81e090a9.js integrity="sha512-h2hc9OZYUnb/nntdC5fnkmFa9pIed4ITFdHKfFURrC8wZn4WwNAx5oDKi1f2P2wPbEojLad3zOR0tQHtgeCQqQ==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.6d2ae9724e2da3febf052f9f9979776c542ecb50cd20d7280148c1eef7d0f76d3d84f82b8d3b10a209294618236691747c95c658e350ffac326cde26caf84347.js integrity="sha512-bSrpck4to/6/BS+fmXl3bFQuy1DNINcoAUjB7vfQ9209hPgrjTsQogkpRhgjZpF0fJXGWONQ/6wybN4myvhDRw==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.162c56a0426544de0d010e66c56e321579655c400c9aae06a6823e7682de379adadf2165bd416fea191e4e7e410fbf1fd2c35a759aa43ff2e3787067669bf81b.js integrity="sha512-FixWoEJlRN4NAQ5mxW4yFXllXEAMmq4GpoI+doLeN5ra3yFlvUFv6hkeTn5BD78f0sNadZqkP/LjeHBnZpv4Gw==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.65f7c1c2ace45bbaee6423659ed3dd8de5087dbeec2c5b7e8ce75d5e8e66531d8d71ac5c93cbdf047a3431b0ba08821c85664e9b31381abf63333cce35923c1f.js integrity="sha512-ZffBwqzkW7ruZCNlntPdjeUIfb7sLFt+jOddXo5mUx2Ncaxck8vfBHo0MbC6CIIchWZOmzE4Gr9jMzzONZI8Hw==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.da270d313250ced1265313eb864725127d2fdc96f6dd2a1029bf25455b9a68fba55bacfd122c57d74759cd496eb21dfc285139c2898bfd2cd9ee14ece1f1c1b4.js integrity="sha512-2icNMTJQztEmUxPrhkclEn0v3Jb23SoQKb8lRVuaaPulW6z9EixX10dZzUlush38KFE5womL/SzZ7hTs4fHBtA==" crossorigin=anonymous defer></script></body></html>
