@@ -40,14 +40,16 @@ import (
 )
 
 var (
-	versionFlag       = flag.Bool("version", false, "Print version and exit")
-	buildInfoFlag     = flag.Bool("buildinfo", false, "Print build info and exit")
-	stopTime          = flag.Duration("stop_time", 0, "How long to wait for cleanup before process exits on SIGINT and SIGTERM")
-	cpuprofile        = flag.String("cpuprof", "", "Write cpu profile to file")
-	memprofile        = flag.String("memprof", "", "Write heap profile to file")
-	configTest        = flag.Bool("configtest", false, "Dry run to test config file")
-	dumpConfig        = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
-	dumpConfigFormat  = flag.String("dumpconfig_fmt", "textpb", "Dump config format (textpb, json, yaml)")
+	versionFlag      = flag.Bool("version", false, "Print version and exit")
+	buildInfoFlag    = flag.Bool("buildinfo", false, "Print build info and exit")
+	stopTime         = flag.Duration("stop_time", 0, "How long to wait for cleanup before process exits on SIGINT and SIGTERM")
+	cpuprofile       = flag.String("cpuprof", "", "Write cpu profile to file")
+	memprofile       = flag.String("memprof", "", "Write heap profile to file")
+	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
+	dumpConfig       = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
+	dumpConfigFormat = flag.String("dumpconfig_fmt", "textpb", "Dump config format (textpb, json, yaml)")
+
+	// Run once flags
 	runOnce           = flag.Bool("run_once", false, "Run a single probe and exit")
 	runOnceProbeNames = flag.String("run_once_probe_names", "", "Comma-separated list of probe names to run")
 	runOnceOutFormat  = flag.String("run_once_output_format", "text", "Run once output format (text, json)")
