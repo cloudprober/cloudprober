@@ -15,8 +15,8 @@ service Cloudprober {
   // RemoveProbe stops the probe and removes it from the in-memory database.
   rpc RemoveProbe(RemoveProbeRequest) returns (RemoveProbeResponse) {}
 
-  // EXPERIMENTAL. Support or implementation may subject to change.
-  // RunProbe runs all or subset of probes this instance is configured with..
+  // EXPERIMENTAL. It's still in development. Implementation subject to change.
+  // RunProbe runs all or subset of probes this instance is configured with.
   rpc RunProbe(RunProbeRequest) returns (RunProbeResponse) {}
 
   // ListProbes lists active probes.
@@ -38,7 +38,11 @@ message RemoveProbeRequest {
 message RemoveProbeResponse {}
 
 message RunProbeRequest {
+  // If empty, all configured probes are run.
   repeated string probe_name = 1;
+
+  // Note: we may support overriding the targets or other fields in the
+  // future.
 }
 
 // TODO: Add metrics handling.
@@ -47,11 +51,16 @@ message ResultMetric {
 
 // Results of a single probe run for a given target.
 message ProbeRunResult {
+  // Target that this result is associated with.
   required cloudprober.targets.Endpoint target = 1;
+
+  // True if the probe run was successful.
   required bool success = 2;
 
-  // Set for successful probes.
+  // Latency in microseconds. Set for successful probes.
   optional int64 latency_usec = 3;
+
+  // Additional metrics from the probe run.
   repeated ResultMetric result_metrics = 4;
 
   // Optional error message for failed probes.

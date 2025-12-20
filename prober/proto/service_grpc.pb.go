@@ -35,8 +35,8 @@ type CloudproberClient interface {
 	AddProbe(ctx context.Context, in *AddProbeRequest, opts ...grpc.CallOption) (*AddProbeResponse, error)
 	// RemoveProbe stops the probe and removes it from the in-memory database.
 	RemoveProbe(ctx context.Context, in *RemoveProbeRequest, opts ...grpc.CallOption) (*RemoveProbeResponse, error)
-	// EXPERIMENTAL. Support or implementation may subject to change.
-	// RunProbe runs all or subset of probes this instance is configured with..
+	// EXPERIMENTAL. It's still in development. Implementation subject to change.
+	// RunProbe runs all or subset of probes this instance is configured with.
 	RunProbe(ctx context.Context, in *RunProbeRequest, opts ...grpc.CallOption) (*RunProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error)
@@ -110,8 +110,8 @@ type CloudproberServer interface {
 	AddProbe(context.Context, *AddProbeRequest) (*AddProbeResponse, error)
 	// RemoveProbe stops the probe and removes it from the in-memory database.
 	RemoveProbe(context.Context, *RemoveProbeRequest) (*RemoveProbeResponse, error)
-	// EXPERIMENTAL. Support or implementation may subject to change.
-	// RunProbe runs all or subset of probes this instance is configured with..
+	// EXPERIMENTAL. It's still in development. Implementation subject to change.
+	// RunProbe runs all or subset of probes this instance is configured with.
 	RunProbe(context.Context, *RunProbeRequest) (*RunProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error)
