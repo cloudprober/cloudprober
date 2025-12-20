@@ -159,8 +159,8 @@ func InitFromConfig(configFile string) error {
 
 // Init initializes Cloudprober using the default config source.
 //
-// Extending cloudprober might create a different grpc server and add it to the 'state' 
-// before calling this func to initialize the cloudprober.
+// Optionally, one can use the 'state' package to customize cloudprober; for example,
+// by providing a custom gRPC server, before calling this func to initialize the cloudprober.
 func Init() error {
 	return InitWithConfigSource(config.DefaultConfigSource())
 }
@@ -286,9 +286,17 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	return nil
 }
 
-// DoRunOnce runs requested probes once and print results to stdout.
-func DoRunOnce(ctx context.Context, names, format, indent string) error {
-	prrs, err := RunOnce(ctx, strings.Split(names, ","))
+// RunOnce runs requested probes once and print probe results to stdout.
+func RunOnce(ctx context.Context, names, format, indent string) error {
+	cloudProber.RLock()
+	defer cloudProber.RUnlock()
+
+	var probeNames []string
+	// avoid getting '[""]' as probe names
+	if names != "" {
+		probeNames = strings.Split(names, ",")
+	}
+	prrs, err := cloudProber.prober.Run(ctx, probeNames)
 	fmt.Println(singlerun.FormatProbeRunResults(prrs, singlerun.Format(format), indent))
 
 	// In CLI case, aggregate the probe run errors, so we can more easily show to users.
@@ -299,14 +307,6 @@ func DoRunOnce(ctx context.Context, names, format, indent string) error {
 	}
 
 	return err
-}
-
-// RunOnce runs requested probes once.
-func RunOnce(ctx context.Context, probeNames []string) (map[string][]*singlerun.ProbeRunResult, error) {
-	cloudProber.RLock()
-	defer cloudProber.RUnlock()
-
-	return cloudProber.prober.Run(ctx, probeNames)
 }
 
 // Start starts a previously initialized Cloudprober.

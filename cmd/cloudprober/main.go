@@ -178,7 +178,7 @@ func main() {
 	}
 
 	if *runOnce {
-		err := cloudprober.DoRunOnce(startCtx, *runOnceProbeNames, *runOnceOutFormat, *runOnceOutIndent)
+		err := cloudprober.RunOnce(startCtx, *runOnceProbeNames, *runOnceOutFormat, *runOnceOutIndent)
 		if err != nil {
 			l.Criticalf("Error running run-once probe. Err: %v", err)
 		}
