@@ -35,10 +35,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/file/proto"
 )
 
-var (
-	logLimiter         = rate.NewLimiter(rate.Every(10*time.Second), 1)
-	suppressedLogCount int64
-)
+
 
 // Surfacer structures for writing onto a GCE instance's serial port. Keeps
 // track of an output file which the incoming data is serialized onto (one entry
@@ -63,6 +60,10 @@ type Surfacer struct {
 	id int64
 
 	compressionBuffer *compress.CompressionBuffer
+
+	// Rate limiter for write error logs.
+	logLimiter         *rate.Limiter
+	suppressedLogCount int64
 }
 
 func (s *Surfacer) processInput(ctx context.Context) {
@@ -132,7 +133,10 @@ func (s *Surfacer) init(ctx context.Context, id int64) error {
 // close closes the input channel, waits for input processing to finish,
 // and closes the compression buffer if open.
 func (s *Surfacer) close() {
-	close(s.inChan)
+	if s.inChan != nil {
+		close(s.inChan)
+		s.inChan = nil
+	}
 	s.processInputWg.Wait()
 
 	if s.compressionBuffer != nil {
@@ -149,11 +153,11 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case s.inChan <- em:
 	default:
-		if logLimiter.Allow() {
-			suppressed := atomic.SwapInt64(&suppressedLogCount, 0)
+		if s.logLimiter.Allow() {
+			suppressed := atomic.SwapInt64(&s.suppressedLogCount, 0)
 			s.l.Errorf("Surfacer's write channel is full, dropping new data. (%d repeat messages suppressed)", suppressed)
 		} else {
-			atomic.AddInt64(&suppressedLogCount, 1)
+			atomic.AddInt64(&s.suppressedLogCount, 1)
 		}
 	}
 }
@@ -164,9 +168,10 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 // New.
 func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	s := &Surfacer{
-		c:    config,
-		opts: opts,
-		l:    l,
+		c:          config,
+		opts:       opts,
+		l:          l,
+		logLimiter: rate.NewLimiter(rate.Every(10*time.Second), 1),
 	}
 
 	// Get a unique id from the nano timestamp. This id is

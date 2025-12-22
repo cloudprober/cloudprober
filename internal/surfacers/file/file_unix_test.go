@@ -76,10 +76,7 @@ func TestWriteChannelFull(t *testing.T) {
 
 	em := metrics.NewEventMetrics(time.Now()).AddMetric("test", metrics.NewInt(1))
 
-	// First write should succeed and fill the channel.
-	s.Write(context.Background(), em)
-
-	// Second write should fail as the channel is full.
+	// This write should fail as the channel is full.
 	s.Write(context.Background(), em)
 
 	if !strings.Contains(buf.String(), "write channel is full") {
