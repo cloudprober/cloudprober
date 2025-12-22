@@ -35,8 +35,6 @@ import (
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/file/proto"
 )
 
-
-
 // Surfacer structures for writing onto a GCE instance's serial port. Keeps
 // track of an output file which the incoming data is serialized onto (one entry
 // per line).
