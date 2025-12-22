@@ -76,6 +76,11 @@ func TestWriteChannelFull(t *testing.T) {
 
 	em := metrics.NewEventMetrics(time.Now()).AddMetric("test", metrics.NewInt(1))
 
+	// This write should succeed and fill the channel buffer.
+	s.Write(context.Background(), em)
+	// This write should also succeed and fill the channel buffer as processInput
+	// is blocked on writing to the pipe.
+	s.Write(context.Background(), em)
 	// This write should fail as the channel is full.
 	s.Write(context.Background(), em)
 

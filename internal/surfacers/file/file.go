@@ -62,6 +62,8 @@ type Surfacer struct {
 	// Rate limiter for write error logs.
 	logLimiter         *rate.Limiter
 	suppressedLogCount int64
+
+	closeOnce sync.Once
 }
 
 func (s *Surfacer) processInput(ctx context.Context) {
@@ -131,10 +133,9 @@ func (s *Surfacer) init(ctx context.Context, id int64) error {
 // close closes the input channel, waits for input processing to finish,
 // and closes the compression buffer if open.
 func (s *Surfacer) close() {
-	if s.inChan != nil {
+	s.closeOnce.Do(func() {
 		close(s.inChan)
-		s.inChan = nil
-	}
+	})
 	s.processInputWg.Wait()
 
 	if s.compressionBuffer != nil {
