@@ -22,7 +22,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/cloudprober/cloudprober/internal/surfacers/common/compress"
 	"github.com/cloudprober/cloudprober/logger"
@@ -55,6 +58,12 @@ type Surfacer struct {
 	id int64
 
 	compressionBuffer *compress.CompressionBuffer
+
+	// Rate limiter for write error logs.
+	logLimiter         *rate.Limiter
+	suppressedLogCount int64
+
+	closeOnce sync.Once
 }
 
 func (s *Surfacer) processInput(ctx context.Context) {
@@ -124,7 +133,9 @@ func (s *Surfacer) init(ctx context.Context, id int64) error {
 // close closes the input channel, waits for input processing to finish,
 // and closes the compression buffer if open.
 func (s *Surfacer) close() {
-	close(s.inChan)
+	s.closeOnce.Do(func() {
+		close(s.inChan)
+	})
 	s.processInputWg.Wait()
 
 	if s.compressionBuffer != nil {
@@ -141,7 +152,12 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case s.inChan <- em:
 	default:
-		s.l.Errorf("Surfacer's write channel is full, dropping new data.")
+		if s.logLimiter.Allow() {
+			suppressed := atomic.SwapInt64(&s.suppressedLogCount, 0)
+			s.l.Errorf("Surfacer's write channel is full, dropping new data. (%d repeat messages suppressed)", suppressed)
+		} else {
+			atomic.AddInt64(&s.suppressedLogCount, 1)
+		}
 	}
 }
 
@@ -151,9 +167,10 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 // New.
 func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	s := &Surfacer{
-		c:    config,
-		opts: opts,
-		l:    l,
+		c:          config,
+		opts:       opts,
+		l:          l,
+		logLimiter: rate.NewLimiter(rate.Every(10*time.Second), 1),
 	}
 
 	// Get a unique id from the nano timestamp. This id is
