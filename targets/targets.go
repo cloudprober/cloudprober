@@ -36,6 +36,7 @@ import (
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/state"
+	"github.com/cloudprober/cloudprober/targets/consul"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/file"
 	"github.com/cloudprober/cloudprober/targets/gce"
@@ -388,6 +389,13 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 			return nil, fmt.Errorf("target.New(): error creating K8s targets: %v", err)
 		}
 		t.lister, t.resolver = kt, kt
+
+	case *targetspb.TargetsDef_Consul:
+		ct, err := consul.New(targetsDef.GetConsul(), t.resolver, l)
+		if err != nil {
+			return nil, fmt.Errorf("target.New(): error creating Consul targets: %v", err)
+		}
+		t.lister, t.resolver = ct, ct
 
 	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}
