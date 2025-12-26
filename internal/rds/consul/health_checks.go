@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
-	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
+	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
+	"github.com/cloudprober/cloudprober/logger"
 	consulapi "github.com/hashicorp/consul/api"
 	"google.golang.org/protobuf/proto"
 )

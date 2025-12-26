@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
+	"github.com/cloudprober/cloudprober/logger"
 	consulapi "github.com/hashicorp/consul/api"
 )
 
@@ -125,49 +125,78 @@ func (p *Provider) availableResourceTypes() []string {
 }
 
 // newConsulClient creates a new Consul API client based on the configuration.
+// It respects standard Consul environment variables:
+//   - CONSUL_HTTP_ADDR: HTTP API address (default: localhost:8500)
+//   - CONSUL_HTTP_TOKEN: ACL token
+//   - CONSUL_HTTP_TOKEN_FILE: Path to file containing ACL token
+//   - CONSUL_HTTP_SSL: Enable HTTPS (true/false)
+//   - CONSUL_HTTP_SSL_VERIFY: Verify SSL certificates (default: true)
+//   - CONSUL_CACERT: Path to CA certificate
+//   - CONSUL_CAPATH: Path to directory of CA certificates
+//   - CONSUL_CLIENT_CERT: Path to client certificate
+//   - CONSUL_CLIENT_KEY: Path to client key
+//   - CONSUL_DATACENTER: Datacenter name
+//   - CONSUL_NAMESPACE: Namespace (Consul Enterprise)
+//   - CONSUL_TLS_SERVER_NAME: TLS server name for SNI
+//   - CONSUL_HTTP_AUTH: HTTP basic auth (username:password)
+//
+// Configuration values explicitly set in the config take precedence over environment variables.
 func newConsulClient(c *configpb.ProviderConfig, l *logger.Logger) (*consulapi.Client, error) {
+	// DefaultConfig reads environment variables automatically
 	config := consulapi.DefaultConfig()
 
 	// Set address - could be from direct config or Kubernetes service discovery
-	address := c.GetAddress()
+	// Only override if explicitly configured (don't override CONSUL_HTTP_ADDR env var)
 	if c.KubernetesService != nil {
-		// If Kubernetes service is configured, we'll resolve it
-		// For now, we'll use the address as-is and document that users can use
-		// Kubernetes DNS (e.g., "consul.default.svc.cluster.local:8500")
+		// If Kubernetes service is configured, use it
 		ksvc := c.KubernetesService
-		address = fmt.Sprintf("%s.%s.svc.cluster.local:%s",
+		address := fmt.Sprintf("%s.%s.svc.cluster.local:%s",
 			ksvc.GetServiceName(),
 			ksvc.GetNamespace(),
 			ksvc.GetPort())
+		config.Address = address
 		l.Infof("consul.client: using Kubernetes service address: %s", address)
+	} else if c.Address != nil && c.GetAddress() != "" {
+		// Only set if explicitly provided (not just the proto default)
+		config.Address = c.GetAddress()
+		l.Infof("consul.client: using configured address: %s", config.Address)
+	} else {
+		// Using address from environment variable or DefaultConfig default
+		l.Infof("consul.client: using address from environment or default: %s", config.Address)
 	}
-	config.Address = address
 
-	// Set datacenter
+	// Set datacenter - only override if explicitly configured
 	if c.GetDatacenter() != "" {
 		config.Datacenter = c.GetDatacenter()
+		l.Infof("consul.client: using configured datacenter: %s", config.Datacenter)
 	}
 
-	// Set token (check environment variable if not in config)
+	// Set token - only override if explicitly configured
+	// Note: DefaultConfig() reads CONSUL_HTTP_TOKEN and CONSUL_HTTP_TOKEN_FILE automatically
 	if c.GetToken() != "" {
 		config.Token = c.GetToken()
+		l.Infof("consul.client: using configured ACL token (length: %d)", len(config.Token))
 	}
 
-	// Configure TLS
+	// Configure TLS - only override if explicitly configured
+	// Note: DefaultConfig() reads CONSUL_CACERT, CONSUL_CLIENT_CERT, CONSUL_CLIENT_KEY,
+	// CONSUL_HTTP_SSL, CONSUL_HTTP_SSL_VERIFY, and CONSUL_TLS_SERVER_NAME
 	if c.Tls != nil {
-		tlsConfig := c.Tls
-		if tlsConfig.GetCaFile() != "" {
-			config.TLSConfig.CAFile = tlsConfig.GetCaFile()
+		if tlsConfig := c.Tls; tlsConfig != nil {
+			if tlsConfig.GetCaFile() != "" {
+				config.TLSConfig.CAFile = tlsConfig.GetCaFile()
+			}
+			if tlsConfig.GetCertFile() != "" {
+				config.TLSConfig.CertFile = tlsConfig.GetCertFile()
+			}
+			if tlsConfig.GetKeyFile() != "" {
+				config.TLSConfig.KeyFile = tlsConfig.GetKeyFile()
+			}
+			if tlsConfig.GetInsecureSkipVerify() {
+				config.TLSConfig.InsecureSkipVerify = true
+			}
 		}
-		if tlsConfig.GetCertFile() != "" {
-			config.TLSConfig.CertFile = tlsConfig.GetCertFile()
-		}
-		if tlsConfig.GetKeyFile() != "" {
-			config.TLSConfig.KeyFile = tlsConfig.GetKeyFile()
-		}
-		if tlsConfig.GetInsecureSkipVerify() {
-			config.TLSConfig.InsecureSkipVerify = true
-		}
+		l.Infof("consul.client: using configured TLS settings")
 	}
 
 	client, err := consulapi.NewClient(config)

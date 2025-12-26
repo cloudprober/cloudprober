@@ -5,6 +5,24 @@
 // - Health status (via health checks)
 // - Metadata about the instance
 //
+// The Consul surfacer respects standard Consul environment variables.
+// Configuration values explicitly set take precedence over environment variables.
+//
+// Supported environment variables:
+//   - CONSUL_HTTP_ADDR: HTTP API address
+//   - CONSUL_HTTP_TOKEN: ACL token
+//   - CONSUL_HTTP_TOKEN_FILE: Path to file containing ACL token
+//   - CONSUL_HTTP_SSL: Enable HTTPS
+//   - CONSUL_HTTP_SSL_VERIFY: Verify SSL certificates
+//   - CONSUL_CACERT: Path to CA certificate
+//   - CONSUL_CAPATH: Path to directory of CA certificates
+//   - CONSUL_CLIENT_CERT: Path to client certificate
+//   - CONSUL_CLIENT_KEY: Path to client key
+//   - CONSUL_DATACENTER: Datacenter name
+//   - CONSUL_NAMESPACE: Namespace (Consul Enterprise)
+//   - CONSUL_TLS_SERVER_NAME: TLS server name for SNI
+//   - CONSUL_HTTP_AUTH: HTTP basic auth (username:password)
+//
 // Example config:
 // {
 //   address: "localhost:8500"
@@ -23,17 +41,25 @@ option go_package = "github.com/cloudprober/cloudprober/internal/surfacers/consu
 message SurfacerConf {
   // Consul server address (hostname:port)
   // Default: "localhost:8500"
+  // Environment variable: CONSUL_HTTP_ADDR
+  // Note: Config value takes precedence over environment variable
   optional string address = 1 [default = "localhost:8500"];
 
   // Consul datacenter
   // If not specified, uses the default datacenter
+  // Environment variable: CONSUL_DATACENTER
+  // Note: Config value takes precedence over environment variable
   optional string datacenter = 2;
 
   // Consul token for authentication
-  // Can also be set via CONSUL_HTTP_TOKEN environment variable
+  // Environment variables: CONSUL_HTTP_TOKEN or CONSUL_HTTP_TOKEN_FILE
+  // Note: Config value takes precedence over environment variables
   optional string token = 3;
 
   // TLS configuration for connecting to Consul
+  // Environment variables: CONSUL_CACERT, CONSUL_CLIENT_CERT, CONSUL_CLIENT_KEY,
+  //                       CONSUL_HTTP_SSL, CONSUL_HTTP_SSL_VERIFY, CONSUL_TLS_SERVER_NAME
+  // Note: Config values take precedence over environment variables
   optional TLSConfig tls = 4;
 
   // Service registration configuration
