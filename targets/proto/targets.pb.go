@@ -10,9 +10,9 @@ package proto
 
 import (
 	proto "github.com/cloudprober/cloudprober/internal/rds/client/proto"
-	proto6 "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
+	consulrds "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/rds/proto"
-	proto7 "github.com/cloudprober/cloudprober/targets/consul/proto"
+	consul "github.com/cloudprober/cloudprober/targets/consul/proto"
 	proto2 "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 	proto4 "github.com/cloudprober/cloudprober/targets/file/proto"
 	proto3 "github.com/cloudprober/cloudprober/targets/gce/proto"
@@ -531,7 +531,7 @@ func (x *TargetsDef) GetK8S() *K8STargets {
 	return nil
 }
 
-func (x *TargetsDef) GetConsul() *proto7.TargetsConf {
+func (x *TargetsDef) GetConsul() *consul.TargetsConf {
 	if x != nil {
 		if x, ok := x.Type.(*TargetsDef_Consul); ok {
 			return x.Consul
@@ -672,7 +672,7 @@ type TargetsDef_Consul struct {
 	//	  tags: "http"
 	//	  health_status: "passing"
 	//	}
-	Consul *proto7.TargetsConf `protobuf:"bytes,7,opt,name=consul,oneof"`
+	Consul *consul.TargetsConf `protobuf:"bytes,7,opt,name=consul,oneof"`
 }
 
 type TargetsDef_DummyTargets struct {
@@ -765,7 +765,7 @@ type GlobalTargetsOptions struct {
 	LameDuckOptions *proto5.Options `protobuf:"bytes,2,opt,name=lame_duck_options,json=lameDuckOptions" json:"lame_duck_options,omitempty"`
 	// Consul global options. These options are shared across Consul targets
 	// and can also be used by the Consul surfacer if configured globally.
-	GlobalConsulOptions *proto6.GlobalOptions `protobuf:"bytes,5,opt,name=global_consul_options,json=globalConsulOptions" json:"global_consul_options,omitempty"`
+	GlobalConsulOptions *consulrds.GlobalOptions `protobuf:"bytes,5,opt,name=global_consul_options,json=globalConsulOptions" json:"global_consul_options,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -829,7 +829,7 @@ func (x *GlobalTargetsOptions) GetLameDuckOptions() *proto5.Options {
 	return nil
 }
 
-func (x *GlobalTargetsOptions) GetGlobalConsulOptions() *proto6.GlobalOptions {
+func (x *GlobalTargetsOptions) GetGlobalConsulOptions() *consulrds.GlobalOptions {
 	if x != nil {
 		return x.GlobalConsulOptions
 	}
@@ -923,8 +923,8 @@ var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes 
 	(*proto2.Endpoint)(nil),                // 11: cloudprober.targets.Endpoint
 	(*proto3.GlobalOptions)(nil),           // 12: cloudprober.targets.gce.GlobalOptions
 	(*proto5.Options)(nil),                 // 13: cloudprober.targets.lameduck.Options
-	(*proto7.TargetsConf)(nil),             // 14: cloudprober.targets.consul.TargetsConf
-	(*proto6.GlobalOptions)(nil),           // 15: cloudprober.rds.consul.GlobalOptions
+	(*consul.TargetsConf)(nil),             // 14: cloudprober.targets.consul.TargetsConf
+	(*consulrds.GlobalOptions)(nil),        // 15: cloudprober.rds.consul.GlobalOptions
 }
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs = []int32{
 	6,  // 0: cloudprober.targets.RDSTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
