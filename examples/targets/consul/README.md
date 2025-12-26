@@ -136,6 +136,37 @@ The Consul RDS provider supports these resource paths:
 - `consul://health_checks/api` - Health checks for "api" service
 - `consul://nodes` - All Consul nodes
 
+## Current Limitation
+
+Currently, Consul targets require using the `rds_targets {}` syntax. Unlike Kubernetes which has both `k8s {}` (terser) and RDS provider support, Consul only has the RDS provider.
+
+**Current syntax** (what works now):
+```textproto
+targets {
+  rds_targets {
+    resource_path: "consul://services"
+    filter {
+      key: "labels.health"
+      value: "passing"
+    }
+  }
+}
+```
+
+**Desired terser syntax** (not yet implemented):
+```textproto
+targets {
+  consul {
+    address: "localhost:8500"
+    services: "web-.*"
+    tags: ["http"]
+    health_status: "passing"
+  }
+}
+```
+
+A future enhancement would add the terser `consul {}` targets type to `targets/proto/targets.proto` for consistency with Kubernetes and GCE targets.
+
 ## Filtering
 
 You can filter discovered resources using these filter keys:
