@@ -23,14 +23,14 @@ const (
 // GlobalOptions configures Consul settings that can be shared across
 // both targets and surfacers.
 type GlobalOptions struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Address       *string                `protobuf:"bytes,1,opt,name=address,def=localhost:8500" json:"address,omitempty"`
-	Datacenter    *string                `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
-	Token         *string                `protobuf:"bytes,3,opt,name=token" json:"token,omitempty"`
-	Tls           *TLSConfig             `protobuf:"bytes,4,opt,name=tls" json:"tls,omitempty"`
+	state             protoimpl.MessageState   `protogen:"open.v1"`
+	Address           *string                  `protobuf:"bytes,1,opt,name=address,def=localhost:8500" json:"address,omitempty"`
+	Datacenter        *string                  `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
+	Token             *string                  `protobuf:"bytes,3,opt,name=token" json:"token,omitempty"`
+	Tls               *TLSConfig               `protobuf:"bytes,4,opt,name=tls" json:"tls,omitempty"`
 	KubernetesService *KubernetesServiceConfig `protobuf:"bytes,5,opt,name=kubernetes_service,json=kubernetesService" json:"kubernetes_service,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 // Default values for GlobalOptions fields.
@@ -149,9 +149,9 @@ func file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_global_pr
 
 var file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_global_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_global_proto_goTypes = []any{
-	(*GlobalOptions)(nil),            // 0: cloudprober.rds.consul.GlobalOptions
-	(*TLSConfig)(nil),                // 1: cloudprober.rds.consul.TLSConfig
-	(*KubernetesServiceConfig)(nil),  // 2: cloudprober.rds.consul.KubernetesServiceConfig
+	(*GlobalOptions)(nil),           // 0: cloudprober.rds.consul.GlobalOptions
+	(*TLSConfig)(nil),               // 1: cloudprober.rds.consul.TLSConfig
+	(*KubernetesServiceConfig)(nil), // 2: cloudprober.rds.consul.KubernetesServiceConfig
 }
 var file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_global_proto_depIdxs = []int32{
 	1, // 0: cloudprober.rds.consul.GlobalOptions.tls:type_name -> cloudprober.rds.consul.TLSConfig

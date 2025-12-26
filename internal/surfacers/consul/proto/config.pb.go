@@ -9,8 +9,6 @@ package proto
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
@@ -32,23 +30,75 @@ type SurfacerConf struct {
 	Service              *ServiceConfig           `protobuf:"bytes,10,opt,name=service" json:"service,omitempty"`
 	HealthCheck          *HealthCheckConfig       `protobuf:"bytes,11,opt,name=health_check,json=healthCheck" json:"health_check,omitempty"`
 	Metadata             map[string]string        `protobuf:"bytes,20,rep,name=metadata" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Sysvars              *SysVarsConfig           `protobuf:"bytes,21,opt,name=sysvars" json:"sysvars,omitempty"`
 	DeregisterOnShutdown *bool                    `protobuf:"varint,30,opt,name=deregister_on_shutdown,json=deregisterOnShutdown,def=1" json:"deregister_on_shutdown,omitempty"`
 	KubernetesService    *KubernetesServiceConfig `protobuf:"bytes,40,opt,name=kubernetes_service,json=kubernetesService" json:"kubernetes_service,omitempty"`
 }
 
-func (x *SurfacerConf) Reset() { *x = SurfacerConf{} }
-func (x *SurfacerConf) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*SurfacerConf) ProtoMessage() {}
+func (x *SurfacerConf) Reset()                             { *x = SurfacerConf{} }
+func (x *SurfacerConf) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*SurfacerConf) ProtoMessage()                        {}
 func (x *SurfacerConf) ProtoReflect() protoreflect.Message { return nil }
-func (x *SurfacerConf) GetAddress() string { if x != nil && x.Address != nil { return *x.Address }; return "localhost:8500" }
-func (x *SurfacerConf) GetDatacenter() string { if x != nil && x.Datacenter != nil { return *x.Datacenter }; return "" }
-func (x *SurfacerConf) GetToken() string { if x != nil && x.Token != nil { return *x.Token }; return "" }
-func (x *SurfacerConf) GetTls() *TLSConfig { if x != nil { return x.Tls }; return nil }
-func (x *SurfacerConf) GetService() *ServiceConfig { if x != nil { return x.Service }; return nil }
-func (x *SurfacerConf) GetHealthCheck() *HealthCheckConfig { if x != nil { return x.HealthCheck }; return nil }
-func (x *SurfacerConf) GetMetadata() map[string]string { if x != nil { return x.Metadata }; return nil }
-func (x *SurfacerConf) GetDeregisterOnShutdown() bool { if x != nil && x.DeregisterOnShutdown != nil { return *x.DeregisterOnShutdown }; return true }
-func (x *SurfacerConf) GetKubernetesService() *KubernetesServiceConfig { if x != nil { return x.KubernetesService }; return nil }
+func (x *SurfacerConf) GetAddress() string {
+	if x != nil && x.Address != nil {
+		return *x.Address
+	}
+	return "localhost:8500"
+}
+func (x *SurfacerConf) GetDatacenter() string {
+	if x != nil && x.Datacenter != nil {
+		return *x.Datacenter
+	}
+	return ""
+}
+func (x *SurfacerConf) GetToken() string {
+	if x != nil && x.Token != nil {
+		return *x.Token
+	}
+	return ""
+}
+func (x *SurfacerConf) GetTls() *TLSConfig {
+	if x != nil {
+		return x.Tls
+	}
+	return nil
+}
+func (x *SurfacerConf) GetService() *ServiceConfig {
+	if x != nil {
+		return x.Service
+	}
+	return nil
+}
+func (x *SurfacerConf) GetHealthCheck() *HealthCheckConfig {
+	if x != nil {
+		return x.HealthCheck
+	}
+	return nil
+}
+func (x *SurfacerConf) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+func (x *SurfacerConf) GetSysvars() *SysVarsConfig {
+	if x != nil {
+		return x.Sysvars
+	}
+	return nil
+}
+func (x *SurfacerConf) GetDeregisterOnShutdown() bool {
+	if x != nil && x.DeregisterOnShutdown != nil {
+		return *x.DeregisterOnShutdown
+	}
+	return true
+}
+func (x *SurfacerConf) GetKubernetesService() *KubernetesServiceConfig {
+	if x != nil {
+		return x.KubernetesService
+	}
+	return nil
+}
 
 type TLSConfig struct {
 	state              protoimpl.MessageState
@@ -60,14 +110,34 @@ type TLSConfig struct {
 	InsecureSkipVerify *bool   `protobuf:"varint,4,opt,name=insecure_skip_verify,json=insecureSkipVerify,def=0" json:"insecure_skip_verify,omitempty"`
 }
 
-func (x *TLSConfig) Reset() { *x = TLSConfig{} }
-func (x *TLSConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*TLSConfig) ProtoMessage() {}
+func (x *TLSConfig) Reset()                             { *x = TLSConfig{} }
+func (x *TLSConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*TLSConfig) ProtoMessage()                        {}
 func (x *TLSConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *TLSConfig) GetCaFile() string { if x != nil && x.CaFile != nil { return *x.CaFile }; return "" }
-func (x *TLSConfig) GetCertFile() string { if x != nil && x.CertFile != nil { return *x.CertFile }; return "" }
-func (x *TLSConfig) GetKeyFile() string { if x != nil && x.KeyFile != nil { return *x.KeyFile }; return "" }
-func (x *TLSConfig) GetInsecureSkipVerify() bool { if x != nil && x.InsecureSkipVerify != nil { return *x.InsecureSkipVerify }; return false }
+func (x *TLSConfig) GetCaFile() string {
+	if x != nil && x.CaFile != nil {
+		return *x.CaFile
+	}
+	return ""
+}
+func (x *TLSConfig) GetCertFile() string {
+	if x != nil && x.CertFile != nil {
+		return *x.CertFile
+	}
+	return ""
+}
+func (x *TLSConfig) GetKeyFile() string {
+	if x != nil && x.KeyFile != nil {
+		return *x.KeyFile
+	}
+	return ""
+}
+func (x *TLSConfig) GetInsecureSkipVerify() bool {
+	if x != nil && x.InsecureSkipVerify != nil {
+		return *x.InsecureSkipVerify
+	}
+	return false
+}
 
 type ServiceConfig struct {
 	state         protoimpl.MessageState
@@ -81,41 +151,106 @@ type ServiceConfig struct {
 	EnableConnect *bool    `protobuf:"varint,6,opt,name=enable_connect,json=enableConnect,def=0" json:"enable_connect,omitempty"`
 }
 
-func (x *ServiceConfig) Reset() { *x = ServiceConfig{} }
-func (x *ServiceConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*ServiceConfig) ProtoMessage() {}
+func (x *ServiceConfig) Reset()                             { *x = ServiceConfig{} }
+func (x *ServiceConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*ServiceConfig) ProtoMessage()                        {}
 func (x *ServiceConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *ServiceConfig) GetName() string { if x != nil && x.Name != nil { return *x.Name }; return "cloudprober" }
-func (x *ServiceConfig) GetId() string { if x != nil && x.Id != nil { return *x.Id }; return "" }
-func (x *ServiceConfig) GetTags() []string { if x != nil { return x.Tags }; return nil }
-func (x *ServiceConfig) GetPort() int32 { if x != nil && x.Port != nil { return *x.Port }; return 0 }
-func (x *ServiceConfig) GetAddress() string { if x != nil && x.Address != nil { return *x.Address }; return "" }
-func (x *ServiceConfig) GetEnableConnect() bool { if x != nil && x.EnableConnect != nil { return *x.EnableConnect }; return false }
-
-type HealthCheckConfig struct {
-	state                            protoimpl.MessageState
-	sizeCache                        protoimpl.SizeCache
-	unknownFields                    protoimpl.UnknownFields
-	HttpEndpoint                     *string `protobuf:"bytes,1,opt,name=http_endpoint,json=httpEndpoint,def=/status" json:"http_endpoint,omitempty"`
-	Interval                         *string `protobuf:"bytes,2,opt,name=interval,def=10s" json:"interval,omitempty"`
-	Timeout                          *string `protobuf:"bytes,3,opt,name=timeout,def=5s" json:"timeout,omitempty"`
-	DeregisterCriticalServiceAfter   *string `protobuf:"bytes,4,opt,name=deregister_critical_service_after,json=deregisterCriticalServiceAfter,def=1m" json:"deregister_critical_service_after,omitempty"`
-	HttpMethod                       *string `protobuf:"bytes,5,opt,name=http_method,json=httpMethod,def=GET" json:"http_method,omitempty"`
-	TlsSkipVerify                    *bool   `protobuf:"varint,6,opt,name=tls_skip_verify,json=tlsSkipVerify,def=0" json:"tls_skip_verify,omitempty"`
-	Notes                            *string `protobuf:"bytes,7,opt,name=notes" json:"notes,omitempty"`
+func (x *ServiceConfig) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return "cloudprober"
+}
+func (x *ServiceConfig) GetId() string {
+	if x != nil && x.Id != nil {
+		return *x.Id
+	}
+	return ""
+}
+func (x *ServiceConfig) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+func (x *ServiceConfig) GetPort() int32 {
+	if x != nil && x.Port != nil {
+		return *x.Port
+	}
+	return 0
+}
+func (x *ServiceConfig) GetAddress() string {
+	if x != nil && x.Address != nil {
+		return *x.Address
+	}
+	return ""
+}
+func (x *ServiceConfig) GetEnableConnect() bool {
+	if x != nil && x.EnableConnect != nil {
+		return *x.EnableConnect
+	}
+	return false
 }
 
-func (x *HealthCheckConfig) Reset() { *x = HealthCheckConfig{} }
-func (x *HealthCheckConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*HealthCheckConfig) ProtoMessage() {}
+type HealthCheckConfig struct {
+	state                          protoimpl.MessageState
+	sizeCache                      protoimpl.SizeCache
+	unknownFields                  protoimpl.UnknownFields
+	HttpEndpoint                   *string `protobuf:"bytes,1,opt,name=http_endpoint,json=httpEndpoint,def=/status" json:"http_endpoint,omitempty"`
+	Interval                       *string `protobuf:"bytes,2,opt,name=interval,def=10s" json:"interval,omitempty"`
+	Timeout                        *string `protobuf:"bytes,3,opt,name=timeout,def=5s" json:"timeout,omitempty"`
+	DeregisterCriticalServiceAfter *string `protobuf:"bytes,4,opt,name=deregister_critical_service_after,json=deregisterCriticalServiceAfter,def=1m" json:"deregister_critical_service_after,omitempty"`
+	HttpMethod                     *string `protobuf:"bytes,5,opt,name=http_method,json=httpMethod,def=GET" json:"http_method,omitempty"`
+	TlsSkipVerify                  *bool   `protobuf:"varint,6,opt,name=tls_skip_verify,json=tlsSkipVerify,def=0" json:"tls_skip_verify,omitempty"`
+	Notes                          *string `protobuf:"bytes,7,opt,name=notes" json:"notes,omitempty"`
+}
+
+func (x *HealthCheckConfig) Reset()                             { *x = HealthCheckConfig{} }
+func (x *HealthCheckConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*HealthCheckConfig) ProtoMessage()                        {}
 func (x *HealthCheckConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *HealthCheckConfig) GetHttpEndpoint() string { if x != nil && x.HttpEndpoint != nil { return *x.HttpEndpoint }; return "/status" }
-func (x *HealthCheckConfig) GetInterval() string { if x != nil && x.Interval != nil { return *x.Interval }; return "10s" }
-func (x *HealthCheckConfig) GetTimeout() string { if x != nil && x.Timeout != nil { return *x.Timeout }; return "5s" }
-func (x *HealthCheckConfig) GetDeregisterCriticalServiceAfter() string { if x != nil && x.DeregisterCriticalServiceAfter != nil { return *x.DeregisterCriticalServiceAfter }; return "1m" }
-func (x *HealthCheckConfig) GetHttpMethod() string { if x != nil && x.HttpMethod != nil { return *x.HttpMethod }; return "GET" }
-func (x *HealthCheckConfig) GetTlsSkipVerify() bool { if x != nil && x.TlsSkipVerify != nil { return *x.TlsSkipVerify }; return false }
-func (x *HealthCheckConfig) GetNotes() string { if x != nil && x.Notes != nil { return *x.Notes }; return "" }
+func (x *HealthCheckConfig) GetHttpEndpoint() string {
+	if x != nil && x.HttpEndpoint != nil {
+		return *x.HttpEndpoint
+	}
+	return "/status"
+}
+func (x *HealthCheckConfig) GetInterval() string {
+	if x != nil && x.Interval != nil {
+		return *x.Interval
+	}
+	return "10s"
+}
+func (x *HealthCheckConfig) GetTimeout() string {
+	if x != nil && x.Timeout != nil {
+		return *x.Timeout
+	}
+	return "5s"
+}
+func (x *HealthCheckConfig) GetDeregisterCriticalServiceAfter() string {
+	if x != nil && x.DeregisterCriticalServiceAfter != nil {
+		return *x.DeregisterCriticalServiceAfter
+	}
+	return "1m"
+}
+func (x *HealthCheckConfig) GetHttpMethod() string {
+	if x != nil && x.HttpMethod != nil {
+		return *x.HttpMethod
+	}
+	return "GET"
+}
+func (x *HealthCheckConfig) GetTlsSkipVerify() bool {
+	if x != nil && x.TlsSkipVerify != nil {
+		return *x.TlsSkipVerify
+	}
+	return false
+}
+func (x *HealthCheckConfig) GetNotes() string {
+	if x != nil && x.Notes != nil {
+		return *x.Notes
+	}
+	return ""
+}
 
 type KubernetesServiceConfig struct {
 	state         protoimpl.MessageState
@@ -126,12 +261,66 @@ type KubernetesServiceConfig struct {
 	Port          *string `protobuf:"bytes,3,opt,name=port,def=8500" json:"port,omitempty"`
 }
 
-func (x *KubernetesServiceConfig) Reset() { *x = KubernetesServiceConfig{} }
-func (x *KubernetesServiceConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*KubernetesServiceConfig) ProtoMessage() {}
+func (x *KubernetesServiceConfig) Reset()                             { *x = KubernetesServiceConfig{} }
+func (x *KubernetesServiceConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*KubernetesServiceConfig) ProtoMessage()                        {}
 func (x *KubernetesServiceConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *KubernetesServiceConfig) GetNamespace() string { if x != nil && x.Namespace != nil { return *x.Namespace }; return "default" }
-func (x *KubernetesServiceConfig) GetServiceName() string { if x != nil && x.ServiceName != nil { return *x.ServiceName }; return "consul" }
-func (x *KubernetesServiceConfig) GetPort() string { if x != nil && x.Port != nil { return *x.Port }; return "8500" }
+func (x *KubernetesServiceConfig) GetNamespace() string {
+	if x != nil && x.Namespace != nil {
+		return *x.Namespace
+	}
+	return "default"
+}
+func (x *KubernetesServiceConfig) GetServiceName() string {
+	if x != nil && x.ServiceName != nil {
+		return *x.ServiceName
+	}
+	return "consul"
+}
+func (x *KubernetesServiceConfig) GetPort() string {
+	if x != nil && x.Port != nil {
+		return *x.Port
+	}
+	return "8500"
+}
+
+type SysVarsConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+	Enabled       *bool    `protobuf:"varint,1,opt,name=enabled,def=1" json:"enabled,omitempty"`
+	IncludeVars   []string `protobuf:"bytes,2,rep,name=include_vars,json=includeVars" json:"include_vars,omitempty"`
+	ExcludeVars   []string `protobuf:"bytes,3,rep,name=exclude_vars,json=excludeVars" json:"exclude_vars,omitempty"`
+	KeyPrefix     *string  `protobuf:"bytes,4,opt,name=key_prefix,json=keyPrefix,def=sysvar_" json:"key_prefix,omitempty"`
+}
+
+func (x *SysVarsConfig) Reset()                             { *x = SysVarsConfig{} }
+func (x *SysVarsConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*SysVarsConfig) ProtoMessage()                        {}
+func (x *SysVarsConfig) ProtoReflect() protoreflect.Message { return nil }
+func (x *SysVarsConfig) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return true
+}
+func (x *SysVarsConfig) GetIncludeVars() []string {
+	if x != nil {
+		return x.IncludeVars
+	}
+	return nil
+}
+func (x *SysVarsConfig) GetExcludeVars() []string {
+	if x != nil {
+		return x.ExcludeVars
+	}
+	return nil
+}
+func (x *SysVarsConfig) GetKeyPrefix() string {
+	if x != nil && x.KeyPrefix != nil {
+		return *x.KeyPrefix
+	}
+	return "sysvar_"
+}
 
 func init() {}

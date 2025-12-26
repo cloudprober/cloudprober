@@ -43,7 +43,12 @@ message SurfacerConf {
   optional HealthCheckConfig health_check = 11;
 
   // Metadata to include in service registration
+  // This is in addition to system variables (sysvars)
   map<string, string> metadata = 20;
+
+  // System variables (sysvars) configuration
+  // Sysvars include: version, hostname, start_timestamp, cloud provider metadata, etc.
+  optional SysVarsConfig sysvars = 21;
 
   // Whether to deregister the service on shutdown
   // Default: true
@@ -129,4 +134,25 @@ message KubernetesServiceConfig {
 
   // Kubernetes service port (name or number)
   optional string port = 3 [default = "8500"];
+}
+
+message SysVarsConfig {
+  // Whether to publish system variables as service metadata
+  // Default: true (sysvars are published by default)
+  optional bool enabled = 1 [default = true];
+
+  // If specified, ONLY these sysvars will be published
+  // Example: ["version", "hostname", "start_timestamp"]
+  // If empty, all sysvars are published (subject to exclude_vars)
+  repeated string include_vars = 2;
+
+  // Sysvars to exclude from publishing
+  // This is applied after include_vars
+  // Example: ["zone", "region"] to exclude cloud metadata
+  repeated string exclude_vars = 3;
+
+  // Prefix to add to sysvar keys in metadata
+  // Default: "sysvar_" (e.g., "sysvar_version", "sysvar_hostname")
+  // Set to empty string to publish without prefix
+  optional string key_prefix = 4 [default = "sysvar_"];
 }
