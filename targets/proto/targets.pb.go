@@ -10,7 +10,9 @@ package proto
 
 import (
 	proto "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	proto6 "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/rds/proto"
+	proto7 "github.com/cloudprober/cloudprober/targets/consul/proto"
 	proto2 "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 	proto4 "github.com/cloudprober/cloudprober/targets/file/proto"
 	proto3 "github.com/cloudprober/cloudprober/targets/gce/proto"
@@ -394,6 +396,7 @@ type TargetsDef struct {
 	//	*TargetsDef_RdsTargets
 	//	*TargetsDef_FileTargets
 	//	*TargetsDef_K8S
+	//	*TargetsDef_Consul
 	//	*TargetsDef_DummyTargets
 	Type isTargetsDef_Type `protobuf_oneof:"type"`
 	// Static endpoints. These endpoints are merged with the resources returned
@@ -528,6 +531,15 @@ func (x *TargetsDef) GetK8S() *K8STargets {
 	return nil
 }
 
+func (x *TargetsDef) GetConsul() *proto7.TargetsConf {
+	if x != nil {
+		if x, ok := x.Type.(*TargetsDef_Consul); ok {
+			return x.Consul
+		}
+	}
+	return nil
+}
+
 func (x *TargetsDef) GetDummyTargets() *DummyTargets {
 	if x != nil {
 		if x, ok := x.Type.(*TargetsDef_DummyTargets); ok {
@@ -650,6 +662,19 @@ type TargetsDef_K8S struct {
 	K8S *K8STargets `protobuf:"bytes,6,opt,name=k8s,oneof"`
 }
 
+type TargetsDef_Consul struct {
+	// Consul targets.
+	// Example:
+	//
+	//	consul {
+	//	  address: "localhost:8500"
+	//	  services: "web-.*"
+	//	  tags: "http"
+	//	  health_status: "passing"
+	//	}
+	Consul *proto7.TargetsConf `protobuf:"bytes,7,opt,name=consul,oneof"`
+}
+
 type TargetsDef_DummyTargets struct {
 	// Empty targets to meet the probe definition requirement where there are
 	// actually no targets, for example in case of some external probes.
@@ -667,6 +692,8 @@ func (*TargetsDef_RdsTargets) isTargetsDef_Type() {}
 func (*TargetsDef_FileTargets) isTargetsDef_Type() {}
 
 func (*TargetsDef_K8S) isTargetsDef_Type() {}
+
+func (*TargetsDef_Consul) isTargetsDef_Type() {}
 
 func (*TargetsDef_DummyTargets) isTargetsDef_Type() {}
 
@@ -736,8 +763,11 @@ type GlobalTargetsOptions struct {
 	// Lame duck options. If provided, targets module checks for the lame duck
 	// targets and removes them from the targets list.
 	LameDuckOptions *proto5.Options `protobuf:"bytes,2,opt,name=lame_duck_options,json=lameDuckOptions" json:"lame_duck_options,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Consul global options. These options are shared across Consul targets
+	// and can also be used by the Consul surfacer if configured globally.
+	GlobalConsulOptions *proto6.GlobalOptions `protobuf:"bytes,5,opt,name=global_consul_options,json=globalConsulOptions" json:"global_consul_options,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GlobalTargetsOptions) Reset() {
@@ -795,6 +825,13 @@ func (x *GlobalTargetsOptions) GetGlobalGceTargetsOptions() *proto3.GlobalOption
 func (x *GlobalTargetsOptions) GetLameDuckOptions() *proto5.Options {
 	if x != nil {
 		return x.LameDuckOptions
+	}
+	return nil
+}
+
+func (x *GlobalTargetsOptions) GetGlobalConsulOptions() *proto6.GlobalOptions {
+	if x != nil {
+		return x.GlobalConsulOptions
 	}
 	return nil
 }
@@ -886,6 +923,8 @@ var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes 
 	(*proto2.Endpoint)(nil),                // 11: cloudprober.targets.Endpoint
 	(*proto3.GlobalOptions)(nil),           // 12: cloudprober.targets.gce.GlobalOptions
 	(*proto5.Options)(nil),                 // 13: cloudprober.targets.lameduck.Options
+	(*proto7.TargetsConf)(nil),             // 14: cloudprober.targets.consul.TargetsConf
+	(*proto6.GlobalOptions)(nil),           // 15: cloudprober.rds.consul.GlobalOptions
 }
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs = []int32{
 	6,  // 0: cloudprober.targets.RDSTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
@@ -896,17 +935,19 @@ var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs 
 	0,  // 5: cloudprober.targets.TargetsDef.rds_targets:type_name -> cloudprober.targets.RDSTargets
 	10, // 6: cloudprober.targets.TargetsDef.file_targets:type_name -> cloudprober.targets.file.TargetsConf
 	1,  // 7: cloudprober.targets.TargetsDef.k8s:type_name -> cloudprober.targets.K8sTargets
-	4,  // 8: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
-	11, // 9: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
-	2,  // 10: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
-	6,  // 11: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
-	12, // 12: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
-	13, // 13: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	14, // 8: cloudprober.targets.TargetsDef.consul:type_name -> cloudprober.targets.consul.TargetsConf
+	4,  // 9: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
+	11, // 10: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
+	2,  // 11: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
+	6,  // 12: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
+	12, // 13: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
+	13, // 14: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
+	15, // 15: cloudprober.targets.GlobalTargetsOptions.global_consul_options:type_name -> cloudprober.rds.consul.GlobalOptions
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() }
@@ -927,6 +968,7 @@ func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() 
 		(*TargetsDef_RdsTargets)(nil),
 		(*TargetsDef_FileTargets)(nil),
 		(*TargetsDef_K8S)(nil),
+		(*TargetsDef_Consul)(nil),
 		(*TargetsDef_DummyTargets)(nil),
 	}
 	type x struct{}
