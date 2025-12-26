@@ -22,6 +22,7 @@ import (
 	proto "github.com/cloudprober/cloudprober/internal/rds/file/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/rds/gcp/proto"
 	proto2 "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
+	proto3 "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -91,6 +92,7 @@ type Provider struct {
 	//	*Provider_FileConfig
 	//	*Provider_GcpConfig
 	//	*Provider_KubernetesConfig
+	//	*Provider_ConsulConfig
 	Config        isProvider_Config `protobuf_oneof:"config"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -167,6 +169,15 @@ func (x *Provider) GetKubernetesConfig() *proto2.ProviderConfig {
 	return nil
 }
 
+func (x *Provider) GetConsulConfig() *proto3.ProviderConfig {
+	if x != nil {
+		if x, ok := x.Config.(*Provider_ConsulConfig); ok {
+			return x.ConsulConfig
+		}
+	}
+	return nil
+}
+
 type isProvider_Config interface {
 	isProvider_Config()
 }
@@ -183,11 +194,17 @@ type Provider_KubernetesConfig struct {
 	KubernetesConfig *proto2.ProviderConfig `protobuf:"bytes,3,opt,name=kubernetes_config,json=kubernetesConfig,oneof"`
 }
 
+type Provider_ConsulConfig struct {
+	ConsulConfig *proto3.ProviderConfig `protobuf:"bytes,5,opt,name=consul_config,json=consulConfig,oneof"`
+}
+
 func (*Provider_FileConfig) isProvider_Config() {}
 
 func (*Provider_GcpConfig) isProvider_Config() {}
 
 func (*Provider_KubernetesConfig) isProvider_Config() {}
+
+func (*Provider_ConsulConfig) isProvider_Config() {}
 
 var File_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto protoreflect.FileDescriptor
 
@@ -225,17 +242,19 @@ var file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_pro
 	(*proto.ProviderConfig)(nil),  // 2: cloudprober.rds.file.ProviderConfig
 	(*proto1.ProviderConfig)(nil), // 3: cloudprober.rds.gcp.ProviderConfig
 	(*proto2.ProviderConfig)(nil), // 4: cloudprober.rds.kubernetes.ProviderConfig
+	(*proto3.ProviderConfig)(nil), // 5: cloudprober.rds.consul.ProviderConfig
 }
 var file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.rds.ServerConf.provider:type_name -> cloudprober.rds.Provider
 	2, // 1: cloudprober.rds.Provider.file_config:type_name -> cloudprober.rds.file.ProviderConfig
 	3, // 2: cloudprober.rds.Provider.gcp_config:type_name -> cloudprober.rds.gcp.ProviderConfig
 	4, // 3: cloudprober.rds.Provider.kubernetes_config:type_name -> cloudprober.rds.kubernetes.ProviderConfig
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5, // 4: cloudprober.rds.Provider.consul_config:type_name -> cloudprober.rds.consul.ProviderConfig
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_proto_init() }
@@ -247,6 +266,7 @@ func file_github_com_cloudprober_cloudprober_internal_rds_server_proto_config_pr
 		(*Provider_FileConfig)(nil),
 		(*Provider_GcpConfig)(nil),
 		(*Provider_KubernetesConfig)(nil),
+		(*Provider_ConsulConfig)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
