@@ -5,6 +5,7 @@ package cloudprober.targets;
 
 import "github.com/cloudprober/cloudprober/internal/rds/client/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto";
+import "github.com/cloudprober/cloudprober/targets/consul/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/file/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/gce/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/lameduck/proto/config.proto";
@@ -164,6 +165,16 @@ message TargetsDef {
     //   services: ""
     // }
     K8sTargets k8s = 6;
+
+    // Consul targets.
+    // Example:
+    // consul {
+    //   address: "localhost:8500"
+    //   services: "web-.*"
+    //   tags: "http"
+    //   health_status: "passing"
+    // }
+    consul.TargetsConf consul = 7;
 
     // Empty targets to meet the probe definition requirement where there are
     // actually no targets, for example in case of some external probes.

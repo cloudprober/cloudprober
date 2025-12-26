@@ -1,57 +1,53 @@
-# Consul Integration Examples
+# Consul Targets Examples
 
-This directory contains example configurations for using Cloudprober with HashiCorp Consul.
+This directory contains examples for using Consul to discover targets for probes.
 
-## Features
+## Files
 
-### 1. Consul RDS (Resource Discovery Service)
+- `consul.cfg` - Complete example showing Consul target discovery with the terser syntax
 
-The Consul RDS provider allows Cloudprober to discover and probe services registered in Consul.
+## Quick Start
 
-**Key Features:**
-- Discover services, health checks, and nodes from Consul
-- Filter by service tags, names, health status, and metadata
-- Support for multiple Consul datacenters
-- TLS support for secure connections
-- Kubernetes service discovery for Consul address
-- Automatic refresh of service lists
-
-**Example:** See `consul_rds.cfg`
-
-### 2. Consul Surfacer
-
-The Consul surfacer registers the Cloudprober instance with Consul's service catalog, making it discoverable by other services.
-
-**Key Features:**
-- Register Cloudprober instance as a Consul service
-- Automatic health check registration
-- Custom service metadata and tags
-- Consul Connect (service mesh) support
-- Automatic deregistration on shutdown
-
-**Example:** See `consul_surfacer.cfg`
-
-## Prerequisites
-
-1. **Consul Server**: You need a running Consul server or cluster
-   ```bash
-   # Start Consul in dev mode (for testing)
-   consul agent -dev
-   ```
-
-2. **Network Access**: Ensure Cloudprober can reach the Consul server
-   - Default: `localhost:8500`
-   - Custom: Configure via `address` field
-
-3. **Authentication** (if required):
-   - Set Consul token in config: `token: "your-token"`
-   - Or use environment variable: `CONSUL_HTTP_TOKEN`
-
-## Configuration Examples
-
-### Basic Service Discovery
+The simplest way to use Consul for target discovery:
 
 ```textproto
+probe {
+  name: "web_services"
+  type: HTTP
+  targets {
+    consul {
+      address: "localhost:8500"
+      services: "web-.*"
+      health_status: "passing"
+    }
+  }
+  http_probe {
+    relative_url: "/health"
+  }
+}
+```
+
+## Syntax
+
+Cloudprober supports two syntaxes for Consul targets:
+
+### 1. Direct Consul Targets (Recommended - Terser)
+
+```textproto
+targets {
+  consul {
+    address: "localhost:8500"
+    services: "web-.*"  # Regex pattern for service names
+    tags: "http"        # Filter by tags
+    health_status: "passing"
+  }
+}
+```
+
+### 2. RDS Targets (Verbose - for advanced use cases)
+
+```textproto
+# First, configure RDS server (global config)
 rds_server {
   provider {
     id: "consul"
@@ -61,87 +57,11 @@ rds_server {
         tag_filter: "http"
         health_status: "passing"
       }
-      re_eval_sec: 30
     }
   }
 }
 
-probe {
-  name: "consul_http_services"
-  type: HTTP
-  targets {
-    rds_targets {
-      resource_path: "consul://services"
-    }
-  }
-  http_probe {
-    relative_url: "/health"
-  }
-}
-```
-
-### Register Cloudprober with Consul
-
-```textproto
-surfacer {
-  type: CONSUL
-  consul_surfacer {
-    address: "localhost:8500"
-    service {
-      name: "cloudprober"
-      tags: "monitoring"
-      port: 9313
-    }
-    health_check {
-      http_endpoint: "/status"
-      interval: "10s"
-    }
-  }
-}
-```
-
-### Using Kubernetes Service Discovery
-
-```textproto
-consul_config {
-  kubernetes_service {
-    namespace: "default"
-    service_name: "consul"
-    port: "8500"
-  }
-  # ... rest of config
-}
-```
-
-### TLS Configuration
-
-```textproto
-consul_config {
-  address: "consul.example.com:8501"
-  tls {
-    ca_file: "/etc/cloudprober/ca.crt"
-    cert_file: "/etc/cloudprober/client.crt"
-    key_file: "/etc/cloudprober/client.key"
-  }
-}
-```
-
-## Resource Path Format
-
-The Consul RDS provider supports these resource paths:
-
-- `consul://services` - All services
-- `consul://services/web` - Specific service named "web"
-- `consul://health_checks` - All health checks
-- `consul://health_checks/api` - Health checks for "api" service
-- `consul://nodes` - All Consul nodes
-
-## Current Limitation
-
-Currently, Consul targets require using the `rds_targets {}` syntax. Unlike Kubernetes which has both `k8s {}` (terser) and RDS provider support, Consul only has the RDS provider.
-
-**Current syntax** (what works now):
-```textproto
+# Then use in probe
 targets {
   rds_targets {
     resource_path: "consul://services"
@@ -153,139 +73,106 @@ targets {
 }
 ```
 
-**Desired terser syntax** (not yet implemented):
+The RDS syntax is more verbose but allows for:
+- Running a dedicated RDS server that multiple cloudprober instances connect to
+- More complex filtering scenarios
+- Sharing Consul configuration across multiple probes
+
+## Resource Types
+
+### Services (Default)
+
+Discover Consul services:
+
 ```textproto
-targets {
-  consul {
-    address: "localhost:8500"
-    services: "web-.*"
-    tags: ["http"]
-    health_status: "passing"
+consul {
+  address: "localhost:8500"
+  services: "web-.*"  # Service name pattern (regex)
+  tags: "http"        # All specified tags must match
+  health_status: "passing"
+}
+```
+
+### Health Checks
+
+Discover health checks:
+
+```textproto
+consul {
+  address: "localhost:8500"
+  health_checks: "api"  # Health checks for "api" service
+}
+```
+
+### Nodes
+
+Discover Consul nodes:
+
+```textproto
+consul {
+  address: "localhost:8500"
+  nodes: ""  # All nodes
+}
+```
+
+## Filtering
+
+You can apply additional filters using the RDS filter syntax:
+
+```textproto
+consul {
+  address: "localhost:8500"
+  services: ""
+
+  filter {
+    key: "node"
+    value: "prod-.*"  # Only targets on nodes matching pattern
+  }
+
+  filter {
+    key: "labels.service"
+    value: "frontend"
   }
 }
 ```
 
-A future enhancement would add the terser `consul {}` targets type to `targets/proto/targets.proto` for consistency with Kubernetes and GCE targets.
-
-## Filtering
-
-You can filter discovered resources using these filter keys:
-
-### For Services:
+### Available Filter Keys for Services:
 - `name` - Service name (regex)
 - `node` - Node name (regex)
-- `tag` - Service tag (regex, matches any tag)
+- `tag` - Service tag (matches any tag with regex)
 - `address` - Service address (regex)
-- `labels.service` - Service label
-- `labels.health` - Health status
+- `labels.*` - Any label
 
-### For Health Checks:
-- `name` - Check name (regex)
-- `service` - Service name (regex)
-- `node` - Node name (regex)
-- `status` - Check status (regex)
+## Configuration Options
 
-### For Nodes:
-- `name` - Node name (regex)
-- `address` - Node address (regex)
-- `datacenter` - Datacenter name (regex)
+| Option | Description | Default |
+|--------|-------------|---------|
+| `address` | Consul server address | `localhost:8500` |
+| `datacenter` | Consul datacenter | (default datacenter) |
+| `token` | Consul ACL token | (none) |
+| `services` | Service name pattern | - |
+| `health_checks` | Health check filter | - |
+| `nodes` | Node filter | - |
+| `tags` | Service tags (all must match) | (none) |
+| `health_status` | Health statuses to include | (none) |
+| `re_eval_sec` | Target refresh interval | 30 |
 
-## Running the Examples
+## Prerequisites
 
-1. **Start Consul**:
+1. Running Consul server:
    ```bash
    consul agent -dev
    ```
 
-2. **Register some test services**:
-   ```bash
-   # Register a web service
-   curl -X PUT -d '{
-     "Name": "web-frontend",
-     "Tags": ["http", "production"],
-     "Port": 8080,
-     "Check": {
-       "HTTP": "http://localhost:8080/health",
-       "Interval": "10s"
-     }
-   }' http://localhost:8500/v1/agent/service/register
-   ```
+2. Network access to Consul (default: `localhost:8500`)
 
-3. **Run Cloudprober with RDS**:
-   ```bash
-   cloudprober --config_file=examples/consul/consul_rds.cfg
-   ```
+3. Optional: Consul ACL token (if ACLs are enabled)
 
-4. **Run Cloudprober with Surfacer**:
-   ```bash
-   cloudprober --config_file=examples/consul/consul_surfacer.cfg
-   ```
+## Examples
 
-5. **Verify registration** (for surfacer):
-   ```bash
-   # Check registered services
-   consul catalog services
+See `consul.cfg` for complete working examples.
 
-   # Check Cloudprober service details
-   consul catalog service cloudprober
+## See Also
 
-   # Check health status
-   consul health service cloudprober
-   ```
-
-## Advanced Use Cases
-
-### Multi-Datacenter Setup
-
-```textproto
-consul_config {
-  address: "consul.dc1.example.com:8500"
-  datacenter: "dc1"
-  services {
-    # Will discover services in dc1
-  }
-}
-```
-
-### Combining RDS and Surfacer
-
-You can use both the RDS provider and surfacer in the same configuration to:
-1. Discover other services to probe
-2. Register the Cloudprober instance itself
-
-See the individual example files for complete configurations.
-
-### Service Mesh Integration
-
-```textproto
-consul_surfacer {
-  service {
-    name: "cloudprober"
-    enable_connect: true  # Enable Consul Connect
-  }
-}
-```
-
-## Troubleshooting
-
-1. **Connection Issues**:
-   - Verify Consul is running: `consul members`
-   - Check network connectivity: `curl http://localhost:8500/v1/status/leader`
-   - Review Cloudprober logs for error messages
-
-2. **No Services Discovered**:
-   - Check filters aren't too restrictive
-   - Verify services are registered in Consul: `consul catalog services`
-   - Check datacenter configuration matches
-
-3. **Health Check Failures**:
-   - Ensure health check endpoint is accessible
-   - Verify port configuration is correct
-   - Check Cloudprober is listening on the configured port
-
-## References
-
+- [Consul Surfacer Examples](../../surfacers/consul/) - Register Cloudprober with Consul
 - [Consul Documentation](https://www.consul.io/docs)
-- [Cloudprober Documentation](https://cloudprober.org)
-- [Consul Service Discovery](https://www.consul.io/docs/discovery/services)
-- [Consul Health Checks](https://www.consul.io/docs/discovery/checks)
