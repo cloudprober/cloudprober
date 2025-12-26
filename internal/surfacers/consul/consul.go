@@ -372,6 +372,9 @@ func (s *Surfacer) deregisterService() {
 // newConsulClient creates a new Consul API client based on the configuration.
 // It respects standard Consul environment variables:
 //   - CONSUL_HTTP_ADDR: HTTP API address (default: localhost:8500)
+//     Special value "auto-discover" enables Kubernetes service discovery
+//     Uses consul.default.svc.cluster.local:8500 by default
+//     Can be customized with CONSUL_K8S_NAMESPACE, CONSUL_K8S_SERVICE_NAME, CONSUL_K8S_PORT
 //   - CONSUL_HTTP_TOKEN: ACL token
 //   - CONSUL_HTTP_TOKEN_FILE: Path to file containing ACL token
 //   - CONSUL_HTTP_SSL: Enable HTTPS (true/false)
@@ -384,6 +387,11 @@ func (s *Surfacer) deregisterService() {
 //   - CONSUL_NAMESPACE: Namespace (Consul Enterprise)
 //   - CONSUL_TLS_SERVER_NAME: TLS server name for SNI
 //   - CONSUL_HTTP_AUTH: HTTP basic auth (username:password)
+//
+// Auto-discovery environment variables (when CONSUL_HTTP_ADDR="auto-discover"):
+//   - CONSUL_K8S_NAMESPACE: Kubernetes namespace (default: default)
+//   - CONSUL_K8S_SERVICE_NAME: Kubernetes service name (default: consul)
+//   - CONSUL_K8S_PORT: Kubernetes service port (default: 8500)
 //
 // Configuration values explicitly set in the config take precedence over environment variables.
 func newConsulClient(c *configpb.SurfacerConf, l *logger.Logger) (*consulapi.Client, error) {
@@ -401,10 +409,26 @@ func newConsulClient(c *configpb.SurfacerConf, l *logger.Logger) (*consulapi.Cli
 			ksvc.GetPort())
 		config.Address = address
 		l.Infof("consul.surfacer: using Kubernetes service address: %s", address)
-	} else if c.Address != nil && c.GetAddress() != "" {
-		// Only set if explicitly provided (not just the proto default)
+	} else if c.Address != nil && c.GetAddress() != "" && c.GetAddress() != "auto-discover" {
+		// Only set if explicitly provided (not just the proto default) and not "auto-discover"
 		config.Address = c.GetAddress()
 		l.Infof("consul.surfacer: using configured address: %s", config.Address)
+	} else if config.Address == "auto-discover" || c.GetAddress() == "auto-discover" {
+		// Special handling for auto-discover
+		namespace := os.Getenv("CONSUL_K8S_NAMESPACE")
+		if namespace == "" {
+			namespace = "default"
+		}
+		serviceName := os.Getenv("CONSUL_K8S_SERVICE_NAME")
+		if serviceName == "" {
+			serviceName = "consul"
+		}
+		port := os.Getenv("CONSUL_K8S_PORT")
+		if port == "" {
+			port = "8500"
+		}
+		config.Address = fmt.Sprintf("%s.%s.svc.cluster.local:%s", serviceName, namespace, port)
+		l.Infof("consul.surfacer: auto-discover enabled, using Kubernetes DNS: %s", config.Address)
 	} else {
 		// Using address from environment variable or DefaultConfig default
 		l.Infof("consul.surfacer: using address from environment or default: %s", config.Address)

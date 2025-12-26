@@ -10,6 +10,7 @@
 //
 // Supported environment variables:
 //   - CONSUL_HTTP_ADDR: HTTP API address
+//     Special value "auto-discover" enables Kubernetes service discovery
 //   - CONSUL_HTTP_TOKEN: ACL token
 //   - CONSUL_HTTP_TOKEN_FILE: Path to file containing ACL token
 //   - CONSUL_HTTP_SSL: Enable HTTPS
@@ -22,6 +23,11 @@
 //   - CONSUL_NAMESPACE: Namespace (Consul Enterprise)
 //   - CONSUL_TLS_SERVER_NAME: TLS server name for SNI
 //   - CONSUL_HTTP_AUTH: HTTP basic auth (username:password)
+//
+// Auto-discovery environment variables (when CONSUL_HTTP_ADDR="auto-discover"):
+//   - CONSUL_K8S_NAMESPACE: Kubernetes namespace (default: default)
+//   - CONSUL_K8S_SERVICE_NAME: Kubernetes service name (default: consul)
+//   - CONSUL_K8S_PORT: Kubernetes service port (default: 8500)
 //
 // Example config:
 // {

@@ -49,6 +49,23 @@ export CONSUL_DATACENTER="dc1"
 cloudprober --config_file=cloudprober.cfg
 ```
 
+**Auto-discovery in Kubernetes:**
+
+Set `CONSUL_HTTP_ADDR="auto-discover"` to automatically use Kubernetes DNS to discover Consul:
+
+```bash
+# Minimal setup - uses consul.default.svc.cluster.local:8500
+export CONSUL_HTTP_ADDR="auto-discover"
+
+# Custom namespace and service name
+export CONSUL_HTTP_ADDR="auto-discover"
+export CONSUL_K8S_NAMESPACE="consul-system"
+export CONSUL_K8S_SERVICE_NAME="consul-server"
+export CONSUL_K8S_PORT="8500"
+
+cloudprober --config_file=cloudprober.cfg
+```
+
 With environment variables set, your config becomes simpler:
 ```textproto
 surfacer {
