@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto"
