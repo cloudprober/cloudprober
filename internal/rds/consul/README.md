@@ -14,16 +14,14 @@ This package implements a Consul-based Resource Discovery Service (RDS) provider
 
 ## Generating Proto Files
 
-After making changes to the proto files, regenerate the Go code:
+After making changes to the proto files, regenerate the Go code using the centralized script:
 
 ```bash
-# Install protoc-gen-go if not already installed
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-
-# Generate proto files (requires protoc to be installed)
-protoc --go_out=. --go_opt=paths=source_relative \
-  internal/rds/consul/proto/config.proto
+# From the project root
+./tools/gen_pb_go.sh
 ```
+
+This script automatically finds and regenerates all proto files in the project, including the Consul RDS provider protos.
 
 ## Configuration
 
