@@ -391,7 +391,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = kt, kt
 
 	case *targetspb.TargetsDef_Consul:
-		ct, err := consul.New(targetsDef.GetConsul(), t.resolver, l)
+		ct, err := consul.New(targetsDef.GetConsul(), globalOpts.GetGlobalConsulOptions(), t.resolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): error creating Consul targets: %v", err)
 		}
