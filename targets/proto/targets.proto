@@ -4,6 +4,7 @@ syntax = "proto2";
 package cloudprober.targets;
 
 import "github.com/cloudprober/cloudprober/internal/rds/client/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/rds/consul/proto/global.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto";
 import "github.com/cloudprober/cloudprober/targets/consul/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/file/proto/config.proto";
@@ -252,4 +253,8 @@ message GlobalTargetsOptions {
   // Lame duck options. If provided, targets module checks for the lame duck
   // targets and removes them from the targets list.
   optional lameduck.Options lame_duck_options = 2;
+
+  // Consul global options. These options are shared across Consul targets
+  // and can also be used by the Consul surfacer if configured globally.
+  optional consul.GlobalOptions global_consul_options = 5;
 }

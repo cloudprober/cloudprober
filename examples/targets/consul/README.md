@@ -5,6 +5,7 @@ This directory contains examples for using Consul to discover targets for probes
 ## Files
 
 - `consul.cfg` - Complete example showing Consul target discovery with the terser syntax
+- `global_consul.cfg` - Example showing how to use global Consul configuration across multiple probes
 
 ## Quick Start
 
@@ -26,6 +27,48 @@ probe {
   }
 }
 ```
+
+## Global Consul Configuration
+
+You can configure Consul connection settings globally to avoid repeating them in each probe:
+
+```textproto
+global_targets_options {
+  global_consul_options {
+    address: "localhost:8500"
+    datacenter: "dc1"
+
+    # Auto-discover Consul in Kubernetes
+    kubernetes_service {
+      namespace: "default"
+      service_name: "consul"
+      port: "8500"
+    }
+  }
+}
+
+probe {
+  name: "web_services"
+  type: HTTP
+  targets {
+    consul {
+      # Inherits address from global_consul_options
+      services: "web-.*"
+    }
+  }
+  http_probe { relative_url: "/health" }
+}
+```
+
+**Benefits:**
+- Configure Consul address, datacenter, and TLS settings once
+- Share configuration across multiple probes
+- Local probe configuration can override global settings
+- Supports Kubernetes service discovery for auto-detecting Consul
+
+**Note:** Global configuration is currently only available for targets. Surfacers must configure Consul connection settings directly.
+
+See `global_consul.cfg` for a complete example.
 
 ## Syntax
 
