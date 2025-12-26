@@ -15,6 +15,54 @@ The Consul surfacer registers your Cloudprober instance as a service in Consul's
 
 - `consul.cfg` - Complete example showing Consul service registration
 
+## Environment Variables
+
+The Consul surfacer respects standard Consul environment variables. This allows you to configure Consul connection settings without hardcoding them in your configuration files.
+
+**Supported environment variables:**
+- `CONSUL_HTTP_ADDR`: Consul server address (e.g., `localhost:8500`)
+- `CONSUL_HTTP_TOKEN`: ACL token for authentication
+- `CONSUL_HTTP_TOKEN_FILE`: Path to file containing ACL token
+- `CONSUL_HTTP_SSL`: Enable HTTPS (set to `true`)
+- `CONSUL_HTTP_SSL_VERIFY`: Verify SSL certificates (default: `true`)
+- `CONSUL_CACERT`: Path to CA certificate
+- `CONSUL_CAPATH`: Path to directory of CA certificates
+- `CONSUL_CLIENT_CERT`: Path to client certificate
+- `CONSUL_CLIENT_KEY`: Path to client key
+- `CONSUL_DATACENTER`: Datacenter name
+- `CONSUL_NAMESPACE`: Namespace (Consul Enterprise only)
+- `CONSUL_TLS_SERVER_NAME`: TLS server name for SNI
+- `CONSUL_HTTP_AUTH`: HTTP basic auth (format: `username:password`)
+
+**Configuration precedence:**
+1. Values explicitly set in configuration files take highest precedence
+2. Environment variables are used if no config value is set
+3. Default values are used if neither config nor environment variables are set
+
+**Example using environment variables:**
+```bash
+export CONSUL_HTTP_ADDR="consul.example.com:8500"
+export CONSUL_HTTP_TOKEN="your-acl-token"
+export CONSUL_DATACENTER="dc1"
+
+# Now you can omit these from your config:
+cloudprober --config_file=cloudprober.cfg
+```
+
+With environment variables set, your config becomes simpler:
+```textproto
+surfacer {
+  type: CONSUL
+  consul_surfacer {
+    # Uses CONSUL_HTTP_ADDR from environment
+    service {
+      name: "cloudprober"
+      tags: "monitoring"
+    }
+  }
+}
+```
+
 ## Quick Start
 
 The simplest configuration to register with Consul:
