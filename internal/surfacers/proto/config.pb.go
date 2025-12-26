@@ -9,6 +9,7 @@ package proto
 import (
 	proto8 "github.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto"
 	proto5 "github.com/cloudprober/cloudprober/internal/surfacers/cloudwatch/proto"
+	consul "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto"
 	proto6 "github.com/cloudprober/cloudprober/internal/surfacers/datadog/proto"
 	proto2 "github.com/cloudprober/cloudprober/internal/surfacers/file/proto"
 	proto9 "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto"
@@ -44,8 +45,9 @@ const (
 	Type_CLOUDWATCH  Type = 6 // Experimental mode.
 	Type_DATADOG     Type = 7 // Experimental mode.
 	Type_PROBESTATUS Type = 8
-	Type_BIGQUERY    Type = 9 // Experimental mode.
+	Type_BIGQUERY    Type = 9  // Experimental mode.
 	Type_OTEL        Type = 10
+	Type_CONSUL      Type = 11
 	// One of the extension surfacer types. See "extensions" below for more
 	// details.
 	Type_EXTENSION Type = 98
@@ -67,6 +69,7 @@ var (
 		8:  "PROBESTATUS",
 		9:  "BIGQUERY",
 		10: "OTEL",
+		11: "CONSUL",
 		98: "EXTENSION",
 		99: "USER_DEFINED",
 	}
@@ -82,6 +85,7 @@ var (
 		"PROBESTATUS":  8,
 		"BIGQUERY":     9,
 		"OTEL":         10,
+		"CONSUL":       11,
 		"EXTENSION":    98,
 		"USER_DEFINED": 99,
 	}
@@ -251,6 +255,7 @@ type SurfacerDef struct {
 	//	*SurfacerDef_ProbestatusSurfacer
 	//	*SurfacerDef_BigquerySurfacer
 	//	*SurfacerDef_OtelSurfacer
+	//	*SurfacerDef_ConsulSurfacer
 	Surfacer        isSurfacerDef_Surfacer `protobuf_oneof:"surfacer"`
 	extensionFields protoimpl.ExtensionFields
 	unknownFields   protoimpl.UnknownFields
@@ -469,6 +474,15 @@ func (x *SurfacerDef) GetOtelSurfacer() *proto9.SurfacerConf {
 	return nil
 }
 
+func (x *SurfacerDef) GetConsulSurfacer() *consul.SurfacerConf {
+	if x != nil {
+		if x, ok := x.Surfacer.(*SurfacerDef_ConsulSurfacer); ok {
+			return x.ConsulSurfacer
+		}
+	}
+	return nil
+}
+
 type isSurfacerDef_Surfacer interface {
 	isSurfacerDef_Surfacer()
 }
@@ -513,6 +527,10 @@ type SurfacerDef_OtelSurfacer struct {
 	OtelSurfacer *proto9.SurfacerConf `protobuf:"bytes,19,opt,name=otel_surfacer,json=otelSurfacer,oneof"`
 }
 
+type SurfacerDef_ConsulSurfacer struct {
+	ConsulSurfacer *consul.SurfacerConf `protobuf:"bytes,20,opt,name=consul_surfacer,json=consulSurfacer,oneof"`
+}
+
 func (*SurfacerDef_PrometheusSurfacer) isSurfacerDef_Surfacer() {}
 
 func (*SurfacerDef_StackdriverSurfacer) isSurfacerDef_Surfacer() {}
@@ -532,6 +550,8 @@ func (*SurfacerDef_ProbestatusSurfacer) isSurfacerDef_Surfacer() {}
 func (*SurfacerDef_BigquerySurfacer) isSurfacerDef_Surfacer() {}
 
 func (*SurfacerDef_OtelSurfacer) isSurfacerDef_Surfacer() {}
+
+func (*SurfacerDef_ConsulSurfacer) isSurfacerDef_Surfacer() {}
 
 var File_github_com_cloudprober_cloudprober_internal_surfacers_proto_config_proto protoreflect.FileDescriptor
 
@@ -613,6 +633,7 @@ var file_github_com_cloudprober_cloudprober_internal_surfacers_proto_config_prot
 	(*proto7.SurfacerConf)(nil), // 10: cloudprober.surfacer.probestatus.SurfacerConf
 	(*proto8.SurfacerConf)(nil), // 11: cloudprober.surfacer.bigquery.SurfacerConf
 	(*proto9.SurfacerConf)(nil), // 12: cloudprober.surfacer.otel.SurfacerConf
+	(*consul.SurfacerConf)(nil), // 13: cloudprober.surfacer.consul.SurfacerConf
 }
 var file_github_com_cloudprober_cloudprober_internal_surfacers_proto_config_proto_depIdxs = []int32{
 	0,  // 0: cloudprober.surfacer.SurfacerDef.type:type_name -> cloudprober.surfacer.Type
@@ -628,11 +649,12 @@ var file_github_com_cloudprober_cloudprober_internal_surfacers_proto_config_prot
 	10, // 10: cloudprober.surfacer.SurfacerDef.probestatus_surfacer:type_name -> cloudprober.surfacer.probestatus.SurfacerConf
 	11, // 11: cloudprober.surfacer.SurfacerDef.bigquery_surfacer:type_name -> cloudprober.surfacer.bigquery.SurfacerConf
 	12, // 12: cloudprober.surfacer.SurfacerDef.otel_surfacer:type_name -> cloudprober.surfacer.otel.SurfacerConf
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	13, // 13: cloudprober.surfacer.SurfacerDef.consul_surfacer:type_name -> cloudprober.surfacer.consul.SurfacerConf
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_internal_surfacers_proto_config_proto_init() }
@@ -651,6 +673,7 @@ func file_github_com_cloudprober_cloudprober_internal_surfacers_proto_config_pro
 		(*SurfacerDef_ProbestatusSurfacer)(nil),
 		(*SurfacerDef_BigquerySurfacer)(nil),
 		(*SurfacerDef_OtelSurfacer)(nil),
+		(*SurfacerDef_ConsulSurfacer)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
