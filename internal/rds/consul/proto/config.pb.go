@@ -9,8 +9,6 @@ package proto
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
@@ -29,118 +27,259 @@ type ProviderConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Address          *string                  `protobuf:"bytes,1,opt,name=address,def=localhost:8500" json:"address,omitempty"`
-	Datacenter       *string                  `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
-	Token            *string                  `protobuf:"bytes,3,opt,name=token" json:"token,omitempty"`
-	Tls              *TLSConfig               `protobuf:"bytes,4,opt,name=tls" json:"tls,omitempty"`
+	Address           *string                  `protobuf:"bytes,1,opt,name=address,def=localhost:8500" json:"address,omitempty"`
+	Datacenter        *string                  `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
+	Token             *string                  `protobuf:"bytes,3,opt,name=token" json:"token,omitempty"`
+	Tls               *TLSConfig               `protobuf:"bytes,4,opt,name=tls" json:"tls,omitempty"`
 	KubernetesService *KubernetesServiceConfig `protobuf:"bytes,5,opt,name=kubernetes_service,json=kubernetesService" json:"kubernetes_service,omitempty"`
-	Services         *ServicesConfig          `protobuf:"bytes,10,opt,name=services" json:"services,omitempty"`
-	HealthChecks     *HealthChecksConfig      `protobuf:"bytes,11,opt,name=health_checks,json=healthChecks" json:"health_checks,omitempty"`
-	Nodes            *NodesConfig             `protobuf:"bytes,12,opt,name=nodes" json:"nodes,omitempty"`
-	ReEvalSec        *int32                   `protobuf:"varint,99,opt,name=re_eval_sec,json=reEvalSec,def=60" json:"re_eval_sec,omitempty"`
+	Services          *ServicesConfig          `protobuf:"bytes,10,opt,name=services" json:"services,omitempty"`
+	HealthChecks      *HealthChecksConfig      `protobuf:"bytes,11,opt,name=health_checks,json=healthChecks" json:"health_checks,omitempty"`
+	Nodes             *NodesConfig             `protobuf:"bytes,12,opt,name=nodes" json:"nodes,omitempty"`
+	ReEvalSec         *int32                   `protobuf:"varint,99,opt,name=re_eval_sec,json=reEvalSec,def=60" json:"re_eval_sec,omitempty"`
 }
 
-func (x *ProviderConfig) Reset() { *x = ProviderConfig{} }
-func (x *ProviderConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*ProviderConfig) ProtoMessage() {}
+func (x *ProviderConfig) Reset()                             { *x = ProviderConfig{} }
+func (x *ProviderConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*ProviderConfig) ProtoMessage()                        {}
 func (x *ProviderConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *ProviderConfig) GetAddress() string { if x != nil && x.Address != nil { return *x.Address }; return "localhost:8500" }
-func (x *ProviderConfig) GetDatacenter() string { if x != nil && x.Datacenter != nil { return *x.Datacenter }; return "" }
-func (x *ProviderConfig) GetToken() string { if x != nil && x.Token != nil { return *x.Token }; return "" }
-func (x *ProviderConfig) GetTls() *TLSConfig { if x != nil { return x.Tls }; return nil }
-func (x *ProviderConfig) GetKubernetesService() *KubernetesServiceConfig { if x != nil { return x.KubernetesService }; return nil }
-func (x *ProviderConfig) GetServices() *ServicesConfig { if x != nil { return x.Services }; return nil }
-func (x *ProviderConfig) GetHealthChecks() *HealthChecksConfig { if x != nil { return x.HealthChecks }; return nil }
-func (x *ProviderConfig) GetNodes() *NodesConfig { if x != nil { return x.Nodes }; return nil }
-func (x *ProviderConfig) GetReEvalSec() int32 { if x != nil && x.ReEvalSec != nil { return *x.ReEvalSec }; return 60 }
+func (x *ProviderConfig) GetAddress() string {
+	if x != nil && x.Address != nil {
+		return *x.Address
+	}
+	return "localhost:8500"
+}
+func (x *ProviderConfig) GetDatacenter() string {
+	if x != nil && x.Datacenter != nil {
+		return *x.Datacenter
+	}
+	return ""
+}
+func (x *ProviderConfig) GetToken() string {
+	if x != nil && x.Token != nil {
+		return *x.Token
+	}
+	return ""
+}
+func (x *ProviderConfig) GetTls() *TLSConfig {
+	if x != nil {
+		return x.Tls
+	}
+	return nil
+}
+func (x *ProviderConfig) GetKubernetesService() *KubernetesServiceConfig {
+	if x != nil {
+		return x.KubernetesService
+	}
+	return nil
+}
+func (x *ProviderConfig) GetServices() *ServicesConfig {
+	if x != nil {
+		return x.Services
+	}
+	return nil
+}
+func (x *ProviderConfig) GetHealthChecks() *HealthChecksConfig {
+	if x != nil {
+		return x.HealthChecks
+	}
+	return nil
+}
+func (x *ProviderConfig) GetNodes() *NodesConfig {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+func (x *ProviderConfig) GetReEvalSec() int32 {
+	if x != nil && x.ReEvalSec != nil {
+		return *x.ReEvalSec
+	}
+	return 60
+}
 
 type TLSConfig struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-	CaFile            *string `protobuf:"bytes,1,opt,name=ca_file,json=caFile" json:"ca_file,omitempty"`
-	CertFile          *string `protobuf:"bytes,2,opt,name=cert_file,json=certFile" json:"cert_file,omitempty"`
-	KeyFile           *string `protobuf:"bytes,3,opt,name=key_file,json=keyFile" json:"key_file,omitempty"`
-	InsecureSkipVerify *bool  `protobuf:"varint,4,opt,name=insecure_skip_verify,json=insecureSkipVerify,def=0" json:"insecure_skip_verify,omitempty"`
+	state              protoimpl.MessageState
+	sizeCache          protoimpl.SizeCache
+	unknownFields      protoimpl.UnknownFields
+	CaFile             *string `protobuf:"bytes,1,opt,name=ca_file,json=caFile" json:"ca_file,omitempty"`
+	CertFile           *string `protobuf:"bytes,2,opt,name=cert_file,json=certFile" json:"cert_file,omitempty"`
+	KeyFile            *string `protobuf:"bytes,3,opt,name=key_file,json=keyFile" json:"key_file,omitempty"`
+	InsecureSkipVerify *bool   `protobuf:"varint,4,opt,name=insecure_skip_verify,json=insecureSkipVerify,def=0" json:"insecure_skip_verify,omitempty"`
 }
 
-func (x *TLSConfig) Reset() { *x = TLSConfig{} }
-func (x *TLSConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*TLSConfig) ProtoMessage() {}
+func (x *TLSConfig) Reset()                             { *x = TLSConfig{} }
+func (x *TLSConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*TLSConfig) ProtoMessage()                        {}
 func (x *TLSConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *TLSConfig) GetCaFile() string { if x != nil && x.CaFile != nil { return *x.CaFile }; return "" }
-func (x *TLSConfig) GetCertFile() string { if x != nil && x.CertFile != nil { return *x.CertFile }; return "" }
-func (x *TLSConfig) GetKeyFile() string { if x != nil && x.KeyFile != nil { return *x.KeyFile }; return "" }
-func (x *TLSConfig) GetInsecureSkipVerify() bool { if x != nil && x.InsecureSkipVerify != nil { return *x.InsecureSkipVerify }; return false }
+func (x *TLSConfig) GetCaFile() string {
+	if x != nil && x.CaFile != nil {
+		return *x.CaFile
+	}
+	return ""
+}
+func (x *TLSConfig) GetCertFile() string {
+	if x != nil && x.CertFile != nil {
+		return *x.CertFile
+	}
+	return ""
+}
+func (x *TLSConfig) GetKeyFile() string {
+	if x != nil && x.KeyFile != nil {
+		return *x.KeyFile
+	}
+	return ""
+}
+func (x *TLSConfig) GetInsecureSkipVerify() bool {
+	if x != nil && x.InsecureSkipVerify != nil {
+		return *x.InsecureSkipVerify
+	}
+	return false
+}
 
 type KubernetesServiceConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
-	Namespace   *string `protobuf:"bytes,1,opt,name=namespace,def=default" json:"namespace,omitempty"`
-	ServiceName *string `protobuf:"bytes,2,opt,name=service_name,json=serviceName,def=consul" json:"service_name,omitempty"`
-	Port        *string `protobuf:"bytes,3,opt,name=port,def=8500" json:"port,omitempty"`
+	Namespace     *string `protobuf:"bytes,1,opt,name=namespace,def=default" json:"namespace,omitempty"`
+	ServiceName   *string `protobuf:"bytes,2,opt,name=service_name,json=serviceName,def=consul" json:"service_name,omitempty"`
+	Port          *string `protobuf:"bytes,3,opt,name=port,def=8500" json:"port,omitempty"`
 }
 
-func (x *KubernetesServiceConfig) Reset() { *x = KubernetesServiceConfig{} }
-func (x *KubernetesServiceConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*KubernetesServiceConfig) ProtoMessage() {}
+func (x *KubernetesServiceConfig) Reset()                             { *x = KubernetesServiceConfig{} }
+func (x *KubernetesServiceConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*KubernetesServiceConfig) ProtoMessage()                        {}
 func (x *KubernetesServiceConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *KubernetesServiceConfig) GetNamespace() string { if x != nil && x.Namespace != nil { return *x.Namespace }; return "default" }
-func (x *KubernetesServiceConfig) GetServiceName() string { if x != nil && x.ServiceName != nil { return *x.ServiceName }; return "consul" }
-func (x *KubernetesServiceConfig) GetPort() string { if x != nil && x.Port != nil { return *x.Port }; return "8500" }
+func (x *KubernetesServiceConfig) GetNamespace() string {
+	if x != nil && x.Namespace != nil {
+		return *x.Namespace
+	}
+	return "default"
+}
+func (x *KubernetesServiceConfig) GetServiceName() string {
+	if x != nil && x.ServiceName != nil {
+		return *x.ServiceName
+	}
+	return "consul"
+}
+func (x *KubernetesServiceConfig) GetPort() string {
+	if x != nil && x.Port != nil {
+		return *x.Port
+	}
+	return "8500"
+}
 
 type ServicesConfig struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-	TagFilter      []string          `protobuf:"bytes,1,rep,name=tag_filter,json=tagFilter" json:"tag_filter,omitempty"`
-	NameFilter     *string           `protobuf:"bytes,2,opt,name=name_filter,json=nameFilter" json:"name_filter,omitempty"`
-	IncludeMetadata *bool            `protobuf:"varint,3,opt,name=include_metadata,json=includeMetadata,def=1" json:"include_metadata,omitempty"`
-	IncludeTags    *bool             `protobuf:"varint,4,opt,name=include_tags,json=includeTags,def=1" json:"include_tags,omitempty"`
-	NodeMetaFilter []string          `protobuf:"bytes,5,rep,name=node_meta_filter,json=nodeMetaFilter" json:"node_meta_filter,omitempty"`
-	HealthStatus   []string          `protobuf:"bytes,6,rep,name=health_status,json=healthStatus" json:"health_status,omitempty"`
+	state           protoimpl.MessageState
+	sizeCache       protoimpl.SizeCache
+	unknownFields   protoimpl.UnknownFields
+	TagFilter       []string `protobuf:"bytes,1,rep,name=tag_filter,json=tagFilter" json:"tag_filter,omitempty"`
+	NameFilter      *string  `protobuf:"bytes,2,opt,name=name_filter,json=nameFilter" json:"name_filter,omitempty"`
+	IncludeMetadata *bool    `protobuf:"varint,3,opt,name=include_metadata,json=includeMetadata,def=1" json:"include_metadata,omitempty"`
+	IncludeTags     *bool    `protobuf:"varint,4,opt,name=include_tags,json=includeTags,def=1" json:"include_tags,omitempty"`
+	NodeMetaFilter  []string `protobuf:"bytes,5,rep,name=node_meta_filter,json=nodeMetaFilter" json:"node_meta_filter,omitempty"`
+	HealthStatus    []string `protobuf:"bytes,6,rep,name=health_status,json=healthStatus" json:"health_status,omitempty"`
 }
 
-func (x *ServicesConfig) Reset() { *x = ServicesConfig{} }
-func (x *ServicesConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*ServicesConfig) ProtoMessage() {}
+func (x *ServicesConfig) Reset()                             { *x = ServicesConfig{} }
+func (x *ServicesConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*ServicesConfig) ProtoMessage()                        {}
 func (x *ServicesConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *ServicesConfig) GetTagFilter() []string { if x != nil { return x.TagFilter }; return nil }
-func (x *ServicesConfig) GetNameFilter() string { if x != nil && x.NameFilter != nil { return *x.NameFilter }; return "" }
-func (x *ServicesConfig) GetIncludeMetadata() bool { if x != nil && x.IncludeMetadata != nil { return *x.IncludeMetadata }; return true }
-func (x *ServicesConfig) GetIncludeTags() bool { if x != nil && x.IncludeTags != nil { return *x.IncludeTags }; return true }
-func (x *ServicesConfig) GetNodeMetaFilter() []string { if x != nil { return x.NodeMetaFilter }; return nil }
-func (x *ServicesConfig) GetHealthStatus() []string { if x != nil { return x.HealthStatus }; return nil }
+func (x *ServicesConfig) GetTagFilter() []string {
+	if x != nil {
+		return x.TagFilter
+	}
+	return nil
+}
+func (x *ServicesConfig) GetNameFilter() string {
+	if x != nil && x.NameFilter != nil {
+		return *x.NameFilter
+	}
+	return ""
+}
+func (x *ServicesConfig) GetIncludeMetadata() bool {
+	if x != nil && x.IncludeMetadata != nil {
+		return *x.IncludeMetadata
+	}
+	return true
+}
+func (x *ServicesConfig) GetIncludeTags() bool {
+	if x != nil && x.IncludeTags != nil {
+		return *x.IncludeTags
+	}
+	return true
+}
+func (x *ServicesConfig) GetNodeMetaFilter() []string {
+	if x != nil {
+		return x.NodeMetaFilter
+	}
+	return nil
+}
+func (x *ServicesConfig) GetHealthStatus() []string {
+	if x != nil {
+		return x.HealthStatus
+	}
+	return nil
+}
 
 type HealthChecksConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
-	ServiceName  *string  `protobuf:"bytes,1,opt,name=service_name,json=serviceName" json:"service_name,omitempty"`
-	StatusFilter []string `protobuf:"bytes,2,rep,name=status_filter,json=statusFilter" json:"status_filter,omitempty"`
+	ServiceName   *string  `protobuf:"bytes,1,opt,name=service_name,json=serviceName" json:"service_name,omitempty"`
+	StatusFilter  []string `protobuf:"bytes,2,rep,name=status_filter,json=statusFilter" json:"status_filter,omitempty"`
 }
 
-func (x *HealthChecksConfig) Reset() { *x = HealthChecksConfig{} }
-func (x *HealthChecksConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*HealthChecksConfig) ProtoMessage() {}
+func (x *HealthChecksConfig) Reset()                             { *x = HealthChecksConfig{} }
+func (x *HealthChecksConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*HealthChecksConfig) ProtoMessage()                        {}
 func (x *HealthChecksConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *HealthChecksConfig) GetServiceName() string { if x != nil && x.ServiceName != nil { return *x.ServiceName }; return "" }
-func (x *HealthChecksConfig) GetStatusFilter() []string { if x != nil { return x.StatusFilter }; return nil }
+func (x *HealthChecksConfig) GetServiceName() string {
+	if x != nil && x.ServiceName != nil {
+		return *x.ServiceName
+	}
+	return ""
+}
+func (x *HealthChecksConfig) GetStatusFilter() []string {
+	if x != nil {
+		return x.StatusFilter
+	}
+	return nil
+}
 
 type NodesConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
-	MetaFilter map[string]string `protobuf:"bytes,1,rep,name=meta_filter,json=metaFilter" json:"meta_filter,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Datacenter *string           `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
+	MetaFilter    map[string]string `protobuf:"bytes,1,rep,name=meta_filter,json=metaFilter" json:"meta_filter,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Datacenter    *string           `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
 }
 
-func (x *NodesConfig) Reset() { *x = NodesConfig{} }
-func (x *NodesConfig) String() string { return protoimpl.X.MessageStringOf(x) }
-func (*NodesConfig) ProtoMessage() {}
+func (x *NodesConfig) Reset()                             { *x = NodesConfig{} }
+func (x *NodesConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
+func (*NodesConfig) ProtoMessage()                        {}
 func (x *NodesConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *NodesConfig) GetMetaFilter() map[string]string { if x != nil { return x.MetaFilter }; return nil }
-func (x *NodesConfig) GetDatacenter() string { if x != nil && x.Datacenter != nil { return *x.Datacenter }; return "" }
+func (x *NodesConfig) GetMetaFilter() map[string]string {
+	if x != nil {
+		return x.MetaFilter
+	}
+	return nil
+}
+func (x *NodesConfig) GetDatacenter() string {
+	if x != nil && x.Datacenter != nil {
+		return *x.Datacenter
+	}
+	return ""
+}
 
-func init() {}
+var File_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_proto protoreflect.FileDescriptor
+
+func init() {
+	file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_proto_init()
+}
+
+func file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_proto_init() {
+	if File_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_proto != nil {
+		return
+	}
+	// Stub implementation - types are defined above
+}

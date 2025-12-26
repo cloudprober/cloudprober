@@ -10,9 +10,10 @@ import (
 	"strconv"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto"
+	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	configpb "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto"
 	"github.com/cloudprober/cloudprober/surfacers/options"
 	consulapi "github.com/hashicorp/consul/api"
 )
@@ -218,6 +219,61 @@ func (s *Surfacer) startHealthCheckServer() error {
 	return nil
 }
 
+// getSysVarsMetadata retrieves and filters system variables based on configuration.
+func (s *Surfacer) getSysVarsMetadata() map[string]string {
+	// Default configuration if not specified
+	cfg := s.c.GetSysvars()
+	if cfg == nil {
+		cfg = &configpb.SysVarsConfig{}
+	}
+
+	// If sysvars are disabled, return empty map
+	if !cfg.GetEnabled() {
+		return make(map[string]string)
+	}
+
+	// Get all sysvars
+	allVars := sysvars.Vars()
+	if len(allVars) == 0 {
+		s.l.Warning("consul.surfacer: sysvars.Vars() returned empty map - sysvars may not be initialized")
+		return make(map[string]string)
+	}
+
+	// Apply filtering
+	result := make(map[string]string)
+	includeVars := cfg.GetIncludeVars()
+	excludeVars := cfg.GetExcludeVars()
+	prefix := cfg.GetKeyPrefix()
+
+	// Build exclude set for efficient lookup
+	excludeSet := make(map[string]bool)
+	for _, v := range excludeVars {
+		excludeSet[v] = true
+	}
+
+	// If include_vars is specified, only include those
+	if len(includeVars) > 0 {
+		for _, varName := range includeVars {
+			if excludeSet[varName] {
+				continue // Skip if in exclude list
+			}
+			if val, ok := allVars[varName]; ok {
+				result[prefix+varName] = val
+			}
+		}
+	} else {
+		// Include all vars except those in exclude list
+		for varName, val := range allVars {
+			if excludeSet[varName] {
+				continue
+			}
+			result[prefix+varName] = val
+		}
+	}
+
+	return result
+}
+
 // registerService registers the cloudprober instance with Consul.
 func (s *Surfacer) registerService() error {
 	// Build service tags
@@ -226,15 +282,24 @@ func (s *Surfacer) registerService() error {
 		tags = append(tags, s.c.Service.Tags...)
 	}
 
-	// Build metadata
+	// Build metadata - start with user-configured metadata
 	meta := make(map[string]string)
 	for k, v := range s.c.Metadata {
 		meta[k] = v
 	}
-	// Add default metadata
-	hostname, _ := os.Hostname()
-	meta["hostname"] = hostname
-	meta["version"] = "cloudprober" // Could be enhanced with actual version
+
+	// Add system variables (sysvars)
+	// This is enabled by default and includes: version, hostname, start_timestamp, cloud metadata, etc.
+	sysVarsMetadata := s.getSysVarsMetadata()
+	for k, v := range sysVarsMetadata {
+		// User-configured metadata takes precedence
+		if _, exists := meta[k]; !exists {
+			meta[k] = v
+		}
+	}
+
+	// Log metadata being published
+	s.l.Infof("consul.surfacer: publishing %d metadata keys (%d from sysvars)", len(meta), len(sysVarsMetadata))
 
 	// Build health check
 	healthCheckPort := s.servicePort + 1

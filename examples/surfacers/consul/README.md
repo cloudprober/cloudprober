@@ -43,6 +43,92 @@ surfacer {
 3. **Discovery**: Other services can discover Cloudprober via Consul's DNS or API
 4. **Deregistration**: On shutdown, the service is cleanly removed from Consul
 
+## System Variables (Sysvars) Publishing
+
+**By default, the Consul surfacer automatically publishes system variables (sysvars) as service metadata.** This includes:
+
+- `sysvar_version`: Cloudprober version
+- `sysvar_hostname`: Instance hostname
+- `sysvar_start_timestamp`: When Cloudprober started (Unix timestamp)
+- Cloud provider metadata (when running on GCE, EC2, etc.)
+  - `sysvar_project_id`, `sysvar_zone`, `sysvar_instance_id` (GCE)
+  - `sysvar_account_id`, `sysvar_region`, `sysvar_instance_id` (EC2)
+
+All sysvars are published with a `sysvar_` prefix by default to avoid conflicts with custom metadata.
+
+### Customizing Sysvars
+
+#### Publish Only Specific Sysvars
+
+```textproto
+surfacer {
+  type: CONSUL
+  consul_surfacer {
+    address: "localhost:8500"
+    service { name: "cloudprober" }
+
+    sysvars {
+      include_vars: "version"
+      include_vars: "hostname"
+      include_vars: "start_timestamp"
+    }
+  }
+}
+```
+
+#### Exclude Cloud Metadata
+
+```textproto
+surfacer {
+  type: CONSUL
+  consul_surfacer {
+    address: "localhost:8500"
+    service { name: "cloudprober" }
+
+    sysvars {
+      exclude_vars: "zone"
+      exclude_vars: "region"
+      exclude_vars: "project_id"
+      exclude_vars: "instance_id"
+    }
+  }
+}
+```
+
+#### Disable Sysvars
+
+```textproto
+surfacer {
+  type: CONSUL
+  consul_surfacer {
+    address: "localhost:8500"
+    service { name: "cloudprober" }
+
+    sysvars {
+      enabled: false
+    }
+  }
+}
+```
+
+#### Change Sysvars Prefix
+
+```textproto
+surfacer {
+  type: CONSUL
+  consul_surfacer {
+    address: "localhost:8500"
+    service { name: "cloudprober" }
+
+    sysvars {
+      key_prefix: "cp_"  # Use "cp_" instead of "sysvar_"
+    }
+  }
+}
+```
+
+**Note:** User-configured metadata always takes precedence over sysvars. If you define a key in `metadata` that conflicts with a sysvar, your custom value will be used.
+
 ## Configuration
 
 ### Basic Service Registration
@@ -184,6 +270,10 @@ The endpoint returns:
 | `health_check.timeout` | Check timeout | `5s` |
 | `health_check.deregister_critical_service_after` | Deregister after | `1m` |
 | `metadata` | Custom metadata | (none) |
+| `sysvars.enabled` | Publish sysvars | true |
+| `sysvars.include_vars` | Only publish these sysvars | (all) |
+| `sysvars.exclude_vars` | Exclude these sysvars | (none) |
+| `sysvars.key_prefix` | Prefix for sysvar keys | `sysvar_` |
 | `deregister_on_shutdown` | Deregister on exit | true |
 
 ## Verification
