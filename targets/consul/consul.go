@@ -85,14 +85,14 @@ func New(opts *configpb.TargetsConf, globalOpts *consul_configpb.GlobalOptions, 
 	case *configpb.TargetsConf_Services:
 		resourcePath = "services"
 		providerConfig.Services = &consul_configpb.ServicesConfig{
-			NameFilter:   opts.GetServices(),
+			NameFilter:   proto.String(opts.GetServices()),
 			TagFilter:    opts.Tags,
 			HealthStatus: opts.HealthStatus,
 		}
 	case *configpb.TargetsConf_HealthChecks:
 		resourcePath = "health_checks"
 		providerConfig.HealthChecks = &consul_configpb.HealthChecksConfig{
-			ServiceName: opts.HealthChecks,
+			ServiceName: proto.String(opts.GetHealthChecks()),
 		}
 	case *configpb.TargetsConf_Nodes:
 		resourcePath = "nodes"
