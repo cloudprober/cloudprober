@@ -1,0 +1,132 @@
+// Configuration proto for Consul surfacer.
+//
+// This surfacer registers the cloudprober instance with Consul, publishing:
+// - Instance existence (service registration)
+// - Health status (via health checks)
+// - Metadata about the instance
+//
+// Example config:
+// {
+//   address: "localhost:8500"
+//   service_name: "cloudprober"
+//   service_id: "cloudprober-1"
+//   tags: ["monitoring", "production"]
+//   health_check_interval: "10s"
+// }
+
+syntax = "proto2";
+
+package cloudprober.surfacer.consul;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto";
+
+message SurfacerConf {
+  // Consul server address (hostname:port)
+  // Default: "localhost:8500"
+  optional string address = 1 [default = "localhost:8500"];
+
+  // Consul datacenter
+  // If not specified, uses the default datacenter
+  optional string datacenter = 2;
+
+  // Consul token for authentication
+  // Can also be set via CONSUL_HTTP_TOKEN environment variable
+  optional string token = 3;
+
+  // TLS configuration for connecting to Consul
+  optional TLSConfig tls = 4;
+
+  // Service registration configuration
+  optional ServiceConfig service = 10;
+
+  // Health check configuration
+  optional HealthCheckConfig health_check = 11;
+
+  // Metadata to include in service registration
+  map<string, string> metadata = 20;
+
+  // Whether to deregister the service on shutdown
+  // Default: true
+  optional bool deregister_on_shutdown = 30 [default = true];
+
+  // Kubernetes service discovery for Consul address
+  // If specified, the Consul address will be discovered via Kubernetes service
+  optional KubernetesServiceConfig kubernetes_service = 40;
+}
+
+message TLSConfig {
+  // Path to CA certificate file
+  optional string ca_file = 1;
+
+  // Path to client certificate file
+  optional string cert_file = 2;
+
+  // Path to client key file
+  optional string key_file = 3;
+
+  // Skip TLS verification (not recommended for production)
+  optional bool insecure_skip_verify = 4 [default = false];
+}
+
+message ServiceConfig {
+  // Service name to register with Consul
+  // Default: "cloudprober"
+  optional string name = 1 [default = "cloudprober"];
+
+  // Service ID (unique identifier)
+  // If not specified, will be auto-generated as: service_name-hostname-port
+  optional string id = 2;
+
+  // Service tags
+  repeated string tags = 3;
+
+  // Service port
+  // If not specified, will use the probe status server port or default to 9313
+  optional int32 port = 4;
+
+  // Service address
+  // If not specified, will auto-detect from hostname or pod IP
+  optional string address = 5;
+
+  // Enable service mesh integration (Consul Connect)
+  optional bool enable_connect = 6 [default = false];
+}
+
+message HealthCheckConfig {
+  // Health check HTTP endpoint
+  // Default: "/status"
+  optional string http_endpoint = 1 [default = "/status"];
+
+  // Health check interval
+  // Default: "10s"
+  optional string interval = 2 [default = "10s"];
+
+  // Health check timeout
+  // Default: "5s"
+  optional string timeout = 3 [default = "5s"];
+
+  // Deregister service after this duration if unhealthy
+  // Default: "1m"
+  optional string deregister_critical_service_after = 4 [default = "1m"];
+
+  // Health check HTTP method
+  // Default: "GET"
+  optional string http_method = 5 [default = "GET"];
+
+  // Health check TLS skip verify
+  optional bool tls_skip_verify = 6 [default = false];
+
+  // Health check notes
+  optional string notes = 7;
+}
+
+message KubernetesServiceConfig {
+  // Kubernetes namespace where the Consul service is located
+  optional string namespace = 1 [default = "default"];
+
+  // Kubernetes service name
+  optional string service_name = 2 [default = "consul"];
+
+  // Kubernetes service port (name or number)
+  optional string port = 3 [default = "8500"];
+}

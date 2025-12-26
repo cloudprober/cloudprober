@@ -1,0 +1,112 @@
+// Configuration proto for Consul service discovery provider.
+//
+// Example config:
+// {
+//   address: "localhost:8500"
+//   datacenter: "dc1"
+//   services {
+//     tag_filter: "cloudprober"
+//   }
+// }
+
+syntax = "proto2";
+
+package cloudprober.rds.consul;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/rds/consul/proto";
+
+message ProviderConfig {
+  // Consul server address (hostname:port)
+  // Default: "localhost:8500"
+  optional string address = 1 [default = "localhost:8500"];
+
+  // Consul datacenter
+  // If not specified, uses the default datacenter
+  optional string datacenter = 2;
+
+  // Consul token for authentication
+  // Can also be set via CONSUL_HTTP_TOKEN environment variable
+  optional string token = 3;
+
+  // TLS configuration for connecting to Consul
+  optional TLSConfig tls = 4;
+
+  // Kubernetes service discovery for Consul address
+  // If specified, the Consul address will be discovered via Kubernetes service
+  optional KubernetesServiceConfig kubernetes_service = 5;
+
+  // Services configuration
+  optional ServicesConfig services = 10;
+
+  // Health checks configuration
+  optional HealthChecksConfig health_checks = 11;
+
+  // Nodes configuration
+  optional NodesConfig nodes = 12;
+
+  // How often to refresh the list of resources (in seconds)
+  optional int32 re_eval_sec = 99 [default = 60];
+}
+
+message TLSConfig {
+  // Path to CA certificate file
+  optional string ca_file = 1;
+
+  // Path to client certificate file
+  optional string cert_file = 2;
+
+  // Path to client key file
+  optional string key_file = 3;
+
+  // Skip TLS verification (not recommended for production)
+  optional bool insecure_skip_verify = 4 [default = false];
+}
+
+message KubernetesServiceConfig {
+  // Kubernetes namespace where the Consul service is located
+  optional string namespace = 1 [default = "default"];
+
+  // Kubernetes service name
+  optional string service_name = 2 [default = "consul"];
+
+  // Kubernetes service port (name or number)
+  optional string port = 3 [default = "8500"];
+}
+
+message ServicesConfig {
+  // Filter services by tag
+  // Only services with ALL specified tags will be returned
+  repeated string tag_filter = 1;
+
+  // Filter services by name (regex)
+  optional string name_filter = 2;
+
+  // Include service metadata in labels
+  optional bool include_metadata = 3 [default = true];
+
+  // Include service tags as labels (tags will be prefixed with "tag_")
+  optional bool include_tags = 4 [default = true];
+
+  // Node metadata to include as labels
+  repeated string node_meta_filter = 5;
+
+  // Health status filter (passing, warning, critical, maintenance)
+  // Default: only return healthy ("passing") services
+  repeated string health_status = 6;
+}
+
+message HealthChecksConfig {
+  // Filter by service name
+  optional string service_name = 1;
+
+  // Filter by check status (passing, warning, critical)
+  repeated string status_filter = 2;
+}
+
+message NodesConfig {
+  // Filter by node metadata
+  map<string, string> meta_filter = 1;
+
+  // Include only nodes in specific datacenter
+  optional string datacenter = 2;
+}
