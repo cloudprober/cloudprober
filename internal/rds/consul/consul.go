@@ -4,6 +4,7 @@ package consul
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
