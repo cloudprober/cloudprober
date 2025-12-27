@@ -548,25 +548,134 @@ func TestServiceDataLabels(t *testing.T) {
 		t.Fatal("Could not find web service from node1")
 	}
 
-	// Verify expected labels
+	// Verify expected labels that can be referenced via @target.label.KEY@
+	// For example, in a probe config:
+	//   additional_label {
+	//     key: "app_version"
+	//     value: "@target.label.meta_version@"
+	//   }
+	// This would propagate the Consul service metadata "version" to the probe metric
 	expectedLabels := map[string]string{
-		"service":                  "web",
-		"node":                     "node1",
-		"health":                   "passing",
-		"tags":                     "http,production",
-		"tag_http":                 "true",
-		"tag_production":           "true",
-		"meta_version":             "1.2.3",
-		"meta_environment":         "prod",
-		"node_meta_datacenter":     "us-west-2",
-		"node_meta_instance_type":  "t3.medium",
+		"service":                 "web",
+		"node":                    "node1",
+		"health":                  "passing",
+		"tags":                    "http,production",
+		"tag_http":                "true",
+		"tag_production":          "true",
+		"meta_version":            "1.2.3",      // Can be referenced as @target.label.meta_version@
+		"meta_environment":        "prod",       // Can be referenced as @target.label.meta_environment@
+		"node_meta_datacenter":    "us-west-2", // Can be referenced as @target.label.node_meta_datacenter@
+		"node_meta_instance_type": "t3.medium", // Can be referenced as @target.label.node_meta_instance_type@
 	}
 
 	for key, expectedValue := range expectedLabels {
 		if gotValue, exists := webResource.Labels[key]; !exists {
-			t.Errorf("Missing label %s", key)
+			t.Errorf("Missing label %s (would be referenced as @target.label.%s@)", key, key)
 		} else if gotValue != expectedValue {
 			t.Errorf("Label %s = %s, want %s", key, gotValue, expectedValue)
+		}
+	}
+
+	t.Logf("Verified %d labels are available for @target.label.KEY@ references", len(expectedLabels))
+}
+
+func TestConsulMetadataLabelPropagation(t *testing.T) {
+	// This test documents how Consul metadata can be propagated to probe metrics
+	// using the standard Cloudprober additional_label feature.
+	//
+	// Example probe config that uses Consul metadata:
+	//
+	//   probe {
+	//     name: "consul_service_probe"
+	//     targets {
+	//       consul {
+	//         address: "localhost:8500"
+	//         services: "web-.*"
+	//       }
+	//     }
+	//
+	//     # Propagate Consul service metadata "version" to metric label "app_version"
+	//     additional_label {
+	//       key: "app_version"
+	//       value: "@target.label.meta_version@"
+	//     }
+	//
+	//     # Propagate Consul service metadata "environment" to metric label "env"
+	//     additional_label {
+	//       key: "env"
+	//       value: "@target.label.meta_environment@"
+	//     }
+	//
+	//     # Propagate Consul service tags
+	//     additional_label {
+	//       key: "service_tags"
+	//       value: "@target.label.tags@"
+	//     }
+	//
+	//     # Propagate node datacenter from Consul node metadata
+	//     additional_label {
+	//       key: "datacenter"
+	//       value: "@target.label.node_meta_datacenter@"
+	//     }
+	//   }
+
+	server := mockConsulServer(t)
+	defer server.Close()
+
+	serverAddr := strings.TrimPrefix(server.URL, "http://")
+
+	config := &configpb.ProviderConfig{
+		Address: proto.String(serverAddr),
+		Services: &configpb.ServicesConfig{
+			IncludeMetadata: proto.Bool(true),
+			IncludeTags:     proto.Bool(true),
+			NodeMetaFilter:  []string{"datacenter"},
+		},
+	}
+
+	l := &logger.Logger{}
+	provider, err := New(config, l)
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	resp, err := provider.ListResources(&pb.ListResourcesRequest{
+		ResourcePath: proto.String("services"),
+		Filter: []*pb.Filter{
+			{Key: proto.String("name"), Value: proto.String("web")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ListResources() error = %v", err)
+	}
+
+	if len(resp.Resources) == 0 {
+		t.Fatal("Expected at least one web service")
+	}
+
+	resource := resp.Resources[0]
+
+	// Verify the labels that can be propagated via @target.label.KEY@
+	labelsToPropagate := []struct {
+		labelKey    string
+		description string
+	}{
+		{"meta_version", "Consul service metadata 'version' field"},
+		{"meta_environment", "Consul service metadata 'environment' field"},
+		{"tags", "Comma-separated list of Consul service tags"},
+		{"tag_http", "Boolean indicator that service has 'http' tag"},
+		{"node_meta_datacenter", "Consul node metadata 'datacenter' field"},
+	}
+
+	for _, label := range labelsToPropagate {
+		if _, exists := resource.Labels[label.labelKey]; !exists {
+			t.Errorf("Missing label %s (%s) - cannot be propagated with @target.label.%s@",
+				label.labelKey, label.description, label.labelKey)
+		} else {
+			t.Logf("✓ Label %s available for propagation via @target.label.%s@",
+				label.labelKey, label.labelKey)
 		}
 	}
 }
