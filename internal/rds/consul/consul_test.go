@@ -109,7 +109,10 @@ func mockConsulServer(t *testing.T) *httptest.Server {
 				{
 					"Node": {
 						"Node": "node3",
-						"Address": "10.0.1.3"
+						"Address": "10.0.1.3",
+						"Meta": {
+							"datacenter": "us-west-2"
+						}
 					},
 					"Service": {
 						"ID": "api-1",
@@ -135,7 +138,10 @@ func mockConsulServer(t *testing.T) *httptest.Server {
 				{
 					"Node": {
 						"Node": "node4",
-						"Address": "10.0.1.4"
+						"Address": "10.0.1.4",
+						"Meta": {
+							"datacenter": "us-west-2"
+						}
 					},
 					"Service": {
 						"ID": "db-1",
