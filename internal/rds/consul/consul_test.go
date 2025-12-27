@@ -234,7 +234,7 @@ func TestServicesListerFiltering(t *testing.T) {
 		{
 			name:              "no filters",
 			filters:           nil,
-			wantResourceCount: 3, // web-1, web-2, api-1 (excluding critical db-1)
+			wantResourceCount: 4, // web-1, web-2, api-1, db-1 (all services, including critical)
 		},
 		{
 			name: "filter by name",

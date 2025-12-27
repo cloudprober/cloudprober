@@ -772,11 +772,16 @@ func TestHealthCheckServer(t *testing.T) {
 
 	serverAddr := strings.TrimPrefix(server.URL, "http://")
 
+	// Use a random high port to avoid conflicts with parallel tests
+	// Using port range 20000-30000 to avoid common ports
+	servicePort := 20000 + (time.Now().UnixNano() % 10000)
+
 	config := &configpb.SurfacerConf{
 		Address: proto.String(serverAddr),
 		Service: &configpb.ServiceConfig{
-			Name: proto.String("test-health"),
-			Port: proto.Int32(9313),
+			Name:    proto.String("test-health"),
+			Port:    proto.Int32(int32(servicePort)),
+			Address: proto.String("127.0.0.1"),
 		},
 		HealthCheck: &configpb.HealthCheckConfig{
 			HttpEndpoint: proto.String("/custom-health"),
@@ -798,8 +803,8 @@ func TestHealthCheckServer(t *testing.T) {
 	// Wait for health server to start
 	time.Sleep(300 * time.Millisecond)
 
-	// Try to access the health endpoint
-	healthURL := fmt.Sprintf("http://localhost:%d/custom-health", 9314) // Port + 1
+	// Try to access the health endpoint on servicePort + 1
+	healthURL := fmt.Sprintf("http://127.0.0.1:%d/custom-health", servicePort+1)
 	resp, err := http.Get(healthURL)
 	if err != nil {
 		t.Logf("Health check server may not be accessible: %v (this might be expected in test environment)", err)
