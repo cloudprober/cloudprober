@@ -102,11 +102,6 @@ message ServicesConfig {
   // Health status filter (passing, warning, critical, maintenance)
   // Default: only return healthy ("passing") services
   repeated string health_status = 6;
-
-  // Additional labels to add to all discovered resources
-  // These labels will be added to every service instance returned
-  // Example: {"environment": "production", "region": "us-west-2"}
-  map<string, string> additional_labels = 7;
 }
 
 message HealthChecksConfig {
