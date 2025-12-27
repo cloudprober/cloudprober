@@ -97,76 +97,7 @@ func (x *ProviderConfig) GetReEvalSec() int32 {
 	return 60
 }
 
-type TLSConfig struct {
-	state              protoimpl.MessageState
-	sizeCache          protoimpl.SizeCache
-	unknownFields      protoimpl.UnknownFields
-	CaFile             *string `protobuf:"bytes,1,opt,name=ca_file,json=caFile" json:"ca_file,omitempty"`
-	CertFile           *string `protobuf:"bytes,2,opt,name=cert_file,json=certFile" json:"cert_file,omitempty"`
-	KeyFile            *string `protobuf:"bytes,3,opt,name=key_file,json=keyFile" json:"key_file,omitempty"`
-	InsecureSkipVerify *bool   `protobuf:"varint,4,opt,name=insecure_skip_verify,json=insecureSkipVerify,def=0" json:"insecure_skip_verify,omitempty"`
-}
-
-func (x *TLSConfig) Reset()                             { *x = TLSConfig{} }
-func (x *TLSConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
-func (*TLSConfig) ProtoMessage()                        {}
-func (x *TLSConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *TLSConfig) GetCaFile() string {
-	if x != nil && x.CaFile != nil {
-		return *x.CaFile
-	}
-	return ""
-}
-func (x *TLSConfig) GetCertFile() string {
-	if x != nil && x.CertFile != nil {
-		return *x.CertFile
-	}
-	return ""
-}
-func (x *TLSConfig) GetKeyFile() string {
-	if x != nil && x.KeyFile != nil {
-		return *x.KeyFile
-	}
-	return ""
-}
-func (x *TLSConfig) GetInsecureSkipVerify() bool {
-	if x != nil && x.InsecureSkipVerify != nil {
-		return *x.InsecureSkipVerify
-	}
-	return false
-}
-
-type KubernetesServiceConfig struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-	Namespace     *string `protobuf:"bytes,1,opt,name=namespace,def=default" json:"namespace,omitempty"`
-	ServiceName   *string `protobuf:"bytes,2,opt,name=service_name,json=serviceName,def=consul" json:"service_name,omitempty"`
-	Port          *string `protobuf:"bytes,3,opt,name=port,def=8500" json:"port,omitempty"`
-}
-
-func (x *KubernetesServiceConfig) Reset()                             { *x = KubernetesServiceConfig{} }
-func (x *KubernetesServiceConfig) String() string                     { return protoimpl.X.MessageStringOf(x) }
-func (*KubernetesServiceConfig) ProtoMessage()                        {}
-func (x *KubernetesServiceConfig) ProtoReflect() protoreflect.Message { return nil }
-func (x *KubernetesServiceConfig) GetNamespace() string {
-	if x != nil && x.Namespace != nil {
-		return *x.Namespace
-	}
-	return "default"
-}
-func (x *KubernetesServiceConfig) GetServiceName() string {
-	if x != nil && x.ServiceName != nil {
-		return *x.ServiceName
-	}
-	return "consul"
-}
-func (x *KubernetesServiceConfig) GetPort() string {
-	if x != nil && x.Port != nil {
-		return *x.Port
-	}
-	return "8500"
-}
+// TLSConfig and KubernetesServiceConfig are defined in global.pb.go
 
 type ServicesConfig struct {
 	state           protoimpl.MessageState
@@ -281,5 +212,7 @@ func file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_pr
 	if File_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_proto != nil {
 		return
 	}
-	// Stub implementation - types are defined above
+	// Initialize global.proto first to get TLSConfig and KubernetesServiceConfig
+	file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_global_proto_init()
+	// Stub implementation - types are defined above and in global.pb.go
 }
