@@ -256,5 +256,5 @@ message GlobalTargetsOptions {
 
   // Consul global options. These options are shared across Consul targets
   // and can also be used by the Consul surfacer if configured globally.
-  optional consul.GlobalOptions global_consul_options = 5;
+  optional cloudprober.rds.consul.GlobalOptions global_consul_options = 5;
 }

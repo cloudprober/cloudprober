@@ -3,7 +3,6 @@ syntax = "proto2";
 
 package cloudprober.targets.consul;
 
-import "github.com/cloudprober/cloudprober/internal/rds/consul/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/targets/consul/proto";
