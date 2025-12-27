@@ -398,24 +398,45 @@ func TestIntegrationConsulRDSMetadataLabels(t *testing.T) {
 	// Check first resource for expected labels
 	res := resp.Resources[0]
 
+	// These labels can be propagated to probe metrics using the standard
+	// Cloudprober additional_label feature with @target.label.KEY@ syntax.
+	//
+	// Example probe config:
+	//   probe {
+	//     targets {
+	//       consul {
+	//         address: "localhost:8500"
+	//         services: "test-web"
+	//       }
+	//     }
+	//     additional_label {
+	//       key: "app_version"
+	//       value: "@target.label.meta_version@"
+	//     }
+	//     additional_label {
+	//       key: "env"
+	//       value: "@target.label.meta_environment@"
+	//     }
+	//   }
 	expectedLabels := map[string]string{
 		"service":          "test-web",
 		"health":           "passing",
-		"meta_version":     "1.0.0",
-		"meta_environment": "prod",
-		"tag_http":         "true",
-		"tag_production":   "true",
+		"meta_version":     "1.0.0",     // Propagate with @target.label.meta_version@
+		"meta_environment": "prod",      // Propagate with @target.label.meta_environment@
+		"tag_http":         "true",      // Propagate with @target.label.tag_http@
+		"tag_production":   "true",      // Propagate with @target.label.tag_production@
 	}
 
 	for key, expectedValue := range expectedLabels {
 		if gotValue, exists := res.Labels[key]; !exists {
-			t.Errorf("Missing expected label %s", key)
+			t.Errorf("Missing expected label %s (would be @target.label.%s@ in probe config)", key, key)
 		} else if gotValue != expectedValue {
 			t.Errorf("Label %s = %s, want %s", key, gotValue, expectedValue)
 		}
 	}
 
 	t.Logf("Successfully verified metadata labels on resource %s", res.GetName())
+	t.Logf("These labels can be propagated to metrics using @target.label.KEY@ syntax")
 }
 
 func TestIntegrationConsulRDSRefresh(t *testing.T) {
