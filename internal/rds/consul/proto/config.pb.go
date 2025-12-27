@@ -212,7 +212,6 @@ func file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_pr
 	if File_github_com_cloudprober_cloudprober_internal_rds_consul_proto_config_proto != nil {
 		return
 	}
-	// Initialize global.proto first to get TLSConfig and KubernetesServiceConfig
-	file_github_com_cloudprober_cloudprober_internal_rds_consul_proto_global_proto_init()
-	// Stub implementation - types are defined above and in global.pb.go
+	// Stub implementation - types are defined above
+	// TLSConfig and KubernetesServiceConfig are defined in global.pb.go
 }
