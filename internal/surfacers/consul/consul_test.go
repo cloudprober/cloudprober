@@ -296,7 +296,7 @@ func TestSurfacerServiceRegistration(t *testing.T) {
 
 func TestSurfacerSysVarsPublishing(t *testing.T) {
 	// Initialize sysvars for testing
-	sysvars.Init(&logger.Logger{}, nil, nil, nil, nil)
+	sysvars.Init(&logger.Logger{}, nil)
 
 	server := newMockConsulServer(t)
 	defer server.Close()
@@ -463,7 +463,7 @@ func TestSurfacerMetadataPublishing(t *testing.T) {
 
 func TestSurfacerMetadataAndSysVarsCombined(t *testing.T) {
 	// Initialize sysvars
-	sysvars.Init(&logger.Logger{}, nil, nil, nil, nil)
+	sysvars.Init(&logger.Logger{}, nil)
 
 	server := newMockConsulServer(t)
 	defer server.Close()
@@ -694,7 +694,7 @@ func TestDetermineServiceDetails(t *testing.T) {
 
 func TestGetSysVarsMetadata(t *testing.T) {
 	// Initialize sysvars
-	sysvars.Init(&logger.Logger{}, nil, nil, nil, nil)
+	sysvars.Init(&logger.Logger{}, nil)
 
 	tests := []struct {
 		name           string

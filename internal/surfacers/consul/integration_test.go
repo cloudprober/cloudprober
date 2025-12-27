@@ -221,7 +221,7 @@ func TestIntegrationSurfacerMetadataPublishing(t *testing.T) {
 
 func TestIntegrationSurfacerSysVarsPublishing(t *testing.T) {
 	// Initialize sysvars
-	sysvars.Init(&logger.Logger{}, nil, nil, nil, nil)
+	sysvars.Init(&logger.Logger{}, nil)
 
 	client, cleanup := setupConsulClient(t)
 	defer cleanup()
@@ -289,7 +289,7 @@ func TestIntegrationSurfacerSysVarsPublishing(t *testing.T) {
 
 func TestIntegrationSurfacerSysVarsFiltering(t *testing.T) {
 	// Initialize sysvars
-	sysvars.Init(&logger.Logger{}, nil, nil, nil, nil)
+	sysvars.Init(&logger.Logger{}, nil)
 
 	client, cleanup := setupConsulClient(t)
 	defer cleanup()
@@ -506,7 +506,7 @@ func TestIntegrationSurfacerWriteMetrics(t *testing.T) {
 
 func TestIntegrationSurfacerMetadataPrecedence(t *testing.T) {
 	// Initialize sysvars
-	sysvars.Init(&logger.Logger{}, nil, nil, nil, nil)
+	sysvars.Init(&logger.Logger{}, nil)
 
 	client, cleanup := setupConsulClient(t)
 	defer cleanup()
