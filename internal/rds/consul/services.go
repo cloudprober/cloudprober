@@ -256,6 +256,16 @@ func (sl *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Res
 			}
 		}
 
+		// Add additional labels if configured
+		if sl.config.Services != nil && len(sl.config.Services.AdditionalLabels) > 0 {
+			for k, v := range sl.config.Services.AdditionalLabels {
+				// Only add if not already present (existing labels take precedence)
+				if _, exists := labels[k]; !exists {
+					labels[k] = v
+				}
+			}
+		}
+
 		// Apply labels filter
 		if allFilters.LabelsFilter != nil {
 			if !allFilters.LabelsFilter.Match(labels, sl.l) {
