@@ -178,7 +178,7 @@ func (s *Surfacer) determineServiceDetails() error {
 
 // startHealthCheckServer starts an HTTP server for Consul health checks.
 func (s *Surfacer) startHealthCheckServer() error {
-	endpoint := "/status"
+	endpoint := "/health"
 	if s.c.HealthCheck != nil && s.c.HealthCheck.GetHttpEndpoint() != "" {
 		endpoint = s.c.HealthCheck.GetHttpEndpoint()
 	}
