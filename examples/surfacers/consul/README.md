@@ -94,7 +94,7 @@ surfacer {
       tags: "monitoring"
     }
     health_check {
-      http_endpoint: "/status"
+      http_endpoint: "/health"
       interval: "10s"
     }
   }
@@ -212,7 +212,7 @@ surfacer {
     }
 
     health_check {
-      http_endpoint: "/status"
+      http_endpoint: "/health"
       interval: "10s"
       timeout: "5s"
     }
@@ -311,7 +311,7 @@ The surfacer automatically starts an HTTP server for Consul health checks on por
 
 - **Service port**: 9313 (default, where Prometheus metrics are served)
 - **Health check port**: 9314 (automatically assigned)
-- **Health endpoint**: `/status` (configurable)
+- **Health endpoint**: `/health` (configurable)
 
 The endpoint returns:
 - `200 OK` when healthy
@@ -330,7 +330,7 @@ The endpoint returns:
 | `service.port` | Service port | 9313 |
 | `service.address` | Service address | hostname |
 | `service.enable_connect` | Enable Consul Connect | false |
-| `health_check.http_endpoint` | Health check path | `/status` |
+| `health_check.http_endpoint` | Health check path | `/health` |
 | `health_check.interval` | Check interval | `10s` |
 | `health_check.timeout` | Check timeout | `5s` |
 | `health_check.deregister_critical_service_after` | Deregister after | `1m` |
