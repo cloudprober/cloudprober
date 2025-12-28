@@ -81,7 +81,8 @@ func mockConsulServer(t *testing.T) *httptest.Server {
 						"Node": "node2",
 						"Address": "10.0.1.2",
 						"Meta": {
-							"datacenter": "us-west-2"
+							"datacenter": "us-west-2",
+							"instance_type": "t3.medium"
 						}
 					},
 					"Service": {
@@ -91,7 +92,8 @@ func mockConsulServer(t *testing.T) *httptest.Server {
 						"Address": "",
 						"Port": 8080,
 						"Meta": {
-							"version": "1.2.3"
+							"version": "1.2.3",
+							"environment": "prod"
 						}
 					},
 					"Checks": [
