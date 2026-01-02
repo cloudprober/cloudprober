@@ -135,8 +135,6 @@ filtering by name and labels.
   - [Pub/Sub Messages](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/pubsub.go#L34)
 - AWS resource types:
   - **ec2_instances**: EC2 instances
-  - **rds_clusters**: RDS database clusters
-  - **rds_instances**: RDS database instances
 
 ### AWS Provider
 
@@ -160,24 +158,11 @@ Each AWS resource type supports:
 
 - **re_eval_sec**: How often to refresh the resource list (default: 600 seconds)
 
-RDS-specific resources (rds_instances and rds_clusters) support additional options:
-
-- **identifier**: Filter by specific DB identifier or ARN
-- **filter**: AWS API filters (e.g., "db-instance-status=available")
-- **include_shared**: Include resources shared from other AWS accounts
-
 Example AWS resource paths:
 
 ```shell
 # All EC2 instances in the configured region
 resource_path: "aws://ec2_instances"
-
-# RDS database instances
-resource_path: "aws://rds_instances"
-
-# RDS database clusters
-resource_path: "aws://rds_clusters"
-```
 
 ## Running RDS Server
 
