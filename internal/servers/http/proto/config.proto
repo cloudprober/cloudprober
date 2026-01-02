@@ -18,7 +18,7 @@ package cloudprober.servers.http;
 
 option go_package = "github.com/cloudprober/cloudprober/internal/servers/http/proto";
 
-// Next available tag = 10
+// Next available tag = 11
 message ServerConf {
   optional int32 port = 1 [default = 3141];
 
@@ -58,4 +58,12 @@ message ServerConf {
   // Pattern data handler returns pattern data at the url /data_<size_in_bytes>,
   // e.g. "/data_2048".
   repeated PatternDataHandler pattern_data_handler = 5;
+
+  // Custom response headers to be added to all HTTP responses.
+  // Example:
+  //   response_header {
+  //     key: "X-Custom-Header"
+  //     value: "custom-value"
+  //   }
+  map<string, string> response_header = 10;
 }

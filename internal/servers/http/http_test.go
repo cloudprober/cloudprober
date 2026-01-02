@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	configpb "github.com/cloudprober/cloudprober/internal/servers/http/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -53,6 +54,7 @@ func testServer(ctx context.Context, t *testing.T, insName string, ldLister endp
 
 	dataChan := make(chan *metrics.EventMetrics, 10)
 	s := &Server{
+		c:             &configpb.ServerConf{},
 		l:             &logger.Logger{},
 		ln:            ln,
 		statsInterval: 2 * time.Second,
@@ -173,5 +175,56 @@ func TestLameduckListerNil(t *testing.T) {
 	}
 	if resp, status := get(t, s.ln, "healthcheck"); !strings.Contains(resp, unknown) || status != "200 OK" {
 		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, unknown, "200 OK")
+	}
+}
+
+func TestCustomResponseHeaders(t *testing.T) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Listen error: %v.", err)
+	}
+
+	headers := map[string]string{
+		"X-Custom-Header":  "custom-value",
+		"X-Another-Header": "another-value",
+	}
+
+	c := &configpb.ServerConf{
+		ResponseHeader: headers,
+	}
+
+	dataChan := make(chan *metrics.EventMetrics, 10)
+	s := &Server{
+		c:             c,
+		l:             &logger.Logger{},
+		ln:            ln,
+		statsInterval: 2 * time.Second,
+		instanceName:  "testInstance",
+		ldLister:      &fakeLameduckLister{},
+		reqMetric:     metrics.NewMap("url"),
+		sysVars:       map[string]string{"instance": "testInstance"},
+		staticURLResTable: map[string][]byte{
+			"/": []byte(OK),
+		},
+	}
+
+	go func() {
+		s.Start(ctx, dataChan)
+	}()
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/", listenerAddr(ln)))
+	if err != nil {
+		t.Fatalf("HTTP request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	for k, v := range headers {
+		got := resp.Header.Get(k)
+		if got != v {
+			t.Errorf("Header %q: got %q, want %q", k, got, v)
+		}
 	}
 }
