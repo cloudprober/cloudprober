@@ -66,6 +66,7 @@ func TestEmptyConfig(t *testing.T) {
 func TestInferType(t *testing.T) {
 	typeToConf := map[string]*surfacerpb.SurfacerDef{
 		"CLOUDWATCH":  {Surfacer: &surfacerpb.SurfacerDef_CloudwatchSurfacer{}},
+		"CONSUL":      {Surfacer: &surfacerpb.SurfacerDef_ConsulSurfacer{}},
 		"DATADOG":     {Surfacer: &surfacerpb.SurfacerDef_DatadogSurfacer{}},
 		"FILE":        {Surfacer: &surfacerpb.SurfacerDef_FileSurfacer{}},
 		"POSTGRES":    {Surfacer: &surfacerpb.SurfacerDef_PostgresSurfacer{}},

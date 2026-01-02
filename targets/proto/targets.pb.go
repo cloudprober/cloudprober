@@ -10,11 +10,13 @@ package proto
 
 import (
 	proto "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	proto7 "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/rds/proto"
+	proto5 "github.com/cloudprober/cloudprober/targets/consul/proto"
 	proto2 "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 	proto4 "github.com/cloudprober/cloudprober/targets/file/proto"
 	proto3 "github.com/cloudprober/cloudprober/targets/gce/proto"
-	proto5 "github.com/cloudprober/cloudprober/targets/lameduck/proto"
+	proto6 "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -394,6 +396,7 @@ type TargetsDef struct {
 	//	*TargetsDef_RdsTargets
 	//	*TargetsDef_FileTargets
 	//	*TargetsDef_K8S
+	//	*TargetsDef_Consul
 	//	*TargetsDef_DummyTargets
 	Type isTargetsDef_Type `protobuf_oneof:"type"`
 	// Static endpoints. These endpoints are merged with the resources returned
@@ -528,6 +531,15 @@ func (x *TargetsDef) GetK8S() *K8STargets {
 	return nil
 }
 
+func (x *TargetsDef) GetConsul() *proto5.TargetsConf {
+	if x != nil {
+		if x, ok := x.Type.(*TargetsDef_Consul); ok {
+			return x.Consul
+		}
+	}
+	return nil
+}
+
 func (x *TargetsDef) GetDummyTargets() *DummyTargets {
 	if x != nil {
 		if x, ok := x.Type.(*TargetsDef_DummyTargets); ok {
@@ -650,6 +662,19 @@ type TargetsDef_K8S struct {
 	K8S *K8STargets `protobuf:"bytes,6,opt,name=k8s,oneof"`
 }
 
+type TargetsDef_Consul struct {
+	// Consul targets.
+	// Example:
+	//
+	//	consul {
+	//	  address: "localhost:8500"
+	//	  services: "web-.*"
+	//	  tags: "http"
+	//	  health_status: "passing"
+	//	}
+	Consul *proto5.TargetsConf `protobuf:"bytes,7,opt,name=consul,oneof"`
+}
+
 type TargetsDef_DummyTargets struct {
 	// Empty targets to meet the probe definition requirement where there are
 	// actually no targets, for example in case of some external probes.
@@ -667,6 +692,8 @@ func (*TargetsDef_RdsTargets) isTargetsDef_Type() {}
 func (*TargetsDef_FileTargets) isTargetsDef_Type() {}
 
 func (*TargetsDef_K8S) isTargetsDef_Type() {}
+
+func (*TargetsDef_Consul) isTargetsDef_Type() {}
 
 func (*TargetsDef_DummyTargets) isTargetsDef_Type() {}
 
@@ -735,9 +762,12 @@ type GlobalTargetsOptions struct {
 	GlobalGceTargetsOptions *proto3.GlobalOptions `protobuf:"bytes,1,opt,name=global_gce_targets_options,json=globalGceTargetsOptions" json:"global_gce_targets_options,omitempty"`
 	// Lame duck options. If provided, targets module checks for the lame duck
 	// targets and removes them from the targets list.
-	LameDuckOptions *proto5.Options `protobuf:"bytes,2,opt,name=lame_duck_options,json=lameDuckOptions" json:"lame_duck_options,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	LameDuckOptions *proto6.Options `protobuf:"bytes,2,opt,name=lame_duck_options,json=lameDuckOptions" json:"lame_duck_options,omitempty"`
+	// Consul global options. These options are shared across Consul targets
+	// and can also be used by the Consul surfacer if configured globally.
+	GlobalConsulOptions *proto7.GlobalOptions `protobuf:"bytes,5,opt,name=global_consul_options,json=globalConsulOptions" json:"global_consul_options,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GlobalTargetsOptions) Reset() {
@@ -792,9 +822,16 @@ func (x *GlobalTargetsOptions) GetGlobalGceTargetsOptions() *proto3.GlobalOption
 	return nil
 }
 
-func (x *GlobalTargetsOptions) GetLameDuckOptions() *proto5.Options {
+func (x *GlobalTargetsOptions) GetLameDuckOptions() *proto6.Options {
 	if x != nil {
 		return x.LameDuckOptions
+	}
+	return nil
+}
+
+func (x *GlobalTargetsOptions) GetGlobalConsulOptions() *proto7.GlobalOptions {
+	if x != nil {
+		return x.GlobalConsulOptions
 	}
 	return nil
 }
@@ -803,7 +840,7 @@ var File_github_com_cloudprober_cloudprober_targets_proto_targets_proto protoref
 
 const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc = "" +
 	"\n" +
-	">github.com/cloudprober/cloudprober/targets/proto/targets.proto\x12\x13cloudprober.targets\x1aIgithub.com/cloudprober/cloudprober/internal/rds/client/proto/config.proto\x1a?github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto\x1aBgithub.com/cloudprober/cloudprober/targets/file/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/targets/gce/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/targets/lameduck/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/targets/endpoint/proto/endpoint.proto\"\xf3\x01\n" +
+	">github.com/cloudprober/cloudprober/targets/proto/targets.proto\x12\x13cloudprober.targets\x1aIgithub.com/cloudprober/cloudprober/internal/rds/client/proto/config.proto\x1aIgithub.com/cloudprober/cloudprober/internal/rds/consul/proto/global.proto\x1a?github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto\x1aDgithub.com/cloudprober/cloudprober/targets/consul/proto/config.proto\x1aBgithub.com/cloudprober/cloudprober/targets/file/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/targets/gce/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/targets/lameduck/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/targets/endpoint/proto/endpoint.proto\"\xf3\x01\n" +
 	"\n" +
 	"RDSTargets\x12W\n" +
 	"\x12rds_server_options\x18\x01 \x01(\v2).cloudprober.rds.ClientConf.ServerOptionsR\x10rdsServerOptions\x12#\n" +
@@ -830,7 +867,7 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x1c\n" +
 	"\attl_sec\x18\x02 \x01(\x05:\x03300R\x06ttlSec\x12)\n" +
 	"\x11max_cache_age_sec\x18\x03 \x01(\x05R\x0emaxCacheAgeSec\x126\n" +
-	"\x14backend_timeout_msec\x18\x04 \x01(\x05:\x045000R\x12backendTimeoutMsec\"\xa6\x05\n" +
+	"\x14backend_timeout_msec\x18\x04 \x01(\x05:\x045000R\x12backendTimeoutMsec\"\xe9\x05\n" +
 	"\n" +
 	"TargetsDef\x12\x1f\n" +
 	"\n" +
@@ -841,7 +878,8 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\vrds_targets\x18\x03 \x01(\v2\x1f.cloudprober.targets.RDSTargetsH\x00R\n" +
 	"rdsTargets\x12J\n" +
 	"\ffile_targets\x18\x04 \x01(\v2%.cloudprober.targets.file.TargetsConfH\x00R\vfileTargets\x123\n" +
-	"\x03k8s\x18\x06 \x01(\v2\x1f.cloudprober.targets.K8sTargetsH\x00R\x03k8s\x12H\n" +
+	"\x03k8s\x18\x06 \x01(\v2\x1f.cloudprober.targets.K8sTargetsH\x00R\x03k8s\x12A\n" +
+	"\x06consul\x18\a \x01(\v2'.cloudprober.targets.consul.TargetsConfH\x00R\x06consul\x12H\n" +
 	"\rdummy_targets\x18\x14 \x01(\v2!.cloudprober.targets.DummyTargetsH\x00R\fdummyTargets\x129\n" +
 	"\bendpoint\x18\x17 \x03(\v2\x1d.cloudprober.targets.EndpointR\bendpoint\x12\x14\n" +
 	"\x05regex\x18\x15 \x01(\tR\x05regex\x121\n" +
@@ -851,12 +889,13 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\n" +
 	"dns_server\x18\x1f \x01(\tR\tdnsServer*\t\b\xc8\x01\x10\x80\x80\x80\x80\x02B\x06\n" +
 	"\x04type\"\x0e\n" +
-	"\fDummyTargets\"\xd9\x02\n" +
+	"\fDummyTargets\"\xb4\x03\n" +
 	"\x14GlobalTargetsOptions\x120\n" +
 	"\x12rds_server_address\x18\x03 \x01(\tB\x02\x18\x01R\x10rdsServerAddress\x12W\n" +
 	"\x12rds_server_options\x18\x04 \x01(\v2).cloudprober.rds.ClientConf.ServerOptionsR\x10rdsServerOptions\x12c\n" +
 	"\x1aglobal_gce_targets_options\x18\x01 \x01(\v2&.cloudprober.targets.gce.GlobalOptionsR\x17globalGceTargetsOptions\x12Q\n" +
-	"\x11lame_duck_options\x18\x02 \x01(\v2%.cloudprober.targets.lameduck.OptionsR\x0flameDuckOptionsB2Z0github.com/cloudprober/cloudprober/targets/proto"
+	"\x11lame_duck_options\x18\x02 \x01(\v2%.cloudprober.targets.lameduck.OptionsR\x0flameDuckOptions\x12Y\n" +
+	"\x15global_consul_options\x18\x05 \x01(\v2%.cloudprober.rds.consul.GlobalOptionsR\x13globalConsulOptionsB2Z0github.com/cloudprober/cloudprober/targets/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescOnce sync.Once
@@ -883,9 +922,11 @@ var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes 
 	(*proto1.IPConfig)(nil),                // 8: cloudprober.rds.IPConfig
 	(*proto3.TargetsConf)(nil),             // 9: cloudprober.targets.gce.TargetsConf
 	(*proto4.TargetsConf)(nil),             // 10: cloudprober.targets.file.TargetsConf
-	(*proto2.Endpoint)(nil),                // 11: cloudprober.targets.Endpoint
-	(*proto3.GlobalOptions)(nil),           // 12: cloudprober.targets.gce.GlobalOptions
-	(*proto5.Options)(nil),                 // 13: cloudprober.targets.lameduck.Options
+	(*proto5.TargetsConf)(nil),             // 11: cloudprober.targets.consul.TargetsConf
+	(*proto2.Endpoint)(nil),                // 12: cloudprober.targets.Endpoint
+	(*proto3.GlobalOptions)(nil),           // 13: cloudprober.targets.gce.GlobalOptions
+	(*proto6.Options)(nil),                 // 14: cloudprober.targets.lameduck.Options
+	(*proto7.GlobalOptions)(nil),           // 15: cloudprober.rds.consul.GlobalOptions
 }
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs = []int32{
 	6,  // 0: cloudprober.targets.RDSTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
@@ -896,17 +937,19 @@ var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs 
 	0,  // 5: cloudprober.targets.TargetsDef.rds_targets:type_name -> cloudprober.targets.RDSTargets
 	10, // 6: cloudprober.targets.TargetsDef.file_targets:type_name -> cloudprober.targets.file.TargetsConf
 	1,  // 7: cloudprober.targets.TargetsDef.k8s:type_name -> cloudprober.targets.K8sTargets
-	4,  // 8: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
-	11, // 9: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
-	2,  // 10: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
-	6,  // 11: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
-	12, // 12: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
-	13, // 13: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	11, // 8: cloudprober.targets.TargetsDef.consul:type_name -> cloudprober.targets.consul.TargetsConf
+	4,  // 9: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
+	12, // 10: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
+	2,  // 11: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
+	6,  // 12: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
+	13, // 13: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
+	14, // 14: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
+	15, // 15: cloudprober.targets.GlobalTargetsOptions.global_consul_options:type_name -> cloudprober.rds.consul.GlobalOptions
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() }
@@ -927,6 +970,7 @@ func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() 
 		(*TargetsDef_RdsTargets)(nil),
 		(*TargetsDef_FileTargets)(nil),
 		(*TargetsDef_K8S)(nil),
+		(*TargetsDef_Consul)(nil),
 		(*TargetsDef_DummyTargets)(nil),
 	}
 	type x struct{}
