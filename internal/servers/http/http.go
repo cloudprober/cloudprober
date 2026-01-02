@@ -102,7 +102,14 @@ func (s *Server) metadataHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(val))
 }
 
+func (s *Server) setResponseHeaders(w http.ResponseWriter) {
+	for k, v := range s.c.GetResponseHeader() {
+		w.Header().Set(k, v)
+	}
+}
+
 func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
+	s.setResponseHeaders(w)
 	switch r.URL.Path {
 	case "/lameduck":
 		s.lameduckHandler(w)
