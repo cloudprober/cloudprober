@@ -71,12 +71,14 @@ type defaultConfigSource struct {
 
 func (dcs *defaultConfigSource) configContent() (content string, format string, err error) {
 	if dcs.fileName != "" {
+		dcs.l.Debugf("configContent fileName is not empty will read from path %s", dcs.fileName)
 		content, err := readConfigFile(dcs.fileName)
 		return content, formatFromFileName(dcs.fileName), err
 	}
 
 	// On GCE first check if there is a config in custom metadata attributes.
 	if metadata.OnGCE() {
+		dcs.l.Debug("don't know why would get here")
 		if config, err := dcs.getGCECustomMetadata(configMetadataKeyName); err != nil {
 			dcs.l.Infof("Error reading config from metadata. Err: %v", err)
 		} else {
@@ -89,12 +91,15 @@ func (dcs *defaultConfigSource) configContent() (content string, format string, 
 }
 
 func (dcs *defaultConfigSource) GetConfig() (*configpb.ProberConfig, error) {
+	dcs.l.Debugf("dcs %+v", dcs)
 	// Figure out which file to read
 	if dcs.fileName == "" {
+		dcs.l.Errorf("filename was empty gross")
 		dcs.fileName = *configFile
 	}
 
 	if dcs.fileName == "" {
+		dcs.l.Errorf("filename was empty twice going to set to default")
 		if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
 			dcs.fileName = defaultConfigFile
 		}

@@ -68,6 +68,7 @@ func DefaultConfigSource(opts ...Option) ConfigSource {
 }
 
 func ConfigSourceWithFile(fileName string, opts ...Option) ConfigSource {
+	fmt.Printf("filename %s", fileName)
 	dcs := &defaultConfigSource{
 		fileName: fileName,
 	}
@@ -133,6 +134,7 @@ func handleIncludes(baseDir string, content []byte) (string, error) {
 }
 
 func readConfigFile(fileName string) (string, error) {
+	fmt.Printf("readConfigFile %s\n", fileName)
 	b, err := file.ReadFile(context.Background(), fileName)
 	if err != nil {
 		return "", err

@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -48,6 +49,13 @@ func globalGRPCServer() (*grpc.Server, error) {
 }
 
 func TestGRPCSuccess(t *testing.T) {
+	// Skip this test if HTTP proxy environment variables are set. Some
+	// corporate environments intercept outbound local TCP traffic causing
+	// tests that dial loopback addresses to fail with HTTP 407.
+	if os.Getenv("HTTP_PROXY") != "" || os.Getenv("http_proxy") != "" ||
+		os.Getenv("HTTPS_PROXY") != "" || os.Getenv("https_proxy") != "" {
+		t.Skip("Skipping gRPC tests due to proxy environment variables")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -126,6 +134,13 @@ func TestGRPCSuccess(t *testing.T) {
 }
 
 func TestInjection(t *testing.T) {
+	// Skip this test if HTTP proxy environment variables are set. Some
+	// corporate environments intercept outbound local TCP traffic causing
+	// tests that dial loopback addresses to fail with HTTP 407.
+	if os.Getenv("HTTP_PROXY") != "" || os.Getenv("http_proxy") != "" ||
+		os.Getenv("HTTPS_PROXY") != "" || os.Getenv("https_proxy") != "" {
+		t.Skip("Skipping gRPC injection test due to proxy environment variables")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
