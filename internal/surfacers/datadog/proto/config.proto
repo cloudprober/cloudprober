@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package cloudprober.surfacer.datadog;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/surfacers/datadog/proto";
+
+// Surfacer config for datadog surfacer.
+message SurfacerConf {
+  // Prefix to add to all metrics.
+  optional string prefix = 1 [default = "cloudprober"];
+
+  // Datadog API key. If not set, DD_API_KEY env variable is used.
+  optional string api_key = 2;
+
+  // Datadog APP key. If not set, DD_APP_KEY env variable is used.
+  optional string app_key = 3;
+
+  // Datadog server, default: "api.datadoghq.com"
+  optional string server = 4;
+
+  // The maximum number of metrics that will be published at one
+  // time. Metrics will be stored locally in a cache until this 
+  // limit is reached. Datadog's SubmitMetric API has a maximum payload 
+  // size of 500 kilobytes (512000 bytes). Compressed payloads must have a 
+  // decompressed size of less than 5 megabytes (5242880 bytes).
+  // Metrics will be published when the timer expires, or the buffer is
+  // full, whichever happens first.
+  optional int32 metrics_batch_size = 5 [default = 1000]; 
+
+  // The maximum amount of time to hold metrics in the buffer (above).
+  // Metrics will be published when the timer expires, or the buffer is
+  // full, whichever happens first. 
+  optional int32 batch_timer_sec = 6 [default = 30];
+
+  // Disable gzip compression of metric payload, when sending metrics to Datadog.
+  // Compression is enabled by default.
+  optional bool disable_compression = 7;
+
+}

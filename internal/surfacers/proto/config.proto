@@ -1,0 +1,129 @@
+syntax = "proto2";
+
+package cloudprober.surfacer;
+
+import "github.com/cloudprober/cloudprober/internal/surfacers/cloudwatch/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/datadog/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/file/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/postgres/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/probestatus/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/prometheus/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/pubsub/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/stackdriver/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/surfacers/proto";
+
+// Enumeration for each type of surfacer we can parse and create
+enum Type {
+  NONE = 0;
+  PROMETHEUS = 1;
+  STACKDRIVER = 2;
+  FILE = 3;
+  POSTGRES = 4;
+  PUBSUB = 5;
+  CLOUDWATCH = 6;  // Experimental mode.
+  DATADOG = 7;     // Experimental mode.
+  PROBESTATUS = 8;
+  BIGQUERY = 9;    // Experimental mode.
+  OTEL = 10;
+
+  // One of the extension surfacer types. See "extensions" below for more
+  // details.
+  EXTENSION = 98;
+
+  // User defined surfacer type.
+  USER_DEFINED = 99;
+}
+
+message LabelFilter {
+  optional string key = 1;
+  optional string value = 2;
+}
+
+message SurfacerDef {
+  // This name is used for logging. If not defined, it's derived from the type.
+  // Note that this field is required for the USER_DEFINED surfacer type and
+  // should match with the name that you used while registering the user defined
+  // surfacer.
+  optional string name = 1;
+
+  optional Type type = 2;
+
+  // How many metrics entries (EventMetrics) to buffer. This is the buffer
+  // between incoming metrics and the metrics that are being processed. Default
+  // value should work in most cases. You may need to increase it on a busy
+  // system, but that's usually a sign that you metrics processing pipeline is
+  // slow for some reason, e.g. slow writes to a remote file.
+  // Note: Only file and pubsub surfacer supports this option right now.
+  optional int64 metrics_buffer_size = 3 [default = 10000];
+
+  // If specified, only allow metrics that match any of these label filters.
+  // Example:
+  // allow_metrics_with_label {
+  //   key: "probe",
+  //   value: "check_homepage",
+  // }
+  repeated LabelFilter allow_metrics_with_label = 4;
+
+  // Ignore metrics that match any of these label filters. Ignore has precedence
+  // over allow filters.
+  // Example:
+  // ignore_metrics_with_label {
+  //   key: "probe",
+  //   value: "sysvars",
+  // }
+  repeated LabelFilter ignore_metrics_with_label = 5;
+
+  // Allow and ignore metrics based on their names. You can specify regexes
+  // here. Ignore has precendence over allow.
+  // Examples:
+  //  ignore_metrics_with_name: "validation_failure"
+  //  allow_metrics_with_name: "(total|success|latency)"
+  optional string allow_metrics_with_name = 6;
+  optional string ignore_metrics_with_name = 7;
+
+  // Whether to add failure metric or not. This option is enabled by default.
+  optional bool add_failure_metric = 8 [default = true];
+
+  // If set to true, cloudprober will export all metrics as gauge metrics. Note
+  // that cloudprober inherently generates only cumulative metrics. To create
+  // gauge metrics from cumulative metrics, we keep a copy of the old metrics
+  // and subtract new metrics from the previous metrics. This transformation in
+  // metrics has an increased memory-overhead because extra copies required.
+  // However, it should not be noticeable unless you're producing large number
+  // of metrics (say > 10000 metrics per second).
+  optional bool export_as_gauge = 9;
+
+  // Latency metric name pattern, used to identify latency metrics, and add
+  // EventMetric's LatencyUnit to it.
+  optional string latency_metric_pattern = 51 [default = "^(.+_|)latency$"];
+
+  // Environment variable containing additional labels to be added to all
+  // metrics exported by this surfacer.
+  // e.g. "CLOUDPROBER_ADDITIONAL_LABELS=env=prod,app=identity-service"
+  // You can disable this feature by setting this field to an empty string.
+  // Note: These additional labels have no effect if metrics already have the
+  // same label.
+  optional string additional_labels_env_var = 52 [default = "CLOUDPROBER_ADDITIONAL_LABELS"];
+
+  // Matching surfacer specific configuration (one for each type in the above
+  // enum)
+  oneof surfacer {
+    prometheus.SurfacerConf prometheus_surfacer = 10;
+    stackdriver.SurfacerConf stackdriver_surfacer = 11;
+    file.SurfacerConf file_surfacer = 12;
+    postgres.SurfacerConf postgres_surfacer = 13;
+    pubsub.SurfacerConf pubsub_surfacer = 14;
+    cloudwatch.SurfacerConf cloudwatch_surfacer = 15;
+    datadog.SurfacerConf datadog_surfacer = 16;
+    probestatus.SurfacerConf probestatus_surfacer = 17;
+    bigquery.SurfacerConf bigquery_surfacer = 18;
+    otel.SurfacerConf otel_surfacer = 19;
+  }
+
+  // Extensions allow users to to add new surfacer types (for example, a
+  // surfacer type that utilizes a custom protocol) in a systematic manner.
+  extensions 200 to max;
+}

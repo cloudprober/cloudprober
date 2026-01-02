@@ -42,6 +42,13 @@
   url = "/docs/config/latest/overview"
 
 [[main]]
+  name = "🛠 Config Tester"
+  weight = 43
+  identifier = "config-tester"
+  parent = "config"
+  url = "https://configtester.cloudprober.org/"
+
+[[main]]
   name = "How-To"
   weight = 60
   identifier = "how-to"
@@ -54,12 +61,12 @@
   url = "/docs/surfacers/overview"
 
 [[main]]
-  name = "About"
+  name = "Community"
   weight = 80
   identifier = "connect"
 
 [[main]]
-  name = "Origin"
+  name = "Origin Story"
   weight = 5
   parent = "connect"
   url = "/docs/about/"

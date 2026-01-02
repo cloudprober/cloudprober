@@ -21,7 +21,7 @@ import (
 	serverconfigpb "github.com/cloudprober/cloudprober/internal/rds/server/proto"
 )
 
-func testAWSConfig(t *testing.T, pc *serverconfigpb.Provider, awsInstances bool, rdsInstancesConfig, rdsClustersConfig string, reEvalSec int) {
+func testAWSConfig(t *testing.T, pc *serverconfigpb.Provider, awsInstances bool, reEvalSec int) {
 	t.Helper()
 
 	if pc.GetId() != DefaultProviderID {
@@ -41,97 +41,28 @@ func testAWSConfig(t *testing.T, pc *serverconfigpb.Provider, awsInstances bool,
 			t.Errorf("AWS instance reEvalSec=%d, wanted=%d", c.GetEc2Instances().GetReEvalSec(), reEvalSec)
 		}
 	}
-
-	// Verify that RDS Clusters config is set correctly.
-	if rdsClustersConfig == "" {
-		if c.GetRdsClusters() != nil {
-			t.Errorf("c.GetRdsClusters()=%v, wanted=nil", c.GetRdsClusters())
-		}
-	} else {
-		if c.GetRdsClusters() == nil {
-			t.Fatalf("c.GetRdsClusters()=nil, wanted=not-nil")
-		}
-		if c.GetRdsClusters().GetReEvalSec() != int32(reEvalSec) {
-			t.Errorf("RDSClusters config reEvalSec=%d, wanted=%d", c.GetRdsClusters().GetReEvalSec(), reEvalSec)
-		}
-	}
-
-	// Verify that RDS Instances config is set correctly.
-	if rdsInstancesConfig == "" {
-		if c.GetRdsInstances() != nil {
-			t.Errorf("c.GetRdsInstances()=%v, wanted=nil", c.GetRdsInstances())
-		}
-	} else {
-		if c.GetRdsInstances() == nil {
-			t.Fatalf("c.GetRdsInstances()=nil, wanted=not-nil")
-		}
-		if c.GetRdsInstances().GetReEvalSec() != int32(reEvalSec) {
-			t.Errorf("RDSInstances config reEvalSec=%d, wanted=%d", c.GetRdsInstances().GetReEvalSec(), reEvalSec)
-		}
-	}
-
 }
 
 func TestDefaultProviderConfig(t *testing.T) {
 	tests := []struct {
-		name           string
-		resTypes       map[string]string
-		reEvalSec      int
-		wantEC2        bool
-		wantRDSInst    string
-		wantRDSCluster string
+		name      string
+		resTypes  map[string]string
+		reEvalSec int
+		wantEC2   bool
 	}{
 		{
 			name: "EC2 instances only",
 			resTypes: map[string]string{
 				ResourceTypes.EC2Instances: "",
 			},
-			reEvalSec:      10,
-			wantEC2:        true,
-			wantRDSInst:    "",
-			wantRDSCluster: "",
+			reEvalSec: 10,
+			wantEC2:   true,
 		},
 		{
-			name: "RDS instances and clusters",
-			resTypes: map[string]string{
-				ResourceTypes.RDSClusters:  "rds_clusters",
-				ResourceTypes.RDSInstances: "rds_instances",
-			},
-			reEvalSec:      10,
-			wantEC2:        false,
-			wantRDSInst:    "rds_instances",
-			wantRDSCluster: "rds_clusters",
-		},
-		{
-			name: "EC2 and RDS instances",
-			resTypes: map[string]string{
-				ResourceTypes.EC2Instances: "",
-				ResourceTypes.RDSInstances: "rds_instances",
-			},
-			reEvalSec:      10,
-			wantEC2:        true,
-			wantRDSInst:    "rds_instances",
-			wantRDSCluster: "",
-		},
-		{
-			name: "all resource types",
-			resTypes: map[string]string{
-				ResourceTypes.EC2Instances: "",
-				ResourceTypes.RDSInstances: "rds_instances",
-				ResourceTypes.RDSClusters:  "rds_clusters",
-			},
-			reEvalSec:      20,
-			wantEC2:        true,
-			wantRDSInst:    "rds_instances",
-			wantRDSCluster: "rds_clusters",
-		},
-		{
-			name:           "empty resource types",
-			resTypes:       map[string]string{},
-			reEvalSec:      10,
-			wantEC2:        false,
-			wantRDSInst:    "",
-			wantRDSCluster: "",
+			name:      "empty resource types",
+			resTypes:  map[string]string{},
+			reEvalSec: 10,
+			wantEC2:   false,
 		},
 		{
 			name: "unknown resource type ignored",
@@ -139,17 +70,15 @@ func TestDefaultProviderConfig(t *testing.T) {
 				ResourceTypes.EC2Instances: "",
 				"unknown_resource":         "test",
 			},
-			reEvalSec:      15,
-			wantEC2:        true,
-			wantRDSInst:    "",
-			wantRDSCluster: "",
+			reEvalSec: 15,
+			wantEC2:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := DefaultProviderConfig(tt.resTypes, tt.reEvalSec)
-			testAWSConfig(t, c, tt.wantEC2, tt.wantRDSInst, tt.wantRDSCluster, tt.reEvalSec)
+			testAWSConfig(t, c, tt.wantEC2, tt.reEvalSec)
 		})
 	}
 }
@@ -174,14 +103,10 @@ func TestResourceTypes(t *testing.T) {
 	// Test that ResourceTypes constant values are as expected
 	expectedTypes := map[string]string{
 		"EC2Instances": "ec2_instances",
-		"RDSClusters":  "rds_clusters",
-		"RDSInstances": "rds_instances",
 	}
 
 	actualTypes := map[string]string{
 		"EC2Instances": ResourceTypes.EC2Instances,
-		"RDSClusters":  ResourceTypes.RDSClusters,
-		"RDSInstances": ResourceTypes.RDSInstances,
 	}
 
 	if !reflect.DeepEqual(actualTypes, expectedTypes) {
@@ -193,8 +118,6 @@ func TestConfigSetters(t *testing.T) {
 	// Test that all resource types have corresponding config setters
 	for _, resType := range []string{
 		ResourceTypes.EC2Instances,
-		ResourceTypes.RDSInstances,
-		ResourceTypes.RDSClusters,
 	} {
 		if _, ok := resourceConfigSetters[resType]; !ok {
 			t.Errorf("missing config setter for resource type %q", resType)

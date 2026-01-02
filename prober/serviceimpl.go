@@ -24,6 +24,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	endpointpb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -90,6 +91,42 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	}
 
 	return &pb.AddProbeResponse{}, nil
+}
+
+func (pr *Prober) RunProbe(ctx context.Context, req *pb.RunProbeRequest) (*pb.RunProbeResponse, error) {
+	results, err := pr.Run(ctx, req.GetProbeName())
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pb.RunProbeResponse{
+		Results: make(map[string]*pb.ProbeResults),
+	}
+
+	for probeName, probeRunResults := range results {
+		pbProbeResults := &pb.ProbeResults{}
+		for _, r := range probeRunResults {
+			pbRunResult := &pb.ProbeRunResult{
+				Target: &endpointpb.Endpoint{
+					Name:   proto.String(r.Target.Name),
+					Labels: r.Target.Labels,
+					Port:   proto.Int32(int32(r.Target.Port)),
+				},
+				Success:     proto.Bool(r.Success),
+				LatencyUsec: proto.Int64(r.Latency.Microseconds()),
+			}
+			if r.Target.IP != nil {
+				pbRunResult.Target.Ip = proto.String(r.Target.IP.String())
+			}
+			if r.Error != nil {
+				pbRunResult.Error = proto.String(r.Error.Error())
+			}
+			pbProbeResults.RunResult = append(pbProbeResults.RunResult, pbRunResult)
+		}
+		resp.Results[probeName] = pbProbeResults
+	}
+
+	return resp, nil
 }
 
 // removeProbe removes the probe with the given name from the prober's internal

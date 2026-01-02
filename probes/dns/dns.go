@@ -209,9 +209,9 @@ func isClientTimeout(err error) bool {
 // validateResponse checks status code and answer section for correctness and
 // returns true if the response is valid. In case of validation failures, it
 // also updates the result structure.
-func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunResult, l *logger.Logger) bool {
+func (p *Probe) validateResponse(resp *dns.Msg, result *probeRunResult, l *logger.Logger) bool {
 	if resp == nil || resp.Rcode != dns.RcodeSuccess {
-		l.Warning("error in response %v", resp.String())
+		l.Error("error in response %v", resp.String())
 		return false
 	}
 
@@ -219,7 +219,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	// TODO: Move this logic to validators.
 	minAnswers := p.c.GetMinAnswers()
 	if minAnswers > 0 && uint32(len(resp.Answer)) < minAnswers {
-		l.Warningf("too few answers - got %d want %d.\n\tAnswerBlock: %v", len(resp.Answer), minAnswers, resp.Answer)
+		l.Errorf("too few answers - got %d want %d.\n\tAnswerBlock: %v", len(resp.Answer), minAnswers, resp.Answer)
 		return false
 	}
 
@@ -259,12 +259,12 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 
 	if err != nil {
 		if isClientTimeout(err) {
-			l.Warning("client.Exchange: Timeout error: ", err.Error())
+			l.Error("client.Exchange: Timeout error: ", err.Error())
 			result.timeouts.Inc()
 		} else {
-			l.Warning("client.Exchange: ", err.Error())
+			l.Error("client.Exchange: ", err.Error())
 		}
-	} else if p.validateResponse(resp, target, result, l) {
+	} else if p.validateResponse(resp, result, l) {
 		result.success.Inc()
 		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	}

@@ -45,11 +45,9 @@ const DefaultProviderID = "aws"
 
 // ResourceTypes declares resource types supported by the AWS provider.
 var ResourceTypes = struct {
-	EC2Instances, RDSClusters, RDSInstances string
+	EC2Instances string
 }{
 	"ec2_instances",
-	"rds_clusters",
-	"rds_instances",
 }
 
 type lister interface {
@@ -100,16 +98,6 @@ type configSetter func(*configpb.ProviderConfig, int32)
 var resourceConfigSetters = map[string]configSetter{
 	ResourceTypes.EC2Instances: func(c *configpb.ProviderConfig, reEvalSec int32) {
 		c.Ec2Instances = &configpb.EC2Instances{
-			ReEvalSec: proto.Int32(reEvalSec),
-		}
-	},
-	ResourceTypes.RDSInstances: func(c *configpb.ProviderConfig, reEvalSec int32) {
-		c.RdsInstances = &configpb.RDSInstances{
-			ReEvalSec: proto.Int32(reEvalSec),
-		}
-	},
-	ResourceTypes.RDSClusters: func(c *configpb.ProviderConfig, reEvalSec int32) {
-		c.RdsClusters = &configpb.RDSClusters{
 			ReEvalSec: proto.Int32(reEvalSec),
 		}
 	},
