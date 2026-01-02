@@ -4,16 +4,6 @@
 //
 //   # EC2 instances
 //   ec2_instances {}
-//
-//   # RDS clusters
-//   rds_clusters {
-//     identifier: "arn"
-//   }
-//
-//   # RDS instances
-//   rds_instances {
-//     identifier: "arn"
-//   }
 // }
 syntax = "proto2";
 
@@ -23,36 +13,6 @@ option go_package = "github.com/cloudprober/cloudprober/internal/rds/aws/proto";
 
 message EC2Instances {
   // How often resources should be refreshed.
-  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
-}
-
-// RDS (Amazon Relational Databases) Clusters discovery options.
-message RDSClusters {
-  // DB cluster identifier or the Amazon Resource Name (ARN) of the DB cluster
-  // if specified, only the corresponding cluster information is returned.
-  optional string identifier = 1;
-
-  // Filters to be added to the discovery and search.
-  repeated string filter = 2;
-
-  // Whether to includes information about clusters shared from other AWS accounts.
-  optional bool include_shared = 3;
-
-  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
-}
-
-// RDS (Amazon Relational Databases) Clusters discovery options.
-message RDSInstances {
-  // DB cluster identifier or the Amazon Resource Name (ARN) of the DB cluster
-  // if specified, only the corresponding cluster information is returned.
-  optional string identifier = 1;
-
-  // Filters to be added to the discovery and search.
-  repeated string filter = 2;
-
-  // Whether to includes information about clusters shared from other AWS accounts.
-  optional bool include_shared = 3;
-
   optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
 }
 
@@ -67,11 +27,4 @@ message ProviderConfig {
   // EC2 instances discovery options. This field should be declared for the AWS
   // instances discovery to be enabled.
   optional EC2Instances ec2_instances = 3;
-
-  // RDS instances discovery options.
-  optional RDSInstances rds_instances = 6;
-
-  // RDS clusters discovery options.
-  optional RDSClusters rds_clusters = 7;
-
 }
