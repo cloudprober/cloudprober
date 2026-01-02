@@ -7,7 +7,6 @@ This directory contains various examples demonstrating different features and us
 | Additional Labels | Examples of adding custom labels to metrics | `additional_label/` |
 | Extensions | How to extend Cloudprober with custom probes and targets | `extensions/` |
 | External Probes | Examples of external probes in different languages | `external/` |
-| File-based Targets | Configuring targets using files | `file_based_targets/` |
 | gRPC | Examples of gRPC probes and servers | `grpc/` |
 | Include Files | Splitting configuration into multiple files | `include/` |
 | OAuth | Authentication examples using OAuth | `oauth/` |
