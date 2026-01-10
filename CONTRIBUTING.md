@@ -18,7 +18,8 @@ small guidelines you need to follow.
 * Features requested by multiple users are prioritized, for implementation as
   well as review.
 
-* Please send small PRs, so that they are easier to review. Large PRs are less likely to be reviewed and accepted.
+* Please keep your PRs small, so that they are easier to review. Large PRs are
+  less likely to be reviewed and accepted.
 
 * Please avoid adding new dependencies unless absolutely required by the
   functionality.
@@ -26,7 +27,7 @@ small guidelines you need to follow.
 * We try to limit comment lines to 80 chars. Having comment lines that are
   arbitrarily long makes them rather uncomfortable to read.
 
-## On LLM Generated Code
+## Regarding LLM Generated Code
 
 I use coding assistants all the time, but I don't think purely LLM generated
 code works well for an already established software like Cloudprober. It
