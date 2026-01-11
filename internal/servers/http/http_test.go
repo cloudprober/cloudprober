@@ -199,13 +199,7 @@ func TestCustomResponseHeaders(t *testing.T) {
 	dataChan := make(chan *metrics.EventMetrics, 10)
 	s := &Server{
 		c:             c,
-		l:             &logger.Logger{},
 		ln:            ln,
-		statsInterval: 2 * time.Second,
-		instanceName:  "testInstance",
-		ldLister:      &fakeLameduckLister{},
-		reqMetric:     metrics.NewMap("url"),
-		sysVars:       map[string]string{"instance": "testInstance"},
 		staticURLResTable: map[string][]byte{
 			"/": []byte(OK),
 		},
