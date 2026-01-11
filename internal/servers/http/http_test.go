@@ -198,8 +198,9 @@ func TestCustomResponseHeaders(t *testing.T) {
 
 	dataChan := make(chan *metrics.EventMetrics, 10)
 	s := &Server{
-		c:             c,
-		ln:            ln,
+		c:         c,
+		ln:        ln,
+		reqMetric: metrics.NewMap("url"),
 		staticURLResTable: map[string][]byte{
 			"/": []byte(OK),
 		},
