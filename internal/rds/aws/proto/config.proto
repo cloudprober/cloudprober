@@ -1,0 +1,30 @@
+// Configuration proto for AWS provider.
+// Example config:
+// {
+//
+//   # EC2 instances
+//   ec2_instances {}
+// }
+syntax = "proto2";
+
+package cloudprober.rds.aws;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/rds/aws/proto";
+
+message EC2Instances {
+  // How often resources should be refreshed.
+  optional int32 re_eval_sec = 98 [default = 600];  // default 10 mins
+}
+
+// AWS provider config.
+message ProviderConfig {
+  // Profile for the session.
+  optional string profile_name = 1;
+
+  // AWS region
+  optional string region = 2;
+
+  // EC2 instances discovery options. This field should be declared for the AWS
+  // instances discovery to be enabled.
+  optional EC2Instances ec2_instances = 3;
+}
