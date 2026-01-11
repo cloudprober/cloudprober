@@ -54,6 +54,10 @@ func NewCleanupHandler(dir string, opts *configpb.CleanupOptions, l *logger.Logg
 		ch.interval = ch.maxAge
 	}
 
+	// Opportunistically do an initial cleanup to release some space.
+	ch.l.Debugf("cleanupHandler: doing initial cleanup for %s", ch.dir)
+	ch.cleanupCycle()
+
 	return ch, nil
 }
 

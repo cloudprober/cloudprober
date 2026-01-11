@@ -337,12 +337,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// We strip unnecessary /_playwright_report/ subdirectory from the path.
 	destPathFn := storage.RemovePathSegmentFn(p.outputDir, playwrightReportDir)
 
-	ah, err := artifacts.InitArtifactsHandler(context.Background(), p.c.GetArtifactsOptions(), p.outputDir, p.opts, destPathFn, p.l)
-	if err != nil {
-		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
-	}
-	p.artifactsHandler = ah
-
+	// Setup cleanup handler first, so we can opportunistically release some space.
 	workdirCleanupOpts := p.c.GetWorkdirCleanupOptions()
 	if workdirCleanupOpts == nil {
 		workdirCleanupOpts = &artifactsconfigpb.CleanupOptions{
@@ -354,6 +349,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("failed to initialize cleanup handler: %v", err)
 	}
 	p.workdirCleanup = ch
+
+	ah, err := artifacts.InitArtifactsHandler(context.Background(), p.c.GetArtifactsOptions(), p.outputDir, p.opts, destPathFn, p.l)
+	if err != nil {
+		return fmt.Errorf("failed to initialize artifacts handler: %v", err)
+	}
+	p.artifactsHandler = ah
 
 	return nil
 }
