@@ -145,8 +145,8 @@ func FormatProbeRunResults(probeResults map[string][]*ProbeRunResult, format For
 	return ""
 }
 
-// ConvertProbeRunResultsToProto converts probe run results to their protobuf form.
-func ConvertProbeRunResultsToProto(results map[string][]*ProbeRunResult) map[string]*pb.ProbeResults {
+// ProbeRunResultsToProto converts probe run results to their protobuf form.
+func ProbeRunResultsToProto(results map[string][]*ProbeRunResult) map[string]*pb.ProbeResults {
 	ret := make(map[string]*pb.ProbeResults)
 
 	for probeName, probeRunResults := range results {
