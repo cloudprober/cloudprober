@@ -34,6 +34,9 @@ import (
 )
 
 func TestWriteChannelFull(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	tmpdir, err := os.MkdirTemp("", "file_test")
 	if err != nil {
 		t.Fatalf("Error creating temp dir: %v", err)
@@ -64,7 +67,7 @@ func TestWriteChannelFull(t *testing.T) {
 	var buf bytes.Buffer
 	l := logger.New(logger.WithWriter(&buf))
 
-	s, err := New(context.Background(), &configpb.SurfacerConf{
+	s, err := New(ctx, &configpb.SurfacerConf{
 		FilePath: proto.String(pipeName),
 	}, &options.Options{
 		MetricsBufferSize: 1,
@@ -77,12 +80,12 @@ func TestWriteChannelFull(t *testing.T) {
 	em := metrics.NewEventMetrics(time.Now()).AddMetric("test", metrics.NewInt(1))
 
 	// This write should succeed and fill the channel buffer.
-	s.Write(context.Background(), em)
+	s.Write(ctx, em)
 	// This write should also succeed and fill the channel buffer as processInput
 	// is blocked on writing to the pipe.
-	s.Write(context.Background(), em)
+	s.Write(ctx, em)
 	// This write should fail as the channel is full.
-	s.Write(context.Background(), em)
+	s.Write(ctx, em)
 
 	if !strings.Contains(buf.String(), "write channel is full") {
 		t.Errorf("Expected log on write channel full. Got: %s", buf.String())
