@@ -100,7 +100,7 @@ func (pr *Prober) RunProbe(ctx context.Context, req *pb.RunProbeRequest) (*pb.Ru
 	}
 
 	return &pb.RunProbeResponse{
-		Results: singlerun.ConvertProbeRunResultsToProto(results),
+		Results: singlerun.ProbeRunResultsToProto(results),
 	}, nil
 }
 
