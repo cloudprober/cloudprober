@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Cloudprober_AddProbe_FullMethodName         = "/cloudprober.Cloudprober/AddProbe"
 	Cloudprober_RemoveProbe_FullMethodName      = "/cloudprober.Cloudprober/RemoveProbe"
+	Cloudprober_RunProbe_FullMethodName         = "/cloudprober.Cloudprober/RunProbe"
 	Cloudprober_ListProbes_FullMethodName       = "/cloudprober.Cloudprober/ListProbes"
 	Cloudprober_SaveProbesConfig_FullMethodName = "/cloudprober.Cloudprober/SaveProbesConfig"
 )
@@ -34,6 +35,9 @@ type CloudproberClient interface {
 	AddProbe(ctx context.Context, in *AddProbeRequest, opts ...grpc.CallOption) (*AddProbeResponse, error)
 	// RemoveProbe stops the probe and removes it from the in-memory database.
 	RemoveProbe(ctx context.Context, in *RemoveProbeRequest, opts ...grpc.CallOption) (*RemoveProbeResponse, error)
+	// EXPERIMENTAL. It's still in development. Implementation subject to change.
+	// RunProbe runs all or subset of probes this instance is configured with.
+	RunProbe(ctx context.Context, in *RunProbeRequest, opts ...grpc.CallOption) (*RunProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error)
 	SaveProbesConfig(ctx context.Context, in *SaveProbesConfigRequest, opts ...grpc.CallOption) (*SaveProbesConfigResponse, error)
@@ -61,6 +65,16 @@ func (c *cloudproberClient) RemoveProbe(ctx context.Context, in *RemoveProbeRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RemoveProbeResponse)
 	err := c.cc.Invoke(ctx, Cloudprober_RemoveProbe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cloudproberClient) RunProbe(ctx context.Context, in *RunProbeRequest, opts ...grpc.CallOption) (*RunProbeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RunProbeResponse)
+	err := c.cc.Invoke(ctx, Cloudprober_RunProbe_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +110,9 @@ type CloudproberServer interface {
 	AddProbe(context.Context, *AddProbeRequest) (*AddProbeResponse, error)
 	// RemoveProbe stops the probe and removes it from the in-memory database.
 	RemoveProbe(context.Context, *RemoveProbeRequest) (*RemoveProbeResponse, error)
+	// EXPERIMENTAL. It's still in development. Implementation subject to change.
+	// RunProbe runs all or subset of probes this instance is configured with.
+	RunProbe(context.Context, *RunProbeRequest) (*RunProbeResponse, error)
 	// ListProbes lists active probes.
 	ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error)
 	SaveProbesConfig(context.Context, *SaveProbesConfigRequest) (*SaveProbesConfigResponse, error)
@@ -114,6 +131,9 @@ func (UnimplementedCloudproberServer) AddProbe(context.Context, *AddProbeRequest
 }
 func (UnimplementedCloudproberServer) RemoveProbe(context.Context, *RemoveProbeRequest) (*RemoveProbeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveProbe not implemented")
+}
+func (UnimplementedCloudproberServer) RunProbe(context.Context, *RunProbeRequest) (*RunProbeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RunProbe not implemented")
 }
 func (UnimplementedCloudproberServer) ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListProbes not implemented")
@@ -178,6 +198,24 @@ func _Cloudprober_RemoveProbe_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cloudprober_RunProbe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunProbeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudproberServer).RunProbe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Cloudprober_RunProbe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudproberServer).RunProbe(ctx, req.(*RunProbeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Cloudprober_ListProbes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListProbesRequest)
 	if err := dec(in); err != nil {
@@ -228,6 +266,10 @@ var Cloudprober_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveProbe",
 			Handler:    _Cloudprober_RemoveProbe_Handler,
+		},
+		{
+			MethodName: "RunProbe",
+			Handler:    _Cloudprober_RunProbe_Handler,
 		},
 		{
 			MethodName: "ListProbes",

@@ -23,12 +23,12 @@ package prober
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"math/rand"
 	"regexp"
+	"slices"
 	"sync"
 	"time"
 
@@ -217,16 +217,29 @@ func (pr *Prober) startProbesWithJitter() {
 	}
 }
 
-func (pr *Prober) Run(ctx context.Context) (map[string][]*singlerun.ProbeRunResult, error) {
+// Run runs requested 'probeNames' once.
+func (pr *Prober) Run(ctx context.Context, probeNames []string) (map[string][]*singlerun.ProbeRunResult, error) {
 	pr.mu.RLock()
 	defer pr.mu.RUnlock()
 
+	for _, wanted := range probeNames {
+		missing := make([]string, 0)
+		if _, ok := pr.Probes[wanted]; !ok {
+			missing = append(missing, wanted)
+		}
+		if len(missing) > 0 {
+			return nil, status.Errorf(codes.NotFound, "some probes are not found: %v", missing)
+		}
+	}
+
 	out := make(map[string][]*singlerun.ProbeRunResult)
-	var errs error
 	var outMu sync.Mutex
 
 	var wg sync.WaitGroup
 	for name := range pr.Probes {
+		if len(probeNames) > 0 && !slices.Contains(probeNames, name) {
+			continue
+		}
 		p, ok := pr.Probes[name].Probe.(probes.ProbeWithRunOnce)
 		if !ok {
 			pr.l.Warningf("probe %s doesn't support single run", name)
@@ -243,14 +256,13 @@ func (pr *Prober) Run(ctx context.Context) (map[string][]*singlerun.ProbeRunResu
 			for _, prr := range prrs {
 				if prr.Error != nil {
 					pr.l.Errorf("probe (%s) failure for target %s: %v", name, prr.Target.Dst(), prr.Error)
-					errs = errors.Join(errs, prr.Error)
 				}
 			}
 			out[name] = append(out[name], prrs...)
 		}()
 	}
 	wg.Wait()
-	return out, errs
+	return out, nil
 }
 
 // Start starts a previously initialized Cloudprober.

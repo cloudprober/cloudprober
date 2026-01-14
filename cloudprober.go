@@ -24,6 +24,8 @@ package cloudprober
 import (
 	"context"
 	"crypto/tls"
+	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -43,6 +45,8 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"
+	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	system_configpb "github.com/cloudprober/cloudprober/probes/system/proto"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/web"
@@ -50,6 +54,7 @@ import (
 	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -63,6 +68,10 @@ const (
 	ServerHostEnvVar    = "CLOUDPROBER_HOST"
 	ServerPortEnvVar    = "CLOUDPROBER_PORT"
 	DisableHTTPDebugVar = "CLOUDPROBER_DISABLE_HTTP_PPROF"
+)
+
+var (
+	disableSysMetrics = flag.Bool("disable_sys_metrics", false, "Disable system metrics probe")
 )
 
 // Global prober.Prober instance protected by a mutex.
@@ -149,6 +158,9 @@ func InitFromConfig(configFile string) error {
 }
 
 // Init initializes Cloudprober using the default config source.
+//
+// Optionally, one can use the 'state' package to customize cloudprober; for example,
+// by providing a custom gRPC server, before calling this func to initialize the cloudprober.
 func Init() error {
 	return InitWithConfigSource(config.DefaultConfigSource())
 }
@@ -183,6 +195,29 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		return err
 	}
 
+	// Be careful about imports, we want to check if system probe is configured.
+	// We iterate over probes to see if any of them is a system probe.
+	sysProbeConfigured := false
+	for _, p := range cfg.GetProbe() {
+		if p.GetType() == probes_configpb.ProbeDef_SYSTEM {
+			sysProbeConfigured = true
+			break
+		}
+	}
+
+	if !*disableSysMetrics && !sysProbeConfigured {
+		// Add default system probe
+		cfg.Probe = append(cfg.Probe, &probes_configpb.ProbeDef{
+			Name:     proto.String("sys_metrics"),
+			Type:     probes_configpb.ProbeDef_SYSTEM.Enum(),
+			Interval: proto.String("10s"),
+			Timeout:  proto.String("5s"),
+			Probe: &probes_configpb.ProbeDef_SystemProbe{
+				SystemProbe: &system_configpb.ProbeConf{},
+			},
+		})
+	}
+
 	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
 
 	// Start default HTTP server. It's used for profile handlers and
@@ -204,24 +239,27 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 			return fmt.Errorf("error while creating listener for default gRPC server: %v", err)
 		}
 
-		// Create the default gRPC server now, so that other modules can register
-		// their services with it in the prober.Init() phase.
-		var serverOpts []grpc.ServerOption
+		s := state.DefaultGRPCServer()
+		if s == nil {
+			// Create the default gRPC server now, so that other modules can register
+			// their services with it in the prober.Init() phase.
+			var serverOpts []grpc.ServerOption
 
-		if cfg.GetGrpcTlsConfig() != nil {
-			tlsConfig := &tls.Config{}
-			if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig()); err != nil {
-				return err
+			if cfg.GetGrpcTlsConfig() != nil {
+				tlsConfig := &tls.Config{}
+				if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig()); err != nil {
+					return err
+				}
+				tlsConfig.ClientCAs = tlsConfig.RootCAs
+				serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 			}
-			tlsConfig.ClientCAs = tlsConfig.RootCAs
-			serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
-		}
 
-		s := grpc.NewServer(serverOpts...)
+			s = grpc.NewServer(serverOpts...)
+			state.SetDefaultGRPCServer(s)
+		}
 		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
-		state.SetDefaultGRPCServer(s)
 	}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
@@ -248,14 +286,26 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	return nil
 }
 
-// RunOnce runs a single probe.
-func RunOnce(ctx context.Context, format, indent string) error {
+// RunOnce runs requested probes once and print probe results to stdout.
+func RunOnce(ctx context.Context, names, format, indent string) error {
 	cloudProber.RLock()
 	defer cloudProber.RUnlock()
 
-	prrs, err := cloudProber.prober.Run(ctx)
-
+	var probeNames []string
+	// avoid getting '[""]' as probe names
+	if names != "" {
+		probeNames = strings.Split(names, ",")
+	}
+	prrs, err := cloudProber.prober.Run(ctx, probeNames)
 	fmt.Println(singlerun.FormatProbeRunResults(prrs, singlerun.Format(format), indent))
+
+	// In CLI case, aggregate the probe run errors, so we can more easily show to users.
+	for _, prr := range prrs {
+		for _, r := range prr {
+			err = errors.Join(err, r.Error)
+		}
+	}
+
 	return err
 }
 
@@ -284,6 +334,9 @@ func Start(ctx context.Context) {
 		cloudProber.config = nil
 		cloudProber.configSource = nil
 		cloudProber.prober = nil
+		// prevent reuse in, for example, tests
+		state.SetDefaultGRPCServer(nil)
+		state.SetDefaultHTTPServeMux(nil)
 	}()
 
 	go httpSrv.Serve(cloudProber.defaultServerLn)

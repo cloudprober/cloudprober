@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.surfacer.testdata;
 
-import "github.com/cloudprober/cloudprober/surfacers/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/surfacers/testdata";
 

@@ -220,7 +220,7 @@ func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 			p.l.Error("Error getting OAuth token: ", err.Error())
 			tok = "<token-missing>"
 		}
-		req.Header.Set("Authorization", "Bearer "+tok)
+		req.Header.Set("Authorization", fmt.Sprintf(p.c.GetOauthConfig().GetTokenTypeFormat(), tok))
 	}
 
 	req.Body = p.requestBody.Reader()

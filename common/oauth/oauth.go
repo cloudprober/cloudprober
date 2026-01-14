@@ -20,6 +20,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
@@ -42,6 +43,13 @@ func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSo
 	refreshExpiryBuffer := time.Minute
 	if c.RefreshExpiryBufferSec != nil {
 		refreshExpiryBuffer = time.Duration(c.GetRefreshExpiryBufferSec()) * time.Second
+	}
+
+	if c.GetTokenTypeFormat() != configpb.Default_Config_TokenTypeFormat {
+		fmtStr := c.GetTokenTypeFormat()
+		if strings.Count(fmtStr, "%") != 1 || strings.Count(fmtStr, "%s") != 1 {
+			return nil, fmt.Errorf("oauth: invalid token_type_format (%s). It should have exactly one %%s placeholder for the token", fmtStr)
+		}
 	}
 
 	switch c.Source.(type) {

@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
+	surfacerpb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/state"
-	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
 	testdatapb "github.com/cloudprober/cloudprober/surfacers/testdata"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
