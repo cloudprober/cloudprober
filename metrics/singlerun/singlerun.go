@@ -23,7 +23,10 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	pb "github.com/cloudprober/cloudprober/prober/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	endpointpb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Format specifies the format of the output.
@@ -130,6 +133,8 @@ func jsonFormatProbeRunResults(probeResults map[string][]*ProbeRunResult, indent
 	return string(jsonData)
 }
 
+// FormatProbeRunResults formats probe run results into text or JSON.
+// The indent string is used for pretty-printing.
 func FormatProbeRunResults(probeResults map[string][]*ProbeRunResult, format Format, indent string) string {
 	switch format {
 	case FormatText:
@@ -138,4 +143,35 @@ func FormatProbeRunResults(probeResults map[string][]*ProbeRunResult, format For
 		return jsonFormatProbeRunResults(probeResults, indent)
 	}
 	return ""
+}
+
+// ProbeRunResultsToProto converts probe run results to their protobuf form.
+func ProbeRunResultsToProto(results map[string][]*ProbeRunResult) map[string]*pb.ProbeResults {
+	ret := make(map[string]*pb.ProbeResults)
+
+	for probeName, probeRunResults := range results {
+		pbProbeResults := &pb.ProbeResults{}
+		for _, r := range probeRunResults {
+			pbRunResult := &pb.ProbeRunResult{
+				Target: &endpointpb.Endpoint{
+					Name:   proto.String(r.Target.Name),
+					Labels: r.Target.Labels,
+				},
+				Success:     proto.Bool(r.Success),
+				LatencyUsec: proto.Int64(r.Latency.Microseconds()),
+			}
+			if r.Target.IP != nil {
+				pbRunResult.Target.Ip = proto.String(r.Target.IP.String())
+			}
+			if r.Target.Port != 0 {
+				pbRunResult.Target.Port = proto.Int32(int32(r.Target.Port))
+			}
+			if r.Error != nil {
+				pbRunResult.Error = proto.String(r.Error.Error())
+			}
+			pbProbeResults.RunResult = append(pbProbeResults.RunResult, pbRunResult)
+		}
+		ret[probeName] = pbProbeResults
+	}
+	return ret
 }
