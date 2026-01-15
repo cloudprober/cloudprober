@@ -381,10 +381,6 @@ func TestDataIntegrityValidation(t *testing.T) {
 }
 
 func TestRunProbeRealICMP(t *testing.T) {
-	if os.Getenv("HTTP_PROXY") != "" || os.Getenv("http_proxy") != "" ||
-		os.Getenv("HTTPS_PROXY") != "" || os.Getenv("https_proxy") != "" {
-		t.Skip("Skipping gRPC injection test due to proxy environment variables")
-	}
 	baseTargets := map[int][]string{
 		4: {"127.0.1.1", "1.1.1.1", "8.8.8.8", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
 		6: {"2606:4700:4700::1111", "2001:4860:4860::8888", "localhost", "www.google.com", "www.yahoo.com", "www.facebook.com"},
