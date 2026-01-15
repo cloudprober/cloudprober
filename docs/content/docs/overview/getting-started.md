@@ -24,6 +24,14 @@ go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest
 | Helm chart         | [See instructions](https://github.com/cloudprober/helm-charts)                                                                            | Kubernetes            |
 | Pre-built binaries | Download from the [releases page](http://github.com/cloudprober/cloudprober/releases).                                                  | MacOS, Linux, Windows |
 
+###### gRPC XDS Support
+
+Default cloudprober binaries are built without gRPC XDS support to keep the binary size smaller.
+If you need gRPC XDS support, you have two options:
+
+- Pre-built XDS binaries, look for `cloudprober-xds` prefix
+- Build with `-tags grpc_xds`
+
 See
 [this page](https://github.com/cloudprober/cloudprober/wiki/Unreleased-Binaries)
 for how to access unreleased binaries.

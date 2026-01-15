@@ -13,8 +13,20 @@ VAR_LD_FLAGS := -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) 
 LDFLAGS ?= "$(VAR_LD_FLAGS) -s -w -extldflags -static"
 BINARY_SOURCE ?= "./cmd/cloudprober/."
 
+BINARY_BASE ?= cloudprober
+
+BUILD_TAG_FLAG :=
+# We don't include xds build by default due to its size. You can build binaries
+# with xds support by setting BUILD_WITH_XDS=true.
+# e.g. BUILD_WITH_XDS=true make cloudprober-xds-macos-arm64
+BUILD_WITH_XDS ?= false
+ifeq "$(BUILD_WITH_XDS)" "true"
+	BINARY_BASE := cloudprober-xds
+	BUILD_TAG_FLAG := -tags grpc_xds
+endif
+
 LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
-BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)
+BINARIES := $(addprefix $(BINARY_BASE)-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)
 
 ifeq "$(GIT_TAG)" ""
 	DOCKER_TAGS := -t $(DOCKER_IMAGE):master -t $(DOCKER_IMAGE):main
@@ -28,10 +40,15 @@ endif
 
 define make-binary-target
 $1: $(SOURCES)
-	GOOS=$(subst macos,darwin,$(word 2,$(subst -, ,$1))) ; \
-	GOARCH=$(subst armv7,arm,$(word 3,$(subst -, ,$1))) ; \
-	GOARM=$(subst armv7,7,$(filter armv7,$(word 3,$(subst -, ,$1)))) ; \
-	CGO_ENABLED=0 GOOS=$$$${GOOS} GOARCH=$$$${GOARCH} GOARM=$$$${GOARM} go build -o $1 -ldflags $(LDFLAGS) $(BINARY_SOURCE)
+	BINNAME=$1; \
+	BINNAME=$$$${BINNAME#$(BINARY_BASE)-}; \
+	GOOS=$$$$(echo $$$${BINNAME} | cut -d- -f1); \
+	GOOS=$$$${GOOS/macos/darwin}; \
+	GOARCH=$$$$(echo $$$${BINNAME} | cut -d- -f2); \
+	GOARCH=$$$${GOARCH/armv7/arm}; \
+	GOARM=; \
+	[[ "$$$${BINNAME}" == *"armv7"* ]] && GOARM=7; \
+	CGO_ENABLED=0 GOOS=$$$${GOOS} GOARCH=$$$${GOARCH} GOARM=$$$${GOARM} go build $(BUILD_TAG_FLAG) -o $1 -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 endef
 
 # To cross-compile, for linux arm64 e.g., set GO_BUILD_FLAGS like this:
@@ -67,7 +84,7 @@ docker_multiarch_pw: Dockerfile.pw
 dist: $(BINARIES)
 	for bin in $(BINARIES) ; do \
 	  bindir=$${bin/amd64/x86_64}; \
-	  bindir=cloudprober-$(VERSION)-$${bindir/cloudprober-/}; \
+	  bindir=$(BINARY_BASE)-$(VERSION)-$${bindir/$(BINARY_BASE)-/}; \
 	  mkdir -p $${bindir}; cp $${bin} $${bindir}/cloudprober; \
 	  chmod a+rx $${bindir}/cloudprober; \
 	  [[ "$${bin}" == *"windows"* ]] && mv $${bindir}/cloudprober{,.exe}; \
@@ -90,4 +107,4 @@ install:
 	GOBIN=$(GOBIN) CGO_ENABLED=0 go install -ldflags $(LDFLAGS) $(BINARY_SOURCE)
 
 clean:
-	rm -f cloudprober cloudprober-*
+	rm -f cloudprober cloudprober-* cloudprober-xds-*
