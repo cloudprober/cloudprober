@@ -31,25 +31,25 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cloudprober/cloudprober/internal/surfacers/bigquery"
+	"github.com/cloudprober/cloudprober/internal/surfacers/cloudwatch"
+	"github.com/cloudprober/cloudprober/internal/surfacers/common/transform"
+	"github.com/cloudprober/cloudprober/internal/surfacers/datadog"
+	"github.com/cloudprober/cloudprober/internal/surfacers/file"
+	"github.com/cloudprober/cloudprober/internal/surfacers/otel"
+	"github.com/cloudprober/cloudprober/internal/surfacers/postgres"
+	"github.com/cloudprober/cloudprober/internal/surfacers/probestatus"
+	"github.com/cloudprober/cloudprober/internal/surfacers/prometheus"
+	"github.com/cloudprober/cloudprober/internal/surfacers/pubsub"
+	"github.com/cloudprober/cloudprober/internal/surfacers/stackdriver"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/surfacers/internal/bigquery"
-	"github.com/cloudprober/cloudprober/surfacers/internal/cloudwatch"
-	"github.com/cloudprober/cloudprober/surfacers/internal/common/options"
-	"github.com/cloudprober/cloudprober/surfacers/internal/common/transform"
-	"github.com/cloudprober/cloudprober/surfacers/internal/datadog"
-	"github.com/cloudprober/cloudprober/surfacers/internal/file"
-	"github.com/cloudprober/cloudprober/surfacers/internal/otel"
-	"github.com/cloudprober/cloudprober/surfacers/internal/postgres"
-	"github.com/cloudprober/cloudprober/surfacers/internal/probestatus"
-	"github.com/cloudprober/cloudprober/surfacers/internal/prometheus"
-	"github.com/cloudprober/cloudprober/surfacers/internal/pubsub"
-	"github.com/cloudprober/cloudprober/surfacers/internal/stackdriver"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	"github.com/cloudprober/cloudprober/web/formatutils"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	surfacerpb "github.com/cloudprober/cloudprober/surfacers/proto"
+	surfacerpb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 )
 
 type surfacerFunc func(any) (Surfacer, error)
@@ -99,6 +99,10 @@ var defaultSurfacers = []*surfacerpb.SurfacerDef{
 			{
 				Key:   proto.String("probe"),
 				Value: proto.String("sysvars"),
+			},
+			{
+				Key:   proto.String("ptype"),
+				Value: proto.String("system"),
 			},
 		},
 	},

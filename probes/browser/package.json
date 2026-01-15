@@ -2,7 +2,7 @@
   "name": "browser",
   "version": "1.0.0",
   "devDependencies": {
-    "@playwright/test": "^1.47.0",
+    "@playwright/test": "^1.56.1",
     "@types/node": "^22.5.4"
   },
   "scripts": {}

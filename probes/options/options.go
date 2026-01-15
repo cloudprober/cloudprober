@@ -199,6 +199,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 			configpb.ProbeDef_EXTERNAL,
 			configpb.ProbeDef_EXTENSION,
 			configpb.ProbeDef_BROWSER,
+			configpb.ProbeDef_SYSTEM,
 		}
 		if !slices.Contains(targetsNotRequired, p.GetType()) {
 			return nil, fmt.Errorf("targets requied for probe type: %s", p.GetType().String())
@@ -227,7 +228,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 	}
 
 	if len(p.GetValidator()) > 0 {
-		opts.Validators, err = validators.Init(p.GetValidator(), opts.Logger)
+		opts.Validators, err = validators.Init(p.GetValidator())
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize validators: %v", err)
 		}

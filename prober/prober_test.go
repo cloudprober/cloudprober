@@ -234,7 +234,7 @@ func TestProberRun(t *testing.T) {
 		l: logger.New(),
 	}
 	ctx := context.Background()
-	out, err := pr.Run(ctx)
+	out, err := pr.Run(ctx, nil)
 	assert.NoError(t, err)
 	assert.Len(t, out, 1)
 	assert.Equal(t, []*singlerun.ProbeRunResult{

@@ -1,4 +1,4 @@
-// Copyright 2017-2022 The Cloudprober Authors.
+// Copyright 2017-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1106,6 +1106,189 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 			wantNumMetrics := len(tt.wantMetrics) + 5
 			assert.Equal(t, wantNumMetrics, len(em.MetricsKeys()), "number of metrics exported")
 		})
+	}
+}
+
+func TestProbeResultMetrics(t *testing.T) {
+	ts := time.Now()
+	respCodes := metrics.NewMap("code")
+	respCodes.IncKey("200")
+
+	respBodies := metrics.NewMap("body")
+	respBodies.IncKeyBy("success", 42)
+
+	// Create a test payload metric
+	payloadTS := ts.Add(-time.Minute) // Different timestamp to test merging
+	payloadEM := []*metrics.EventMetrics{
+		metrics.NewEventMetrics(payloadTS).AddMetric("custom_metric", metrics.NewInt(42)),
+		metrics.NewEventMetrics(payloadTS).AddMetric("custom_metric_2", metrics.NewInt(42)),
+		metrics.NewEventMetrics(payloadTS.Add(-time.Minute)).AddMetric("custom_metric", metrics.NewInt(42)),
+	}
+
+	tests := []struct {
+		name                string
+		sslEarliestExpiry   int64
+		result              *probeResult
+		opts                *options.Options
+		expectedMetricCount int
+		expectSSL           bool
+		expectedTimestamps  []time.Time
+	}{
+		{
+			name: "basic_metrics",
+			result: &probeResult{
+				total:     10,
+				success:   8,
+				timeouts:  2,
+				latency:   metrics.NewFloat(100),
+				respCodes: respCodes,
+			},
+			expectedMetricCount: 1, // Just the main event metrics
+		},
+		{
+			name: "with_resp_bodies",
+			result: &probeResult{
+				total:      5,
+				success:    5,
+				timeouts:   0,
+				latency:    metrics.NewFloat(50),
+				respBodies: respBodies,
+			},
+			expectedMetricCount: 1,
+		},
+		{
+			name:              "with_ssl_expiry",
+			sslEarliestExpiry: 172800,
+			result: &probeResult{
+				total:   1,
+				success: 1,
+				latency: metrics.NewFloat(100),
+			},
+			opts: &options.Options{
+				LatencyMetricName: "latency_x",
+			},
+			expectedMetricCount: 2, // Main metrics + SSL expiry
+			expectedTimestamps:  []time.Time{ts, ts},
+			expectSSL:           true,
+		},
+		{
+			name: "with_latency_breakdown",
+			result: &probeResult{
+				total:   3,
+				success: 3,
+				latency: metrics.NewFloat(150),
+				latencyBreakdown: &latencyDetails{
+					dnsLatency:       metrics.NewFloat(10),
+					connectLatency:   metrics.NewFloat(20),
+					tlsLatency:       metrics.NewFloat(30),
+					reqWriteLatency:  metrics.NewFloat(40),
+					firstByteLatency: metrics.NewFloat(50),
+				},
+			},
+			expectedMetricCount: 1,
+		},
+		{
+			name: "with_payload_metrics",
+			result: &probeResult{
+				total:          3,
+				success:        3,
+				latency:        metrics.NewFloat(150),
+				payloadMetrics: payloadEM,
+			},
+			expectedMetricCount: 4,
+			expectedTimestamps:  []time.Time{ts, ts.Add(-time.Minute), ts.Add(-time.Minute), ts.Add(-2 * time.Minute)},
+		},
+		{
+			name: "with_payload_metrics_with_adopted_time",
+			result: &probeResult{
+				total:          3,
+				success:        3,
+				latency:        metrics.NewFloat(150),
+				payloadMetrics: payloadEM[:2],
+			},
+			expectedMetricCount: 3,
+			expectedTimestamps:  []time.Time{ts, ts, ts},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Default test options
+			if test.opts == nil {
+				test.opts = &options.Options{
+					LatencyMetricName: "latency",
+				}
+			}
+
+			if test.expectedTimestamps == nil {
+				test.expectedTimestamps = []time.Time{ts}
+			}
+
+			if test.result.respCodes == nil {
+				test.result.respCodes = metrics.NewMap("code")
+			}
+			test.result.sslEarliestExpirationSeconds = -1
+			if test.sslEarliestExpiry != 0 {
+				test.result.sslEarliestExpirationSeconds = test.sslEarliestExpiry
+			}
+			ems := test.result.Metrics(ts, 1, test.opts)
+
+			assert.Len(t, ems, test.expectedMetricCount)
+
+			// Verify timestamps
+			gotTimestamps := make([]time.Time, len(ems))
+			for i, em := range ems {
+				gotTimestamps[i] = em.Timestamp
+			}
+			assert.Equal(t, test.expectedTimestamps, gotTimestamps)
+
+			// Check the main metrics
+			assert.Equal(t, test.result.total, ems[0].Metric("total").(metrics.NumValue).Int64())
+			assert.Equal(t, test.result.success, ems[0].Metric("success").(metrics.NumValue).Int64())
+			assert.Equal(t, test.result.timeouts, ems[0].Metric("timeouts").(metrics.NumValue).Int64())
+
+			// Check SSL expiry metric if expected
+			if test.expectSSL {
+				if len(ems) < 2 {
+					t.Fatal("Expected SSL expiry metrics, but not found")
+				}
+				sslEM := ems[1]
+				if sslEM.Kind != metrics.GAUGE {
+					t.Error("SSL expiry metric should be GAUGE type")
+				}
+				// Check if it has the ssl_earliest_cert_expiry_sec metric
+				sslMetric := sslEM.Metric("ssl_earliest_cert_expiry_sec")
+				if sslMetric == nil {
+					t.Error("Expected ssl_earliest_cert_expiry_sec metric")
+				}
+			}
+
+			// Check latency breakdown if present
+			if test.result.latencyBreakdown != nil {
+				ld := test.result.latencyBreakdown
+				checkLatencyMetric(t, ems[0], "dns_"+test.opts.LatencyMetricName, ld.dnsLatency)
+				checkLatencyMetric(t, ems[0], "connect_"+test.opts.LatencyMetricName, ld.connectLatency)
+				checkLatencyMetric(t, ems[0], "tls_handshake_"+test.opts.LatencyMetricName, ld.tlsLatency)
+				checkLatencyMetric(t, ems[0], "req_write_"+test.opts.LatencyMetricName, ld.reqWriteLatency)
+				checkLatencyMetric(t, ems[0], "first_byte_"+test.opts.LatencyMetricName, ld.firstByteLatency)
+			}
+		})
+	}
+}
+
+func checkLatencyMetric(t *testing.T, em *metrics.EventMetrics, name string, want metrics.LatencyValue) {
+	t.Helper()
+	if want == nil {
+		return
+	}
+	got := em.Metric(name)
+	if got == nil {
+		t.Errorf("Expected metric %s not found", name)
+		return
+	}
+	// Just check that we got a LatencyValue, not the actual value since it's cloned
+	if _, ok := got.(metrics.LatencyValue); !ok {
+		t.Errorf("Expected %s to be a LatencyValue, got %T", name, got)
 	}
 }
 

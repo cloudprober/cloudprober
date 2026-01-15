@@ -1,4 +1,4 @@
-// Copyright 2020-2024 The Cloudprober Authors.
+// Copyright 2020-2025 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -363,7 +363,7 @@ func (p *Probe) connect(ctx context.Context, target endpoint.Endpoint) (*grpc.Cl
 	return grpcurl.BlockingDial(ctx, "tcp", p.connectionString(target), p.creds, p.dialOpts...)
 }
 
-func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey string, logAttrs ...slog.Attr) (*grpc.ClientConn, error) {
+func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey string, l *logger.Logger) (*grpc.ClientConn, error) {
 	if p.c.GetDisableReuseConn() {
 		return p.connect(ctx, target)
 	}
@@ -376,15 +376,15 @@ func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey
 
 	conn, err := p.connect(ctx, target)
 	if err != nil {
-		p.l.WarningAttrs("Connect error: "+err.Error(), logAttrs...)
+		l.Error("Connect error: " + err.Error())
 		return nil, err
 	}
-	p.l.InfoAttrs("Connection established", logAttrs...)
+	l.Info("Connection established")
 	p.conns[targetKey] = conn
 	return conn, nil
 }
 
-func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, logAttrs ...slog.Attr) (*grpc_health_v1.HealthCheckResponse, error) {
+func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, l *logger.Logger) (*grpc_health_v1.HealthCheckResponse, error) {
 	var resp *grpc_health_v1.HealthCheckResponse
 	var err error
 
@@ -400,7 +400,7 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, log
 	}
 
 	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
-		p.l.WarningAttrs("gRPC HealthCheck status: "+resp.GetStatus().String(), logAttrs...)
+		l.Warning("gRPC HealthCheck status: " + resp.GetStatus().String())
 		if !p.c.GetHealthCheckIgnoreStatus() {
 			return resp, fmt.Errorf("not serving (%s)", resp.GetStatus())
 		}
@@ -420,10 +420,10 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	tgtState := runReq.TargetState.(*targetState)
 
 	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), runReq.Target.Name, runReq.Target.Labels[connIndexLabel])
-	logAttrs := []slog.Attr{
+	l := p.l.WithAttributes(
 		slog.String("probeId", msgPattern),
 		slog.String("request_type", p.c.GetMethod().String()),
-	}
+	)
 
 	for _, al := range p.opts.AdditionalLabels {
 		al.UpdateForTarget(runReq.Target, "", 0)
@@ -435,7 +435,7 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	result := runReq.Result.(*probeRunResult)
 
 	// On connection failure, this is where probe will end.
-	conn, err := p.getConn(ctx, runReq.Target, tgtState.targetKey, logAttrs...)
+	conn, err := p.getConn(ctx, runReq.Target, tgtState.targetKey, l)
 	if err != nil {
 		result.Lock()
 		result.total.Inc()
@@ -476,21 +476,21 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	case configpb.ProbeConf_WRITE:
 		r, err = client.BlobWrite(reqCtx, &pb.BlobWriteRequest{Blob: []byte(getPaylod())}, opts...)
 	case configpb.ProbeConf_HEALTH_CHECK:
-		r, err = p.healthCheckProbe(reqCtx, conn, logAttrs...)
+		r, err = p.healthCheckProbe(reqCtx, conn, l)
 	case configpb.ProbeConf_GENERIC:
 		r, err = p.genericRequest(reqCtx, conn, p.c.GetRequest())
 	default:
 		p.l.Criticalf("Method %v not implemented", p.c.GetMethod())
 	}
 
-	p.l.DebugAttrs("Response: "+r.String(), logAttrs...)
+	l.Debug("Response: " + r.String())
 
 	if err != nil {
 		peerAddr := "unknown"
 		if peer.Addr != nil {
 			peerAddr = peer.Addr.String()
 		}
-		p.l.WarningAttrs(fmt.Sprintf("Request failed: %v. ConnState: %v", err, conn.GetState()), append(logAttrs, slog.String("peer", peerAddr))...)
+		p.l.ErrorAttrs(fmt.Sprintf("Request failed: %v. ConnState: %v", err, conn.GetState()), slog.String("peer", peerAddr))
 	} else {
 		success = true
 		delta = time.Since(start)
@@ -500,7 +500,7 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: []byte(r.String())}, result.validationFailure, p.l)
 
 		if len(failedValidations) > 0 {
-			p.l.DebugAttrs("Some validations failed", append(logAttrs, slog.String("failed_validations", strings.Join(failedValidations, ",")))...)
+			l.Error("failed validations: ", strings.Join(failedValidations, ","))
 			success = false
 		}
 	}

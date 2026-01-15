@@ -50,6 +50,10 @@ message Config {
   // In most cases, Cloudprober does the right thing based on the retrieved
   // token and you don't need to set this field.
   optional float refresh_interval_sec = 21 [default = 30];
+
+  // Token type to be used in the "Authorization" header.
+  // If set, can have exact only one '%s' placeholder for the token.
+  optional string token_type_format = 6 [default = "Bearer %s"];
 }
 
 message HTTPRequest {

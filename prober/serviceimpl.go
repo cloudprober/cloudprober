@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"google.golang.org/grpc/codes"
@@ -90,6 +91,17 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	}
 
 	return &pb.AddProbeResponse{}, nil
+}
+
+func (pr *Prober) RunProbe(ctx context.Context, req *pb.RunProbeRequest) (*pb.RunProbeResponse, error) {
+	results, err := pr.Run(ctx, req.GetProbeName())
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.RunProbeResponse{
+		Results: singlerun.ProbeRunResultsToProto(results),
+	}, nil
 }
 
 // removeProbe removes the probe with the given name from the prober's internal

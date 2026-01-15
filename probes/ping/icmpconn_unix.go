@@ -32,16 +32,24 @@ import (
 var NativeEndian binary.ByteOrder
 
 func sockaddr(sourceIP net.IP, ipVer int) (syscall.Sockaddr, error) {
-	a := &net.IPAddr{IP: sourceIP}
-
 	switch ipVer {
 	case 4:
+		v4 := sourceIP.To4()
+		if v4 == nil {
+			return nil, fmt.Errorf("address %s is not a valid IPv4 address", sourceIP)
+		}
+
 		sa := &syscall.SockaddrInet4{}
-		copy(sa.Addr[:], a.IP)
+		copy(sa.Addr[:], v4)
 		return sa, nil
 	case 6:
+		v6 := sourceIP.To16()
+		if v6 == nil {
+			return nil, fmt.Errorf("address %s is not a valid IPv6 address", sourceIP)
+		}
+
 		sa := &syscall.SockaddrInet6{}
-		copy(sa.Addr[:], a.IP)
+		copy(sa.Addr[:], v6)
 		return sa, nil
 	default:
 		return nil, net.InvalidAddrError("unexpected family")

@@ -199,8 +199,10 @@ func (p *Probe) configureIntegrityCheck() error {
 	}
 
 	v := &validators.Validator{
-		Name:     dataIntegrityKey,
-		Validate: func(input *validators.Input) (bool, error) { return iv.Validate(input.ResponseBody) },
+		Name: dataIntegrityKey,
+		Validate: func(input *validators.Input, l *logger.Logger) (bool, error) {
+			return iv.Validate(input.ResponseBody, l)
+		},
 	}
 
 	p.opts.Validators = append(p.opts.Validators, v)
@@ -455,7 +457,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			// If any validation failed, return now, leaving the success and latency
 			// counters unchanged.
 			if len(failedValidations) > 0 {
-				p.l.Debug("Target:", pkt.target, " ping.recvPackets: failed validations: ", strings.Join(failedValidations, ","), ".")
+				p.l.Error("Target:", pkt.target, " ping.recvPackets: failed validations: ", strings.Join(failedValidations, ","), ".")
 				continue
 			}
 		}
