@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -38,6 +40,9 @@ type Probe struct {
 	l      *logger.Logger
 	opts   *options.Options
 	sysDir string // For testing
+
+	// For testing
+	diskUsageFunc func(path string) (uint64, uint64, error)
 }
 
 // Init initializes the probe with the given params.
@@ -52,6 +57,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.l = opts.Logger
 	p.opts = opts
 	p.sysDir = "/proc"
+	p.diskUsageFunc = func(path string) (uint64, uint64, error) {
+		var stat syscall.Statfs_t
+		if err := syscall.Statfs(path, &stat); err != nil {
+			return 0, 0, err
+		}
+		// Available blocks * size per block = available bytes
+		free := stat.Bavail * uint64(stat.Bsize)
+		total := stat.Blocks * uint64(stat.Bsize)
+		return total, free, nil
+	}
 	return nil
 }
 
@@ -81,13 +96,38 @@ func (p *Probe) exportGlobalMetrics(em, emCum *metrics.EventMetrics) {
 			p.l.Warningf("Error getting load average: %v", err)
 		}
 	}
+	if !p.c.GetDisableMemoryUsage() {
+		if err := p.addMemStats(em); err != nil {
+			p.l.Warningf("Error getting memory stats: %v", err)
+		}
+	}
 }
 
 func parseValue(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
+func matchDevice(name, include, exclude string) bool {
+	if include != "" {
+		matched, err := regexp.MatchString(include, name)
+		if err != nil || !matched {
+			return false
+		}
+	}
+	if exclude != "" {
+		matched, err := regexp.MatchString(exclude, name)
+		if err == nil && matched {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetrics) {
+	if p.c.GetNetDevStats().GetDisabled() {
+		return
+	}
+
 	f, err := os.Open(filepath.Join(p.sysDir, "net/dev"))
 	if err != nil {
 		p.l.Warningf("Error getting net dev stats: %v", err)
@@ -100,6 +140,9 @@ func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetr
 	if scanner.Scan(); !scanner.Scan() {
 		return
 	}
+
+	// Parse net dev stats
+	var rxBytes, txBytes, rxPackets, txPackets, rxErrors, txErrors, rxDropped, txDropped float64
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -114,42 +157,270 @@ func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetr
 			continue
 		}
 
+		// Values
+		vRxBytes, _ := parseValue(fields[0])
+		vRxPackets, _ := parseValue(fields[1])
+		vRxErrors, _ := parseValue(fields[2])
+		vRxDropped, _ := parseValue(fields[3])
+		vTxBytes, _ := parseValue(fields[8])
+		vTxPackets, _ := parseValue(fields[9])
+		vTxErrors, _ := parseValue(fields[10])
+		vTxDropped, _ := parseValue(fields[11])
+
+		// Aggregation
+		rxBytes += vRxBytes
+		rxPackets += vRxPackets
+		rxErrors += vRxErrors
+		rxDropped += vRxDropped
+		txBytes += vTxBytes
+		txPackets += vTxPackets
+		txErrors += vTxErrors
+		txDropped += vTxDropped
+
+		// Per-device export
+		recordMetrics := func(iface string, extraLabels map[string]string) {
+			em := metrics.NewEventMetrics(ts).
+				AddLabel("probe", p.name).
+				AddLabel("ptype", "system")
+			em.Kind = metrics.CUMULATIVE
+
+			if iface != "" {
+				em.AddLabel("iface", iface)
+			}
+			for k, v := range extraLabels {
+				em.AddLabel(k, v)
+			}
+
+			em.AddMetric("system_net_rx_bytes", metrics.NewFloat(vRxBytes))
+			em.AddMetric("system_net_rx_packets", metrics.NewFloat(vRxPackets))
+			em.AddMetric("system_net_rx_errors", metrics.NewFloat(vRxErrors))
+			em.AddMetric("system_net_rx_dropped", metrics.NewFloat(vRxDropped))
+			em.AddMetric("system_net_tx_bytes", metrics.NewFloat(vTxBytes))
+			em.AddMetric("system_net_tx_packets", metrics.NewFloat(vTxPackets))
+			em.AddMetric("system_net_tx_errors", metrics.NewFloat(vTxErrors))
+			em.AddMetric("system_net_tx_dropped", metrics.NewFloat(vTxDropped))
+
+			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+		}
+
+		if p.c.GetNetDevStats().GetExportIndividualStats() {
+			if matchDevice(iface, p.c.GetNetDevStats().GetIncludeNameRegex(), p.c.GetNetDevStats().GetExcludeNameRegex()) {
+				recordMetrics(iface, nil)
+			}
+		}
+	}
+
+	if p.c.GetNetDevStats().GetExportAggregatedStats() {
 		em := metrics.NewEventMetrics(ts).
 			AddLabel("probe", p.name).
-			AddLabel("ptype", "system").
-			AddLabel("iface", iface)
+			AddLabel("ptype", "system")
+		em.Kind = metrics.CUMULATIVE
 
-		// Standard /proc/net/dev columns
-		if v, err := parseValue(fields[0]); err == nil {
-			em.AddMetric("system_net_rx_bytes", metrics.NewFloat(v))
-		}
-		if v, err := parseValue(fields[1]); err == nil {
-			em.AddMetric("system_net_rx_packets", metrics.NewFloat(v))
-		}
-		if v, err := parseValue(fields[2]); err == nil {
-			em.AddMetric("system_net_rx_errors", metrics.NewFloat(v))
-		}
-		if v, err := parseValue(fields[3]); err == nil {
-			em.AddMetric("system_net_rx_dropped", metrics.NewFloat(v))
-		}
-
-		if v, err := parseValue(fields[8]); err == nil {
-			em.AddMetric("system_net_tx_bytes", metrics.NewFloat(v))
-		}
-		if v, err := parseValue(fields[9]); err == nil {
-			em.AddMetric("system_net_tx_packets", metrics.NewFloat(v))
-		}
-		if v, err := parseValue(fields[10]); err == nil {
-			em.AddMetric("system_net_tx_errors", metrics.NewFloat(v))
-		}
-		if v, err := parseValue(fields[11]); err == nil {
-			em.AddMetric("system_net_tx_dropped", metrics.NewFloat(v))
-		}
+		em.AddMetric("system_net_rx_bytes", metrics.NewFloat(rxBytes))
+		em.AddMetric("system_net_rx_packets", metrics.NewFloat(rxPackets))
+		em.AddMetric("system_net_rx_errors", metrics.NewFloat(rxErrors))
+		em.AddMetric("system_net_rx_dropped", metrics.NewFloat(rxDropped))
+		em.AddMetric("system_net_tx_bytes", metrics.NewFloat(txBytes))
+		em.AddMetric("system_net_tx_packets", metrics.NewFloat(txPackets))
+		em.AddMetric("system_net_tx_errors", metrics.NewFloat(txErrors))
+		em.AddMetric("system_net_tx_dropped", metrics.NewFloat(txDropped))
 
 		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
 	}
+
 	if err := scanner.Err(); err != nil {
 		p.l.Warningf("Error reading net dev stats: %v", err)
+	}
+}
+
+func (p *Probe) getMountPoints() ([]string, error) {
+	f, err := os.Open(filepath.Join(p.sysDir, "mounts"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var mounts []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) >= 2 {
+			mounts = append(mounts, fields[1])
+		}
+	}
+	return mounts, scanner.Err()
+}
+
+func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventMetrics) {
+	if p.diskUsageFunc == nil {
+		return
+	}
+
+	config := p.c.GetDiskUsageStats()
+	var mounts []string
+
+	if config != nil {
+		if config.GetDisabled() {
+			return
+		}
+		var err error
+		mounts, err = p.getMountPoints()
+		if err != nil {
+			p.l.Warningf("Error reading mounts: %v", err)
+			// Fallback to / if we can't read mounts
+			mounts = []string{"/"}
+		}
+	} else {
+		if p.c.GetDisableDiskUsage() {
+			return
+		}
+		// Currently checking only root
+		mounts = []string{"/"}
+	}
+
+	var aggTotal, aggFree, aggUsed uint64
+
+	recordMetrics := func(mount string, free, used uint64) {
+		em := metrics.NewEventMetrics(ts).
+			AddLabel("probe", p.name).
+			AddLabel("ptype", "system")
+		if mount != "" {
+			em.AddLabel("mount_point", mount)
+		}
+		em.Kind = metrics.GAUGE
+
+		em.AddMetric("system_disk_total", metrics.NewInt(int64(free+used)))
+		em.AddMetric("system_disk_free", metrics.NewInt(int64(free)))
+		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+	}
+
+	for _, mount := range mounts {
+		excluded := false
+		for _, exclude := range []string{"/dev", "/sys", "/proc", "/run/netns", "/snap"} {
+			if mount == exclude || strings.HasPrefix(mount, exclude+"/") {
+				excluded = true
+				break
+			}
+		}
+		if excluded {
+			continue
+		}
+
+		if config != nil {
+			if !matchDevice(mount, config.GetIncludeNameRegex(), config.GetExcludeNameRegex()) {
+				continue
+			}
+		}
+
+		total, free, err := p.diskUsageFunc(mount)
+		if err != nil {
+			p.l.Warningf("Error getting disk usage for %s: %v", mount, err)
+			continue
+		}
+		used := total - free
+
+		aggTotal += total
+		aggFree += free
+		aggUsed += used
+
+		exportIndividual := true
+		if config != nil {
+			exportIndividual = config.GetExportIndividualStats()
+		}
+
+		if exportIndividual {
+			recordMetrics(mount, free, used)
+		}
+	}
+
+	if config != nil && config.GetExportAggregatedStats() {
+		recordMetrics("", aggFree, aggUsed)
+	}
+}
+
+func (p *Probe) exportDiskIOStats(ts time.Time, dataChan chan *metrics.EventMetrics) {
+	if p.c.GetDiskIoStats().GetDisabled() {
+		return
+	}
+
+	f, err := os.Open(filepath.Join(p.sysDir, "diskstats"))
+	if err != nil {
+		p.l.Warningf("Error getting disk IO stats: %v", err)
+		return
+	}
+	defer f.Close()
+
+	var readBytes, writeBytes, readCount, writeCount float64
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		// Linux 2.6+ /proc/diskstats usually has 14+ fields
+		// 8 0 sda 100 200 300 400 ...
+		if len(fields) < 14 {
+			continue
+		}
+		device := fields[2]
+		// Filter out loopback and ram devices
+		if strings.HasPrefix(device, "loop") || strings.HasPrefix(device, "ram") {
+			continue
+		}
+
+		readsCompleted, _ := parseValue(fields[3])
+		sectorsRead, _ := parseValue(fields[5]) // 512 bytes per sector usually
+		writeCompleted, _ := parseValue(fields[7])
+		sectorsWritten, _ := parseValue(fields[9])
+
+		// bytes = sectors * 512
+		vReadBytes := sectorsRead * 512
+		vWriteBytes := sectorsWritten * 512
+
+		// Aggregation
+		readBytes += vReadBytes
+		writeBytes += vWriteBytes
+		readCount += readsCompleted
+		writeCount += writeCompleted
+
+		if p.c.GetDiskIoStats().GetExportIndividualStats() {
+			if matchDevice(device, p.c.GetDiskIoStats().GetIncludeNameRegex(), p.c.GetDiskIoStats().GetExcludeNameRegex()) {
+				recordMetrics := func(device string, rBytes, wBytes, rCount, wCount float64) {
+					em := metrics.NewEventMetrics(ts).
+						AddLabel("probe", p.name).
+						AddLabel("ptype", "system")
+					if device != "" {
+						em.AddLabel("device", device)
+					}
+					em.Kind = metrics.CUMULATIVE
+
+					em.AddMetric("system_disk_read_bytes", metrics.NewFloat(rBytes))
+					em.AddMetric("system_disk_write_bytes", metrics.NewFloat(wBytes))
+					em.AddMetric("system_disk_read_count", metrics.NewFloat(rCount))
+					em.AddMetric("system_disk_write_count", metrics.NewFloat(wCount))
+
+					p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+				}
+				recordMetrics(device, vReadBytes, vWriteBytes, readsCompleted, writeCompleted)
+			}
+		}
+	}
+
+	if p.c.GetDiskIoStats().GetExportAggregatedStats() {
+		em := metrics.NewEventMetrics(ts).
+			AddLabel("probe", p.name).
+			AddLabel("ptype", "system")
+		em.Kind = metrics.CUMULATIVE
+
+		em.AddMetric("system_disk_read_bytes", metrics.NewFloat(readBytes))
+		em.AddMetric("system_disk_write_bytes", metrics.NewFloat(writeBytes))
+		em.AddMetric("system_disk_read_count", metrics.NewFloat(readCount))
+		em.AddMetric("system_disk_write_count", metrics.NewFloat(writeCount))
+
+		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+	}
+
+	if err := scanner.Err(); err != nil {
+		p.l.Warningf("Error reading diskstats: %v", err)
 	}
 }
 
@@ -284,6 +555,48 @@ func (p *Probe) addLoadAvg(em *metrics.EventMetrics) error {
 	return nil
 }
 
+func (p *Probe) addMemStats(em *metrics.EventMetrics) error {
+	f, err := os.Open(filepath.Join(p.sysDir, "meminfo"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		// Example: MemTotal:        16393932 kB
+		key := strings.TrimSuffix(fields[0], ":")
+		valStr := fields[1]
+		val, err := parseValue(valStr)
+		if err != nil {
+			continue
+		}
+		// Convert kB to Bytes if unit is kB
+		if len(fields) >= 3 && fields[2] == "kB" {
+			val = val * 1024
+		}
+
+		switch key {
+		case "MemTotal":
+			em.AddMetric("system_mem_total", metrics.NewFloat(val))
+		case "MemFree":
+			em.AddMetric("system_mem_free", metrics.NewFloat(val))
+		case "MemAvailable":
+			em.AddMetric("system_mem_available", metrics.NewFloat(val))
+		case "Buffers":
+			em.AddMetric("system_mem_buffers", metrics.NewFloat(val))
+		case "Cached":
+			em.AddMetric("system_mem_cached", metrics.NewFloat(val))
+		}
+	}
+	return scanner.Err()
+}
+
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	ticker := time.NewTicker(p.opts.Interval)
@@ -312,8 +625,14 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, emCum, dataChan)
 
 			// Per-interface metrics
-			if !p.c.GetDisableNetDevStats() {
+			if !p.c.GetNetDevStats().GetDisabled() {
 				p.exportNetDevStats(ts, dataChan)
+			}
+			if !p.c.GetDisableDiskUsage() {
+				p.exportDiskUsageStats(ts, dataChan)
+			}
+			if !p.c.GetDiskIoStats().GetDisabled() {
+				p.exportDiskIOStats(ts, dataChan)
 			}
 		}
 	}
