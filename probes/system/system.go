@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -57,16 +56,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.l = opts.Logger
 	p.opts = opts
 	p.sysDir = "/proc"
-	p.diskUsageFunc = func(path string) (uint64, uint64, error) {
-		var stat syscall.Statfs_t
-		if err := syscall.Statfs(path, &stat); err != nil {
-			return 0, 0, err
-		}
-		// Available blocks * size per block = available bytes
-		free := stat.Bavail * uint64(stat.Bsize)
-		total := stat.Blocks * uint64(stat.Bsize)
-		return total, free, nil
-	}
+	p.sysDir = "/proc"
+	p.diskUsageFunc = diskUsage
 	return nil
 }
 
