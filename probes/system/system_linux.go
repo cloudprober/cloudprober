@@ -15,3 +15,7 @@ func diskUsage(path string) (uint64, uint64, error) {
 	total := stat.Blocks * uint64(stat.Bsize)
 	return total, free, nil
 }
+
+func checkOS() error {
+	return nil
+}

@@ -51,11 +51,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("not a system probe config")
 	}
 
+	if err := checkOS(); err != nil {
+		return err
+	}
+
 	p.name = name
 	p.c = c
 	p.l = opts.Logger
 	p.opts = opts
-	p.sysDir = "/proc"
 	p.sysDir = "/proc"
 	p.diskUsageFunc = diskUsage
 	return nil
