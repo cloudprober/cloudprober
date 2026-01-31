@@ -369,7 +369,7 @@ func (p *Probe) exportDiskIOStats(ts time.Time, dataChan chan *metrics.EventMetr
 		}
 		device := fields[2]
 		// Filter out loopback and ram devices
-		if strings.HasPrefix(device, "loop") || strings.HasPrefix(device, "ram") {
+		if strings.HasPrefix(device, "loop") || strings.HasPrefix(device, "ram") || strings.HasPrefix(device, "sr") {
 			continue
 		}
 
