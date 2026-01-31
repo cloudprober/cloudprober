@@ -192,7 +192,7 @@ Cached:          2000000 kB
 		assert.Equal(t, "system", emIO.Label("ptype"))
 		assert.Equal(t, "", emIO.Label("device")) // No device label for aggregated
 
-		val := emIO.Metric("system_disk_read_bytes").(*metrics.Float).Float64()
+		val := emIO.Metric("system_disk_aggregated_read_bytes").(*metrics.Float).Float64()
 		assert.Equal(t, 500.0*512, val)
 	case <-timeout:
 		t.Fatal("timeout waiting for disk IO stats")
@@ -275,8 +275,8 @@ func TestExportNetDevStats(t *testing.T) {
 				for _, m := range em.MetricsKeys() {
 					valMap[m] = em.Metric(m).(*metrics.Float).Float64()
 				}
-				assert.Equal(t, 1500.0, valMap["system_net_rx_bytes"])
-				assert.Equal(t, 3000.0, valMap["system_net_tx_bytes"])
+				assert.Equal(t, 1500.0, valMap["system_net_aggregated_rx_bytes"])
+				assert.Equal(t, 3000.0, valMap["system_net_aggregated_tx_bytes"])
 			}
 		default:
 			t.Fatal("expected more metrics")
@@ -377,10 +377,10 @@ snap /snap/core/123 squashfs ro 0 0
 				// My impl doesn't add label for aggregated.
 				if em.Label("mount_point") == "" {
 					foundAgg = true
-					if val := em.Metric("system_disk_total").(*metrics.Int).Int64(); val != 3000 {
+					if val := em.Metric("system_disk_aggregated_total").(*metrics.Int).Int64(); val != 3000 {
 						t.Errorf("Agg total = %d, want 3000", val)
 					}
-					if val := em.Metric("system_disk_free").(*metrics.Int).Int64(); val != 1400 {
+					if val := em.Metric("system_disk_aggregated_free").(*metrics.Int).Int64(); val != 1400 {
 						t.Errorf("Agg free = %d, want 1400", val)
 					}
 				}

@@ -138,6 +138,34 @@ func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetr
 	// Parse net dev stats
 	var rxBytes, txBytes, rxPackets, txPackets, rxErrors, txErrors, rxDropped, txDropped float64
 
+	// Per-device export
+	recordMetrics := func(iface string, vRxBytes, vRxPackets, vRxErrors, vRxDropped, vTxBytes, vTxPackets, vTxErrors, vTxDropped float64, agg bool) {
+		em := metrics.NewEventMetrics(ts).
+			AddLabel("probe", p.name).
+			AddLabel("ptype", "system")
+		em.Kind = metrics.CUMULATIVE
+
+		if iface != "" {
+			em.AddLabel("iface", iface)
+		}
+
+		modifier := ""
+		if agg {
+			modifier = "aggregated_"
+		}
+
+		em.AddMetric("system_net_"+modifier+"rx_bytes", metrics.NewFloat(vRxBytes))
+		em.AddMetric("system_net_"+modifier+"rx_packets", metrics.NewFloat(vRxPackets))
+		em.AddMetric("system_net_"+modifier+"rx_errors", metrics.NewFloat(vRxErrors))
+		em.AddMetric("system_net_"+modifier+"rx_dropped", metrics.NewFloat(vRxDropped))
+		em.AddMetric("system_net_"+modifier+"tx_bytes", metrics.NewFloat(vTxBytes))
+		em.AddMetric("system_net_"+modifier+"tx_packets", metrics.NewFloat(vTxPackets))
+		em.AddMetric("system_net_"+modifier+"tx_errors", metrics.NewFloat(vTxErrors))
+		em.AddMetric("system_net_"+modifier+"tx_dropped", metrics.NewFloat(vTxDropped))
+
+		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+	}
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, ":")
@@ -171,55 +199,15 @@ func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetr
 		txErrors += vTxErrors
 		txDropped += vTxDropped
 
-		// Per-device export
-		recordMetrics := func(iface string, extraLabels map[string]string) {
-			em := metrics.NewEventMetrics(ts).
-				AddLabel("probe", p.name).
-				AddLabel("ptype", "system")
-			em.Kind = metrics.CUMULATIVE
-
-			if iface != "" {
-				em.AddLabel("iface", iface)
-			}
-			for k, v := range extraLabels {
-				em.AddLabel(k, v)
-			}
-
-			em.AddMetric("system_net_rx_bytes", metrics.NewFloat(vRxBytes))
-			em.AddMetric("system_net_rx_packets", metrics.NewFloat(vRxPackets))
-			em.AddMetric("system_net_rx_errors", metrics.NewFloat(vRxErrors))
-			em.AddMetric("system_net_rx_dropped", metrics.NewFloat(vRxDropped))
-			em.AddMetric("system_net_tx_bytes", metrics.NewFloat(vTxBytes))
-			em.AddMetric("system_net_tx_packets", metrics.NewFloat(vTxPackets))
-			em.AddMetric("system_net_tx_errors", metrics.NewFloat(vTxErrors))
-			em.AddMetric("system_net_tx_dropped", metrics.NewFloat(vTxDropped))
-
-			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
-		}
-
 		if p.c.GetNetDevStats().GetExportIndividualStats() {
 			if matchDevice(iface, p.c.GetNetDevStats().GetIncludeNameRegex(), p.c.GetNetDevStats().GetExcludeNameRegex()) {
-				recordMetrics(iface, nil)
+				recordMetrics(iface, vRxBytes, vRxPackets, vRxErrors, vRxDropped, vTxBytes, vTxPackets, vTxErrors, vTxDropped, false)
 			}
 		}
 	}
 
 	if p.c.GetNetDevStats().GetExportAggregatedStats() {
-		em := metrics.NewEventMetrics(ts).
-			AddLabel("probe", p.name).
-			AddLabel("ptype", "system")
-		em.Kind = metrics.CUMULATIVE
-
-		em.AddMetric("system_net_rx_bytes", metrics.NewFloat(rxBytes))
-		em.AddMetric("system_net_rx_packets", metrics.NewFloat(rxPackets))
-		em.AddMetric("system_net_rx_errors", metrics.NewFloat(rxErrors))
-		em.AddMetric("system_net_rx_dropped", metrics.NewFloat(rxDropped))
-		em.AddMetric("system_net_tx_bytes", metrics.NewFloat(txBytes))
-		em.AddMetric("system_net_tx_packets", metrics.NewFloat(txPackets))
-		em.AddMetric("system_net_tx_errors", metrics.NewFloat(txErrors))
-		em.AddMetric("system_net_tx_dropped", metrics.NewFloat(txDropped))
-
-		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+		recordMetrics("", rxBytes, rxPackets, rxErrors, rxDropped, txBytes, txPackets, txErrors, txDropped, true)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -274,7 +262,7 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 
 	var aggTotal, aggFree, aggUsed uint64
 
-	recordMetrics := func(mount string, free, used uint64) {
+	recordMetrics := func(mount string, free, used uint64, agg bool) {
 		em := metrics.NewEventMetrics(ts).
 			AddLabel("probe", p.name).
 			AddLabel("ptype", "system")
@@ -283,8 +271,12 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 		}
 		em.Kind = metrics.GAUGE
 
-		em.AddMetric("system_disk_total", metrics.NewInt(int64(free+used)))
-		em.AddMetric("system_disk_free", metrics.NewInt(int64(free)))
+		modifier := ""
+		if agg {
+			modifier = "aggregated_"
+		}
+		em.AddMetric("system_disk_"+modifier+"total", metrics.NewInt(int64(free+used)))
+		em.AddMetric("system_disk_"+modifier+"free", metrics.NewInt(int64(free)))
 		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
 	}
 
@@ -323,12 +315,12 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 		}
 
 		if exportIndividual {
-			recordMetrics(mount, free, used)
+			recordMetrics(mount, free, used, false)
 		}
 	}
 
 	if config != nil && config.GetExportAggregatedStats() {
-		recordMetrics("", aggFree, aggUsed)
+		recordMetrics("", aggFree, aggUsed, true)
 	}
 }
 
@@ -345,6 +337,29 @@ func (p *Probe) exportDiskIOStats(ts time.Time, dataChan chan *metrics.EventMetr
 	defer f.Close()
 
 	var readBytes, writeBytes, readCount, writeCount float64
+
+	// Per-device export
+	recordMetrics := func(device string, rBytes, wBytes, rCount, wCount float64, agg bool) {
+		em := metrics.NewEventMetrics(ts).
+			AddLabel("probe", p.name).
+			AddLabel("ptype", "system")
+		if device != "" {
+			em.AddLabel("device", device)
+		}
+		em.Kind = metrics.CUMULATIVE
+
+		modifier := ""
+		if agg {
+			modifier = "aggregated_"
+		}
+
+		em.AddMetric("system_disk_"+modifier+"read_bytes", metrics.NewFloat(rBytes))
+		em.AddMetric("system_disk_"+modifier+"write_bytes", metrics.NewFloat(wBytes))
+		em.AddMetric("system_disk_"+modifier+"read_count", metrics.NewFloat(rCount))
+		em.AddMetric("system_disk_"+modifier+"write_count", metrics.NewFloat(wCount))
+
+		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+	}
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -378,39 +393,13 @@ func (p *Probe) exportDiskIOStats(ts time.Time, dataChan chan *metrics.EventMetr
 
 		if p.c.GetDiskIoStats().GetExportIndividualStats() {
 			if matchDevice(device, p.c.GetDiskIoStats().GetIncludeNameRegex(), p.c.GetDiskIoStats().GetExcludeNameRegex()) {
-				recordMetrics := func(device string, rBytes, wBytes, rCount, wCount float64) {
-					em := metrics.NewEventMetrics(ts).
-						AddLabel("probe", p.name).
-						AddLabel("ptype", "system")
-					if device != "" {
-						em.AddLabel("device", device)
-					}
-					em.Kind = metrics.CUMULATIVE
-
-					em.AddMetric("system_disk_read_bytes", metrics.NewFloat(rBytes))
-					em.AddMetric("system_disk_write_bytes", metrics.NewFloat(wBytes))
-					em.AddMetric("system_disk_read_count", metrics.NewFloat(rCount))
-					em.AddMetric("system_disk_write_count", metrics.NewFloat(wCount))
-
-					p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
-				}
-				recordMetrics(device, vReadBytes, vWriteBytes, readsCompleted, writeCompleted)
+				recordMetrics(device, vReadBytes, vWriteBytes, readsCompleted, writeCompleted, false)
 			}
 		}
 	}
 
 	if p.c.GetDiskIoStats().GetExportAggregatedStats() {
-		em := metrics.NewEventMetrics(ts).
-			AddLabel("probe", p.name).
-			AddLabel("ptype", "system")
-		em.Kind = metrics.CUMULATIVE
-
-		em.AddMetric("system_disk_read_bytes", metrics.NewFloat(readBytes))
-		em.AddMetric("system_disk_write_bytes", metrics.NewFloat(writeBytes))
-		em.AddMetric("system_disk_read_count", metrics.NewFloat(readCount))
-		em.AddMetric("system_disk_write_count", metrics.NewFloat(writeCount))
-
-		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+		recordMetrics("", readBytes, writeBytes, readCount, writeCount, true)
 	}
 
 	if err := scanner.Err(); err != nil {
