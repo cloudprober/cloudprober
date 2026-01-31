@@ -22,14 +22,21 @@ const (
 )
 
 type ResourceUsage struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	Disabled              *bool                  `protobuf:"varint,1,opt,name=disabled" json:"disabled,omitempty"`
-	ExportAggregatedStats *bool                  `protobuf:"varint,2,opt,name=export_aggregated_stats,json=exportAggregatedStats,def=1" json:"export_aggregated_stats,omitempty"`
-	ExportIndividualStats *bool                  `protobuf:"varint,3,opt,name=export_individual_stats,json=exportIndividualStats,def=0" json:"export_individual_stats,omitempty"`
-	IncludeNameRegex      *string                `protobuf:"bytes,4,opt,name=include_name_regex,json=includeNameRegex" json:"include_name_regex,omitempty"`
-	ExcludeNameRegex      *string                `protobuf:"bytes,5,opt,name=exclude_name_regex,json=excludeNameRegex" json:"exclude_name_regex,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// If set, disable this resource usage metric
+	Disabled *bool `protobuf:"varint,1,opt,name=disabled" json:"disabled,omitempty"`
+	// If set, export aggregated stats
+	ExportAggregatedStats *bool `protobuf:"varint,2,opt,name=export_aggregated_stats,json=exportAggregatedStats,def=1" json:"export_aggregated_stats,omitempty"`
+	// If set, export individual stats
+	ExportIndividualStats *bool `protobuf:"varint,3,opt,name=export_individual_stats,json=exportIndividualStats,def=0" json:"export_individual_stats,omitempty"`
+	// Include regex for device names,
+	// If set, only devices matching this regex will be exported
+	IncludeNameRegex *string `protobuf:"bytes,4,opt,name=include_name_regex,json=includeNameRegex" json:"include_name_regex,omitempty"`
+	// Exclude regex for device names,
+	// If set, devices matching this regex will not be exported
+	ExcludeNameRegex *string `protobuf:"bytes,5,opt,name=exclude_name_regex,json=excludeNameRegex" json:"exclude_name_regex,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 // Default values for ResourceUsage fields.
@@ -123,7 +130,8 @@ type ProbeConf struct {
 	// Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
 	NetDevStats *ResourceUsage `protobuf:"bytes,6,opt,name=net_dev_stats,json=netDevStats" json:"net_dev_stats,omitempty"`
 	// Export memory usage (from /proc/meminfo)
-	// Metrics: system_mem_total, system_mem_free, system_mem_available, system_mem_buffers, system_mem_cached
+	// Metrics: system_mem_total, system_mem_free, system_mem_available,
+	// system_mem_buffers, system_mem_cached
 	DisableMemoryUsage *bool `protobuf:"varint,7,opt,name=disable_memory_usage,json=disableMemoryUsage" json:"disable_memory_usage,omitempty"`
 	// Export disk I/O stats (from /proc/diskstats)
 	// Metrics: system_disk_read_bytes, system_disk_write_bytes, etc.
