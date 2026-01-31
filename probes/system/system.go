@@ -253,9 +253,6 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 			mounts = []string{"/"}
 		}
 	} else {
-		if p.c.GetDisableDiskUsage() {
-			return
-		}
 		// Currently checking only root
 		mounts = []string{"/"}
 	}
@@ -611,12 +608,10 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			if !p.c.GetNetDevStats().GetDisabled() {
 				p.exportNetDevStats(ts, dataChan)
 			}
-			if !p.c.GetDisableDiskUsage() {
-				p.exportDiskUsageStats(ts, dataChan)
-			}
 			if !p.c.GetDiskIoStats().GetDisabled() {
 				p.exportDiskIOStats(ts, dataChan)
 			}
+			p.exportDiskUsageStats(ts, dataChan)
 		}
 	}
 }

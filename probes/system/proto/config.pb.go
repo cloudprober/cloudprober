@@ -125,13 +125,11 @@ type ProbeConf struct {
 	// Export memory usage (from /proc/meminfo)
 	// Metrics: system_mem_total, system_mem_free, system_mem_available, system_mem_buffers, system_mem_cached
 	DisableMemoryUsage *bool `protobuf:"varint,7,opt,name=disable_memory_usage,json=disableMemoryUsage" json:"disable_memory_usage,omitempty"`
-	// Export disk usage (from syscall.Statfs, checking /)
-	// Metrics: system_disk_total, system_disk_free, system_disk_used_percent (start with just root /)
-	// Deprecated: use disk_usage_stats instead.
-	DisableDiskUsage *bool `protobuf:"varint,8,opt,name=disable_disk_usage,json=disableDiskUsage" json:"disable_disk_usage,omitempty"`
 	// Export disk I/O stats (from /proc/diskstats)
 	// Metrics: system_disk_read_bytes, system_disk_write_bytes, etc.
-	DiskIoStats    *ResourceUsage `protobuf:"bytes,9,opt,name=disk_io_stats,json=diskIoStats" json:"disk_io_stats,omitempty"`
+	DiskIoStats *ResourceUsage `protobuf:"bytes,9,opt,name=disk_io_stats,json=diskIoStats" json:"disk_io_stats,omitempty"`
+	// Export disk usage stats (from df)
+	// Metrics: system_disk_total, system_disk_free
 	DiskUsageStats *ResourceUsage `protobuf:"bytes,10,opt,name=disk_usage_stats,json=diskUsageStats" json:"disk_usage_stats,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -216,13 +214,6 @@ func (x *ProbeConf) GetDisableMemoryUsage() bool {
 	return false
 }
 
-func (x *ProbeConf) GetDisableDiskUsage() bool {
-	if x != nil && x.DisableDiskUsage != nil {
-		return *x.DisableDiskUsage
-	}
-	return false
-}
-
 func (x *ProbeConf) GetDiskIoStats() *ResourceUsage {
 	if x != nil {
 		return x.DiskIoStats
@@ -247,7 +238,7 @@ const file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_r
 	"\x17export_aggregated_stats\x18\x02 \x01(\b:\x04trueR\x15exportAggregatedStats\x12=\n" +
 	"\x17export_individual_stats\x18\x03 \x01(\b:\x05falseR\x15exportIndividualStats\x12,\n" +
 	"\x12include_name_regex\x18\x04 \x01(\tR\x10includeNameRegex\x12,\n" +
-	"\x12exclude_name_regex\x18\x05 \x01(\tR\x10excludeNameRegex\"\xc2\x04\n" +
+	"\x12exclude_name_regex\x18\x05 \x01(\tR\x10excludeNameRegex\"\x94\x04\n" +
 	"\tProbeConf\x128\n" +
 	"\x18disable_file_descriptors\x18\x01 \x01(\bR\x16disableFileDescriptors\x12,\n" +
 	"\x12disable_proc_stats\x18\x02 \x01(\bR\x10disableProcStats\x12,\n" +
@@ -255,8 +246,7 @@ const file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_r
 	"\x0edisable_uptime\x18\x04 \x01(\bR\rdisableUptime\x12(\n" +
 	"\x10disable_load_avg\x18\x05 \x01(\bR\x0edisableLoadAvg\x12L\n" +
 	"\rnet_dev_stats\x18\x06 \x01(\v2(.cloudprober.probes.system.ResourceUsageR\vnetDevStats\x120\n" +
-	"\x14disable_memory_usage\x18\a \x01(\bR\x12disableMemoryUsage\x12,\n" +
-	"\x12disable_disk_usage\x18\b \x01(\bR\x10disableDiskUsage\x12L\n" +
+	"\x14disable_memory_usage\x18\a \x01(\bR\x12disableMemoryUsage\x12L\n" +
 	"\rdisk_io_stats\x18\t \x01(\v2(.cloudprober.probes.system.ResourceUsageR\vdiskIoStats\x12R\n" +
 	"\x10disk_usage_stats\x18\n" +
 	" \x01(\v2(.cloudprober.probes.system.ResourceUsageR\x0ediskUsageStatsB8Z6github.com/cloudprober/cloudprober/probes/system/proto"

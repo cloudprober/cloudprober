@@ -40,14 +40,11 @@ message ProbeConf {
   // Metrics: system_mem_total, system_mem_free, system_mem_available, system_mem_buffers, system_mem_cached
   optional bool disable_memory_usage = 7;
 
-  // Export disk usage (from syscall.Statfs, checking /)
-  // Metrics: system_disk_total, system_disk_free, system_disk_used_percent (start with just root /)
-  // Deprecated: use disk_usage_stats instead.
-  optional bool disable_disk_usage = 8;
-
   // Export disk I/O stats (from /proc/diskstats)
   // Metrics: system_disk_read_bytes, system_disk_write_bytes, etc.
   optional ResourceUsage disk_io_stats = 9;
 
+  // Export disk usage stats (from df)
+  // Metrics: system_disk_total, system_disk_free
   optional ResourceUsage disk_usage_stats = 10;
 }
