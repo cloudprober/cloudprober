@@ -21,6 +21,95 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ResourceUsage struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// If set, disable this resource usage metric
+	Disabled *bool `protobuf:"varint,1,opt,name=disabled" json:"disabled,omitempty"`
+	// If set, export aggregated stats
+	ExportAggregatedStats *bool `protobuf:"varint,2,opt,name=export_aggregated_stats,json=exportAggregatedStats,def=1" json:"export_aggregated_stats,omitempty"`
+	// If set, export individual stats
+	ExportIndividualStats *bool `protobuf:"varint,3,opt,name=export_individual_stats,json=exportIndividualStats,def=0" json:"export_individual_stats,omitempty"`
+	// Include regex for device names,
+	// If set, only devices matching this regex will be exported
+	IncludeNameRegex *string `protobuf:"bytes,4,opt,name=include_name_regex,json=includeNameRegex" json:"include_name_regex,omitempty"`
+	// Exclude regex for device names,
+	// If set, devices matching this regex will not be exported
+	ExcludeNameRegex *string `protobuf:"bytes,5,opt,name=exclude_name_regex,json=excludeNameRegex" json:"exclude_name_regex,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+// Default values for ResourceUsage fields.
+const (
+	Default_ResourceUsage_ExportAggregatedStats = bool(true)
+	Default_ResourceUsage_ExportIndividualStats = bool(false)
+)
+
+func (x *ResourceUsage) Reset() {
+	*x = ResourceUsage{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResourceUsage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceUsage) ProtoMessage() {}
+
+func (x *ResourceUsage) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceUsage.ProtoReflect.Descriptor instead.
+func (*ResourceUsage) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ResourceUsage) GetDisabled() bool {
+	if x != nil && x.Disabled != nil {
+		return *x.Disabled
+	}
+	return false
+}
+
+func (x *ResourceUsage) GetExportAggregatedStats() bool {
+	if x != nil && x.ExportAggregatedStats != nil {
+		return *x.ExportAggregatedStats
+	}
+	return Default_ResourceUsage_ExportAggregatedStats
+}
+
+func (x *ResourceUsage) GetExportIndividualStats() bool {
+	if x != nil && x.ExportIndividualStats != nil {
+		return *x.ExportIndividualStats
+	}
+	return Default_ResourceUsage_ExportIndividualStats
+}
+
+func (x *ResourceUsage) GetIncludeNameRegex() string {
+	if x != nil && x.IncludeNameRegex != nil {
+		return *x.IncludeNameRegex
+	}
+	return ""
+}
+
+func (x *ResourceUsage) GetExcludeNameRegex() string {
+	if x != nil && x.ExcludeNameRegex != nil {
+		return *x.ExcludeNameRegex
+	}
+	return ""
+}
+
 type ProbeConf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Export system-wide file descriptor stats (from /proc/sys/fs/file-nr)
@@ -30,7 +119,7 @@ type ProbeConf struct {
 	// Metrics: system_procs_running, system_procs_blocked, system_procs_total
 	DisableProcStats *bool `protobuf:"varint,2,opt,name=disable_proc_stats,json=disableProcStats" json:"disable_proc_stats,omitempty"`
 	// Export socket stats (from /proc/net/sockstat)
-	// Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.
+	// Metrics: system_sockets_inuse, system_sockets_tcp_inuse, etc.
 	DisableSockStats *bool `protobuf:"varint,3,opt,name=disable_sock_stats,json=disableSockStats" json:"disable_sock_stats,omitempty"`
 	// Export system uptime (from /proc/uptime)
 	// Metrics: system_uptime_sec
@@ -38,16 +127,26 @@ type ProbeConf struct {
 	// Export load average (from /proc/loadavg)
 	// Metrics: system_load_1m, system_load_5m, system_load_15m
 	DisableLoadAvg *bool `protobuf:"varint,5,opt,name=disable_load_avg,json=disableLoadAvg" json:"disable_load_avg,omitempty"`
-	// Export network interface stats (from /proc/net/dev)
+	// Export network device stats (from /proc/net/dev)
 	// Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
-	DisableNetDevStats *bool `protobuf:"varint,6,opt,name=disable_net_dev_stats,json=disableNetDevStats" json:"disable_net_dev_stats,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	NetDevStats *ResourceUsage `protobuf:"bytes,6,opt,name=net_dev_stats,json=netDevStats" json:"net_dev_stats,omitempty"`
+	// Export memory usage (from /proc/meminfo)
+	// Metrics: system_mem_total, system_mem_free, system_mem_available,
+	// system_mem_buffers, system_mem_cached
+	DisableMemoryUsage *bool `protobuf:"varint,7,opt,name=disable_memory_usage,json=disableMemoryUsage" json:"disable_memory_usage,omitempty"`
+	// Export disk I/O stats (from /proc/diskstats)
+	// Metrics: system_disk_io_read_bytes, system_disk_io_write_bytes, etc.
+	DiskIoStats *ResourceUsage `protobuf:"bytes,9,opt,name=disk_io_stats,json=diskIoStats" json:"disk_io_stats,omitempty"`
+	// Export disk usage stats (from df)
+	// Metrics: system_disk_usage_total, system_disk_usage_free
+	DiskUsageStats *ResourceUsage `protobuf:"bytes,10,opt,name=disk_usage_stats,json=diskUsageStats" json:"disk_usage_stats,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ProbeConf) Reset() {
 	*x = ProbeConf{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes[0]
+	mi := &file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -59,7 +158,7 @@ func (x *ProbeConf) String() string {
 func (*ProbeConf) ProtoMessage() {}
 
 func (x *ProbeConf) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes[0]
+	mi := &file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -72,7 +171,7 @@ func (x *ProbeConf) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeConf.ProtoReflect.Descriptor instead.
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDescGZIP(), []int{0}
+	return file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ProbeConf) GetDisableFileDescriptors() bool {
@@ -110,25 +209,56 @@ func (x *ProbeConf) GetDisableLoadAvg() bool {
 	return false
 }
 
-func (x *ProbeConf) GetDisableNetDevStats() bool {
-	if x != nil && x.DisableNetDevStats != nil {
-		return *x.DisableNetDevStats
+func (x *ProbeConf) GetNetDevStats() *ResourceUsage {
+	if x != nil {
+		return x.NetDevStats
+	}
+	return nil
+}
+
+func (x *ProbeConf) GetDisableMemoryUsage() bool {
+	if x != nil && x.DisableMemoryUsage != nil {
+		return *x.DisableMemoryUsage
 	}
 	return false
+}
+
+func (x *ProbeConf) GetDiskIoStats() *ResourceUsage {
+	if x != nil {
+		return x.DiskIoStats
+	}
+	return nil
+}
+
+func (x *ProbeConf) GetDiskUsageStats() *ResourceUsage {
+	if x != nil {
+		return x.DiskUsageStats
+	}
+	return nil
 }
 
 var File_github_com_cloudprober_cloudprober_probes_system_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Cgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x12\x19cloudprober.probes.system\"\xa5\x02\n" +
+	"Cgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x12\x19cloudprober.probes.system\"\x84\x02\n" +
+	"\rResourceUsage\x12\x1a\n" +
+	"\bdisabled\x18\x01 \x01(\bR\bdisabled\x12<\n" +
+	"\x17export_aggregated_stats\x18\x02 \x01(\b:\x04trueR\x15exportAggregatedStats\x12=\n" +
+	"\x17export_individual_stats\x18\x03 \x01(\b:\x05falseR\x15exportIndividualStats\x12,\n" +
+	"\x12include_name_regex\x18\x04 \x01(\tR\x10includeNameRegex\x12,\n" +
+	"\x12exclude_name_regex\x18\x05 \x01(\tR\x10excludeNameRegex\"\x94\x04\n" +
 	"\tProbeConf\x128\n" +
 	"\x18disable_file_descriptors\x18\x01 \x01(\bR\x16disableFileDescriptors\x12,\n" +
 	"\x12disable_proc_stats\x18\x02 \x01(\bR\x10disableProcStats\x12,\n" +
 	"\x12disable_sock_stats\x18\x03 \x01(\bR\x10disableSockStats\x12%\n" +
 	"\x0edisable_uptime\x18\x04 \x01(\bR\rdisableUptime\x12(\n" +
-	"\x10disable_load_avg\x18\x05 \x01(\bR\x0edisableLoadAvg\x121\n" +
-	"\x15disable_net_dev_stats\x18\x06 \x01(\bR\x12disableNetDevStatsB8Z6github.com/cloudprober/cloudprober/probes/system/proto"
+	"\x10disable_load_avg\x18\x05 \x01(\bR\x0edisableLoadAvg\x12L\n" +
+	"\rnet_dev_stats\x18\x06 \x01(\v2(.cloudprober.probes.system.ResourceUsageR\vnetDevStats\x120\n" +
+	"\x14disable_memory_usage\x18\a \x01(\bR\x12disableMemoryUsage\x12L\n" +
+	"\rdisk_io_stats\x18\t \x01(\v2(.cloudprober.probes.system.ResourceUsageR\vdiskIoStats\x12R\n" +
+	"\x10disk_usage_stats\x18\n" +
+	" \x01(\v2(.cloudprober.probes.system.ResourceUsageR\x0ediskUsageStatsB8Z6github.com/cloudprober/cloudprober/probes/system/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDescOnce sync.Once
@@ -142,16 +272,20 @@ func file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_ra
 	return file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_goTypes = []any{
-	(*ProbeConf)(nil), // 0: cloudprober.probes.system.ProbeConf
+	(*ResourceUsage)(nil), // 0: cloudprober.probes.system.ResourceUsage
+	(*ProbeConf)(nil),     // 1: cloudprober.probes.system.ProbeConf
 }
 var file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: cloudprober.probes.system.ProbeConf.net_dev_stats:type_name -> cloudprober.probes.system.ResourceUsage
+	0, // 1: cloudprober.probes.system.ProbeConf.disk_io_stats:type_name -> cloudprober.probes.system.ResourceUsage
+	0, // 2: cloudprober.probes.system.ProbeConf.disk_usage_stats:type_name -> cloudprober.probes.system.ResourceUsage
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_init() }
@@ -165,7 +299,7 @@ func file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_in
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_system_proto_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
