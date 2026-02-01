@@ -1,9 +1,16 @@
 # Browser Probe: Getting Started
 
-Cloudprober's Browser Probe turns your Playwright tests into production
-monitoring. Write tests exactly the way you already do -- Cloudprober handles
-scheduling, metrics export, artifact storage, retries, and a built-in viewer UI.
-No glue scripts, no sidecar cron jobs, no custom dashboards.
+Cloudprober's Browser Probe brings **continuous end-to-end monitoring** to your
+web applications. It runs real browser interactions -- navigating pages, clicking
+buttons, filling forms -- on a schedule, and feeds the results into
+Cloudprober's observability pipeline. If your checkout flow breaks at 3 AM,
+you'll know in seconds, not when the first customer complaint arrives.
+
+The probe uses Playwright under the hood, so you can leverage existing Playwright
+tests and the broader ecosystem. But the real value is what Cloudprober adds on
+top: scheduling, metrics, artifact management, retries, and multi-target
+support -- everything needed to make browser tests operate as production
+monitoring.
 
 **TL;DR:** Cloudprober makes Playwright production-ready.
 
@@ -12,7 +19,11 @@ No glue scripts, no sidecar cron jobs, no custom dashboards.
 ## Why Not Just Run Playwright on Its Own?
 
 A standalone Playwright test tells you *pass* or *fail* at the moment you run it.
-That's fine in CI. In production, you need a lot more.
+That's fine in CI. In production, you need continuous execution, time-series
+metrics, alerting, and a way to investigate failures after the fact. Building that
+yourself means cron jobs, custom metric exporters, artifact storage scripts, and
+dashboard plumbing. The Browser Probe handles all of it as a first-class
+Cloudprober citizen.
 
 ### Automated Observability -- Zero Instrumentation
 
@@ -26,16 +37,18 @@ Every Browser Probe run automatically emits:
 
 These metrics flow directly to any configured surfacer -- **Prometheus,
 Stackdriver (Google Cloud Monitoring), OpenTelemetry, CloudWatch**, and more --
-with no extra configuration.
+with no extra configuration. Point your existing alerting at
+`success < total` and you have end-to-end monitoring.
 
 #### Per-Step Custom Metrics
 
 Need to know how long the "Add to cart" step takes *inside* a checkout test?
 Enable step-level metrics:
 
-```yaml
-test_metrics_options:
+```textproto
+test_metrics_options {
   enable_step_metrics: true
+}
 ```
 
 This adds two more metric families:
@@ -80,30 +93,42 @@ without blocking the probe.
 
 ## Quick Start
 
-### 1. Cloudprober Config (YAML)
+### 1. Cloudprober Config
 
-```yaml
-probe:
-  - name: "website_e2e"
-    type: BROWSER
-    interval_msec: 60000
-    timeout_msec: 30000
-    targets:
-      host_names: "www.example.com"
-    browser_probe:
-      test_spec: "checkout.spec.ts"
-      test_dir: "/tests"
-      retries: 1
-      save_trace: RETAIN_ON_FAILURE
-      test_metrics_options:
-        enable_step_metrics: true
-      artifacts_options:
-        serve_on_web: true
-        storage:
-          - local_storage:
-              dir: "/artifacts"
-              cleanup_options:
-                max_age_sec: 86400
+```textproto
+probe {
+  name: "website_e2e"
+  type: BROWSER
+  interval_msec: 60000
+  timeout_msec: 30000
+
+  targets {
+    host_names: "www.example.com"
+  }
+
+  browser_probe {
+    test_spec: "checkout.spec.ts"
+    test_dir: "/tests"
+    retries: 1
+    save_trace: RETAIN_ON_FAILURE
+
+    test_metrics_options {
+      enable_step_metrics: true
+    }
+
+    artifacts_options {
+      serve_on_web: true
+      storage {
+        local_storage {
+          dir: "/artifacts"
+          cleanup_options {
+            max_age_sec: 86400
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
 This runs `checkout.spec.ts` once a minute against `www.example.com`, retries
@@ -171,10 +196,11 @@ All fields from `probes/browser/proto/config.proto`:
 
 **`TestSpecFilter`**
 
-```yaml
-test_spec_filter:
+```textproto
+test_spec_filter {
   include: "@smoke|@critical"   # playwright --grep
   exclude: "@draft"             # playwright --grep-invert
+}
 ```
 
 **`SaveOption` enum values:**
@@ -194,15 +220,19 @@ The artifacts viewer is served by Cloudprober's built-in web server but is
 Set `global_artifacts_options` at the top level of your Cloudprober config. This
 applies to all browser probes and keeps per-probe configs clean.
 
-```yaml
-global_artifacts_options:
+```textproto
+global_artifacts_options {
   serve_on_web: true
-  storage:
-    - local_storage:
-        dir: "/artifacts"
-        cleanup_options:
-          max_age_sec: 86400        # 24 hours
-          cleanup_interval_sec: 3600
+  storage {
+    local_storage {
+      dir: "/artifacts"
+      cleanup_options {
+        max_age_sec: 86400          # 24 hours
+        cleanup_interval_sec: 3600
+      }
+    }
+  }
+}
 ```
 
 #### Option B: Per-Probe Config
@@ -212,29 +242,40 @@ Start above). Per-probe options override the global config.
 
 ### Adding Cloud Storage Backends
 
-Storage backends are defined in the `storage` list. You can specify multiple
+Storage backends are defined in the `storage` field. You can specify multiple
 backends -- Cloudprober uploads to all of them in parallel.
 
-```yaml
-global_artifacts_options:
+```textproto
+global_artifacts_options {
   serve_on_web: true
-  storage:
-    # Local -- required for the web viewer
-    - local_storage:
-        dir: "/artifacts"
-        cleanup_options:
-          max_age_sec: 86400
 
-    # S3 -- long-term archival
-    - s3:
-        bucket: "my-monitoring-artifacts"
-        region: "us-west-2"
-      path: "browser-probes"
+  # Local -- required for the web viewer
+  storage {
+    local_storage {
+      dir: "/artifacts"
+      cleanup_options {
+        max_age_sec: 86400
+      }
+    }
+  }
 
-    # GCS -- alternative cloud backend
-    - gcs:
-        bucket: "my-gcs-bucket"
-      path: "cloudprober/artifacts"
+  # S3 -- long-term archival
+  storage {
+    s3 {
+      bucket: "my-monitoring-artifacts"
+      region: "us-west-2"
+    }
+    path: "browser-probes"
+  }
+
+  # GCS -- alternative cloud backend
+  storage {
+    gcs {
+      bucket: "my-gcs-bucket"
+    }
+    path: "cloudprober/artifacts"
+  }
+}
 ```
 
 Azure Blob Storage (`abs`) is also supported with shared-key or managed-identity
@@ -266,7 +307,7 @@ The official Cloudprober images with the `-pw` tag suffix come with Playwright
 and Chromium pre-installed:
 
 ```bash
-docker run --rm -v /path/to/config.yaml:/etc/cloudprober.yaml \
+docker run --rm -v /path/to/config.cfg:/etc/cloudprober.cfg \
   -v /path/to/tests:/tests \
   -v /tmp/artifacts:/artifacts \
   -p 9313:9313 \
