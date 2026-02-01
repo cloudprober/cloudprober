@@ -96,6 +96,13 @@ Cached:          2000000 kB
 		t.Fatal(err)
 	}
 
+	// 9. mounts (needed for disk usage with nil config)
+	mountsContent := `/dev/root / ext4 rw 0 0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "mounts"), []byte(mountsContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
 	p := &Probe{
 		name:   "test_probe",
 		c:      &configpb.ProbeConf{},
@@ -134,7 +141,7 @@ Cached:          2000000 kB
 	assert.Equal(t, 1.0, metricsMap["system_procs_blocked"])
 	// system_procs_total is CUMULATIVE now
 
-	assert.Equal(t, 123.0, metricsMap["system_sockets_in_use"])
+	assert.Equal(t, 123.0, metricsMap["system_sockets_inuse"])
 	assert.Equal(t, 10.0, metricsMap["system_sockets_tcp_inuse"])
 
 	assert.InDelta(t, 9876.54, metricsMap["system_uptime_sec"], 0.001)
@@ -155,19 +162,17 @@ Cached:          2000000 kB
 	}
 	assert.Equal(t, 1000.0, metricsMapCum["system_procs_total"])
 
-	// Test Disk Usage
+	// Test Disk Usage (nil config behaves as empty config: aggregated=true, individual=false)
 	dataChan := make(chan *metrics.EventMetrics, 10)
 	p.exportDiskUsageStats(time.Now(), dataChan)
 
 	select {
 	case emDU := <-dataChan:
 		assert.Equal(t, "system", emDU.Label("ptype"))
-		assert.Equal(t, "/", emDU.Label("mount_point"))
+		assert.Equal(t, "", emDU.Label("mount_point")) // Aggregated, no mount_point label
 
-		assert.Equal(t, int64(1000000), emDU.Metric("system_disk_total").(*metrics.Int).Int64())
-		assert.Equal(t, int64(400000), emDU.Metric("system_disk_free").(*metrics.Int).Int64())
-		assert.Nil(t, emDU.Metric("system_disk_used"))         // Used not exported
-		assert.Nil(t, emDU.Metric("system_disk_used_percent")) // Percent not exported
+		assert.Equal(t, int64(1000000), emDU.Metric("system_disk_usage_aggregated_total").(*metrics.Int).Int64())
+		assert.Equal(t, int64(400000), emDU.Metric("system_disk_usage_aggregated_free").(*metrics.Int).Int64())
 
 	default:
 		t.Error("expected disk usage metrics")
@@ -192,7 +197,7 @@ Cached:          2000000 kB
 		assert.Equal(t, "system", emIO.Label("ptype"))
 		assert.Equal(t, "", emIO.Label("device")) // No device label for aggregated
 
-		val := emIO.Metric("system_disk_aggregated_read_bytes").(*metrics.Float).Float64()
+		val := emIO.Metric("system_disk_io_aggregated_read_bytes").(*metrics.Float).Float64()
 		assert.Equal(t, 500.0*512, val)
 	case <-timeout:
 		t.Fatal("timeout waiting for disk IO stats")
@@ -350,18 +355,18 @@ snap /snap/core/123 squashfs ro 0 0
 		case em := <-dataChan:
 			if em.Label("mount_point") == "/" {
 				foundRoot = true
-				if val := em.Metric("system_disk_total").(*metrics.Int).Int64(); val != 1000 {
+				if val := em.Metric("system_disk_usage_total").(*metrics.Int).Int64(); val != 1000 {
 					t.Errorf("Root total = %d, want 1000", val)
 				}
-				if val := em.Metric("system_disk_free").(*metrics.Int).Int64(); val != 400 {
+				if val := em.Metric("system_disk_usage_free").(*metrics.Int).Int64(); val != 400 {
 					t.Errorf("Root free = %d, want 400", val)
 				}
 			} else if em.Label("mount_point") == "/data" {
 				foundData = true
-				if val := em.Metric("system_disk_total").(*metrics.Int).Int64(); val != 2000 {
+				if val := em.Metric("system_disk_usage_total").(*metrics.Int).Int64(); val != 2000 {
 					t.Errorf("Data total = %d, want 2000", val)
 				}
-				if val := em.Metric("system_disk_free").(*metrics.Int).Int64(); val != 1000 {
+				if val := em.Metric("system_disk_usage_free").(*metrics.Int).Int64(); val != 1000 {
 					t.Errorf("Data free = %d, want 1000", val)
 				}
 			} else {
@@ -377,10 +382,10 @@ snap /snap/core/123 squashfs ro 0 0
 				// My impl doesn't add label for aggregated.
 				if em.Label("mount_point") == "" {
 					foundAgg = true
-					if val := em.Metric("system_disk_aggregated_total").(*metrics.Int).Int64(); val != 3000 {
+					if val := em.Metric("system_disk_usage_aggregated_total").(*metrics.Int).Int64(); val != 3000 {
 						t.Errorf("Agg total = %d, want 3000", val)
 					}
-					if val := em.Metric("system_disk_aggregated_free").(*metrics.Int).Int64(); val != 1400 {
+					if val := em.Metric("system_disk_usage_aggregated_free").(*metrics.Int).Int64(); val != 1400 {
 						t.Errorf("Agg free = %d, want 1400", val)
 					}
 				}
@@ -392,6 +397,133 @@ snap /snap/core/123 squashfs ro 0 0
 	assert.True(t, foundRoot, "found root")
 	assert.True(t, foundData, "found data")
 	assert.True(t, foundAgg, "found aggregated")
+}
+
+func TestExportNetDevStats_FilterBeforeAggregation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(tmpDir, "net"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	netDevContent := `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  eth0:    1000      10    1    2    0     0          0         0     2000      20    0    0    0     0       0          0
+  eth1:     500       5    0    1    0     0          0         0     1000      10    0    0    0     0       0          0
+    lo:     100       1    0    0    0     0          0         0      100       1    0    0    0     0       0          0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "net/dev"), []byte(netDevContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &Probe{
+		name:   "test_probe",
+		c:      &configpb.ProbeConf{},
+		l:      &logger.Logger{},
+		sysDir: tmpDir,
+		opts: &options.Options{
+			ProbeConf: &configpb.ProbeConf{},
+		},
+	}
+
+	// Include only eth interfaces, exclude lo
+	p.c.NetDevStats = &configpb.ResourceUsage{
+		IncludeNameRegex:      proto.String("^eth"),
+		ExportIndividualStats: proto.Bool(true),
+		ExportAggregatedStats: proto.Bool(true),
+	}
+
+	dataChan := make(chan *metrics.EventMetrics, 10)
+	p.exportNetDevStats(time.Now(), dataChan)
+
+	var foundEth0, foundEth1, foundAgg bool
+	for i := 0; i < 3; i++ {
+		select {
+		case em := <-dataChan:
+			if em.Label("iface") == "eth0" {
+				foundEth0 = true
+			} else if em.Label("iface") == "eth1" {
+				foundEth1 = true
+			} else if em.Label("iface") == "" {
+				foundAgg = true
+				// Aggregated should only include eth0+eth1, NOT lo
+				valMap := make(map[string]float64)
+				for _, m := range em.MetricsKeys() {
+					valMap[m] = em.Metric(m).(*metrics.Float).Float64()
+				}
+				assert.Equal(t, 1500.0, valMap["system_net_aggregated_rx_bytes"], "aggregated rx_bytes should be eth0+eth1 only")
+				assert.Equal(t, 3000.0, valMap["system_net_aggregated_tx_bytes"], "aggregated tx_bytes should be eth0+eth1 only")
+			}
+		default:
+			t.Fatal("expected more metrics")
+		}
+	}
+	assert.True(t, foundEth0, "found eth0")
+	assert.True(t, foundEth1, "found eth1")
+	assert.True(t, foundAgg, "found aggregated")
+
+	// Verify no more metrics (lo should be excluded)
+	select {
+	case em := <-dataChan:
+		t.Errorf("unexpected extra metric with iface=%q", em.Label("iface"))
+	default:
+		// expected
+	}
+}
+
+func TestExportDiskUsageStats_NilConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create mock mounts file
+	mountsContent := `/dev/root / ext4 rw 0 0
+/dev/sdb1 /data ext4 rw 0 0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "mounts"), []byte(mountsContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &Probe{
+		name:   "test_probe",
+		c:      &configpb.ProbeConf{}, // DiskUsageStats is nil
+		l:      &logger.Logger{},
+		sysDir: tmpDir,
+		diskUsageFunc: func(path string) (uint64, uint64, error) {
+			switch path {
+			case "/":
+				return 1000, 400, nil
+			case "/data":
+				return 2000, 1000, nil
+			default:
+				return 0, 0, os.ErrNotExist
+			}
+		},
+		opts: &options.Options{
+			ProbeConf: &configpb.ProbeConf{},
+		},
+	}
+
+	dataChan := make(chan *metrics.EventMetrics, 10)
+	p.exportDiskUsageStats(time.Now(), dataChan)
+
+	// With nil config (treated as empty), defaults are:
+	// export_aggregated_stats=true, export_individual_stats=false
+	// So we should get only aggregated metrics
+	select {
+	case em := <-dataChan:
+		assert.Equal(t, "", em.Label("mount_point"), "aggregated should have no mount_point")
+		assert.Equal(t, int64(3000), em.Metric("system_disk_usage_aggregated_total").(*metrics.Int).Int64())
+		assert.Equal(t, int64(1400), em.Metric("system_disk_usage_aggregated_free").(*metrics.Int).Int64())
+	default:
+		t.Error("expected aggregated disk usage metrics")
+	}
+
+	// Verify no individual metrics
+	select {
+	case em := <-dataChan:
+		t.Errorf("unexpected individual metric for mount_point=%q", em.Label("mount_point"))
+	default:
+		// expected
+	}
 }
 
 func TestMatchDevice(t *testing.T) {

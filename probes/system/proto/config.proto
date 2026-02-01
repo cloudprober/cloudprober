@@ -33,7 +33,7 @@ message ProbeConf {
   optional bool disable_proc_stats = 2;
 
   // Export socket stats (from /proc/net/sockstat)
-  // Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.
+  // Metrics: system_sockets_inuse, system_sockets_tcp_inuse, etc.
   optional bool disable_sock_stats = 3;
 
   // Export system uptime (from /proc/uptime)
@@ -44,6 +44,7 @@ message ProbeConf {
   // Metrics: system_load_1m, system_load_5m, system_load_15m
   optional bool disable_load_avg = 5;
 
+  // Export network device stats (from /proc/net/dev)
   // Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
   optional ResourceUsage net_dev_stats = 6;
 
@@ -53,10 +54,10 @@ message ProbeConf {
   optional bool disable_memory_usage = 7;
 
   // Export disk I/O stats (from /proc/diskstats)
-  // Metrics: system_disk_read_bytes, system_disk_write_bytes, etc.
+  // Metrics: system_disk_io_read_bytes, system_disk_io_write_bytes, etc.
   optional ResourceUsage disk_io_stats = 9;
 
   // Export disk usage stats (from df)
-  // Metrics: system_disk_total, system_disk_free
+  // Metrics: system_disk_usage_total, system_disk_usage_free
   optional ResourceUsage disk_usage_stats = 10;
 }

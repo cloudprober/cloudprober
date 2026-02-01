@@ -119,7 +119,7 @@ type ProbeConf struct {
 	// Metrics: system_procs_running, system_procs_blocked, system_procs_total
 	DisableProcStats *bool `protobuf:"varint,2,opt,name=disable_proc_stats,json=disableProcStats" json:"disable_proc_stats,omitempty"`
 	// Export socket stats (from /proc/net/sockstat)
-	// Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.
+	// Metrics: system_sockets_inuse, system_sockets_tcp_inuse, etc.
 	DisableSockStats *bool `protobuf:"varint,3,opt,name=disable_sock_stats,json=disableSockStats" json:"disable_sock_stats,omitempty"`
 	// Export system uptime (from /proc/uptime)
 	// Metrics: system_uptime_sec
@@ -127,6 +127,7 @@ type ProbeConf struct {
 	// Export load average (from /proc/loadavg)
 	// Metrics: system_load_1m, system_load_5m, system_load_15m
 	DisableLoadAvg *bool `protobuf:"varint,5,opt,name=disable_load_avg,json=disableLoadAvg" json:"disable_load_avg,omitempty"`
+	// Export network device stats (from /proc/net/dev)
 	// Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
 	NetDevStats *ResourceUsage `protobuf:"bytes,6,opt,name=net_dev_stats,json=netDevStats" json:"net_dev_stats,omitempty"`
 	// Export memory usage (from /proc/meminfo)
@@ -134,10 +135,10 @@ type ProbeConf struct {
 	// system_mem_buffers, system_mem_cached
 	DisableMemoryUsage *bool `protobuf:"varint,7,opt,name=disable_memory_usage,json=disableMemoryUsage" json:"disable_memory_usage,omitempty"`
 	// Export disk I/O stats (from /proc/diskstats)
-	// Metrics: system_disk_read_bytes, system_disk_write_bytes, etc.
+	// Metrics: system_disk_io_read_bytes, system_disk_io_write_bytes, etc.
 	DiskIoStats *ResourceUsage `protobuf:"bytes,9,opt,name=disk_io_stats,json=diskIoStats" json:"disk_io_stats,omitempty"`
 	// Export disk usage stats (from df)
-	// Metrics: system_disk_total, system_disk_free
+	// Metrics: system_disk_usage_total, system_disk_usage_free
 	DiskUsageStats *ResourceUsage `protobuf:"bytes,10,opt,name=disk_usage_stats,json=diskUsageStats" json:"disk_usage_stats,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

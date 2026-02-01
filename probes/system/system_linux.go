@@ -177,6 +177,10 @@ func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetr
 		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
 	}
 
+	include := p.c.GetNetDevStats().GetIncludeNameRegex()
+	exclude := p.c.GetNetDevStats().GetExcludeNameRegex()
+	exportIndividual := p.c.GetNetDevStats().GetExportIndividualStats()
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, ":")
@@ -187,6 +191,10 @@ func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetr
 
 		fields := strings.Fields(parts[1])
 		if len(fields) < 16 {
+			continue
+		}
+
+		if !matchDevice(iface, include, exclude) {
 			continue
 		}
 
@@ -210,10 +218,8 @@ func (p *Probe) exportNetDevStats(ts time.Time, dataChan chan *metrics.EventMetr
 		txErrors += vTxErrors
 		txDropped += vTxDropped
 
-		if p.c.GetNetDevStats().GetExportIndividualStats() {
-			if matchDevice(iface, p.c.GetNetDevStats().GetIncludeNameRegex(), p.c.GetNetDevStats().GetExcludeNameRegex()) {
-				recordMetrics(iface, vRxBytes, vRxPackets, vRxErrors, vRxDropped, vTxBytes, vTxPackets, vTxErrors, vTxDropped, false)
-			}
+		if exportIndividual {
+			recordMetrics(iface, vRxBytes, vRxPackets, vRxErrors, vRxDropped, vTxBytes, vTxPackets, vTxErrors, vTxDropped, false)
 		}
 	}
 
@@ -250,21 +256,17 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 	}
 
 	config := p.c.GetDiskUsageStats()
-	var mounts []string
+	if config == nil {
+		config = &configpb.ResourceUsage{}
+	}
+	if config.GetDisabled() {
+		return
+	}
 
-	if config != nil {
-		if config.GetDisabled() {
-			return
-		}
-		var err error
-		mounts, err = p.getMountPoints()
-		if err != nil {
-			p.l.Warningf("Error reading mounts: %v", err)
-			// Fallback to / if we can't read mounts
-			mounts = []string{"/"}
-		}
-	} else {
-		// Currently checking only root
+	mounts, err := p.getMountPoints()
+	if err != nil {
+		p.l.Warningf("Error reading mounts: %v", err)
+		// Fallback to / if we can't read mounts
 		mounts = []string{"/"}
 	}
 
@@ -283,8 +285,8 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 		if agg {
 			modifier = "aggregated_"
 		}
-		em.AddMetric("system_disk_"+modifier+"total", metrics.NewInt(int64(free+used)))
-		em.AddMetric("system_disk_"+modifier+"free", metrics.NewInt(int64(free)))
+		em.AddMetric("system_disk_usage_"+modifier+"total", metrics.NewInt(int64(free+used)))
+		em.AddMetric("system_disk_usage_"+modifier+"free", metrics.NewInt(int64(free)))
 		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
 	}
 
@@ -300,10 +302,8 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 			continue
 		}
 
-		if config != nil {
-			if !matchDevice(mount, config.GetIncludeNameRegex(), config.GetExcludeNameRegex()) {
-				continue
-			}
+		if !matchDevice(mount, config.GetIncludeNameRegex(), config.GetExcludeNameRegex()) {
+			continue
 		}
 
 		total, free, err := p.diskUsageFunc(mount)
@@ -317,17 +317,12 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 		aggFree += free
 		aggUsed += used
 
-		exportIndividual := true
-		if config != nil {
-			exportIndividual = config.GetExportIndividualStats()
-		}
-
-		if exportIndividual {
+		if config.GetExportIndividualStats() {
 			recordMetrics(mount, free, used, false)
 		}
 	}
 
-	if config != nil && config.GetExportAggregatedStats() {
+	if config.GetExportAggregatedStats() {
 		recordMetrics("", aggFree, aggUsed, true)
 	}
 }
@@ -361,13 +356,17 @@ func (p *Probe) exportDiskIOStats(ts time.Time, dataChan chan *metrics.EventMetr
 			modifier = "aggregated_"
 		}
 
-		em.AddMetric("system_disk_"+modifier+"read_bytes", metrics.NewFloat(rBytes))
-		em.AddMetric("system_disk_"+modifier+"write_bytes", metrics.NewFloat(wBytes))
-		em.AddMetric("system_disk_"+modifier+"read_count", metrics.NewFloat(rCount))
-		em.AddMetric("system_disk_"+modifier+"write_count", metrics.NewFloat(wCount))
+		em.AddMetric("system_disk_io_"+modifier+"read_bytes", metrics.NewFloat(rBytes))
+		em.AddMetric("system_disk_io_"+modifier+"write_bytes", metrics.NewFloat(wBytes))
+		em.AddMetric("system_disk_io_"+modifier+"read_count", metrics.NewFloat(rCount))
+		em.AddMetric("system_disk_io_"+modifier+"write_count", metrics.NewFloat(wCount))
 
 		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
 	}
+
+	include := p.c.GetDiskIoStats().GetIncludeNameRegex()
+	exclude := p.c.GetDiskIoStats().GetExcludeNameRegex()
+	exportIndividual := p.c.GetDiskIoStats().GetExportIndividualStats()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -381,6 +380,10 @@ func (p *Probe) exportDiskIOStats(ts time.Time, dataChan chan *metrics.EventMetr
 		device := fields[2]
 		// Filter out loopback and ram devices
 		if strings.HasPrefix(device, "loop") || strings.HasPrefix(device, "ram") || strings.HasPrefix(device, "sr") {
+			continue
+		}
+
+		if !matchDevice(device, include, exclude) {
 			continue
 		}
 
@@ -399,10 +402,8 @@ func (p *Probe) exportDiskIOStats(ts time.Time, dataChan chan *metrics.EventMetr
 		readCount += readsCompleted
 		writeCount += writeCompleted
 
-		if p.c.GetDiskIoStats().GetExportIndividualStats() {
-			if matchDevice(device, p.c.GetDiskIoStats().GetIncludeNameRegex(), p.c.GetDiskIoStats().GetExcludeNameRegex()) {
-				recordMetrics(device, vReadBytes, vWriteBytes, readsCompleted, writeCompleted, false)
-			}
+		if exportIndividual {
+			recordMetrics(device, vReadBytes, vWriteBytes, readsCompleted, writeCompleted, false)
 		}
 	}
 
@@ -500,7 +501,7 @@ func (p *Probe) addSockStats(em *metrics.EventMetrics) error {
 		// Also parse sockets: used X
 		if fields[0] == "sockets:" && len(fields) >= 3 && fields[1] == "used" {
 			val, _ := parseValue(fields[2])
-			em.AddMetric("system_sockets_in_use", metrics.NewFloat(val))
+			em.AddMetric("system_sockets_inuse", metrics.NewFloat(val))
 		}
 	}
 	return scanner.Err()
@@ -613,15 +614,12 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 			p.exportGlobalMetrics(em, emCum)
 			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
-			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, emCum, dataChan)
+			if len(emCum.MetricsKeys()) > 0 {
+				p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, emCum, dataChan)
+			}
 
-			// Per-interface metrics
-			if !p.c.GetNetDevStats().GetDisabled() {
-				p.exportNetDevStats(ts, dataChan)
-			}
-			if !p.c.GetDiskIoStats().GetDisabled() {
-				p.exportDiskIOStats(ts, dataChan)
-			}
+			p.exportNetDevStats(ts, dataChan)
+			p.exportDiskIOStats(ts, dataChan)
 			p.exportDiskUsageStats(ts, dataChan)
 		}
 	}
