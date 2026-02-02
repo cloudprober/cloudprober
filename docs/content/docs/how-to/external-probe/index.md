@@ -2,7 +2,7 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 10
+    weight: 13
 title: "External Probe"
 date: 2022-11-01T17:24:32-07:00
 ---

@@ -1,4 +1,12 @@
-# Browser Probe: Getting Started
+---
+menu:
+  docs:
+    parent: "how-to"
+    name: "Browser Probe"
+    weight: 14
+title: "Browser Probe: Getting Started"
+date: 2026-02-01T17:24:32-07:00
+---
 
 Cloudprober's Browser Probe brings **continuous end-to-end monitoring** to your
 web applications. It runs real browser interactions -- navigating pages, clicking
@@ -37,8 +45,10 @@ Every Browser Probe run automatically emits:
 
 These metrics flow directly to any configured surfacer -- **Prometheus,
 Stackdriver (Google Cloud Monitoring), OpenTelemetry, CloudWatch**, and more --
-with no extra configuration. Point your existing alerting at
-`success < total` and you have end-to-end monitoring.
+with no extra configuration. You can also configure [Cloudprober
+Alerting]({{< ref "alerting" >}}) to notify you directly via PagerDuty, Slack,
+Email, or HTTP webhooks when tests fail, giving you end-to-end monitoring
+without external infrastructure.
 
 #### Per-Step Custom Metrics
 
