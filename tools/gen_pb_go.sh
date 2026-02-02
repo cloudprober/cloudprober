@@ -16,7 +16,7 @@
 
 # This script generates Go code for the config protobufs.
 
-PROTOC_VERSION="27.5"
+PROTOC_VERSION="33.5"
 
 GOPATH=$(go env GOPATH)
 
