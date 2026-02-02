@@ -85,6 +85,8 @@ The viewer lets you:
 - **Drill down** -- click through to the Playwright HTML report, individual
   screenshots, or trace files.
 
+![Artifacts Viewer UI](artifacts-viewer.png)
+
 Artifacts can be stored locally *and* pushed to **S3, GCS, or Azure Blob
 Storage** simultaneously -- Cloudprober uploads to each backend in parallel
 without blocking the probe.
