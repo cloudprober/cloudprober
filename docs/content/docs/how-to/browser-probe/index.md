@@ -186,25 +186,22 @@ Cloudprober generates the Playwright config and reporter at startup.
 
 ## Configuration Reference
 
-All fields from `probes/browser/proto/config.proto`:
+Key fields from `probes/browser/proto/config.proto`:
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `test_spec` | `repeated string` | *(all files in test_dir)* | Test specs to run. Filenames are resolved relative to `test_dir`; strings containing regex characters (`^$*\|?+()[]{}`) are passed as Playwright grep patterns. |
-| `test_dir` | `string` | Config file directory | Directory where test specs are located. |
-| `test_spec_filter` | `TestSpecFilter` | -- | Include/exclude tests by title regex. Maps to Playwright `--grep` / `--grep-invert`. |
-| `playwright_dir` | `string` | `$PLAYWRIGHT_DIR` | Path to Playwright installation. Auto-set in the official `cloudprober:*-pw` images. |
-| `npx_path` | `string` | `"npx"` | Path to the `npx` binary. |
-| `workdir` | `string` | *(auto temp dir)* | Writable working directory. Leave unset unless you need persistence. |
-| `retries` | `int32` | `0` | Number of retries per test. |
-| `save_screenshots_for_success` | `bool` | `false` | Save screenshots for passing tests (failures always capture screenshots). |
-| `save_trace` | `SaveOption` | `NEVER` | Trace capture strategy: `NEVER`, `ALWAYS`, `ON_FIRST_RETRY`, `ON_ALL_RETRIES`, `RETAIN_ON_FAILURE`. |
-| `test_metrics_options` | `TestMetricsOptions` | -- | `disable_test_metrics`, `disable_aggregation`, `enable_step_metrics`. |
-| `artifacts_options` | `ArtifactsOptions` | *(global if set)* | Per-probe artifact storage and web serving config. Falls back to `global_artifacts_options`. |
-| `workdir_cleanup_options` | `CleanupOptions` | 1hr max age | Cleanup schedule for the working directory. |
-| `env_var` | `map<string,string>` | -- | Extra environment variables passed to the Playwright process. |
-| `requests_per_probe` | `int32` | `1` | Concurrent Playwright invocations per probe cycle. |
-| `requests_interval_msec` | `int32` | `0` | Stagger delay between concurrent requests. |
+| Field | Default | Description |
+|---|---|---|
+| `test_spec` | *(all files in test_dir)* | Test specs to run. Filenames relative to `test_dir`; regex patterns passed to Playwright grep. |
+| `test_dir` | Config file directory | Directory where test specs are located. |
+| `test_spec_filter` | -- | Include/exclude tests by title regex. See below for an example.|
+| `playwright_dir` | `$PLAYWRIGHT_DIR` | Path to Playwright installation. Auto-set in `cloudprober:*-pw` images. |
+| `retries` | `0` | Number of retries per test. |
+| `save_trace` | `NEVER` | Trace capture: `NEVER`, `ALWAYS`, `ON_FIRST_RETRY`, `ON_ALL_RETRIES`, `RETAIN_ON_FAILURE`. |
+| `test_metrics_options` | -- | Control test-level and step-level metrics. [Ref.][1] |
+| `artifacts_options` | *(global if set)* | Per-probe artifact storage config. Falls back to `global_artifacts_options`. Discussed in more detail [below](#artifacts-setup). |
+| `env_var` | -- | Extra environment variables passed to Playwright. |
+| `requests_per_probe` | `1` | Concurrent Playwright invocations per probe cycle. |
+
+[1]: https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_TestMetricsOptions
 
 **`TestSpecFilter`**
 
@@ -229,7 +226,7 @@ The artifacts viewer is served by Cloudprober's built-in web server but is
 
 #### Option A: Global Config (Recommended)
 
-Set `global_artifacts_options` at the top level of your Cloudprober config. This
+Set `global_artifacts_options` ([ref](https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_artifacts_ArtifactsOptions)) at the top level of your Cloudprober config. This
 applies to all browser probes and keeps per-probe configs clean.
 
 ```textproto
