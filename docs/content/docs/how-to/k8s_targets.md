@@ -2,7 +2,7 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 12
+    weight: 16
 title: "Kubernetes Targets"
 date: 2022-11-01T17:24:32-07:00
 ---

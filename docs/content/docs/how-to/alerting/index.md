@@ -3,7 +3,7 @@ menu:
   docs:
     parent: how-to
     name: "Alerting"
-    weight: 11
+    weight: 10
 title: "Alerting"
 date: 2023-10-04T17:24:32-07:00
 ---
