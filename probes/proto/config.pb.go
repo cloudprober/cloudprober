@@ -457,6 +457,15 @@ type ProbeDef struct {
 	// for large deployments, where you may want to use the same prober config
 	// everywhere but run this probe only on a subset of machines.
 	RunOn *string `protobuf:"bytes,3,opt,name=run_on,json=runOn" json:"run_on,omitempty"`
+	// Duration to wait before starting the probe.
+	//
+	// This delay is applied only once, at the very beginning of the probe execution
+	// loop. It is useful for manually staggering the startup of multiple probes,
+	// especially when the probe interval is large and the default automatic
+	// staggering (capped at 1 minute) is not sufficient.
+	//
+	// Note: This delay is additive to the default automatic staggering.
+	StartupDelayMsec *uint32 `protobuf:"varint,102,opt,name=startup_delay_msec,json=startupDelayMsec" json:"startup_delay_msec,omitempty"`
 	// Schedule for the probe. You can use a schedule to specify when a probe
 	// should or should not run. This is useful for running probes only during
 	// business hours.
@@ -778,6 +787,13 @@ func (x *ProbeDef) GetRunOn() string {
 	return ""
 }
 
+func (x *ProbeDef) GetStartupDelayMsec() uint32 {
+	if x != nil && x.StartupDelayMsec != nil {
+		return *x.StartupDelayMsec
+	}
+	return 0
+}
+
 func (x *ProbeDef) GetSchedule() []*Schedule {
 	if x != nil {
 		return x.Schedule
@@ -1083,7 +1099,7 @@ var File_github_com_cloudprober_cloudprober_probes_proto_config_proto protorefle
 
 const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\x9c\x10\n" +
+	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\xca\x10\n" +
 	"\bProbeDef\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x125\n" +
 	"\x04type\x18\x02 \x02(\x0e2!.cloudprober.probes.ProbeDef.TypeR\x04type\x12#\n" +
@@ -1119,7 +1135,8 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"\rbrowser_probe\x18\x1c \x01(\v2%.cloudprober.probes.browser.ProbeConfH\x01R\fbrowserProbe\x12I\n" +
 	"\fsystem_probe\x18\x1d \x01(\v2$.cloudprober.probes.system.ProbeConfH\x01R\vsystemProbe\x12.\n" +
 	"\x12user_defined_probe\x18c \x01(\tH\x01R\x10userDefinedProbe\x12\x15\n" +
-	"\x06run_on\x18\x03 \x01(\tR\x05runOn\x128\n" +
+	"\x06run_on\x18\x03 \x01(\tR\x05runOn\x12,\n" +
+	"\x12startup_delay_msec\x18f \x01(\rR\x10startupDelayMsec\x128\n" +
 	"\bschedule\x18e \x03(\v2\x1c.cloudprober.probes.ScheduleR\bschedule\x12E\n" +
 	"\rdebug_options\x18d \x01(\v2 .cloudprober.probes.DebugOptionsR\fdebugOptions\"\x99\x01\n" +
 	"\x04Type\x12\b\n" +
