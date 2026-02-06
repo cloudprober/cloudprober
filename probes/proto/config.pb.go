@@ -465,7 +465,7 @@ type ProbeDef struct {
 	// staggering (capped at 1 minute) is not sufficient.
 	//
 	// Note: This delay is additive to the default automatic staggering.
-	StartupDelayMsec *int32 `protobuf:"varint,30,opt,name=startup_delay_msec,json=startupDelayMsec" json:"startup_delay_msec,omitempty"`
+	StartupDelayMsec *uint32 `protobuf:"varint,102,opt,name=startup_delay_msec,json=startupDelayMsec" json:"startup_delay_msec,omitempty"`
 	// Schedule for the probe. You can use a schedule to specify when a probe
 	// should or should not run. This is useful for running probes only during
 	// business hours.
@@ -787,7 +787,7 @@ func (x *ProbeDef) GetRunOn() string {
 	return ""
 }
 
-func (x *ProbeDef) GetStartupDelayMsec() int32 {
+func (x *ProbeDef) GetStartupDelayMsec() uint32 {
 	if x != nil && x.StartupDelayMsec != nil {
 		return *x.StartupDelayMsec
 	}
@@ -1136,7 +1136,7 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"\fsystem_probe\x18\x1d \x01(\v2$.cloudprober.probes.system.ProbeConfH\x01R\vsystemProbe\x12.\n" +
 	"\x12user_defined_probe\x18c \x01(\tH\x01R\x10userDefinedProbe\x12\x15\n" +
 	"\x06run_on\x18\x03 \x01(\tR\x05runOn\x12,\n" +
-	"\x12startup_delay_msec\x18\x1e \x01(\x05R\x10startupDelayMsec\x128\n" +
+	"\x12startup_delay_msec\x18f \x01(\rR\x10startupDelayMsec\x128\n" +
 	"\bschedule\x18e \x03(\v2\x1c.cloudprober.probes.ScheduleR\bschedule\x12E\n" +
 	"\rdebug_options\x18d \x01(\v2 .cloudprober.probes.DebugOptionsR\fdebugOptions\"\x99\x01\n" +
 	"\x04Type\x12\b\n" +

@@ -202,7 +202,7 @@ message ProbeDef {
   // staggering (capped at 1 minute) is not sufficient.
   //
   // Note: This delay is additive to the default automatic staggering.
-  optional int32 startup_delay_msec = 30;
+  optional uint32 startup_delay_msec = 102;
 
   // Schedule for the probe. You can use a schedule to specify when a probe
   // should or should not run. This is useful for running probes only during
