@@ -7,144 +7,143 @@ menu:
 title: "What is a Probe"
 ---
 
-Cloudprober runs probes, but what is a probe? A probe runs an operation, usually
-against a set of targets (e.g., your API servers), and looks for an expected
-outcome. Typically probes access your systems the same way as your customers,
-hence verifying systems' availability and performance from consumers' point of
-view. For example, an HTTP probe executes an HTTP request against a web server
-to verify that the web server is available. Cloudprober probes run repeatedly at
-a configured interval and export probe results as a set of metrics.
+## Active Monitoring with Probes
+
+Most monitoring is _passive_ -- you collect logs, scrape application metrics, or
+wait for errors to show up in dashboards. This tells you what's happening
+_inside_ your systems, but it doesn't tell you what your users are actually
+experiencing. A service can report healthy metrics internally while being
+unreachable from the outside due to a DNS misconfiguration, a firewall rule, or
+an expired certificate.
+
+**Probes take the opposite approach.** A probe tests your system from the
+outside, the same way a real user or customer would. An HTTP probe makes a real
+HTTP request to your website. A DNS probe sends a real DNS query to your
+resolver. A ping probe sends ICMP packets to check network reachability. If the
+probe fails, you know your users are affected -- even if internal metrics look
+fine.
+
+This is what Cloudprober does: it runs probes continuously, checks the results,
+and exports metrics and alerts so you know when something is wrong -- often
+before your users notice.
 
 ```
-Example of an HTTP Probe checking the frontend and API availability.
- _____________                   _______________
-|             |   HTTP Probe    |               |
-| Cloudprober |  ------------>  |  Website/APIs |
-|_____________|                 |_______________|
+ _____________        probe         _______________
+|             |  -------------->  |               |
+| Cloudprober |                   |  Your Systems |
+|_____________|  <--------------  |_______________|
+                  success/fail
+                    latency
 ```
 
-Here are some of the options used to configure a probe:
+## How a Probe Works
 
-| Field           | Description                                                     |
-| --------------- | --------------------------------------------------------------- |
-| `type`          | Probe type, for example: HTTP, PING or UDP                      |
-| `name`          | Probe name. Each probe should have a unique name.               |
-| `interval_msec` | How often to run the probe (in milliseconds).                   |
-| `timeout_msec`  | Probe timeout (in milliseconds).                                |
-| `targets`       | Targets to run probe against.                                   |
-| `validator`     | Probe validators, further explained [here](/how-to/validators). |
-| `<type>_probe`  | Probe type specific configuration, e.g. http_probe              |
+Every probe in Cloudprober follows the same lifecycle:
 
-Please take a look at the
-[ProbeDef protobuf](/docs/config/probes/#cloudprober_probes_ProbeDef) for
-further details on various fields and options. All probe types export at least
-the following metrics:
+1. **Repeat at an interval** -- A probe runs on a schedule (e.g., every 5
+   seconds). Each run is one probe cycle.
+2. **Check each target** -- Each cycle, the probe runs against all its
+   configured targets (e.g., a list of hostnames or IPs).
+3. **Record the outcome** -- Each probe attempt produces a result: did it
+   succeed, and how long did it take?
+4. **Export metrics** -- Results are exported as metrics that you can scrape with
+   Prometheus, send to CloudWatch, Datadog, or any other
+   [supported backend](/docs/surfacers/overview).
+5. **Alert on failures** -- Optionally, probes can trigger
+   [alerts](/docs/how-to/alerting) when failures exceed a threshold.
 
-| Metric    | Description                                                                                                                                   |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `total`   | Total probes run so far.                                                                                                                      |
-| `success` | Number of successful probes. Deficit between _total_ and _success_ indicates failures.                                                        |
-| `latency` | Cumulative probe latency (by default in microseconds). You can get more insights into latency by using [distributions](/how-to/percentiles/). |
+All probe types export at least three metrics:
 
-Note that by default all metrics are cumulative, i.e. we export sum of all the
-values so far. Cumulative metrics have this nice property that you don't lose
-historical information if you miss a metrics read cycle, but they also make
-certain calculations slightly more complicated (see below). To provide a choice
-to the user, Cloudprober provides an option to export metrics as gauge values.
-See [modifying metrics](/docs/surfacers/overview/#modifying-metrics) for more
-details.
+| Metric    | Description                                             |
+| --------- | ------------------------------------------------------- |
+| `total`   | Number of probe attempts so far.                        |
+| `success` | Number of successful probes. `total - success` = failures. |
+| `latency` | Cumulative latency (microseconds by default).           |
 
-Example: In prometheus, you'll do something like the following to compute
-success ratio and average latency from cumulative metrics.
-
-```
-success_ratio_1m = increase(success[1m]) / increase(total[1m])
-average_latency_1m = increase(latency[1m]) / increase(success[1m])
-```
+These three metrics are enough to compute success ratio and average latency for
+any probe. Individual probe types may export additional metrics (e.g., HTTP
+probes export response code counts). See
+[distributions](/docs/how-to/percentiles/) for latency percentiles.
 
 ## Probe Types
 
-Cloudprober has built-in support for the following probe types:
-
-- [HTTP](#http)
-- [External](#external)
-- [Ping](#ping)
-- [DNS](#dns)
-- [UDP](#udp)
-- [TCP](#tcp)
-
-More probe types can be added through
-[cloudprober extensions](/docs/how-to/extensions).
+Cloudprober has built-in support for the following probe types. Pick the one
+that matches how your users reach your system:
 
 ### HTTP
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/http) |
-[`Config options`](/docs/config/probes/#cloudprober_probes_http_ProbeConf)
+**Use for:** Websites, REST APIs, health check endpoints, anything served over
+HTTP/HTTPS.
 
-HTTP probe sends HTTP(s) requests to a target and verify that a response is
-received. Apart from the core probe metrics (total, success, and latency), HTTP
-probes also export a map of response code counts (`resp_code`). By default,
-requests are marked as successful as long as they succeed, regardless of the
-HTTP response code, but this behavior can be changed by using
-[validators](/docs/how-to/validators). For example, you can add a validator to
-require status code to in a certain range, or response body to match a regex,
-etc
-([validator example](https://github.com/cloudprober/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg)).
+HTTP probes make real HTTP requests and verify a response is received. You can
+use [validators](/docs/how-to/validators) to check status codes, response
+bodies, or headers. HTTP probes also track response code counts and SSL
+certificate expiry.
 
-- **SSL Certificate Expiry**: If the target serves an SSL Certificate,
-  cloudprober will walk the certificate chain and export the earliest expiry
-  time in seconds as a metric. The metric is named
-  `ssl_earliest_cert_expiry_sec`, and will only be exported when the expiry time
-  in seconds is a positive number.
+### Browser
 
-### External
+**Use for:** End-to-end testing of web applications -- login flows, checkout
+processes, multi-step user journeys.
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/external)
-| [`Config options`](/docs/config/probes/#cloudprober_probes_external_ProbeConf)
-
-External probe type allows running arbitrary programs for probing. This is
-useful for running complex checks through Cloudprober. External probes are
-documented in much more detail here:
-[external probe](/docs/how-to/external-probe).
-
-### Ping
-
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/ping) |
-[`Config options`](/docs/config/probes/#cloudprober_probes_ping_ProbeConf)
-
-Ping probe type implements a fast native ICMP ping prober, that can probe
-hundreds of targets in parallel. Probe results are reported as number of packets
-sent (total), received (success) and round-trip time (latency). It supports
-both, privileged and unprivileged (uses ICMP datagram socket) pings.
-
-Note that ICMP datagram sockets are not enabled by default on most Linux
-systems. You can enable them by running the following command:
-`sudo sysctl -w net.ipv4.ping_group_range="0 5000"`
+Browser probes run real browser interactions using Playwright: navigating pages,
+clicking buttons, filling forms. Cloudprober adds scheduling, metrics, artifact
+management (screenshots, traces), and alerting on top, turning your Playwright
+tests into continuous production monitoring. See
+[browser probe](/docs/how-to/browser-probe) for details.
 
 ### DNS
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/dns) |
-[`Config options`](/docs/config/probes/#cloudprober_probes_dns_ProbeConf)
+**Use for:** Verifying DNS resolvers (e.g., kube-dns, cloud DNS) are responding
+correctly.
 
-As the name suggests, DNS probe sends a DNS request to the target. This is
-useful to verify that your DNS server, typically a critical component of the
-infrastructure e.g. kube-dns, is working as expected.
+DNS probes send DNS queries to a target and verify a response is received. This
+is important because DNS is typically a critical dependency -- if your DNS is
+down, everything that depends on it is effectively down too.
 
-### UDP
+### Ping
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/udp) |
-[`Config options`](/docs/config/probes/#cloudprober_probes_udp_ProbeConf)
+**Use for:** Network reachability, host availability, latency baselines.
 
-UDP probe sends a UDP packet to the configured targets. UDP probe (and all other
-probes that use ports) provides more coverage for the network elements on the
-data path as most packet forwarding elements use 5-tuple hashing and using a new
-source port for each probe ensures that we hit different network element each
-time.
+Ping probes send ICMP packets and measure round-trip time. Cloudprober's
+built-in ping prober is fast and can probe hundreds of targets in parallel.
 
 ### TCP
 
-[`Code`](http://github.com/cloudprober/cloudprober/tree/master/probes/tcp) |
-[`Config options`](/docs/config/probes/#cloudprober_probes_tcp_ProbeConf)
+**Use for:** Verifying that a service is accepting connections on a specific
+port.
 
-TCP probe verifies that we can establish a TCP connection to the given target
-and port.
+TCP probes check that a TCP connection can be established to the target. This is
+useful for databases, caches, or any service that listens on a TCP port but
+doesn't speak HTTP.
+
+### UDP
+
+**Use for:** UDP services, or when you want to test network paths more
+thoroughly.
+
+UDP probes send packets to the target. Since network load balancers typically use
+5-tuple hashing, each probe with a different source port tests a potentially
+different network path -- giving you broader coverage of your network
+infrastructure.
+
+### External
+
+**Use for:** Custom checks that don't fit the built-in probe types.
+
+External probes let you run any program or script as a probe. This is useful
+when you need to test complex workflows, check application-specific logic, or
+integrate with existing monitoring scripts. See
+[external probe](/docs/how-to/external-probe) for details.
+
+Additional probe types can be added through
+[extensions](/docs/how-to/extensions).
+
+## What's Next?
+
+- **Try it out:** [Getting Started](/docs/overview/getting-started) walks you
+  through installing Cloudprober and running your first probe.
+- **Configure probes:** The [config guide](/docs/config/guide) covers all
+  configuration formats and options.
+- **Full reference:** See the
+  [ProbeDef reference](/docs/config/probes/#cloudprober_probes_ProbeDef) for
+  every probe field and option.
