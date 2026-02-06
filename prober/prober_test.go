@@ -1,4 +1,4 @@
-// Copyright 2023-2025 The Cloudprober Authors.
+// Copyright 2023-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
+	pb "github.com/cloudprober/cloudprober/prober/proto"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/probes/ping"
@@ -247,4 +248,62 @@ func TestProberRun(t *testing.T) {
 	}, out["probe1"])
 	assert.True(t, pr.Probes["probe1"].Probe.(*fakeProbe).runOnceCalled)
 	assert.Len(t, out["probe2"], 0)
+}
+
+func TestStartProbe_WithDelay(t *testing.T) {
+	pr, cancel := testProber(t, &configpb.ProberConfig{})
+	defer cancel()
+
+	pDef := testProbeDef("test-probe-1")
+	pDef.StartupDelayMsec = proto.Int32(100)
+
+	_, err := pr.AddProbe(context.Background(), &pb.AddProbeRequest{ProbeConfig: pDef})
+	assert.NoError(t, err)
+
+	tp := pr.Probes["test-probe-1"].Probe.(*testProbe)
+
+	// Should not be running immediately
+	// StartupDelayMs is 100ms. We check at 50ms.
+	select {
+	case <-tp.runningStatusCh:
+		t.Error("Probe started immediately, expected delay")
+	case <-time.After(50 * time.Millisecond):
+		// Good, didn't start yet
+	}
+
+	// Should be running after delay
+	select {
+	case <-tp.runningStatusCh:
+		// Good
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Probe didn't start after delay")
+	}
+}
+
+func TestStartProbe_CancelDuringDelay(t *testing.T) {
+	pr, cancel := testProber(t, &configpb.ProberConfig{})
+	defer cancel()
+
+	pDef := testProbeDef("test-probe-1")
+	pDef.StartupDelayMsec = proto.Int32(200)
+
+	_, err := pr.AddProbe(context.Background(), &pb.AddProbeRequest{ProbeConfig: pDef})
+	assert.NoError(t, err)
+
+	// Cancel the probe context
+	pr.mu.RLock()
+	cancelFunc := pr.probeCancelFunc["test-probe-1"]
+	pr.mu.RUnlock()
+	assert.NotNil(t, cancelFunc)
+	cancelFunc()
+
+	tp := pr.Probes["test-probe-1"].Probe.(*testProbe)
+
+	// Should not start at all
+	select {
+	case <-tp.runningStatusCh:
+		t.Error("Probe started despite cancellation")
+	case <-time.After(300 * time.Millisecond):
+		// Good
+	}
 }

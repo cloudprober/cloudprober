@@ -1,4 +1,4 @@
-// Copyright 2017-2025 The Cloudprober Authors.
+// Copyright 2017-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -138,7 +138,18 @@ func (pr *Prober) startProbe(name string) {
 
 	probeCtx, cancelFunc := context.WithCancel(pr.startCtx)
 	pr.probeCancelFunc[name] = cancelFunc
-	go pr.Probes[name].Start(probeCtx, pr.dataChan)
+
+	p := pr.Probes[name]
+	go func() {
+		if delay := p.ProbeDef.GetStartupDelayMsec(); delay > 0 {
+			select {
+			case <-probeCtx.Done():
+				return
+			case <-time.After(time.Duration(delay) * time.Millisecond):
+			}
+		}
+		p.Start(probeCtx, pr.dataChan)
+	}()
 }
 
 func randomDuration(duration time.Duration) time.Duration {

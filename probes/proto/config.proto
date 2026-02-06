@@ -194,6 +194,16 @@ message ProbeDef {
   // everywhere but run this probe only on a subset of machines.
   optional string run_on = 3;
 
+  // Duration to wait before starting the probe.
+  //
+  // This delay is applied only once, at the very beginning of the probe execution
+  // loop. It is useful for manually staggering the startup of multiple probes,
+  // especially when the probe interval is large and the default automatic
+  // staggering (capped at 1 minute) is not sufficient.
+  //
+  // Note: This delay is additive to the default automatic staggering.
+  optional int32 startup_delay_msec = 30;
+
   // Schedule for the probe. You can use a schedule to specify when a probe
   // should or should not run. This is useful for running probes only during
   // business hours.
