@@ -25,7 +25,9 @@ fine.
 
 This is what Cloudprober does: it runs probes continuously, checks the results,
 and exports metrics and alerts so you know when something is wrong -- often
-before your users notice.
+before your users notice. For a deeper dive into why active probing is
+essential, see
+[Why You Need Probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e).
 
 ```
  _____________        probe         _______________
