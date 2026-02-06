@@ -21,16 +21,20 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/tcp/proto"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -195,14 +199,7 @@ func (p *Probe) connectAndHandshake(ctx context.Context, addr, targetName string
 	return nil
 }
 
-func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
-	if runReq.Result == nil {
-		runReq.Result = p.newResult()
-	}
-
-	target, result := runReq.Target, runReq.Result.(*probeResult)
-	l := p.l.WithAttributes(slog.String("target", target.Name))
-
+func (p *Probe) runProbeForTarget(ctx context.Context, target endpoint.Endpoint, result *probeResult) error {
 	result.total++
 
 	host := target.Name
@@ -217,8 +214,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	if resolveFirst {
 		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
-			l.Error("resolve error: ", err.Error())
-			return
+			return fmt.Errorf("resolve error: %v", err)
 		}
 		host = ip.String()
 		ipLabel = host
@@ -240,19 +236,77 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	if p.opts.NegativeTest {
 		if err == nil {
-			l.Error("Negative test, but connection was successful to: ", addr)
-			return
+			return fmt.Errorf("negative test, but connection was successful to: %s", addr)
 		}
 		result.success++
-		return
+		return nil
 	}
 
 	if err != nil {
-		l.Error(err.Error())
-		return
+		return err
 	}
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	return nil
+}
+
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+
+	target, result := runReq.Target, runReq.Result.(*probeResult)
+
+	if err := p.runProbeForTarget(ctx, target, result); err != nil {
+		p.l.ErrorAttrs(err.Error(), slog.String("target", target.Name))
+	}
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running TCP probe once.")
+
+	var out []*singlerun.ProbeRunResult
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+	for _, target := range p.opts.Targets.ListEndpoints() {
+		wg.Add(1)
+		go func(target endpoint.Endpoint) {
+			defer wg.Done()
+
+			updateOut := func(result *singlerun.ProbeRunResult) {
+				outMu.Lock()
+				defer outMu.Unlock()
+				result.Target = target
+				out = append(out, result)
+			}
+
+			result := p.newResult().(*probeResult)
+
+			start := time.Now()
+			if err := p.runProbeForTarget(ctx, target, result); err != nil {
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("TCP request failed for target, %s: %v", target.Name, err),
+				})
+				return
+			}
+
+			updateOut(&singlerun.ProbeRunResult{
+				Metrics: result.Metrics(time.Now(), 1, p.opts),
+				Success: result.success > 0,
+				Latency: time.Since(start),
+			})
+		}(target)
+	}
+	wg.Wait()
+
+	// Sort the results by target name
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Target.Name < out[j].Target.Name
+	})
+
+	return out
 }
 
 // Start starts and runs the probe indefinitely.
