@@ -255,7 +255,7 @@ func TestStartProbe_WithDelay(t *testing.T) {
 	defer cancel()
 
 	pDef := testProbeDef("test-probe-1")
-	pDef.StartupDelayMsec = proto.Int32(100)
+	pDef.StartupDelayMsec = proto.Uint32(100)
 
 	_, err := pr.AddProbe(context.Background(), &pb.AddProbeRequest{ProbeConfig: pDef})
 	assert.NoError(t, err)
@@ -285,7 +285,7 @@ func TestStartProbe_CancelDuringDelay(t *testing.T) {
 	defer cancel()
 
 	pDef := testProbeDef("test-probe-1")
-	pDef.StartupDelayMsec = proto.Int32(200)
+	pDef.StartupDelayMsec = proto.Uint32(200)
 
 	_, err := pr.AddProbe(context.Background(), &pb.AddProbeRequest{ProbeConfig: pDef})
 	assert.NoError(t, err)
