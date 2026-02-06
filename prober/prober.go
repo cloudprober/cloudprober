@@ -52,8 +52,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var randGenerator = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 var (
 	probesConfigSavePath = flag.String("probes_config_save_path", "", "Path to save the config to on API triggered config changes. If empty, config saving is disabled.")
 )
@@ -159,7 +157,7 @@ func randomDuration(duration time.Duration) time.Duration {
 	if duration > time.Minute {
 		duration = time.Minute
 	}
-	return time.Duration(randGenerator.Int63n(duration.Milliseconds())) * time.Millisecond
+	return time.Duration(rand.Int63n(duration.Milliseconds())) * time.Millisecond
 }
 
 // interProbeGap returns the wait time between probes that are in the same
