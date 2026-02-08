@@ -539,9 +539,9 @@ func (p *Probe) httpClient(target endpoint.Endpoint) *http.Client {
 			}
 		}
 
-		return &http.Client{Transport: t}
+		return &http.Client{Transport: t, CheckRedirect: p.redirectFunc}
 	}
-	return &http.Client{Transport: p.baseTransport}
+	return &http.Client{Transport: p.baseTransport, CheckRedirect: p.redirectFunc}
 }
 
 // Returns clients for a target. We use a different HTTP client (transport) for
