@@ -174,6 +174,102 @@ func TestDisabledAndHandlers(t *testing.T) {
 	}
 }
 
+func TestQueryStatus(t *testing.T) {
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
+	defer state.SetDefaultHTTPServeMux(nil)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	ps, err := New(ctx, &configpb.SurfacerConf{
+		TimeseriesSize:     proto.Int32(20),
+		MaxTargetsPerProbe: proto.Int32(10),
+	}, &options.Options{}, nil)
+	if err != nil {
+		t.Fatalf("Error creating surfacer: %v", err)
+	}
+
+	// Record data across multiple minutes for probe "p1" with targets "t1"
+	// and "t2", and probe "p2" with target "t3".
+	baseTime := time.Now().Add(-5 * time.Minute).Truncate(time.Minute)
+
+	// Simulate cumulative counters growing over 5 minutes.
+	for i := 0; i < 5; i++ {
+		ts := baseTime.Add(time.Duration(i) * time.Minute)
+		ps.record(testEM(t, ts, "p1", "t1", (i+1)*100, (i+1)*90, 0))
+		ps.record(testEM(t, ts, "p1", "t2", (i+1)*50, (i+1)*45, 0))
+		ps.record(testEM(t, ts, "p2", "t3", (i+1)*200, (i+1)*180, 0))
+	}
+
+	t.Run("all_probes_aggregated", func(t *testing.T) {
+		results, err := ps.QueryStatus(ctx, nil, 60, false)
+		assert.NoError(t, err)
+		assert.Len(t, results, 2) // p1 and p2
+
+		// Find p1 and p2 in results
+		var p1, p2 *ProbeStatusData
+		for _, r := range results {
+			switch r.Name {
+			case "p1":
+				p1 = r
+			case "p2":
+				p2 = r
+			}
+		}
+
+		assert.NotNil(t, p1)
+		assert.Len(t, p1.TargetStatuses, 2) // t1 and t2
+
+		assert.NotNil(t, p2)
+		assert.Len(t, p2.TargetStatuses, 1)
+		assert.Equal(t, "t3", p2.TargetStatuses[0].TargetName)
+
+		// Verify no minute data when not requested
+		for _, ts := range p1.TargetStatuses {
+			assert.Nil(t, ts.MinuteData)
+		}
+	})
+
+	t.Run("filter_by_probe_name", func(t *testing.T) {
+		results, err := ps.QueryStatus(ctx, []string{"p1"}, 60, false)
+		assert.NoError(t, err)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "p1", results[0].Name)
+	})
+
+	t.Run("nonexistent_probe", func(t *testing.T) {
+		results, err := ps.QueryStatus(ctx, []string{"nonexistent"}, 60, false)
+		assert.NoError(t, err)
+		assert.Len(t, results, 0)
+	})
+
+	t.Run("per_minute_breakdown", func(t *testing.T) {
+		results, err := ps.QueryStatus(ctx, []string{"p1"}, 60, true)
+		assert.NoError(t, err)
+		assert.Len(t, results, 1)
+		for _, ts := range results[0].TargetStatuses {
+			assert.NotNil(t, ts.MinuteData)
+			assert.Greater(t, len(ts.MinuteData), 0, "expected per-minute data for target %s", ts.TargetName)
+		}
+	})
+
+	t.Run("nil_surfacer", func(t *testing.T) {
+		var nilPS *Surfacer
+		results, err := nilPS.QueryStatus(ctx, nil, 60, false)
+		assert.NoError(t, err)
+		assert.Nil(t, results)
+	})
+
+	t.Run("context_cancellation", func(t *testing.T) {
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		_, err := ps.QueryStatus(canceledCtx, nil, 60, false)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+}
+
 func TestSurfacerWriteData(t *testing.T) {
 	tests := []struct {
 		name            string

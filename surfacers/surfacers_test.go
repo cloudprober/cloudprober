@@ -296,6 +296,23 @@ func TestAdditionalLabel(t *testing.T) {
 	}
 }
 
+func TestUnwrapSurfacer(t *testing.T) {
+	inner := &testSurfacer{}
+	wrapped := &SurfacerInfo{
+		Surfacer: &surfacerWrapper{Surfacer: inner},
+		Type:     "TEST",
+	}
+	unwrapped := wrapped.UnwrapSurfacer()
+	assert.Equal(t, inner, unwrapped)
+
+	// Without wrapper, should return the same surfacer.
+	direct := &SurfacerInfo{
+		Surfacer: inner,
+		Type:     "TEST",
+	}
+	assert.Equal(t, inner, direct.UnwrapSurfacer())
+}
+
 func TestExtensionSurfacer(t *testing.T) {
 	// This is required for Init to succeed (for PROBESTATUS surfacer)
 	state.SetDefaultHTTPServeMux(http.NewServeMux())

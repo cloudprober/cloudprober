@@ -24,6 +24,7 @@ const (
 	Cloudprober_RunProbe_FullMethodName         = "/cloudprober.Cloudprober/RunProbe"
 	Cloudprober_ListProbes_FullMethodName       = "/cloudprober.Cloudprober/ListProbes"
 	Cloudprober_SaveProbesConfig_FullMethodName = "/cloudprober.Cloudprober/SaveProbesConfig"
+	Cloudprober_GetProbeStatus_FullMethodName   = "/cloudprober.Cloudprober/GetProbeStatus"
 )
 
 // CloudproberClient is the client API for Cloudprober service.
@@ -41,6 +42,10 @@ type CloudproberClient interface {
 	// ListProbes lists active probes.
 	ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error)
 	SaveProbesConfig(ctx context.Context, in *SaveProbesConfigRequest, opts ...grpc.CallOption) (*SaveProbesConfigResponse, error)
+	// GetProbeStatus returns the ongoing probe status data, including
+	// total/success counters per probe/target, with optional per-minute
+	// breakdown.
+	GetProbeStatus(ctx context.Context, in *GetProbeStatusRequest, opts ...grpc.CallOption) (*GetProbeStatusResponse, error)
 }
 
 type cloudproberClient struct {
@@ -101,6 +106,16 @@ func (c *cloudproberClient) SaveProbesConfig(ctx context.Context, in *SaveProbes
 	return out, nil
 }
 
+func (c *cloudproberClient) GetProbeStatus(ctx context.Context, in *GetProbeStatusRequest, opts ...grpc.CallOption) (*GetProbeStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetProbeStatusResponse)
+	err := c.cc.Invoke(ctx, Cloudprober_GetProbeStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CloudproberServer is the server API for Cloudprober service.
 // All implementations must embed UnimplementedCloudproberServer
 // for forward compatibility.
@@ -116,6 +131,10 @@ type CloudproberServer interface {
 	// ListProbes lists active probes.
 	ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error)
 	SaveProbesConfig(context.Context, *SaveProbesConfigRequest) (*SaveProbesConfigResponse, error)
+	// GetProbeStatus returns the ongoing probe status data, including
+	// total/success counters per probe/target, with optional per-minute
+	// breakdown.
+	GetProbeStatus(context.Context, *GetProbeStatusRequest) (*GetProbeStatusResponse, error)
 	mustEmbedUnimplementedCloudproberServer()
 }
 
@@ -140,6 +159,9 @@ func (UnimplementedCloudproberServer) ListProbes(context.Context, *ListProbesReq
 }
 func (UnimplementedCloudproberServer) SaveProbesConfig(context.Context, *SaveProbesConfigRequest) (*SaveProbesConfigResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveProbesConfig not implemented")
+}
+func (UnimplementedCloudproberServer) GetProbeStatus(context.Context, *GetProbeStatusRequest) (*GetProbeStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProbeStatus not implemented")
 }
 func (UnimplementedCloudproberServer) mustEmbedUnimplementedCloudproberServer() {}
 func (UnimplementedCloudproberServer) testEmbeddedByValue()                     {}
@@ -252,6 +274,24 @@ func _Cloudprober_SaveProbesConfig_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cloudprober_GetProbeStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProbeStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudproberServer).GetProbeStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Cloudprober_GetProbeStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudproberServer).GetProbeStatus(ctx, req.(*GetProbeStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Cloudprober_ServiceDesc is the grpc.ServiceDesc for Cloudprober service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -278,6 +318,10 @@ var Cloudprober_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveProbesConfig",
 			Handler:    _Cloudprober_SaveProbesConfig_Handler,
+		},
+		{
+			MethodName: "GetProbeStatus",
+			Handler:    _Cloudprober_GetProbeStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

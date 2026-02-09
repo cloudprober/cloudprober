@@ -140,6 +140,45 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 	return &pb.RemoveProbeResponse{}, nil
 }
 
+// GetProbeStatus returns the ongoing probe status data.
+func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequest) (*pb.GetProbeStatusResponse, error) {
+	if pr.probeStatusSurfacer == nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "probestatus surfacer is not available")
+	}
+
+	results, err := pr.probeStatusSurfacer.QueryStatus(
+		ctx,
+		req.GetProbeName(),
+		int(req.GetTimeWindowMinutes()),
+		req.GetPerMinuteBreakdown(),
+	)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error querying probe status: %v", err)
+	}
+
+	resp := &pb.GetProbeStatusResponse{}
+	for _, psd := range results {
+		probeStatus := &pb.ProbeStatus{Name: proto.String(psd.Name)}
+		for _, tsd := range psd.TargetStatuses {
+			targetStatus := &pb.TargetStatus{
+				TargetName: proto.String(tsd.TargetName),
+				Total:      proto.Int64(tsd.Total),
+				Success:    proto.Int64(tsd.Success),
+			}
+			for _, md := range tsd.MinuteData {
+				targetStatus.MinuteStatus = append(targetStatus.MinuteStatus, &pb.MinuteStatus{
+					Timestamp: proto.Int64(md.Timestamp),
+					Total:     proto.Int64(md.Total),
+					Success:   proto.Int64(md.Success),
+				})
+			}
+			probeStatus.TargetStatus = append(probeStatus.TargetStatus, targetStatus)
+		}
+		resp.ProbeStatus = append(resp.ProbeStatus, probeStatus)
+	}
+	return resp, nil
+}
+
 // ListProbes gRPC method returns the list of probes from the in-memory database.
 func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*pb.ListProbesResponse, error) {
 	pr.l.Info("ListProbes called")

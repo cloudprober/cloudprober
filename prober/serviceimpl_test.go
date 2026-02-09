@@ -183,6 +183,38 @@ func TestRemoveProbes(t *testing.T) {
 	verifyProbeRunningStatus(t, p, false)
 }
 
+func TestGetProbeStatus(t *testing.T) {
+	pr, cancel := testProber(t, &configpb.ProberConfig{})
+	defer cancel()
+
+	// Verify probeStatusSurfacer was cached during Init.
+	assert.NotNil(t, pr.probeStatusSurfacer, "probeStatusSurfacer should be initialized")
+
+	// Call GetProbeStatus with empty probe names (all probes).
+	resp, err := pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// With no data recorded, should get empty probe status list.
+	assert.Empty(t, resp.GetProbeStatus())
+
+	// Call with a non-existent probe name.
+	resp, err = pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{
+		ProbeName: []string{"nonexistent"},
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, resp.GetProbeStatus())
+}
+
+func TestGetProbeStatusNoSurfacer(t *testing.T) {
+	// Create a prober without probeStatusSurfacer.
+	pr := &Prober{}
+
+	_, err := pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "probestatus surfacer is not available")
+}
+
 func TestSaveProbesConfig(t *testing.T) {
 	tmpFile := func() *os.File {
 		f, err := os.CreateTemp(t.TempDir(), "cloudprober_save.cfg")
