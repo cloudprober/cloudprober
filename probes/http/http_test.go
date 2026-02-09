@@ -852,6 +852,44 @@ func TestProbeInitRedirectsNotSet(t *testing.T) {
 	}
 }
 
+func TestMaxRedirectsEnforced(t *testing.T) {
+	ctx, cancelF := context.WithCancel(context.Background())
+	defer cancelF()
+
+	ts, err := newTestServer(t, ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p := &Probe{}
+	opts := &options.Options{
+		Targets:  targets.StaticTargets(ts.addr.String()),
+		Interval: 10 * time.Millisecond,
+		ProbeConf: &configpb.ProbeConf{
+			MaxRedirects: proto.Int32(0),
+		},
+	}
+	if err := p.Init("redirect_test", opts); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("real_transport", func(t *testing.T) {
+		client := p.httpClient(p.targets[0])
+		resp, err := client.Get(fmt.Sprintf("http://%s/redirect?url=/", ts.addr))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
+	})
+
+	t.Run("custom_transport", func(t *testing.T) {
+		patchWithTestTransport(p)
+		client := p.httpClient(p.targets[0])
+		assert.NotNil(t, client.CheckRedirect)
+	})
+}
+
 func TestClientsForTarget(t *testing.T) {
 	tests := []struct {
 		name                string
