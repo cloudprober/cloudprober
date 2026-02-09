@@ -166,6 +166,15 @@ type SurfacerInfo struct {
 	Conf        string
 }
 
+// UnwrapSurfacer returns the underlying Surfacer, unwrapping the
+// surfacerWrapper if present.
+func (si *SurfacerInfo) UnwrapSurfacer() Surfacer {
+	if sw, ok := si.Surfacer.(*surfacerWrapper); ok {
+		return sw.Surfacer
+	}
+	return si.Surfacer
+}
+
 func inferType(s *surfacerpb.SurfacerDef) surfacerpb.Type {
 	switch s.Surfacer.(type) {
 	case *surfacerpb.SurfacerDef_PrometheusSurfacer:

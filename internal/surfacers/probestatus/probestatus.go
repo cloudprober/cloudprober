@@ -54,6 +54,34 @@ var dropAfterNoDataFor = 6 * time.Hour
 // blocking on previous queries to finish.
 const queriesQueueSize = 10
 
+// ProbeStatusData represents the status data for a single probe.
+type ProbeStatusData struct {
+	Name           string
+	TargetStatuses []*TargetStatusData
+}
+
+// TargetStatusData represents the status data for a single target.
+type TargetStatusData struct {
+	TargetName string
+	Total      int64
+	Success    int64
+	MinuteData []*MinuteStatusData // nil if not requested
+}
+
+// MinuteStatusData represents per-minute status data.
+type MinuteStatusData struct {
+	Timestamp int64 // Unix seconds
+	Total     int64
+	Success   int64
+}
+
+type statusQuery struct {
+	probeNames         []string
+	timeWindowMinutes  int
+	perMinuteBreakdown bool
+	resultChan         chan []*ProbeStatusData
+}
+
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
 // to signal the completion of the writing of the response.
 type httpWriter struct {
@@ -96,11 +124,12 @@ func (pc *pageCache) setContent(url string, content []byte) {
 
 // Surfacer implements a status surfacer for Cloudprober.
 type Surfacer struct {
-	c         *configpb.SurfacerConf // Configuration
-	opts      *options.Options
-	emChan    chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
-	queryChan chan *httpWriter           // Query channel
-	l         *logger.Logger
+	c              *configpb.SurfacerConf // Configuration
+	opts           *options.Options
+	emChan         chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
+	queryChan      chan *httpWriter           // Query channel
+	statusQueryCh  chan *statusQuery          // Channel for structured status queries
+	l              *logger.Logger
 
 	resolution   time.Duration
 	metrics      map[string]map[string]*timeseries
@@ -138,13 +167,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	}
 
 	ps := &Surfacer{
-		c:            config,
-		opts:         opts,
-		emChan:       make(chan *metrics.EventMetrics, metricsBufferSize),
-		queryChan:    make(chan *httpWriter, queriesQueueSize),
-		metrics:      make(map[string]map[string]*timeseries),
-		probeTargets: make(map[string][]string),
-		startTime:    sysvars.StartTime().Truncate(time.Millisecond),
+		c:             config,
+		opts:          opts,
+		emChan:        make(chan *metrics.EventMetrics, metricsBufferSize),
+		queryChan:     make(chan *httpWriter, queriesQueueSize),
+		statusQueryCh: make(chan *statusQuery, queriesQueueSize),
+		metrics:       make(map[string]map[string]*timeseries),
+		probeTargets:  make(map[string][]string),
+		startTime:     sysvars.StartTime().Truncate(time.Millisecond),
 
 		resolution: res,
 		l:          l,
@@ -167,6 +197,8 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			case hw := <-ps.queryChan:
 				ps.writeData(hw)
 				close(hw.doneChan)
+			case sq := <-ps.statusQueryCh:
+				sq.resultChan <- ps.processStatusQuery(sq)
 			}
 		}
 	}()
@@ -209,6 +241,121 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 	l.Infof("Initialized status surfacer at the URL: %s", config.GetUrl())
 	return ps, nil
+}
+
+// processStatusQuery processes a structured status query and returns the
+// results. Must be called from the event loop goroutine.
+func (ps *Surfacer) processStatusQuery(sq *statusQuery) []*ProbeStatusData {
+	probeNames := sq.probeNames
+	if len(probeNames) == 0 {
+		probeNames = ps.probeNames
+	}
+
+	timeWindow := time.Duration(sq.timeWindowMinutes) * time.Minute
+	var results []*ProbeStatusData
+
+	for _, probeName := range probeNames {
+		probeTS := ps.metrics[probeName]
+		if probeTS == nil {
+			continue
+		}
+
+		psd := &ProbeStatusData{Name: probeName}
+
+		for _, targetName := range ps.probeTargets[probeName] {
+			ts := probeTS[targetName]
+			if ts == nil {
+				continue
+			}
+
+			t, s := ts.computeDelta(timeWindow)
+			if t == -1 {
+				continue
+			}
+
+			tsd := &TargetStatusData{
+				TargetName: targetName,
+				Total:      t,
+				Success:    s,
+			}
+
+			if sq.perMinuteBreakdown {
+				tsd.MinuteData = ps.computeMinuteBreakdown(ts, timeWindow)
+			}
+
+			psd.TargetStatuses = append(psd.TargetStatuses, tsd)
+		}
+
+		results = append(results, psd)
+	}
+
+	return results
+}
+
+// computeMinuteBreakdown computes per-minute deltas for the given timeseries,
+// walking backwards from the latest data point.
+func (ps *Surfacer) computeMinuteBreakdown(baseTS *timeseries, timeWindow time.Duration) []*MinuteStatusData {
+	ts := baseTS.shallowCopy()
+
+	numMinutes := int(timeWindow / ts.res)
+	if numMinutes > ts.size() {
+		numMinutes = ts.size()
+	}
+
+	var result []*MinuteStatusData
+	currentTime := ts.currentTS
+
+	for i := 0; i < numMinutes; i++ {
+		if ts.latest == ts.oldest {
+			break
+		}
+
+		currentD := ts.a[ts.latest]
+		ts.latest = ts.agoIndex(1)
+		prevD := ts.a[ts.latest]
+
+		if currentD == nil || prevD == nil {
+			break
+		}
+
+		result = append([]*MinuteStatusData{{
+			Timestamp: currentTime.Unix(),
+			Total:     currentD.total - prevD.total,
+			Success:   currentD.success - prevD.success,
+		}}, result...)
+
+		currentTime = currentTime.Add(-ts.res)
+	}
+
+	return result
+}
+
+// QueryStatus queries the probe status data through the event loop channel.
+// It respects context cancellation to avoid hanging gRPC calls.
+func (ps *Surfacer) QueryStatus(ctx context.Context, probeNames []string, timeWindowMinutes int, perMinuteBreakdown bool) ([]*ProbeStatusData, error) {
+	if ps == nil {
+		return nil, nil
+	}
+
+	sq := &statusQuery{
+		probeNames:         probeNames,
+		timeWindowMinutes:  timeWindowMinutes,
+		perMinuteBreakdown: perMinuteBreakdown,
+		resultChan:         make(chan []*ProbeStatusData, 1),
+	}
+
+	select {
+	case ps.statusQueryCh <- sq:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	select {
+	case result := <-sq.resultChan:
+		return result, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // Write queues the incoming data into a channel. This channel is watched by a
