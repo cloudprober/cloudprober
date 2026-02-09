@@ -32,6 +32,8 @@ import (
 	"github.com/cloudprober/cloudprober/state"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -204,6 +206,32 @@ func TestGetProbeStatus(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Empty(t, resp.GetProbeStatus())
+
+	t.Run("invalid_time_window", func(t *testing.T) {
+		_, err := pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{
+			TimeWindowMinutes: proto.Int32(0),
+		})
+		assert.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+	})
+
+	t.Run("context_canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, codes.Canceled, status.Code(err))
+	})
+
+	t.Run("context_deadline_exceeded", func(t *testing.T) {
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		defer cancel()
+
+		_, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, codes.DeadlineExceeded, status.Code(err))
+	})
 }
 
 func TestGetProbeStatusNoSurfacer(t *testing.T) {

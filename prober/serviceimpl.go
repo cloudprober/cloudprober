@@ -146,13 +146,21 @@ func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequ
 		return nil, status.Errorf(codes.FailedPrecondition, "probestatus surfacer is not available")
 	}
 
+	timeWindowMinutes := int(req.GetTimeWindowMinutes())
+	if timeWindowMinutes <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "time_window_minutes must be > 0")
+	}
+
 	results, err := pr.probeStatusSurfacer.QueryStatus(
 		ctx,
 		req.GetProbeName(),
-		int(req.GetTimeWindowMinutes()),
+		timeWindowMinutes,
 		req.GetPerMinuteBreakdown(),
 	)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, status.FromContextError(err).Err()
+		}
 		return nil, status.Errorf(codes.Internal, "error querying probe status: %v", err)
 	}
 
