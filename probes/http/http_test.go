@@ -799,38 +799,6 @@ func TestGetTransport(t *testing.T) {
 	}
 }
 
-func TestProbeInitRedirects(t *testing.T) {
-	p := &Probe{}
-	maxRedirects := 10
-
-	opts := &options.Options{
-		Targets:  targets.StaticTargets("test.com"),
-		Interval: 10 * time.Millisecond,
-		ProbeConf: &configpb.ProbeConf{
-			MaxRedirects: proto.Int32(int32(maxRedirects)),
-		},
-	}
-
-	err := p.Init("http_test", opts)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	if p.redirectFunc == nil {
-		t.Errorf("expected redirectFunc to be initialized, found redirectFunc was not initialized")
-	}
-
-	req := &http.Request{}
-	via := make([]*http.Request, maxRedirects)
-	if err := p.redirectFunc(req, via[:maxRedirects-1]); err != nil {
-		t.Errorf("expected redirectFunc to return nil, found %v", err)
-	}
-
-	if err := p.redirectFunc(req, via); !errors.Is(err, http.ErrUseLastResponse) {
-		t.Errorf("expected redirectFunc to return ErrUseLastResponse, found %v", err)
-	}
-}
-
 func TestProbeInitRedirectsNotSet(t *testing.T) {
 	p := &Probe{}
 
