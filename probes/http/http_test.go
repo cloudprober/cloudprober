@@ -799,38 +799,6 @@ func TestGetTransport(t *testing.T) {
 	}
 }
 
-func TestProbeInitRedirects(t *testing.T) {
-	p := &Probe{}
-	maxRedirects := 10
-
-	opts := &options.Options{
-		Targets:  targets.StaticTargets("test.com"),
-		Interval: 10 * time.Millisecond,
-		ProbeConf: &configpb.ProbeConf{
-			MaxRedirects: proto.Int32(int32(maxRedirects)),
-		},
-	}
-
-	err := p.Init("http_test", opts)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	if p.redirectFunc == nil {
-		t.Errorf("expected redirectFunc to be initialized, found redirectFunc was not initialized")
-	}
-
-	req := &http.Request{}
-	via := make([]*http.Request, maxRedirects)
-	if err := p.redirectFunc(req, via[:maxRedirects-1]); err != nil {
-		t.Errorf("expected redirectFunc to return nil, found %v", err)
-	}
-
-	if err := p.redirectFunc(req, via); !errors.Is(err, http.ErrUseLastResponse) {
-		t.Errorf("expected redirectFunc to return ErrUseLastResponse, found %v", err)
-	}
-}
-
 func TestProbeInitRedirectsNotSet(t *testing.T) {
 	p := &Probe{}
 
@@ -852,42 +820,80 @@ func TestProbeInitRedirectsNotSet(t *testing.T) {
 	}
 }
 
-func TestMaxRedirectsEnforced(t *testing.T) {
-	ctx, cancelF := context.WithCancel(context.Background())
-	defer cancelF()
+func TestMaxRedirects(t *testing.T) {
+	// Server that redirects twice then 200
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/1", http.StatusTemporaryRedirect)
+			return
+		}
+		if r.URL.Path == "/1" {
+			http.Redirect(w, r, "/2", http.StatusTemporaryRedirect)
+			return
+		}
+		fmt.Fprintf(w, "OK")
+	}))
+	defer ts.Close()
 
-	ts, err := newTestServer(t, ctx, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Parse custom port from ts.URL
+	u, _ := url.Parse(ts.URL)
+	_, portStr, _ := net.SplitHostPort(u.Host)
+	port, _ := strconv.Atoi(portStr)
 
-	p := &Probe{}
-	opts := &options.Options{
-		Targets:  targets.StaticTargets(ts.addr.String()),
-		Interval: 10 * time.Millisecond,
-		ProbeConf: &configpb.ProbeConf{
-			MaxRedirects: proto.Int32(0),
+	tests := []struct {
+		desc           string
+		maxRedirects   int32
+		wantPath       string
+		wantStatusCode int
+	}{
+		{
+			desc:           "max_redirects_0",
+			maxRedirects:   0,
+			wantPath:       "",
+			wantStatusCode: http.StatusTemporaryRedirect,
+		},
+		{
+			desc:           "max_redirects_1",
+			maxRedirects:   1,
+			wantPath:       "/1",
+			wantStatusCode: http.StatusTemporaryRedirect,
+		},
+		{
+			desc:           "max_redirects_2",
+			maxRedirects:   2,
+			wantPath:       "/2",
+			wantStatusCode: http.StatusOK,
 		},
 	}
-	if err := p.Init("redirect_test", opts); err != nil {
-		t.Fatal(err)
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			opts := &options.Options{
+				Targets:  targets.StaticTargets("localhost"),
+				Interval: 10 * time.Second,
+				Timeout:  time.Second,
+				ProbeConf: &configpb.ProbeConf{
+					Port:         proto.Int32(int32(port)),
+					MaxRedirects: proto.Int32(test.maxRedirects),
+				},
+			}
+
+			p := &Probe{}
+			if err := p.Init("redirect_test", opts); err != nil {
+				t.Fatal(err)
+			}
+
+			client := p.httpClient(p.targets[0])
+			resp, err := client.Get(fmt.Sprintf("%s", ts.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+
+			assert.Equal(t, test.wantPath, resp.Request.URL.Path)
+			assert.Equal(t, test.wantStatusCode, resp.StatusCode)
+		})
 	}
-
-	t.Run("real_transport", func(t *testing.T) {
-		client := p.httpClient(p.targets[0])
-		resp, err := client.Get(fmt.Sprintf("http://%s/redirect?url=/", ts.addr))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
-	})
-
-	t.Run("custom_transport", func(t *testing.T) {
-		patchWithTestTransport(p)
-		client := p.httpClient(p.targets[0])
-		assert.NotNil(t, client.CheckRedirect)
-	})
 }
 
 func TestClientsForTarget(t *testing.T) {

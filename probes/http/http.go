@@ -221,7 +221,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	if p.c.MaxRedirects != nil {
 		p.redirectFunc = func(req *http.Request, via []*http.Request) error {
-			if len(via) >= int(p.c.GetMaxRedirects()) {
+			if len(via) > int(p.c.GetMaxRedirects()) {
 				return http.ErrUseLastResponse
 			}
 			return nil
