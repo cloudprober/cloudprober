@@ -65,7 +65,7 @@ const (
 const (
 	DefaultServerHost   = ""
 	DefaultServerPort   = 9313
-	NoGrpcPort          = "0" // By default, no gRPC server is started.
+	NoGRPCPort          = "NO_GRPC_SERVER" // By default, no gRPC server is started.
 	ServerHostEnvVar    = "CLOUDPROBER_HOST"
 	ServerPortEnvVar    = "CLOUDPROBER_PORT"
 	GrpcPortEnvVar      = "CLOUDPROBER_GRPC_PORT"
