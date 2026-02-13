@@ -105,10 +105,10 @@ func getGRPCPort(c *configpb.ProberConfig) string {
 	grpcPort := c.GetGrpcPort()
 	if grpcPort != 0 {
 		return strconv.Itoa(int(grpcPort))
-	} else if envPort := os.Getenv(GrpcPortEnvVar); envPort != "" {
+	} else if envPort := os.Getenv(GRPCPortEnvVar); envPort != "" {
 		return envPort
 	}
-	return NoGrpcPort
+	return NoGRPCPort
 }
 
 func getDefaultServerPort(c *configpb.ProberConfig, l *logger.Logger) (int, error) {
@@ -244,8 +244,8 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	state.SetDefaultHTTPServeMux(srvMux)
 
 	var grpcLn net.Listener
-	grpcPort := getGrpcPort(cfg)
-	if grpcPort != NoGrpcPort {
+	grpcPort := getGRPCPort(cfg)
+	if grpcPort != NoGRPCPort {
 		serverHost := getServerHost(cfg)
 
 		grpcLn, err = net.Listen("tcp", net.JoinHostPort(serverHost, grpcPort))
