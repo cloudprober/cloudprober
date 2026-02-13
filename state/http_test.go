@@ -88,3 +88,35 @@ func TestAddWebHandlerWithArtifactsLink(t *testing.T) {
 	expected := []string{"/test-artifact", "/custom-artifact"}
 	assert.Equal(t, expected, ArtifactsURLs())
 }
+
+func TestAddWebHandlerNoStateMutationOnMuxConflict(t *testing.T) {
+	testMux := http.NewServeMux()
+	SetDefaultHTTPServeMux(testMux)
+	defer SetDefaultHTTPServeMux(nil)
+
+	err := AddWebHandler("/foo/{id}", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/foo/1"))
+	assert.NoError(t, err)
+
+	err = AddWebHandler("/foo/{name}", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/foo/2"))
+	assert.Error(t, err)
+	assert.Equal(t, []string{"/foo/{id}"}, AllLinks())
+	assert.Equal(t, []string{"/foo/1"}, ArtifactsURLs())
+}
+
+func TestLinksAreReturnedAsCopies(t *testing.T) {
+	testMux := http.NewServeMux()
+	SetDefaultHTTPServeMux(testMux)
+	defer SetDefaultHTTPServeMux(nil)
+
+	err := AddWebHandler("/test-artifact", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/custom-artifact"))
+	assert.NoError(t, err)
+
+	links := AllLinks()
+	artifacts := ArtifactsURLs()
+
+	links[0] = "/mutated-link"
+	artifacts[0] = "/mutated-artifact"
+
+	assert.Equal(t, []string{"/test-artifact"}, AllLinks())
+	assert.Equal(t, []string{"/custom-artifact"}, ArtifactsURLs())
+}

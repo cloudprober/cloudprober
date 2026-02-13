@@ -115,10 +115,3 @@ func ConfigFilePath() string {
 	defer st.RUnlock()
 	return st.configFilePath
 }
-
-// ArtifactsURLs returns the list of URLs that are registered as artifacts.
-func ArtifactsURLs() []string {
-	st.RLock()
-	defer st.RUnlock()
-	return st.artifactsURLs
-}

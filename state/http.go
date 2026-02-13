@@ -88,6 +88,8 @@ func AddWebHandler(path string, f func(w http.ResponseWriter, r *http.Request), 
 		return fmt.Errorf("path %s already registered", path)
 	}
 
+	st.httpServeMux.HandleFunc(path, f)
+
 	st.webURLs = append(st.webURLs, path)
 	if hOptions.isArtifact {
 		link := path
@@ -96,7 +98,6 @@ func AddWebHandler(path string, f func(w http.ResponseWriter, r *http.Request), 
 		}
 		st.artifactsURLs = append(st.artifactsURLs, link)
 	}
-	st.httpServeMux.HandleFunc(path, f)
 
 	return nil
 }
@@ -105,5 +106,12 @@ func AllLinks() []string {
 	st.RLock()
 	defer st.RUnlock()
 
-	return st.webURLs
+	return slices.Clone(st.webURLs)
+}
+
+// ArtifactsURLs returns the list of URLs that are registered as artifacts.
+func ArtifactsURLs() []string {
+	st.RLock()
+	defer st.RUnlock()
+	return slices.Clone(st.artifactsURLs)
 }
