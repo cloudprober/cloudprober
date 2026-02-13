@@ -22,6 +22,12 @@ monitoring.
 
 **TL;DR:** Cloudprober makes Playwright production-ready.
 
+{{< alert context="success" >}}
+**Live Demo:** See the Browser Probe in action -- browse real artifacts from a
+running probe at
+[browser-probe-demo.cloudprober.org/artifacts/website_e2e/](https://browser-probe-demo.cloudprober.org/artifacts/website_e2e/).
+{{< /alert >}}
+
 ---
 
 ## Why Not Just Run Playwright on Its Own?
@@ -87,6 +93,8 @@ The viewer lets you:
 
 ![Artifacts Viewer UI](artifacts-viewer.png)
 
+Try it yourself: [Live Artifacts Demo](https://browser-probe-demo.cloudprober.org/artifacts/website_e2e/)
+
 Artifacts can be stored locally *and* pushed to **S3, GCS, or Azure Blob
 Storage** simultaneously -- Cloudprober uploads to each backend in parallel
 without blocking the probe.
@@ -105,6 +113,13 @@ without blocking the probe.
 
 ## Quick Start
 
+{{< alert context="info" >}}
+**Tip:** The easiest way to get started is with the official
+**`cloudprober/cloudprober:latest-pw`** Docker image, which comes with Playwright
+and Chromium pre-installed. This avoids the often tricky manual Playwright setup.
+See [Running with Docker](#running-with-docker) for details.
+{{< /alert >}}
+
 ### 1. Cloudprober Config
 
 ```textproto
@@ -122,20 +137,23 @@ probe {
     test_spec: "checkout.spec.ts"
     test_dir: "/tests"
     retries: 1
-    save_trace: RETAIN_ON_FAILURE
+
+    save_screenshots_for_success: true
+
+    save_trace: ON_FIRST_RETRY
 
     test_metrics_options {
       enable_step_metrics: true
     }
+  }
 
-    artifacts_options {
-      serve_on_web: true
-      storage {
-        local_storage {
-          dir: "/artifacts"
-          cleanup_options {
-            max_age_sec: 86400
-          }
+  global_artifacts_options {
+    serve_on_web: true
+    storage {
+      local_storage {
+        dir: "/artifacts"
+        cleanup_options {
+          max_age_sec: 86400 # keep artifacts for a day
         }
       }
     }
@@ -186,20 +204,20 @@ Cloudprober generates the Playwright config and reporter at startup.
 
 ## Configuration Reference
 
-Key fields from `probes/browser/proto/config.proto`:
+See [generated config reference](/docs/config/latest/probes/#cloudprober_probes_browser_ProbeConf)
+for all possible options. Here are some key fields:
 
 | Field | Default | Description |
 |---|---|---|
 | `test_spec` | *(all files in test_dir)* | Test specs to run. Filenames relative to `test_dir`; regex patterns passed to Playwright grep. |
 | `test_dir` | Config file directory | Directory where test specs are located. |
 | `test_spec_filter` | -- | Include/exclude tests by title regex. See below for an example.|
-| `playwright_dir` | `$PLAYWRIGHT_DIR` | Path to Playwright installation. Auto-set in `cloudprober:*-pw` images. |
+| `save_screenshots_for_success` | false | Whether to save screenshots on success |
 | `retries` | `0` | Number of retries per test. |
 | `save_trace` | `NEVER` | Trace capture: `NEVER`, `ALWAYS`, `ON_FIRST_RETRY`, `ON_ALL_RETRIES`, `RETAIN_ON_FAILURE`. |
 | `test_metrics_options` | -- | Control test-level and step-level metrics. [Ref.][1] |
 | `artifacts_options` | *(global if set)* | Per-probe artifact storage config. Falls back to `global_artifacts_options`. Discussed in more detail [below](#artifacts-setup). |
 | `env_var` | -- | Extra environment variables passed to Playwright. |
-| `requests_per_probe` | `1` | Concurrent Playwright invocations per probe cycle. |
 
 [1]: https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_TestMetricsOptions
 
@@ -211,9 +229,6 @@ test_spec_filter {
   exclude: "@draft"             # playwright --grep-invert
 }
 ```
-
-**`SaveOption` enum values:**
-`NEVER` | `ALWAYS` | `ON_FIRST_RETRY` | `ON_ALL_RETRIES` | `RETAIN_ON_FAILURE`
 
 ---
 
@@ -319,6 +334,7 @@ and Chromium pre-installed:
 docker run --rm -v /path/to/config.cfg:/etc/cloudprober.cfg \
   -v /path/to/tests:/tests \
   -v /tmp/artifacts:/artifacts \
+  -v /tmp:/tmp \
   -p 9313:9313 \
   cloudprober/cloudprober:latest-pw
 ```
