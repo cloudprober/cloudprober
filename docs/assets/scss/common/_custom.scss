@@ -40,6 +40,22 @@
   font-size: $font-size-base;
 }
 
+.docs main .alert {
+  margin-left: 0;
+  margin-right: 0;
+  border-radius: 0.125rem;
+}
+
+.alert-info {
+  color: #2c3e50;
+  background-color: #e8eef4;
+  border-color: #d0dce8;
+}
+
+.alert-info .alert-link {
+  color: #1a2836;
+}
+
 .footnotes {
   font-style: italic;
   font-size: smaller;
