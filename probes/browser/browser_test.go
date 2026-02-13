@@ -164,11 +164,12 @@ func TestProbePrepareCommand(t *testing.T) {
 
 func TestProbeOutputDirPath(t *testing.T) {
 	tests := []struct {
-		name      string
-		outputDir string
-		target    endpoint.Endpoint
-		ts        time.Time
-		want      string
+		name       string
+		outputDir  string
+		target     endpoint.Endpoint
+		targets    []endpoint.Endpoint
+		ts         time.Time
+		want       string
 	}{
 		{
 			name:      "default",
@@ -177,16 +178,25 @@ func TestProbeOutputDirPath(t *testing.T) {
 			want:      "/tmp/output/2024-01-01/1704067200000",
 		},
 		{
-			name:      "with_target",
+			name:      "single_target",
 			outputDir: "/tmp/output",
 			target:    endpoint.Endpoint{Name: "test_target"},
+			targets:   []endpoint.Endpoint{{Name: "test_target"}},
+			ts:        time.Date(2024, time.February, 2, 12, 30, 45, 0, time.UTC),
+			want:      "/tmp/output/2024-02-02/1706877045000",
+		},
+		{
+			name:      "multiple_targets",
+			outputDir: "/tmp/output",
+			target:    endpoint.Endpoint{Name: "test_target"},
+			targets:   []endpoint.Endpoint{{Name: "test_target"}, {Name: "test_target_2"}},
 			ts:        time.Date(2024, time.February, 2, 12, 30, 45, 0, time.UTC),
 			want:      "/tmp/output/2024-02-02/1706877045000/test_target",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Probe{outputDir: tt.outputDir}
+			p := &Probe{outputDir: tt.outputDir, targets: tt.targets}
 			assert.Equal(t, filepath.FromSlash(tt.want), p.outputDirPath(tt.target, tt.ts))
 		})
 	}
