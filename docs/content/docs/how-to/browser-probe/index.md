@@ -130,18 +130,15 @@ probe {
   timeout_msec: 30000
 
   targets {
-    host_names: "www.example.com"
+    host_names: "playwright.dev"
   }
 
   browser_probe {
-    test_spec: "checkout.spec.ts"
+    test_spec: "website.spec.ts"
     test_dir: "/tests"
     retries: 1
-
     save_screenshots_for_success: true
-
     save_trace: ON_FIRST_RETRY
-
     test_metrics_options {
       enable_step_metrics: true
     }
@@ -161,36 +158,31 @@ probe {
 }
 ```
 
-This runs `checkout.spec.ts` once a minute against `www.example.com`, retries
-failures once, captures traces on failure, exports per-step metrics, and stores
+This runs `website.spec.ts` once a minute against `playwright.dev`, retries
+failures once, captures traces on retry, exports per-step metrics, and stores
 artifacts locally for 24 hours.
 
 ### 2. Sample Playwright Test (TypeScript)
 
 ```typescript
-// /tests/checkout.spec.ts
+// /tests/website.spec.ts
 import { test, expect } from "@playwright/test";
 
 // target_name is injected by Cloudprober as an env var.
 const baseURL = `https://${process.env.target_name}`;
 
-test.describe("Checkout Flow", () => {
-  test("complete purchase", async ({ page }) => {
-    await test.step("Navigate to store", async () => {
+test.describe("Website", () => {
+  test("home page and navigation", async ({ page }) => {
+    await test.step("Load home page", async () => {
       await page.goto(baseURL);
-      await expect(page).toHaveTitle(/Store/);
+      await expect(page).toHaveTitle(/Playwright/);
     });
 
-    await test.step("Add to cart", async () => {
-      await page.getByRole("button", { name: "Add to cart" }).click();
-      await expect(page.getByTestId("cart-count")).toHaveText("1");
-    });
-
-    await test.step("Complete checkout", async () => {
-      await page.getByRole("link", { name: "Checkout" }).click();
-      await page.getByPlaceholder("Card number").fill("4111111111111111");
-      await page.getByRole("button", { name: "Pay" }).click();
-      await expect(page.getByText("Order confirmed")).toBeVisible();
+    await test.step("Navigate to docs", async () => {
+      await page.getByRole("link", { name: "Get started" }).click();
+      await expect(
+        page.getByRole("heading", { name: "Installation" })
+      ).toBeVisible();
     });
   });
 });
