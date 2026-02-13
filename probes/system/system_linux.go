@@ -46,6 +46,8 @@ type Probe struct {
 
 	// For testing
 	diskUsageFunc func(path string) (uint64, uint64, error)
+
+	diskErrMounts map[string]bool // Track mounts with errors to log only once
 }
 
 // Init initializes the probe with the given params.
@@ -61,6 +63,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.opts = opts
 	p.sysDir = "/proc"
 	p.diskUsageFunc = diskUsage
+	p.diskErrMounts = make(map[string]bool)
 	return nil
 }
 
@@ -292,7 +295,7 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 
 	for _, mount := range mounts {
 		excluded := false
-		for _, exclude := range []string{"/dev", "/sys", "/proc", "/run/netns", "/snap"} {
+		for _, exclude := range []string{"/dev", "/sys", "/proc", "/run/netns", "/run/containerd", "/run/k3s", "/run/docker", "/snap"} {
 			if mount == exclude || strings.HasPrefix(mount, exclude+"/") {
 				excluded = true
 				break
@@ -308,7 +311,10 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 
 		total, free, err := p.diskUsageFunc(mount)
 		if err != nil {
-			p.l.Warningf("Error getting disk usage for %s: %v", mount, err)
+			if !p.diskErrMounts[mount] {
+				p.l.Warningf("Error getting disk usage for %s: %v", mount, err)
+				p.diskErrMounts[mount] = true
+			}
 			continue
 		}
 		used := total - free
