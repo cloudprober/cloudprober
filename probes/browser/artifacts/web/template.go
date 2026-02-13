@@ -26,7 +26,7 @@ import (
 var artifactsJS string
 
 func tsDirTmpl(currentPath string) *template.Template {
-	linkPrefix := rootLinkPrefix(currentPath)
+	linkPrefix := resources.RootLinkPrefix(currentPath)
 	return template.Must(template.New("tsDirTmpl").Parse(fmt.Sprintf(`
 <html>
 <head>
