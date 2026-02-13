@@ -153,21 +153,28 @@ func ServeArtifacts(path, root string, global bool) error {
 	if global {
 		patternPath = path + "/{probeName}/{$}"
 	}
+
+	var artifactsLinkOpts []state.HandlerOption
+	if !global {
+		artifactsLinkOpts = append(artifactsLinkOpts, state.WithArtifactsLink(path))
+	}
+
 	if err := state.AddWebHandler(patternPath, func(w http.ResponseWriter, r *http.Request) {
 		dirBase := root
 		if global {
 			dirBase = filepath.Join(root, r.PathValue("probeName"))
 		}
 		smartViewHandler(w, r, dirBase)
-	}); err != nil {
+	}, artifactsLinkOpts...); err != nil {
 		return fmt.Errorf("error adding web handler for artifacts web server: %v", err)
 	}
 
 	// For global, add a handler for the root path as well
 	if global {
-		if err := state.AddWebHandler(path+"/{$}", http.StripPrefix(path, http.FileServer(http.Dir(root))).ServeHTTP); err != nil {
+		if err := state.AddWebHandler(path+"/{$}", http.StripPrefix(path, http.FileServer(http.Dir(root))).ServeHTTP, state.WithArtifactsLink(path+"/")); err != nil {
 			return fmt.Errorf("error adding web handler for artifacts web server: %v", err)
 		}
 	}
+
 	return nil
 }

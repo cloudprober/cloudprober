@@ -38,6 +38,7 @@ type state struct {
 	httpServeMux   *http.ServeMux
 	configFilePath string
 	webURLs        []string
+	artifactsURLs  []string
 }
 
 var st state
@@ -113,4 +114,11 @@ func ConfigFilePath() string {
 	st.RLock()
 	defer st.RUnlock()
 	return st.configFilePath
+}
+
+// ArtifactsURLs returns the list of URLs that are registered as artifacts.
+func ArtifactsURLs() []string {
+	st.RLock()
+	defer st.RUnlock()
+	return st.artifactsURLs
 }

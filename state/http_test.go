@@ -70,3 +70,21 @@ func TestAllLinks(t *testing.T) {
 	AddWebHandler("/another-test", func(w http.ResponseWriter, r *http.Request) {})
 	assert.Equal(t, []string{"/test", "/another-test"}, AllLinks())
 }
+
+func TestAddWebHandlerWithArtifactsLink(t *testing.T) {
+	testMux := http.NewServeMux()
+	SetDefaultHTTPServeMux(testMux)
+	defer SetDefaultHTTPServeMux(nil)
+
+	// Add a handler with artifact link option
+	err := AddWebHandler("/test-artifact", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink(""))
+	assert.Nil(t, err, "Expected no error when adding a handler")
+
+	// Add a handler with artifact link option and custom path
+	err = AddWebHandler("/test-handler", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/custom-artifact"))
+	assert.Nil(t, err, "Expected no error when adding a handler")
+
+	// Verify artifacts URLs
+	expected := []string{"/test-artifact", "/custom-artifact"}
+	assert.Equal(t, expected, ArtifactsURLs())
+}
