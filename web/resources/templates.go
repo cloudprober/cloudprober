@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-func RenderPage(path, body string) string {
+func RenderPage(path string, body template.HTML) string {
 	linkPrefix := RootLinkPrefix(path)
 	header := Header(linkPrefix)
 	return fmt.Sprintf(`
@@ -48,14 +48,13 @@ var linksTmpl = template.Must(template.New("allLinks").Parse(`
 <h3>{{.Title}}:</h3>
 <ul>
   {{ range .Links}}
-  {{ $link := . }}
-  {{ if eq $link "" }} {{ $link = "/" }} {{ end }}
+  {{ $link := or . "/" }}
   <li><a href="{{ $link }}">{{ $link }}</a></li>
   {{ end }}
 </ul>
 `))
 
-func ExecTmpl(tmpl *template.Template, v interface{}) template.HTML {
+func ExecTmpl(tmpl *template.Template, v any) template.HTML {
 	var buf bytes.Buffer
 	err := tmpl.Execute(&buf, v)
 	if err != nil {
@@ -77,5 +76,5 @@ func RootLinkPrefix(currentPath string) string {
 }
 
 func LinksPage(path, title string, links []string) string {
-	return RenderPage(path, string(ExecTmpl(linksTmpl, linksData{Title: title, Links: links})))
+	return RenderPage(path, ExecTmpl(linksTmpl, linksData{Title: title, Links: links}))
 }

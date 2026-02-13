@@ -78,7 +78,7 @@ func TestRenderPage(t *testing.T) {
 	tests := []struct {
 		name string
 		path string
-		body string
+		body template.HTML
 		want string
 	}{
 		{

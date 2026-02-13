@@ -69,7 +69,7 @@ func TestInitWithDataFuncs(t *testing.T) {
 				"/config":        "raw-config",
 				"/config-parsed": "parsed-config **$password**",
 			},
-			wantConfigRunning: secretConfigRunningMsg,
+			wantConfigRunning: string(secretConfigRunningMsg),
 		},
 	}
 	for _, tt := range tests {

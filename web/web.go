@@ -80,11 +80,11 @@ func runningConfig(w io.Writer, fn DataFuncs) {
 	})
 
 	if err != nil {
-		w.Write([]byte(resources.RenderPage(urlMap.RunningConfig, err.Error())))
+		w.Write([]byte(resources.RenderPage(urlMap.RunningConfig, template.HTML(template.HTMLEscapeString(err.Error())))))
 		return
 	}
 
-	w.Write([]byte(resources.RenderPage(urlMap.RunningConfig, statusBuf.String())))
+	w.Write([]byte(resources.RenderPage(urlMap.RunningConfig, template.HTML(statusBuf.String()))))
 }
 
 func allLinksPageLinks(links []string) []string {
@@ -120,10 +120,10 @@ func Init() error {
 	return nil
 }
 
-var secretConfigRunningMsg = `
+var secretConfigRunningMsg = template.HTML(`
 	<p>Config contains secrets. /config-running is not available.<br>
 	Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
-	`
+	`)
 
 // InitWithDataFuncs initializes cloudprober web interface handler.
 func InitWithDataFuncs(fn DataFuncs) error {
@@ -154,10 +154,10 @@ func InitWithDataFuncs(fn DataFuncs) error {
 	if err := state.AddWebHandler(urlMap.Alerts, func(w http.ResponseWriter, r *http.Request) {
 		status, err := alerting.StatusHTML()
 		if err != nil {
-			w.Write([]byte(resources.RenderPage(urlMap.Alerts, err.Error())))
+			w.Write([]byte(resources.RenderPage(urlMap.Alerts, template.HTML(template.HTMLEscapeString(err.Error())))))
 			return
 		}
-		w.Write([]byte(resources.RenderPage(urlMap.Alerts, status)))
+		w.Write([]byte(resources.RenderPage(urlMap.Alerts, template.HTML(status))))
 	}); err != nil {
 		return err
 	}
