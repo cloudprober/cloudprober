@@ -101,7 +101,7 @@ func getServerHost(c *configpb.ProberConfig) string {
 }
 
 // 'grpc_port' from config takes precedence over environment variable, if both are set.
-func getGrpcPort(c *configpb.ProberConfig) string {
+func getGRPCPort(c *configpb.ProberConfig) string {
 	grpcPort := c.GetGrpcPort()
 	if grpcPort != 0 {
 		return strconv.Itoa(int(grpcPort))
