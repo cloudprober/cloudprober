@@ -1,4 +1,4 @@
-// Copyright 2018-2024 The Cloudprober Authors.
+// Copyright 2018-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -160,4 +160,209 @@ func TestArtifactsLinksWithManualRegistration(t *testing.T) {
 
 	want := []string{"custom/artifact", "manual-artifact"}
 	assert.Equal(t, want, artifactsLinks())
+}
+
+func TestWriteWithHeader(t *testing.T) {
+	var buf bytes.Buffer
+	writeWithHeader(&buf, template.HTML("<p>test body</p>"))
+	got := buf.String()
+
+	assert.Contains(t, got, "<html>", "output should contain html tag")
+	// Verify linkPrefix is empty for this function's output (top-level links)
+	assert.Contains(t, got, "\"static/cloudprober.css\"", "output should include CSS link")
+	// Check for header links w/o link prefix
+	for _, link := range []string{"alerts", "config", "config-running", "config-parsed", "status"} {
+		assert.Contains(t, got, "<a href=\""+link+"\">", "output should include "+link+" link")
+	}
+	assert.Contains(t, got, "<p>test body</p>", "output should contain body content")
+	assert.Contains(t, got, "</html>", "output should close html tag")
+}
+
+func TestExecTmpl(t *testing.T) {
+	tests := []struct {
+		name    string
+		tmpl    *template.Template
+		data    interface{}
+		wantStr string
+		wantErr bool
+	}{
+		{
+			name:    "simple template",
+			tmpl:    template.Must(template.New("test").Parse("hello {{.}}")),
+			data:    "world",
+			wantStr: "hello world",
+		},
+		{
+			name:    "template execution error",
+			tmpl:    template.Must(template.New("test").Parse("{{.MissingMethod}}")),
+			data:    "string-has-no-MissingMethod",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := execTmpl(tt.tmpl, tt.data)
+			if tt.wantErr {
+				// On error, the output should be HTML-escaped error text
+				assert.NotEmpty(t, got, "error output should not be empty")
+				// Should not contain raw HTML (error is escaped)
+				assert.NotContains(t, string(got), "<template>")
+			} else {
+				assert.Equal(t, template.HTML(tt.wantStr), got)
+			}
+		})
+	}
+}
+
+func TestRunningConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		getInfo func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo)
+		wantAll []string
+	}{
+		{
+			name: "nil info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				return nil, nil, nil
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "<h3>Surfacers:</h3>", "<h3>Servers:</h3>"},
+		},
+		{
+			name: "with probe info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				probeInfoMap := map[string]*probes.ProbeInfo{
+					"test-probe": {
+						Name:     "test-probe",
+						Type:     "HTTP",
+						Interval: "5s",
+						Timeout:  "1s",
+					},
+				}
+				return probeInfoMap, nil, nil
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "test-probe", "<h3>Surfacers:</h3>", "<h3>Servers:</h3>"},
+		},
+		{
+			name: "with surfacer info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				return nil, []*surfacers.SurfacerInfo{
+					{Type: "PROMETHEUS", Name: "prom-surfacer"},
+				}, nil
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "<h3>Surfacers:</h3>", "prom-surfacer", "<h3>Servers:</h3>"},
+		},
+		{
+			name: "with server info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				return nil, nil, []*servers.ServerInfo{
+					{Type: "HTTP"},
+				}
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "<h3>Surfacers:</h3>", "<h3>Servers:</h3>"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			fn := DataFuncs{
+				GetRawConfig:    func() string { return "" },
+				GetParsedConfig: func() string { return "" },
+				GetInfo:         tt.getInfo,
+			}
+			runningConfig(&buf, fn)
+			got := buf.String()
+			for _, want := range tt.wantAll {
+				assert.Contains(t, got, want)
+			}
+			// Should be wrapped in HTML with header
+			assert.Contains(t, got, "<html>")
+			assert.Contains(t, got, "cloudprober.css")
+		})
+	}
+}
+
+func TestEndpoints(t *testing.T) {
+	tests := []struct {
+		url          string
+		wantContains string
+	}{
+		{
+			url:          "/links",
+			wantContains: "All Links",
+		},
+		{
+			url:          "/alerts",
+			wantContains: "Alerts",
+		},
+		{
+			url:          "/static/cloudprober.css",
+			wantContains: "background-color",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.url, func(t *testing.T) {
+			oldSrvMux := state.DefaultHTTPServeMux()
+			defer state.SetDefaultHTTPServeMux(oldSrvMux)
+			srvMux := http.NewServeMux()
+			state.SetDefaultHTTPServeMux(srvMux)
+
+			fn := DataFuncs{
+				GetRawConfig:    func() string { return "" },
+				GetParsedConfig: func() string { return "" },
+				GetInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+					return nil, nil, nil
+				},
+			}
+
+			err := InitWithDataFuncs(fn)
+			assert.NoError(t, err)
+
+			httpSrv := httptest.NewServer(srvMux)
+			defer httpSrv.Close()
+
+			resp, err := httpSrv.Client().Get(httpSrv.URL + tt.url)
+			assert.NoError(t, err)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+			body, err := io.ReadAll(resp.Body)
+			assert.NoError(t, err)
+			assert.Contains(t, string(body), tt.wantContains)
+		})
+	}
+}
+
+func TestAllLinksTmpl(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     linksData
+		wantAll  []string
+		wantNone []string
+	}{
+		{
+			name:    "with links",
+			data:    linksData{Title: "Test Links", Links: []string{"config", "status", "alerts"}},
+			wantAll: []string{"Test Links", "config", "status", "alerts", "<li>", "<a href="},
+		},
+		{
+			name:     "empty links",
+			data:     linksData{Title: "Empty", Links: nil},
+			wantAll:  []string{"Empty"},
+			wantNone: []string{"<li>"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := execTmpl(allLinksTmpl, tt.data)
+			for _, want := range tt.wantAll {
+				assert.Contains(t, string(got), want)
+			}
+			for _, notWant := range tt.wantNone {
+				assert.NotContains(t, string(got), notWant)
+			}
+		})
+	}
 }
