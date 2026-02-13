@@ -150,32 +150,14 @@ func TestAllLinksPageLinks(t *testing.T) {
 	}
 }
 
-func TestArtifactsLinks(t *testing.T) {
-	tests := []struct {
-		name  string
-		links []string
-		want  []string
-	}{
-		{
-			name:  "no artifact links",
-			links: []string{"/link1", "/link2", "/link3"},
-			want:  nil,
-		},
-		{
-			name:  "mixed links",
-			links: []string{"/link1", "/artifacts/link2", "/link3", "/artifacts/link4", "/link5"},
-			want:  []string{"artifacts/link2", "artifacts/link4"},
-		},
-		{
-			name:  "only artifact links",
-			links: []string{"/artifacts/link1", "/artifacts/link2"},
-			want:  []string{"artifacts/link1", "artifacts/link2"},
-		},
-	}
+func TestArtifactsLinksWithManualRegistration(t *testing.T) {
+	oldMux := state.DefaultHTTPServeMux()
+	defer state.SetDefaultHTTPServeMux(oldMux)
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, artifactsLinks(tt.links))
-		})
-	}
+	state.AddWebHandler("/manual-artifact", func(w http.ResponseWriter, r *http.Request) {}, state.WithArtifactsLink(""))
+	state.AddWebHandler("/manual-artifact-custom", func(w http.ResponseWriter, r *http.Request) {}, state.WithArtifactsLink("/custom/artifact"))
+
+	want := []string{"custom/artifact", "manual-artifact"}
+	assert.Equal(t, want, artifactsLinks())
 }

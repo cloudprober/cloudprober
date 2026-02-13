@@ -38,6 +38,7 @@ type state struct {
 	httpServeMux   *http.ServeMux
 	configFilePath string
 	webURLs        []string
+	artifactsURLs  []string
 }
 
 var st state

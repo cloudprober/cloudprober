@@ -128,12 +128,10 @@ func allLinksPageLinks(links []string) []string {
 	return out
 }
 
-func artifactsLinks(links []string) []string {
+func artifactsLinks() []string {
 	var out []string
-	for _, link := range links {
-		if strings.Contains(link, "/artifacts/") {
-			out = append(out, strings.TrimLeft(link, "/"))
-		}
+	for _, link := range state.ArtifactsURLs() {
+		out = append(out, strings.TrimLeft(link, "/"))
 	}
 	sort.Strings(out)
 	return out
@@ -199,10 +197,10 @@ func InitWithDataFuncs(fn DataFuncs) error {
 		return err
 	}
 
-	artifactsL := artifactsLinks(state.AllLinks())
+	artifactsL := artifactsLinks()
 	if len(artifactsL) > 0 {
 		if err := state.AddWebHandler("/artifacts", func(w http.ResponseWriter, r *http.Request) {
-			writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: artifactsLinks(state.AllLinks())}))
+			writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: artifactsLinks()}))
 		}); err != nil {
 			return err
 		}

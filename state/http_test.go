@@ -70,3 +70,53 @@ func TestAllLinks(t *testing.T) {
 	AddWebHandler("/another-test", func(w http.ResponseWriter, r *http.Request) {})
 	assert.Equal(t, []string{"/test", "/another-test"}, AllLinks())
 }
+
+func TestAddWebHandlerWithArtifactsLink(t *testing.T) {
+	testMux := http.NewServeMux()
+	SetDefaultHTTPServeMux(testMux)
+	defer SetDefaultHTTPServeMux(nil)
+
+	// Add a handler with artifact link option
+	err := AddWebHandler("/test-artifact", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink(""))
+	assert.Nil(t, err, "Expected no error when adding a handler")
+
+	// Add a handler with artifact link option and custom path
+	err = AddWebHandler("/test-handler", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/custom-artifact"))
+	assert.Nil(t, err, "Expected no error when adding a handler")
+
+	// Verify artifacts URLs
+	expected := []string{"/test-artifact", "/custom-artifact"}
+	assert.Equal(t, expected, ArtifactsURLs())
+}
+
+func TestAddWebHandlerNoStateMutationOnMuxConflict(t *testing.T) {
+	testMux := http.NewServeMux()
+	SetDefaultHTTPServeMux(testMux)
+	defer SetDefaultHTTPServeMux(nil)
+
+	err := AddWebHandler("/foo/{id}", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/foo/1"))
+	assert.NoError(t, err)
+
+	err = AddWebHandler("/foo/{name}", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/foo/2"))
+	assert.Error(t, err)
+	assert.Equal(t, []string{"/foo/{id}"}, AllLinks())
+	assert.Equal(t, []string{"/foo/1"}, ArtifactsURLs())
+}
+
+func TestLinksAreReturnedAsCopies(t *testing.T) {
+	testMux := http.NewServeMux()
+	SetDefaultHTTPServeMux(testMux)
+	defer SetDefaultHTTPServeMux(nil)
+
+	err := AddWebHandler("/test-artifact", func(w http.ResponseWriter, r *http.Request) {}, WithArtifactsLink("/custom-artifact"))
+	assert.NoError(t, err)
+
+	links := AllLinks()
+	artifacts := ArtifactsURLs()
+
+	links[0] = "/mutated-link"
+	artifacts[0] = "/mutated-artifact"
+
+	assert.Equal(t, []string{"/test-artifact"}, AllLinks())
+	assert.Equal(t, []string{"/custom-artifact"}, ArtifactsURLs())
+}

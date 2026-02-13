@@ -193,15 +193,16 @@ func TestServeArtifacts(t *testing.T) {
 	})
 
 	tests := []struct {
-		name            string
-		path            string
-		globalPath      string
-		root            string
-		globalRoot      string
-		url             []string
-		expectedPattern []string
-		expectedBody    []string
-		expectError     bool
+		name              string
+		path              string
+		globalPath        string
+		root              string
+		globalRoot        string
+		url               []string
+		expectedPattern   []string
+		expectedBody      []string
+		expectedArtifacts []string
+		expectError       bool
 	}{
 		{
 			name:        "empty path",
@@ -233,8 +234,9 @@ func TestServeArtifacts(t *testing.T) {
 				"/artifacts/{probeName}/tree/", // handled by global
 				"/artifacts/{probeName}/{$}",   // handled by global
 			},
-			expectedBody: []string{"test", "-", "test", "-"},
-			expectError:  false,
+			expectedBody:      []string{"test", "-", "test", "-"},
+			expectedArtifacts: []string{"/artifacts/", "/artifacts/probe1"},
+			expectError:       false,
 		},
 		{
 			name:        "same path, existing handler",
@@ -243,13 +245,14 @@ func TestServeArtifacts(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:            "path with trailing slash",
-			path:            "/artifacts2/probe1/",
-			root:            filepath.Join(tmpDir, "probe1"),
-			url:             []string{"/artifacts2/probe1/tree/test.txt", "/artifacts2/probe1/"},
-			expectedPattern: []string{"/artifacts2/probe1/tree/", "/artifacts2/probe1/{$}"},
-			expectedBody:    []string{"test", "-"},
-			expectError:     false,
+			name:              "path with trailing slash",
+			path:              "/artifacts2/probe1/",
+			root:              filepath.Join(tmpDir, "probe1"),
+			url:               []string{"/artifacts2/probe1/tree/test.txt", "/artifacts2/probe1/"},
+			expectedPattern:   []string{"/artifacts2/probe1/tree/", "/artifacts2/probe1/{$}"},
+			expectedBody:      []string{"test", "-"},
+			expectedArtifacts: []string{"/artifacts2/probe1"},
+			expectError:       false,
 		},
 		{
 			name:       "valid path and root - deeper",
@@ -269,8 +272,10 @@ func TestServeArtifacts(t *testing.T) {
 				"/z/a/{probeName}/tree/", // handled by global
 				"/z/a/{probeName}/{$}",   // handled by global
 			},
-			expectedBody: []string{"test", "-", "test", "-"},
-			expectError:  false,
+			expectedBody:      []string{"test", "-", "test", "-"},
+			expectedArtifacts: []string{"/x/y/probe1", "/z/a/"},
+
+			expectError: false,
 		},
 	}
 
@@ -305,6 +310,9 @@ func TestServeArtifacts(t *testing.T) {
 			for i, u := range tt.url {
 				verifyWebServerResponse(t, mux, u, http.StatusOK, tt.expectedBody[i])
 			}
+
+			// Check expected artifacts
+			assert.Subset(t, state.ArtifactsURLs(), tt.expectedArtifacts)
 		})
 	}
 }
