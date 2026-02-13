@@ -68,7 +68,7 @@ const (
 	NoGRPCPort          = "NO_GRPC_SERVER" // By default, no gRPC server is started.
 	ServerHostEnvVar    = "CLOUDPROBER_HOST"
 	ServerPortEnvVar    = "CLOUDPROBER_PORT"
-	GrpcPortEnvVar      = "CLOUDPROBER_GRPC_PORT"
+	GRPCPortEnvVar      = "CLOUDPROBER_GRPC_PORT"
 	DisableHTTPDebugVar = "CLOUDPROBER_DISABLE_HTTP_PPROF"
 )
 
