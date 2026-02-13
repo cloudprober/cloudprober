@@ -308,8 +308,8 @@ func TestServeArtifacts(t *testing.T) {
 				body := rr.Body.String()
 				assert.Contains(t, body, "<h3>Probes:</h3>", "global root should have styled probe list")
 				assert.Contains(t, body, "cloudprober.css", "global root should include cloudprober CSS")
-				assert.Contains(t, body, `<a href="probe1">probe1</a>`, "global root should list probe1")
-				assert.Contains(t, body, `<a href="probe2">probe2</a>`, "global root should list probe2")
+				assert.Contains(t, body, `<a href="probe1/">probe1/</a>`, "global root should list probe1")
+				assert.Contains(t, body, `<a href="probe2/">probe2/</a>`, "global root should list probe2")
 			}
 		})
 	}

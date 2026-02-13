@@ -45,7 +45,6 @@ type linksData struct {
 }
 
 var linksTmpl = template.Must(template.New("allLinks").Parse(`
-<html>
 <h3>{{.Title}}:</h3>
 <ul>
   {{ range .Links}}
@@ -54,16 +53,15 @@ var linksTmpl = template.Must(template.New("allLinks").Parse(`
   <li><a href="{{ $link }}">{{ $link }}</a></li>
   {{ end }}
 </ul>
-</html>
 `))
 
 func ExecTmpl(tmpl *template.Template, v interface{}) template.HTML {
-	var statusBuf bytes.Buffer
-	err := tmpl.Execute(&statusBuf, v)
+	var buf bytes.Buffer
+	err := tmpl.Execute(&buf, v)
 	if err != nil {
 		return template.HTML(template.HTMLEscapeString(err.Error()))
 	}
-	return template.HTML(statusBuf.String())
+	return template.HTML(buf.String())
 }
 
 func RootLinkPrefix(currentPath string) string {

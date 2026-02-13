@@ -127,13 +127,13 @@ var secretConfigRunningMsg = `
 
 // InitWithDataFuncs initializes cloudprober web interface handler.
 func InitWithDataFuncs(fn DataFuncs) error {
-	if err := state.AddWebHandler("/config", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler(urlMap.RawConfig, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, fn.GetRawConfig())
 	}); err != nil {
 		return err
 	}
 
-	if err := state.AddWebHandler("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler(urlMap.ParsedConfig, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, fn.GetParsedConfig())
 	}); err != nil {
 		return err
