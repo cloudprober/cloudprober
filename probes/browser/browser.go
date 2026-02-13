@@ -385,7 +385,7 @@ func targetEnvVars(target endpoint.Endpoint) []string {
 
 func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
 	outputDirPath := []string{p.outputDir, ts.Format("2006-01-02"), strconv.FormatInt(ts.UnixMilli(), 10)}
-	if target.Name != "" {
+	if target.Name != "" && len(p.targets) > 1 {
 		outputDirPath = append(outputDirPath, target.Name)
 	}
 	return filepath.Join(outputDirPath...)
