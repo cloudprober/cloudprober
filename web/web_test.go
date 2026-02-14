@@ -16,16 +16,18 @@ package web
 
 import (
 	"bytes"
-	"html/template"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
+	"github.com/cloudprober/cloudprober/web/resources"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -67,7 +69,7 @@ func TestInitWithDataFuncs(t *testing.T) {
 				"/config":        "raw-config",
 				"/config-parsed": "parsed-config **$password**",
 			},
-			wantConfigRunning: secretConfigRunningMsg,
+			wantConfigRunning: string(secretConfigRunningMsg),
 		},
 	}
 	for _, tt := range tests {
@@ -91,9 +93,9 @@ func TestInitWithDataFuncs(t *testing.T) {
 			if !tt.withSecret {
 				runningConfig(&buf, tt.dataFuncs)
 			} else {
-				writeWithHeader(&buf, template.HTML(secretConfigRunningMsg))
+				buf.WriteString(resources.RenderPage(urlMap.RunningConfig, secretConfigRunningMsg))
 			}
-			tt.wantResp["/config-running"] = buf.String()
+			tt.wantResp[urlMap.RunningConfig] = buf.String()
 
 			for path, wantResp := range tt.wantResp {
 				resp, err := client.Get(httpSrv.URL + path)
@@ -162,57 +164,10 @@ func TestArtifactsLinksWithManualRegistration(t *testing.T) {
 	assert.Equal(t, want, artifactsLinks())
 }
 
-func TestWriteWithHeader(t *testing.T) {
-	var buf bytes.Buffer
-	writeWithHeader(&buf, template.HTML("<p>test body</p>"))
-	got := buf.String()
-
-	assert.Contains(t, got, "<html>", "output should contain html tag")
-	// Verify linkPrefix is empty for this function's output (top-level links)
-	assert.Contains(t, got, "\"static/cloudprober.css\"", "output should include CSS link")
-	// Check for header links w/o link prefix
-	for _, link := range []string{"alerts", "config", "config-running", "config-parsed", "status"} {
-		assert.Contains(t, got, "<a href=\""+link+"\">", "output should include "+link+" link")
-	}
-	assert.Contains(t, got, "<p>test body</p>", "output should contain body content")
-	assert.Contains(t, got, "</html>", "output should close html tag")
-}
-
-func TestExecTmpl(t *testing.T) {
-	tests := []struct {
-		name    string
-		tmpl    *template.Template
-		data    interface{}
-		wantStr string
-		wantErr bool
-	}{
-		{
-			name:    "simple template",
-			tmpl:    template.Must(template.New("test").Parse("hello {{.}}")),
-			data:    "world",
-			wantStr: "hello world",
-		},
-		{
-			name:    "template execution error",
-			tmpl:    template.Must(template.New("test").Parse("{{.MissingMethod}}")),
-			data:    "string-has-no-MissingMethod",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := execTmpl(tt.tmpl, tt.data)
-			if tt.wantErr {
-				// On error, the output should be HTML-escaped error text
-				assert.NotEmpty(t, got, "error output should not be empty")
-				// Should not contain raw HTML (error is escaped)
-				assert.NotContains(t, string(got), "<template>")
-			} else {
-				assert.Equal(t, template.HTML(tt.wantStr), got)
-			}
-		})
-	}
+func verifyHeader(t *testing.T, path string, got string) {
+	t.Helper()
+	wantHeader := strings.TrimRight(resources.RenderPage(path, ""), "</body>\n</html>\n")
+	assert.Contains(t, got, wantHeader)
 }
 
 func TestRunningConfig(t *testing.T) {
@@ -276,38 +231,56 @@ func TestRunningConfig(t *testing.T) {
 			for _, want := range tt.wantAll {
 				assert.Contains(t, got, want)
 			}
-			// Should be wrapped in HTML with header
-			assert.Contains(t, got, "<html>")
-			assert.Contains(t, got, "cloudprober.css")
+			verifyHeader(t, urlMap.RunningConfig, got)
 		})
 	}
 }
 
 func TestEndpoints(t *testing.T) {
+	oldSrvMux := state.DefaultHTTPServeMux()
+	defer state.SetDefaultHTTPServeMux(oldSrvMux)
+
 	tests := []struct {
-		url          string
-		wantContains string
+		url           string
+		artifactsURLs []string
+		wantContains  []string
 	}{
 		{
 			url:          "/links",
-			wantContains: "All Links",
+			wantContains: []string{"All Links"},
+		},
+		{
+			url:           "/artifacts",
+			artifactsURLs: []string{"/global-artifacts/"},
+			wantContains:  []string{"Global Artifacts"}, // single link, redirects to /global-artifacts/
+		},
+		{
+			url:           "/artifacts",
+			artifactsURLs: []string{"/global-artifacts/", "/artifacts/probe1"},
+			wantContains:  []string{"global-artifacts/", "artifacts/probe1"},
 		},
 		{
 			url:          "/alerts",
-			wantContains: "Alerts",
+			wantContains: []string{"Alerts"},
 		},
 		{
 			url:          "/static/cloudprober.css",
-			wantContains: "background-color",
+			wantContains: []string{"background-color"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.url, func(t *testing.T) {
-			oldSrvMux := state.DefaultHTTPServeMux()
-			defer state.SetDefaultHTTPServeMux(oldSrvMux)
 			srvMux := http.NewServeMux()
 			state.SetDefaultHTTPServeMux(srvMux)
+
+			for _, artifactsURL := range tt.artifactsURLs {
+				state.AddWebHandler(artifactsURL, func(w http.ResponseWriter, r *http.Request) {
+					if artifactsURL == "/global-artifacts/" {
+						fmt.Fprint(w, "Global Artifacts")
+					}
+				}, state.WithArtifactsLink(artifactsURL))
+			}
 
 			fn := DataFuncs{
 				GetRawConfig:    func() string { return "" },
@@ -329,39 +302,11 @@ func TestEndpoints(t *testing.T) {
 
 			body, err := io.ReadAll(resp.Body)
 			assert.NoError(t, err)
-			assert.Contains(t, string(body), tt.wantContains)
-		})
-	}
-}
-
-func TestAllLinksTmpl(t *testing.T) {
-	tests := []struct {
-		name     string
-		data     linksData
-		wantAll  []string
-		wantNone []string
-	}{
-		{
-			name:    "with links",
-			data:    linksData{Title: "Test Links", Links: []string{"config", "status", "alerts"}},
-			wantAll: []string{"Test Links", "config", "status", "alerts", "<li>", "<a href="},
-		},
-		{
-			name:     "empty links",
-			data:     linksData{Title: "Empty", Links: nil},
-			wantAll:  []string{"Empty"},
-			wantNone: []string{"<li>"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := execTmpl(allLinksTmpl, tt.data)
-			for _, want := range tt.wantAll {
-				assert.Contains(t, string(got), want)
+			if tt.url != "/static/cloudprober.css" && tt.url != "/artifacts" {
+				verifyHeader(t, tt.url, string(body))
 			}
-			for _, notWant := range tt.wantNone {
-				assert.NotContains(t, string(got), notWant)
+			for _, want := range tt.wantContains {
+				assert.Contains(t, string(body), want)
 			}
 		})
 	}

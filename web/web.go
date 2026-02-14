@@ -38,20 +38,6 @@ import (
 //go:embed static/*
 var content embed.FS
 
-var htmlTmpl = string(`
-<html>
-<head>
-  <link href="static/cloudprober.css" rel="stylesheet">
-</head>
-
-<body>
-%s
-<br><br><br><br>
-%s
-</body>
-</html>
-`)
-
 var runningConfigTmpl = template.Must(template.New("runningConfig").Parse(`
 <h3>Probes:</h3>
 {{.ProbesStatus}}
@@ -63,35 +49,20 @@ var runningConfigTmpl = template.Must(template.New("runningConfig").Parse(`
 {{.ServersStatus}}
 `))
 
-type linksData struct {
-	Title string
-	Links []string
-}
-
-var allLinksTmpl = template.Must(template.New("allLinks").Parse(`
-<html>
-<h3>{{.Title}}:</h3>
-<ul>
-  {{ range .Links}}
-  <li><a href="{{.}}">/{{.}}</a></li>
-  {{ end }}
-</ul>
-</html>
-`))
-
-func writeWithHeader(w io.Writer, body template.HTML) {
-	// All links here are served at the root.
-	linkPrefix := ""
-	fmt.Fprint(w, fmt.Sprintf(htmlTmpl, resources.Header(linkPrefix), body))
-}
-
-func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
-	var statusBuf bytes.Buffer
-	err := tmpl.Execute(&statusBuf, v)
-	if err != nil {
-		return template.HTML(template.HTMLEscapeString(err.Error()))
-	}
-	return template.HTML(statusBuf.String())
+var urlMap = struct {
+	Alerts        string
+	RunningConfig string
+	ParsedConfig  string
+	RawConfig     string
+	Links         string
+	Artifacts     string
+}{
+	Alerts:        "/alerts",
+	RunningConfig: "/config-running",
+	ParsedConfig:  "/config-parsed",
+	RawConfig:     "/config",
+	Links:         "/links",
+	Artifacts:     "/artifacts",
 }
 
 // runningConfig returns cloudprober's running config.
@@ -103,17 +74,17 @@ func runningConfig(w io.Writer, fn DataFuncs) {
 	err := runningConfigTmpl.Execute(&statusBuf, struct {
 		ProbesStatus, ServersStatus, SurfacersStatus interface{}
 	}{
-		ProbesStatus:    execTmpl(probes.StatusTmpl, probeInfo),
-		SurfacersStatus: execTmpl(surfacers.StatusTmpl, surfacerInfo),
-		ServersStatus:   execTmpl(servers.StatusTmpl, serverInfo),
+		ProbesStatus:    resources.ExecTmpl(probes.StatusTmpl, probeInfo),
+		SurfacersStatus: resources.ExecTmpl(surfacers.StatusTmpl, surfacerInfo),
+		ServersStatus:   resources.ExecTmpl(servers.StatusTmpl, serverInfo),
 	})
 
 	if err != nil {
-		writeWithHeader(w, template.HTML(err.Error()))
+		w.Write([]byte(resources.RenderPage(urlMap.RunningConfig, template.HTML(template.HTMLEscapeString(err.Error())))))
 		return
 	}
 
-	writeWithHeader(w, template.HTML(statusBuf.String()))
+	w.Write([]byte(resources.RenderPage(urlMap.RunningConfig, template.HTML(statusBuf.String()))))
 }
 
 func allLinksPageLinks(links []string) []string {
@@ -149,58 +120,63 @@ func Init() error {
 	return nil
 }
 
-var secretConfigRunningMsg = `
+var secretConfigRunningMsg = template.HTML(`
 	<p>Config contains secrets. /config-running is not available.<br>
 	Visit <a href=/config-parsed>/config-parsed</a> to see the config.<p>
-	`
+	`)
 
 // InitWithDataFuncs initializes cloudprober web interface handler.
 func InitWithDataFuncs(fn DataFuncs) error {
-	if err := state.AddWebHandler("/config", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler(urlMap.RawConfig, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, fn.GetRawConfig())
 	}); err != nil {
 		return err
 	}
 
-	if err := state.AddWebHandler("/config-parsed", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler(urlMap.ParsedConfig, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, fn.GetParsedConfig())
 	}); err != nil {
 		return err
 	}
 
-	if err := state.AddWebHandler("/config-running", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler(urlMap.RunningConfig, func(w http.ResponseWriter, r *http.Request) {
 		parsedConfig := fn.GetParsedConfig()
 		if !config.EnvRegex.MatchString(parsedConfig) {
 			runningConfig(w, fn)
 			return
 		} else {
-			writeWithHeader(w, template.HTML(secretConfigRunningMsg))
+			w.Write([]byte(resources.RenderPage(urlMap.RunningConfig, secretConfigRunningMsg)))
 		}
 	}); err != nil {
 		return err
 	}
 
-	if err := state.AddWebHandler("/alerts", func(w http.ResponseWriter, r *http.Request) {
+	if err := state.AddWebHandler(urlMap.Alerts, func(w http.ResponseWriter, r *http.Request) {
 		status, err := alerting.StatusHTML()
 		if err != nil {
-			writeWithHeader(w, template.HTML(err.Error()))
-		} else {
-			writeWithHeader(w, template.HTML(status))
+			w.Write([]byte(resources.RenderPage(urlMap.Alerts, template.HTML(template.HTMLEscapeString(err.Error())))))
+			return
 		}
+		w.Write([]byte(resources.RenderPage(urlMap.Alerts, template.HTML(status))))
 	}); err != nil {
 		return err
 	}
 
-	if err := state.AddWebHandler("/links", func(w http.ResponseWriter, r *http.Request) {
-		writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "All Links", Links: allLinksPageLinks(state.AllLinks())}))
+	if err := state.AddWebHandler(urlMap.Links, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(resources.LinksPage(urlMap.Links, "All Links", allLinksPageLinks(state.AllLinks()))))
 	}); err != nil {
 		return err
 	}
 
 	artifactsL := artifactsLinks()
 	if len(artifactsL) > 0 {
-		if err := state.AddWebHandler("/artifacts", func(w http.ResponseWriter, r *http.Request) {
-			writeWithHeader(w, execTmpl(allLinksTmpl, linksData{Title: "Artifacts", Links: artifactsLinks()}))
+		if err := state.AddWebHandler(urlMap.Artifacts, func(w http.ResponseWriter, r *http.Request) {
+			links := artifactsLinks()
+			if len(links) == 1 {
+				http.Redirect(w, r, links[0], http.StatusFound)
+				return
+			}
+			w.Write([]byte(resources.LinksPage(urlMap.Artifacts, "Artifacts", links)))
 		}); err != nil {
 			return err
 		}
