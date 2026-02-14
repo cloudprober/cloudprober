@@ -171,7 +171,12 @@ func InitWithDataFuncs(fn DataFuncs) error {
 	artifactsL := artifactsLinks()
 	if len(artifactsL) > 0 {
 		if err := state.AddWebHandler(urlMap.Artifacts, func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(resources.LinksPage(urlMap.Artifacts, "Artifacts", artifactsLinks())))
+			links := artifactsLinks()
+			if len(links) == 1 {
+				http.Redirect(w, r, links[0], http.StatusFound)
+				return
+			}
+			w.Write([]byte(resources.LinksPage(urlMap.Artifacts, "Artifacts", links)))
 		}); err != nil {
 			return err
 		}

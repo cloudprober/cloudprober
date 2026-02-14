@@ -237,38 +237,50 @@ func TestRunningConfig(t *testing.T) {
 }
 
 func TestEndpoints(t *testing.T) {
+	oldSrvMux := state.DefaultHTTPServeMux()
+	defer state.SetDefaultHTTPServeMux(oldSrvMux)
+
 	tests := []struct {
-		url          string
-		wantContains string
+		url           string
+		artifactsURLs []string
+		wantContains  []string
 	}{
 		{
 			url:          "/links",
-			wantContains: "All Links",
+			wantContains: []string{"All Links"},
 		},
 		{
-			url:          "/artifacts",
-			wantContains: "global-artifacts/",
+			url:           "/artifacts",
+			artifactsURLs: []string{"/global-artifacts/"},
+			wantContains:  []string{"Global Artifacts"}, // single link, redirects to /global-artifacts/
+		},
+		{
+			url:           "/artifacts",
+			artifactsURLs: []string{"/global-artifacts/", "/artifacts/probe1"},
+			wantContains:  []string{"global-artifacts/", "artifacts/probe1"},
 		},
 		{
 			url:          "/alerts",
-			wantContains: "Alerts",
+			wantContains: []string{"Alerts"},
 		},
 		{
 			url:          "/static/cloudprober.css",
-			wantContains: "background-color",
+			wantContains: []string{"background-color"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.url, func(t *testing.T) {
-			oldSrvMux := state.DefaultHTTPServeMux()
-			defer state.SetDefaultHTTPServeMux(oldSrvMux)
 			srvMux := http.NewServeMux()
 			state.SetDefaultHTTPServeMux(srvMux)
 
-			state.AddWebHandler("/global-artifacts/", func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprint(w, "Global Artifacts")
-			}, state.WithArtifactsLink("/global-artifacts/"))
+			for _, artifactsURL := range tt.artifactsURLs {
+				state.AddWebHandler(artifactsURL, func(w http.ResponseWriter, r *http.Request) {
+					if artifactsURL == "/global-artifacts/" {
+						fmt.Fprint(w, "Global Artifacts")
+					}
+				}, state.WithArtifactsLink(artifactsURL))
+			}
 
 			fn := DataFuncs{
 				GetRawConfig:    func() string { return "" },
@@ -290,10 +302,12 @@ func TestEndpoints(t *testing.T) {
 
 			body, err := io.ReadAll(resp.Body)
 			assert.NoError(t, err)
-			if tt.url != "/static/cloudprober.css" {
+			if tt.url != "/static/cloudprober.css" && tt.url != "/artifacts" {
 				verifyHeader(t, tt.url, string(body))
 			}
-			assert.Contains(t, string(body), tt.wantContains)
+			for _, want := range tt.wantContains {
+				assert.Contains(t, string(body), want)
+			}
 		})
 	}
 }
