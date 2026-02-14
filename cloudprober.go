@@ -66,8 +66,10 @@ const (
 const (
 	DefaultServerHost   = ""
 	DefaultServerPort   = 9313
+	NoGRPCPort          = "NO_GRPC_SERVER" // By default, no gRPC server is started.
 	ServerHostEnvVar    = "CLOUDPROBER_HOST"
 	ServerPortEnvVar    = "CLOUDPROBER_PORT"
+	GRPCPortEnvVar      = "CLOUDPROBER_GRPC_PORT"
 	DisableHTTPDebugVar = "CLOUDPROBER_DISABLE_HTTP_PPROF"
 )
 
@@ -97,6 +99,17 @@ func getServerHost(c *configpb.ProberConfig) string {
 		}
 	}
 	return serverHost
+}
+
+// 'grpc_port' from config takes precedence over environment variable, if both are set.
+func getGRPCPort(c *configpb.ProberConfig) string {
+	grpcPort := c.GetGrpcPort()
+	if grpcPort != 0 {
+		return strconv.Itoa(int(grpcPort))
+	} else if envPort := os.Getenv(GRPCPortEnvVar); envPort != "" {
+		return envPort
+	}
+	return NoGRPCPort
 }
 
 func getDefaultServerPort(c *configpb.ProberConfig, l *logger.Logger) (int, error) {
@@ -234,10 +247,11 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	state.SetDefaultHTTPServeMux(srvMux)
 
 	var grpcLn net.Listener
-	if cfg.GetGrpcPort() != 0 {
+	grpcPort := getGRPCPort(cfg)
+	if grpcPort != NoGRPCPort {
 		serverHost := getServerHost(cfg)
 
-		grpcLn, err = net.Listen("tcp", net.JoinHostPort(serverHost, strconv.Itoa(int(cfg.GetGrpcPort()))))
+		grpcLn, err = net.Listen("tcp", net.JoinHostPort(serverHost, grpcPort))
 		if err != nil {
 			return fmt.Errorf("error while creating listener for default gRPC server: %v", err)
 		}
