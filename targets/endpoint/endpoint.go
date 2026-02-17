@@ -30,7 +30,7 @@ import (
 	endpointpb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 )
 
-// Endpoint represents a targets and associated parameters.
+// Endpoint represents targets and associated parameters.
 type Endpoint struct {
 	Name        string
 	Labels      map[string]string

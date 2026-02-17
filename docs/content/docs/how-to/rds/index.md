@@ -99,8 +99,8 @@ _resource provider_, _resource type_ and an optional _relative path_:
 
 - `resource_provider`: Resource provider is a generic concept within the RDS
   protocol but usually maps to the cloud provider. Cloudprober RDS server
-  currently implements the Kubernetes (k8s) and GCP (gcp) resource providers. We
-  plan to add more resource providers in future.
+  currently implements the Kubernetes (k8s), GCP (gcp), and AWS (aws) resource
+  providers. We plan to add more resource providers in future.
 - `resource_type`: Available resource types depend on the providers, for
   example, for k8s provider supports the following resource types: _pods_,
   _endpoints_, and _services_.
@@ -133,6 +133,36 @@ filtering by name and labels.
   - [GCE Instances](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/gce_instances.go#L44)
   - [Forwarding Rules](https://github.com/cloudprober/cloudprober/blob/b6e268e0bd11072f5d86b704306bc1100a8a5da8/rds/gcp/forwarding_rules.go#L44)
   - [Pub/Sub Messages](https://github.com/cloudprober/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/pubsub.go#L34)
+- AWS resource types:
+  - **ec2_instances**: EC2 instances
+
+### AWS Provider
+
+The AWS provider supports discovering resources across AWS services. To use the AWS
+provider, your Cloudprober instance needs AWS credentials configured. The provider
+follows the standard AWS credentials chain:
+
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. Shared credentials file (`~/.aws/credentials`)
+3. IAM role (when running on EC2)
+4. ECS task role (when running in ECS)
+
+#### AWS Resource Configuration
+
+The AWS provider is configured at the provider level with:
+
+- **region**: AWS region to query (e.g., "us-east-1", "eu-west-1")
+- **profile_name**: Optional AWS profile name from credentials file
+
+Each AWS resource type supports:
+
+- **re_eval_sec**: How often to refresh the resource list (default: 600 seconds)
+
+Example AWS resource paths:
+
+```shell
+# All EC2 instances in the configured region
+resource_path: "aws://ec2_instances"
 
 ## Running RDS Server
 
@@ -175,6 +205,36 @@ rds_server {
   provider {
     kubernetes_config {
       endpoints {}
+    }
+  }
+
+  # AWS provider to discover AWS resources.
+  provider {
+    aws_config {
+      # AWS region to discover resources in.
+      region: "us-east-1"
+
+      # Optional: AWS profile name for authentication.
+      # If not specified, uses default AWS credentials chain.
+      # profile_name: "my-aws-profile"
+
+      # Discover EC2 instances.
+      ec2_instances {
+        re_eval_sec: 60  # How often to refresh, default is 600s.
+      }
+
+      # Discover RDS database instances.
+      rds_instances {
+        # Optional: filter by specific instance identifier or ARN.
+        # identifier: "my-db-instance"
+        # filter: "db-instance-status=available"
+        re_eval_sec: 60
+      }
+
+      # Discover RDS database clusters.
+      rds_clusters {
+        re_eval_sec: 60
+      }
     }
   }
 }
