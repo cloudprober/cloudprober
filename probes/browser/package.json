@@ -2,8 +2,8 @@
   "name": "browser",
   "version": "1.0.0",
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
-    "@types/node": "^22.5.4"
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.2.3"
   },
   "scripts": {}
 }
