@@ -105,8 +105,8 @@ message GetProbeStatusRequest {
   // If empty, status for all probes is returned.
   repeated string probe_name = 1;
 
-  // Time window in minutes to compute aggregated stats for. Default is 60.
-  optional int32 time_window_minutes = 2 [default = 60];
+  // Time window in minutes to compute aggregated stats for. Default is 10.
+  optional int32 time_window_minutes = 2 [default = 10];
 
   // If true, per-minute breakdown is included in the response.
   optional bool per_minute_breakdown = 3;
