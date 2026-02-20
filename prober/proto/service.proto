@@ -107,9 +107,6 @@ message GetProbeStatusRequest {
 
   // Time window in minutes to compute aggregated stats for. Default is 10.
   optional int32 time_window_minutes = 2 [default = 10];
-
-  // If true, per-minute breakdown is included in the response.
-  optional bool per_minute_breakdown = 3;
 }
 
 message GetProbeStatusResponse {

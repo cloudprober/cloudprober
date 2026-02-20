@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
@@ -146,12 +147,13 @@ func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequ
 		return nil, status.Errorf(codes.FailedPrecondition, "probestatus surfacer is not available")
 	}
 
-	windowMinutes := int(req.GetTimeWindowMinutes())
-	if windowMinutes <= 0 {
+	if req.GetTimeWindowMinutes() <= 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "time_window_minutes must be > 0")
 	}
 
-	results, err := pr.probeStatusSurfacer.QueryStatus(ctx, req.GetProbeName(), windowMinutes, req.GetPerMinuteBreakdown())
+	timeWindow := time.Duration(req.GetTimeWindowMinutes()) * time.Minute
+
+	results, err := pr.probeStatusSurfacer.QueryStatus(ctx, req.GetProbeName(), timeWindow)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil, status.FromContextError(err).Err()
