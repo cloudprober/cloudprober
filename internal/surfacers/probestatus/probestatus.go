@@ -124,12 +124,12 @@ func (pc *pageCache) setContent(url string, content []byte) {
 
 // Surfacer implements a status surfacer for Cloudprober.
 type Surfacer struct {
-	c              *configpb.SurfacerConf // Configuration
-	opts           *options.Options
-	emChan         chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
-	queryChan      chan *httpWriter           // Query channel
-	statusQueryCh  chan *statusQuery          // Channel for structured status queries
-	l              *logger.Logger
+	c             *configpb.SurfacerConf // Configuration
+	opts          *options.Options
+	emChan        chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
+	queryChan     chan *httpWriter           // Query channel
+	statusQueryCh chan *statusQuery          // Channel for structured status queries
+	l             *logger.Logger
 
 	resolution   time.Duration
 	metrics      map[string]map[string]*timeseries
@@ -306,13 +306,13 @@ func (ps *Surfacer) computeMinuteBreakdown(baseTS *timeseries, timeWindow time.D
 	currentTime := ts.currentTS
 
 	for i := 0; i < numMinutes; i++ {
-		if ts.latest == ts.oldest {
+		if ts.latestIdx == ts.oldestIdx {
 			break
 		}
 
-		currentD := ts.a[ts.latest]
-		ts.latest = ts.agoIndex(1)
-		prevD := ts.a[ts.latest]
+		currentD := ts.a[ts.latestIdx]
+		ts.latestIdx = ts.agoIndex(1)
+		prevD := ts.a[ts.latestIdx]
 
 		if currentD == nil || prevD == nil {
 			break
