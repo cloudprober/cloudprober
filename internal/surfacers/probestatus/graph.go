@@ -154,27 +154,27 @@ func computeGraphPoints(baseTS *timeseries, gopts *graphOptions) *graphPoints {
 	gp := &graphPoints{endTime: gopts.endTime}
 
 	// Truncate latest if endTime is before the current timeseries time.
-	ts.l.Debugf("timeseries before any change: ts.oldest=%d, ts.latest=%d", ts.oldest, ts.latest)
+	ts.l.Debugf("timeseries before any change: ts.oldest=%d, ts.latest=%d", ts.oldestIdx, ts.latestIdx)
 	if gopts.endTime.Before(ts.currentTS) {
-		ts.latest = ts.agoIndex(int(ts.currentTS.Sub(gopts.endTime) / ts.res))
+		ts.latestIdx = ts.agoIndex(int(ts.currentTS.Sub(gopts.endTime) / ts.res))
 	} else {
 		gp.endTime = ts.currentTS
 	}
-	ts.l.Debugf("timeseries after endTime truncated: ts.oldest=%d, ts.latest=%d", ts.oldest, ts.latest)
+	ts.l.Debugf("timeseries after endTime truncated: ts.oldest=%d, ts.latest=%d", ts.oldestIdx, ts.latestIdx)
 
-	if ts.latest == ts.oldest {
+	if ts.latestIdx == ts.oldestIdx {
 		return nil
 	}
 
 	// Let's move oldest now if needed.
 	if int(gopts.duration/ts.res) < ts.size() {
-		ts.oldest = ts.agoIndex(int(gopts.duration / ts.res))
+		ts.oldestIdx = ts.agoIndex(int(gopts.duration / ts.res))
 		gp.startTime = gp.endTime.Add(-gopts.duration)
 	} else {
 		gp.startTime = gp.endTime.Add(-time.Duration(ts.size()) * ts.res)
 	}
 
-	ts.l.Debugf("timeseries after startTime truncated: ts.oldest=%d, ts.latest=%d", ts.oldest, ts.latest)
+	ts.l.Debugf("timeseries after startTime truncated: ts.oldest=%d, ts.latest=%d", ts.oldestIdx, ts.latestIdx)
 
 	step := int(gopts.res / ts.res)
 	if step == 0 {
@@ -185,13 +185,13 @@ func computeGraphPoints(baseTS *timeseries, gopts *graphOptions) *graphPoints {
 	var lastVal float64
 	for i := numValues - 1; i >= 0; i = i - 1 {
 		// Using agoIndex makes sure tts.latest won't jump beyond tts.oldest.
-		if ts.latest == ts.oldest {
+		if ts.latestIdx == ts.oldestIdx {
 			break
 		}
 
-		currentD := ts.a[ts.latest]
-		ts.latest = ts.agoIndex(step)
-		lastD := ts.a[ts.latest]
+		currentD := ts.a[ts.latestIdx]
+		ts.latestIdx = ts.agoIndex(step)
+		lastD := ts.a[ts.latestIdx]
 
 		val := float64(currentD.success-lastD.success) / float64(currentD.total-lastD.total)
 		// For graphing purpose, we convert NaNs to -1. We ignore -1 while
