@@ -663,10 +663,8 @@ type GetProbeStatusRequest struct {
 	ProbeName []string `protobuf:"bytes,1,rep,name=probe_name,json=probeName" json:"probe_name,omitempty"`
 	// Time window in minutes to compute aggregated stats for. Default is 10.
 	TimeWindowMinutes *int32 `protobuf:"varint,2,opt,name=time_window_minutes,json=timeWindowMinutes,def=10" json:"time_window_minutes,omitempty"`
-	// If true, per-minute breakdown is included in the response.
-	PerMinuteBreakdown *bool `protobuf:"varint,3,opt,name=per_minute_breakdown,json=perMinuteBreakdown" json:"per_minute_breakdown,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 // Default values for GetProbeStatusRequest fields.
@@ -716,13 +714,6 @@ func (x *GetProbeStatusRequest) GetTimeWindowMinutes() int32 {
 		return *x.TimeWindowMinutes
 	}
 	return Default_GetProbeStatusRequest_TimeWindowMinutes
-}
-
-func (x *GetProbeStatusRequest) GetPerMinuteBreakdown() bool {
-	if x != nil && x.PerMinuteBreakdown != nil {
-		return *x.PerMinuteBreakdown
-	}
-	return false
 }
 
 type GetProbeStatusResponse struct {
@@ -991,12 +982,11 @@ const file_github_com_cloudprober_cloudprober_prober_proto_service_proto_rawDesc
 	"\x17SaveProbesConfigRequest\x12\x1b\n" +
 	"\tfile_path\x18\x01 \x01(\tR\bfilePath\"7\n" +
 	"\x18SaveProbesConfigResponse\x12\x1b\n" +
-	"\tfile_path\x18\x01 \x01(\tR\bfilePath\"\x9c\x01\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\"j\n" +
 	"\x15GetProbeStatusRequest\x12\x1d\n" +
 	"\n" +
 	"probe_name\x18\x01 \x03(\tR\tprobeName\x122\n" +
-	"\x13time_window_minutes\x18\x02 \x01(\x05:\x0210R\x11timeWindowMinutes\x120\n" +
-	"\x14per_minute_breakdown\x18\x03 \x01(\bR\x12perMinuteBreakdown\"U\n" +
+	"\x13time_window_minutes\x18\x02 \x01(\x05:\x0210R\x11timeWindowMinutes\"U\n" +
 	"\x16GetProbeStatusResponse\x12;\n" +
 	"\fprobe_status\x18\x01 \x03(\v2\x18.cloudprober.ProbeStatusR\vprobeStatus\"a\n" +
 	"\vProbeStatus\x12\x12\n" +

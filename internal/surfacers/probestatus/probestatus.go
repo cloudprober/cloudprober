@@ -76,10 +76,9 @@ type MinuteStatusData struct {
 }
 
 type statusQuery struct {
-	probeNames         []string
-	timeWindowMinutes  int
-	perMinuteBreakdown bool
-	resultChan         chan []*ProbeStatusData
+	probeNames []string
+	timeWindow time.Duration
+	resultChan chan []*ProbeStatusData
 }
 
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
@@ -251,7 +250,6 @@ func (ps *Surfacer) processStatusQuery(sq *statusQuery) []*ProbeStatusData {
 		probeNames = ps.probeNames
 	}
 
-	timeWindow := time.Duration(sq.timeWindowMinutes) * time.Minute
 	var results []*ProbeStatusData
 
 	for _, probeName := range probeNames {
@@ -268,7 +266,7 @@ func (ps *Surfacer) processStatusQuery(sq *statusQuery) []*ProbeStatusData {
 				continue
 			}
 
-			t, s := ts.computeDelta(timeWindow)
+			t, s := ts.computeDelta(sq.timeWindow)
 			if t == -1 {
 				continue
 			}
@@ -277,10 +275,6 @@ func (ps *Surfacer) processStatusQuery(sq *statusQuery) []*ProbeStatusData {
 				TargetName: targetName,
 				Total:      t,
 				Success:    s,
-			}
-
-			if sq.perMinuteBreakdown {
-				tsd.MinuteData = ps.computeMinuteBreakdown(ts, timeWindow)
 			}
 
 			psd.TargetStatuses = append(psd.TargetStatuses, tsd)
@@ -292,56 +286,17 @@ func (ps *Surfacer) processStatusQuery(sq *statusQuery) []*ProbeStatusData {
 	return results
 }
 
-// computeMinuteBreakdown computes per-minute deltas for the given timeseries,
-// walking backwards from the latest data point.
-func (ps *Surfacer) computeMinuteBreakdown(baseTS *timeseries, timeWindow time.Duration) []*MinuteStatusData {
-	ts := baseTS.shallowCopy()
-
-	numMinutes := int(timeWindow / ts.res)
-	if numMinutes > ts.size() {
-		numMinutes = ts.size()
-	}
-
-	var result []*MinuteStatusData
-	currentTime := ts.currentTS
-
-	for i := 0; i < numMinutes; i++ {
-		if ts.latestIdx == ts.oldestIdx {
-			break
-		}
-
-		currentD := ts.a[ts.latestIdx]
-		ts.latestIdx = ts.agoIndex(1)
-		prevD := ts.a[ts.latestIdx]
-
-		if currentD == nil || prevD == nil {
-			break
-		}
-
-		result = append([]*MinuteStatusData{{
-			Timestamp: currentTime.Unix(),
-			Total:     currentD.total - prevD.total,
-			Success:   currentD.success - prevD.success,
-		}}, result...)
-
-		currentTime = currentTime.Add(-ts.res)
-	}
-
-	return result
-}
-
 // QueryStatus queries the probe status data through the event loop channel.
 // It respects context cancellation to avoid hanging gRPC calls.
-func (ps *Surfacer) QueryStatus(ctx context.Context, probeNames []string, timeWindowMinutes int, perMinuteBreakdown bool) ([]*ProbeStatusData, error) {
+func (ps *Surfacer) QueryStatus(ctx context.Context, probeNames []string, timeWindow time.Duration) ([]*ProbeStatusData, error) {
 	if ps == nil {
 		return nil, nil
 	}
 
 	sq := &statusQuery{
-		probeNames:         probeNames,
-		timeWindowMinutes:  timeWindowMinutes,
-		perMinuteBreakdown: perMinuteBreakdown,
-		resultChan:         make(chan []*ProbeStatusData, 1),
+		probeNames: probeNames,
+		timeWindow: timeWindow,
+		resultChan: make(chan []*ProbeStatusData, 1),
 	}
 
 	select {

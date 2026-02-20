@@ -202,7 +202,7 @@ func TestQueryStatus(t *testing.T) {
 	}
 
 	t.Run("all_probes_aggregated", func(t *testing.T) {
-		results, err := ps.QueryStatus(ctx, nil, 60, false)
+		results, err := ps.QueryStatus(ctx, nil, 60)
 		assert.NoError(t, err)
 		assert.Len(t, results, 2) // p1 and p2
 
@@ -231,31 +231,21 @@ func TestQueryStatus(t *testing.T) {
 	})
 
 	t.Run("filter_by_probe_name", func(t *testing.T) {
-		results, err := ps.QueryStatus(ctx, []string{"p1"}, 60, false)
+		results, err := ps.QueryStatus(ctx, []string{"p1"}, 60)
 		assert.NoError(t, err)
 		assert.Len(t, results, 1)
 		assert.Equal(t, "p1", results[0].Name)
 	})
 
 	t.Run("nonexistent_probe", func(t *testing.T) {
-		results, err := ps.QueryStatus(ctx, []string{"nonexistent"}, 60, false)
+		results, err := ps.QueryStatus(ctx, []string{"nonexistent"}, 60)
 		assert.NoError(t, err)
 		assert.Len(t, results, 0)
 	})
 
-	t.Run("per_minute_breakdown", func(t *testing.T) {
-		results, err := ps.QueryStatus(ctx, []string{"p1"}, 60, true)
-		assert.NoError(t, err)
-		assert.Len(t, results, 1)
-		for _, ts := range results[0].TargetStatuses {
-			assert.NotNil(t, ts.MinuteData)
-			assert.Greater(t, len(ts.MinuteData), 0, "expected per-minute data for target %s", ts.TargetName)
-		}
-	})
-
 	t.Run("nil_surfacer", func(t *testing.T) {
 		var nilPS *Surfacer
-		results, err := nilPS.QueryStatus(ctx, nil, 60, false)
+		results, err := nilPS.QueryStatus(ctx, nil, 60)
 		assert.NoError(t, err)
 		assert.Nil(t, results)
 	})
@@ -264,7 +254,7 @@ func TestQueryStatus(t *testing.T) {
 		canceledCtx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
-		_, err := ps.QueryStatus(canceledCtx, nil, 60, false)
+		_, err := ps.QueryStatus(canceledCtx, nil, 60)
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, context.Canceled)
 	})
