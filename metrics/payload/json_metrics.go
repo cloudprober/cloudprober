@@ -117,8 +117,8 @@ func (jm *jsonMetric) process(input any, em *metrics.EventMetrics) (*metrics.Eve
 		if !ok {
 			return nil, fmt.Errorf("labels_jq_filter didn't return a map[string]any: %T", labels)
 		}
-		for k, v := range labelsMap {
-			em.AddLabel(k, fmt.Sprintf("%v", v))
+		for _, k := range sortedKeys(labelsMap) {
+			em.AddLabel(k, fmt.Sprintf("%v", labelsMap[k]))
 		}
 	}
 
