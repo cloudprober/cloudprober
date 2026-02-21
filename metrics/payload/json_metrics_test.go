@@ -97,6 +97,31 @@ func TestJSONMetrics(t *testing.T) {
 			},
 		},
 		{
+			name: "multiple labels sorting",
+			input: `{
+				"deployment": "dep1",
+				"region": "us-central1",
+				"zone": "us-central1-a",
+				"app": "cloudprober",
+				"reqs": 100
+			}`,
+			config: `
+				json_metric: [{
+					jq_filter: "{\"reqs\":.reqs}",
+					labels_jq_filter: "{\"deployment\":.deployment, \"region\":.region, \"zone\":.zone, \"app\":.app}",
+				}]
+			`,
+			wantJM: []*jsonMetric{
+				{
+					metricsJQ: testMustJQParse("{\"reqs\":.reqs}"),
+					labelsJQ:  testMustJQParse("{\"deployment\":.deployment, \"region\":.region, \"zone\":.zone, \"app\":.app}"),
+				},
+			},
+			wantEMs: []string{
+				"labels=app=cloudprober,deployment=dep1,region=us-central1,zone=us-central1-a reqs=100.000",
+			},
+		},
+		{
 			name: "bad filter",
 			config: `
 			json_metric: [{
