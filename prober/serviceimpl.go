@@ -174,13 +174,6 @@ func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequ
 				Total:      proto.Int64(tsd.Total),
 				Success:    proto.Int64(tsd.Success),
 			}
-			for _, md := range tsd.MinuteData {
-				targetStatus.MinuteStatus = append(targetStatus.MinuteStatus, &pb.MinuteStatus{
-					Timestamp: proto.Int64(md.Timestamp),
-					Total:     proto.Int64(md.Total),
-					Success:   proto.Int64(md.Success),
-				})
-			}
 			probeStatus.TargetStatus = append(probeStatus.TargetStatus, targetStatus)
 		}
 		resp.ProbeStatus = append(resp.ProbeStatus, probeStatus)
