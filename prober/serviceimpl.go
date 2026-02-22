@@ -152,8 +152,12 @@ func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequ
 	}
 
 	timeWindow := time.Duration(req.GetTimeWindowMinutes()) * time.Minute
+	var endTime time.Time
+	if req.GetEndTimeSec() != 0 {
+		endTime = time.Unix(req.GetEndTimeSec(), 0)
+	}
 
-	results, err := pr.probeStatusSurfacer.QueryStatus(ctx, req.GetProbeName(), timeWindow)
+	results, err := pr.probeStatusSurfacer.QueryStatus(ctx, req.GetProbeName(), endTime, timeWindow)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil, status.FromContextError(err).Err()

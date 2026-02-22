@@ -65,7 +65,6 @@ type TargetStatusData struct {
 	TargetName string
 	Total      int64
 	Success    int64
-	MinuteData []*MinuteStatusData // nil if not requested
 }
 
 // MinuteStatusData represents per-minute status data.
@@ -77,6 +76,7 @@ type MinuteStatusData struct {
 
 type statusQuery struct {
 	probeNames []string
+	endTime    time.Time
 	timeWindow time.Duration
 	resultChan chan []*ProbeStatusData
 }
@@ -266,7 +266,7 @@ func (ps *Surfacer) processStatusQuery(sq *statusQuery) []*ProbeStatusData {
 				continue
 			}
 
-			t, s := ts.computeDelta(sq.timeWindow)
+			t, s := ts.computeDelta(sq.endTime, sq.timeWindow)
 			if t == -1 {
 				continue
 			}
@@ -288,13 +288,14 @@ func (ps *Surfacer) processStatusQuery(sq *statusQuery) []*ProbeStatusData {
 
 // QueryStatus queries the probe status data through the event loop channel.
 // It respects context cancellation to avoid hanging gRPC calls.
-func (ps *Surfacer) QueryStatus(ctx context.Context, probeNames []string, timeWindow time.Duration) ([]*ProbeStatusData, error) {
+func (ps *Surfacer) QueryStatus(ctx context.Context, probeNames []string, endTime time.Time, timeWindow time.Duration) ([]*ProbeStatusData, error) {
 	if ps == nil {
 		return nil, nil
 	}
 
 	sq := &statusQuery{
 		probeNames: probeNames,
+		endTime:    endTime,
 		timeWindow: timeWindow,
 		resultChan: make(chan []*ProbeStatusData, 1),
 	}
@@ -409,7 +410,7 @@ func (ps *Surfacer) statusTable(probeName string) string {
 			if td > maxInterval {
 				noFurtherData = true
 			}
-			t, s := ts.computeDelta(td)
+			t, s := ts.computeDelta(time.Time{}, td)
 			if t == -1 {
 				b.WriteString("<td class=greyed style=font-size:smaller>No Data</td>")
 				noDataFor = td
