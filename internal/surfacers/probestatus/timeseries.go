@@ -110,10 +110,16 @@ func (ts *timeseries) size() int {
 	if ts.oldestIdx <= ts.latestIdx {
 		return ts.latestIdx - ts.oldestIdx
 	}
-	return len(ts.a)
+	return len(ts.a) - 1
 }
 
-func (ts *timeseries) computeDelta(td time.Duration) (int64, int64) {
+func (ts *timeseries) computeDelta(endTime time.Time, td time.Duration) (int64, int64) {
+	if endTime.IsZero() {
+		endTime = ts.currentTS
+	} else {
+		endTime = endTime.Truncate(ts.res)
+	}
+
 	// If current data is older than what we're looking for, return -1. We use
 	// this information to decide whether to show availability data for this
 	// period or not. This is to take care of the deleted targets.
@@ -123,12 +129,24 @@ func (ts *timeseries) computeDelta(td time.Duration) (int64, int64) {
 		return -1, -1
 	}
 
-	startIndex := ts.agoIndex(int(td / ts.res))
-	if startIndex == ts.latestIdx {
+	if endTime.After(ts.currentTS) {
+		endTime = ts.currentTS
+	}
+
+	behindEnd := int(ts.currentTS.Sub(endTime) / ts.res)
+	if behindEnd > ts.size() {
+		return -1, -1
+	}
+	behindStart := behindEnd + int(td/ts.res)
+
+	endIndex := ts.agoIndex(behindEnd)
+	startIndex := ts.agoIndex(behindStart)
+
+	if startIndex == endIndex {
 		return 0, 0
 	}
 
-	tD := ts.a[ts.latestIdx].total - ts.a[startIndex].total
-	sD := ts.a[ts.latestIdx].success - ts.a[startIndex].success
+	tD := ts.a[endIndex].total - ts.a[startIndex].total
+	sD := ts.a[endIndex].success - ts.a[startIndex].success
 	return tD, sD
 }

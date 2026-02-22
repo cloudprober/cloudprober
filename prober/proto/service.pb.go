@@ -663,8 +663,11 @@ type GetProbeStatusRequest struct {
 	ProbeName []string `protobuf:"bytes,1,rep,name=probe_name,json=probeName" json:"probe_name,omitempty"`
 	// Time window in minutes to compute aggregated stats for. Default is 10.
 	TimeWindowMinutes *int32 `protobuf:"varint,2,opt,name=time_window_minutes,json=timeWindowMinutes,def=10" json:"time_window_minutes,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Unix epoch timestamp in seconds for the end of the window.
+	// If not provided, it defaults to the current time.
+	EndTimeSec    *int64 `protobuf:"varint,3,opt,name=end_time_sec,json=endTimeSec" json:"end_time_sec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 // Default values for GetProbeStatusRequest fields.
@@ -714,6 +717,13 @@ func (x *GetProbeStatusRequest) GetTimeWindowMinutes() int32 {
 		return *x.TimeWindowMinutes
 	}
 	return Default_GetProbeStatusRequest_TimeWindowMinutes
+}
+
+func (x *GetProbeStatusRequest) GetEndTimeSec() int64 {
+	if x != nil && x.EndTimeSec != nil {
+		return *x.EndTimeSec
+	}
+	return 0
 }
 
 type GetProbeStatusResponse struct {
@@ -982,11 +992,13 @@ const file_github_com_cloudprober_cloudprober_prober_proto_service_proto_rawDesc
 	"\x17SaveProbesConfigRequest\x12\x1b\n" +
 	"\tfile_path\x18\x01 \x01(\tR\bfilePath\"7\n" +
 	"\x18SaveProbesConfigResponse\x12\x1b\n" +
-	"\tfile_path\x18\x01 \x01(\tR\bfilePath\"j\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\"\x8c\x01\n" +
 	"\x15GetProbeStatusRequest\x12\x1d\n" +
 	"\n" +
 	"probe_name\x18\x01 \x03(\tR\tprobeName\x122\n" +
-	"\x13time_window_minutes\x18\x02 \x01(\x05:\x0210R\x11timeWindowMinutes\"U\n" +
+	"\x13time_window_minutes\x18\x02 \x01(\x05:\x0210R\x11timeWindowMinutes\x12 \n" +
+	"\fend_time_sec\x18\x03 \x01(\x03R\n" +
+	"endTimeSec\"U\n" +
 	"\x16GetProbeStatusResponse\x12;\n" +
 	"\fprobe_status\x18\x01 \x03(\v2\x18.cloudprober.ProbeStatusR\vprobeStatus\"a\n" +
 	"\vProbeStatus\x12\x12\n" +

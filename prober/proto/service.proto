@@ -107,6 +107,10 @@ message GetProbeStatusRequest {
 
   // Time window in minutes to compute aggregated stats for. Default is 10.
   optional int32 time_window_minutes = 2 [default = 10];
+
+  // Unix epoch timestamp in seconds for the end of the window.
+  // If not provided, it defaults to the current time.
+  optional int64 end_time_sec = 3;
 }
 
 message GetProbeStatusResponse {
