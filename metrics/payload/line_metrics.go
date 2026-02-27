@@ -225,22 +225,26 @@ func (p *Parser) processLine(line, targetKey string) *metrics.EventMetrics {
 	// If not aggregating, create a new EM, add the metric and return.
 	if !p.aggregate {
 		return p.newEM(labels).AddMetric(metricName, value)
-	}
+	} else {
+		// If aggregating, create a key, find if we already have an EM with that key
+		// if yes, update that metric, or create a new metric.
+		key := metricKey(metricName, targetKey, labels)
 
-	// If aggregating, create a key, find if we already have an EM with that key
-	// if yes, update that metric, or create a new metric.
-	key := metricKey(metricName, targetKey, labels)
-	if em := p.aggregatedMetrics[key]; em != nil {
-		if err := em.Metric(metricName).Add(value); err != nil {
-			p.l.Warningf("error updating metric %s with val %s: %v", metricName, value, err)
-			return nil
+		p.mu.Lock()
+		defer p.mu.Unlock()
+
+		if em := p.aggregatedMetrics[key]; em != nil {
+			if err := em.Metric(metricName).Add(value); err != nil {
+				p.l.Warningf("error updating metric %s with val %s: %v", metricName, value, err)
+				return nil
+			}
+			return em.Clone()
 		}
+
+		em := p.newEM(labels).AddMetric(metricName, value)
+		p.aggregatedMetrics[key] = em
 		return em.Clone()
 	}
-
-	em := p.newEM(labels).AddMetric(metricName, value)
-	p.aggregatedMetrics[key] = em
-	return em.Clone()
 }
 
 // payloadLineMetrics parses a payload lines as metrics, and for each line in
