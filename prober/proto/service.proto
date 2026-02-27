@@ -23,6 +23,11 @@ service Cloudprober {
   rpc ListProbes(ListProbesRequest) returns (ListProbesResponse) {}
 
   rpc SaveProbesConfig(SaveProbesConfigRequest) returns (SaveProbesConfigResponse) {}
+
+  // GetProbeStatus returns the ongoing probe status data, including
+  // total/success counters per probe/target, with optional per-minute
+  // breakdown.
+  rpc GetProbeStatus(GetProbeStatusRequest) returns (GetProbeStatusResponse) {}
 }
 
 message AddProbeRequest {
@@ -94,4 +99,41 @@ message SaveProbesConfigRequest {
 
 message SaveProbesConfigResponse {
   optional string file_path = 1;
+}
+
+message GetProbeStatusRequest {
+  // If empty, status for all probes is returned.
+  repeated string probe_name = 1;
+
+  // Time window in minutes to compute aggregated stats for. Default is 10.
+  optional int32 time_window_minutes = 2 [default = 10];
+
+  // Unix epoch timestamp in seconds for the end of the window.
+  // If not provided, it defaults to the current time.
+  optional int64 end_time_sec = 3;
+}
+
+message GetProbeStatusResponse {
+  repeated ProbeStatus probe_status = 1;
+}
+
+message ProbeStatus {
+  optional string name = 1;
+  repeated TargetStatus target_status = 2;
+}
+
+message TargetStatus {
+  optional string target_name = 1;
+  optional int64 total = 2;
+  optional int64 success = 3;
+  // Per-minute breakdown, only populated if per_minute_breakdown is true in
+  // the request.
+  repeated MinuteStatus minute_status = 5;
+}
+
+message MinuteStatus {
+  // Unix timestamp in seconds for this minute bucket.
+  optional int64 timestamp = 1;
+  optional int64 total = 2;
+  optional int64 success = 3;
 }

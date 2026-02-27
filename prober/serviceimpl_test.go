@@ -32,6 +32,8 @@ import (
 	"github.com/cloudprober/cloudprober/state"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -181,6 +183,64 @@ func TestRemoveProbes(t *testing.T) {
 
 	// Verify that probe is not running anymore
 	verifyProbeRunningStatus(t, p, false)
+}
+
+func TestGetProbeStatus(t *testing.T) {
+	pr, cancel := testProber(t, &configpb.ProberConfig{})
+	defer cancel()
+
+	// Verify probeStatusSurfacer was cached during Init.
+	assert.NotNil(t, pr.probeStatusSurfacer, "probeStatusSurfacer should be initialized")
+
+	// Call GetProbeStatus with empty probe names (all probes).
+	resp, err := pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// With no data recorded, should get empty probe status list.
+	assert.Empty(t, resp.GetProbeStatus())
+
+	// Call with a non-existent probe name.
+	resp, err = pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{
+		ProbeName: []string{"nonexistent"},
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, resp.GetProbeStatus())
+
+	t.Run("invalid_time_window", func(t *testing.T) {
+		_, err := pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{
+			TimeWindowMinutes: proto.Int32(0),
+		})
+		assert.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+	})
+
+	t.Run("context_canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, codes.Canceled, status.Code(err))
+	})
+
+	t.Run("context_deadline_exceeded", func(t *testing.T) {
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		defer cancel()
+
+		_, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, codes.DeadlineExceeded, status.Code(err))
+	})
+}
+
+func TestGetProbeStatusNoSurfacer(t *testing.T) {
+	// Create a prober without probeStatusSurfacer.
+	pr := &Prober{}
+
+	_, err := pr.GetProbeStatus(context.Background(), &pb.GetProbeStatusRequest{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "probestatus surfacer is not available")
 }
 
 func TestSaveProbesConfig(t *testing.T) {

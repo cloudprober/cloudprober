@@ -75,9 +75,9 @@ func TestTimeseriesGap(t *testing.T) {
 				{minutes: 5, expected: 0},
 			},
 			deltaChecks: []deltaCheck{
-				{minutesBehind: 5, minutes: 5, wantTotal: 10, wantSuccess: 9},   // 20-10, 18-9
-				{minutesBehind: 3, minutes: 3, wantTotal: 10, wantSuccess: 9},   // 20-10, 18-9 (filled bucket)
-				{minutesBehind: 16, minutes: 5, wantTotal: -1, wantSuccess: -1}, // no data for > 5+10 minutes
+				{minutesBehind: 0, minutes: 5, wantTotal: 10, wantSuccess: 9},   // 20-10, 18-9
+				{minutesBehind: 0, minutes: 3, wantTotal: 10, wantSuccess: 9},   // 20-10, 18-9 (filled bucket)
+				{minutesBehind: 16, minutes: 5, wantTotal: -1, wantSuccess: -1}, // endTime too far back, no data
 			},
 		},
 		{
@@ -99,8 +99,9 @@ func TestTimeseriesGap(t *testing.T) {
 				{minutes: 10, expected: 0},
 			},
 			deltaChecks: []deltaCheck{
-				{minutes: 5, wantTotal: 10, wantSuccess: 8},   // 30-20, 27-19
-				{minutes: 10, wantTotal: 20, wantSuccess: 18}, // 30-10, 27-9
+				{minutes: 5, wantTotal: 10, wantSuccess: 8},                    // 30-20, 27-19
+				{minutes: 10, wantTotal: 20, wantSuccess: 18},                  // 30-10, 27-9
+				{minutesBehind: 5, minutes: 5, wantTotal: 10, wantSuccess: 10}, // endTime=min5: 20-10, 19-9
 			},
 		},
 		{
@@ -205,13 +206,17 @@ func TestTimeseriesGap(t *testing.T) {
 					fmt.Sprintf("agoIndex(%d)", ac.minutes))
 			}
 
+			latestMinuteOffset := tt.data[len(tt.data)-1].minuteOffset
+			trueCurrentTS := start.Add(time.Duration(latestMinuteOffset) * time.Minute)
+
 			for _, dc := range tt.deltaChecks {
-				ts.currentTS = time.Now().Truncate(time.Minute).Add(time.Duration(-dc.minutesBehind) * time.Minute)
-				gotTotal, gotSuccess := ts.computeDelta(time.Duration(dc.minutes) * time.Minute)
+				ts.currentTS = trueCurrentTS
+				endTime := trueCurrentTS.Add(time.Duration(-dc.minutesBehind) * time.Minute)
+				gotTotal, gotSuccess := ts.computeDelta(endTime, time.Duration(dc.minutes)*time.Minute)
 				assert.Equal(t, dc.wantTotal, gotTotal,
-					fmt.Sprintf("computeDelta(%dm) total", dc.minutes))
+					fmt.Sprintf("computeDelta(%dm) behind %dm total", dc.minutes, dc.minutesBehind))
 				assert.Equal(t, dc.wantSuccess, gotSuccess,
-					fmt.Sprintf("computeDelta(%dm) success", dc.minutes))
+					fmt.Sprintf("computeDelta(%dm) behind %dm success", dc.minutes, dc.minutesBehind))
 			}
 		})
 	}

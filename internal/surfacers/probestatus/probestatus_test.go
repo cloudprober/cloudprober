@@ -1,4 +1,4 @@
-// Copyright 2022-2023 The Cloudprober Authors.
+// Copyright 2022-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -172,6 +172,118 @@ func TestDisabledAndHandlers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestQueryStatus(t *testing.T) {
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
+	defer state.SetDefaultHTTPServeMux(nil)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	ps, err := New(ctx, &configpb.SurfacerConf{
+		TimeseriesSize:     proto.Int32(20),
+		MaxTargetsPerProbe: proto.Int32(10),
+	}, &options.Options{}, nil)
+	if err != nil {
+		t.Fatalf("Error creating surfacer: %v", err)
+	}
+
+	// Record data across multiple minutes for probe "p1" with targets "t1"
+	// and "t2", and probe "p2" with target "t3".
+	baseTime := time.Now().Add(-11 * time.Minute).Truncate(time.Minute)
+
+	var ts time.Time
+	// Simulate cumulative counters growing over 10 minutes.
+	loss := 0
+	for i := 0; i < 12; i++ {
+		if i < 6 {
+			loss += 5
+		} else {
+			loss += 10
+		}
+		ts = baseTime.Add(time.Duration(i+1) * time.Minute)
+		ps.record(testEM(t, ts, "p1", "t1", (i+1)*100, (i+1)*100-loss, 0))
+		ps.record(testEM(t, ts, "p1", "t2", (i+1)*50, (i+1)*50-loss, 0))
+		ps.record(testEM(t, ts, "p2", "t3", (i+1)*200, (i+1)*200-2*loss, 0))
+		t.Logf("i: %v ts: %v p1t1 p1t2: [%v %v] [%v %v]", i, ts, (i+1)*100, (i+1)*100-loss, (i+1)*50, (i+1)*50-loss)
+	}
+	currentTS := ts
+	t.Logf("currentTS: %v", currentTS)
+
+	t.Run("all_probes", func(t *testing.T) {
+		// Use 5 minutes to capture the delta from baseTime to baseTime+5m
+		results, err := ps.QueryStatus(ctx, nil, time.Time{}, 5*time.Minute)
+		assert.NoError(t, err)
+
+		// Verify the accumulated data delta
+		assert.Equal(t, []*ProbeStatusData{
+			{"p1", []*TargetStatusData{{"t1", 500, 450}, {"t2", 250, 200}}},
+			{"p2", []*TargetStatusData{{"t3", 1000, 900}}},
+		}, results)
+	})
+
+	t.Run("filter_by_probe_name", func(t *testing.T) {
+		results, err := ps.QueryStatus(ctx, []string{"p1"}, time.Time{}, 5*time.Minute)
+		assert.NoError(t, err)
+
+		// Verify the accumulated data delta
+		assert.Equal(t, []*ProbeStatusData{
+			{"p1", []*TargetStatusData{{"t1", 500, 450}, {"t2", 250, 200}}},
+		}, results)
+	})
+
+	t.Run("with_end_time_6min_ago", func(t *testing.T) {
+		t.Logf("currentTS: %v", currentTS)
+		results, err := ps.QueryStatus(ctx, []string{"p1"}, currentTS.Add(-6*time.Minute), 5*time.Minute)
+		assert.NoError(t, err)
+		// 6 min ago, takes us to 1st 6 points, or 5 intervals
+		assert.Equal(t, []*ProbeStatusData{
+			{"p1", []*TargetStatusData{{"t1", 500, 475}, {"t2", 250, 225}}},
+		}, results)
+	})
+
+	t.Run("with_end_time_8min_ago", func(t *testing.T) {
+		t.Logf("currentTS: %v", currentTS)
+		results, err := ps.QueryStatus(ctx, []string{"p1"}, currentTS.Add(-8*time.Minute), 5*time.Minute)
+		assert.NoError(t, err)
+		// 8 min ago, we got just 3 intervals of data
+		assert.Equal(t, []*ProbeStatusData{
+			{"p1", []*TargetStatusData{{"t1", 300, 285}, {"t2", 150, 135}}},
+		}, results)
+	})
+
+	t.Run("with_end_time_15min_ago_no_data", func(t *testing.T) {
+		t.Logf("currentTS: %v", currentTS)
+		results, err := ps.QueryStatus(ctx, []string{"p1"}, currentTS.Add(-15*time.Minute), 5*time.Minute)
+		assert.NoError(t, err)
+		// 15 min ago, we got just 3 intervals of data
+		assert.Equal(t, []*ProbeStatusData{
+			{"p1", nil},
+		}, results)
+	})
+
+	t.Run("nonexistent_probe", func(t *testing.T) {
+		results, err := ps.QueryStatus(ctx, []string{"nonexistent"}, time.Time{}, 5*time.Minute)
+		assert.NoError(t, err)
+		assert.Len(t, results, 0)
+	})
+
+	t.Run("nil_surfacer", func(t *testing.T) {
+		var nilPS *Surfacer
+		results, err := nilPS.QueryStatus(ctx, nil, time.Time{}, 5*time.Minute)
+		assert.NoError(t, err)
+		assert.Nil(t, results)
+	})
+
+	t.Run("context_cancellation", func(t *testing.T) {
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		_, err := ps.QueryStatus(canceledCtx, nil, time.Time{}, 5*time.Minute)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, context.Canceled)
+	})
 }
 
 func TestSurfacerWriteData(t *testing.T) {
