@@ -5,6 +5,7 @@ package surfacers
 
 import bigquerypb "github.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto"
 import cloudwatchpb "github.com/cloudprober/cloudprober/internal/surfacers/cloudwatch/proto"
+import consulpb "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto"
 import datadogpb "github.com/cloudprober/cloudprober/internal/surfacers/datadog/proto"
 import filepb "github.com/cloudprober/cloudprober/internal/surfacers/file/proto"
 import otelpb "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto"
@@ -22,6 +23,7 @@ const Default_SurfacerDef_LatencyMetricPattern = surfacerspb.Default_SurfacerDef
 const Default_SurfacerDef_MetricsBufferSize = surfacerspb.Default_SurfacerDef_MetricsBufferSize
 const Type_BIGQUERY = surfacerspb.Type_BIGQUERY
 const Type_CLOUDWATCH = surfacerspb.Type_CLOUDWATCH
+const Type_CONSUL = surfacerspb.Type_CONSUL
 const Type_DATADOG = surfacerspb.Type_DATADOG
 const Type_EXTENSION = surfacerspb.Type_EXTENSION
 const Type_FILE = surfacerspb.Type_FILE
@@ -37,6 +39,7 @@ type LabelFilter = surfacerspb.LabelFilter
 type SurfacerDef = surfacerspb.SurfacerDef
 type SurfacerDef_BigquerySurfacer = surfacerspb.SurfacerDef_BigquerySurfacer
 type SurfacerDef_CloudwatchSurfacer = surfacerspb.SurfacerDef_CloudwatchSurfacer
+type SurfacerDef_ConsulSurfacer = surfacerspb.SurfacerDef_ConsulSurfacer
 type SurfacerDef_DatadogSurfacer = surfacerspb.SurfacerDef_DatadogSurfacer
 type SurfacerDef_FileSurfacer = surfacerspb.SurfacerDef_FileSurfacer
 type SurfacerDef_OtelSurfacer = surfacerspb.SurfacerDef_OtelSurfacer
@@ -64,6 +67,30 @@ const CloudwatchDefault_SurfacerConf_MetricsBatchSize = cloudwatchpb.Default_Sur
 const CloudwatchDefault_SurfacerConf_Namespace = cloudwatchpb.Default_SurfacerConf_Namespace
 const CloudwatchDefault_SurfacerConf_Resolution = cloudwatchpb.Default_SurfacerConf_Resolution
 type CloudwatchSurfacerConf = cloudwatchpb.SurfacerConf
+
+// Symbols from github.com/cloudprober/cloudprober/internal/surfacers/consul/proto
+const ConsulDefault_HealthCheckConfig_DeregisterCriticalServiceAfter = consulpb.Default_HealthCheckConfig_DeregisterCriticalServiceAfter
+const ConsulDefault_HealthCheckConfig_HttpEndpoint = consulpb.Default_HealthCheckConfig_HttpEndpoint
+const ConsulDefault_HealthCheckConfig_HttpMethod = consulpb.Default_HealthCheckConfig_HttpMethod
+const ConsulDefault_HealthCheckConfig_Interval = consulpb.Default_HealthCheckConfig_Interval
+const ConsulDefault_HealthCheckConfig_Timeout = consulpb.Default_HealthCheckConfig_Timeout
+const ConsulDefault_HealthCheckConfig_TlsSkipVerify = consulpb.Default_HealthCheckConfig_TlsSkipVerify
+const ConsulDefault_KubernetesServiceConfig_Namespace = consulpb.Default_KubernetesServiceConfig_Namespace
+const ConsulDefault_KubernetesServiceConfig_Port = consulpb.Default_KubernetesServiceConfig_Port
+const ConsulDefault_KubernetesServiceConfig_ServiceName = consulpb.Default_KubernetesServiceConfig_ServiceName
+const ConsulDefault_ServiceConfig_EnableConnect = consulpb.Default_ServiceConfig_EnableConnect
+const ConsulDefault_ServiceConfig_Name = consulpb.Default_ServiceConfig_Name
+const ConsulDefault_SurfacerConf_Address = consulpb.Default_SurfacerConf_Address
+const ConsulDefault_SurfacerConf_DeregisterOnShutdown = consulpb.Default_SurfacerConf_DeregisterOnShutdown
+const ConsulDefault_SysVarsConfig_Enabled = consulpb.Default_SysVarsConfig_Enabled
+const ConsulDefault_SysVarsConfig_KeyPrefix = consulpb.Default_SysVarsConfig_KeyPrefix
+const ConsulDefault_TLSConfig_InsecureSkipVerify = consulpb.Default_TLSConfig_InsecureSkipVerify
+type ConsulHealthCheckConfig = consulpb.HealthCheckConfig
+type ConsulKubernetesServiceConfig = consulpb.KubernetesServiceConfig
+type ConsulServiceConfig = consulpb.ServiceConfig
+type ConsulSurfacerConf = consulpb.SurfacerConf
+type ConsulSysVarsConfig = consulpb.SysVarsConfig
+type ConsulTLSConfig = consulpb.TLSConfig
 
 // Symbols from github.com/cloudprober/cloudprober/internal/surfacers/datadog/proto
 const DatadogDefault_SurfacerConf_BatchTimerSec = datadogpb.Default_SurfacerConf_BatchTimerSec

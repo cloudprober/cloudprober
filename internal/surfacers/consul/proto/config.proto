@@ -1,0 +1,190 @@
+// Configuration proto for Consul surfacer.
+//
+// This surfacer registers the cloudprober instance with Consul, publishing:
+// - Instance existence (service registration)
+// - Health status (via health checks)
+// - Metadata about the instance
+//
+// The Consul surfacer respects standard Consul environment variables.
+// Configuration values explicitly set take precedence over environment variables.
+//
+// Supported environment variables:
+//   - CONSUL_HTTP_ADDR: HTTP API address
+//     Special value "auto-discover" enables Kubernetes service discovery
+//   - CONSUL_HTTP_TOKEN: ACL token
+//   - CONSUL_HTTP_TOKEN_FILE: Path to file containing ACL token
+//   - CONSUL_HTTP_SSL: Enable HTTPS
+//   - CONSUL_HTTP_SSL_VERIFY: Verify SSL certificates
+//   - CONSUL_CACERT: Path to CA certificate
+//   - CONSUL_CAPATH: Path to directory of CA certificates
+//   - CONSUL_CLIENT_CERT: Path to client certificate
+//   - CONSUL_CLIENT_KEY: Path to client key
+//   - CONSUL_DATACENTER: Datacenter name
+//   - CONSUL_NAMESPACE: Namespace (Consul Enterprise)
+//   - CONSUL_TLS_SERVER_NAME: TLS server name for SNI
+//   - CONSUL_HTTP_AUTH: HTTP basic auth (username:password)
+//
+// Auto-discovery environment variables (when CONSUL_HTTP_ADDR="auto-discover"):
+//   - CONSUL_K8S_NAMESPACE: Kubernetes namespace (default: default)
+//   - CONSUL_K8S_SERVICE_NAME: Kubernetes service name (default: consul)
+//   - CONSUL_K8S_PORT: Kubernetes service port (default: 8500)
+//
+// Example config:
+// {
+//   address: "localhost:8500"
+//   service_name: "cloudprober"
+//   service_id: "cloudprober-1"
+//   tags: ["monitoring", "production"]
+//   health_check_interval: "10s"
+// }
+
+syntax = "proto2";
+
+package cloudprober.surfacer.consul;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto";
+
+message SurfacerConf {
+  // Consul server address (hostname:port)
+  // Default: "localhost:8500"
+  // Environment variable: CONSUL_HTTP_ADDR
+  // Note: Config value takes precedence over environment variable
+  optional string address = 1 [default = "localhost:8500"];
+
+  // Consul datacenter
+  // If not specified, uses the default datacenter
+  // Environment variable: CONSUL_DATACENTER
+  // Note: Config value takes precedence over environment variable
+  optional string datacenter = 2;
+
+  // Consul token for authentication
+  // Environment variables: CONSUL_HTTP_TOKEN or CONSUL_HTTP_TOKEN_FILE
+  // Note: Config value takes precedence over environment variables
+  optional string token = 3;
+
+  // TLS configuration for connecting to Consul
+  // Environment variables: CONSUL_CACERT, CONSUL_CLIENT_CERT, CONSUL_CLIENT_KEY,
+  //                       CONSUL_HTTP_SSL, CONSUL_HTTP_SSL_VERIFY, CONSUL_TLS_SERVER_NAME
+  // Note: Config values take precedence over environment variables
+  optional TLSConfig tls = 4;
+
+  // Service registration configuration
+  optional ServiceConfig service = 10;
+
+  // Health check configuration
+  optional HealthCheckConfig health_check = 11;
+
+  // Metadata to include in service registration
+  // This is in addition to system variables (sysvars)
+  map<string, string> metadata = 20;
+
+  // System variables (sysvars) configuration
+  // Sysvars include: version, hostname, start_timestamp, cloud provider metadata, etc.
+  optional SysVarsConfig sysvars = 21;
+
+  // Whether to deregister the service on shutdown
+  // Default: true
+  optional bool deregister_on_shutdown = 30 [default = true];
+
+  // Kubernetes service discovery for Consul address
+  // If specified, the Consul address will be discovered via Kubernetes service
+  optional KubernetesServiceConfig kubernetes_service = 40;
+}
+
+message TLSConfig {
+  // Path to CA certificate file
+  optional string ca_file = 1;
+
+  // Path to client certificate file
+  optional string cert_file = 2;
+
+  // Path to client key file
+  optional string key_file = 3;
+
+  // Skip TLS verification (not recommended for production)
+  optional bool insecure_skip_verify = 4 [default = false];
+}
+
+message ServiceConfig {
+  // Service name to register with Consul
+  // Default: "cloudprober"
+  optional string name = 1 [default = "cloudprober"];
+
+  // Service ID (unique identifier)
+  // If not specified, will be auto-generated as: service_name-hostname-port
+  optional string id = 2;
+
+  // Service tags
+  repeated string tags = 3;
+
+  // Service port
+  // If not specified, will use the probe status server port or default to 9313
+  optional int32 port = 4;
+
+  // Service address
+  // If not specified, will auto-detect from hostname or pod IP
+  optional string address = 5;
+
+  // Enable service mesh integration (Consul Connect)
+  optional bool enable_connect = 6 [default = false];
+}
+
+message HealthCheckConfig {
+  // Health check HTTP endpoint
+  // Default: "/status"
+  optional string http_endpoint = 1 [default = "/status"];
+
+  // Health check interval
+  // Default: "10s"
+  optional string interval = 2 [default = "10s"];
+
+  // Health check timeout
+  // Default: "5s"
+  optional string timeout = 3 [default = "5s"];
+
+  // Deregister service after this duration if unhealthy
+  // Default: "1m"
+  optional string deregister_critical_service_after = 4 [default = "1m"];
+
+  // Health check HTTP method
+  // Default: "GET"
+  optional string http_method = 5 [default = "GET"];
+
+  // Health check TLS skip verify
+  optional bool tls_skip_verify = 6 [default = false];
+
+  // Health check notes
+  optional string notes = 7;
+}
+
+message KubernetesServiceConfig {
+  // Kubernetes namespace where the Consul service is located
+  optional string namespace = 1 [default = "default"];
+
+  // Kubernetes service name
+  optional string service_name = 2 [default = "consul"];
+
+  // Kubernetes service port (name or number)
+  optional string port = 3 [default = "8500"];
+}
+
+message SysVarsConfig {
+  // Whether to publish system variables as service metadata
+  // Default: true (sysvars are published by default)
+  optional bool enabled = 1 [default = true];
+
+  // If specified, ONLY these sysvars will be published
+  // Example: ["version", "hostname", "start_timestamp"]
+  // If empty, all sysvars are published (subject to exclude_vars)
+  repeated string include_vars = 2;
+
+  // Sysvars to exclude from publishing
+  // This is applied after include_vars
+  // Example: ["zone", "region"] to exclude cloud metadata
+  repeated string exclude_vars = 3;
+
+  // Prefix to add to sysvar keys in metadata
+  // Default: "sysvar_" (e.g., "sysvar_version", "sysvar_hostname")
+  // Set to empty string to publish without prefix
+  optional string key_prefix = 4 [default = "sysvar_"];
+}

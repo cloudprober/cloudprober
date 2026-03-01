@@ -3,6 +3,7 @@ syntax = "proto2";
 package cloudprober.surfacer;
 
 import "github.com/cloudprober/cloudprober/internal/surfacers/cloudwatch/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/surfacers/consul/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/surfacers/datadog/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/surfacers/file/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto/config.proto";
@@ -28,6 +29,7 @@ enum Type {
   PROBESTATUS = 8;
   BIGQUERY = 9;    // Experimental mode.
   OTEL = 10;
+  CONSUL = 11;
 
   // One of the extension surfacer types. See "extensions" below for more
   // details.
@@ -121,6 +123,7 @@ message SurfacerDef {
     probestatus.SurfacerConf probestatus_surfacer = 17;
     bigquery.SurfacerConf bigquery_surfacer = 18;
     otel.SurfacerConf otel_surfacer = 19;
+    consul.SurfacerConf consul_surfacer = 20;
   }
 
   // Extensions allow users to to add new surfacer types (for example, a
