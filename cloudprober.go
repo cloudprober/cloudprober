@@ -42,6 +42,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
+	"github.com/cloudprober/cloudprober/internal/configwatcher"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/prober"
@@ -299,6 +300,24 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
+
+	// Start config watcher for hot-reload if enabled by flag/env var later.
+	// Default debounce 1000ms.
+	go func() {
+		// Use background context; watcher will be stopped when process exits.
+		ctx := context.Background()
+		w, err := configwatcher.NewWatcher(ctx, configSrc, globalLogger, 1000)
+		if err != nil {
+			globalLogger.Errorf("config watcher init error: %v", err)
+			return
+		}
+
+		for range w.Reload {
+			if err := reloadConfigAndApply(); err != nil {
+				globalLogger.Errorf("config reload failed: %v", err)
+			}
+		}
+	}()
 
 	return nil
 }
