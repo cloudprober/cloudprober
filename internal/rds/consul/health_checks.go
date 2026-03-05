@@ -201,7 +201,7 @@ func (hcl *healthChecksLister) listResources(req *pb.ListResourcesRequest) ([]*p
 
 		// Create resource
 		resource := &pb.Resource{
-			Name:        proto.String(check.name),
+			Name:        proto.String(key),
 			Ip:          proto.String(check.address),
 			Labels:      labels,
 			Id:          proto.String(key),
