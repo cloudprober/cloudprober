@@ -265,7 +265,7 @@ func (sl *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Res
 
 		// Create resource
 		resource := &pb.Resource{
-			Name:        proto.String(svc.name),
+			Name:        proto.String(key),
 			Ip:          proto.String(svc.address),
 			Port:        proto.Int32(int32(svc.port)),
 			Labels:      labels,
