@@ -35,6 +35,7 @@ import (
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
+	"github.com/cloudprober/cloudprober/internal/surfacers/probestatus"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -65,6 +66,9 @@ type Prober struct {
 	mu        sync.RWMutex
 	ldLister  endpoint.Lister
 	Surfacers []*surfacers.SurfacerInfo
+
+	// Cached reference to the probestatus surfacer for gRPC queries.
+	probeStatusSurfacer *probestatus.Surfacer
 
 	// We need this to start probes in response to API trigger. We still want
 	// these probes to exit if prober's start context gets canceled.
@@ -389,6 +393,15 @@ func Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) (*P
 	pr.Surfacers, err = surfacers.Init(ctx, pr.c.GetSurfacer())
 	if err != nil {
 		return nil, fmt.Errorf("error while initializing surfacers: %v", err)
+	}
+
+	for _, si := range pr.Surfacers {
+		if si.Type == "PROBESTATUS" {
+			if ps, ok := si.UnwrapSurfacer().(*probestatus.Surfacer); ok {
+				pr.probeStatusSurfacer = ps
+			}
+			break
+		}
 	}
 
 	return pr, nil
