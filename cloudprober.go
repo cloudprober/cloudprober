@@ -32,6 +32,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,8 +66,10 @@ const (
 const (
 	DefaultServerHost   = ""
 	DefaultServerPort   = 9313
+	NoGRPCPort          = "NO_GRPC_SERVER" // By default, no gRPC server is started.
 	ServerHostEnvVar    = "CLOUDPROBER_HOST"
 	ServerPortEnvVar    = "CLOUDPROBER_PORT"
+	GRPCPortEnvVar      = "CLOUDPROBER_GRPC_PORT"
 	DisableHTTPDebugVar = "CLOUDPROBER_DISABLE_HTTP_PPROF"
 )
 
@@ -96,6 +99,17 @@ func getServerHost(c *configpb.ProberConfig) string {
 		}
 	}
 	return serverHost
+}
+
+// 'grpc_port' from config takes precedence over environment variable, if both are set.
+func getGRPCPort(c *configpb.ProberConfig) string {
+	grpcPort := c.GetGrpcPort()
+	if grpcPort != 0 {
+		return strconv.Itoa(int(grpcPort))
+	} else if envPort := os.Getenv(GRPCPortEnvVar); envPort != "" {
+		return envPort
+	}
+	return NoGRPCPort
 }
 
 func getDefaultServerPort(c *configpb.ProberConfig, l *logger.Logger) (int, error) {
@@ -195,27 +209,29 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		return err
 	}
 
-	// Be careful about imports, we want to check if system probe is configured.
-	// We iterate over probes to see if any of them is a system probe.
-	sysProbeConfigured := false
-	for _, p := range cfg.GetProbe() {
-		if p.GetType() == probes_configpb.ProbeDef_SYSTEM {
-			sysProbeConfigured = true
-			break
+	if runtime.GOOS == "linux" {
+		// Be careful about imports, we want to check if system probe is configured.
+		// We iterate over probes to see if any of them is a system probe.
+		sysProbeConfigured := false
+		for _, p := range cfg.GetProbe() {
+			if p.GetType() == probes_configpb.ProbeDef_SYSTEM {
+				sysProbeConfigured = true
+				break
+			}
 		}
-	}
 
-	if !*disableSysMetrics && !sysProbeConfigured {
-		// Add default system probe
-		cfg.Probe = append(cfg.Probe, &probes_configpb.ProbeDef{
-			Name:     proto.String("sys_metrics"),
-			Type:     probes_configpb.ProbeDef_SYSTEM.Enum(),
-			Interval: proto.String("10s"),
-			Timeout:  proto.String("5s"),
-			Probe: &probes_configpb.ProbeDef_SystemProbe{
-				SystemProbe: &system_configpb.ProbeConf{},
-			},
-		})
+		if !*disableSysMetrics && !sysProbeConfigured {
+			// Add default system probe
+			cfg.Probe = append(cfg.Probe, &probes_configpb.ProbeDef{
+				Name:     proto.String("sys_metrics"),
+				Type:     probes_configpb.ProbeDef_SYSTEM.Enum(),
+				Interval: proto.String("10s"),
+				Timeout:  proto.String("5s"),
+				Probe: &probes_configpb.ProbeDef_SystemProbe{
+					SystemProbe: &system_configpb.ProbeConf{},
+				},
+			})
+		}
 	}
 
 	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
@@ -231,10 +247,11 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	state.SetDefaultHTTPServeMux(srvMux)
 
 	var grpcLn net.Listener
-	if cfg.GetGrpcPort() != 0 {
+	grpcPort := getGRPCPort(cfg)
+	if grpcPort != NoGRPCPort {
 		serverHost := getServerHost(cfg)
 
-		grpcLn, err = net.Listen("tcp", net.JoinHostPort(serverHost, strconv.Itoa(int(cfg.GetGrpcPort()))))
+		grpcLn, err = net.Listen("tcp", net.JoinHostPort(serverHost, grpcPort))
 		if err != nil {
 			return fmt.Errorf("error while creating listener for default gRPC server: %v", err)
 		}

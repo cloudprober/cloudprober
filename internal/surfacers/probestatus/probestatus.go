@@ -332,9 +332,9 @@ func (ps *Surfacer) debugLines(probeName string) string {
 	for _, targetName := range ps.probeTargets[probeName] {
 		ts := ps.metrics[probeName][targetName]
 		b.WriteString(fmt.Sprintf("Target: %s <br>\n", targetName))
-		d := ts.a[ts.oldest]
+		d := ts.a[ts.oldestIdx]
 		b.WriteString(fmt.Sprintf("Oldest: total=%d, success=%d <br>\n", d.total, d.success))
-		d = ts.a[ts.latest]
+		d = ts.a[ts.latestIdx]
 		b.WriteString(fmt.Sprintf("Latest: total=%d, success=%d <br>", d.total, d.success))
 	}
 	return b.String()

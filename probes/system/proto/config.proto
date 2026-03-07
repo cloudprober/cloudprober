@@ -4,6 +4,25 @@ package cloudprober.probes.system;
 
 option go_package = "github.com/cloudprober/cloudprober/probes/system/proto";
 
+message ResourceUsage {
+  // If set, disable this resource usage metric
+  optional bool disabled = 1;
+
+  // If set, export aggregated stats
+  optional bool export_aggregated_stats = 2 [default = true];
+
+  // If set, export individual stats
+  optional bool export_individual_stats = 3 [default = false];
+
+  // Include regex for device names,
+  // If set, only devices matching this regex will be exported
+  optional string include_name_regex = 4;
+
+  // Exclude regex for device names,
+  // If set, devices matching this regex will not be exported
+  optional string exclude_name_regex = 5;
+}
+
 message ProbeConf {
   // Export system-wide file descriptor stats (from /proc/sys/fs/file-nr)
   // Metrics: system_file_descriptors_allocated, system_file_descriptors_max
@@ -14,7 +33,7 @@ message ProbeConf {
   optional bool disable_proc_stats = 2;
 
   // Export socket stats (from /proc/net/sockstat)
-  // Metrics: system_sockets_in_use, system_sockets_tcp_in_use, etc.
+  // Metrics: system_sockets_inuse, system_sockets_tcp_inuse, etc.
   optional bool disable_sock_stats = 3;
 
   // Export system uptime (from /proc/uptime)
@@ -25,8 +44,20 @@ message ProbeConf {
   // Metrics: system_load_1m, system_load_5m, system_load_15m
   optional bool disable_load_avg = 5;
 
-  // Export network interface stats (from /proc/net/dev)
+  // Export network device stats (from /proc/net/dev)
   // Metrics: system_net_rx_bytes, system_net_tx_bytes, system_net_rx_errors, etc.
-  optional bool disable_net_dev_stats = 6;
+  optional ResourceUsage net_dev_stats = 6;
 
+  // Export memory usage (from /proc/meminfo)
+  // Metrics: system_mem_total, system_mem_free, system_mem_available,
+  // system_mem_buffers, system_mem_cached
+  optional bool disable_memory_usage = 7;
+
+  // Export disk I/O stats (from /proc/diskstats)
+  // Metrics: system_disk_io_read_bytes, system_disk_io_write_bytes, etc.
+  optional ResourceUsage disk_io_stats = 9;
+
+  // Export disk usage stats (from df)
+  // Metrics: system_disk_usage_total, system_disk_usage_free
+  optional ResourceUsage disk_usage_stats = 10;
 }

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -44,6 +45,7 @@ type Parser struct {
 	distMetrics       map[string]*metrics.Distribution
 	aggregatedMetrics map[string]*metrics.EventMetrics
 	aggregate         bool
+	mu                sync.Mutex
 
 	jsonMetrics []*jsonMetric
 

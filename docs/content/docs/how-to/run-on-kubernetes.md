@@ -2,7 +2,7 @@
 menu:
   docs:
     parent: "how-to"
-    weight: 13
+    weight: 15
 title: "Running On Kubernetes"
 date: 2022-11-01T17:24:32-07:00
 ---

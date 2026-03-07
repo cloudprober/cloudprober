@@ -18,24 +18,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/state"
+	"github.com/cloudprober/cloudprober/web/resources"
 )
-
-func rootLinkPrefix(currentPath string) string {
-	if currentPath == "" || currentPath == "/" {
-		return ""
-	}
-	numSegments := len(strings.Split(strings.Trim(currentPath, "/"), "/"))
-	linkPrefix := ""
-	for range numSegments {
-		linkPrefix += "../"
-	}
-	return linkPrefix
-}
 
 // substitutionForTreePath computes URL substitutions (from, to) for tree view.
 // e.g. for urlPath "/artifacts/probe1/tree/test.txt",
@@ -133,6 +123,24 @@ func smartViewHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
 	return
 }
 
+func probeListHandler(w http.ResponseWriter, r *http.Request, rootDir string) {
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	var probes []string
+	for _, e := range entries {
+		if e.IsDir() {
+			probes = append(probes, e.Name()+"/")
+		}
+	}
+
+	w.Write([]byte(resources.LinksPage(r.URL.Path, "Probes", probes)))
+}
+
 func ServeArtifacts(path, root string, global bool) error {
 	path = strings.TrimRight(path, "/")
 
@@ -153,21 +161,30 @@ func ServeArtifacts(path, root string, global bool) error {
 	if global {
 		patternPath = path + "/{probeName}/{$}"
 	}
+
+	var artifactsLinkOpts []state.HandlerOption
+	if !global {
+		artifactsLinkOpts = append(artifactsLinkOpts, state.WithArtifactsLink(path))
+	}
+
 	if err := state.AddWebHandler(patternPath, func(w http.ResponseWriter, r *http.Request) {
 		dirBase := root
 		if global {
 			dirBase = filepath.Join(root, r.PathValue("probeName"))
 		}
 		smartViewHandler(w, r, dirBase)
-	}); err != nil {
+	}, artifactsLinkOpts...); err != nil {
 		return fmt.Errorf("error adding web handler for artifacts web server: %v", err)
 	}
 
 	// For global, add a handler for the root path as well
 	if global {
-		if err := state.AddWebHandler(path+"/{$}", http.StripPrefix(path, http.FileServer(http.Dir(root))).ServeHTTP); err != nil {
+		if err := state.AddWebHandler(path+"/{$}", func(w http.ResponseWriter, r *http.Request) {
+			probeListHandler(w, r, root)
+		}, state.WithArtifactsLink(path+"/")); err != nil {
 			return fmt.Errorf("error adding web handler for artifacts web server: %v", err)
 		}
 	}
+
 	return nil
 }

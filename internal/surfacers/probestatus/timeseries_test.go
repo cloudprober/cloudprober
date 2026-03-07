@@ -1,4 +1,4 @@
-// Copyright 2022 The Cloudprober Authors.
+// Copyright 2022-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,13 +103,13 @@ func TestTimeseries(t *testing.T) {
 				ts.addDatum(baseTime.Add(time.Duration(i)*inputInterval), &datum{total: int64(total + i), success: int64(success + i)})
 			}
 
-			if ts.oldest != test.oldest || ts.latest != test.latest {
-				t.Errorf("timeseries oldest=%d,want=%d latest=%d,want=%d", ts.oldest, test.oldest, ts.latest, test.latest)
+			if ts.oldestIdx != test.oldest || ts.latestIdx != test.latest {
+				t.Errorf("timeseries oldest=%d,want=%d latest=%d,want=%d", ts.oldestIdx, test.oldest, ts.latestIdx, test.latest)
 			}
 
 			if test.oldestTotal != 0 {
-				if ts.a[ts.oldest].total != int64(test.oldestTotal) {
-					t.Errorf("timeseries oldestTotal=%d,want=%d", ts.a[ts.oldest].total, test.oldestTotal)
+				if ts.a[ts.oldestIdx].total != int64(test.oldestTotal) {
+					t.Errorf("timeseries oldestTotal=%d,want=%d", ts.a[ts.oldestIdx].total, test.oldestTotal)
 				}
 			}
 

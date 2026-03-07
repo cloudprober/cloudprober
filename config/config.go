@@ -29,6 +29,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/google/go-jsonnet"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -162,7 +163,18 @@ func unmarshalConfig(configStr, configFormat string, m protoreflect.ProtoMessage
 			return fmt.Errorf("error unmarshaling intermediate JSON to proto: %v", err)
 		}
 	case "jsonnet":
-		jsonCfg, err := jsonnet.MakeVM().EvaluateAnonymousSnippet("config", configStr)
+		vm := jsonnet.MakeVM()
+
+		var jpaths []string
+		if state.ConfigFilePath() != "" {
+			jpaths = []string{filepath.Dir(state.ConfigFilePath())}
+		}
+
+		vm.Importer(&jsonnet.FileImporter{
+			JPaths: jpaths,
+		})
+
+		jsonCfg, err := vm.EvaluateAnonymousSnippet("config", configStr)
 		if err != nil {
 			return fmt.Errorf("error evaluating jsonnet config: %v", err)
 		}

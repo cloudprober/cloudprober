@@ -26,6 +26,7 @@ import (
 	surfacerspb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	probespb "github.com/cloudprober/cloudprober/probes/proto"
+	"github.com/cloudprober/cloudprober/state"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/tools/txtar"
@@ -405,4 +406,38 @@ func TestReadConfigFile(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestJsonnetRelativeImports(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Write the dependency file foo.jsonnet
+	fooPath := filepath.Join(tempDir, "foo.jsonnet")
+	err := os.WriteFile(fooPath, []byte(`{ name: "test_probe", type: "HTTP" }`), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// This is our main config snippet
+	configStr := `local foo = import "foo.jsonnet"; { probe: [foo] }`
+
+	t.Run("with_config_dir", func(t *testing.T) {
+		// Mock the global state to indicate the config file is in our tempDir
+		state.SetConfigFilePath(filepath.Join(tempDir, "cloudprober.cfg"))
+
+		cfg := &configpb.ProberConfig{}
+		err := unmarshalConfig(configStr, "jsonnet", cfg)
+		assert.NoError(t, err, "unmarshalConfig with jsonnet should succeed")
+		assert.Equal(t, "test_probe", cfg.GetProbe()[0].GetName())
+		assert.Equal(t, probespb.ProbeDef_HTTP, cfg.GetProbe()[0].GetType())
+	})
+
+	t.Run("without_config_dir", func(t *testing.T) {
+		// Clear the mocked config file path
+		state.SetConfigFilePath("")
+
+		cfg := &configpb.ProberConfig{}
+		err := unmarshalConfig(configStr, "jsonnet", cfg)
+		assert.Error(t, err, "unmarshalConfig should fail because foo.jsonnet cannot be found")
+	})
 }

@@ -64,20 +64,6 @@ func TestTmplData(t *testing.T) {
 	}
 }
 
-func TestRootLinkPrefix(t *testing.T) {
-	urlToExpLinkPrefix := map[string]string{
-		"/":                 "",
-		"":                  "",
-		"/artifacts/probe1": "../../",
-		"/probe1":           "../",
-	}
-	for url, expLinkPrefix := range urlToExpLinkPrefix {
-		if got := rootLinkPrefix(url); got != expLinkPrefix {
-			t.Errorf("rootLinkPrefix(%q) = %q, want %q", url, got, expLinkPrefix)
-		}
-	}
-}
-
 func TestSubstitutionForTreePath(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -193,15 +179,16 @@ func TestServeArtifacts(t *testing.T) {
 	})
 
 	tests := []struct {
-		name            string
-		path            string
-		globalPath      string
-		root            string
-		globalRoot      string
-		url             []string
-		expectedPattern []string
-		expectedBody    []string
-		expectError     bool
+		name              string
+		path              string
+		globalPath        string
+		root              string
+		globalRoot        string
+		url               []string
+		expectedPattern   []string
+		expectedBody      []string
+		expectedArtifacts []string
+		expectError       bool
 	}{
 		{
 			name:        "empty path",
@@ -226,15 +213,18 @@ func TestServeArtifacts(t *testing.T) {
 				"/artifacts/probe1/",
 				"/artifacts/probe2/tree/test.txt", // handled by global
 				"/artifacts/probe2/",              // handled by global
+				"/artifacts/",                     // global root
 			},
 			expectedPattern: []string{
 				"/artifacts/probe1/tree/",
 				"/artifacts/probe1/{$}",
 				"/artifacts/{probeName}/tree/", // handled by global
 				"/artifacts/{probeName}/{$}",   // handled by global
+				"/artifacts/{$}",               // global root
 			},
-			expectedBody: []string{"test", "-", "test", "-"},
-			expectError:  false,
+			expectedBody:      []string{"test", "-", "test", "-", "-"},
+			expectedArtifacts: []string{"/artifacts/", "/artifacts/probe1"},
+			expectError:       false,
 		},
 		{
 			name:        "same path, existing handler",
@@ -243,13 +233,14 @@ func TestServeArtifacts(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:            "path with trailing slash",
-			path:            "/artifacts2/probe1/",
-			root:            filepath.Join(tmpDir, "probe1"),
-			url:             []string{"/artifacts2/probe1/tree/test.txt", "/artifacts2/probe1/"},
-			expectedPattern: []string{"/artifacts2/probe1/tree/", "/artifacts2/probe1/{$}"},
-			expectedBody:    []string{"test", "-"},
-			expectError:     false,
+			name:              "path with trailing slash",
+			path:              "/artifacts2/probe1/",
+			root:              filepath.Join(tmpDir, "probe1"),
+			url:               []string{"/artifacts2/probe1/tree/test.txt", "/artifacts2/probe1/"},
+			expectedPattern:   []string{"/artifacts2/probe1/tree/", "/artifacts2/probe1/{$}"},
+			expectedBody:      []string{"test", "-"},
+			expectedArtifacts: []string{"/artifacts2/probe1"},
+			expectError:       false,
 		},
 		{
 			name:       "valid path and root - deeper",
@@ -269,8 +260,10 @@ func TestServeArtifacts(t *testing.T) {
 				"/z/a/{probeName}/tree/", // handled by global
 				"/z/a/{probeName}/{$}",   // handled by global
 			},
-			expectedBody: []string{"test", "-", "test", "-"},
-			expectError:  false,
+			expectedBody:      []string{"test", "-", "test", "-", "-"},
+			expectedArtifacts: []string{"/x/y/probe1", "/z/a/"},
+
+			expectError: false,
 		},
 	}
 
@@ -304,6 +297,19 @@ func TestServeArtifacts(t *testing.T) {
 			// Check if the file is served correctly
 			for i, u := range tt.url {
 				verifyWebServerResponse(t, mux, u, http.StatusOK, tt.expectedBody[i])
+			}
+
+			// For global paths, verify the root handler returns styled probe list
+			if tt.globalPath != "" {
+				req, err := http.NewRequest("GET", tt.globalPath+"/", nil)
+				assert.NoError(t, err)
+				rr := httptest.NewRecorder()
+				mux.ServeHTTP(rr, req)
+				body := rr.Body.String()
+				assert.Contains(t, body, "<h3>Probes:</h3>", "global root should have styled probe list")
+				assert.Contains(t, body, "cloudprober.css", "global root should include cloudprober CSS")
+				assert.Contains(t, body, `<a href="probe1/">probe1/</a>`, "global root should list probe1")
+				assert.Contains(t, body, `<a href="probe2/">probe2/</a>`, "global root should list probe2")
 			}
 		})
 	}

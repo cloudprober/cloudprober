@@ -3,7 +3,7 @@ menu:
   docs:
     parent: how-to
     name: "Targets"
-    weight: 11
+    weight: 12
 title: "Targets"
 date: 2016-10-25T17:24:32-07:00
 ---

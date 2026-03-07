@@ -1,4 +1,4 @@
-// Copyright 2018-2024 The Cloudprober Authors.
+// Copyright 2018-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,16 +16,18 @@ package web
 
 import (
 	"bytes"
-	"html/template"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
+	"github.com/cloudprober/cloudprober/web/resources"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -67,7 +69,7 @@ func TestInitWithDataFuncs(t *testing.T) {
 				"/config":        "raw-config",
 				"/config-parsed": "parsed-config **$password**",
 			},
-			wantConfigRunning: secretConfigRunningMsg,
+			wantConfigRunning: string(secretConfigRunningMsg),
 		},
 	}
 	for _, tt := range tests {
@@ -91,9 +93,9 @@ func TestInitWithDataFuncs(t *testing.T) {
 			if !tt.withSecret {
 				runningConfig(&buf, tt.dataFuncs)
 			} else {
-				writeWithHeader(&buf, template.HTML(secretConfigRunningMsg))
+				buf.WriteString(resources.RenderPage(urlMap.RunningConfig, secretConfigRunningMsg))
 			}
-			tt.wantResp["/config-running"] = buf.String()
+			tt.wantResp[urlMap.RunningConfig] = buf.String()
 
 			for path, wantResp := range tt.wantResp {
 				resp, err := client.Get(httpSrv.URL + path)
@@ -150,32 +152,162 @@ func TestAllLinksPageLinks(t *testing.T) {
 	}
 }
 
-func TestArtifactsLinks(t *testing.T) {
+func TestArtifactsLinksWithManualRegistration(t *testing.T) {
+	oldMux := state.DefaultHTTPServeMux()
+	defer state.SetDefaultHTTPServeMux(oldMux)
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
+
+	state.AddWebHandler("/manual-artifact", func(w http.ResponseWriter, r *http.Request) {}, state.WithArtifactsLink(""))
+	state.AddWebHandler("/manual-artifact-custom", func(w http.ResponseWriter, r *http.Request) {}, state.WithArtifactsLink("/custom/artifact"))
+
+	want := []string{"custom/artifact", "manual-artifact"}
+	assert.Equal(t, want, artifactsLinks())
+}
+
+func verifyHeader(t *testing.T, path string, got string) {
+	t.Helper()
+	wantHeader := strings.TrimRight(resources.RenderPage(path, ""), "</body>\n</html>\n")
+	assert.Contains(t, got, wantHeader)
+}
+
+func TestRunningConfig(t *testing.T) {
 	tests := []struct {
-		name  string
-		links []string
-		want  []string
+		name    string
+		getInfo func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo)
+		wantAll []string
 	}{
 		{
-			name:  "no artifact links",
-			links: []string{"/link1", "/link2", "/link3"},
-			want:  nil,
+			name: "nil info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				return nil, nil, nil
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "<h3>Surfacers:</h3>", "<h3>Servers:</h3>"},
 		},
 		{
-			name:  "mixed links",
-			links: []string{"/link1", "/artifacts/link2", "/link3", "/artifacts/link4", "/link5"},
-			want:  []string{"artifacts/link2", "artifacts/link4"},
+			name: "with probe info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				probeInfoMap := map[string]*probes.ProbeInfo{
+					"test-probe": {
+						Name:     "test-probe",
+						Type:     "HTTP",
+						Interval: "5s",
+						Timeout:  "1s",
+					},
+				}
+				return probeInfoMap, nil, nil
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "test-probe", "<h3>Surfacers:</h3>", "<h3>Servers:</h3>"},
 		},
 		{
-			name:  "only artifact links",
-			links: []string{"/artifacts/link1", "/artifacts/link2"},
-			want:  []string{"artifacts/link1", "artifacts/link2"},
+			name: "with surfacer info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				return nil, []*surfacers.SurfacerInfo{
+					{Type: "PROMETHEUS", Name: "prom-surfacer"},
+				}, nil
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "<h3>Surfacers:</h3>", "prom-surfacer", "<h3>Servers:</h3>"},
+		},
+		{
+			name: "with server info",
+			getInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+				return nil, nil, []*servers.ServerInfo{
+					{Type: "HTTP"},
+				}
+			},
+			wantAll: []string{"<h3>Probes:</h3>", "<h3>Surfacers:</h3>", "<h3>Servers:</h3>"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, artifactsLinks(tt.links))
+			var buf bytes.Buffer
+			fn := DataFuncs{
+				GetRawConfig:    func() string { return "" },
+				GetParsedConfig: func() string { return "" },
+				GetInfo:         tt.getInfo,
+			}
+			runningConfig(&buf, fn)
+			got := buf.String()
+			for _, want := range tt.wantAll {
+				assert.Contains(t, got, want)
+			}
+			verifyHeader(t, urlMap.RunningConfig, got)
+		})
+	}
+}
+
+func TestEndpoints(t *testing.T) {
+	oldSrvMux := state.DefaultHTTPServeMux()
+	defer state.SetDefaultHTTPServeMux(oldSrvMux)
+
+	tests := []struct {
+		url           string
+		artifactsURLs []string
+		wantContains  []string
+	}{
+		{
+			url:          "/links",
+			wantContains: []string{"All Links"},
+		},
+		{
+			url:           "/artifacts",
+			artifactsURLs: []string{"/global-artifacts/"},
+			wantContains:  []string{"Global Artifacts"}, // single link, redirects to /global-artifacts/
+		},
+		{
+			url:           "/artifacts",
+			artifactsURLs: []string{"/global-artifacts/", "/artifacts/probe1"},
+			wantContains:  []string{"global-artifacts/", "artifacts/probe1"},
+		},
+		{
+			url:          "/alerts",
+			wantContains: []string{"Alerts"},
+		},
+		{
+			url:          "/static/cloudprober.css",
+			wantContains: []string{"background-color"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.url, func(t *testing.T) {
+			srvMux := http.NewServeMux()
+			state.SetDefaultHTTPServeMux(srvMux)
+
+			for _, artifactsURL := range tt.artifactsURLs {
+				state.AddWebHandler(artifactsURL, func(w http.ResponseWriter, r *http.Request) {
+					if artifactsURL == "/global-artifacts/" {
+						fmt.Fprint(w, "Global Artifacts")
+					}
+				}, state.WithArtifactsLink(artifactsURL))
+			}
+
+			fn := DataFuncs{
+				GetRawConfig:    func() string { return "" },
+				GetParsedConfig: func() string { return "" },
+				GetInfo: func() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+					return nil, nil, nil
+				},
+			}
+
+			err := InitWithDataFuncs(fn)
+			assert.NoError(t, err)
+
+			httpSrv := httptest.NewServer(srvMux)
+			defer httpSrv.Close()
+
+			resp, err := httpSrv.Client().Get(httpSrv.URL + tt.url)
+			assert.NoError(t, err)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+			body, err := io.ReadAll(resp.Body)
+			assert.NoError(t, err)
+			if tt.url != "/static/cloudprober.css" && tt.url != "/artifacts" {
+				verifyHeader(t, tt.url, string(body))
+			}
+			for _, want := range tt.wantContains {
+				assert.Contains(t, string(body), want)
+			}
 		})
 	}
 }

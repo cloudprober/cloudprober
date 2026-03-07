@@ -1,4 +1,4 @@
-// Copyright 2017-2025 The Cloudprober Authors.
+// Copyright 2017-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,8 +51,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-var randGenerator = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 var (
 	probesConfigSavePath = flag.String("probes_config_save_path", "", "Path to save the config to on API triggered config changes. If empty, config saving is disabled.")
@@ -138,7 +136,18 @@ func (pr *Prober) startProbe(name string) {
 
 	probeCtx, cancelFunc := context.WithCancel(pr.startCtx)
 	pr.probeCancelFunc[name] = cancelFunc
-	go pr.Probes[name].Start(probeCtx, pr.dataChan)
+
+	p := pr.Probes[name]
+	go func() {
+		if delay := p.ProbeDef.GetStartupDelayMsec(); delay > 0 {
+			select {
+			case <-probeCtx.Done():
+				return
+			case <-time.After(time.Duration(delay) * time.Millisecond):
+			}
+		}
+		p.Start(probeCtx, pr.dataChan)
+	}()
 }
 
 func randomDuration(duration time.Duration) time.Duration {
@@ -148,7 +157,7 @@ func randomDuration(duration time.Duration) time.Duration {
 	if duration > time.Minute {
 		duration = time.Minute
 	}
-	return time.Duration(randGenerator.Int63n(duration.Milliseconds())) * time.Millisecond
+	return time.Duration(rand.Int63n(duration.Milliseconds())) * time.Millisecond
 }
 
 // interProbeGap returns the wait time between probes that are in the same

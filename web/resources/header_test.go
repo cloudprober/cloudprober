@@ -27,6 +27,13 @@ import (
 )
 
 func TestHeader(t *testing.T) {
+	oldVersion := state.Version()
+	oldBuiltAt := state.BuildTimestamp()
+	oldMux := state.DefaultHTTPServeMux()
+	defer state.SetVersion(oldVersion)
+	defer state.SetBuildTimestamp(oldBuiltAt)
+	defer state.SetDefaultHTTPServeMux(oldMux)
+
 	state.SetVersion("v1.0.0")
 	state.SetBuildTimestamp(time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC))
 	state.SetDefaultHTTPServeMux(http.NewServeMux())
@@ -113,6 +120,13 @@ func TestHeaderData(t *testing.T) {
 			expectArtifactsLink: true,
 		},
 	}
+
+	oldVersion := state.Version()
+	oldBuiltAt := state.BuildTimestamp()
+	oldMux := state.DefaultHTTPServeMux()
+	defer state.SetVersion(oldVersion)
+	defer state.SetBuildTimestamp(oldBuiltAt)
+	defer state.SetDefaultHTTPServeMux(oldMux)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

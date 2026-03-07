@@ -29,6 +29,7 @@ func SetDefaultHTTPServeMux(mux *http.ServeMux) {
 	defer st.Unlock()
 	st.httpServeMux = mux
 	st.webURLs = make([]string, 0)
+	st.artifactsURLs = make([]string, 0)
 }
 
 // DefaultHTTPServeMux returns the default HTTP ServeMux.
@@ -50,12 +51,31 @@ func IsHandled(url string) bool {
 	return matchedPattern == url
 }
 
-func AddWebHandler(path string, f func(w http.ResponseWriter, r *http.Request)) (err error) {
+type handlerOptions struct {
+	isArtifact       bool
+	artifactLinkPath string
+}
+
+type HandlerOption func(*handlerOptions)
+
+func WithArtifactsLink(linkPath string) HandlerOption {
+	return func(o *handlerOptions) {
+		o.isArtifact = true
+		o.artifactLinkPath = linkPath
+	}
+}
+
+func AddWebHandler(path string, f func(w http.ResponseWriter, r *http.Request), opts ...HandlerOption) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
+
+	hOptions := &handlerOptions{}
+	for _, opt := range opts {
+		opt(hOptions)
+	}
 
 	st.Lock()
 	defer st.Unlock()
@@ -68,8 +88,16 @@ func AddWebHandler(path string, f func(w http.ResponseWriter, r *http.Request)) 
 		return fmt.Errorf("path %s already registered", path)
 	}
 
-	st.webURLs = append(st.webURLs, path)
 	st.httpServeMux.HandleFunc(path, f)
+
+	st.webURLs = append(st.webURLs, path)
+	if hOptions.isArtifact {
+		link := path
+		if hOptions.artifactLinkPath != "" {
+			link = hOptions.artifactLinkPath
+		}
+		st.artifactsURLs = append(st.artifactsURLs, link)
+	}
 
 	return nil
 }
@@ -78,5 +106,12 @@ func AllLinks() []string {
 	st.RLock()
 	defer st.RUnlock()
 
-	return st.webURLs
+	return slices.Clone(st.webURLs)
+}
+
+// ArtifactsURLs returns the list of URLs that are registered as artifacts.
+func ArtifactsURLs() []string {
+	st.RLock()
+	defer st.RUnlock()
+	return slices.Clone(st.artifactsURLs)
 }

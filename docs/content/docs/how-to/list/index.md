@@ -6,9 +6,10 @@ images: []
 weight: 100
 ---
 
-- [External Probe]({{< ref "external-probe" >}})
 - [Alerting]({{< ref "alerting" >}})
 - [Targets]({{< ref "targets" >}})
+- [External Probe]({{< ref "external-probe" >}})
+- [Browser Probe]({{< ref "browser-probe" >}})
 - [Kubernetes Targets]({{< ref "k8s_targets" >}})
 - [Running on Kubernetes]({{< ref "run-on-kubernetes" >}})
 - [Additional Labels]({{< ref "additional-labels" >}})
