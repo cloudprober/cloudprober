@@ -293,13 +293,13 @@ func TestServicesListerFiltering(t *testing.T) {
 				for _, res := range resp.Resources {
 					found := false
 					for _, name := range tt.wantNames {
-						if res.GetName() == name {
+						if res.Labels["service"] == name {
 							found = true
 							break
 						}
 					}
 					if !found {
-						t.Errorf("Got unexpected resource name: %s", res.GetName())
+						t.Errorf("Got unexpected resource name: %s (service label: %s)", res.GetName(), res.Labels["service"])
 					}
 				}
 			}
@@ -542,7 +542,7 @@ func TestServiceDataLabels(t *testing.T) {
 	// Find the web service from node1 which has metadata
 	var webResource *pb.Resource
 	for _, res := range resp.Resources {
-		if res.GetName() == "web" && res.Labels["node"] == "node1" {
+		if res.Labels["service"] == "web" && res.Labels["node"] == "node1" {
 			webResource = res
 			break
 		}
@@ -851,7 +851,7 @@ func TestServiceAddressSelection(t *testing.T) {
 	}
 
 	for _, res := range resp.Resources {
-		if res.GetName() == "web" {
+		if res.Labels["service"] == "web" {
 			ip := res.GetIp()
 			// web-1 should have 10.0.1.10 (service address)
 			// web-2 should have 10.0.1.2 (node address)

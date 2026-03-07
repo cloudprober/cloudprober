@@ -189,7 +189,7 @@ func (nl *nodesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resour
 
 		// Create resource
 		resource := &pb.Resource{
-			Name:        proto.String(node.name),
+			Name:        proto.String(key),
 			Ip:          proto.String(node.address),
 			Labels:      labels,
 			Id:          proto.String(key),
