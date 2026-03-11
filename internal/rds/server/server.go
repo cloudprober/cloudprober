@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cloudprober/cloudprober/internal/rds/consul"
 	"github.com/cloudprober/cloudprober/internal/rds/file"
 	"github.com/cloudprober/cloudprober/internal/rds/gcp"
 	"github.com/cloudprober/cloudprober/internal/rds/kubernetes"
@@ -85,6 +86,14 @@ func (s *Server) initProviders(c *configpb.ServerConf) error {
 			}
 			s.l.Infof("rds.server: adding Kubernetes provider with id: %s", id)
 			if p, err = kubernetes.New(pc.GetKubernetesConfig(), s.l); err != nil {
+				return err
+			}
+		case *configpb.Provider_ConsulConfig:
+			if id == "" {
+				id = consul.DefaultProviderID
+			}
+			s.l.Infof("rds.server: adding Consul provider with id: %s", id)
+			if p, err = consul.New(pc.GetConsulConfig(), s.l); err != nil {
 				return err
 			}
 		}
