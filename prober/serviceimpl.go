@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
@@ -138,6 +139,46 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 	}
 
 	return &pb.RemoveProbeResponse{}, nil
+}
+
+// GetProbeStatus returns the ongoing probe status data.
+func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequest) (*pb.GetProbeStatusResponse, error) {
+	if pr.probeStatusSurfacer == nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "probestatus surfacer is not available")
+	}
+
+	if req.GetTimeWindowMinutes() <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "time_window_minutes must be > 0")
+	}
+
+	timeWindow := time.Duration(req.GetTimeWindowMinutes()) * time.Minute
+	var endTime time.Time
+	if req.GetEndTimeSec() != 0 {
+		endTime = time.Unix(req.GetEndTimeSec(), 0)
+	}
+
+	results, err := pr.probeStatusSurfacer.QueryStatus(ctx, req.GetProbeName(), endTime, timeWindow)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, status.FromContextError(err).Err()
+		}
+		return nil, status.Errorf(codes.Internal, "error querying probe status: %v", err)
+	}
+
+	resp := &pb.GetProbeStatusResponse{}
+	for _, psd := range results {
+		probeStatus := &pb.ProbeStatus{Name: proto.String(psd.Name)}
+		for _, tsd := range psd.TargetStatuses {
+			targetStatus := &pb.TargetStatus{
+				TargetName: proto.String(tsd.TargetName),
+				Total:      proto.Int64(tsd.Total),
+				Success:    proto.Int64(tsd.Success),
+			}
+			probeStatus.TargetStatus = append(probeStatus.TargetStatus, targetStatus)
+		}
+		resp.ProbeStatus = append(resp.ProbeStatus, probeStatus)
+	}
+	return resp, nil
 }
 
 // ListProbes gRPC method returns the list of probes from the in-memory database.
