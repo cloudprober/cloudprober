@@ -24,6 +24,7 @@ import (
 	"time"
 
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	consulpb "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	eppb "github.com/cloudprober/cloudprober/targets/endpoint/proto"
@@ -345,6 +346,74 @@ func TestNew(t *testing.T) {
 				assert.Equal(t, gotResolver, got.(*targets).resolver, "Unexpected resolver")
 			}
 			assert.Equal(t, tt.wantNames, gotNames, "Unexpected targets")
+		})
+	}
+}
+
+func TestFindGlobalConsulOptions(t *testing.T) {
+	tests := []struct {
+		name     string
+		opts     []*consulpb.GlobalOptions
+		consulID string
+		wantID   string
+		wantNil  bool
+	}{
+		{
+			name:    "nil options returns nil",
+			opts:    nil,
+			wantNil: true,
+		},
+		{
+			name: "empty consul_id returns first entry",
+			opts: []*consulpb.GlobalOptions{
+				{Id: proto.String("prod"), Address: proto.String("consul-prod:8500")},
+				{Id: proto.String("staging"), Address: proto.String("consul-staging:8500")},
+			},
+			consulID: "",
+			wantID:   "prod",
+		},
+		{
+			name: "specific consul_id returns matching entry",
+			opts: []*consulpb.GlobalOptions{
+				{Id: proto.String("prod"), Address: proto.String("consul-prod:8500")},
+				{Id: proto.String("staging"), Address: proto.String("consul-staging:8500")},
+			},
+			consulID: "staging",
+			wantID:   "staging",
+		},
+		{
+			name: "unknown consul_id returns nil",
+			opts: []*consulpb.GlobalOptions{
+				{Id: proto.String("prod"), Address: proto.String("consul-prod:8500")},
+			},
+			consulID: "nonexistent",
+			wantNil:  true,
+		},
+		{
+			name: "single entry without id returned for empty consul_id",
+			opts: []*consulpb.GlobalOptions{
+				{Address: proto.String("consul:8500")},
+			},
+			consulID: "",
+			wantNil:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findGlobalConsulOptions(tt.opts, tt.consulID)
+			if tt.wantNil {
+				if got != nil {
+					t.Errorf("findGlobalConsulOptions() = %v, want nil", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("findGlobalConsulOptions() = nil, want non-nil")
+			}
+			if tt.wantID != "" && got.GetId() != tt.wantID {
+				t.Errorf("findGlobalConsulOptions() id = %q, want %q", got.GetId(), tt.wantID)
+			}
 		})
 	}
 }

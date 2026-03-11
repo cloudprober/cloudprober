@@ -31,11 +31,13 @@ import (
 	"sync"
 	"time"
 
+	consulpb "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/state"
+	"github.com/cloudprober/cloudprober/targets/consul"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/cloudprober/cloudprober/targets/file"
 	"github.com/cloudprober/cloudprober/targets/gce"
@@ -389,6 +391,14 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		}
 		t.lister, t.resolver = kt, kt
 
+	case *targetspb.TargetsDef_Consul:
+		consulOpts := findGlobalConsulOptions(globalOpts.GetGlobalConsulOptions(), targetsDef.GetConsul().GetConsulId())
+		ct, err := consul.New(targetsDef.GetConsul(), consulOpts, t.resolver, l)
+		if err != nil {
+			return nil, fmt.Errorf("target.New(): error creating Consul targets: %v", err)
+		}
+		t.lister, t.resolver = ct, ct
+
 	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}
 		t.lister, t.resolver = dummy, dummy
@@ -409,6 +419,24 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 	}
 
 	return t, nil
+}
+
+// findGlobalConsulOptions returns the GlobalOptions entry matching consulID.
+// If consulID is empty, it returns the first entry (backward-compatible behavior).
+// Returns nil if no entries exist.
+func findGlobalConsulOptions(opts []*consulpb.GlobalOptions, consulID string) *consulpb.GlobalOptions {
+	if len(opts) == 0 {
+		return nil
+	}
+	if consulID == "" {
+		return opts[0]
+	}
+	for _, opt := range opts {
+		if opt.GetId() == consulID {
+			return opt
+		}
+	}
+	return nil
 }
 
 func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (newTargetsFunc func(interface{}, *logger.Logger) (Targets, error), value interface{}) {
