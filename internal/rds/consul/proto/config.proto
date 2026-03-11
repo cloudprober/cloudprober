@@ -1,0 +1,121 @@
+// Configuration proto for Consul service discovery provider.
+//
+// The Consul provider respects standard Consul environment variables.
+// Configuration values explicitly set take precedence over environment variables.
+//
+// Supported environment variables:
+//   - CONSUL_HTTP_ADDR: HTTP API address
+//     Special value "auto-discover" enables Kubernetes service discovery
+//   - CONSUL_HTTP_TOKEN: ACL token
+//   - CONSUL_HTTP_TOKEN_FILE: Path to file containing ACL token
+//   - CONSUL_HTTP_SSL: Enable HTTPS
+//   - CONSUL_HTTP_SSL_VERIFY: Verify SSL certificates
+//   - CONSUL_CACERT: Path to CA certificate
+//   - CONSUL_CAPATH: Path to directory of CA certificates
+//   - CONSUL_CLIENT_CERT: Path to client certificate
+//   - CONSUL_CLIENT_KEY: Path to client key
+//   - CONSUL_DATACENTER: Datacenter name
+//   - CONSUL_NAMESPACE: Namespace (Consul Enterprise)
+//   - CONSUL_TLS_SERVER_NAME: TLS server name for SNI
+//   - CONSUL_HTTP_AUTH: HTTP basic auth (username:password)
+//
+// Auto-discovery environment variables (when CONSUL_HTTP_ADDR="auto-discover"):
+//   - CONSUL_K8S_NAMESPACE: Kubernetes namespace (default: default)
+//   - CONSUL_K8S_SERVICE_NAME: Kubernetes service name (default: consul)
+//   - CONSUL_K8S_PORT: Kubernetes service port (default: 8500)
+//
+// Example config:
+// {
+//   address: "localhost:8500"
+//   datacenter: "dc1"
+//   services {
+//     tag_filter: "cloudprober"
+//   }
+// }
+
+syntax = "proto2";
+
+package cloudprober.rds.consul;
+
+import "github.com/cloudprober/cloudprober/internal/rds/consul/proto/global.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/rds/consul/proto";
+
+message ProviderConfig {
+  // Consul server address (hostname:port)
+  // Default: "localhost:8500"
+  // Environment variable: CONSUL_HTTP_ADDR
+  // Note: Config value takes precedence over environment variable
+  optional string address = 1 [default = "localhost:8500"];
+
+  // Consul datacenter
+  // If not specified, uses the default datacenter
+  // Environment variable: CONSUL_DATACENTER
+  // Note: Config value takes precedence over environment variable
+  optional string datacenter = 2;
+
+  // Consul token for authentication
+  // Environment variables: CONSUL_HTTP_TOKEN or CONSUL_HTTP_TOKEN_FILE
+  // Note: Config value takes precedence over environment variables
+  optional string token = 3;
+
+  // TLS configuration for connecting to Consul
+  // Environment variables: CONSUL_CACERT, CONSUL_CLIENT_CERT, CONSUL_CLIENT_KEY,
+  //                       CONSUL_HTTP_SSL, CONSUL_HTTP_SSL_VERIFY, CONSUL_TLS_SERVER_NAME
+  // Note: Config values take precedence over environment variables
+  optional TLSConfig tls = 4;
+
+  // Kubernetes service discovery for Consul address
+  // If specified, the Consul address will be discovered via Kubernetes service
+  optional KubernetesServiceConfig kubernetes_service = 5;
+
+  // Services configuration
+  optional ServicesConfig services = 10;
+
+  // Health checks configuration
+  optional HealthChecksConfig health_checks = 11;
+
+  // Nodes configuration
+  optional NodesConfig nodes = 12;
+
+  // How often to refresh the list of resources (in seconds)
+  optional int32 re_eval_sec = 99 [default = 60];
+}
+
+message ServicesConfig {
+  // Filter services by tag
+  // Only services with ALL specified tags will be returned
+  repeated string tag_filter = 1;
+
+  // Filter services by name (regex)
+  optional string name_filter = 2;
+
+  // Include service metadata in labels
+  optional bool include_metadata = 3 [default = true];
+
+  // Include service tags as labels (tags will be prefixed with "tag_")
+  optional bool include_tags = 4 [default = true];
+
+  // Node metadata to include as labels
+  repeated string node_meta_filter = 5;
+
+  // Health status filter (passing, warning, critical, maintenance)
+  // Default: only return healthy ("passing") services
+  repeated string health_status = 6;
+}
+
+message HealthChecksConfig {
+  // Filter by service name
+  optional string service_name = 1;
+
+  // Filter by check status (passing, warning, critical)
+  repeated string status_filter = 2;
+}
+
+message NodesConfig {
+  // Filter by node metadata
+  map<string, string> meta_filter = 1;
+
+  // Include only nodes in specific datacenter
+  optional string datacenter = 2;
+}
