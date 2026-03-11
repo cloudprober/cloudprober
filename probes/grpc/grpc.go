@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +43,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -408,40 +410,25 @@ func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, l *
 	return resp, nil
 }
 
-type targetState struct {
-	targetKey string
-}
-
-// runProbeForTargetAndConnIndex runs a single probe for a target + connection index.
-func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
-	if runReq.TargetState == nil {
-		runReq.TargetState = &targetState{targetKey: runReq.Target.Key()}
-	}
-	tgtState := runReq.TargetState.(*targetState)
-
-	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), runReq.Target.Name, runReq.Target.Labels[connIndexLabel])
+func (p *Probe) runProbeForTarget(ctx context.Context, target endpoint.Endpoint, result *probeRunResult) error {
+	msgPattern := fmt.Sprintf("%s,%s%s,connIndex:%s", p.src, p.c.GetUriScheme(), target.Name, target.Labels[connIndexLabel])
 	l := p.l.WithAttributes(
 		slog.String("probeId", msgPattern),
 		slog.String("request_type", p.c.GetMethod().String()),
 	)
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTarget(runReq.Target, "", 0)
+		al.UpdateForTarget(target, "", 0)
 	}
-
-	if runReq.Result == nil {
-		runReq.Result = p.newResult(&runReq.Target)
-	}
-	result := runReq.Result.(*probeRunResult)
 
 	// On connection failure, this is where probe will end.
-	conn, err := p.getConn(ctx, runReq.Target, tgtState.targetKey, l)
+	conn, err := p.getConn(ctx, target, target.Key(), l)
 	if err != nil {
 		result.Lock()
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
-		return
+		return err
 	}
 	if p.c.GetDisableReuseConn() {
 		defer conn.Close()
@@ -512,6 +499,19 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	}
 	result.latency.AddFloat64(delta.Seconds() / p.opts.LatencyUnit.Seconds())
 	result.Unlock()
+	return nil
+}
+
+// runProbeForTargetAndConnIndex runs a single probe for a target + connection index.
+func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult(&runReq.Target)
+	}
+	result, target := runReq.Result.(*probeRunResult), runReq.Target
+
+	if err := p.runProbeForTarget(ctx, target, result); err != nil {
+		p.l.ErrorAttrs(err.Error(), slog.String("target", target.Name))
+	}
 }
 
 // ctxWitHeaders attaches a list of headers to the given context
@@ -526,6 +526,55 @@ func (p *Probe) ctxWithHeaders(ctx context.Context) context.Context {
 	}
 	// create metadata from headers & attach to context
 	return metadata.NewOutgoingContext(ctx, metadata.New(parsed))
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running gRPC probe once.")
+
+	var out []*singlerun.ProbeRunResult
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+	// Use the original targets, not the denormalized ones with connection indices
+	for _, target := range p.opts.Targets.ListEndpoints() {
+		wg.Add(1)
+		go func(target endpoint.Endpoint) {
+			defer wg.Done()
+
+			updateOut := func(result *singlerun.ProbeRunResult) {
+				outMu.Lock()
+				defer outMu.Unlock()
+				result.Target = target
+				out = append(out, result)
+			}
+
+			// Create a new result for this target
+			result := p.newResult(&target).(*probeRunResult)
+
+			start := time.Now()
+			if err := p.runProbeForTarget(ctx, target, result); err != nil {
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("gRPC request failed for target, %s: %v", target.Name, err),
+				})
+				return
+			}
+
+			updateOut(&singlerun.ProbeRunResult{
+				Metrics: result.Metrics(time.Now(), 1, p.opts),
+				Success: result.success.Int64() > 0,
+				Latency: time.Since(start),
+			})
+		}(target)
+	}
+	wg.Wait()
+
+	// Sort the results by target name
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Target.Name < out[j].Target.Name
+	})
+
+	return out
 }
 
 // Start starts and runs the probe indefinitely.

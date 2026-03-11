@@ -42,6 +42,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payloadpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/command"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -250,6 +251,44 @@ func (p *Probe) processProbeResult(ps *probeStatus, target endpoint.Endpoint, re
 	}
 }
 
+func (p *Probe) runProbeForTarget(ctx context.Context, target endpoint.Endpoint, result *result) error {
+	args := append([]string{}, p.cmdArgs...)
+	if len(p.labelKeys) != 0 {
+		for i, arg := range p.cmdArgs {
+			res, found := strtemplate.SubstituteLabels(arg, p.labels(target))
+			if !found {
+				p.l.Warningf("Substitution not found in %q", arg)
+			}
+			args[i] = res
+		}
+	}
+
+	p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
+	result.total++
+
+	cmd := &command.Command{
+		CmdLine: append([]string{p.cmdName}, args...),
+		EnvVars: p.envVars,
+	}
+	if p.c.GetOutputAsMetrics() && !p.c.GetDisableStreamingOutputMetrics() {
+		cmd.ProcessStreamingOutput = func(line []byte) {
+			for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
+				p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan)
+			}
+		}
+	}
+
+	startTime := time.Now()
+	stdout, err := cmd.Execute(ctx, p.l)
+	latency := time.Since(startTime)
+	p.processProbeResult(&probeStatus{success: err == nil, latency: latency, payload: stdout}, target, result)
+
+	if err != nil {
+		return fmt.Errorf("Error running external probe: %v", err)
+	}
+	return nil
+}
+
 func (p *Probe) runOnceProbe(ctx context.Context) {
 	var wg sync.WaitGroup
 
@@ -258,42 +297,72 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 		go func(target endpoint.Endpoint, result *result) {
 			defer wg.Done()
 
-			args := append([]string{}, p.cmdArgs...)
-			if len(p.labelKeys) != 0 {
-				for i, arg := range p.cmdArgs {
-					res, found := strtemplate.SubstituteLabels(arg, p.labels(target))
-					if !found {
-						p.l.Warningf("Substitution not found in %q", arg)
-					}
-					args[i] = res
-				}
+			if err := p.runProbeForTarget(ctx, target, result); err != nil {
+				p.l.ErrorAttrs(err.Error(), slog.String("target", target.Name))
 			}
-
-			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
-			result.total++
-
-			cmd := &command.Command{
-				CmdLine: append([]string{p.cmdName}, args...),
-				EnvVars: p.envVars,
-			}
-			if p.c.GetOutputAsMetrics() && !p.c.GetDisableStreamingOutputMetrics() {
-				cmd.ProcessStreamingOutput = func(line []byte) {
-					for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
-						p.opts.RecordMetrics(target, p.withStdLabels(em, target), p.dataChan)
-					}
-				}
-			}
-
-			startTime := time.Now()
-			stdout, err := cmd.Execute(ctx, p.l)
-			latency := time.Since(startTime)
-			if err != nil {
-				p.l.Errorf("Error running external probe: %v", err)
-			}
-			p.processProbeResult(&probeStatus{success: err == nil, latency: latency, payload: stdout}, target, result)
 		}(target, p.results[target.Key()])
 	}
 	wg.Wait()
+}
+
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running external probe once.")
+
+	var out []*singlerun.ProbeRunResult
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+	for _, target := range p.opts.Targets.ListEndpoints() {
+		wg.Add(1)
+		go func(target endpoint.Endpoint) {
+			defer wg.Done()
+
+			updateOut := func(result *singlerun.ProbeRunResult) {
+				outMu.Lock()
+				defer outMu.Unlock()
+				result.Target = target
+				out = append(out, result)
+			}
+
+			// Create a new result for this target
+			result := p.newResult()
+
+			start := time.Now()
+			if err := p.runProbeForTarget(ctx, target, result); err != nil {
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("external probe failed for target, %s: %v", target.Name, err),
+				})
+				return
+			}
+
+			updateOut(&singlerun.ProbeRunResult{
+				Success: result.success > 0,
+				Latency: time.Since(start),
+			})
+		}(target)
+	}
+	wg.Wait()
+
+	// Sort the results by target name
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Target.Name < out[j].Target.Name
+	})
+
+	return out
+}
+
+func (p *Probe) newResult() *result {
+	var latencyValue metrics.LatencyValue
+	if p.opts.LatencyDist != nil {
+		latencyValue = p.opts.LatencyDist.CloneDist()
+	} else {
+		latencyValue = metrics.NewFloat(0)
+	}
+
+	return &result{
+		latency:           latencyValue,
+		validationFailure: validators.ValidationFailureMap(p.opts.Validators),
+	}
 }
 
 func (p *Probe) updateTargets() {
@@ -304,17 +373,7 @@ func (p *Probe) updateTargets() {
 			continue
 		}
 
-		var latencyValue metrics.LatencyValue
-		if p.opts.LatencyDist != nil {
-			latencyValue = p.opts.LatencyDist.CloneDist()
-		} else {
-			latencyValue = metrics.NewFloat(0)
-		}
-
-		p.results[target.Key()] = &result{
-			latency:           latencyValue,
-			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
-		}
+		p.results[target.Key()] = p.newResult()
 
 		for _, al := range p.opts.AdditionalLabels {
 			al.UpdateForTarget(target, "", 0)

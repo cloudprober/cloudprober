@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +38,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -270,12 +272,7 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
-	if runReq.Result == nil {
-		runReq.Result = p.newResult()
-	}
-	target, result := runReq.Target, runReq.Result.(*probeRunResult)
-
+func (p *Probe) runProbeForTarget(ctx context.Context, target endpoint.Endpoint, result *probeRunResult) error {
 	port := defaultPort
 	if target.Port != 0 {
 		port = target.Port
@@ -294,8 +291,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	if resolveFirst {
 		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
-			p.l.Warningf("Target(%s): Resolve error: %v", target.Name, err)
-			return
+			return fmt.Errorf("Target(%s): Resolve error: %v", target.Name, err)
 		}
 		ipLabel = ip.String()
 		fullTarget = net.JoinHostPort(ip.String(), strconv.Itoa(port))
@@ -307,7 +303,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	if p.c.GetRequestsPerProbe() == 1 {
 		p.doDNSRequest(ctx, fullTarget, result, nil)
-		return
+		return nil
 	}
 
 	// For multiple requests per probe, we launch a separate goroutine for each
@@ -327,6 +323,69 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 	p.l.Debug("Waiting for DNS requests to finish")
 	wg.Wait()
+	return nil
+}
+
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+	if runReq.Result == nil {
+		runReq.Result = p.newResult()
+	}
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
+
+	if err := p.runProbeForTarget(ctx, target, result); err != nil {
+		p.l.ErrorAttrs(err.Error(), slog.String("target", target.Name))
+	}
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running DNS probe once.")
+
+	if p.c.GetRequestsPerProbe() > 1 {
+		p.l.Warningf("requests_per_probe > 1 is not supported in single run mode, ignoring it.")
+	}
+
+	var out []*singlerun.ProbeRunResult
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+	for _, target := range p.opts.Targets.ListEndpoints() {
+		wg.Add(1)
+		go func(target endpoint.Endpoint) {
+			defer wg.Done()
+
+			updateOut := func(result *singlerun.ProbeRunResult) {
+				outMu.Lock()
+				defer outMu.Unlock()
+				result.Target = target
+				out = append(out, result)
+			}
+
+			result := p.newResult().(*probeRunResult)
+
+			start := time.Now()
+			if err := p.runProbeForTarget(ctx, target, result); err != nil {
+				updateOut(&singlerun.ProbeRunResult{
+					Error: fmt.Errorf("DNS request failed for target: %s, %v", target.Name, err),
+				})
+				return
+			}
+
+			updateOut(&singlerun.ProbeRunResult{
+				Metrics: result.Metrics(time.Now(), 1, p.opts),
+				Success: result.success.Int64() > 0,
+				Latency: time.Since(start),
+			})
+		}(target)
+	}
+	wg.Wait()
+
+	// Sort the results by target name
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Target.Name < out[j].Target.Name
+	})
+
+	return out
 }
 
 // Start starts and runs the probe indefinitely.
