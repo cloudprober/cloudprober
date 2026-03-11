@@ -284,5 +284,4 @@ See `consul.cfg` for complete working examples.
 
 ## See Also
 
-- [Consul Surfacer Examples](../../surfacers/consul/) - Register Cloudprober with Consul
 - [Consul Documentation](https://www.consul.io/docs)
