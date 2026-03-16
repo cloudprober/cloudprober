@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GOTO_DIR="$(cd "$(dirname "$0")/../docs/content/goto" && pwd)"
 
 if [ $# -ne 2 ]; then
   echo "Usage: $0 <keyword> <destination-url>" >&2
@@ -17,7 +17,7 @@ fi
 
 KEYWORD="$1"
 DEST="$2"
-FILE="${SCRIPT_DIR}/${KEYWORD}.md"
+FILE="${GOTO_DIR}/${KEYWORD}.md"
 
 if [ -f "$FILE" ]; then
   echo "Error: shortlink '${KEYWORD}' already exists at ${FILE}" >&2
