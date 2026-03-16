@@ -329,11 +329,11 @@ func TestNegativeTestSupport(t *testing.T) {
 	supportedType := []configpb.ProbeDef_Type{
 		configpb.ProbeDef_PING,
 		configpb.ProbeDef_TCP,
+		configpb.ProbeDef_HTTP,
 	}
 	unsupportedType := []configpb.ProbeDef_Type{
 		configpb.ProbeDef_DNS,
 		configpb.ProbeDef_EXTERNAL,
-		configpb.ProbeDef_HTTP,
 		configpb.ProbeDef_UDP,
 		configpb.ProbeDef_UDP_LISTENER,
 	}
