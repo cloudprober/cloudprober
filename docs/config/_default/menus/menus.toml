@@ -64,7 +64,7 @@
   name = "FAQ"
   weight = 75
   identifier = "faq"
-  url = "/docs/faq/general/"
+  url = "/docs/faq/list/"
 
 [[main]]
   name = "Community"
@@ -141,5 +141,5 @@
 [[docs]]
   name = "FAQ"
   identifier = "faq"
-  url = "/docs/faq/general/"
+  url = "/docs/faq/list/"
   weight = 50
