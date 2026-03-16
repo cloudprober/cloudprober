@@ -128,7 +128,7 @@ message TargetStatus {
   optional int64 success = 3;
   // Per-minute breakdown, only populated if per_minute_breakdown is true in
   // the request.
-  repeated MinuteStatus minute_status = 5;
+  repeated MinuteStatus minute_status = 4;
 }
 
 message MinuteStatus {

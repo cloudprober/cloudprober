@@ -67,13 +67,6 @@ type TargetStatusData struct {
 	Success    int64
 }
 
-// MinuteStatusData represents per-minute status data.
-type MinuteStatusData struct {
-	Timestamp int64 // Unix seconds
-	Total     int64
-	Success   int64
-}
-
 type statusQuery struct {
 	probeNames []string
 	endTime    time.Time

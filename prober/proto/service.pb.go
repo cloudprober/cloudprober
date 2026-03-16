@@ -829,7 +829,7 @@ type TargetStatus struct {
 	Success    *int64                 `protobuf:"varint,3,opt,name=success" json:"success,omitempty"`
 	// Per-minute breakdown, only populated if per_minute_breakdown is true in
 	// the request.
-	MinuteStatus  []*MinuteStatus `protobuf:"bytes,5,rep,name=minute_status,json=minuteStatus" json:"minute_status,omitempty"`
+	MinuteStatus  []*MinuteStatus `protobuf:"bytes,4,rep,name=minute_status,json=minuteStatus" json:"minute_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1009,7 +1009,7 @@ const file_github_com_cloudprober_cloudprober_prober_proto_service_proto_rawDesc
 	"targetName\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x18\n" +
 	"\asuccess\x18\x03 \x01(\x03R\asuccess\x12>\n" +
-	"\rminute_status\x18\x05 \x03(\v2\x19.cloudprober.MinuteStatusR\fminuteStatus\"\\\n" +
+	"\rminute_status\x18\x04 \x03(\v2\x19.cloudprober.MinuteStatusR\fminuteStatus\"\\\n" +
 	"\fMinuteStatus\x12\x1c\n" +
 	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x18\n" +

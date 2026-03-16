@@ -153,7 +153,7 @@ func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequ
 
 	timeWindow := time.Duration(req.GetTimeWindowMinutes()) * time.Minute
 	var endTime time.Time
-	if req.GetEndTimeSec() != 0 {
+	if req.EndTimeSec != nil {
 		endTime = time.Unix(req.GetEndTimeSec(), 0)
 	}
 
