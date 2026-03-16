@@ -178,7 +178,7 @@ probe {
   ping_probe {
     # See the following for how this field works and permissions issues with
     # ping probes
-    # https://cloudprober.org/docs/faq/troubleshooting/#ping-probe-fails-with-socket-permission-denied
+    # https://cloudprober.org/goto/ping-permission-issue
     use_datagram_socket: false
   }
 }
