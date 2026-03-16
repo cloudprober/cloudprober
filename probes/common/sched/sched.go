@@ -18,10 +18,12 @@ package sched
 import (
 	"context"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 )
@@ -49,6 +51,14 @@ type ProbeResult interface {
 	Metrics(timeStamp time.Time, runID int64, opts *options.Options) []*metrics.EventMetrics
 }
 
+// LastRunResult captures the outcome of a single probe run for a target.
+// It's used by RunOnce to collect results from the probe callback.
+type LastRunResult struct {
+	Success bool
+	Latency time.Duration
+	Error   error
+}
+
 // RunProbeForTargetRequest is used to pass information to RunProbeForTarget
 // function. It's created once per target and its address is passed to
 // the successive RunProbeForTarget calls.
@@ -61,6 +71,10 @@ type RunProbeForTargetRequest struct {
 	// type. For example, http probe uses this field to cache HTTP request and
 	// clients.
 	TargetState any
+
+	// LastRun, if non-nil, is populated by the probe with the result of the
+	// last run. Caller controls opt-in by setting this to a non-nil value.
+	LastRun *LastRunResult
 }
 
 type Scheduler struct {
@@ -253,6 +267,53 @@ func (s *Scheduler) refreshTargets(ctx context.Context) {
 
 		s.cancelFuncs[key] = cancelF
 	}
+}
+
+// RunOnce runs the given probe function once for each target and returns
+// the collected results. The probe function should populate
+// runReq.LastRun with the outcome of the run.
+func RunOnce(ctx context.Context, opts *options.Options, run func(context.Context, *RunProbeForTargetRequest)) []*singlerun.ProbeRunResult {
+	var out []*singlerun.ProbeRunResult
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+	for _, target := range opts.Targets.ListEndpoints() {
+		wg.Add(1)
+		go func(target endpoint.Endpoint) {
+			defer wg.Done()
+
+			runReq := &RunProbeForTargetRequest{
+				Target:  target,
+				LastRun: &LastRunResult{},
+			}
+
+			timedCtx, cancel := context.WithTimeout(ctx, opts.Timeout)
+			defer cancel()
+
+			run(timedCtx, runReq)
+
+			result := &singlerun.ProbeRunResult{
+				Target:  target,
+				Success: runReq.LastRun.Success,
+				Latency: runReq.LastRun.Latency,
+				Error:   runReq.LastRun.Error,
+			}
+			if runReq.Result != nil {
+				result.Metrics = runReq.Result.Metrics(time.Now(), 1, opts)
+			}
+
+			outMu.Lock()
+			out = append(out, result)
+			outMu.Unlock()
+		}(target)
+	}
+	wg.Wait()
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Target.Name < out[j].Target.Name
+	})
+
+	return out
 }
 
 func (s *Scheduler) UpdateTargetsAndStartProbes(ctx context.Context) {
