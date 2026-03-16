@@ -43,8 +43,7 @@ type CloudproberClient interface {
 	ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error)
 	SaveProbesConfig(ctx context.Context, in *SaveProbesConfigRequest, opts ...grpc.CallOption) (*SaveProbesConfigResponse, error)
 	// GetProbeStatus returns the ongoing probe status data, including
-	// total/success counters per probe/target, with optional per-minute
-	// breakdown.
+	// total/success counters per probe/target.
 	GetProbeStatus(ctx context.Context, in *GetProbeStatusRequest, opts ...grpc.CallOption) (*GetProbeStatusResponse, error)
 }
 
@@ -132,8 +131,7 @@ type CloudproberServer interface {
 	ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error)
 	SaveProbesConfig(context.Context, *SaveProbesConfigRequest) (*SaveProbesConfigResponse, error)
 	// GetProbeStatus returns the ongoing probe status data, including
-	// total/success counters per probe/target, with optional per-minute
-	// breakdown.
+	// total/success counters per probe/target.
 	GetProbeStatus(context.Context, *GetProbeStatusRequest) (*GetProbeStatusResponse, error)
 	mustEmbedUnimplementedCloudproberServer()
 }

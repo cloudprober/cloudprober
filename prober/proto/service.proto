@@ -25,8 +25,7 @@ service Cloudprober {
   rpc SaveProbesConfig(SaveProbesConfigRequest) returns (SaveProbesConfigResponse) {}
 
   // GetProbeStatus returns the ongoing probe status data, including
-  // total/success counters per probe/target, with optional per-minute
-  // breakdown.
+  // total/success counters per probe/target.
   rpc GetProbeStatus(GetProbeStatusRequest) returns (GetProbeStatusResponse) {}
 }
 
@@ -124,16 +123,6 @@ message ProbeStatus {
 
 message TargetStatus {
   optional string target_name = 1;
-  optional int64 total = 2;
-  optional int64 success = 3;
-  // Per-minute breakdown, only populated if per_minute_breakdown is true in
-  // the request.
-  repeated MinuteStatus minute_status = 4;
-}
-
-message MinuteStatus {
-  // Unix timestamp in seconds for this minute bucket.
-  optional int64 timestamp = 1;
   optional int64 total = 2;
   optional int64 success = 3;
 }
