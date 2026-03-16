@@ -441,3 +441,28 @@ func TestRunProbeRealICMP(t *testing.T) {
 		}
 	}
 }
+
+func TestListenRawSocketError(t *testing.T) {
+	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+		t.Skip("Skipping as running as root, raw sockets will succeed.")
+	}
+
+	c := &configpb.ProbeConf{
+		UseDatagramSocket: proto.Bool(false),
+	}
+
+	p, err := newProbe(c, 4, []string{"localhost"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+
+	err = p.listen()
+	if err == nil {
+		t.Fatal("Expected listen() to fail with raw sockets as non-root, but it succeeded")
+	}
+
+	expectedSubstr := "cloudprober.org/goto/ping-permission-issue"
+	if !strings.Contains(err.Error(), expectedSubstr) {
+		t.Errorf("Error message %q does not contain %q", err.Error(), expectedSubstr)
+	}
+}
