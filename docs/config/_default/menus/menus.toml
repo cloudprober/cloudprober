@@ -61,6 +61,12 @@
   url = "/docs/surfacers/overview"
 
 [[main]]
+  name = "FAQ"
+  weight = 75
+  identifier = "faq"
+  url = "/docs/faq/general/"
+
+[[main]]
   name = "Community"
   weight = 80
   identifier = "connect"
@@ -131,3 +137,9 @@
   identifier = "surfacers"
   url = "/docs/surfacers/overview"
   weight = 40
+
+[[docs]]
+  name = "FAQ"
+  identifier = "faq"
+  url = "/docs/faq/general/"
+  weight = 50
