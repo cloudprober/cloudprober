@@ -443,7 +443,10 @@ func TestRunProbeRealICMP(t *testing.T) {
 }
 
 func TestListenRawSocketError(t *testing.T) {
-	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping on Windows as raw sockets don't require elevated privileges.")
+	}
+	if os.Geteuid() == 0 {
 		t.Skip("Skipping as running as root, raw sockets will succeed.")
 	}
 
