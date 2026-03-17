@@ -35,7 +35,7 @@ net.ipv4.ping_group_range = 0 65535
 If you prefer to use raw ICMP sockets, set `use_datagram_socket` to `false`
 in your ping probe config and grant the binary the `CAP_NET_RAW` capability:
 
-```shell
+```proto
 probe {
   name: "ping_dns"
   type: PING
@@ -126,7 +126,7 @@ version to craft appropriate packets and default to IPv4 when `ip_version` is
 not set. If you have packet-level probes that use IPv6 addresses, you need to
 explicitly set `ip_version` in your probe configuration:
 
-```
+```proto
 probe {
   name: "ping_v6"
   type: PING
