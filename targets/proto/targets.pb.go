@@ -9,10 +9,6 @@
 package proto
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	proto "github.com/cloudprober/cloudprober/internal/rds/client/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/rds/proto"
 	proto2 "github.com/cloudprober/cloudprober/targets/endpoint/proto"
@@ -21,6 +17,9 @@ import (
 	proto5 "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -427,12 +426,7 @@ type TargetsDef struct {
 	DnsOptions *DNSOptions `protobuf:"bytes,30,opt,name=dns_options,json=dnsOptions" json:"dns_options,omitempty"`
 	// Provide a dns resolver override instead of using the default dns resolver.
 	// Deprecated: This option is now deprecated, please use dns_options instead.
-	DnsServer *string `protobuf:"bytes,31,opt,name=dns_server,json=dnsServer" json:"dns_server,omitempty"`
-	// How often to re-evaluate (discover) targets in seconds. This controls the
-	// probe scheduler's target update interval — how often new targets start
-	// being probed and removed targets stop being probed. If not set, defaults
-	// to 1 minute.
-	ReEvalSec       *int32 `protobuf:"varint,32,opt,name=re_eval_sec,json=reEvalSec" json:"re_eval_sec,omitempty"`
+	DnsServer       *string `protobuf:"bytes,31,opt,name=dns_server,json=dnsServer" json:"dns_server,omitempty"`
 	extensionFields protoimpl.ExtensionFields
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -576,13 +570,6 @@ func (x *TargetsDef) GetDnsServer() string {
 		return *x.DnsServer
 	}
 	return ""
-}
-
-func (x *TargetsDef) GetReEvalSec() int32 {
-	if x != nil && x.ReEvalSec != nil {
-		return *x.ReEvalSec
-	}
-	return 0
 }
 
 type isTargetsDef_Type interface {
@@ -843,7 +830,7 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x1c\n" +
 	"\attl_sec\x18\x02 \x01(\x05:\x03300R\x06ttlSec\x12)\n" +
 	"\x11max_cache_age_sec\x18\x03 \x01(\x05R\x0emaxCacheAgeSec\x126\n" +
-	"\x14backend_timeout_msec\x18\x04 \x01(\x05:\x045000R\x12backendTimeoutMsec\"\xc6\x05\n" +
+	"\x14backend_timeout_msec\x18\x04 \x01(\x05:\x045000R\x12backendTimeoutMsec\"\xa6\x05\n" +
 	"\n" +
 	"TargetsDef\x12\x1f\n" +
 	"\n" +
@@ -862,8 +849,7 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\vdns_options\x18\x1e \x01(\v2\x1f.cloudprober.targets.DNSOptionsR\n" +
 	"dnsOptions\x12\x1d\n" +
 	"\n" +
-	"dns_server\x18\x1f \x01(\tR\tdnsServer\x12\x1e\n" +
-	"\vre_eval_sec\x18  \x01(\x05R\treEvalSec*\t\b\xc8\x01\x10\x80\x80\x80\x80\x02B\x06\n" +
+	"dns_server\x18\x1f \x01(\tR\tdnsServer*\t\b\xc8\x01\x10\x80\x80\x80\x80\x02B\x06\n" +
 	"\x04type\"\x0e\n" +
 	"\fDummyTargets\"\xd9\x02\n" +
 	"\x14GlobalTargetsOptions\x120\n" +
