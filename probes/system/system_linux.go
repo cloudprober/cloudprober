@@ -31,6 +31,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/system/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -595,6 +596,54 @@ func (p *Probe) addMemStats(em *metrics.EventMetrics) error {
 	return scanner.Err()
 }
 
+// collectMetrics collects all system metrics and writes them to dataChan.
+func (p *Probe) collectMetrics(ts time.Time, dataChan chan *metrics.EventMetrics) {
+	// Gauge metrics
+	em := metrics.NewEventMetrics(ts).
+		AddLabel("probe", p.name).
+		AddLabel("ptype", "system")
+	em.Kind = metrics.GAUGE
+
+	// Cumulative metrics
+	emCum := metrics.NewEventMetrics(ts).
+		AddLabel("probe", p.name).
+		AddLabel("ptype", "system")
+	emCum.Kind = metrics.CUMULATIVE
+
+	p.exportGlobalMetrics(em, emCum)
+	p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
+	if len(emCum.MetricsKeys()) > 0 {
+		p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, emCum, dataChan)
+	}
+
+	p.exportNetDevStats(ts, dataChan)
+	p.exportDiskIOStats(ts, dataChan)
+	p.exportDiskUsageStats(ts, dataChan)
+}
+
+// RunOnce runs the system probe once and returns the results.
+func (p *Probe) RunOnce(_ context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running system probe once.")
+
+	ts := time.Now()
+	dataChan := make(chan *metrics.EventMetrics, 1000)
+
+	p.collectMetrics(ts, dataChan)
+	close(dataChan)
+
+	var allMetrics []*metrics.EventMetrics
+	for m := range dataChan {
+		allMetrics = append(allMetrics, m)
+	}
+
+	return []*singlerun.ProbeRunResult{{
+		Target:  endpoint.Endpoint{Name: p.name},
+		Success: true,
+		Latency: time.Since(ts),
+		Metrics: allMetrics,
+	}}
+}
+
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	ticker := time.NewTicker(p.opts.Interval)
@@ -605,28 +654,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-ctx.Done():
 			return
 		case ts := <-ticker.C:
-			// Global metrics
-			// Gauge metrics
-			em := metrics.NewEventMetrics(ts).
-				AddLabel("probe", p.name).
-				AddLabel("ptype", "system")
-			em.Kind = metrics.GAUGE
-
-			// Cumulative metrics
-			emCum := metrics.NewEventMetrics(ts).
-				AddLabel("probe", p.name).
-				AddLabel("ptype", "system")
-			emCum.Kind = metrics.CUMULATIVE
-
-			p.exportGlobalMetrics(em, emCum)
-			p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, em, dataChan)
-			if len(emCum.MetricsKeys()) > 0 {
-				p.opts.RecordMetrics(endpoint.Endpoint{Name: p.name}, emCum, dataChan)
-			}
-
-			p.exportNetDevStats(ts, dataChan)
-			p.exportDiskIOStats(ts, dataChan)
-			p.exportDiskUsageStats(ts, dataChan)
+			p.collectMetrics(ts, dataChan)
 		}
 	}
 }

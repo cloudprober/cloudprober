@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/options"
 )
 
@@ -30,6 +31,10 @@ type Probe struct {
 
 func (p *Probe) Init(name string, opts *options.Options) error {
 	return fmt.Errorf("system probe not supported on this OS")
+}
+
+func (p *Probe) RunOnce(_ context.Context) []*singlerun.ProbeRunResult {
+	return nil
 }
 
 // We need to implement this for interface compatibility.
