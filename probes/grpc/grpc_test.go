@@ -740,6 +740,79 @@ func TestConnectionString(t *testing.T) {
 	}
 }
 
+func TestRunOnce(t *testing.T) {
+	addr, err := globalGRPCServer(0)
+	if err != nil {
+		t.Fatalf("Error initializing global config: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		target      string
+		numConns    int32
+		wantSuccess bool
+		wantNil     bool // expect nil result (unsupported config)
+	}{
+		{
+			name:        "success",
+			target:      addr,
+			numConns:    1,
+			wantSuccess: true,
+		},
+		{
+			name:        "connect_failure",
+			target:      "localhost:1",
+			numConns:    1,
+			wantSuccess: false,
+		},
+		{
+			name:     "num_conns_gt_1",
+			target:   addr,
+			numConns: 2,
+			wantNil:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			probeOpts := &options.Options{
+				Targets: targets.StaticTargets(tt.target),
+				Timeout: 2 * time.Second,
+				ProbeConf: &configpb.ProbeConf{
+					NumConns:          proto.Int32(tt.numConns),
+					InsecureTransport: proto.Bool(true),
+				},
+				Logger:      &logger.Logger{},
+				LatencyUnit: time.Millisecond,
+			}
+
+			p := &Probe{}
+			if err := p.Init("grpc-runonce", probeOpts); err != nil {
+				t.Fatalf("Init error: %v", err)
+			}
+
+			results := p.RunOnce(context.Background())
+
+			if tt.wantNil {
+				assert.Nil(t, results, "expected nil results for unsupported config")
+				return
+			}
+
+			assert.Equal(t, 1, len(results), "expected 1 result")
+			r := results[0]
+			assert.Equal(t, tt.wantSuccess, r.Success, "success mismatch")
+
+			if tt.wantSuccess {
+				assert.True(t, r.Latency > 0, "expected non-zero latency")
+				assert.Nil(t, r.Error, "expected no error")
+				assert.NotNil(t, r.Metrics, "expected metrics")
+			} else {
+				assert.NotNil(t, r.Error, "expected error for failed probe")
+			}
+		})
+	}
+}
+
 func TestDefaultServiceConfig(t *testing.T) {
 	tests := []struct {
 		name                     string
