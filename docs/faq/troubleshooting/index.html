@@ -22,7 +22,7 @@ don&rsquo;t allow unprivileged ICMP pings out of the box.</p><p>You have two opt
 </code></pre><p>To make this persistent across reboots, add the following to
 <code>/etc/sysctl.conf</code> or a file in <code>/etc/sysctl.d/</code>:</p><pre><code>net.ipv4.ping_group_range = 0 65535
 </code></pre><p><strong>Option B: Use raw sockets with CAP_NET_RAW</strong></p><p>If you prefer to use raw ICMP sockets, set <code>use_datagram_socket</code> to <code>false</code>
-in your ping probe config and grant the binary the <code>CAP_NET_RAW</code> capability:</p><pre><code class=language-shell>probe {
+in your ping probe config and grant the binary the <code>CAP_NET_RAW</code> capability:</p><pre><code class=language-proto>probe {
   name: &quot;ping_dns&quot;
   type: PING
   targets {
@@ -57,7 +57,7 @@ Prometheus surfacer wasn&rsquo;t disabled.</li></ol><h2 id=no-suitable-address-f
 </code></pre><p>This happens because some probe types (like PING and UDP) need to know the IP
 version to craft appropriate packets and default to IPv4 when <code>ip_version</code> is
 not set. If you have packet-level probes that use IPv6 addresses, you need to
-explicitly set <code>ip_version</code> in your probe configuration:</p><pre><code>probe {
+explicitly set <code>ip_version</code> in your probe configuration:</p><pre><code class=language-proto>probe {
   name: &quot;ping_v6&quot;
   type: PING
   targets {

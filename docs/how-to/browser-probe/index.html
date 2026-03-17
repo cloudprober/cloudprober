@@ -31,7 +31,7 @@ with no extra configuration. You can also configure <a href=https://cloudprober.
 Alerting</a> to notify you directly via PagerDuty, Slack,
 Email, or HTTP webhooks when tests fail, giving you end-to-end monitoring
 without external infrastructure.</p><h4 id=per-step-custom-metrics>Per-Step Custom Metrics <a href=#per-step-custom-metrics class=anchor aria-hidden=true>#</a></h4><p>Need to know how long the &ldquo;Add to cart&rdquo; step takes <em>inside</em> a checkout test?
-Enable step-level metrics:</p><pre><code class=language-textproto>test_metrics_options {
+Enable step-level metrics:</p><pre><code class=language-proto>test_metrics_options {
   enable_step_metrics: true
 }
 </code></pre><p>This adds two more metric families:</p><ul><li><code>test_step_status{step, test, suite, tags, status}</code></li><li><code>test_step_latency{step, test, suite, tags, status}</code></li></ul><p>In your Playwright test, wrap operations in <code>test.step()</code> and the reporter picks
@@ -49,7 +49,7 @@ Playwright trace only when a test is retried, keeping storage lean.</li><li><str
 single test spec can probe multiple endpoints.</li></ul><hr><h2 id=quick-start>Quick Start <a href=#quick-start class=anchor aria-hidden=true>#</a></h2><div class="alert alert-info d-flex" role=alert><div class="flex-shrink-1 alert-icon"></div><div class=w-100><strong>Tip:</strong> The easiest way to get started is with the official
 <strong><code>cloudprober/cloudprober:latest-pw</code></strong> Docker image, which comes with Playwright
 and Chromium pre-installed. This avoids the often tricky manual Playwright setup.
-See <a href=#running-with-docker>Running with Docker</a> for details.</div></div><h3 id=1-cloudprober-config>1. Cloudprober Config <a href=#1-cloudprober-config class=anchor aria-hidden=true>#</a></h3><pre><code class=language-textproto>probe {
+See <a href=#running-with-docker>Running with Docker</a> for details.</div></div><h3 id=1-cloudprober-config>1. Cloudprober Config <a href=#1-cloudprober-config class=anchor aria-hidden=true>#</a></h3><pre><code class=language-proto>probe {
   name: &quot;website_e2e&quot;
   type: BROWSER
   interval_msec: 60000
@@ -84,7 +84,7 @@ See <a href=#running-with-docker>Running with Docker</a> for details.</div></div
 }
 </code></pre><p>This runs <code>website.spec.ts</code> once a minute against <code>playwright.dev</code>, retries
 failures once, captures traces on retry, exports per-step metrics, and stores
-artifacts locally for 24 hours.</p><h3 id=2-sample-playwright-test-typescript>2. Sample Playwright Test (TypeScript) <a href=#2-sample-playwright-test-typescript class=anchor aria-hidden=true>#</a></h3><pre><code class=language-typescript>// /tests/website.spec.ts
+artifacts locally for 24 hours.</p><h3 id=2-sample-playwright-test-typescript>2. Sample Playwright Test (TypeScript) <a href=#2-sample-playwright-test-typescript class=anchor aria-hidden=true>#</a></h3><pre><code class=language-javascript>// /tests/website.spec.ts
 import { test, expect } from &quot;@playwright/test&quot;;
 
 // target_name is injected by Cloudprober as an env var.
@@ -108,13 +108,13 @@ test.describe(&quot;Website&quot;, () =&gt; {
 </code></pre><p>Each <code>test.step()</code> call becomes a <code>test_step_status</code> /
 <code>test_step_latency</code> metric automatically. No SDK, no custom reporter wiring &ndash;
 Cloudprober generates the Playwright config and reporter at startup.</p><hr><h2 id=configuration-reference>Configuration Reference <a href=#configuration-reference class=anchor aria-hidden=true>#</a></h2><p>See <a href=https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_ProbeConf>generated config reference</a>
-for all possible options. Here are some key fields:</p><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody><tr><td><code>test_spec</code></td><td><em>(all files in test_dir)</em></td><td>Test specs to run. Filenames relative to <code>test_dir</code>; regex patterns passed to Playwright grep.</td></tr><tr><td><code>test_dir</code></td><td>Config file directory</td><td>Directory where test specs are located.</td></tr><tr><td><code>test_spec_filter</code></td><td>&ndash;</td><td>Include/exclude tests by title regex. See below for an example.</td></tr><tr><td><code>save_screenshots_for_success</code></td><td>false</td><td>Whether to save screenshots on success</td></tr><tr><td><code>retries</code></td><td><code>0</code></td><td>Number of retries per test.</td></tr><tr><td><code>save_trace</code></td><td><code>NEVER</code></td><td>Trace capture: <code>NEVER</code>, <code>ALWAYS</code>, <code>ON_FIRST_RETRY</code>, <code>ON_ALL_RETRIES</code>, <code>RETAIN_ON_FAILURE</code>.</td></tr><tr><td><code>test_metrics_options</code></td><td>&ndash;</td><td>Control test-level and step-level metrics. <a href=https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_TestMetricsOptions>Ref.</a></td></tr><tr><td><code>artifacts_options</code></td><td><em>(global if set)</em></td><td>Per-probe artifact storage config. Falls back to <code>global_artifacts_options</code>. Discussed in more detail <a href=#artifacts-setup>below</a>.</td></tr><tr><td><code>env_var</code></td><td>&ndash;</td><td>Extra environment variables passed to Playwright.</td></tr></tbody></table><p><strong><code>TestSpecFilter</code></strong></p><pre><code class=language-textproto>test_spec_filter {
+for all possible options. Here are some key fields:</p><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody><tr><td><code>test_spec</code></td><td><em>(all files in test_dir)</em></td><td>Test specs to run. Filenames relative to <code>test_dir</code>; regex patterns passed to Playwright grep.</td></tr><tr><td><code>test_dir</code></td><td>Config file directory</td><td>Directory where test specs are located.</td></tr><tr><td><code>test_spec_filter</code></td><td>&ndash;</td><td>Include/exclude tests by title regex. See below for an example.</td></tr><tr><td><code>save_screenshots_for_success</code></td><td>false</td><td>Whether to save screenshots on success</td></tr><tr><td><code>retries</code></td><td><code>0</code></td><td>Number of retries per test.</td></tr><tr><td><code>save_trace</code></td><td><code>NEVER</code></td><td>Trace capture: <code>NEVER</code>, <code>ALWAYS</code>, <code>ON_FIRST_RETRY</code>, <code>ON_ALL_RETRIES</code>, <code>RETAIN_ON_FAILURE</code>.</td></tr><tr><td><code>test_metrics_options</code></td><td>&ndash;</td><td>Control test-level and step-level metrics. <a href=https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_TestMetricsOptions>Ref.</a></td></tr><tr><td><code>artifacts_options</code></td><td><em>(global if set)</em></td><td>Per-probe artifact storage config. Falls back to <code>global_artifacts_options</code>. Discussed in more detail <a href=#artifacts-setup>below</a>.</td></tr><tr><td><code>env_var</code></td><td>&ndash;</td><td>Extra environment variables passed to Playwright.</td></tr></tbody></table><p><strong><code>TestSpecFilter</code></strong></p><pre><code class=language-proto>test_spec_filter {
   include: &quot;@smoke|@critical&quot;   # playwright --grep
   exclude: &quot;@draft&quot;             # playwright --grep-invert
 }
 </code></pre><hr><h2 id=artifacts-setup>Artifacts Setup <a href=#artifacts-setup class=anchor aria-hidden=true>#</a></h2><h3 id=enable-the-built-in-artifacts-server>Enable the Built-in Artifacts Server <a href=#enable-the-built-in-artifacts-server class=anchor aria-hidden=true>#</a></h3><p>The artifacts viewer is served by Cloudprober&rsquo;s built-in web server but is
 <strong>disabled by default</strong> for security. To enable it:</p><h4 id=option-a-global-config-recommended>Option A: Global Config (Recommended) <a href=#option-a-global-config-recommended class=anchor aria-hidden=true>#</a></h4><p>Set <code>global_artifacts_options</code> (<a href=https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_artifacts_ArtifactsOptions>ref</a>) at the top level of your Cloudprober config. This
-applies to all browser probes and keeps per-probe configs clean.</p><pre><code class=language-textproto>global_artifacts_options {
+applies to all browser probes and keeps per-probe configs clean.</p><pre><code class=language-proto>global_artifacts_options {
   serve_on_web: true
   storage {
     local_storage {
@@ -128,7 +128,7 @@ applies to all browser probes and keeps per-probe configs clean.</p><pre><code c
 }
 </code></pre><h4 id=option-b-per-probe-config>Option B: Per-Probe Config <a href=#option-b-per-probe-config class=anchor aria-hidden=true>#</a></h4><p>Set <code>artifacts_options</code> inside the <code>browser_probe</code> block (as shown in the Quick
 Start above). Per-probe options override the global config.</p><h3 id=adding-cloud-storage-backends>Adding Cloud Storage Backends <a href=#adding-cloud-storage-backends class=anchor aria-hidden=true>#</a></h3><p>Storage backends are defined in the <code>storage</code> field. You can specify multiple
-backends &ndash; Cloudprober uploads to all of them in parallel.</p><pre><code class=language-textproto>global_artifacts_options {
+backends &ndash; Cloudprober uploads to all of them in parallel.</p><pre><code class=language-proto>global_artifacts_options {
   serve_on_web: true
 
   # Local -- required for the web viewer
