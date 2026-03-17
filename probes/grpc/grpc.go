@@ -442,9 +442,7 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
-		if runReq.LastRun != nil {
-			runReq.LastRun.Error = err
-		}
+		runReq.LastRun.Set(false, 0, err)
 		return
 	}
 	if p.c.GetDisableReuseConn() {
@@ -517,11 +515,7 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	result.latency.AddFloat64(delta.Seconds() / p.opts.LatencyUnit.Seconds())
 	result.Unlock()
 
-	if runReq.LastRun != nil {
-		runReq.LastRun.Success = success
-		runReq.LastRun.Latency = time.Since(start)
-		runReq.LastRun.Error = err
-	}
+	runReq.LastRun.Set(success, time.Since(start), err)
 }
 
 // ctxWitHeaders attaches a list of headers to the given context

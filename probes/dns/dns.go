@@ -37,8 +37,8 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
-	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -332,11 +332,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		probeErr = eg.Wait()
 	}
 
-	if runReq.LastRun != nil {
-		runReq.LastRun.Success = result.success.Int64() > startSuccess
-		runReq.LastRun.Latency = time.Since(start)
-		runReq.LastRun.Error = probeErr
-	}
+	runReq.LastRun.Set(result.success.Int64() > startSuccess, time.Since(start), probeErr)
 }
 
 // RunOnce runs the probe just once.
