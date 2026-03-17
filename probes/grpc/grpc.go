@@ -42,6 +42,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -441,6 +442,7 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 		result.total.Inc()
 		result.connectErrors.Inc()
 		result.Unlock()
+		runReq.LastRun.Set(false, 0, err)
 		return
 	}
 	if p.c.GetDisableReuseConn() {
@@ -512,6 +514,8 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	}
 	result.latency.AddFloat64(delta.Seconds() / p.opts.LatencyUnit.Seconds())
 	result.Unlock()
+
+	runReq.LastRun.Set(success, time.Since(start), err)
 }
 
 // ctxWitHeaders attaches a list of headers to the given context
@@ -526,6 +530,16 @@ func (p *Probe) ctxWithHeaders(ctx context.Context) context.Context {
 	}
 	// create metadata from headers & attach to context
 	return metadata.NewOutgoingContext(ctx, metadata.New(parsed))
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running gRPC probe once.")
+	if p.numConns > 1 {
+		p.l.Error("Run-once is not supported for num_conns > 1")
+		return nil
+	}
+	return sched.RunOnce(ctx, p.opts, p.runProbeForTargetAndConnIndex)
 }
 
 // Start starts and runs the probe indefinitely.

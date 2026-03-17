@@ -84,6 +84,7 @@ const defaultTimeoutPeriod = 1 * time.Second
 var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_TCP:  true,
 	configpb.ProbeDef_PING: true,
+	configpb.ProbeDef_HTTP: true,
 }
 
 func defaultStatsExportInterval(p *configpb.ProbeDef, opts *Options) time.Duration {

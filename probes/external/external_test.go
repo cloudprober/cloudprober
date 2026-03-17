@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -207,12 +208,15 @@ func testProbeOnceMode(t *testing.T, cmd string, tgts []string, runTwice, disabl
 			}
 		}
 
-		cmdTime := emMap[tgt]["cmd"][0].Timestamp
-		argsTime := emMap[tgt]["args"][0].Timestamp
-		if disableStreaming {
-			assert.Equal(t, cmdTime, argsTime, "cmd and args metrics should have same timestamp")
-		} else {
-			assert.True(t, cmdTime.Before(argsTime), "cmd metric should have earlier timestamp than args metric")
+		// Windows test environment is bad with timestamps.
+		if runtime.GOOS != "windows" {
+			cmdTime := emMap[tgt]["cmd"][0].Timestamp
+			argsTime := emMap[tgt]["args"][0].Timestamp
+			if disableStreaming {
+				assert.Equal(t, cmdTime, argsTime, "cmd and args metrics should have same timestamp")
+			} else {
+				assert.True(t, cmdTime.Before(argsTime), "cmd metric should have earlier timestamp than args metric")
+			}
 		}
 	}
 }

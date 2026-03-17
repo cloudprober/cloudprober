@@ -174,6 +174,13 @@ probe {
     host_names: "8.8.8.8,1.1.1.1"
   }
   interval: "5s"
+
+  ping_probe {
+    # See the following for how this field works and permissions issues with
+    # ping probes
+    # https://cloudprober.org/goto/ping-permission-issue
+    use_datagram_socket: false
+  }
 }
 ```
 

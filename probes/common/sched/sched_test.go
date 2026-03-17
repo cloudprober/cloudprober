@@ -157,6 +157,180 @@ func TestRunProbeForTargetTimeout(t *testing.T) {
 	s.Wait()
 }
 
+func TestRunOnce(t *testing.T) {
+	tests := []struct {
+		name        string
+		targets     string
+		run         func(context.Context, *RunProbeForTargetRequest)
+		wantSuccess []bool
+		wantErr     bool
+	}{
+		{
+			name:    "all succeed",
+			targets: "t1,t2",
+			run: func(ctx context.Context, runReq *RunProbeForTargetRequest) {
+				if runReq.Result == nil {
+					runReq.Result = &testProbeResult{}
+				}
+				runReq.Result.(*testProbeResult).total++
+				if runReq.LastRun != nil {
+					runReq.LastRun.Success = true
+					runReq.LastRun.Latency = 5 * time.Millisecond
+				}
+			},
+			wantSuccess: []bool{true, true},
+		},
+		{
+			name:    "one fails",
+			targets: "fail-target,ok-target",
+			run: func(ctx context.Context, runReq *RunProbeForTargetRequest) {
+				if runReq.Result == nil {
+					runReq.Result = &testProbeResult{}
+				}
+				runReq.Result.(*testProbeResult).total++
+				if runReq.LastRun != nil {
+					if runReq.Target.Name == "fail-target" {
+						runReq.LastRun.Error = fmt.Errorf("probe failed")
+					} else {
+						runReq.LastRun.Success = true
+						runReq.LastRun.Latency = 2 * time.Millisecond
+					}
+				}
+			},
+			wantSuccess: []bool{false, true},
+		},
+		{
+			name:    "single target",
+			targets: "single",
+			run: func(ctx context.Context, runReq *RunProbeForTargetRequest) {
+				if runReq.Result == nil {
+					runReq.Result = &testProbeResult{}
+				}
+				runReq.Result.(*testProbeResult).total++
+				if runReq.LastRun != nil {
+					runReq.LastRun.Success = true
+					runReq.LastRun.Latency = 1 * time.Millisecond
+				}
+			},
+			wantSuccess: []bool{true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &options.Options{
+				Targets: targets.StaticTargets(tt.targets),
+				Timeout: time.Second,
+			}
+
+			results := RunOnce(context.Background(), opts, tt.run)
+
+			assert.Equal(t, len(tt.wantSuccess), len(results), "number of results")
+
+			for i, r := range results {
+				assert.Equal(t, tt.wantSuccess[i], r.Success, "target %s success", r.Target.Name)
+				if r.Success {
+					assert.True(t, r.Latency > 0, "target %s should have latency", r.Target.Name)
+					assert.NotNil(t, r.Metrics, "target %s should have metrics", r.Target.Name)
+				}
+				if r.Error != nil {
+					assert.False(t, r.Success, "target %s has error but marked success", r.Target.Name)
+				}
+			}
+
+			// Verify results are sorted by target name.
+			for i := 1; i < len(results); i++ {
+				assert.True(t, results[i-1].Target.Name <= results[i].Target.Name,
+					"results not sorted: %s > %s", results[i-1].Target.Name, results[i].Target.Name)
+			}
+		})
+	}
+}
+
+func TestRunOnceLastRunNilInScheduledPath(t *testing.T) {
+	// Verify that in the normal scheduled path, LastRun is nil
+	// (i.e. startForTarget doesn't set it).
+	opts := &options.Options{
+		Targets:             targets.StaticTargets("test1.com"),
+		Interval:            10 * time.Millisecond,
+		StatsExportInterval: 20 * time.Millisecond,
+		Logger:              &logger.Logger{},
+	}
+
+	var lastRunWasNil bool
+	s := &Scheduler{
+		Opts:      opts,
+		DataChan:  make(chan *metrics.EventMetrics, 100),
+		NewResult: func(_ *endpoint.Endpoint) ProbeResult { return &testProbeResult{} },
+		RunProbeForTarget: func(ctx context.Context, runReq *RunProbeForTargetRequest) {
+			lastRunWasNil = runReq.LastRun == nil
+			runReq.Result.(*testProbeResult).total++
+		},
+	}
+	s.init()
+
+	ctx, cancelF := context.WithCancel(context.Background())
+	s.refreshTargets(ctx)
+	time.Sleep(50 * time.Millisecond)
+	cancelF()
+	s.Wait()
+
+	assert.True(t, lastRunWasNil, "LastRun should be nil in the scheduled path")
+}
+
+func TestLastRunResultSet(t *testing.T) {
+	tests := []struct {
+		name    string
+		r       *LastRunResult
+		success bool
+		latency time.Duration
+		err     error
+	}{
+		{
+			name:    "set success",
+			r:       &LastRunResult{},
+			success: true,
+			latency: 5 * time.Millisecond,
+			err:     nil,
+		},
+		{
+			name:    "set failure",
+			r:       &LastRunResult{},
+			success: false,
+			latency: 0,
+			err:     fmt.Errorf("probe failed"),
+		},
+		{
+			name:    "nil receiver",
+			r:       nil,
+			success: true,
+			latency: 5 * time.Millisecond,
+			err:     nil,
+		},
+		{
+			name:    "overwrite previous values",
+			r:       &LastRunResult{Success: true, Latency: 1 * time.Millisecond},
+			success: false,
+			latency: 20 * time.Millisecond,
+			err:     fmt.Errorf("new error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.r.Set(tt.success, tt.latency, tt.err)
+
+			if tt.r == nil {
+				return // nil receiver; nothing to check
+			}
+
+			assert.Equal(t, tt.success, tt.r.Success, "Success")
+			assert.Equal(t, tt.latency, tt.r.Latency, "Latency")
+			assert.Equal(t, tt.err, tt.r.Error, "Error")
+		})
+	}
+}
+
 func TestSchedulerGapBetweenTargets(t *testing.T) {
 	testTargets := []endpoint.Endpoint{{Name: "test1.com"}, {Name: "test2.com"}}
 	tests := []struct {

@@ -219,7 +219,10 @@ func (p *Probe) listen() error {
 
 	var err error
 	p.conn, err = p.newICMPConn(sourceIP)
-	return err
+	if err != nil {
+		return fmt.Errorf("error creating ICMP connection (if permission issue, see https://cloudprober.org/goto/ping-permission-issue): %w", err)
+	}
+	return nil
 }
 
 func (p *Probe) updateTargets() {
