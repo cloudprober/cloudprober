@@ -435,8 +435,6 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	}
 	result := runReq.Result.(*probeRunResult)
 
-	start := time.Now()
-
 	// On connection failure, this is where probe will end.
 	conn, err := p.getConn(ctx, runReq.Target, tgtState.targetKey, l)
 	if err != nil {
@@ -446,7 +444,6 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 		result.Unlock()
 		if runReq.LastRun != nil {
 			runReq.LastRun.Error = err
-			runReq.LastRun.Latency = time.Since(start)
 		}
 		return
 	}
@@ -458,6 +455,7 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 	reqCtx := p.ctxWithHeaders(ctx)
 
 	var delta time.Duration
+	start := time.Now()
 
 	var peer peer.Peer
 	opts := []grpc.CallOption{
