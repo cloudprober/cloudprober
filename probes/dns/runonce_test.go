@@ -16,6 +16,7 @@ package dns
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 
@@ -103,7 +104,11 @@ func TestRunOnce(t *testing.T) {
 			assert.Equal(t, tt.wantSuccess, r.Success, "success mismatch")
 
 			if tt.wantSuccess {
+				// Skip latency check on Windows: timer resolution is too
+			// coarse for the mock client, so time.Since can return 0.
+			if runtime.GOOS != "windows" {
 				assert.True(t, r.Latency > 0, "expected non-zero latency")
+			}
 				assert.Nil(t, r.Error, "expected no error")
 				assert.NotNil(t, r.Metrics, "expected metrics")
 			} else {
