@@ -1,4 +1,4 @@
-// Copyright 2017-2024 The Cloudprober Authors.
+// Copyright 2017-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ func TestShellProcessSuccess(t *testing.T) {
 	}
 	fmt.Fprintf(os.Stderr, "Running test command. Env: %s\n", strings.Join(exportEnvList, ","))
 
-	pauseTime := 10 * time.Millisecond
+	pauseTime := 20 * time.Millisecond
 	pauseSec, _ := strconv.Atoi(os.Getenv("GO_CP_TEST_PAUSE"))
 	if pauseSec != 0 {
 		pauseTime = time.Duration(pauseSec) * time.Second
@@ -136,10 +136,11 @@ func testCommandExecute(t *testing.T, disableStreaming bool) {
 		defer outputMu.RUnlock()
 		assert.Equal(t, wantOutput, output)
 
-		// Verify that difference between first two timestamps is at least 10ms
-		assert.True(t, outputTS[1] >= outputTS[0]+10, "gap between cmd and arg not more than 10ms")
-		// Verify that difference between second two timestamps is less than 10ms
-		assert.True(t, outputTS[2] < outputTS[1]+10, "gap between arg and env not less than 10ms")
+		// Verify that difference between first two timestamps is at least 20ms
+		// (subprocess sleeps 50ms between cmd and args output).
+		assert.True(t, outputTS[1] >= outputTS[0]+20, "gap between cmd and arg not more than 20ms")
+		// Verify that difference between second two timestamps is less than 20ms
+		assert.True(t, outputTS[2] < outputTS[1]+20, "gap between arg and env not less than 20ms")
 	}
 }
 
