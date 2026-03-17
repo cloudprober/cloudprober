@@ -278,6 +278,59 @@ func TestRunOnceLastRunNilInScheduledPath(t *testing.T) {
 	assert.True(t, lastRunWasNil, "LastRun should be nil in the scheduled path")
 }
 
+func TestLastRunResultSet(t *testing.T) {
+	tests := []struct {
+		name    string
+		r       *LastRunResult
+		success bool
+		latency time.Duration
+		err     error
+	}{
+		{
+			name:    "set success",
+			r:       &LastRunResult{},
+			success: true,
+			latency: 5 * time.Millisecond,
+			err:     nil,
+		},
+		{
+			name:    "set failure",
+			r:       &LastRunResult{},
+			success: false,
+			latency: 0,
+			err:     fmt.Errorf("probe failed"),
+		},
+		{
+			name:    "nil receiver",
+			r:       nil,
+			success: true,
+			latency: 5 * time.Millisecond,
+			err:     nil,
+		},
+		{
+			name:    "overwrite previous values",
+			r:       &LastRunResult{Success: true, Latency: 1 * time.Millisecond},
+			success: false,
+			latency: 20 * time.Millisecond,
+			err:     fmt.Errorf("new error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.r.Set(tt.success, tt.latency, tt.err)
+
+			if tt.r == nil {
+				return // nil receiver; nothing to check
+			}
+
+			assert.Equal(t, tt.success, tt.r.Success, "Success")
+			assert.Equal(t, tt.latency, tt.r.Latency, "Latency")
+			assert.Equal(t, tt.err, tt.r.Error, "Error")
+		})
+	}
+}
+
 func TestSchedulerGapBetweenTargets(t *testing.T) {
 	testTargets := []endpoint.Endpoint{{Name: "test1.com"}, {Name: "test2.com"}}
 	tests := []struct {
