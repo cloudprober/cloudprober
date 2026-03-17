@@ -59,6 +59,15 @@ type LastRunResult struct {
 	Error   error
 }
 
+func (r *LastRunResult) Set(success bool, latency time.Duration, err error) {
+	if r == nil {
+		return
+	}
+	r.Success = success
+	r.Latency = latency
+	r.Error = err
+}
+
 // RunProbeForTargetRequest is used to pass information to RunProbeForTarget
 // function. It's created once per target and its address is passed to
 // the successive RunProbeForTarget calls.

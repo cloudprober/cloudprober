@@ -599,9 +599,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		if err != nil {
 			p.l.Error("Error creating HTTP request for target: ", target.Name, ", err: ", err.Error())
 			result.total += int64(p.c.GetRequestsPerProbe())
-			if runReq.LastRun != nil {
-				runReq.LastRun.Error = err
-			}
+			runReq.LastRun.Set(false, 0, err)
 			return
 		}
 		tgtState.req = req
@@ -612,11 +610,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	if p.c.GetRequestsPerProbe() == 1 {
 		err := p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
-		if runReq.LastRun != nil {
-			runReq.LastRun.Success = result.success > startSuccess
-			runReq.LastRun.Latency = time.Since(start)
-			runReq.LastRun.Error = err
-		}
+		runReq.LastRun.Set(result.success > startSuccess, time.Since(start), err)
 		return
 	}
 
@@ -639,12 +633,9 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 	wg.Wait()
 
-	// With current configuration it will be called as we don't support
+	// With current configuration it will not be called as we don't support
 	// run-once if requests_per_probe > 1
-	if runReq.LastRun != nil {
-		runReq.LastRun.Success = result.success > startSuccess
-		runReq.LastRun.Latency = time.Since(start)
-	}
+	runReq.LastRun.Set(result.success > startSuccess, time.Since(start), nil)
 }
 
 // RunOnce runs the probe just once.
