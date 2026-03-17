@@ -28,6 +28,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/tcp/proto"
@@ -244,15 +245,25 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 			return
 		}
 		result.success++
+		runReq.LastRun.Set(true, latency, nil)
 		return
 	}
 
 	if err != nil {
 		l.Error(err.Error())
+		runReq.LastRun.Set(false, 0, err)
 		return
 	}
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+
+	runReq.LastRun.Set(true, latency, nil)
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running TCP probe once.")
+	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }
 
 // Start starts and runs the probe indefinitely.
