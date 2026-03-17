@@ -30,13 +30,13 @@ import (
 
 func TestRunOnce(t *testing.T) {
 	tests := []struct {
-		name              string
-		target            string
-		queryType         configpb.QueryType
-		resolvedDomain    string
-		requestsPerProbe  int32
-		wantSuccess       bool
-		wantNil           bool
+		name             string
+		target           string
+		queryType        configpb.QueryType
+		resolvedDomain   string
+		requestsPerProbe int32
+		wantSuccess      bool
+		wantNil          bool
 	}{
 		{
 			name:           "success",
@@ -105,10 +105,10 @@ func TestRunOnce(t *testing.T) {
 
 			if tt.wantSuccess {
 				// Skip latency check on Windows: timer resolution is too
-			// coarse for the mock client, so time.Since can return 0.
-			if runtime.GOOS != "windows" {
-				assert.True(t, r.Latency > 0, "expected non-zero latency")
-			}
+				// coarse for the mock client, so time.Since can return 0.
+				if runtime.GOOS != "windows" {
+					assert.True(t, r.Latency > 0, "expected non-zero latency")
+				}
 				assert.Nil(t, r.Error, "expected no error")
 				assert.NotNil(t, r.Metrics, "expected metrics")
 			} else {
