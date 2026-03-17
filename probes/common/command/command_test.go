@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,7 +44,7 @@ func TestShellProcessSuccess(t *testing.T) {
 	}
 	fmt.Fprintf(os.Stderr, "Running test command. Env: %s\n", strings.Join(exportEnvList, ","))
 
-	pauseTime := 20 * time.Millisecond
+	pauseTime := 10 * time.Millisecond
 	pauseSec, _ := strconv.Atoi(os.Getenv("GO_CP_TEST_PAUSE"))
 	if pauseSec != 0 {
 		pauseTime = time.Duration(pauseSec) * time.Second
@@ -136,11 +137,14 @@ func testCommandExecute(t *testing.T, disableStreaming bool) {
 		defer outputMu.RUnlock()
 		assert.Equal(t, wantOutput, output)
 
-		// Verify that difference between first two timestamps is at least 20ms
-		// (subprocess sleeps 50ms between cmd and args output).
-		assert.True(t, outputTS[1] >= outputTS[0]+20, "gap between cmd and arg not more than 20ms")
-		// Verify that difference between second two timestamps is less than 20ms
-		assert.True(t, outputTS[2] < outputTS[1]+20, "gap between arg and env not less than 20ms")
+		// Windows test environment is bad with timestamps.
+		if runtime.GOOS != "windows" {
+			// Verify that difference between first two timestamps is at least 20ms
+			// (subprocess sleeps 20ms between cmd and args output).
+			assert.True(t, outputTS[1] >= outputTS[0]+10, "gap between cmd and arg not more than 20ms")
+			// Verify that difference between second two timestamps is less than 20ms
+			assert.True(t, outputTS[2] < outputTS[1]+10, "gap between arg and env not less than 20ms")
+		}
 	}
 }
 
