@@ -107,6 +107,43 @@ Check the following:
    running config. If you configured surfacers explicitly, make sure the default
    Prometheus surfacer wasn't disabled. 
 
+## "no suitable address found" or "no IPv4 address" errors with IPv6 targets
+
+If you're monitoring IPv6 targets and see errors like:
+
+```
+Resolve Error: address ::1: no suitable address found
+```
+
+or:
+
+```
+Bad target: myhost. Err: no IPv4 address (IP: 2001:db8::1) for myhost
+```
+
+This happens because some probe types (like PING and UDP) need to know the IP
+version to craft appropriate packets and default to IPv4 when `ip_version` is
+not set. If you have packet-level probes that use IPv6 addresses, you need to
+explicitly set `ip_version` in your probe configuration:
+
+```
+probe {
+  name: "ping_v6"
+  type: PING
+  targets {
+    host_names: "::1"
+  }
+  ip_version: IPV6
+  ping_probe {
+    ...
+    use_datagram_socket: false
+  }
+}
+```
+
+Note that IPv4 and IPv6 targets cannot be mixed in a single probe. If you need
+to monitor both, create separate probes for each IP version.
+
 ## Probes show high latency or timeouts
 
 - Ensure the `timeout` value is less than the `interval`. Default timeout is
