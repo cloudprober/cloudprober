@@ -19,6 +19,7 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -80,6 +81,11 @@ func (r *resolverImpl) resolveOrTimeout(name string, version ipVersion) ([]net.I
 	startTime := time.Now()
 	ips, err := r.resolveFunc(ctx, version.Network(), name)
 	if err != nil {
+		errMsg := "Resolve Error: " + err.Error()
+		var addrErr *net.AddrError
+		if errors.As(err, &addrErr) && strings.Contains(addrErr.Err, "no suitable address") {
+			errMsg += "; this typically means the target address doesn't match the probe's IP version, you may need to set probe's ip_version field to match your targets"
+		}
 		attrs := []slog.Attr{
 			slog.String("name", name),
 			slog.Duration("time_elapsed", time.Since(startTime)),
@@ -87,7 +93,7 @@ func (r *resolverImpl) resolveOrTimeout(name string, version ipVersion) ([]net.I
 			slog.String("backend_server", r.backendServer),
 			slog.String("backend_network", r.backendNetwork),
 		}
-		r.l.WarningAttrs("Resolve Error: "+err.Error(), attrs...)
+		r.l.WarningAttrs(errMsg, attrs...)
 	}
 	return ips, err
 }

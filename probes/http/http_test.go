@@ -1372,3 +1372,63 @@ func TestDisableHTTP2(t *testing.T) {
 	}
 	assert.Equal(t, "Hello, HTTP/1.1", string(greeting))
 }
+
+func TestNegativeTest(t *testing.T) {
+	ctx, cancelF := context.WithCancel(context.Background())
+	defer cancelF()
+
+	// Create a test server for reachable targets.
+	probeOpts := &testProbeOpts{
+		targets: []string{"reachable.com", "unreachable.com"},
+	}
+
+	ts, err := newTestServer(t, ctx, 0)
+	if err != nil {
+		t.Fatalf("Error starting test HTTP server: %v", err)
+	}
+
+	eps := []endpoint.Endpoint{
+		{Name: "reachable.com", IP: ts.addr.IP},
+		{Name: "unreachable.com", IP: net.ParseIP("192.0.2.1")}, // RFC 5737 TEST-NET, unreachable
+	}
+
+	opts := &options.Options{
+		Targets:             targets.StaticEndpoints(eps),
+		Interval:            200 * time.Millisecond,
+		Timeout:             100 * time.Millisecond,
+		StatsExportInterval: 200 * time.Millisecond,
+		NegativeTest:        true,
+		ProbeConf: &configpb.ProbeConf{
+			RelativeUrl:      proto.String(probeOpts.url),
+			Port:             proto.Int32(int32(ts.addr.Port)),
+			RequestsPerProbe: proto.Int32(1),
+			ResolveFirst:     proto.Bool(true),
+		},
+	}
+
+	p := &Probe{}
+	if err := p.Init("http_negative_test", opts); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	for _, target := range p.opts.Targets.ListEndpoints() {
+		runReq := &sched.RunProbeForTargetRequest{Target: target}
+		ctx, cancelCtx := context.WithTimeout(ctx, 200*time.Millisecond)
+		p.runProbe(ctx, runReq)
+		cancelCtx()
+
+		em := runReq.Result.Metrics(time.Now(), 0, p.opts)[0]
+		total := em.Metric("total").(metrics.NumValue).Int64()
+		success := em.Metric("success").(metrics.NumValue).Int64()
+
+		if target.Name == "unreachable.com" {
+			// Negative test: unreachable target should count as success.
+			assert.Equal(t, int64(1), total, "total for unreachable target")
+			assert.Equal(t, int64(1), success, "success for unreachable target (negative test)")
+		} else {
+			// Negative test: reachable target should NOT count as success.
+			assert.Equal(t, int64(1), total, "total for reachable target")
+			assert.Equal(t, int64(0), success, "success for reachable target (negative test)")
+		}
+	}
+}

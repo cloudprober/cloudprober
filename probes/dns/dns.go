@@ -37,11 +37,13 @@ import (
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/miekg/dns"
+	"golang.org/x/sync/errgroup"
 )
 
 const defaultPort = 53
@@ -206,21 +208,18 @@ func isClientTimeout(err error) bool {
 	return ok && e != nil && e.Timeout()
 }
 
-// validateResponse checks status code and answer section for correctness and
-// returns true if the response is valid. In case of validation failures, it
-// also updates the result structure.
-func (p *Probe) validateResponse(resp *dns.Msg, result *probeRunResult, l *logger.Logger) bool {
+// validateResponse checks status code and answer section for correctness.
+// In case of validation failures, it also updates the result structure.
+func (p *Probe) validateResponse(resp *dns.Msg, result *probeRunResult, l *logger.Logger) error {
 	if resp == nil || resp.Rcode != dns.RcodeSuccess {
-		l.Error("error in response %v", resp.String())
-		return false
+		return fmt.Errorf("error in response %v", resp.String())
 	}
 
 	// Validate number of answers in response.
 	// TODO: Move this logic to validators.
 	minAnswers := p.c.GetMinAnswers()
 	if minAnswers > 0 && uint32(len(resp.Answer)) < minAnswers {
-		l.Errorf("too few answers - got %d want %d.\n\tAnswerBlock: %v", len(resp.Answer), minAnswers, resp.Answer)
-		return false
+		return fmt.Errorf("too few answers - got %d want %d, AnswerBlock: %v", len(resp.Answer), minAnswers, resp.Answer)
 	}
 
 	if p.opts.Validators != nil {
@@ -234,15 +233,14 @@ func (p *Probe) validateResponse(resp *dns.Msg, result *probeRunResult, l *logge
 
 		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: respBytes}, result.validationFailure, l)
 		if len(failedValidations) > 0 {
-			l.Error("failed validations: ", strings.Join(failedValidations, ","))
-			return false
+			return fmt.Errorf("failed validations: %s", strings.Join(failedValidations, ","))
 		}
 	}
 
-	return true
+	return nil
 }
 
-func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRunResult, resultMu *sync.Mutex) {
+func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRunResult, resultMu *sync.Mutex) error {
 	l := p.l.WithAttributes(slog.String("target", target))
 
 	// Generate a new question for each probe so transaction IDs aren't repeated.
@@ -264,10 +262,17 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 		} else {
 			l.Error("client.Exchange: ", err.Error())
 		}
-	} else if p.validateResponse(resp, result, l) {
-		result.success.Inc()
-		result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+		return err
 	}
+
+	if err := p.validateResponse(resp, result, l); err != nil {
+		l.Error(err.Error())
+		return err
+	}
+
+	result.success.Inc()
+	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	return nil
 }
 
 func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
@@ -275,11 +280,13 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		runReq.Result = p.newResult()
 	}
 	target, result := runReq.Target, runReq.Result.(*probeRunResult)
+	startSuccess := result.success.Int64()
 
 	port := defaultPort
 	if target.Port != 0 {
 		port = target.Port
 	}
+	start := time.Now()
 	result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
 
 	ipLabel := ""
@@ -305,28 +312,37 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		al.UpdateForTarget(target, ipLabel, port)
 	}
 
+	var probeErr error
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.doDNSRequest(ctx, fullTarget, result, nil)
-		return
+		probeErr = p.doDNSRequest(ctx, fullTarget, result, nil)
+	} else {
+		// For multiple requests per probe, we launch a separate goroutine for each
+		// DNS request. We use a mutex to protect access to per-target result object
+		// in doDNSRequest. Note that result object is not accessed concurrently
+		// anywhere else -- export of metrics happens when probe is not running.
+		var resultMu sync.Mutex
+		var eg errgroup.Group
+		for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
+			eg.Go(func() error {
+				time.Sleep(time.Duration(i*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
+				return p.doDNSRequest(ctx, fullTarget, result, &resultMu)
+			})
+		}
+		p.l.Debug("Waiting for DNS requests to finish")
+		probeErr = eg.Wait()
 	}
 
-	// For multiple requests per probe, we launch a separate goroutine for each
-	// DNS request. We use a mutex to protect access to per-target result object
-	// in doDNSRequest. Note that result object is not accessed concurrently
-	// anywhere else -- export of metrics happens when probe is not running.
-	var resultMu sync.Mutex
-	var wg sync.WaitGroup
-	for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
-		wg.Add(1)
-		go func(reqNum int, result *probeRunResult) {
-			defer wg.Done()
+	runReq.LastRun.Set(result.success.Int64() > startSuccess, time.Since(start), probeErr)
+}
 
-			time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.doDNSRequest(ctx, fullTarget, result, &resultMu)
-		}(i, result)
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	p.l.Info("Running DNS probe once.")
+	if p.c.GetRequestsPerProbe() > 1 {
+		p.l.Error("Run-once is not supported for requests_per_probe > 1")
+		return nil
 	}
-	p.l.Debug("Waiting for DNS requests to finish")
-	wg.Wait()
+	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }
 
 // Start starts and runs the probe indefinitely.
