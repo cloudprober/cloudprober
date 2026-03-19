@@ -145,6 +145,9 @@ func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IP
 		if len(ports) != 1 {
 			resName = fmt.Sprintf("%s_%s", si.Metadata.Name, portNameMap[port])
 		}
+		if si.Metadata.Namespace != "" {
+			resName = fmt.Sprintf("%s_%s", si.Metadata.Namespace, resName)
+		}
 
         // Merge Kubernetes labels with "namespace" so probes can use
         // @target.label.namespace@ to identify the service's namespace.
@@ -155,6 +158,7 @@ func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IP
           labels[k] = v
         }
         labels["namespace"] = si.Metadata.Namespace
+		
 
 		res := &pb.Resource{
 			Name:   proto.String(resName),
