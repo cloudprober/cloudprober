@@ -84,7 +84,7 @@ func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 			continue
 		}
 
-		resources = append(resources, svc.resources(allFilters.RegexFilters["port"], req.GetIpConfig().GetIpType(), lister.l)...)
+		resources = append(resources, svc.resources(allFilters.RegexFilters["port"], req.GetIpConfig().GetIpType(), lister.namespace, lister.l)...)
 	}
 
 	lister.l.Debugf("kubernetes.listResources: returning %d services", len(resources))
@@ -138,18 +138,41 @@ func (si *serviceInfo) matchPorts(portFilter *filter.RegexFilter, l *logger.Logg
 // service name.
 // b) If there are multiple ports, we create one RDS resource for each port and
 // name each resource as: <service_name>_<port_name>
-func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IPConfig_IPType, l *logger.Logger) (resources []*pb.Resource) {
+//
+// When listerNamespace is empty (listing across all namespaces), the resource
+// name is prefixed with the service namespace to avoid name conflicts between
+// services with the same name in different namespaces.
+func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IPConfig_IPType, listerNamespace string, l *logger.Logger) (resources []*pb.Resource) {
 	ports, portNameMap := si.matchPorts(portFilter, l)
 	for _, port := range ports {
 		resName := si.Metadata.Name
-		if len(ports) != 1 {
-			resName = fmt.Sprintf("%s_%s", si.Metadata.Name, portNameMap[port])
+		if listerNamespace == "" {
+			// Prefix with namespace when listing across all namespaces to
+			// ensure unique resource names across namespaces.
+			resName = si.Metadata.Namespace + "_" + resName
 		}
+		if len(ports) != 1 {
+			resName = fmt.Sprintf("%s_%s", resName, portNameMap[port])
+		}
+		if si.Metadata.Namespace != "" {
+			resName = fmt.Sprintf("%s_%s", si.Metadata.Namespace, resName)
+		}
+
+        // Merge Kubernetes labels with "namespace" so probes can use
+        // @target.label.namespace@ to identify the service's namespace.
+        // The k8s discovery API does not expose namespace as a first-class
+        // target field, so inject it into the labels map here.
+        labels := make(map[string]string, len(si.Metadata.Labels)+1)
+        for k, v := range si.Metadata.Labels {
+          labels[k] = v
+        }
+        labels["namespace"] = si.Metadata.Namespace
+		
 
 		res := &pb.Resource{
 			Name:   proto.String(resName),
 			Port:   proto.Int32(int32(port)),
-			Labels: si.Metadata.Labels,
+			Labels: labels,
 		}
 
 		if reqIPType == pb.IPConfig_PUBLIC {
