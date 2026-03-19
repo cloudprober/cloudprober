@@ -190,7 +190,7 @@ func ValidateProbeConfig(p *configpb.ProbeDef) error {
 		return fmt.Errorf("probe name is required")
 	}
 
-	intervalDuration, _, err := parseIntervalTimeout(p)
+	intervalDuration, timeoutDuration, err := parseIntervalTimeout(p)
 	if err != nil {
 		return err
 	}
@@ -209,8 +209,19 @@ func ValidateProbeConfig(p *configpb.ProbeDef) error {
 	// Validate stats_export_interval_msec if set.
 	if p.StatsExportIntervalMsec != nil {
 		statsIntv := time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
-		if statsIntv < intervalDuration {
-			return fmt.Errorf("stats_export_interval (%d ms) smaller than probe interval %v", p.GetStatsExportIntervalMsec(), intervalDuration)
+
+		minIntv := intervalDuration
+		if timeoutDuration > minIntv {
+			minIntv = timeoutDuration
+		}
+		// UDP probe type requires stats export interval to be at least
+		// twice of the max(interval, timeout).
+		if p.GetType() == configpb.ProbeDef_UDP {
+			minIntv = 2 * minIntv
+		}
+
+		if statsIntv < minIntv {
+			return fmt.Errorf("stats_export_interval (%d ms) smaller than min required interval %v", p.GetStatsExportIntervalMsec(), minIntv)
 		}
 	}
 

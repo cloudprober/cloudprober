@@ -650,6 +650,27 @@ func TestValidateProbeConfig(t *testing.T) {
 			wantErr: "stats_export_interval",
 		},
 		{
+			name: "stats_export_interval_udp_too_small",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_UDP.Enum(),
+				Interval:                proto.String("5s"),
+				Timeout:                 proto.String("5s"),
+				StatsExportIntervalMsec: proto.Int32(8000),
+			},
+			wantErr: "stats_export_interval",
+		},
+		{
+			name: "stats_export_interval_udp_valid",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_UDP.Enum(),
+				Interval:                proto.String("5s"),
+				Timeout:                 proto.String("5s"),
+				StatsExportIntervalMsec: proto.Int32(10000),
+			},
+		},
+		{
 			name: "negative_test_unsupported",
 			probe: &configpb.ProbeDef{
 				Name:         proto.String("test"),
