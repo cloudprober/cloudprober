@@ -540,6 +540,44 @@ func TestOptionsLogMetrics(t *testing.T) {
 	}
 }
 
+func TestTargetsUpdateInterval(t *testing.T) {
+	tests := []struct {
+		name       string
+		reEvalSec  int32
+		wantInterval time.Duration
+	}{
+		{
+			name:         "re_eval_sec not set — zero value, scheduler uses its default",
+			wantInterval: 0,
+		},
+		{
+			name:         "re_eval_sec set to 30s",
+			reEvalSec:    30,
+			wantInterval: 30 * time.Second,
+		},
+		{
+			name:         "re_eval_sec set to 120s",
+			reEvalSec:    120,
+			wantInterval: 120 * time.Second,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &configpb.ProbeDef{
+				Targets: testTargets,
+			}
+			if tt.reEvalSec != 0 {
+				p.ReEvalSec = proto.Int32(tt.reEvalSec)
+			}
+			opts, err := BuildProbeOptions(p, nil, nil, nil)
+			if err != nil {
+				t.Fatalf("BuildProbeOptions() unexpected error: %v", err)
+			}
+			assert.Equal(t, tt.wantInterval, opts.TargetsUpdateInterval)
+		})
+	}
+}
+
 func TestOptions_StatsExportFrequency(t *testing.T) {
 	tests := []struct {
 		name string

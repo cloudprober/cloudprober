@@ -19,7 +19,7 @@ import "github.com/cloudprober/cloudprober/internal/validators/proto/config.prot
 
 option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
-// Next tag: 101
+// Next tag: 104
 message ProbeDef {
   // Probe name. It should be unique across all probes.
   required string name = 1;
@@ -193,6 +193,12 @@ message ProbeDef {
   // for large deployments, where you may want to use the same prober config
   // everywhere but run this probe only on a subset of machines.
   optional string run_on = 3;
+
+  // How often to re-evaluate (discover) targets in seconds. This controls the
+  // probe scheduler's target update interval — how often new targets start
+  // being probed and removed targets stop being probed. If not set, defaults
+  // to 1 minute.
+  optional int32 re_eval_sec = 103;
 
   // Duration to wait before starting the probe.
   //

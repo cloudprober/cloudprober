@@ -54,6 +54,9 @@ type Options struct {
 	Schedule            *Schedule
 	NegativeTest        bool
 	AlertHandlers       []*alerting.AlertHandler
+	// TargetsUpdateInterval overrides the default scheduler target update
+	// interval (1 minute). Set from probe's re_eval_sec if configured.
+	TargetsUpdateInterval time.Duration
 	// Prober config at the prober initialization time. This config is not
 	// reliable for things that may change after initialization, e.g. probes
 	// that can be added or removed through gRPC.
@@ -213,6 +216,10 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 
 	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, proberConfig.GetGlobalTargetsOptions(), l, opts.Logger); err != nil {
 		return nil, err
+	}
+
+	if reEvalSec := p.GetReEvalSec(); reEvalSec > 0 {
+		opts.TargetsUpdateInterval = time.Duration(reEvalSec) * time.Second
 	}
 
 	if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
