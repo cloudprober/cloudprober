@@ -146,10 +146,20 @@ func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IP
 			resName = fmt.Sprintf("%s_%s", si.Metadata.Name, portNameMap[port])
 		}
 
+        // Merge Kubernetes labels with "namespace" so probes can use
+        // @target.label.namespace@ to identify the service's namespace.
+        // The k8s discovery API does not expose namespace as a first-class
+        // target field, so inject it into the labels map here.
+        labels := make(map[string]string, len(si.Metadata.Labels)+1)
+        for k, v := range si.Metadata.Labels {
+          labels[k] = v
+        }
+        labels["namespace"] = si.Metadata.Namespace
+
 		res := &pb.Resource{
 			Name:   proto.String(resName),
 			Port:   proto.Int32(int32(port)),
-			Labels: si.Metadata.Labels,
+			Labels: labels,
 		}
 
 		if reqIPType == pb.IPConfig_PUBLIC {
