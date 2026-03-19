@@ -84,7 +84,7 @@ func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 			continue
 		}
 
-		resources = append(resources, svc.resources(allFilters.RegexFilters["port"], req.GetIpConfig().GetIpType(), lister.l)...)
+		resources = append(resources, svc.resources(allFilters.RegexFilters["port"], req.GetIpConfig().GetIpType(), lister.namespace, lister.l)...)
 	}
 
 	lister.l.Debugf("kubernetes.listResources: returning %d services", len(resources))
@@ -138,12 +138,21 @@ func (si *serviceInfo) matchPorts(portFilter *filter.RegexFilter, l *logger.Logg
 // service name.
 // b) If there are multiple ports, we create one RDS resource for each port and
 // name each resource as: <service_name>_<port_name>
-func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IPConfig_IPType, l *logger.Logger) (resources []*pb.Resource) {
+//
+// When listerNamespace is empty (listing across all namespaces), the resource
+// name is prefixed with the service namespace to avoid name conflicts between
+// services with the same name in different namespaces.
+func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IPConfig_IPType, listerNamespace string, l *logger.Logger) (resources []*pb.Resource) {
 	ports, portNameMap := si.matchPorts(portFilter, l)
 	for _, port := range ports {
 		resName := si.Metadata.Name
+		if listerNamespace == "" {
+			// Prefix with namespace when listing across all namespaces to
+			// ensure unique resource names across namespaces.
+			resName = si.Metadata.Namespace + "_" + resName
+		}
 		if len(ports) != 1 {
-			resName = fmt.Sprintf("%s_%s", si.Metadata.Name, portNameMap[port])
+			resName = fmt.Sprintf("%s_%s", resName, portNameMap[port])
 		}
 		if si.Metadata.Namespace != "" {
 			resName = fmt.Sprintf("%s_%s", si.Metadata.Namespace, resName)

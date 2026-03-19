@@ -49,82 +49,114 @@ func testServiceInfo(name, ns, ip, publicIP, hostname string, labels map[string]
 }
 
 func TestListSvcResources(t *testing.T) {
-	sl := &servicesLister{
-		cache: make(map[resourceKey]*serviceInfo),
-	}
-	for _, svc := range []*serviceInfo{
+	allSvcs := []*serviceInfo{
 		testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", "", map[string]string{"app": "appA"}, []int{9313, 9314}),
 		testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", "", map[string]string{"app": "appB"}, []int{443}),
 		testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", "serviceC.test.com", map[string]string{"app": "appC", "func": "web"}, []int{3141}),
 		testServiceInfo("serviceD", "nsD", "10.1.1.4", "", "serviceD.test.com", map[string]string{"app": "appD", "func": "web"}, []int{3141}),
 		testServiceInfo("serviceD", "devD", "10.2.1.4", "", "", map[string]string{"app": "appD", "func": "web"}, []int{3141}),
-	} {
-		rkey := resourceKey{svc.Metadata.Namespace, svc.Metadata.Name}
-		sl.keys = append(sl.keys, rkey)
-		sl.cache[rkey] = svc
 	}
 
 	tests := []struct {
-		desc          string
-		nameFilter    string
-		filters       map[string]string
-		labelsFilter  map[string]string
-		wantServices  []string
-		wantIPs       []string
-		wantPorts     []int32
-		wantPublicIPs []string
-		wantErr       bool
+		desc            string
+		listerNamespace string // if set, lister is scoped to this namespace and names are not prefixed
+		filters         map[string]string
+		labelsFilter    map[string]string
+		wantServices    []string
+		wantIPs         []string
+		wantPorts       []int32
+		wantPublicIPs   []string
+		wantErr         bool
 	}{
 		{
 			desc:    "bad filter key, expect error",
 			filters: map[string]string{"names": "service(B|C)"},
 			wantErr: true,
 		},
+		// Tests with no listerNamespace (all namespaces): names are prefixed with namespace.
 		{
-			desc:         "only name filter for serviceB and serviceC",
+			desc:         "all namespaces: only name filter for serviceB and serviceC",
 			filters:      map[string]string{"name": "service(B|C)"},
-			wantServices: []string{"serviceB", "serviceC"},
+			wantServices: []string{"nsAB_serviceB", "nsC_serviceC"},
 			wantIPs:      []string{"10.1.1.2", "10.1.1.3"},
 			wantPorts:    []int32{443, 3141},
 		},
 		{
-			desc:         "only port filter for ports 9314 and 3141",
+			desc:         "all namespaces: only port filter for ports 9314 and 3141",
 			filters:      map[string]string{"port": "314", "namespace": "ns.*"},
-			wantServices: []string{"serviceA", "serviceC", "serviceD"},
+			wantServices: []string{"nsAB_serviceA", "nsC_serviceC", "nsD_serviceD"},
 			wantIPs:      []string{"10.1.1.1", "10.1.1.3", "10.1.1.4"},
 			wantPorts:    []int32{9314, 3141, 3141},
 		},
 		{
-			desc:         "name and namespace filter for serviceB",
+			desc:         "all namespaces: name and namespace filter for serviceB",
 			filters:      map[string]string{"name": "service(B|C)", "namespace": "nsAB"},
-			wantServices: []string{"serviceB"},
+			wantServices: []string{"nsAB_serviceB"},
 			wantIPs:      []string{"10.1.1.2"},
 			wantPorts:    []int32{443},
 		},
 		{
-			desc:         "only namespace filter for serviceA and serviceB",
+			desc:         "all namespaces: only namespace filter for serviceA and serviceB",
 			filters:      map[string]string{"namespace": "nsAB"},
-			wantServices: []string{"serviceA_9313", "serviceA_9314", "serviceB"},
+			wantServices: []string{"nsAB_serviceA_9313", "nsAB_serviceA_9314", "nsAB_serviceB"},
 			wantIPs:      []string{"10.1.1.1", "10.1.1.1", "10.1.1.2"},
 			wantPorts:    []int32{9313, 9314, 443},
 		},
 		{
-			desc:          "only services with public IPs",
-			wantServices:  []string{"serviceB", "serviceC", "serviceD"},
+			desc:          "all namespaces: only services with public IPs",
+			wantServices:  []string{"nsAB_serviceB", "nsC_serviceC", "nsD_serviceD"},
 			wantPublicIPs: []string{"192.16.16.199", "192.16.16.200", "serviceD.test.com"},
 			wantPorts:     []int32{443, 3141, 3141},
 		},
 		{
-			desc:         "only dev namespace",
+			desc:         "all namespaces: only dev namespace",
 			filters:      map[string]string{"namespace": "dev.*"},
-			wantServices: []string{"serviceD"},
+			wantServices: []string{"devD_serviceD"},
 			wantIPs:      []string{"10.2.1.4"},
 			wantPorts:    []int32{3141},
+		},
+		// Tests with listerNamespace set (scoped to one namespace): names are not prefixed.
+		{
+			desc:            "scoped namespace nsAB: only name filter for serviceB",
+			listerNamespace: "nsAB",
+			filters:         map[string]string{"name": "service(B|C)"},
+			wantServices:    []string{"serviceB"},
+			wantIPs:         []string{"10.1.1.2"},
+			wantPorts:       []int32{443},
+		},
+		{
+			desc:            "scoped namespace nsAB: no filter returns all services in namespace",
+			listerNamespace: "nsAB",
+			wantServices:    []string{"serviceA_9313", "serviceA_9314", "serviceB"},
+			wantIPs:         []string{"10.1.1.1", "10.1.1.1", "10.1.1.2"},
+			wantPorts:       []int32{9313, 9314, 443},
+		},
+		{
+			desc:            "scoped namespace nsC: service with public IP",
+			listerNamespace: "nsC",
+			wantServices:    []string{"serviceC"},
+			wantPublicIPs:   []string{"192.16.16.200"},
+			wantPorts:       []int32{3141},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
+			// Build a lister whose cache contains only services matching the
+			// listerNamespace (all services when listerNamespace is empty).
+			sl := &servicesLister{
+				namespace: test.listerNamespace,
+				cache:     make(map[resourceKey]*serviceInfo),
+			}
+			for _, svc := range allSvcs {
+				if test.listerNamespace != "" && svc.Metadata.Namespace != test.listerNamespace {
+					continue
+				}
+				rkey := resourceKey{svc.Metadata.Namespace, svc.Metadata.Name}
+				sl.keys = append(sl.keys, rkey)
+				sl.cache[rkey] = svc
+			}
+
 			var filtersPB []*pb.Filter
 			for k, v := range test.filters {
 				filtersPB = append(filtersPB, &pb.Filter{Key: proto.String(k), Value: proto.String(v)})
