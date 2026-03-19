@@ -157,6 +157,21 @@ func TestConfigTest(t *testing.T) {
 			},
 			configFile: "testdata/cloudprober_invalid.cfg",
 		},
+		{
+			name:       "bad_interval",
+			configFile: "testdata/cloudprober_bad_interval.cfg",
+			wantErr:    true,
+		},
+		{
+			name:       "bad_timeout",
+			configFile: "testdata/cloudprober_bad_timeout.cfg",
+			wantErr:    true,
+		},
+		{
+			name:       "bad_latency_unit",
+			configFile: "testdata/cloudprober_bad_latency_unit.cfg",
+			wantErr:    true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

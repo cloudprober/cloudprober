@@ -146,37 +146,83 @@ func getSourceIPFromConfig(p *configpb.ProbeDef) (net.IP, error) {
 	}
 }
 
-// BuildProbeOptions builds probe's options using the provided config and some
-// global params.
-func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberConfig *proberconfigpb.ProberConfig, l *logger.Logger) (*Options, error) {
+// parseIntervalTimeout parses and validates the interval and timeout fields
+// from the probe config, returning the resolved durations.
+func parseIntervalTimeout(p *configpb.ProbeDef) (time.Duration, time.Duration, error) {
 	intervalDuration := defaultIntervalPeriod
 	timeoutDuration := defaultTimeoutPeriod
 	var err error
 
 	if p.GetIntervalMsec() != 0 && p.GetInterval() != "" {
-		return nil, fmt.Errorf("both interval (%s) and interval_msec (%d) are specified", p.GetInterval(), p.GetIntervalMsec())
+		return 0, 0, fmt.Errorf("both interval (%s) and interval_msec (%d) are specified", p.GetInterval(), p.GetIntervalMsec())
 	} else if p.GetIntervalMsec() != 0 {
 		intervalDuration = time.Duration(p.GetIntervalMsec()) * time.Millisecond
 	} else if p.GetInterval() != "" {
 		intervalDuration, err = time.ParseDuration(p.GetInterval())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse interval (%s): %v", p.GetInterval(), err)
+			return 0, 0, fmt.Errorf("failed to parse interval (%s): %v", p.GetInterval(), err)
 		}
 	}
 
 	if p.GetTimeoutMsec() != 0 && p.GetTimeout() != "" {
-		return nil, fmt.Errorf("both timeout (%s) and timeout_msec (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
+		return 0, 0, fmt.Errorf("both timeout (%s) and timeout_msec (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
 	} else if p.GetTimeoutMsec() != 0 {
 		timeoutDuration = time.Duration(p.GetTimeoutMsec()) * time.Millisecond
 	} else if p.GetTimeout() != "" {
 		timeoutDuration, err = time.ParseDuration(p.GetTimeout())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse timeout (%s): %v", p.GetTimeout(), err)
+			return 0, 0, fmt.Errorf("failed to parse timeout (%s): %v", p.GetTimeout(), err)
 		}
 	}
 
 	if intervalDuration < timeoutDuration && p.GetType() != configpb.ProbeDef_UDP {
-		return nil, fmt.Errorf("interval (%v) cannot be smaller than timeout (%v)", intervalDuration, timeoutDuration)
+		return 0, 0, fmt.Errorf("interval (%v) cannot be smaller than timeout (%v)", intervalDuration, timeoutDuration)
+	}
+
+	return intervalDuration, timeoutDuration, nil
+}
+
+// ValidateProbeConfig validates the probe configuration fields without
+// creating targets or other resources. This is used by ConfigTest to
+// catch config errors like improperly formatted duration strings.
+func ValidateProbeConfig(p *configpb.ProbeDef) error {
+	if p.GetName() == "" {
+		return fmt.Errorf("probe name is required")
+	}
+
+	intervalDuration, _, err := parseIntervalTimeout(p)
+	if err != nil {
+		return err
+	}
+
+	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
+		return fmt.Errorf("negative_test is not supported by %s probes", p.GetType().String())
+	}
+
+	// Validate latency_unit if set.
+	if p.GetLatencyUnit() != "" {
+		if _, err := time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
+			return fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
+		}
+	}
+
+	// Validate stats_export_interval_msec if set.
+	if p.StatsExportIntervalMsec != nil {
+		statsIntv := time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
+		if statsIntv < intervalDuration {
+			return fmt.Errorf("stats_export_interval (%d ms) smaller than probe interval %v", p.GetStatsExportIntervalMsec(), intervalDuration)
+		}
+	}
+
+	return nil
+}
+
+// BuildProbeOptions builds probe's options using the provided config and some
+// global params.
+func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberConfig *proberconfigpb.ProberConfig, l *logger.Logger) (*Options, error) {
+	intervalDuration, timeoutDuration, err := parseIntervalTimeout(p)
+	if err != nil {
+		return nil, err
 	}
 
 	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
