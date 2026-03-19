@@ -571,3 +571,119 @@ func TestOptions_StatsExportFrequency(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateProbeConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		probe   *configpb.ProbeDef
+		wantErr string
+	}{
+		{
+			name: "valid_config",
+			probe: &configpb.ProbeDef{
+				Name:     proto.String("test"),
+				Type:     configpb.ProbeDef_HTTP.Enum(),
+				Interval: proto.String("5s"),
+				Timeout:  proto.String("1s"),
+			},
+		},
+		{
+			name: "bad_interval_no_unit",
+			probe: &configpb.ProbeDef{
+				Name:     proto.String("test"),
+				Type:     configpb.ProbeDef_HTTP.Enum(),
+				Interval: proto.String("1223"),
+			},
+			wantErr: "failed to parse interval",
+		},
+		{
+			name: "bad_timeout",
+			probe: &configpb.ProbeDef{
+				Name:    proto.String("test"),
+				Type:    configpb.ProbeDef_HTTP.Enum(),
+				Timeout: proto.String("abc"),
+			},
+			wantErr: "failed to parse timeout",
+		},
+		{
+			name: "both_interval_and_interval_msec",
+			probe: &configpb.ProbeDef{
+				Name:         proto.String("test"),
+				Type:         configpb.ProbeDef_HTTP.Enum(),
+				Interval:     proto.String("5s"),
+				IntervalMsec: proto.Int32(5000),
+			},
+			wantErr: "both interval",
+		},
+		{
+			name: "interval_less_than_timeout",
+			probe: &configpb.ProbeDef{
+				Name:     proto.String("test"),
+				Type:     configpb.ProbeDef_HTTP.Enum(),
+				Interval: proto.String("1s"),
+				Timeout:  proto.String("5s"),
+			},
+			wantErr: "interval (1s) cannot be smaller than timeout (5s)",
+		},
+		{
+			name: "bad_latency_unit",
+			probe: &configpb.ProbeDef{
+				Name:        proto.String("test"),
+				Type:        configpb.ProbeDef_HTTP.Enum(),
+				LatencyUnit: proto.String("xyz"),
+			},
+			wantErr: "failed to parse the latency unit",
+		},
+		{
+			name: "stats_export_interval_too_small",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_HTTP.Enum(),
+				Interval:                proto.String("10s"),
+				StatsExportIntervalMsec: proto.Int32(5000),
+			},
+			wantErr: "stats_export_interval",
+		},
+		{
+			name: "stats_export_interval_udp_too_small",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_UDP.Enum(),
+				Interval:                proto.String("5s"),
+				Timeout:                 proto.String("5s"),
+				StatsExportIntervalMsec: proto.Int32(8000),
+			},
+			wantErr: "stats_export_interval",
+		},
+		{
+			name: "stats_export_interval_udp_valid",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_UDP.Enum(),
+				Interval:                proto.String("5s"),
+				Timeout:                 proto.String("5s"),
+				StatsExportIntervalMsec: proto.Int32(10000),
+			},
+		},
+		{
+			name: "negative_test_unsupported",
+			probe: &configpb.ProbeDef{
+				Name:         proto.String("test"),
+				Type:         configpb.ProbeDef_DNS.Enum(),
+				NegativeTest: proto.Bool(true),
+			},
+			wantErr: "negative_test is not supported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ValidateProbeConfig(tt.probe)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
