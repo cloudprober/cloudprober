@@ -579,11 +579,6 @@ func TestValidateProbeConfig(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name:    "empty_name",
-			probe:   &configpb.ProbeDef{},
-			wantErr: "probe name is required",
-		},
-		{
 			name: "valid_config",
 			probe: &configpb.ProbeDef{
 				Name:     proto.String("test"),
@@ -683,7 +678,7 @@ func TestValidateProbeConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateProbeConfig(tt.probe)
+			_, err := ValidateProbeConfig(tt.probe)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 			} else {

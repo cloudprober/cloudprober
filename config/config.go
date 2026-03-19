@@ -245,7 +245,7 @@ func ConfigTest(cs ConfigSource) error {
 	// Validate probe configs beyond proto unmarshalling, e.g. duration
 	// fields, field conflicts, etc.
 	for _, p := range cfg.GetProbe() {
-		if err := options.ValidateProbeConfig(p); err != nil {
+		if _, err := options.ValidateProbeConfig(p); err != nil {
 			return fmt.Errorf("probe %q: %v", p.GetName(), err)
 		}
 	}

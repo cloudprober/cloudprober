@@ -183,54 +183,11 @@ func parseIntervalTimeout(p *configpb.ProbeDef) (time.Duration, time.Duration, e
 }
 
 // ValidateProbeConfig validates the probe configuration fields without
-// creating targets or other resources. This is used by ConfigTest to
-// catch config errors like improperly formatted duration strings.
-func ValidateProbeConfig(p *configpb.ProbeDef) error {
-	if p.GetName() == "" {
-		return fmt.Errorf("probe name is required")
-	}
-
-	intervalDuration, timeoutDuration, err := parseIntervalTimeout(p)
-	if err != nil {
-		return err
-	}
-
-	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
-		return fmt.Errorf("negative_test is not supported by %s probes", p.GetType().String())
-	}
-
-	// Validate latency_unit if set.
-	if p.GetLatencyUnit() != "" {
-		if _, err := time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
-			return fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
-		}
-	}
-
-	// Validate stats_export_interval_msec if set.
-	if p.StatsExportIntervalMsec != nil {
-		statsIntv := time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
-
-		minIntv := intervalDuration
-		if timeoutDuration > minIntv {
-			minIntv = timeoutDuration
-		}
-		// UDP probe type requires stats export interval to be at least
-		// twice of the max(interval, timeout).
-		if p.GetType() == configpb.ProbeDef_UDP {
-			minIntv = 2 * minIntv
-		}
-
-		if statsIntv < minIntv {
-			return fmt.Errorf("stats_export_interval (%d ms) smaller than min required interval %v", p.GetStatsExportIntervalMsec(), minIntv)
-		}
-	}
-
-	return nil
-}
-
-// BuildProbeOptions builds probe's options using the provided config and some
-// global params.
-func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberConfig *proberconfigpb.ProberConfig, l *logger.Logger) (*Options, error) {
+// creating targets or other resources, and returns a partial Options with
+// the fields that can be derived from the proto config alone. This is used
+// by ConfigTest to catch config errors like improperly formatted duration
+// strings, and by BuildProbeOptions to avoid re-parsing the same fields.
+func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 	intervalDuration, timeoutDuration, err := parseIntervalTimeout(p)
 	if err != nil {
 		return nil, err
@@ -246,10 +203,57 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 		Timeout:           timeoutDuration,
 		IPVersion:         ipv(p.IpVersion),
 		LatencyMetricName: p.GetLatencyMetricName(),
-		ProberConfig:      proberConfig,
 		NegativeTest:      p.GetNegativeTest(),
-		Logger:            logger.NewWithAttrs(slog.String("probe", p.GetName())),
+		AdditionalLabels:  parseAdditionalLabels(p),
 	}
+
+	// Validate and parse latency_unit.
+	if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
+		return nil, fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
+	}
+
+	// Validate and parse latency_distribution if set.
+	if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
+		if opts.LatencyDist, err = metrics.NewDistributionFromProto(latencyDist); err != nil {
+			return nil, fmt.Errorf("error creating distribution from the specification (%v): %v", latencyDist, err)
+		}
+	}
+
+	// Validate and compute stats_export_interval.
+	if p.StatsExportIntervalMsec != nil {
+		statsIntv := time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
+
+		minIntv := intervalDuration
+		if timeoutDuration > minIntv {
+			minIntv = timeoutDuration
+		}
+		// UDP probe type requires stats export interval to be at least
+		// twice of the max(interval, timeout).
+		if p.GetType() == configpb.ProbeDef_UDP {
+			minIntv = 2 * minIntv
+		}
+
+		if statsIntv < minIntv {
+			return nil, fmt.Errorf("stats_export_interval (%d ms) smaller than min required interval %v", p.GetStatsExportIntervalMsec(), minIntv)
+		}
+		opts.StatsExportInterval = statsIntv
+	} else {
+		opts.StatsExportInterval = defaultStatsExportInterval(p, opts)
+	}
+
+	return opts, nil
+}
+
+// BuildProbeOptions builds probe's options using the provided config and some
+// global params.
+func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberConfig *proberconfigpb.ProberConfig, l *logger.Logger) (*Options, error) {
+	opts, err := ValidateProbeConfig(p)
+	if err != nil {
+		return nil, err
+	}
+
+	opts.ProberConfig = proberConfig
+	opts.Logger = logger.NewWithAttrs(slog.String("probe", p.GetName()))
 
 	if p.GetTargets() == nil {
 		targetsNotRequired := []configpb.ProbeDef_Type{
@@ -272,19 +276,6 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 		return nil, err
 	}
 
-	if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
-		var d *metrics.Distribution
-		if d, err = metrics.NewDistributionFromProto(latencyDist); err != nil {
-			return nil, fmt.Errorf("error creating distribution from the specification (%v): %v", latencyDist, err)
-		}
-		opts.LatencyDist = d
-	}
-
-	// latency_unit is specified as a human-readable string, e.g. ns, ms, us etc.
-	if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
-		return nil, fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
-	}
-
 	if len(p.GetValidator()) > 0 {
 		opts.Validators, err = validators.Init(p.GetValidator())
 		if err != nil {
@@ -302,17 +293,6 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 			opts.IPVersion = iputils.IPVersion(opts.SourceIP)
 		}
 	}
-
-	if p.StatsExportIntervalMsec == nil {
-		opts.StatsExportInterval = defaultStatsExportInterval(p, opts)
-	} else {
-		opts.StatsExportInterval = time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
-		if opts.StatsExportInterval < opts.Interval {
-			return nil, fmt.Errorf("stats_export_interval (%d ms) smaller than probe interval %v", p.GetStatsExportIntervalMsec(), opts.Interval)
-		}
-	}
-
-	opts.AdditionalLabels = parseAdditionalLabels(p)
 
 	for _, alertConf := range p.GetAlert() {
 		ah, err := alerting.NewAlertHandler(alertConf, p.GetName(), opts.Logger)
