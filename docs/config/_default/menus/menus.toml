@@ -28,22 +28,29 @@
   identifier = "config"
 
 [[main]]
-  name = "Config Guide"
-  weight = 41
-  identifier = "config-guide"
-  parent = "config"
-  url = "/docs/config/guide"
-
-[[main]]
   name = "Config Reference"
-  weight = 42
+  weight = 41
   identifier = "config-reference"
   parent = "config"
   url = "/docs/config/latest/overview"
 
 [[main]]
-  name = "🛠 Config Tester"
+  name = "Config Guide"
+  weight = 42
+  identifier = "config-guide"
+  parent = "config"
+  url = "/docs/config/guide"
+
+[[main]]
+  name = "Common Probe Options"
   weight = 43
+  identifier = "probe-options"
+  parent = "config"
+  url = "/docs/config/probe-options"
+
+[[main]]
+  name = "🛠 Config Tester"
+  weight = 44
   identifier = "config-tester"
   parent = "config"
   url = "https://configtester.cloudprober.org/"
