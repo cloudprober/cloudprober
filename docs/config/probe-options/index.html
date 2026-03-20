@@ -17,7 +17,7 @@ like targeting, timing, latency tracking, validation, alerting, and more. This
 page covers these options with practical examples. For probe-type specific
 options (HTTP headers, DNS query type, etc.), see the individual probe
 documentation.</p><h2 id=targets>Targets <a href=#targets class=anchor aria-hidden=true>#</a></h2><p>Targets define what a probe checks. The simplest form is a comma-separated list
-of hostnames or IPs:</p><pre><code>probe {
+of hostnames or IPs:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
@@ -30,7 +30,7 @@ other sources &ndash; targets are automatically added and removed as your
 infrastructure changes. See the <a href=https://cloudprober.org/docs/how-to/targets>Targets</a> page for
 details.</p><h2 id=ip-version>IP Version <a href=#ip-version class=anchor aria-hidden=true>#</a></h2><p>You can control which IP version a probe uses with <code>ip_version</code>. This affects
 target name resolution, source IP selection (when using <code>source_interface</code>), and
-packet crafting for PING probes.</p><pre><code>probe {
+packet crafting for PING probes.</p><pre><code class=language-proto>probe {
   name: &quot;web_v6&quot;
   type: HTTP
   targets {
@@ -45,7 +45,7 @@ resolver returns &ndash; typically both IPv4 and IPv6 addresses are available an
 the OS picks one.</li></ul><p>If you set both <code>ip_version</code> and <code>source_ip</code>, they must be consistent &ndash; e.g.,
 an IPv6 source IP with <code>ip_version: IPV4</code> will cause an error.</p><h2 id=latency-configuration>Latency Configuration <a href=#latency-configuration class=anchor aria-hidden=true>#</a></h2><p>All probes export a cumulative <code>latency</code> metric. You can customize the unit,
 metric name, and optionally track latency as a distribution (histogram) for
-percentile analysis.</p><h3 id=latency-unit>Latency Unit <a href=#latency-unit class=anchor aria-hidden=true>#</a></h3><p>The default unit is microseconds (<code>us</code>). Change it with <code>latency_unit</code>:</p><pre><code>probe {
+percentile analysis.</p><h3 id=latency-unit>Latency Unit <a href=#latency-unit class=anchor aria-hidden=true>#</a></h3><p>The default unit is microseconds (<code>us</code>). Change it with <code>latency_unit</code>:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
@@ -55,7 +55,7 @@ percentile analysis.</p><h3 id=latency-unit>Latency Unit <a href=#latency-unit c
   http_probe {}
 }
 </code></pre><p>Valid values: <code>ns</code>, <code>us</code> (or <code>µs</code>), <code>ms</code>, <code>s</code>, <code>m</code>, <code>h</code>.</p><h3 id=latency-distribution>Latency Distribution <a href=#latency-distribution class=anchor aria-hidden=true>#</a></h3><p>To get percentiles (p50, p95, p99), configure <code>latency_distribution</code> to bucket
-latency values into a histogram:</p><pre><code>probe {
+latency values into a histogram:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
@@ -67,7 +67,7 @@ latency values into a histogram:</p><pre><code>probe {
   }
   http_probe {}
 }
-</code></pre><p>You can also use exponential buckets for automatic bucket generation:</p><pre><code>latency_distribution {
+</code></pre><p>You can also use exponential buckets for automatic bucket generation:</p><pre><code class=language-proto>latency_distribution {
   exponential_buckets {
     scale_factor: 0.1
     base: 2
@@ -76,7 +76,7 @@ latency values into a histogram:</p><pre><code>probe {
 }
 </code></pre><p>See <a href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a> for how to
 visualize distributions in Prometheus and other backends.</p><h3 id=latency-metric-name>Latency Metric Name <a href=#latency-metric-name class=anchor aria-hidden=true>#</a></h3><p>If you use distributions for some probes and cumulative latency for others, you
-can rename the metric to differentiate them:</p><pre><code>probe {
+can rename the metric to differentiate them:</p><pre><code class=language-proto>probe {
   name: &quot;web_latency_dist&quot;
   type: HTTP
   targets {
@@ -90,7 +90,7 @@ can rename the metric to differentiate them:</p><pre><code>probe {
 }
 </code></pre><h2 id=validators>Validators <a href=#validators class=anchor aria-hidden=true>#</a></h2><p>Validators run checks on probe responses. All configured validators must pass
 for a probe to be marked as success. For example, to verify both the HTTP
-status code and response body:</p><pre><code>probe {
+status code and response body:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
@@ -114,7 +114,7 @@ status code and response body:</p><pre><code>probe {
 </code></pre><p>Validation failures are exported as a separate <code>validation_failure</code> metric with
 a <code>validator</code> label, making it easy to identify exactly which check failed.</p><p>See <a href=https://cloudprober.org/docs/how-to/validators>Validators</a> for all validator types (HTTP status
 codes, headers, regex, JSON, data integrity).</p><h2 id=alerts>Alerts <a href=#alerts class=anchor aria-hidden=true>#</a></h2><p>You can configure alerts directly on a probe to get notified when failures
-exceed a threshold:</p><pre><code>probe {
+exceed a threshold:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
@@ -139,7 +139,7 @@ exceed a threshold:</p><pre><code>probe {
 </code></pre><p>Cloudprober supports Slack, PagerDuty, Opsgenie, email, and generic HTTP
 webhooks for notifications. See <a href=https://cloudprober.org/docs/how-to/alerting>Alerting</a> for the full
 alerting guide.</p><h2 id=stats-export-interval>Stats Export Interval <a href=#stats-export-interval class=anchor aria-hidden=true>#</a></h2><p>Probes typically run at a high frequency (e.g., every 2 seconds), but stats are
-aggregated before being exported. The default export interval is:</p><ul><li><strong>Most probes:</strong> <code>max(interval, 10s)</code></li><li><strong>UDP probes:</strong> <code>max(2 * max(interval, timeout), 10s)</code></li></ul><p>You can override this with <code>stats_export_interval_msec</code>:</p><pre><code>probe {
+aggregated before being exported. The default export interval is:</p><ul><li><strong>Most probes:</strong> <code>max(interval, 10s)</code></li><li><strong>UDP probes:</strong> <code>max(2 * max(interval, timeout), 10s)</code></li></ul><p>You can override this with <code>stats_export_interval_msec</code>:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
@@ -151,7 +151,7 @@ aggregated before being exported. The default export interval is:</p><ul><li><st
 </code></pre><p>A higher export interval reduces metric volume at the cost of resolution. In
 most cases, the default works well.</p><h2 id=negative-test>Negative Test <a href=#negative-test class=anchor aria-hidden=true>#</a></h2><p>Negative tests invert the success criteria &ndash; a probe counts as <em>successful</em> if
 the target <em>does not</em> respond. This is useful for verifying that firewalls,
-security rules, or access controls are working:</p><pre><code>probe {
+security rules, or access controls are working:</p><pre><code class=language-proto>probe {
   name: &quot;firewall_check&quot;
   type: TCP
   targets {
@@ -166,7 +166,7 @@ security rules, or access controls are working:</p><pre><code>probe {
 reports success. If the connection succeeds, it reports failure &ndash; indicating
 the firewall may not be blocking traffic correctly.</p><p><em>Note: Negative test is currently supported by PING, TCP, and HTTP probes. This
 feature is experimental and may change.</em></p><h2 id=scheduling>Scheduling <a href=#scheduling class=anchor aria-hidden=true>#</a></h2><h3 id=startup-delay>Startup Delay <a href=#startup-delay class=anchor aria-hidden=true>#</a></h3><p>By default, Cloudprober staggers probe starts automatically (up to 1 minute).
-For probes with very long intervals, you can add an explicit startup delay:</p><pre><code>probe {
+For probes with very long intervals, you can add an explicit startup delay:</p><pre><code class=language-proto>probe {
   name: &quot;hourly_check&quot;
   type: HTTP
   targets {
@@ -179,7 +179,7 @@ For probes with very long intervals, you can add an explicit startup delay:</p><
 </code></pre><p>This is additive to the automatic staggering and is useful for manually spacing
 out probes.</p><h3 id=schedule>Schedule <a href=#schedule class=anchor aria-hidden=true>#</a></h3><p>Schedules let you control <em>when</em> a probe runs based on time of day and day of
 week. This is useful for probes that only make sense during business hours, or
-for disabling probes during planned maintenance windows.</p><p>To run a probe only during business hours (Monday&ndash;Friday, 8am&ndash;6pm Eastern):</p><pre><code>probe {
+for disabling probes during planned maintenance windows.</p><p>To run a probe only during business hours (Monday&ndash;Friday, 8am&ndash;6pm Eastern):</p><pre><code class=language-proto>probe {
   name: &quot;business_hours_check&quot;
   type: HTTP
   targets {
@@ -197,7 +197,7 @@ for disabling probes during planned maintenance windows.</p><p>To run a probe on
 
   http_probe {}
 }
-</code></pre><p>To disable a probe during a weekly maintenance window:</p><pre><code>probe {
+</code></pre><p>To disable a probe during a weekly maintenance window:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
@@ -217,7 +217,7 @@ for disabling probes during planned maintenance windows.</p><p>To run a probe on
 }
 </code></pre><p>You can combine multiple schedules. If ENABLE and DISABLE schedules overlap,
 DISABLE takes precedence.</p><h2 id=additional-labels>Additional Labels <a href=#additional-labels class=anchor aria-hidden=true>#</a></h2><p>You can attach extra labels to a probe&rsquo;s metrics. Labels can be static values
-or derived dynamically from the target or runtime environment:</p><pre><code>probe {
+or derived dynamically from the target or runtime environment:</p><pre><code class=language-proto>probe {
   name: &quot;web_check&quot;
   type: HTTP
   targets {
