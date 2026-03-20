@@ -18,7 +18,7 @@ documentation.
 Targets define what a probe checks. The simplest form is a comma-separated list
 of hostnames or IPs:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
@@ -40,7 +40,7 @@ You can control which IP version a probe uses with `ip_version`. This affects
 target name resolution, source IP selection (when using `source_interface`), and
 packet crafting for PING probes.
 
-```
+```proto
 probe {
   name: "web_v6"
   type: HTTP
@@ -73,7 +73,7 @@ percentile analysis.
 
 The default unit is microseconds (`us`). Change it with `latency_unit`:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
@@ -92,7 +92,7 @@ Valid values: `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
 To get percentiles (p50, p95, p99), configure `latency_distribution` to bucket
 latency values into a histogram:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
@@ -109,7 +109,7 @@ probe {
 
 You can also use exponential buckets for automatic bucket generation:
 
-```
+```proto
 latency_distribution {
   exponential_buckets {
     scale_factor: 0.1
@@ -127,7 +127,7 @@ visualize distributions in Prometheus and other backends.
 If you use distributions for some probes and cumulative latency for others, you
 can rename the metric to differentiate them:
 
-```
+```proto
 probe {
   name: "web_latency_dist"
   type: HTTP
@@ -148,7 +148,7 @@ Validators run checks on probe responses. All configured validators must pass
 for a probe to be marked as success. For example, to verify both the HTTP
 status code and response body:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
@@ -183,7 +183,7 @@ codes, headers, regex, JSON, data integrity).
 You can configure alerts directly on a probe to get notified when failures
 exceed a threshold:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
@@ -222,7 +222,7 @@ aggregated before being exported. The default export interval is:
 
 You can override this with `stats_export_interval_msec`:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
@@ -243,7 +243,7 @@ Negative tests invert the success criteria -- a probe counts as _successful_ if
 the target _does not_ respond. This is useful for verifying that firewalls,
 security rules, or access controls are working:
 
-```
+```proto
 probe {
   name: "firewall_check"
   type: TCP
@@ -271,7 +271,7 @@ feature is experimental and may change._
 By default, Cloudprober staggers probe starts automatically (up to 1 minute).
 For probes with very long intervals, you can add an explicit startup delay:
 
-```
+```proto
 probe {
   name: "hourly_check"
   type: HTTP
@@ -295,7 +295,7 @@ for disabling probes during planned maintenance windows.
 
 To run a probe only during business hours (Monday--Friday, 8am--6pm Eastern):
 
-```
+```proto
 probe {
   name: "business_hours_check"
   type: HTTP
@@ -318,7 +318,7 @@ probe {
 
 To disable a probe during a weekly maintenance window:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
@@ -347,7 +347,7 @@ DISABLE takes precedence.
 You can attach extra labels to a probe's metrics. Labels can be static values
 or derived dynamically from the target or runtime environment:
 
-```
+```proto
 probe {
   name: "web_check"
   type: HTTP
