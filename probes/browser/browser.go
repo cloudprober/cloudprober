@@ -470,7 +470,6 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 	}
 
 	runReq.LastRun.Set(err == nil, latency, err)
-
 	if err != nil {
 		return
 	}
