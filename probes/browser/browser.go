@@ -36,6 +36,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
 	artifactsconfigpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
@@ -443,7 +444,8 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	return cmd, reportDir
 }
 
-func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
+func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRequest, resultMu *sync.Mutex) {
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 	startTime := time.Now()
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
@@ -460,17 +462,21 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	// required) even after this probe run.
 	p.artifactsHandler.Handle(p.startCtx, reportDir)
 
-	if err != nil {
-		return
-	}
+	latency := time.Since(startTime)
 
 	if resultMu != nil {
 		resultMu.Lock()
 		defer resultMu.Unlock()
 	}
 
+	runReq.LastRun.Set(err == nil, latency, err)
+
+	if err != nil {
+		return
+	}
+
 	result.success.Inc()
-	result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
+	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
 func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
@@ -489,7 +495,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.runPWTest(ctx, target, result, nil)
+		p.runPWTest(ctx, runReq, nil)
 		return
 	}
 
@@ -501,12 +507,12 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	var wg sync.WaitGroup
 	for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
 		wg.Add(1)
-		go func(reqNum int, result *probeRunResult) {
+		go func(reqNum int) {
 			defer wg.Done()
 
 			time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.runPWTest(ctx, target, result, &resultMu)
-		}(i, result)
+			p.runPWTest(ctx, runReq, &resultMu)
+		}(i)
 	}
 	p.l.Debug("Waiting for Browser requests to finish")
 	wg.Wait()
@@ -533,4 +539,15 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	if p.c.GetRequestsPerProbe() > 1 {
+		p.l.Error("Run-once is not supported for requests_per_probe > 1")
+		return nil
+	}
+
+	p.l.Info("Running browser probe once.")
+	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }
