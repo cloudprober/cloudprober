@@ -263,7 +263,9 @@ func newLister(filePath string, c *configpb.ProviderConfig, l *logger.Logger) (*
 		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		for range time.Tick(reEvalInterval) {
+		ticker := time.NewTicker(reEvalInterval)
+		defer ticker.Stop()
+		for range ticker.C {
 			if err := ls.refresh(); err != nil {
 				l.Error(err.Error())
 			}
