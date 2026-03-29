@@ -277,6 +277,7 @@ func getURLWithClient(client *http.Client, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("error while fetching URL %s, status: %s", url, resp.Status)
