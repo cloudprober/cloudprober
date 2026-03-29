@@ -39,6 +39,7 @@ func tokenFromHTTP(client *http.Client, req *http.Request, l *logger.Logger) (*o
 	if err != nil {
 		return nil, fmt.Errorf("token URL err: %v", err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		s, _ := io.ReadAll(resp.Body)
