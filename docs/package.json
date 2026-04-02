@@ -65,7 +65,8 @@
     "stylelint-config-standard-scss": "^4.0"
   },
   "overrides": {
-    "semver": "^7.6.0"
+    "semver": "^7.6.0",
+    "yauzl": "^3.2.1"
   },
   "otherDependencies": {
     "hugo": "0.101.0"

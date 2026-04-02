@@ -145,7 +145,7 @@ func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver, opts ...ResolverOp
 			return ep.IP, nil
 		}
 
-		return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s", ipVersion, ep.IP.String(), ep.Name)
+		return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s, you may need to set probe's ip_version field to match your targets", ipVersion, ep.IP.String(), ep.Name)
 	}
 
 	name := ep.Name

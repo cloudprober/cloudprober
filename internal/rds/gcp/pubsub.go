@@ -141,7 +141,9 @@ func (lister *pubsubMsgsLister) initSubscriber(ctx context.Context, sub *configp
 }
 
 func (lister *pubsubMsgsLister) cleanup() {
-	for range time.Tick(lister.maxAge) {
+	ticker := time.NewTicker(lister.maxAge)
+	defer ticker.Stop()
+	for range ticker.C {
 		lister.mu.Lock()
 
 		for _, msgs := range lister.cache {
