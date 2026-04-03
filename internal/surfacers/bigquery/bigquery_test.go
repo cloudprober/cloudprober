@@ -323,6 +323,173 @@ func TestBatchInsertion(t *testing.T) {
 	}
 }
 
+func newWideSurfacerConfig(labelCols map[string]string, metricCols map[string]string) *configpb.SurfacerConf {
+	wideRows := true
+	var bqCols []*configpb.BQColumn
+	for label, colType := range labelCols {
+		l, ct := label, colType
+		bqCols = append(bqCols, &configpb.BQColumn{
+			Label:      &l,
+			ColumnName: &l,
+			ColumnType: &ct,
+		})
+	}
+	for metricName, colType := range metricCols {
+		mn, ct := metricName, colType
+		bqCols = append(bqCols, &configpb.BQColumn{
+			MetricName: &mn,
+			ColumnName: &mn,
+			ColumnType: &ct,
+		})
+	}
+	projectName := "test-project"
+	bqdataset := "test-dataset"
+	bqtable := "test-table"
+	return &configpb.SurfacerConf{
+		ProjectName:     &projectName,
+		BigqueryDataset: &bqdataset,
+		BigqueryTable:   &bqtable,
+		WideRows:        &wideRows,
+		BigqueryColumns: bqCols,
+	}
+}
+
+func TestParseWideRowNumeric(t *testing.T) {
+	s := &Surfacer{
+		c: newWideSurfacerConfig(
+			map[string]string{"probe": "string"},
+			map[string]string{"success": "integer", "latency": "float"},
+		),
+		l:         &logger.Logger{},
+		writeChan: make(chan *metrics.EventMetrics, 10),
+	}
+
+	ts := time.Now()
+	em := metrics.NewEventMetrics(ts)
+	em.AddLabel("probe", "dns-probe")
+	em.AddMetric("success", metrics.NewInt(1))
+	em.AddMetric("latency", metrics.NewFloat(12.5))
+
+	rows, err := s.parseBQCols(em)
+	if err != nil {
+		t.Fatalf("parseBQCols returned error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 wide row, got %d", len(rows))
+	}
+	row := rows[0].value
+
+	if row["probe"] != "dns-probe" {
+		t.Errorf("label column: got %v, want 'dns-probe'", row["probe"])
+	}
+	if row["success"] != int64(1) {
+		t.Errorf("success column: got %v (type %T), want int64(1)", row["success"], row["success"])
+	}
+	if row["latency"] != 12.5 {
+		t.Errorf("latency column: got %v (type %T), want 12.5", row["latency"], row["latency"])
+	}
+	if row[metricTimeCol] != ts {
+		t.Errorf("timestamp: got %v, want %v", row[metricTimeCol], ts)
+	}
+}
+
+func TestParseWideRowMapExpansion(t *testing.T) {
+	s := &Surfacer{
+		c: newWideSurfacerConfig(
+			nil,
+			map[string]string{"resp_code": ""},
+		),
+		l:         &logger.Logger{},
+		writeChan: make(chan *metrics.EventMetrics, 10),
+	}
+
+	em := metrics.NewEventMetrics(time.Now())
+	m := metrics.NewMap("code")
+	m.IncKeyBy("200", 10)
+	m.IncKeyBy("404", 2)
+	em.AddMetric("resp_code", m)
+
+	rows, err := s.parseBQCols(em)
+	if err != nil {
+		t.Fatalf("parseBQCols returned error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 wide row, got %d", len(rows))
+	}
+	row := rows[0].value
+
+	if row["resp_code_200"] != int64(10) {
+		t.Errorf("resp_code_200: got %v, want int64(10)", row["resp_code_200"])
+	}
+	if row["resp_code_404"] != int64(2) {
+		t.Errorf("resp_code_404: got %v, want int64(2)", row["resp_code_404"])
+	}
+}
+
+func TestParseWideRowDistribution(t *testing.T) {
+	s := &Surfacer{
+		c: newWideSurfacerConfig(
+			nil,
+			map[string]string{"latency": ""},
+		),
+		l:         &logger.Logger{},
+		writeChan: make(chan *metrics.EventMetrics, 10),
+	}
+
+	em := metrics.NewEventMetrics(time.Now())
+	dist := metrics.NewDistribution([]float64{1, 5, 10})
+	dist.AddSample(3.0)
+	dist.AddSample(7.0)
+	em.AddMetric("latency", dist)
+
+	rows, err := s.parseBQCols(em)
+	if err != nil {
+		t.Fatalf("parseBQCols returned error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 wide row, got %d", len(rows))
+	}
+	row := rows[0].value
+
+	if row["latency_sum"] != 10.0 {
+		t.Errorf("latency_sum: got %v, want 10.0", row["latency_sum"])
+	}
+	if row["latency_count"] != int64(2) {
+		t.Errorf("latency_count: got %v, want int64(2)", row["latency_count"])
+	}
+}
+
+func TestParseWideRowUnmappedMetricSkipped(t *testing.T) {
+	s := &Surfacer{
+		c: newWideSurfacerConfig(
+			nil,
+			map[string]string{"success": "integer"},
+		),
+		l:         &logger.Logger{},
+		writeChan: make(chan *metrics.EventMetrics, 10),
+	}
+
+	em := metrics.NewEventMetrics(time.Now())
+	em.AddMetric("success", metrics.NewInt(1))
+	em.AddMetric("unmapped", metrics.NewInt(99))
+
+	rows, err := s.parseBQCols(em)
+	if err != nil {
+		t.Fatalf("parseBQCols returned error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 wide row, got %d", len(rows))
+	}
+	row := rows[0].value
+
+	if _, ok := row["unmapped"]; ok {
+		t.Errorf("unmapped metric should not appear in wide row")
+	}
+	if row["success"] != int64(1) {
+		t.Errorf("success column: got %v, want int64(1)", row["success"])
+	}
+}
+
 func TestWriteToBQ(t *testing.T) {
 	colValueMap := map[string]string{
 		"id": "test",
