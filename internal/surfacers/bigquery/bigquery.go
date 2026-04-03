@@ -173,6 +173,10 @@ func distToBqMetrics(d *metrics.DistributionData, metricName string, labels map[
 func (s *Surfacer) bqLabels(em *metrics.EventMetrics) (map[string]bigquery.Value, error) {
 	baseRow := make(map[string]bigquery.Value)
 	for _, col := range s.c.GetBigqueryColumns() {
+		if col.GetMetricName() != "" {
+			// metric_name columns are handled by parseWideRow, not here.
+			continue
+		}
 		colName := col.GetColumnName()
 		val, err := convertToBqType(col.GetColumnType(), em.Label(col.GetLabel()))
 		if err != nil {
@@ -181,6 +185,75 @@ func (s *Surfacer) bqLabels(em *metrics.EventMetrics) (map[string]bigquery.Value
 		baseRow[colName] = val
 	}
 	return baseRow, nil
+}
+
+// parseWideRow returns a single BQ row per EventMetrics with one column per
+// configured metric. Map metrics expand into multiple columns using the map key
+// as a suffix (e.g. "resp_code_200"). Distribution metrics are written as
+// _sum and _count columns.
+func (s *Surfacer) parseWideRow(em *metrics.EventMetrics) ([]*bqrow, error) {
+	row, err := s.bqLabels(em)
+	if err != nil {
+		return nil, err
+	}
+
+	row[s.c.GetMetricTimeColName()] = em.Timestamp
+
+	// Build metric_name → BQColumn map for O(1) lookup.
+	metricCols := make(map[string]*configpb.BQColumn)
+	for _, col := range s.c.GetBigqueryColumns() {
+		if col.GetMetricName() != "" {
+			metricCols[col.GetMetricName()] = col
+		}
+	}
+
+	for _, metricName := range em.MetricsKeys() {
+		if !s.opts.AllowMetric(metricName) {
+			continue
+		}
+		col, hasCfg := metricCols[metricName]
+		if !hasCfg {
+			// Only write metrics explicitly mapped in bigquery_columns.
+			continue
+		}
+		val := em.Metric(metricName)
+		colName := col.GetColumnName()
+
+		// Map metric — write one column per key: <column_name>_<map_key>.
+		if mapVal, ok := val.(*metrics.Map[int64]); ok {
+			for _, k := range mapVal.Keys() {
+				row[colName+"_"+k] = mapVal.GetKey(k)
+			}
+			continue
+		}
+
+		// Distribution metric — write _sum and _count columns.
+		if distVal, ok := val.(*metrics.Distribution); ok {
+			d := distVal.Data()
+			row[colName+"_sum"] = d.Sum
+			row[colName+"_count"] = d.Count
+			continue
+		}
+
+		// String metric — store value directly.
+		if _, ok := val.(metrics.String); ok {
+			row[colName] = val.String()
+			continue
+		}
+
+		// Numeric metric — convert using column_type if specified.
+		if colType := col.GetColumnType(); colType != "" {
+			converted, err := convertToBqType(colType, val.String())
+			if err != nil {
+				return nil, fmt.Errorf("error converting metric %v to type %v: %v", metricName, colType, err)
+			}
+			row[colName] = converted
+		} else {
+			row[colName] = val.String()
+		}
+	}
+
+	return []*bqrow{{value: row}}, nil
 }
 
 func parseMapToBQCols[T int64 | float64](m *metrics.Map[T], baseRow map[string]bigquery.Value, metricName string, t time.Time, c *configpb.SurfacerConf) []*bqrow {
@@ -195,6 +268,10 @@ func parseMapToBQCols[T int64 | float64](m *metrics.Map[T], baseRow map[string]b
 }
 
 func (s *Surfacer) parseBQCols(em *metrics.EventMetrics) ([]*bqrow, error) {
+	if s.c.GetWideRows() {
+		return s.parseWideRow(em)
+	}
+
 	baseRow := make(map[string]bigquery.Value)
 	var out []*bqrow
 
@@ -295,6 +372,21 @@ func (s *Surfacer) writeToBQ(ctx context.Context, inserter iInserter) {
 
 func (s *Surfacer) init(ctx context.Context) error {
 	s.writeChan = make(chan *metrics.EventMetrics, s.c.GetMetricsBufferSize())
+
+	if s.c.GetWideRows() {
+		hasMetricCols := false
+		for _, col := range s.c.GetBigqueryColumns() {
+			if col.GetLabel() != "" && col.GetMetricName() != "" {
+				s.l.Warningf("bigquery_columns entry %q has both label and metric_name set; label is ignored in wide_rows mode", col.GetColumnName())
+			}
+			if col.GetMetricName() != "" {
+				hasMetricCols = true
+			}
+		}
+		if !hasMetricCols {
+			s.l.Warningf("wide_rows is enabled but no bigquery_columns entries have metric_name set; no metrics will be written")
+		}
+	}
 
 	client, err := bigquery.NewClient(ctx, s.c.GetProjectName())
 	if err != nil {
