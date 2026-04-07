@@ -77,7 +77,8 @@ var logsTmpl = template.Must(template.New("logs").Parse(`
   .logs-table .level-ERROR, .logs-table .level-WARN { color: #c00; font-weight: bold; }
   .logs-table .level-DEBUG { color: #999; }
   .logs-table .source { color: #0066cc; }
-  .logs-table .attrs { }
+  .logs-table .msg { width: 60%; }
+  .logs-table .attrs { width: 15%; }
   .logs-empty { color: #999; margin-top: 20px; }
 </style>
 
@@ -128,7 +129,7 @@ var logsTmpl = template.Must(template.New("logs").Parse(`
   <td class="time">{{.Time}}</td>
   <td class="level-{{.Level}}">{{.Level}}</td>
   <td class="source">{{.Source}}</td>
-  <td>{{.Message}}</td>
+  <td class="msg">{{.Message}}</td>
   <td class="attrs">{{.Attrs}}</td>
 </tr>
 {{end}}
