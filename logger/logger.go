@@ -28,6 +28,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"flag"
@@ -35,6 +36,7 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
 	md "github.com/cloudprober/cloudprober/common/metadata"
+	"github.com/cloudprober/cloudprober/logger/logstore"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
@@ -103,6 +105,18 @@ const basePackage = "github.com/cloudprober/cloudprober/"
 
 var defaultWritter = io.Writer(os.Stderr)
 
+var defaultLogStore atomic.Pointer[logstore.LogStore]
+
+// SetDefaultLogStore sets the default log store that all new loggers will use.
+func SetDefaultLogStore(store *logstore.LogStore) {
+	defaultLogStore.Store(store)
+}
+
+// DefaultLogStore returns the default log store.
+func DefaultLogStore() *logstore.LogStore {
+	return defaultLogStore.Load()
+}
+
 func replaceAttrs(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.SourceKey {
 		source := a.Value.Any().(*slog.Source)
@@ -112,8 +126,11 @@ func replaceAttrs(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-func parseMinLogLevel() slog.Level {
-	switch strings.ToUpper(*minLogLevel) {
+// ParseLogLevel parses a log level string into an slog.Level.
+// Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+// Returns slog.LevelInfo for unrecognized values.
+func ParseLogLevel(s string) slog.Level {
+	switch strings.ToUpper(s) {
 	case "DEBUG":
 		return slog.LevelDebug
 	case "INFO":
@@ -125,7 +142,15 @@ func parseMinLogLevel() slog.Level {
 	case "CRITICAL":
 		return criticalLevel
 	}
-	panic("invalid log level: " + *minLogLevel)
+	return slog.LevelInfo
+}
+
+func parseMinLogLevel() slog.Level {
+	level := ParseLogLevel(*minLogLevel)
+	if level == slog.LevelInfo && strings.ToUpper(*minLogLevel) != "INFO" {
+		panic("invalid log level: " + *minLogLevel)
+	}
+	return level
 }
 
 func slogHandler(w io.Writer) slog.Handler {
@@ -197,6 +222,7 @@ type Logger struct {
 	attrs               []slog.Attr
 	systemAttr          string
 	writer              io.Writer
+	logStore            *logstore.LogStore
 }
 
 // Option can be used for adding additional metadata information in logger.
@@ -239,6 +265,10 @@ func newLogger(opts ...Option) *Logger {
 	// Initialize the traditional logger.
 	l.shandler = slogHandler(l.writer)
 
+	if l.logStore == nil {
+		l.logStore = defaultLogStore.Load()
+	}
+
 	if enableDebugLog(*debugLog, *debugLogList, l.attrs...) {
 		l.minLogLevel = slog.LevelDebug
 	}
@@ -269,6 +299,13 @@ func WithWriter(w io.Writer) Option {
 	}
 }
 
+// WithLogStore option sets the log store for in-memory log retention.
+func WithLogStore(store *logstore.LogStore) Option {
+	return func(l *Logger) {
+		l.logStore = store
+	}
+}
+
 func (l *Logger) WithAttributes(attrs ...slog.Attr) *Logger {
 	return &Logger{
 		shandler:            l.shandler,
@@ -280,6 +317,7 @@ func (l *Logger) WithAttributes(attrs ...slog.Attr) *Logger {
 		attrs:               append(l.attrs, attrs...),
 		systemAttr:          l.systemAttr,
 		writer:              l.writer,
+		logStore:            l.logStore,
 	}
 }
 
@@ -421,6 +459,10 @@ func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog
 		l.shandler.WithAttrs(l.attrs).Handle(context.Background(), r)
 	} else {
 		slogHandler(nil).Handle(context.Background(), r)
+	}
+
+	if l != nil && l.logStore != nil {
+		l.logStore.Store(level, msg, append(l.attrs, attrs...))
 	}
 
 	if l != nil && l.gcpLogger != nil {

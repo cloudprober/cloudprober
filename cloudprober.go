@@ -43,6 +43,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/prober"
 	"github.com/cloudprober/cloudprober/probes"
@@ -74,7 +75,9 @@ const (
 )
 
 var (
-	disableSysMetrics = flag.Bool("disable_sys_metrics", false, "Disable system metrics probe")
+	disableSysMetrics  = flag.Bool("disable_sys_metrics", false, "Disable system metrics probe")
+	logStoreMaxMemMB   = flag.Int("log_store_max_mem_mb", 50, "Max memory in MB for in-memory log store. 0 to disable.")
+	logStoreMinLevel   = flag.String("log_store_min_level", "INFO", "Minimum log level for stored logs. Valid values: DEBUG, INFO, WARNING, ERROR")
 )
 
 // Global prober.Prober instance protected by a mutex.
@@ -277,6 +280,12 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		reflection.Register(s)
 		// register channelz service to the default grpc server port
 		service.RegisterChannelzServiceToServer(s)
+	}
+
+	// Initialize log store for in-memory log retention.
+	if *logStoreMaxMemMB > 0 {
+		ls := logstore.New(int64(*logStoreMaxMemMB)<<20, logger.ParseLogLevel(*logStoreMinLevel))
+		logger.SetDefaultLogStore(ls)
 	}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
