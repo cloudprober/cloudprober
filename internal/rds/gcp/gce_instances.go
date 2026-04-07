@@ -277,6 +277,7 @@ func getURLWithClient(client *http.Client, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("error while fetching URL %s, status: %s", url, resp.Status)
@@ -423,7 +424,9 @@ func newGCEInstancesLister(project, apiVersion string, baseAPIPath string, c *co
 		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		for range time.Tick(reEvalInterval) {
+		ticker := time.NewTicker(reEvalInterval)
+		defer ticker.Stop()
+		for range ticker.C {
 			il.expand(reEvalInterval)
 		}
 	}()

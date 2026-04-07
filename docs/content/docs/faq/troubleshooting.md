@@ -82,17 +82,6 @@ docker run --cap-add NET_RAW \
   ghcr.io/cloudprober/cloudprober
 ```
 
-## How do I validate my configuration without running Cloudprober?
-
-Use the `--configtest` flag:
-
-```shell
-cloudprober --configtest --config_file cloudprober.cfg
-```
-
-This parses and validates the configuration file without actually starting
-probes.
-
 ## Cloudprober is running but I don't see any metrics
 
 Check the following:

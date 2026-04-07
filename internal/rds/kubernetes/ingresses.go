@@ -225,7 +225,9 @@ func newIngressesLister(c *configpb.Ingresses, namespace string, reEvalInterval 
 		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		for range time.Tick(reEvalInterval) {
+		ticker := time.NewTicker(reEvalInterval)
+		defer ticker.Stop()
+		for range ticker.C {
 			lister.expand()
 		}
 	}()

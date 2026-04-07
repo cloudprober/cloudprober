@@ -111,6 +111,14 @@ func (pc *pageCache) setContent(url string, content []byte) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
+	// Evict expired entries to prevent unbounded growth.
+	for k, t := range pc.cachedTime {
+		if time.Since(t) > pc.maxAge {
+			delete(pc.content, k)
+			delete(pc.cachedTime, k)
+		}
+	}
+
 	pc.content[url], pc.cachedTime[url] = content, time.Now()
 }
 
