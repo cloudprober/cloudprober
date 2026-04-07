@@ -77,7 +77,7 @@ var logsTmpl = template.Must(template.New("logs").Parse(`
   .logs-table .level-ERROR, .logs-table .level-WARN { color: #c00; font-weight: bold; }
   .logs-table .level-DEBUG { color: #999; }
   .logs-table .source { color: #0066cc; }
-  .logs-table .attrs { color: #888; font-size: 12px; }
+  .logs-table .attrs { }
   .logs-empty { color: #999; margin-top: 20px; }
 </style>
 
