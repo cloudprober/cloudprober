@@ -29,36 +29,91 @@ import (
 )
 
 var logsTmpl = template.Must(template.New("logs").Parse(`
+<style>
+  .logs-filters {
+    background: #E1F6FF;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logs-filters label {
+    font-weight: bold;
+    font-size: 13px;
+  }
+  .logs-filters select {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 13px;
+    background: white;
+  }
+  .logs-table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    font-family: monospace;
+    font-size: 13px;
+  }
+  .logs-table th {
+    background: #f0f0f0;
+    text-align: left;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    white-space: nowrap;
+  }
+  .logs-table td {
+    padding: 4px 10px;
+    border: 1px solid #eee;
+    max-width: 600px;
+    word-wrap: break-word;
+    vertical-align: top;
+  }
+  .logs-table tr:hover { background: #f8f8f8; }
+  .logs-table .time { white-space: nowrap; color: #666; }
+  .logs-table .level-ERROR, .logs-table .level-WARN { color: #c00; font-weight: bold; }
+  .logs-table .level-DEBUG { color: #999; }
+  .logs-table .source { color: #0066cc; }
+  .logs-table .attrs { color: #888; font-size: 12px; }
+  .logs-empty { color: #999; margin-top: 20px; }
+</style>
+
 <h3>Logs</h3>
 
-<form id="logsForm" method="get" action="/logs" style="margin-bottom: 1em;">
-  <label>Source:
-    <select name="source" onchange="this.form.submit()">
-      <option value="">All</option>
-      {{range .Sources}}
-      <option value="{{.}}" {{if eq . $.Source}}selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-  </label>
-  <label>Level:
-    <select name="level" onchange="this.form.submit()">
-      <option value="DEBUG" {{if eq .Level "DEBUG"}}selected{{end}}>DEBUG</option>
-      <option value="INFO" {{if eq .Level "INFO"}}selected{{end}}>INFO</option>
-      <option value="WARNING" {{if eq .Level "WARNING"}}selected{{end}}>WARNING</option>
-      <option value="ERROR" {{if eq .Level "ERROR"}}selected{{end}}>ERROR</option>
-    </select>
-  </label>
-  <label>Limit:
-    <select name="limit" onchange="this.form.submit()">
-      {{range .LimitOptions}}
-      <option value="{{.}}" {{if eq . $.Limit}}selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-  </label>
+<form id="logsForm" method="get" action="/logs">
+  <div class="logs-filters">
+    <label>Source:
+      <select name="source" onchange="this.form.submit()">
+        <option value="">All</option>
+        {{range .Sources}}
+        <option value="{{.}}" {{if eq . $.Source}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>Level:
+      <select name="level" onchange="this.form.submit()">
+        <option value="DEBUG" {{if eq .Level "DEBUG"}}selected{{end}}>DEBUG</option>
+        <option value="INFO" {{if eq .Level "INFO"}}selected{{end}}>INFO</option>
+        <option value="WARNING" {{if eq .Level "WARNING"}}selected{{end}}>WARNING</option>
+        <option value="ERROR" {{if eq .Level "ERROR"}}selected{{end}}>ERROR</option>
+      </select>
+    </label>
+    <label>Limit:
+      <select name="limit" onchange="this.form.submit()">
+        {{range .LimitOptions}}
+        <option value="{{.}}" {{if eq . $.Limit}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+  </div>
 </form>
 
 {{if .Entries}}
-<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; font-size:0.9em;">
+<table class="logs-table">
+<thead>
 <tr>
   <th>Time</th>
   <th>Level</th>
@@ -66,18 +121,21 @@ var logsTmpl = template.Must(template.New("logs").Parse(`
   <th>Message</th>
   <th>Attributes</th>
 </tr>
+</thead>
+<tbody>
 {{range .Entries}}
 <tr>
-  <td style="white-space:nowrap">{{.Time}}</td>
-  <td>{{.Level}}</td>
-  <td>{{.Source}}</td>
+  <td class="time">{{.Time}}</td>
+  <td class="level-{{.Level}}">{{.Level}}</td>
+  <td class="source">{{.Source}}</td>
   <td>{{.Message}}</td>
-  <td style="font-size:0.8em">{{.Attrs}}</td>
+  <td class="attrs">{{.Attrs}}</td>
 </tr>
 {{end}}
+</tbody>
 </table>
 {{else}}
-<p>No log entries found.</p>
+<p class="logs-empty">No log entries found.</p>
 {{end}}
 `))
 
