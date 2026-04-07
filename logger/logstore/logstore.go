@@ -126,19 +126,31 @@ func New(maxMemBytes int64, minLevel slog.Level) *LogStore {
 	}
 }
 
-// Store adds a log entry to the store. It extracts the probe name from attrs.
+// sourceFromAttrs returns the source identifier for a log entry.
+// It prefers "probe", then falls back to "component", then "system".
+func sourceFromAttrs(attrs map[string]string) string {
+	if v := attrs["probe"]; v != "" {
+		return v
+	}
+	if v := attrs["component"]; v != "" {
+		return v
+	}
+	if v := attrs["system"]; v != "" {
+		return v
+	}
+	return ""
+}
+
+// Store adds a log entry to the store. It extracts the source (probe name,
+// component, or system) from attrs to determine which buffer to use.
 func (ls *LogStore) Store(level slog.Level, msg string, attrs []slog.Attr) {
 	if level < ls.minStoreLevel {
 		return
 	}
 
 	flatAttrs := make(map[string]string, len(attrs))
-	probeName := ""
 	for _, a := range attrs {
 		flatAttrs[a.Key] = a.Value.String()
-		if a.Key == "probe" {
-			probeName = a.Value.String()
-		}
 	}
 
 	entry := LogEntry{
@@ -149,10 +161,12 @@ func (ls *LogStore) Store(level slog.Level, msg string, attrs []slog.Attr) {
 	}
 	entry.size = estimateSize(msg, flatAttrs)
 
+	source := sourceFromAttrs(flatAttrs)
+
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 
-	rb := ls.getOrCreateBuffer(probeName)
+	rb := ls.getOrCreateBuffer(source)
 	evictedSize := rb.write(entry)
 
 	ls.curMemBytes += int64(entry.size)
@@ -165,14 +179,14 @@ func (ls *LogStore) Store(level slog.Level, msg string, attrs []slog.Attr) {
 	ls.evictUntilUnderLimit()
 }
 
-func (ls *LogStore) getOrCreateBuffer(probeName string) *ringBuffer {
-	if probeName == "" {
+func (ls *LogStore) getOrCreateBuffer(source string) *ringBuffer {
+	if source == "" {
 		return ls.globalBuffer
 	}
-	rb, ok := ls.probeBuffers[probeName]
+	rb, ok := ls.probeBuffers[source]
 	if !ok {
 		rb = &ringBuffer{entries: make([]LogEntry, defaultRingSize)}
-		ls.probeBuffers[probeName] = rb
+		ls.probeBuffers[source] = rb
 	}
 	return rb
 }
@@ -206,11 +220,11 @@ func (ls *LogStore) evictUntilUnderLimit() {
 
 // QueryOpts specifies filters for querying log entries.
 type QueryOpts struct {
-	ProbeName string
-	MinLevel  slog.Level
-	Since     time.Time
-	Until     time.Time
-	Limit     int
+	Source   string // probe name, component name, or empty for all
+	MinLevel slog.Level
+	Since    time.Time
+	Until    time.Time
+	Limit    int
 }
 
 // Query returns log entries matching the given filters, in chronological order.
@@ -220,8 +234,8 @@ func (ls *LogStore) Query(opts QueryOpts) []LogEntry {
 
 	var allEntries []LogEntry
 
-	if opts.ProbeName != "" {
-		rb, ok := ls.probeBuffers[opts.ProbeName]
+	if opts.Source != "" {
+		rb, ok := ls.probeBuffers[opts.Source]
 		if ok {
 			allEntries = rb.read()
 		}
@@ -249,7 +263,7 @@ func (ls *LogStore) Query(opts QueryOpts) []LogEntry {
 	}
 
 	// Sort by timestamp (entries from different buffers may interleave).
-	if opts.ProbeName == "" && len(filtered) > 1 {
+	if opts.Source == "" && len(filtered) > 1 {
 		sortByTimestamp(filtered)
 	}
 
@@ -261,8 +275,9 @@ func (ls *LogStore) Query(opts QueryOpts) []LogEntry {
 	return filtered
 }
 
-// ProbeNames returns the names of all probes that have log entries.
-func (ls *LogStore) ProbeNames() []string {
+// SourceNames returns the names of all sources (probes, components) that
+// have log entries.
+func (ls *LogStore) SourceNames() []string {
 	ls.mu.RLock()
 	defer ls.mu.RUnlock()
 

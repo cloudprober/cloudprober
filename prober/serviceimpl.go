@@ -182,8 +182,8 @@ func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequ
 		if req.GetIncludeLogs() {
 			if ls := logger.DefaultLogStore(); ls != nil {
 				logEntries := ls.Query(logstore.QueryOpts{
-					ProbeName: psd.Name,
-					Limit:     int(req.GetLogLimit()),
+					Source: psd.Name,
+					Limit:  int(req.GetLogLimit()),
 				})
 				for _, le := range logEntries {
 					probeStatus.Logs = append(probeStatus.Logs, &pb.LogEntry{

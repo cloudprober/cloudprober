@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,20 +29,32 @@ import (
 )
 
 var logsTmpl = template.Must(template.New("logs").Parse(`
-<h3>Probe Logs</h3>
+<h3>Logs</h3>
 
-<form method="get" action="/logs" style="margin-bottom: 1em;">
-  <label>Probe: <input type="text" name="probe" value="{{.Probe}}" placeholder="all"></label>
+<form id="logsForm" method="get" action="/logs" style="margin-bottom: 1em;">
+  <label>Source:
+    <select name="source" onchange="this.form.submit()">
+      <option value="">All</option>
+      {{range .Sources}}
+      <option value="{{.}}" {{if eq . $.Source}}selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+  </label>
   <label>Level:
-    <select name="level">
+    <select name="level" onchange="this.form.submit()">
       <option value="DEBUG" {{if eq .Level "DEBUG"}}selected{{end}}>DEBUG</option>
       <option value="INFO" {{if eq .Level "INFO"}}selected{{end}}>INFO</option>
       <option value="WARNING" {{if eq .Level "WARNING"}}selected{{end}}>WARNING</option>
       <option value="ERROR" {{if eq .Level "ERROR"}}selected{{end}}>ERROR</option>
     </select>
   </label>
-  <label>Limit: <input type="number" name="limit" value="{{.Limit}}" style="width:60px"></label>
-  <button type="submit">Filter</button>
+  <label>Limit:
+    <select name="limit" onchange="this.form.submit()">
+      {{range .LimitOptions}}
+      <option value="{{.}}" {{if eq . $.Limit}}selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+  </label>
 </form>
 
 {{if .Entries}}
@@ -49,7 +62,7 @@ var logsTmpl = template.Must(template.New("logs").Parse(`
 <tr>
   <th>Time</th>
   <th>Level</th>
-  <th>Probe</th>
+  <th>Source</th>
   <th>Message</th>
   <th>Attributes</th>
 </tr>
@@ -57,7 +70,7 @@ var logsTmpl = template.Must(template.New("logs").Parse(`
 <tr>
   <td style="white-space:nowrap">{{.Time}}</td>
   <td>{{.Level}}</td>
-  <td>{{.Probe}}</td>
+  <td>{{.Source}}</td>
   <td>{{.Message}}</td>
   <td style="font-size:0.8em">{{.Attrs}}</td>
 </tr>
@@ -69,16 +82,18 @@ var logsTmpl = template.Must(template.New("logs").Parse(`
 `))
 
 type logsPageData struct {
-	Probe   string
-	Level   string
-	Limit   int
-	Entries []logEntryView
+	Source       string
+	Sources      []string
+	Level        string
+	Limit        int
+	LimitOptions []int
+	Entries      []logEntryView
 }
 
 type logEntryView struct {
 	Time    string
 	Level   string
-	Probe   string
+	Source  string
 	Message string
 	Attrs   string
 }
@@ -90,6 +105,19 @@ type logEntryJSON struct {
 	Attrs     map[string]string `json:"attrs"`
 }
 
+// sourceLabel returns the display label for a log entry's source.
+func sourceLabel(attrs map[string]string) string {
+	if v := attrs["probe"]; v != "" {
+		return v
+	}
+	if v := attrs["component"]; v != "" {
+		return v
+	}
+	if v := attrs["system"]; v != "" {
+		return v
+	}
+	return ""
+}
 
 func logsHandler(w http.ResponseWriter, r *http.Request) {
 	ls := logger.DefaultLogStore()
@@ -98,7 +126,7 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	probe := r.URL.Query().Get("probe")
+	source := r.URL.Query().Get("source")
 	levelStr := r.URL.Query().Get("level")
 	if levelStr == "" {
 		levelStr = "INFO"
@@ -119,10 +147,10 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entries := ls.Query(logstore.QueryOpts{
-		ProbeName: probe,
-		MinLevel:  logger.ParseLogLevel(levelStr),
-		Since:     since,
-		Limit:     limit,
+		Source:   source,
+		MinLevel: logger.ParseLogLevel(levelStr),
+		Since:    since,
+		Limit:    limit,
 	})
 
 	if r.URL.Query().Get("format") == "json" {
@@ -140,32 +168,38 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build source dropdown options.
+	sourceNames := ls.SourceNames()
+	sort.Strings(sourceNames)
+
 	views := make([]logEntryView, len(entries))
 	for i, e := range entries {
-		probeName := e.Attrs["probe"]
-		// Build a compact attrs string excluding probe.
+		// Build a compact attrs string excluding source-related keys.
 		var attrParts []string
 		for k, v := range e.Attrs {
-			if k == "probe" || k == "system" {
+			if k == "probe" || k == "system" || k == "component" {
 				continue
 			}
 			attrParts = append(attrParts, k+"="+v)
 		}
+		sort.Strings(attrParts)
 
 		views[i] = logEntryView{
 			Time:    e.Timestamp.Format("15:04:05.000"),
 			Level:   e.Level.String(),
-			Probe:   probeName,
+			Source:  sourceLabel(e.Attrs),
 			Message: e.Message,
 			Attrs:   strings.Join(attrParts, ", "),
 		}
 	}
 
 	data := logsPageData{
-		Probe:   probe,
-		Level:   strings.ToUpper(levelStr),
-		Limit:   limit,
-		Entries: views,
+		Source:       source,
+		Sources:      sourceNames,
+		Level:        strings.ToUpper(levelStr),
+		Limit:        limit,
+		LimitOptions: []int{50, 100, 200, 500, 1000},
+		Entries:      views,
 	}
 
 	body := resources.ExecTmpl(logsTmpl, data)

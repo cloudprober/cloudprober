@@ -36,7 +36,7 @@ func TestStoreAndQuery(t *testing.T) {
 	}
 
 	// Query by probe.
-	entries = ls.Query(QueryOpts{ProbeName: "p1"})
+	entries = ls.Query(QueryOpts{Source: "p1"})
 	if len(entries) != 2 {
 		t.Fatalf("expected 2 entries for p1, got %d", len(entries))
 	}
@@ -71,7 +71,7 @@ func TestRingBufferEviction(t *testing.T) {
 		ls.Store(slog.LevelInfo, fmt.Sprintf("msg %d", i), []slog.Attr{slog.String("probe", "p1")})
 	}
 
-	entries := ls.Query(QueryOpts{ProbeName: "p1"})
+	entries := ls.Query(QueryOpts{Source: "p1"})
 	if len(entries) != defaultRingSize {
 		t.Fatalf("expected %d entries (ring buffer size), got %d", defaultRingSize, len(entries))
 	}
@@ -98,7 +98,7 @@ func TestMemoryCeiling(t *testing.T) {
 		t.Errorf("memory usage %d exceeds ceiling 2000", mem)
 	}
 
-	entries := ls.Query(QueryOpts{ProbeName: "p1"})
+	entries := ls.Query(QueryOpts{Source: "p1"})
 	if len(entries) == 0 {
 		t.Error("expected at least some entries")
 	}
@@ -157,13 +157,13 @@ func TestGlobalBuffer(t *testing.T) {
 	}
 }
 
-func TestProbeNames(t *testing.T) {
+func TestSourceNames(t *testing.T) {
 	ls := New(1<<20, slog.LevelInfo)
 
 	ls.Store(slog.LevelInfo, "a", []slog.Attr{slog.String("probe", "p1")})
 	ls.Store(slog.LevelInfo, "b", []slog.Attr{slog.String("probe", "p2")})
 
-	names := ls.ProbeNames()
+	names := ls.SourceNames()
 	if len(names) != 2 {
 		t.Fatalf("expected 2 probe names, got %d", len(names))
 	}
