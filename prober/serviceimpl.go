@@ -23,6 +23,8 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
@@ -176,6 +178,25 @@ func (pr *Prober) GetProbeStatus(ctx context.Context, req *pb.GetProbeStatusRequ
 			}
 			probeStatus.TargetStatus = append(probeStatus.TargetStatus, targetStatus)
 		}
+
+		if req.GetIncludeLogs() {
+			if ls := logger.DefaultLogStore(); ls != nil {
+				logEntries := ls.Query(logstore.QueryOpts{
+					Source: psd.Name,
+					Limit:  int(req.GetLogLimit()),
+				})
+				for _, le := range logEntries {
+					probeStatus.Logs = append(probeStatus.Logs, &pb.LogEntry{
+						TimestampSec:  proto.Int64(le.Timestamp.Unix()),
+						TimestampNsec: proto.Int32(int32(le.Timestamp.Nanosecond())),
+						Level:         proto.String(le.Level.String()),
+						Message:       proto.String(le.Message),
+						Attributes:    le.Attrs,
+					})
+				}
+			}
+		}
+
 		resp.ProbeStatus = append(resp.ProbeStatus, probeStatus)
 	}
 	return resp, nil
