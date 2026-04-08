@@ -175,9 +175,10 @@ func (ls *LogStore) Store(level slog.Level, msg string, attrs []slog.Attr) {
 		ls.curMemBytes -= evictedSize
 	}
 
-	// Only evict when over the ceiling. When triggered, evict down to 95%
-	// to create headroom and amortize the cost of scanning all buffers.
-	if ls.curMemBytes > ls.maxMemBytes {
+	// Allow 5% overshoot before triggering eviction. When triggered, evict
+	// down to 95% to create ~10% headroom and amortize the cost of scanning
+	// all buffers.
+	if ls.curMemBytes > ls.maxMemBytes*105/100 {
 		ls.evictTo(ls.maxMemBytes * 95 / 100)
 	}
 }

@@ -94,9 +94,9 @@ func TestMemoryCeiling(t *testing.T) {
 	mem := ls.curMemBytes
 	ls.mu.RUnlock()
 
-	// Allow up to 5% overshoot since eviction targets 95% of the ceiling.
+	// Allow up to 5% overshoot (eviction triggers at 105%, targets 95%).
 	if mem > 2100 {
-		t.Errorf("memory usage %d exceeds ceiling 2000 (with 5%% overshoot allowance)", mem)
+		t.Errorf("memory usage %d exceeds ceiling 2000 (with 5%% overshoot)", mem)
 	}
 
 	entries := ls.Query(QueryOpts{Source: "p1"})
