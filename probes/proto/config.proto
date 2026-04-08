@@ -198,7 +198,7 @@ message ProbeDef {
   // probe scheduler's target update interval — how often new targets start
   // being probed and removed targets stop being probed. If not set, defaults
   // to 1 minute.
-  optional int32 re_eval_sec = 103;
+  optional int32 targets_update_sec = 103;
 
   // Duration to wait before starting the probe.
   //
