@@ -66,7 +66,8 @@
   },
   "overrides": {
     "semver": "^7.6.0",
-    "yauzl": "^3.2.1"
+    "yauzl": "^3.2.1",
+    "lodash": "^4.18.0"
   },
   "otherDependencies": {
     "hugo": "0.101.0"
