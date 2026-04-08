@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/logging"
+	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,7 +44,7 @@ func TestGCPLogEntry(t *testing.T) {
 			level: slog.LevelInfo,
 			want: logging.Entry{
 				Severity: logging.Info,
-				Payload:  "level=INFO source=logger/logger_test.go:62 msg=\"test message\" system=cloudprober dst=gcp\n",
+				Payload:  "level=INFO source=logger/logger_test.go:63 msg=\"test message\" system=cloudprober dst=gcp\n",
 			},
 		},
 		{
@@ -51,7 +52,7 @@ func TestGCPLogEntry(t *testing.T) {
 			level: slog.LevelWarn,
 			want: logging.Entry{
 				Severity: logging.Warning,
-				Payload:  "level=WARN source=logger/logger_test.go:62 msg=\"test message\" system=cloudprober dst=gcp\n",
+				Payload:  "level=WARN source=logger/logger_test.go:63 msg=\"test message\" system=cloudprober dst=gcp\n",
 			},
 		},
 	}
@@ -466,6 +467,123 @@ func TestSDLogName(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestLogStoreIntegration(t *testing.T) {
+	ls := logstore.New(1<<20, slog.LevelInfo)
+
+	var buf bytes.Buffer
+	l := New(
+		WithAttr(slog.String("probe", "p1")),
+		WithLogStore(ls),
+		WithWriter(&buf),
+	)
+
+	l.Info("info message")
+	l.Warning("warn message")
+	l.Errorf("error %s", "message")
+
+	entries := ls.Query(logstore.QueryOpts{Source: "p1"})
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+
+	assert.Equal(t, "info message", entries[0].Message)
+	assert.Equal(t, slog.LevelInfo, entries[0].Level)
+	assert.Equal(t, "warn message", entries[1].Message)
+	assert.Equal(t, slog.LevelWarn, entries[1].Level)
+	assert.Equal(t, "error message", entries[2].Message)
+	assert.Equal(t, slog.LevelError, entries[2].Level)
+
+	// Verify attrs are stored.
+	assert.Equal(t, "cloudprober", entries[0].Attrs["system"])
+	assert.Equal(t, "p1", entries[0].Attrs["probe"])
+}
+
+func TestLogStoreWithAttributes(t *testing.T) {
+	ls := logstore.New(1<<20, slog.LevelInfo)
+
+	var buf bytes.Buffer
+	base := New(
+		WithAttr(slog.String("probe", "p1")),
+		WithLogStore(ls),
+		WithWriter(&buf),
+	)
+
+	// WithAttributes should propagate logStore.
+	child := base.WithAttributes(slog.String("target", "t1"))
+	child.Info("child message")
+
+	entries := ls.Query(logstore.QueryOpts{Source: "p1"})
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assert.Equal(t, "child message", entries[0].Message)
+	assert.Equal(t, "t1", entries[0].Attrs["target"])
+}
+
+func TestLogStoreMinLevel(t *testing.T) {
+	// LogStore with WARN minimum — INFO messages should not be stored.
+	ls := logstore.New(1<<20, slog.LevelWarn)
+
+	var buf bytes.Buffer
+	l := New(
+		WithAttr(slog.String("probe", "p1")),
+		WithLogStore(ls),
+		WithWriter(&buf),
+	)
+
+	l.Info("should be skipped by store")
+	l.Warning("should be stored")
+
+	entries := ls.Query(logstore.QueryOpts{Source: "p1"})
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry (info filtered by store), got %d", len(entries))
+	}
+	assert.Equal(t, "should be stored", entries[0].Message)
+}
+
+func TestLogStoreAttrsMethod(t *testing.T) {
+	ls := logstore.New(1<<20, slog.LevelInfo)
+
+	var buf bytes.Buffer
+	l := New(
+		WithAttr(slog.String("probe", "p1")),
+		WithLogStore(ls),
+		WithWriter(&buf),
+	)
+
+	l.InfoAttrs("attrs message", slog.String("key1", "val1"), slog.String("key2", "val2"))
+
+	entries := ls.Query(logstore.QueryOpts{Source: "p1"})
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assert.Equal(t, "val1", entries[0].Attrs["key1"])
+	assert.Equal(t, "val2", entries[0].Attrs["key2"])
+}
+
+func TestDefaultLogStore(t *testing.T) {
+	ls := logstore.New(1<<20, slog.LevelInfo)
+
+	// Save and restore the default log store.
+	old := DefaultLogStore()
+	SetDefaultLogStore(ls)
+	defer SetDefaultLogStore(old)
+
+	var buf bytes.Buffer
+	l := New(
+		WithAttr(slog.String("component", "test-comp")),
+		WithWriter(&buf),
+	)
+
+	l.Info("auto-attached message")
+
+	entries := ls.Query(logstore.QueryOpts{Source: "test-comp"})
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry from default log store, got %d", len(entries))
+	}
+	assert.Equal(t, "auto-attached message", entries[0].Message)
 }
 
 func TestSkipLog(t *testing.T) {
