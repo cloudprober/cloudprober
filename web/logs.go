@@ -21,12 +21,59 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/cloudprober/cloudprober/web/resources"
 )
+
+const logsCacheDuration = 5 * time.Second
+
+var logsCache struct {
+	sync.RWMutex
+	content    map[string][]byte
+	cachedTime map[string]time.Time
+}
+
+func init() {
+	logsCache.content = make(map[string][]byte)
+	logsCache.cachedTime = make(map[string]time.Time)
+}
+
+func logsCacheGet(url string) ([]byte, bool) {
+	logsCache.RLock()
+	defer logsCache.RUnlock()
+	if time.Since(logsCache.cachedTime[url]) > logsCacheDuration {
+		return nil, false
+	}
+	return logsCache.content[url], true
+}
+
+func logsCacheSet(url string, content []byte) {
+	logsCache.Lock()
+	defer logsCache.Unlock()
+
+	now := time.Now()
+	// Evict stale entries.
+	for k, t := range logsCache.cachedTime {
+		if now.Sub(t) > logsCacheDuration {
+			delete(logsCache.content, k)
+			delete(logsCache.cachedTime, k)
+		}
+	}
+
+	logsCache.content[url] = content
+	logsCache.cachedTime[url] = now
+}
+
+func logsCacheClear() {
+	logsCache.Lock()
+	defer logsCache.Unlock()
+	logsCache.content = make(map[string][]byte)
+	logsCache.cachedTime = make(map[string]time.Time)
+}
 
 var logsTmpl = template.Must(template.New("logs").Parse(`
 <style>
@@ -185,6 +232,12 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cacheKey := r.URL.String()
+	if cached, ok := logsCacheGet(cacheKey); ok {
+		w.Write(cached)
+		return
+	}
+
 	source := r.URL.Query().Get("source")
 	levelStr := r.URL.Query().Get("level")
 	if levelStr == "" {
@@ -223,7 +276,10 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 				Attrs:     e.Attrs,
 			}
 		}
-		json.NewEncoder(w).Encode(jsonEntries)
+		b, _ := json.Marshal(jsonEntries)
+		b = append(b, '\n')
+		logsCacheSet(cacheKey, b)
+		w.Write(b)
 		return
 	}
 
@@ -262,5 +318,7 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body := resources.ExecTmpl(logsTmpl, data)
-	w.Write([]byte(resources.RenderPage("/logs", body)))
+	page := []byte(resources.RenderPage("/logs", body))
+	logsCacheSet(cacheKey, page)
+	w.Write(page)
 }

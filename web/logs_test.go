@@ -29,6 +29,7 @@ import (
 
 func setupLogStore(t *testing.T) *logstore.LogStore {
 	t.Helper()
+	logsCacheClear()
 	ls := logstore.New(1<<20, slog.LevelInfo)
 
 	old := logger.DefaultLogStore()
@@ -109,6 +110,7 @@ func TestLogsHandlerHTMLLimit(t *testing.T) {
 }
 
 func TestLogsHandlerHTMLEmpty(t *testing.T) {
+	logsCacheClear()
 	ls := logstore.New(1<<20, slog.LevelInfo)
 	old := logger.DefaultLogStore()
 	logger.SetDefaultLogStore(ls)
