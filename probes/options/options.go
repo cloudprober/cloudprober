@@ -55,7 +55,7 @@ type Options struct {
 	NegativeTest        bool
 	AlertHandlers       []*alerting.AlertHandler
 	// TargetsUpdateInterval overrides the default scheduler target update
-	// interval (1 minute). Set from probe's re_eval_sec if configured.
+	// interval (1 minute). Set from probe's targets_update_sec if configured.
 	TargetsUpdateInterval time.Duration
 	// Prober config at the prober initialization time. This config is not
 	// reliable for things that may change after initialization, e.g. probes
@@ -208,7 +208,7 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 		LatencyMetricName:     p.GetLatencyMetricName(),
 		NegativeTest:          p.GetNegativeTest(),
 		AdditionalLabels:      parseAdditionalLabels(p),
-		TargetsUpdateInterval: time.Duration(p.GetReEvalSec()) * time.Second,
+		TargetsUpdateInterval: time.Duration(p.GetTargetsUpdateSec()) * time.Second,
 	}
 
 	// Validate and parse latency_unit.
