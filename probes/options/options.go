@@ -87,6 +87,7 @@ const defaultTimeoutPeriod = 1 * time.Second
 var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_TCP:  true,
 	configpb.ProbeDef_PING: true,
+	configpb.ProbeDef_HTTP: true,
 }
 
 func defaultStatsExportInterval(p *configpb.ProbeDef, opts *Options) time.Duration {
@@ -148,37 +149,51 @@ func getSourceIPFromConfig(p *configpb.ProbeDef) (net.IP, error) {
 	}
 }
 
-// BuildProbeOptions builds probe's options using the provided config and some
-// global params.
-func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberConfig *proberconfigpb.ProberConfig, l *logger.Logger) (*Options, error) {
+// parseIntervalTimeout parses and validates the interval and timeout fields
+// from the probe config, returning the resolved durations.
+func parseIntervalTimeout(p *configpb.ProbeDef) (time.Duration, time.Duration, error) {
 	intervalDuration := defaultIntervalPeriod
 	timeoutDuration := defaultTimeoutPeriod
 	var err error
 
 	if p.GetIntervalMsec() != 0 && p.GetInterval() != "" {
-		return nil, fmt.Errorf("both interval (%s) and interval_msec (%d) are specified", p.GetInterval(), p.GetIntervalMsec())
+		return 0, 0, fmt.Errorf("both interval (%s) and interval_msec (%d) are specified", p.GetInterval(), p.GetIntervalMsec())
 	} else if p.GetIntervalMsec() != 0 {
 		intervalDuration = time.Duration(p.GetIntervalMsec()) * time.Millisecond
 	} else if p.GetInterval() != "" {
 		intervalDuration, err = time.ParseDuration(p.GetInterval())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse interval (%s): %v", p.GetInterval(), err)
+			return 0, 0, fmt.Errorf("failed to parse interval (%s): %v", p.GetInterval(), err)
 		}
 	}
 
 	if p.GetTimeoutMsec() != 0 && p.GetTimeout() != "" {
-		return nil, fmt.Errorf("both timeout (%s) and timeout_msec (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
+		return 0, 0, fmt.Errorf("both timeout (%s) and timeout_msec (%d) are specified", p.GetTimeout(), p.GetTimeoutMsec())
 	} else if p.GetTimeoutMsec() != 0 {
 		timeoutDuration = time.Duration(p.GetTimeoutMsec()) * time.Millisecond
 	} else if p.GetTimeout() != "" {
 		timeoutDuration, err = time.ParseDuration(p.GetTimeout())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse timeout (%s): %v", p.GetTimeout(), err)
+			return 0, 0, fmt.Errorf("failed to parse timeout (%s): %v", p.GetTimeout(), err)
 		}
 	}
 
 	if intervalDuration < timeoutDuration && p.GetType() != configpb.ProbeDef_UDP {
-		return nil, fmt.Errorf("interval (%v) cannot be smaller than timeout (%v)", intervalDuration, timeoutDuration)
+		return 0, 0, fmt.Errorf("interval (%v) cannot be smaller than timeout (%v)", intervalDuration, timeoutDuration)
+	}
+
+	return intervalDuration, timeoutDuration, nil
+}
+
+// ValidateProbeConfig validates the probe configuration fields without
+// creating targets or other resources, and returns a partial Options with
+// the fields that can be derived from the proto config alone. This is used
+// by ConfigTest to catch config errors like improperly formatted duration
+// strings, and by BuildProbeOptions to avoid re-parsing the same fields.
+func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
+	intervalDuration, timeoutDuration, err := parseIntervalTimeout(p)
+	if err != nil {
+		return nil, err
 	}
 
 	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
@@ -186,15 +201,63 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 	}
 
 	opts := &Options{
-		Name:              p.GetName(),
-		Interval:          intervalDuration,
-		Timeout:           timeoutDuration,
-		IPVersion:         ipv(p.IpVersion),
-		LatencyMetricName: p.GetLatencyMetricName(),
-		ProberConfig:      proberConfig,
-		NegativeTest:      p.GetNegativeTest(),
-		Logger:            logger.NewWithAttrs(slog.String("probe", p.GetName())),
+		Name:                  p.GetName(),
+		Interval:              intervalDuration,
+		Timeout:               timeoutDuration,
+		IPVersion:             ipv(p.IpVersion),
+		LatencyMetricName:     p.GetLatencyMetricName(),
+		NegativeTest:          p.GetNegativeTest(),
+		AdditionalLabels:      parseAdditionalLabels(p),
+		TargetsUpdateInterval: time.Duration(p.GetReEvalSec()) * time.Second,
 	}
+
+	// Validate and parse latency_unit.
+	if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
+		return nil, fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
+	}
+
+	// Validate and parse latency_distribution if set.
+	if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
+		if opts.LatencyDist, err = metrics.NewDistributionFromProto(latencyDist); err != nil {
+			return nil, fmt.Errorf("error creating distribution from the specification (%v): %v", latencyDist, err)
+		}
+	}
+
+	// Validate and compute stats_export_interval.
+	if p.StatsExportIntervalMsec != nil {
+		statsIntv := time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
+
+		minIntv := intervalDuration
+		if timeoutDuration > minIntv {
+			minIntv = timeoutDuration
+		}
+		// UDP probe type requires stats export interval to be at least
+		// twice of the max(interval, timeout).
+		if p.GetType() == configpb.ProbeDef_UDP {
+			minIntv = 2 * minIntv
+		}
+
+		if statsIntv < minIntv {
+			return nil, fmt.Errorf("stats_export_interval (%d ms) smaller than min required interval %v", p.GetStatsExportIntervalMsec(), minIntv)
+		}
+		opts.StatsExportInterval = statsIntv
+	} else {
+		opts.StatsExportInterval = defaultStatsExportInterval(p, opts)
+	}
+
+	return opts, nil
+}
+
+// BuildProbeOptions builds probe's options using the provided config and some
+// global params.
+func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberConfig *proberconfigpb.ProberConfig, l *logger.Logger) (*Options, error) {
+	opts, err := ValidateProbeConfig(p)
+	if err != nil {
+		return nil, err
+	}
+
+	opts.ProberConfig = proberConfig
+	opts.Logger = logger.NewWithAttrs(slog.String("probe", p.GetName()))
 
 	if p.GetTargets() == nil {
 		targetsNotRequired := []configpb.ProbeDef_Type{
@@ -217,23 +280,6 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 		return nil, err
 	}
 
-	if reEvalSec := p.GetReEvalSec(); reEvalSec > 0 {
-		opts.TargetsUpdateInterval = time.Duration(reEvalSec) * time.Second
-	}
-
-	if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
-		var d *metrics.Distribution
-		if d, err = metrics.NewDistributionFromProto(latencyDist); err != nil {
-			return nil, fmt.Errorf("error creating distribution from the specification (%v): %v", latencyDist, err)
-		}
-		opts.LatencyDist = d
-	}
-
-	// latency_unit is specified as a human-readable string, e.g. ns, ms, us etc.
-	if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
-		return nil, fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
-	}
-
 	if len(p.GetValidator()) > 0 {
 		opts.Validators, err = validators.Init(p.GetValidator())
 		if err != nil {
@@ -251,17 +297,6 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 			opts.IPVersion = iputils.IPVersion(opts.SourceIP)
 		}
 	}
-
-	if p.StatsExportIntervalMsec == nil {
-		opts.StatsExportInterval = defaultStatsExportInterval(p, opts)
-	} else {
-		opts.StatsExportInterval = time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
-		if opts.StatsExportInterval < opts.Interval {
-			return nil, fmt.Errorf("stats_export_interval (%d ms) smaller than probe interval %v", p.GetStatsExportIntervalMsec(), opts.Interval)
-		}
-	}
-
-	opts.AdditionalLabels = parseAdditionalLabels(p)
 
 	for _, alertConf := range p.GetAlert() {
 		ah, err := alerting.NewAlertHandler(alertConf, p.GetName(), opts.Logger)

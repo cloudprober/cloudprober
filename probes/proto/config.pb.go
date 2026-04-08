@@ -419,7 +419,7 @@ type ProbeDef struct {
 	// target doesn't respond. This is useful, for example, that your firewall is
 	// working as expected.
 	//
-	// This is currently implemented only by PING and TCP probes.
+	// This is currently implemented only by PING, TCP, and HTTP probes.
 	// Note: This field is currently experimental, and may change in future.
 	NegativeTest *bool `protobuf:"varint,18,opt,name=negative_test,json=negativeTest" json:"negative_test,omitempty"`
 	// Alerts configuration. If specified, cloudprober will generate alerts on

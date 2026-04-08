@@ -121,11 +121,11 @@ func TestConfigTest(t *testing.T) {
 		configFile     string
 		cs             ConfigSource
 		withBaseVars   map[string]any
-		wantErr        bool
+		wantErr        string
 	}{
 		{
 			name:    "no_config_error",
-			wantErr: true,
+			wantErr: "config_file is required",
 		},
 		{
 			name:       "valid_base",
@@ -134,12 +134,12 @@ func TestConfigTest(t *testing.T) {
 		{
 			name:           "invalid_without_vars_flag",
 			configFileFlag: "testdata/cloudprober_invalid.cfg",
-			wantErr:        true,
+			wantErr:        "syntax error",
 		},
 		{
 			name:       "invalid_without_vars",
 			configFile: "testdata/cloudprober_invalid.cfg",
-			wantErr:    true,
+			wantErr:    "syntax error",
 		},
 		{
 			name:       "valid_with_explicit_vars",
@@ -157,6 +157,21 @@ func TestConfigTest(t *testing.T) {
 			},
 			configFile: "testdata/cloudprober_invalid.cfg",
 		},
+		{
+			name:       "bad_interval",
+			configFile: "testdata/cloudprober_bad_interval.cfg",
+			wantErr:    "failed to parse interval",
+		},
+		{
+			name:       "bad_timeout",
+			configFile: "testdata/cloudprober_bad_timeout.cfg",
+			wantErr:    "failed to parse timeout",
+		},
+		{
+			name:       "bad_latency_unit",
+			configFile: "testdata/cloudprober_bad_latency_unit.cfg",
+			wantErr:    "failed to parse the latency unit",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -165,8 +180,11 @@ func TestConfigTest(t *testing.T) {
 				tt.cs = ConfigSourceWithFile(tt.configFile, WithBaseVars(tt.withBaseVars))
 			}
 			*configFile = tt.configFileFlag
-			if err := ConfigTest(tt.cs); (err != nil) != tt.wantErr {
-				t.Errorf("ConfigTest() error = %v, wantErr %v", err, tt.wantErr)
+			err := ConfigTest(tt.cs)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

@@ -27,7 +27,6 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -333,8 +332,18 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		if isClientTimeout(err) {
 			result.timeouts++
 		}
+		if p.opts.NegativeTest {
+			result.success++
+			return nil
+		}
 		l.Warning(err.Error())
 		return err
+	}
+
+	if p.opts.NegativeTest {
+		resp.Body.Close()
+		l.Error("Negative test, but HTTP request succeeded for: ", req.URL.String())
+		return errors.New("negative test: request succeeded unexpectedly")
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -590,14 +599,18 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		if err != nil {
 			p.l.Error("Error creating HTTP request for target: ", target.Name, ", err: ", err.Error())
 			result.total += int64(p.c.GetRequestsPerProbe())
+			runReq.LastRun.Set(false, 0, err)
 			return
 		}
 		tgtState.req = req
 	}
 
+	start := time.Now()
+	startSuccess := result.success
+
 	if p.c.GetRequestsPerProbe() == 1 {
-		// Ignore the error returned by doHTTPRequest, as it's already logged.
-		_ = p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
+		err := p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
+		runReq.LastRun.Set(result.success > startSuccess, time.Since(start), err)
 		return
 	}
 
@@ -619,65 +632,21 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()
+
+	// With current configuration it will not be called as we don't support
+	// run-once if requests_per_probe > 1
+	runReq.LastRun.Set(result.success > startSuccess, time.Since(start), nil)
 }
 
 // RunOnce runs the probe just once.
 func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 	p.l.Info("Running HTTP probe once.")
-
 	if p.c.GetRequestsPerProbe() > 1 {
-		p.l.Warningf("requests_per_probe > 1 is not supported in single run mode, ignoring it.")
+		p.l.Error("Run-once is not supported for requests_per_probe > 1")
+		return nil
 	}
 
-	var out []*singlerun.ProbeRunResult
-	var outMu sync.Mutex
-
-	var wg sync.WaitGroup
-	for _, target := range p.opts.Targets.ListEndpoints() {
-		wg.Add(1)
-		go func(target endpoint.Endpoint) {
-			defer wg.Done()
-
-			updateOut := func(result *singlerun.ProbeRunResult) {
-				outMu.Lock()
-				defer outMu.Unlock()
-				result.Target = target
-				out = append(out, result)
-			}
-
-			result := p.newResult()
-
-			req, err := p.httpRequestForTarget(target)
-			if err != nil {
-				updateOut(&singlerun.ProbeRunResult{
-					Error: fmt.Errorf("error creating HTTP request for target: %s, err: %v", target.Name, err),
-				})
-				return
-			}
-
-			start := time.Now()
-			if err := p.doHTTPRequest(req.WithContext(ctx), p.httpClient(target), target, result, nil); err != nil {
-				updateOut(&singlerun.ProbeRunResult{
-					Error: fmt.Errorf("error doing HTTP request for target: %s, err: %v", target.Name, err),
-				})
-				return
-			}
-
-			updateOut(&singlerun.ProbeRunResult{
-				Metrics: result.Metrics(time.Now(), 1, p.opts),
-				Success: result.success > 0,
-				Latency: time.Since(start),
-			})
-		}(target)
-	}
-	wg.Wait()
-
-	// Sort the results by target name
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Target.Name < out[j].Target.Name
-	})
-
-	return out
+	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }
 
 // Start starts and runs the probe indefinitely.

@@ -61,7 +61,7 @@ without external infrastructure.
 Need to know how long the "Add to cart" step takes *inside* a checkout test?
 Enable step-level metrics:
 
-```textproto
+```proto
 test_metrics_options {
   enable_step_metrics: true
 }
@@ -122,7 +122,7 @@ See [Running with Docker](#running-with-docker) for details.
 
 ### 1. Cloudprober Config
 
-```textproto
+```proto
 probe {
   name: "website_e2e"
   type: BROWSER
@@ -164,7 +164,7 @@ artifacts locally for 24 hours.
 
 ### 2. Sample Playwright Test (TypeScript)
 
-```typescript
+```javascript
 // /tests/website.spec.ts
 import { test, expect } from "@playwright/test";
 
@@ -215,7 +215,7 @@ for all possible options. Here are some key fields:
 
 **`TestSpecFilter`**
 
-```textproto
+```proto
 test_spec_filter {
   include: "@smoke|@critical"   # playwright --grep
   exclude: "@draft"             # playwright --grep-invert
@@ -236,7 +236,7 @@ The artifacts viewer is served by Cloudprober's built-in web server but is
 Set `global_artifacts_options` ([ref](https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_browser_artifacts_ArtifactsOptions)) at the top level of your Cloudprober config. This
 applies to all browser probes and keeps per-probe configs clean.
 
-```textproto
+```proto
 global_artifacts_options {
   serve_on_web: true
   storage {
@@ -261,7 +261,7 @@ Start above). Per-probe options override the global config.
 Storage backends are defined in the `storage` field. You can specify multiple
 backends -- Cloudprober uploads to all of them in parallel.
 
-```textproto
+```proto
 global_artifacts_options {
   serve_on_web: true
 
