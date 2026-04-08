@@ -175,8 +175,11 @@ func (ls *LogStore) Store(level slog.Level, msg string, attrs []slog.Attr) {
 		ls.curMemBytes -= evictedSize
 	}
 
-	// Evict oldest entries across all buffers until under memory ceiling.
-	ls.evictUntilUnderLimit()
+	// Only evict when over the ceiling. When triggered, evict down to 95%
+	// to create headroom and amortize the cost of scanning all buffers.
+	if ls.curMemBytes > ls.maxMemBytes {
+		ls.evictTo(ls.maxMemBytes * 95 / 100)
+	}
 }
 
 func (ls *LogStore) getOrCreateBuffer(source string) *ringBuffer {
@@ -191,11 +194,10 @@ func (ls *LogStore) getOrCreateBuffer(source string) *ringBuffer {
 	return rb
 }
 
-// evictUntilUnderLimit evicts oldest entries from the buffer with the most
-// memory usage until total memory is under the ceiling. Must be called with
-// ls.mu held.
-func (ls *LogStore) evictUntilUnderLimit() {
-	for ls.curMemBytes > ls.maxMemBytes {
+// evictTo evicts oldest entries from the buffer with the most memory usage
+// until total memory is at or below the target. Must be called with ls.mu held.
+func (ls *LogStore) evictTo(target int64) {
+	for ls.curMemBytes > target {
 		// Find the buffer using the most memory.
 		var maxBuf *ringBuffer
 		var maxMem int64
