@@ -16,6 +16,7 @@ package prober
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"reflect"
@@ -25,11 +26,17 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	probestatuspb "github.com/cloudprober/cloudprober/internal/surfacers/probestatus/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger/logstore"
+	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/stretchr/testify/assert"
 
+	probestatus "github.com/cloudprober/cloudprober/internal/surfacers/probestatus"
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/cloudprober/cloudprober/state"
+	"github.com/cloudprober/cloudprober/surfacers/options"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -310,4 +317,143 @@ func TestSaveProbesConfig(t *testing.T) {
 	f2 := tmpFile()
 	pr.SaveProbesConfig(context.Background(), &pb.SaveProbesConfigRequest{FilePath: proto.String(f2.Name())})
 	compareConfig(f2.Name(), wantConfigProbe1)
+}
+
+// testProbeStatusSurfacer creates a probestatus surfacer with test metrics
+// data for the given probes. Each probe gets one target "t1" with the
+// specified total/success values recorded at two time points to produce a
+// computable delta.
+func testProbeStatusSurfacer(t *testing.T, ctx context.Context, probeNames []string) *probestatus.Surfacer {
+	t.Helper()
+
+	state.SetDefaultHTTPServeMux(http.NewServeMux())
+	t.Cleanup(func() { state.SetDefaultHTTPServeMux(nil) })
+
+	ps, err := probestatus.New(ctx, &probestatuspb.SurfacerConf{
+		TimeseriesSize:     proto.Int32(20),
+		MaxTargetsPerProbe: proto.Int32(10),
+	}, &options.Options{}, nil)
+	if err != nil {
+		t.Fatalf("error creating probestatus surfacer: %v", err)
+	}
+
+	// Record two data points per probe to create a computable delta.
+	baseTime := time.Now().Add(-5 * time.Minute).Truncate(time.Minute)
+	for _, name := range probeNames {
+		for i := 0; i < 3; i++ {
+			ts := baseTime.Add(time.Duration(i+1) * time.Minute)
+			em := metrics.NewEventMetrics(ts).
+				AddLabel("probe", name).
+				AddLabel("dst", "t1").
+				AddMetric("total", metrics.NewInt(int64((i+1)*100))).
+				AddMetric("success", metrics.NewInt(int64((i+1)*90))).
+				AddMetric("latency", metrics.NewFloat(0))
+			ps.Write(ctx, em)
+		}
+	}
+
+	// Give the event loop goroutine time to process the writes.
+	time.Sleep(100 * time.Millisecond)
+	return ps
+}
+
+func TestGetProbeStatusWithLogs(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ps := testProbeStatusSurfacer(t, ctx, []string{"p1", "p2"})
+
+	// Set up log store with entries for p1 and p2.
+	ls := logstore.New(1<<20, slog.LevelInfo)
+	oldLS := logger.DefaultLogStore()
+	logger.SetDefaultLogStore(ls)
+	defer logger.SetDefaultLogStore(oldLS)
+
+	ls.Store(slog.LevelInfo, "p1 info msg", []slog.Attr{slog.String("probe", "p1")})
+	ls.Store(slog.LevelError, "p1 error msg", []slog.Attr{slog.String("probe", "p1"), slog.String("target", "t1")})
+	ls.Store(slog.LevelWarn, "p2 warn msg", []slog.Attr{slog.String("probe", "p2")})
+
+	pr := &Prober{probeStatusSurfacer: ps}
+
+	t.Run("include_logs_true", func(t *testing.T) {
+		resp, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{
+			IncludeLogs: proto.Bool(true),
+		})
+		assert.NoError(t, err)
+		assert.NotEmpty(t, resp.GetProbeStatus())
+
+		// Build a map of probe name -> logs for easier assertions.
+		logsByProbe := make(map[string][]*pb.LogEntry)
+		for _, ps := range resp.GetProbeStatus() {
+			logsByProbe[ps.GetName()] = ps.GetLogs()
+		}
+
+		// p1 should have 2 log entries.
+		assert.Len(t, logsByProbe["p1"], 2)
+		assert.Equal(t, "p1 info msg", logsByProbe["p1"][0].GetMessage())
+		assert.Equal(t, "INFO", logsByProbe["p1"][0].GetLevel())
+		assert.Equal(t, "p1 error msg", logsByProbe["p1"][1].GetMessage())
+		assert.Equal(t, "ERROR", logsByProbe["p1"][1].GetLevel())
+		// Verify attributes are present.
+		assert.Equal(t, "t1", logsByProbe["p1"][1].GetAttributes()["target"])
+
+		// Verify timestamps are set.
+		assert.NotZero(t, logsByProbe["p1"][0].GetTimestampSec())
+
+		// p2 should have 1 log entry.
+		assert.Len(t, logsByProbe["p2"], 1)
+		assert.Equal(t, "p2 warn msg", logsByProbe["p2"][0].GetMessage())
+		assert.Equal(t, "WARN", logsByProbe["p2"][0].GetLevel())
+	})
+
+	t.Run("include_logs_false", func(t *testing.T) {
+		resp, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{
+			IncludeLogs: proto.Bool(false),
+		})
+		assert.NoError(t, err)
+
+		for _, ps := range resp.GetProbeStatus() {
+			assert.Empty(t, ps.GetLogs(), "logs should be empty when include_logs=false")
+		}
+	})
+
+	t.Run("include_logs_unset", func(t *testing.T) {
+		resp, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{})
+		assert.NoError(t, err)
+
+		for _, ps := range resp.GetProbeStatus() {
+			assert.Empty(t, ps.GetLogs(), "logs should be empty when include_logs is unset")
+		}
+	})
+
+	t.Run("log_limit", func(t *testing.T) {
+		resp, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{
+			IncludeLogs: proto.Bool(true),
+			LogLimit:    proto.Int32(1),
+		})
+		assert.NoError(t, err)
+
+		logsByProbe := make(map[string][]*pb.LogEntry)
+		for _, ps := range resp.GetProbeStatus() {
+			logsByProbe[ps.GetName()] = ps.GetLogs()
+		}
+
+		// p1 has 2 entries but limit=1 should return only the most recent.
+		assert.Len(t, logsByProbe["p1"], 1)
+		assert.Equal(t, "p1 error msg", logsByProbe["p1"][0].GetMessage())
+	})
+
+	t.Run("no_log_store", func(t *testing.T) {
+		logger.SetDefaultLogStore(nil)
+		defer logger.SetDefaultLogStore(ls)
+
+		resp, err := pr.GetProbeStatus(ctx, &pb.GetProbeStatusRequest{
+			IncludeLogs: proto.Bool(true),
+		})
+		assert.NoError(t, err)
+
+		for _, ps := range resp.GetProbeStatus() {
+			assert.Empty(t, ps.GetLogs(), "logs should be empty when log store is nil")
+		}
+	})
 }
