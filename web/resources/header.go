@@ -42,6 +42,7 @@ var t = template.Must(template.New("header").Parse(`
   <b>Other Links </b>(<a href="{{.LinksPrefix}}links">all</a>):
   	<a href="{{.LinksPrefix}}{{.StatusLink}}">/status</a>,
 	<a href="{{.LinksPrefix}}config-running">/config</a> (<a href="{{.LinksPrefix}}config-parsed">parsed</a> | <a href="{{.LinksPrefix}}config">raw</a>),
+	<a href="{{.LinksPrefix}}logs">/logs</a>,
 	{{if .IncludeMetricsLink -}} <a href="{{.LinksPrefix}}metrics">/metrics</a>,{{ end }}
 	{{if .IncludeArtifactsLink -}} <a href="{{.LinksPrefix}}artifacts">/artifacts</a>,{{ end }}
 	<a href="{{.LinksPrefix}}alerts">/alerts</a>
