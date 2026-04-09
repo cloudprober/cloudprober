@@ -21,11 +21,19 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/stretchr/testify/assert"
 )
+
+func logsCacheClear() {
+	logsCache.Lock()
+	defer logsCache.Unlock()
+	logsCache.content = make(map[string][]byte)
+	logsCache.cachedTime = make(map[string]time.Time)
+}
 
 func setupLogStore(t *testing.T) *logstore.LogStore {
 	t.Helper()

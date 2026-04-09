@@ -68,13 +68,6 @@ func logsCacheSet(url string, content []byte) {
 	logsCache.cachedTime[url] = now
 }
 
-func logsCacheClear() {
-	logsCache.Lock()
-	defer logsCache.Unlock()
-	logsCache.content = make(map[string][]byte)
-	logsCache.cachedTime = make(map[string]time.Time)
-}
-
 var logsTmpl = template.Must(template.New("logs").Parse(`
 <style>
   .logs-filters {
@@ -232,6 +225,11 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isJSON := r.URL.Query().Get("format") == "json"
+	if isJSON {
+		w.Header().Set("Content-Type", "application/json")
+	}
+
 	cacheKey := r.URL.String()
 	if cached, ok := logsCacheGet(cacheKey); ok {
 		w.Write(cached)
@@ -265,8 +263,7 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 		Limit:    limit,
 	})
 
-	if r.URL.Query().Get("format") == "json" {
-		w.Header().Set("Content-Type", "application/json")
+	if isJSON {
 		jsonEntries := make([]logEntryJSON, len(entries))
 		for i, e := range entries {
 			jsonEntries[i] = logEntryJSON{
