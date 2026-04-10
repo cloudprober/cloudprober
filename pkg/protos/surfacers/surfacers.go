@@ -55,6 +55,7 @@ const BigqueryDefault_SurfacerConf_MetricTimeColName = bigquerypb.Default_Surfac
 const BigqueryDefault_SurfacerConf_MetricValueColName = bigquerypb.Default_SurfacerConf_MetricValueColName
 const BigqueryDefault_SurfacerConf_MetricsBatchSize = bigquerypb.Default_SurfacerConf_MetricsBatchSize
 const BigqueryDefault_SurfacerConf_MetricsBufferSize = bigquerypb.Default_SurfacerConf_MetricsBufferSize
+const BigqueryDefault_SurfacerConf_WideRows = bigquerypb.Default_SurfacerConf_WideRows
 type BigqueryBQColumn = bigquerypb.BQColumn
 type BigquerySurfacerConf = bigquerypb.SurfacerConf
 
