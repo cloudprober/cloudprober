@@ -427,6 +427,35 @@ func TestParseWideRowMapExpansion(t *testing.T) {
 	}
 }
 
+func TestParseWideRowMapFloatExpansion(t *testing.T) {
+	s := newWideSurfacer(
+		nil,
+		map[string]string{"latency_pct": ""},
+	)
+
+	em := metrics.NewEventMetrics(time.Now())
+	m := metrics.NewMapFloat("percentile")
+	m.IncKeyBy("p50", 1.5)
+	m.IncKeyBy("p99", 42.3)
+	em.AddMetric("latency_pct", m)
+
+	rows, err := s.parseBQCols(em)
+	if err != nil {
+		t.Fatalf("parseBQCols returned error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 wide row, got %d", len(rows))
+	}
+	row := rows[0].value
+
+	if row["latency_pct_p50"] != 1.5 {
+		t.Errorf("latency_pct_p50: got %v, want 1.5", row["latency_pct_p50"])
+	}
+	if row["latency_pct_p99"] != 42.3 {
+		t.Errorf("latency_pct_p99: got %v, want 42.3", row["latency_pct_p99"])
+	}
+}
+
 func TestParseWideRowDistribution(t *testing.T) {
 	s := newWideSurfacer(
 		nil,
