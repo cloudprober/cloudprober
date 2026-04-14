@@ -55,8 +55,14 @@ message ProbeConf {
   // default, external probe will export output metrics as they are available
   // on the stdout. If this option is set to true, output metrics will be
   // exported only after the probe has completed.
-  // New in version 0.13.4. This was true by default in previous versions. 
+  // New in version 0.13.4. This was true by default in previous versions.
   optional bool disable_streaming_output_metrics = 7 [default = false];
+
+  // If true, pass through stderr output directly to cloudprober's stderr
+  // without wrapping it in cloudprober's log format. This is useful when the
+  // external probe outputs JSON structured logs (e.g., with GCP trace fields)
+  // that should be parsed directly by Cloud Logging.
+  optional bool raw_stderr_output = 8 [default = false];
 }
 
 // Server mode request and response messages.
