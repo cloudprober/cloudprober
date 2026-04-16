@@ -116,8 +116,13 @@ type ProbeConf struct {
 	// exported only after the probe has completed.
 	// New in version 0.13.4. This was true by default in previous versions.
 	DisableStreamingOutputMetrics *bool `protobuf:"varint,7,opt,name=disable_streaming_output_metrics,json=disableStreamingOutputMetrics,def=0" json:"disable_streaming_output_metrics,omitempty"`
-	unknownFields                 protoimpl.UnknownFields
-	sizeCache                     protoimpl.SizeCache
+	// If true, pass through stderr output directly to cloudprober's stderr
+	// without wrapping it in cloudprober's log format. This is useful when the
+	// external probe outputs JSON structured logs (e.g., with GCP trace fields)
+	// that should be parsed directly by Cloud Logging.
+	RawStderrOutput *bool `protobuf:"varint,8,opt,name=raw_stderr_output,json=rawStderrOutput,def=0" json:"raw_stderr_output,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 // Default values for ProbeConf fields.
@@ -125,6 +130,7 @@ const (
 	Default_ProbeConf_Mode                          = ProbeConf_ONCE
 	Default_ProbeConf_OutputAsMetrics               = bool(true)
 	Default_ProbeConf_DisableStreamingOutputMetrics = bool(false)
+	Default_ProbeConf_RawStderrOutput               = bool(false)
 )
 
 func (x *ProbeConf) Reset() {
@@ -204,6 +210,13 @@ func (x *ProbeConf) GetDisableStreamingOutputMetrics() bool {
 		return *x.DisableStreamingOutputMetrics
 	}
 	return Default_ProbeConf_DisableStreamingOutputMetrics
+}
+
+func (x *ProbeConf) GetRawStderrOutput() bool {
+	if x != nil && x.RawStderrOutput != nil {
+		return *x.RawStderrOutput
+	}
+	return Default_ProbeConf_RawStderrOutput
 }
 
 // ProbeRequest is the message that cloudprober sends to the external probe
@@ -455,7 +468,7 @@ var File_github_com_cloudprober_cloudprober_probes_external_proto_config_proto p
 
 const file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Egithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x12\x1bcloudprober.probes.external\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xfa\x04\n" +
+	"Egithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x12\x1bcloudprober.probes.external\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xad\x05\n" +
 	"\tProbeConf\x12E\n" +
 	"\x04mode\x18\x01 \x01(\x0e2+.cloudprober.probes.external.ProbeConf.Mode:\x04ONCER\x04mode\x12\x18\n" +
 	"\acommand\x18\x02 \x02(\tR\acommand\x12K\n" +
@@ -463,7 +476,8 @@ const file_github_com_cloudprober_cloudprober_probes_external_proto_config_proto
 	"\aoptions\x18\x03 \x03(\v2-.cloudprober.probes.external.ProbeConf.OptionR\aoptions\x120\n" +
 	"\x11output_as_metrics\x18\x04 \x01(\b:\x04trueR\x0foutputAsMetrics\x12g\n" +
 	"\x16output_metrics_options\x18\x05 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptions\x12N\n" +
-	" disable_streaming_output_metrics\x18\a \x01(\b:\x05falseR\x1ddisableStreamingOutputMetrics\x1a9\n" +
+	" disable_streaming_output_metrics\x18\a \x01(\b:\x05falseR\x1ddisableStreamingOutputMetrics\x121\n" +
+	"\x11raw_stderr_output\x18\b \x01(\b:\x05falseR\x0frawStderrOutput\x1a9\n" +
 	"\vEnvVarEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a2\n" +
