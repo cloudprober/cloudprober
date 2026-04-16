@@ -86,6 +86,10 @@ column_name: &lt;string>
 
 column_type: &lt;string>
 
+<div class=comment># When wide_rows is enabled, select which metric&#39;s value to write into this
+# column. Mutually exclusive with label (label maps a probe label to a
+# column; metric_name maps a metric value to a column).</div>metric_name: &lt;string>
+
 </pre><h3 id=cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf <a class=anchor href=#cloudprober_surfacer_bigquery_SurfacerConf>#</a></h3><pre class=protodoc>
 
 project_name: &lt;string>
@@ -118,6 +122,10 @@ metrics_batch_size: &lt;int64> | default: 1000
 metric_name_col_name: &lt;string> | default: metric_name
 
 metric_value_col_name: &lt;string> | default: metric_value
+
+<div class=comment># If true, write one wide row per EventMetrics instead of one tall row per
+# metric. Each BQColumn entry must specify a metric_name to select the
+# metric value written into that column.</div>wide_rows: &lt;bool> | default: false
 
 </pre><h3 id=cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf <a class=anchor href=#cloudprober_surfacer_cloudwatch_SurfacerConf>#</a></h3><pre class=protodoc>
 
@@ -455,6 +463,10 @@ column_name: &lt;string>
 
 column_type: &lt;string>
 
+<div class=comment># When wide_rows is enabled, select which metric&#39;s value to write into this
+# column. Mutually exclusive with label (label maps a probe label to a
+# column; metric_name maps a metric value to a column).</div>metric_name: &lt;string>
+
 </pre><h3 id=cloudprober_surfacer_bigquery_SurfacerConf>cloudprober.surfacer.bigquery.SurfacerConf <a class=anchor href=#cloudprober_surfacer_bigquery_SurfacerConf>#</a></h3><pre class=protodoc>
 
 project_name: &lt;string>
@@ -487,6 +499,10 @@ metrics_batch_size: &lt;int64> | default: 1000
 metric_name_col_name: &lt;string> | default: metric_name
 
 metric_value_col_name: &lt;string> | default: metric_value
+
+<div class=comment># If true, write one wide row per EventMetrics instead of one tall row per
+# metric. Each BQColumn entry must specify a metric_name to select the
+# metric value written into that column.</div>wide_rows: &lt;bool> | default: false
 
 </pre><h3 id=cloudprober_surfacer_cloudwatch_SurfacerConf>cloudprober.surfacer.cloudwatch.SurfacerConf <a class=anchor href=#cloudprober_surfacer_cloudwatch_SurfacerConf>#</a></h3><pre class=protodoc>
 
@@ -747,4 +763,4 @@ metrics_buffer_size: &lt;int64> | default: 10000
 </pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/surfacers/stackdriver/><div class="card my-1"><div class="card-body py-2">&larr; Stackdriver (Google Cloud)</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/main/targets/><div class="card my-1"><div class="card-body py-2">Targets Config (main) &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.e88f97af25c65fb47a556a71d776264fd698b60be96e3f1834be445885340b675b7cf223e0ebfaa3f05cada378b3f9496dc2a3e6da07fae6de7a4108e5f8dbfd.js integrity="sha512-6I+XryXGX7R6VWpx13YmT9aYtgvpbj8YNL5EWIU0C2dbfPIj4Ov6o/BcraN4s/lJbcKj5toH+ubeekEI5fjb/Q==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/js/highlight.min.226296d88e3704fa2feb7a7b6f8611ec83d1de3c91feb4e189f8552145a0e9bea83a5ab9d2ebd4bcd95bb6736f02f7dbe76853b87c8abc7bbb9eeccc2fa3b0ae.js integrity="sha512-ImKW2I43BPov63p7b4YR7IPR3jyR/rThifhVIUWg6b6oOlq50uvUvNlbtnNvAvfb52hTuHyKvHu7nuzML6Owrg==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.5342c819d4c3c3863bbfa5a876a27f55208ef2e93cda9e9cb936cdc2b8888293a8f55792eb4e19b513d6a10d1123c2ce6b390c04d9b0739eac535e93738cc385.js integrity="sha512-U0LIGdTDw4Y7v6WodqJ/VSCO8uk82p6cuTbNwriIgpOo9VeS604ZtRPWoQ0RI8LOazkMBNmwc56sU16Tc4zDhQ==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.e9b72a3537f61175f852594958a47e3f3e81ce64abf0b1f3bb9271c86a6dffb7734ac6f07c701d21faaf7091b06c233c88667033788de8a88163cc73cfdeeda6.js integrity="sha512-6bcqNTf2EXX4UllJWKR+Pz6BzmSr8LHzu5JxyGpt/7dzSsbwfHAdIfqvcJGwbCM8iGZwM3iN6KiBY8xzz97tpg==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.faf557e516b82404b0901d4973fe51e93c18928a5a8aef7a2a079d6399e578bbf6545fe968071dad87d9c2c25db5332e5ffcbde004d33df70231e06146883095.js integrity="sha512-+vVX5Ra4JASwkB1Jc/5R6TwYkopaiu96KgedY5nleLv2VF/paAcdrYfZwsJdtTMuX/y94ATTPfcCMeBhRogwlQ==" crossorigin=anonymous defer></script></body></html>
