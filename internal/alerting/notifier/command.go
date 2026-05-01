@@ -39,23 +39,16 @@ func (cn *commandNotifier) Notify(ctx context.Context, fields map[string]string)
 		cmdParts[i] = res
 	}
 
-	cn.l.Infof("Starting external command: %s", strings.Join(cmdParts, " "))
+	cn.l.Infof("Running external command: %s", strings.Join(cmdParts, " "))
 
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-
-	if err := cmd.Start(); err != nil {
+	out, err := cmd.Output()
+	if err != nil {
 		return err
 	}
-
-	// Reap the child in a goroutine so it doesn't become a zombie. The command
-	// is fire-and-forget from the caller's perspective, but the kernel keeps
-	// the process table entry until somebody calls wait().
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			cn.l.Warningf("Notify command exited with error: %v", err)
-		}
-	}()
-
+	if len(out) > 0 {
+		cn.l.Infof("Notify command output: %s", out)
+	}
 	return nil
 }
 
