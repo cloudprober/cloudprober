@@ -43,7 +43,20 @@ func (cn *commandNotifier) Notify(ctx context.Context, fields map[string]string)
 
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
 
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	// Reap the child in a goroutine so it doesn't become a zombie. The command
+	// is fire-and-forget from the caller's perspective, but the kernel keeps
+	// the process table entry until somebody calls wait().
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			cn.l.Warningf("Notify command exited with error: %v", err)
+		}
+	}()
+
+	return nil
 }
 
 func newCommandNotifier(cmd string, l *logger.Logger) (*commandNotifier, error) {
