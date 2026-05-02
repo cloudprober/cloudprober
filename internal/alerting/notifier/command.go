@@ -39,11 +39,17 @@ func (cn *commandNotifier) Notify(ctx context.Context, fields map[string]string)
 		cmdParts[i] = res
 	}
 
-	cn.l.Infof("Starting external command: %s", strings.Join(cmdParts, " "))
+	cn.l.Infof("Running external command: %s", strings.Join(cmdParts, " "))
 
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-
-	return cmd.Start()
+	out, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	if len(out) > 0 {
+		cn.l.Infof("Notify command output: %s", out)
+	}
+	return nil
 }
 
 func newCommandNotifier(cmd string, l *logger.Logger) (*commandNotifier, error) {
