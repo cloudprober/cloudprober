@@ -12,6 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Notes on go.starlark.net threads:
+//
+// A starlark.Thread is a single, sequential evaluation context — it is NOT a
+// goroutine. Concurrency in Starlark itself is non-existent; each thread runs
+// one frame at a time. Threads are cheap to create (a struct with a name,
+// frame stack, and a few hooks) so we make a fresh one for every probe run.
+//
+// Three thread features matter for this package:
+//
+//  1. thread.Cancel(reason): asks the interpreter to stop. The running script
+//     is *not* interrupted mid-opcode — the interpreter checks the cancel
+//     flag at every backwards branch and at every CALL/RETURN, then returns a
+//     starlark.EvalError. This is why builtins that block on I/O (like our
+//     http calls) MUST also honor the same cancellation: we attach the probe
+//     ctx to outgoing http.Request objects so the I/O bails out promptly. If
+//     a builtin blocks indefinitely with no ctx, thread.Cancel alone won't
+//     unblock it.
+//
+//  2. thread.SetLocal/Local: a string-keyed scratch area on the thread,
+//     invisible to Starlark code. We use it to thread the per-run
+//     context.Context down to builtins (see ctxFromThread). Starlark has no
+//     equivalent to Go's context plumbing, so this is the canonical pattern.
+//
+//  3. thread.Print: where Starlark's built-in print() goes. We route it to
+//     the cloudprober logger so script-side debug lines land in the same
+//     place as everything else.
+//
+// Globals:
+//
+// Module-level code (top-level `def`, assignments, etc.) runs once during
+// starlark.ExecFile in NewRuntime. After ExecFile returns, the resulting
+// StringDict is implicitly frozen for *mutation from new threads*: a fresh
+// thread invoking probe() sees the globals as read-only. This means:
+//
+//   - You can't accumulate state in a module-level dict across probe runs.
+//   - Helper functions defined at module level are safe to call concurrently
+//     from multiple per-target threads (they have no shared mutable state).
+//
+// Cross-run state, when we add it in phase 2, will need an explicit `state`
+// builtin backed by Go-side storage — not module globals.
 package script
 
 import (
@@ -46,6 +86,8 @@ func NewRuntime(name, source, entryPoint string, l *logger.Logger) (*Runtime, er
 	}
 	rt.predeclared = builtins()
 
+	// One-shot thread used only to evaluate the file's top level. After
+	// ExecFile returns we discard it; the resulting globals are reused.
 	thread := &starlark.Thread{
 		Name:  name + "-load",
 		Print: func(_ *starlark.Thread, msg string) { l.Info(msg) },
@@ -83,15 +125,25 @@ func ctxFromThread(t *starlark.Thread) context.Context {
 // Run invokes the entry point with a target value. It returns nil on clean
 // return, or an error on Starlark eval failure / assertion failure / ctx
 // cancellation.
+//
+// Per call we build a brand-new starlark.Thread. Threads are cheap and giving
+// each call its own avoids any chance of state leaking between runs (target
+// X's failed assertion shouldn't poison target Y's thread.Cancel state).
+// The global StringDict is shared and treated as read-only.
 func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
 	thread := &starlark.Thread{
 		Name:  rt.name,
 		Print: func(_ *starlark.Thread, msg string) { rt.l.Info(msg) },
 	}
+	// Stash ctx so builtins can pull it back out via ctxFromThread and pass
+	// it to outgoing I/O. See top-of-file notes for why this matters.
 	thread.SetLocal(threadCtxKey, ctx)
 
-	// Cancel the Starlark thread when ctx fires. Starlark interrupts at the
-	// next opcode boundary and Call returns an error.
+	// Bridge ctx cancellation to thread.Cancel. The interpreter checks the
+	// cancel flag at backward branches and call/return boundaries, so a
+	// ctx-deadline triggers a starlark.EvalError on the next such boundary.
+	// This handles cancellation of pure-Starlark loops; in-flight I/O is
+	// cancelled separately via the ctx already attached to each request.
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
