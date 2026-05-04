@@ -122,7 +122,7 @@ func doHTTP(thread *starlark.Thread, method, url string, headers *starlark.Dict,
 		}
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClientFromThread(thread).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +132,10 @@ func doHTTP(thread *starlark.Thread, method, url string, headers *starlark.Dict,
 		return nil, err
 	}
 
+	// Lossy: multi-valued headers (e.g. Set-Cookie) are joined with ", ".
+	// This is wrong per RFC 7230 for Set-Cookie specifically, but it keeps
+	// the Starlark-side type a flat dict[string,string]. Phase 2 should
+	// expose the raw http.Header (multi-map) when scripts need it.
 	hdr := starlark.NewDict(len(resp.Header))
 	for k, v := range resp.Header {
 		_ = hdr.SetKey(starlark.String(k), starlark.String(strings.Join(v, ", ")))

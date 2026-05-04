@@ -57,6 +57,7 @@ package script
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -73,6 +74,12 @@ type Runtime struct {
 	globals     starlark.StringDict
 	predeclared starlark.StringDict
 	l           *logger.Logger
+
+	// httpClient is the client used by the http builtin. Owned by Runtime
+	// rather than reusing http.DefaultClient so configuration of one probe
+	// can never leak into another (or into other in-process users of the
+	// default client).
+	httpClient *http.Client
 }
 
 // NewRuntime compiles the given Starlark source and verifies the entry point
@@ -83,6 +90,7 @@ func NewRuntime(name, source, entryPoint string, l *logger.Logger) (*Runtime, er
 		name:       name,
 		entryPoint: entryPoint,
 		l:          l,
+		httpClient: &http.Client{},
 	}
 	rt.predeclared = builtins()
 
@@ -108,9 +116,11 @@ func NewRuntime(name, source, entryPoint string, l *logger.Logger) (*Runtime, er
 	return rt, nil
 }
 
-// threadCtxKey is the thread-local key under which the per-call context is
-// stashed so builtins (e.g. http) can attach it to outgoing requests.
-const threadCtxKey = "cloudprober.ctx"
+// Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.
+const (
+	threadCtxKey        = "cloudprober.ctx"
+	threadHTTPClientKey = "cloudprober.httpClient"
+)
 
 // ctxFromThread returns the context stored on the Starlark thread.
 func ctxFromThread(t *starlark.Thread) context.Context {
@@ -120,6 +130,19 @@ func ctxFromThread(t *starlark.Thread) context.Context {
 		}
 	}
 	return context.Background()
+}
+
+// httpClientFromThread returns the *http.Client owned by the Runtime that
+// produced this thread. Falls back to http.DefaultClient only if the thread
+// was constructed outside of Runtime.Run (shouldn't happen in practice; the
+// fallback exists so unit tests can drive builtins directly).
+func httpClientFromThread(t *starlark.Thread) *http.Client {
+	if v := t.Local(threadHTTPClientKey); v != nil {
+		if c, ok := v.(*http.Client); ok {
+			return c
+		}
+	}
+	return http.DefaultClient
 }
 
 // Run invokes the entry point with a target value. It returns nil on clean
@@ -135,9 +158,10 @@ func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
 		Name:  rt.name,
 		Print: func(_ *starlark.Thread, msg string) { rt.l.Info(msg) },
 	}
-	// Stash ctx so builtins can pull it back out via ctxFromThread and pass
-	// it to outgoing I/O. See top-of-file notes for why this matters.
+	// Stash ctx + httpClient so builtins can pull them back out via
+	// ctxFromThread / httpClientFromThread. See top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
+	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 
 	// Bridge ctx cancellation to thread.Cancel. The interpreter checks the
 	// cancel flag at backward branches and call/return boundaries, so a
