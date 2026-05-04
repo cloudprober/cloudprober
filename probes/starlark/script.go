@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package script implements a Starlark script probe type. The probe runs a
+// Package starlark implements a Starlark probe type. The probe runs a
 // user-supplied Starlark function once per resolved target each interval.
 // Wall time of the call becomes latency. Clean return is success; any
 // unhandled error (including assertion failures) is failure.
-package script
+package starlark
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
-	configpb "github.com/cloudprober/cloudprober/probes/script/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -62,7 +62,7 @@ func (r *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*m
 		AddMetric("total", metrics.NewInt(r.total)).
 		AddMetric("success", metrics.NewInt(r.success)).
 		AddMetric(opts.LatencyMetricName, r.latency.Clone()).
-		AddLabel("ptype", "script")
+		AddLabel("ptype", "starlark")
 	return []*metrics.EventMetrics{em}
 }
 
@@ -70,7 +70,7 @@ func (r *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*m
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
-		return fmt.Errorf("not a script probe config")
+		return fmt.Errorf("not a starlark probe config")
 	}
 	p.name = name
 	p.opts = opts
@@ -91,7 +91,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	rt, err := NewRuntime(name, source, entryPoint, p.l)
 	if err != nil {
-		return fmt.Errorf("script compile error: %v", err)
+		return fmt.Errorf("starlark compile error: %v", err)
 	}
 	p.runtime = rt
 	return nil
@@ -143,7 +143,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 // RunOnce runs the probe just once.
 func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
-	p.l.Info("Running script probe once.")
+	p.l.Info("Running starlark probe once.")
 	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }
 

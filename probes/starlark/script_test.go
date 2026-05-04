@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package script
+package starlark
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/options"
-	configpb "github.com/cloudprober/cloudprober/probes/script/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"

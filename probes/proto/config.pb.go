@@ -16,7 +16,7 @@ import (
 	proto10 "github.com/cloudprober/cloudprober/probes/grpc/proto"
 	proto5 "github.com/cloudprober/cloudprober/probes/http/proto"
 	proto4 "github.com/cloudprober/cloudprober/probes/ping/proto"
-	proto14 "github.com/cloudprober/cloudprober/probes/script/proto"
+	proto14 "github.com/cloudprober/cloudprober/probes/starlark/proto"
 	proto13 "github.com/cloudprober/cloudprober/probes/system/proto"
 	proto11 "github.com/cloudprober/cloudprober/probes/tcp/proto"
 	proto8 "github.com/cloudprober/cloudprober/probes/udp/proto"
@@ -49,7 +49,7 @@ const (
 	ProbeDef_TCP          ProbeDef_Type = 7
 	ProbeDef_BROWSER      ProbeDef_Type = 8
 	ProbeDef_SYSTEM       ProbeDef_Type = 9
-	ProbeDef_SCRIPT       ProbeDef_Type = 10
+	ProbeDef_STARLARK     ProbeDef_Type = 10
 	// One of the extension probe types. See "extensions" below for more
 	// details.
 	ProbeDef_EXTENSION ProbeDef_Type = 98
@@ -73,7 +73,7 @@ var (
 		7:  "TCP",
 		8:  "BROWSER",
 		9:  "SYSTEM",
-		10: "SCRIPT",
+		10: "STARLARK",
 		98: "EXTENSION",
 		99: "USER_DEFINED",
 	}
@@ -88,7 +88,7 @@ var (
 		"TCP":          7,
 		"BROWSER":      8,
 		"SYSTEM":       9,
-		"SCRIPT":       10,
+		"STARLARK":     10,
 		"EXTENSION":    98,
 		"USER_DEFINED": 99,
 	}
@@ -454,7 +454,7 @@ type ProbeDef struct {
 	//	*ProbeDef_TcpProbe
 	//	*ProbeDef_BrowserProbe
 	//	*ProbeDef_SystemProbe
-	//	*ProbeDef_ScriptProbe
+	//	*ProbeDef_StarlarkProbe
 	//	*ProbeDef_UserDefinedProbe
 	Probe isProbeDef_Probe `protobuf_oneof:"probe"`
 	// Which machines this probe should run on. If defined, cloudprober will run
@@ -781,10 +781,10 @@ func (x *ProbeDef) GetSystemProbe() *proto13.ProbeConf {
 	return nil
 }
 
-func (x *ProbeDef) GetScriptProbe() *proto14.ProbeConf {
+func (x *ProbeDef) GetStarlarkProbe() *proto14.ProbeConf {
 	if x != nil {
-		if x, ok := x.Probe.(*ProbeDef_ScriptProbe); ok {
-			return x.ScriptProbe
+		if x, ok := x.Probe.(*ProbeDef_StarlarkProbe); ok {
+			return x.StarlarkProbe
 		}
 	}
 	return nil
@@ -894,8 +894,8 @@ type ProbeDef_SystemProbe struct {
 	SystemProbe *proto13.ProbeConf `protobuf:"bytes,29,opt,name=system_probe,json=systemProbe,oneof"`
 }
 
-type ProbeDef_ScriptProbe struct {
-	ScriptProbe *proto14.ProbeConf `protobuf:"bytes,30,opt,name=script_probe,json=scriptProbe,oneof"`
+type ProbeDef_StarlarkProbe struct {
+	StarlarkProbe *proto14.ProbeConf `protobuf:"bytes,30,opt,name=starlark_probe,json=starlarkProbe,oneof"`
 }
 
 type ProbeDef_UserDefinedProbe struct {
@@ -924,7 +924,7 @@ func (*ProbeDef_BrowserProbe) isProbeDef_Probe() {}
 
 func (*ProbeDef_SystemProbe) isProbeDef_Probe() {}
 
-func (*ProbeDef_ScriptProbe) isProbeDef_Probe() {}
+func (*ProbeDef_StarlarkProbe) isProbeDef_Probe() {}
 
 func (*ProbeDef_UserDefinedProbe) isProbeDef_Probe() {}
 
@@ -1131,7 +1131,7 @@ var File_github_com_cloudprober_cloudprober_probes_proto_config_proto protorefle
 
 const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/script/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\xcf\x11\n" +
+	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\xd7\x11\n" +
 	"\bProbeDef\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x125\n" +
 	"\x04type\x18\x02 \x02(\x0e2!.cloudprober.probes.ProbeDef.TypeR\x04type\x12#\n" +
@@ -1165,14 +1165,14 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"grpc_probe\x18\x1a \x01(\v2\".cloudprober.probes.grpc.ProbeConfH\x01R\tgrpcProbe\x12@\n" +
 	"\ttcp_probe\x18\x1b \x01(\v2!.cloudprober.probes.tcp.ProbeConfH\x01R\btcpProbe\x12L\n" +
 	"\rbrowser_probe\x18\x1c \x01(\v2%.cloudprober.probes.browser.ProbeConfH\x01R\fbrowserProbe\x12I\n" +
-	"\fsystem_probe\x18\x1d \x01(\v2$.cloudprober.probes.system.ProbeConfH\x01R\vsystemProbe\x12I\n" +
-	"\fscript_probe\x18\x1e \x01(\v2$.cloudprober.probes.script.ProbeConfH\x01R\vscriptProbe\x12.\n" +
+	"\fsystem_probe\x18\x1d \x01(\v2$.cloudprober.probes.system.ProbeConfH\x01R\vsystemProbe\x12O\n" +
+	"\x0estarlark_probe\x18\x1e \x01(\v2&.cloudprober.probes.starlark.ProbeConfH\x01R\rstarlarkProbe\x12.\n" +
 	"\x12user_defined_probe\x18c \x01(\tH\x01R\x10userDefinedProbe\x12\x15\n" +
 	"\x06run_on\x18\x03 \x01(\tR\x05runOn\x12,\n" +
 	"\x12targets_update_sec\x18g \x01(\x05R\x10targetsUpdateSec\x12,\n" +
 	"\x12startup_delay_msec\x18f \x01(\rR\x10startupDelayMsec\x128\n" +
 	"\bschedule\x18e \x03(\v2\x1c.cloudprober.probes.ScheduleR\bschedule\x12E\n" +
-	"\rdebug_options\x18d \x01(\v2 .cloudprober.probes.DebugOptionsR\fdebugOptions\"\xa5\x01\n" +
+	"\rdebug_options\x18d \x01(\v2 .cloudprober.probes.DebugOptionsR\fdebugOptions\"\xa7\x01\n" +
 	"\x04Type\x12\b\n" +
 	"\x04PING\x10\x00\x12\b\n" +
 	"\x04HTTP\x10\x01\x12\a\n" +
@@ -1184,9 +1184,8 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"\x03TCP\x10\a\x12\v\n" +
 	"\aBROWSER\x10\b\x12\n" +
 	"\n" +
-	"\x06SYSTEM\x10\t\x12\n" +
-	"\n" +
-	"\x06SCRIPT\x10\n" +
+	"\x06SYSTEM\x10\t\x12\f\n" +
+	"\bSTARLARK\x10\n" +
 	"\x12\r\n" +
 	"\tEXTENSION\x10b\x12\x10\n" +
 	"\fUSER_DEFINED\x10c\";\n" +
@@ -1266,7 +1265,7 @@ var file_github_com_cloudprober_cloudprober_probes_proto_config_proto_goTypes = 
 	(*proto11.ProbeConf)(nil),  // 19: cloudprober.probes.tcp.ProbeConf
 	(*proto12.ProbeConf)(nil),  // 20: cloudprober.probes.browser.ProbeConf
 	(*proto13.ProbeConf)(nil),  // 21: cloudprober.probes.system.ProbeConf
-	(*proto14.ProbeConf)(nil),  // 22: cloudprober.probes.script.ProbeConf
+	(*proto14.ProbeConf)(nil),  // 22: cloudprober.probes.starlark.ProbeConf
 }
 var file_github_com_cloudprober_cloudprober_probes_proto_config_proto_depIdxs = []int32{
 	0,  // 0: cloudprober.probes.ProbeDef.type:type_name -> cloudprober.probes.ProbeDef.Type
@@ -1286,7 +1285,7 @@ var file_github_com_cloudprober_cloudprober_probes_proto_config_proto_depIdxs = 
 	19, // 14: cloudprober.probes.ProbeDef.tcp_probe:type_name -> cloudprober.probes.tcp.ProbeConf
 	20, // 15: cloudprober.probes.ProbeDef.browser_probe:type_name -> cloudprober.probes.browser.ProbeConf
 	21, // 16: cloudprober.probes.ProbeDef.system_probe:type_name -> cloudprober.probes.system.ProbeConf
-	22, // 17: cloudprober.probes.ProbeDef.script_probe:type_name -> cloudprober.probes.script.ProbeConf
+	22, // 17: cloudprober.probes.ProbeDef.starlark_probe:type_name -> cloudprober.probes.starlark.ProbeConf
 	6,  // 18: cloudprober.probes.ProbeDef.schedule:type_name -> cloudprober.probes.Schedule
 	7,  // 19: cloudprober.probes.ProbeDef.debug_options:type_name -> cloudprober.probes.DebugOptions
 	3,  // 20: cloudprober.probes.Schedule.type:type_name -> cloudprober.probes.Schedule.ScheduleType
@@ -1317,7 +1316,7 @@ func file_github_com_cloudprober_cloudprober_probes_proto_config_proto_init() {
 		(*ProbeDef_TcpProbe)(nil),
 		(*ProbeDef_BrowserProbe)(nil),
 		(*ProbeDef_SystemProbe)(nil),
-		(*ProbeDef_ScriptProbe)(nil),
+		(*ProbeDef_StarlarkProbe)(nil),
 		(*ProbeDef_UserDefinedProbe)(nil),
 	}
 	type x struct{}

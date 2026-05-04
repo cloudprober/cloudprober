@@ -14,7 +14,7 @@
 
 // Notes on go.starlark.net threads:
 //
-// A starlark.Thread is a single, sequential evaluation context — it is NOT a
+// A starlarklib.Thread is a single, sequential evaluation context — it is NOT a
 // goroutine. Concurrency in Starlark itself is non-existent; each thread runs
 // one frame at a time. Threads are cheap to create (a struct with a name,
 // frame stack, and a few hooks) so we make a fresh one for every probe run.
@@ -42,7 +42,7 @@
 // Globals:
 //
 // Module-level code (top-level `def`, assignments, etc.) runs once during
-// starlark.ExecFile in NewRuntime. After ExecFile returns, the resulting
+// starlarklib.ExecFile in NewRuntime. After ExecFile returns, the resulting
 // StringDict is implicitly frozen for *mutation from new threads*: a fresh
 // thread invoking probe() sees the globals as read-only. This means:
 //
@@ -52,7 +52,7 @@
 //
 // Cross-run state, when we add it in phase 2, will need an explicit `state`
 // builtin backed by Go-side storage — not module globals.
-package script
+package starlark
 
 import (
 	"context"
@@ -61,7 +61,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"go.starlark.net/starlark"
+	starlarklib "go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
 
@@ -71,8 +71,8 @@ import (
 type Runtime struct {
 	name        string
 	entryPoint  string
-	globals     starlark.StringDict
-	predeclared starlark.StringDict
+	globals     starlarklib.StringDict
+	predeclared starlarklib.StringDict
 	l           *logger.Logger
 
 	// httpClient is the client used by the http builtin. Owned by Runtime
@@ -96,17 +96,17 @@ func NewRuntime(name, source, entryPoint string, l *logger.Logger) (*Runtime, er
 
 	// One-shot thread used only to evaluate the file's top level. After
 	// ExecFile returns we discard it; the resulting globals are reused.
-	thread := &starlark.Thread{
+	thread := &starlarklib.Thread{
 		Name:  name + "-load",
-		Print: func(_ *starlark.Thread, msg string) { l.Info(msg) },
+		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
 	}
-	globals, err := starlark.ExecFile(thread, name+".star", source, rt.predeclared)
+	globals, err := starlarklib.ExecFile(thread, name+".star", source, rt.predeclared)
 	if err != nil {
 		return nil, err
 	}
 	rt.globals = globals
 
-	fn, ok := globals[entryPoint].(*starlark.Function)
+	fn, ok := globals[entryPoint].(*starlarklib.Function)
 	if !ok {
 		return nil, fmt.Errorf("entry point %q not found or not a function", entryPoint)
 	}
@@ -123,7 +123,7 @@ const (
 )
 
 // ctxFromThread returns the context stored on the Starlark thread.
-func ctxFromThread(t *starlark.Thread) context.Context {
+func ctxFromThread(t *starlarklib.Thread) context.Context {
 	if v := t.Local(threadCtxKey); v != nil {
 		if ctx, ok := v.(context.Context); ok {
 			return ctx
@@ -136,7 +136,7 @@ func ctxFromThread(t *starlark.Thread) context.Context {
 // produced this thread. Falls back to http.DefaultClient only if the thread
 // was constructed outside of Runtime.Run (shouldn't happen in practice; the
 // fallback exists so unit tests can drive builtins directly).
-func httpClientFromThread(t *starlark.Thread) *http.Client {
+func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 	if v := t.Local(threadHTTPClientKey); v != nil {
 		if c, ok := v.(*http.Client); ok {
 			return c
@@ -149,14 +149,14 @@ func httpClientFromThread(t *starlark.Thread) *http.Client {
 // return, or an error on Starlark eval failure / assertion failure / ctx
 // cancellation.
 //
-// Per call we build a brand-new starlark.Thread. Threads are cheap and giving
+// Per call we build a brand-new starlarklib.Thread. Threads are cheap and giving
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
 func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
-	thread := &starlark.Thread{
+	thread := &starlarklib.Thread{
 		Name:  rt.name,
-		Print: func(_ *starlark.Thread, msg string) { rt.l.Info(msg) },
+		Print: func(_ *starlarklib.Thread, msg string) { rt.l.Info(msg) },
 	}
 	// Stash ctx + httpClient so builtins can pull them back out via
 	// ctxFromThread / httpClientFromThread. See top-of-file notes.
@@ -180,15 +180,15 @@ func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
 
 	fn := rt.globals[rt.entryPoint]
 	target := targetValue(ep)
-	_, err := starlark.Call(thread, fn, starlark.Tuple{target}, nil)
+	_, err := starlarklib.Call(thread, fn, starlarklib.Tuple{target}, nil)
 	return err
 }
 
 // targetValue builds the Starlark value passed to probe(target). Phase 1
 // exposes .name and .port.
-func targetValue(ep endpoint.Endpoint) starlark.Value {
-	return starlarkstruct.FromStringDict(starlarkstruct.Default, starlark.StringDict{
-		"name": starlark.String(ep.Name),
-		"port": starlark.MakeInt(ep.Port),
+func targetValue(ep endpoint.Endpoint) starlarklib.Value {
+	return starlarkstruct.FromStringDict(starlarkstruct.Default, starlarklib.StringDict{
+		"name": starlarklib.String(ep.Name),
+		"port": starlarklib.MakeInt(ep.Port),
 	})
 }

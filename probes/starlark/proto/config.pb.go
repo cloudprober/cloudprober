@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.5
-// source: github.com/cloudprober/cloudprober/probes/script/proto/config.proto
+// source: github.com/cloudprober/cloudprober/probes/starlark/proto/config.proto
 
 package proto
 
@@ -21,7 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ProbeConf configures a Starlark script probe.
+// ProbeConf configures a Starlark probe.
 //
 // The probe runs a user-supplied Starlark function once per resolved target
 // each interval. Wall time of the call becomes the probe's latency. Clean
@@ -47,7 +47,7 @@ const (
 
 func (x *ProbeConf) Reset() {
 	*x = ProbeConf{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_msgTypes[0]
+	mi := &file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -59,7 +59,7 @@ func (x *ProbeConf) String() string {
 func (*ProbeConf) ProtoMessage() {}
 
 func (x *ProbeConf) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_msgTypes[0]
+	mi := &file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -72,7 +72,7 @@ func (x *ProbeConf) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeConf.ProtoReflect.Descriptor instead.
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDescGZIP(), []int{0}
+	return file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ProbeConf) GetSource() string {
@@ -96,35 +96,35 @@ func (x *ProbeConf) GetEntryPoint() string {
 	return Default_ProbeConf_EntryPoint
 }
 
-var File_github_com_cloudprober_cloudprober_probes_script_proto_config_proto protoreflect.FileDescriptor
+var File_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto protoreflect.FileDescriptor
 
-const file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDesc = "" +
+const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Cgithub.com/cloudprober/cloudprober/probes/script/proto/config.proto\x12\x19cloudprober.probes.script\"l\n" +
+	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\"l\n" +
 	"\tProbeConf\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12&\n" +
 	"\ventry_point\x18\x03 \x01(\t:\x05probeR\n" +
-	"entryPointB8Z6github.com/cloudprober/cloudprober/probes/script/proto"
+	"entryPointB:Z8github.com/cloudprober/cloudprober/probes/starlark/proto"
 
 var (
-	file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDescOnce sync.Once
-	file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDescData []byte
+	file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescOnce sync.Once
+	file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescData []byte
 )
 
-func file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDescGZIP() []byte {
-	file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDescOnce.Do(func() {
-		file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDesc)))
+func file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescGZIP() []byte {
+	file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescOnce.Do(func() {
+		file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc)))
 	})
-	return file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDescData
+	return file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_goTypes = []any{
-	(*ProbeConf)(nil), // 0: cloudprober.probes.script.ProbeConf
+var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_goTypes = []any{
+	(*ProbeConf)(nil), // 0: cloudprober.probes.starlark.ProbeConf
 }
-var file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_depIdxs = []int32{
+var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -132,26 +132,26 @@ var file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_dep
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_init() }
-func file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_init() {
-	if File_github_com_cloudprober_cloudprober_probes_script_proto_config_proto != nil {
+func init() { file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_init() }
+func file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_init() {
+	if File_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_goTypes,
-		DependencyIndexes: file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_depIdxs,
-		MessageInfos:      file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_msgTypes,
+		GoTypes:           file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_goTypes,
+		DependencyIndexes: file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_depIdxs,
+		MessageInfos:      file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes,
 	}.Build()
-	File_github_com_cloudprober_cloudprober_probes_script_proto_config_proto = out.File
-	file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_goTypes = nil
-	file_github_com_cloudprober_cloudprober_probes_script_proto_config_proto_depIdxs = nil
+	File_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto = out.File
+	file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_goTypes = nil
+	file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_depIdxs = nil
 }

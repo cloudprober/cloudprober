@@ -1,10 +1,10 @@
 syntax = "proto2";
 
-package cloudprober.probes.script;
+package cloudprober.probes.starlark;
 
-option go_package = "github.com/cloudprober/cloudprober/probes/script/proto";
+option go_package = "github.com/cloudprober/cloudprober/probes/starlark/proto";
 
-// ProbeConf configures a Starlark script probe.
+// ProbeConf configures a Starlark probe.
 //
 // The probe runs a user-supplied Starlark function once per resolved target
 // each interval. Wall time of the call becomes the probe's latency. Clean
