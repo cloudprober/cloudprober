@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+package cloudprober.probes.script;
+
+option go_package = "github.com/cloudprober/cloudprober/probes/script/proto";
+
+// ProbeConf configures a Starlark script probe.
+//
+// The probe runs a user-supplied Starlark function once per resolved target
+// each interval. Wall time of the call becomes the probe's latency. Clean
+// return is success; any unhandled error (including assertion failures) is
+// failure.
+message ProbeConf {
+  // Source of the Starlark code. Exactly one of source or source_file must
+  // be set.
+  optional string source      = 1;
+  optional string source_file = 2;
+
+  // Name of the entry-point function. It must accept a single argument
+  // (the target). Defaults to "probe".
+  optional string entry_point = 3 [default = "probe"];
+}
