@@ -142,16 +142,17 @@ func ctxFromThread(t *starlarklib.Thread) context.Context {
 }
 
 // httpClientFromThread returns the *http.Client owned by the Runtime that
-// produced this thread. Falls back to http.DefaultClient only if the thread
-// was constructed outside of Runtime.Run (shouldn't happen in practice; the
-// fallback exists so unit tests can drive builtins directly).
+// produced this thread. Panics if the key is missing or the wrong type: every
+// thread that runs script code is constructed by Runtime, which sets the key.
+// A miss means someone added a code path that builds a thread outside Runtime
+// losing the per-Runtime client isolation we deliberately introduced — and we
+// want that to fail loudly, not silently fall back to http.DefaultClient.
 func httpClientFromThread(t *starlarklib.Thread) *http.Client {
-	if v := t.Local(threadHTTPClientKey); v != nil {
-		if c, ok := v.(*http.Client); ok {
-			return c
-		}
+	c, ok := t.Local(threadHTTPClientKey).(*http.Client)
+	if !ok {
+		panic("httpClientFromThread: thread missing httpClient local; constructed outside Runtime?")
 	}
-	return http.DefaultClient
+	return c
 }
 
 func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func() {
