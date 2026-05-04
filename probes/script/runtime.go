@@ -66,6 +66,20 @@ func NewRuntime(name, source, entryPoint string, l *logger.Logger) (*Runtime, er
 	return rt, nil
 }
 
+// threadCtxKey is the thread-local key under which the per-call context is
+// stashed so builtins (e.g. http) can attach it to outgoing requests.
+const threadCtxKey = "cloudprober.ctx"
+
+// ctxFromThread returns the context stored on the Starlark thread.
+func ctxFromThread(t *starlark.Thread) context.Context {
+	if v := t.Local(threadCtxKey); v != nil {
+		if ctx, ok := v.(context.Context); ok {
+			return ctx
+		}
+	}
+	return context.Background()
+}
+
 // Run invokes the entry point with a target value. It returns nil on clean
 // return, or an error on Starlark eval failure / assertion failure / ctx
 // cancellation.
@@ -74,6 +88,7 @@ func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
 		Name:  rt.name,
 		Print: func(_ *starlark.Thread, msg string) { rt.l.Info(msg) },
 	}
+	thread.SetLocal(threadCtxKey, ctx)
 
 	// Cancel the Starlark thread when ctx fires. Starlark interrupts at the
 	// next opcode boundary and Call returns an error.

@@ -104,7 +104,7 @@ func doHTTP(thread *starlark.Thread, method, url string, headers *starlark.Dict,
 		}
 	}
 
-	req, err := http.NewRequest(method, url, reqBody)
+	req, err := http.NewRequestWithContext(ctxFromThread(thread), method, url, reqBody)
 	if err != nil {
 		return nil, err
 	}
