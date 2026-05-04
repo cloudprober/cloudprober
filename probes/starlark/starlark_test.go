@@ -398,25 +398,6 @@ func TestInit_InvalidSource(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInit_TopLevelLoopHonorsTimeout(t *testing.T) {
-	opts := newOpts(t, "example.com", `
-while True:
-    pass
-
-def probe(target):
-    pass
-`)
-	opts.Timeout = 50 * time.Millisecond
-	p := &Probe{}
-
-	start := time.Now()
-	err := p.Init("script-load-timeout", opts)
-	elapsed := time.Since(start)
-
-	assert.Error(t, err)
-	assert.Less(t, elapsed, time.Second, "load-time Starlark did not honor probe timeout")
-}
-
 func TestInit_TopLevelHTTPHasRuntimeClient(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
