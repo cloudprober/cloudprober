@@ -111,7 +111,7 @@ def probe(target):
 // ---------------------------------------------------------------------------
 // End-to-end success / failure paths
 
-func TestScriptProbe_Success(t *testing.T) {
+func TestStarlarkProbe_Success(t *testing.T) {
 	srv := loginCartServer(t, http.StatusOK)
 	defer srv.Close()
 
@@ -129,7 +129,7 @@ func TestScriptProbe_Success(t *testing.T) {
 	assert.True(t, r.Latency > 0)
 }
 
-func TestScriptProbe_AssertionFailure(t *testing.T) {
+func TestStarlarkProbe_AssertionFailure(t *testing.T) {
 	srv := loginCartServer(t, http.StatusServiceUnavailable)
 	defer srv.Close()
 
@@ -147,10 +147,10 @@ func TestScriptProbe_AssertionFailure(t *testing.T) {
 	assert.Contains(t, r.Error.Error(), "expected 200")
 }
 
-// TestScriptProbe_OuterTimeoutCancelsInFlight pins the bug we fixed where the
+// TestStarlarkProbe_OuterTimeoutCancelsInFlight pins the bug we fixed where the
 // http builtin used http.DefaultClient with no deadline — a slow server hung
 // the probe forever instead of failing on opts.Timeout.
-func TestScriptProbe_OuterTimeoutCancelsInFlight(t *testing.T) {
+func TestStarlarkProbe_OuterTimeoutCancelsInFlight(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Block until the request is cancelled. Without context plumbing
 		// this would never return and the test would hang.
@@ -182,9 +182,9 @@ def probe(target):
 	assert.Less(t, elapsed, 2*time.Second, "probe didn't honor outer timeout")
 }
 
-// TestScriptProbe_StarlarkRuntimeError verifies that a Starlark-level error
+// TestStarlarkProbe_StarlarkRuntimeError verifies that a Starlark-level error
 // (not just an assertion) marks the probe as failed.
-func TestScriptProbe_StarlarkRuntimeError(t *testing.T) {
+func TestStarlarkProbe_StarlarkRuntimeError(t *testing.T) {
 	source := `
 def probe(target):
     fail("boom")
@@ -201,9 +201,9 @@ def probe(target):
 	assert.Contains(t, results[0].Error.Error(), "boom")
 }
 
-// TestScriptProbe_MultipleRuns pins that a single Probe instance can run
+// TestStarlarkProbe_MultipleRuns pins that a single Probe instance can run
 // repeatedly (the compiled program is reused; globals are frozen).
-func TestScriptProbe_MultipleRuns(t *testing.T) {
+func TestStarlarkProbe_MultipleRuns(t *testing.T) {
 	srv := loginCartServer(t, http.StatusOK)
 	defer srv.Close()
 
