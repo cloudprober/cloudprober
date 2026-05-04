@@ -89,7 +89,13 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		entryPoint = "probe"
 	}
 
-	rt, err := NewRuntime(name, source, entryPoint, p.l)
+	// Timeout to compile the starlark script. This is a generous timeout
+	// to avoid accidental infinite loops in the script.
+	loadTimeout := 30 * time.Second
+	loadCtx, cancel := context.WithTimeout(context.Background(), loadTimeout)
+	defer cancel()
+
+	rt, err := NewRuntime(loadCtx, name, source, entryPoint, p.l)
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
 	}

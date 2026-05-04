@@ -83,9 +83,13 @@ type Runtime struct {
 }
 
 // NewRuntime compiles the given Starlark source and verifies the entry point
-// exists with the expected arity. Module-level code runs once here; runtime
-// calls to Run cannot mutate the resulting globals (Starlark freezes them).
-func NewRuntime(name, source, entryPoint string, l *logger.Logger) (*Runtime, error) {
+// exists with the expected arity. Module-level code runs once here and is
+// bounded by ctx; runtime calls to Run cannot mutate the resulting globals
+// (Starlark freezes them).
+func NewRuntime(ctx context.Context, name, source, entryPoint string, l *logger.Logger) (*Runtime, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	rt := &Runtime{
 		name:       name,
 		entryPoint: entryPoint,
@@ -100,6 +104,11 @@ func NewRuntime(name, source, entryPoint string, l *logger.Logger) (*Runtime, er
 		Name:  name + "-load",
 		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
 	}
+	thread.SetLocal(threadCtxKey, ctx)
+	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
+	stopCancelBridge := cancelThreadOnContext(ctx, thread)
+	defer stopCancelBridge()
+
 	globals, err := starlarklib.ExecFile(thread, name+".star", source, rt.predeclared)
 	if err != nil {
 		return nil, err
@@ -145,6 +154,23 @@ func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 	return http.DefaultClient
 }
 
+func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func() {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			thread.Cancel(ctx.Err().Error())
+		case <-done:
+		}
+	}()
+	return func() {
+		close(done)
+	}
+}
+
 // Run invokes the entry point with a target value. It returns nil on clean
 // return, or an error on Starlark eval failure / assertion failure / ctx
 // cancellation.
@@ -168,15 +194,8 @@ func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
 	// ctx-deadline triggers a starlark.EvalError on the next such boundary.
 	// This handles cancellation of pure-Starlark loops; in-flight I/O is
 	// cancelled separately via the ctx already attached to each request.
-	done := make(chan struct{})
-	defer close(done)
-	go func() {
-		select {
-		case <-ctx.Done():
-			thread.Cancel(ctx.Err().Error())
-		case <-done:
-		}
-	}()
+	stopCancelBridge := cancelThreadOnContext(ctx, thread)
+	defer stopCancelBridge()
 
 	fn := rt.globals[rt.entryPoint]
 	target := targetValue(ep)
