@@ -15,6 +15,7 @@
 package starlark
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -208,14 +209,7 @@ func TestGoToStarlark_Scalars(t *testing.T) {
 }
 
 func TestGoToStarlark_Slice(t *testing.T) {
-	got, err := goToStarlark([]interface{}{int64(1), "two", true, nil})
-	// Note: encoding/json never produces int64 on Unmarshal — but we accept
-	// it via the float64 branch when the float is integer-valued. So slice
-	// of int64 explicitly isn't a real input. We test float64.
-	_ = got
-	_ = err
-
-	got, err = goToStarlark([]interface{}{float64(1), "two", true, nil})
+	got, err := goToStarlark([]interface{}{float64(1), "two", true, nil})
 	assert.NoError(t, err)
 	l, ok := got.(*starlarklib.List)
 	if !ok {
@@ -333,13 +327,17 @@ func TestGoToStarlark_NestedError(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------------
-// Round-trip: starlarkToGo -> goToStarlark should preserve JSON-shaped data.
+// JSON round-trip: this is the real-world shape — http.post(json=X) calls
+// starlarkToGo(X) -> json.Marshal -> wire -> json.Unmarshal -> goToStarlark
+// to produce r.json(). The Marshal+Unmarshal step is what normalizes int64
+// into float64, which is why goToStarlark only accepts float64 numbers.
 
-func TestRoundTrip_StarlarkToGoToStarlark(t *testing.T) {
+func TestRoundTrip_JSONviaStarlarkToGoToStarlark(t *testing.T) {
 	// Build a dict that mirrors what http.post(json=...) would receive.
-	src := starlarklib.NewDict(3)
+	src := starlarklib.NewDict(4)
 	_ = src.SetKey(starlarklib.String("name"), starlarklib.String("alice"))
 	_ = src.SetKey(starlarklib.String("active"), starlarklib.Bool(true))
+	_ = src.SetKey(starlarklib.String("count"), starlarklib.MakeInt(7))
 	tags := starlarklib.NewList([]starlarklib.Value{
 		starlarklib.String("a"),
 		starlarklib.String("b"),
@@ -350,22 +348,38 @@ func TestRoundTrip_StarlarkToGoToStarlark(t *testing.T) {
 	if err != nil {
 		t.Fatalf("starlarkToGo: %v", err)
 	}
-
-	// starlarkToGo emits int64 for ints; goToStarlark only handles float64.
-	// JSON Marshal+Unmarshal would normalize through float64. Here we just
-	// re-encode the *non-int* parts and verify the structure round-trips.
-	asStarlark, err := goToStarlark(asGo)
+	wire, err := json.Marshal(asGo)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	var decoded interface{}
+	if err := json.Unmarshal(wire, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	asStarlark, err := goToStarlark(decoded)
 	if err != nil {
 		t.Fatalf("goToStarlark: %v", err)
 	}
+
 	d, ok := asStarlark.(*starlarklib.Dict)
 	if !ok {
 		t.Fatalf("expected *Dict, got %T", asStarlark)
 	}
-	v, ok, _ := d.Get(starlarklib.String("name"))
-	assert.True(t, ok)
+	v, _, _ := d.Get(starlarklib.String("name"))
 	assert.Equal(t, `"alice"`, v.String())
-	v, ok, _ = d.Get(starlarklib.String("active"))
-	assert.True(t, ok)
+	v, _, _ = d.Get(starlarklib.String("active"))
 	assert.Equal(t, "True", v.String())
+	// JSON normalizes the int through float64, but goToStarlark detects
+	// integer-valued floats and emits a Starlark int, so 7 stays "7".
+	v, _, _ = d.Get(starlarklib.String("count"))
+	assert.Equal(t, "int", v.Type())
+	assert.Equal(t, "7", v.String())
+	tagsV, _, _ := d.Get(starlarklib.String("tags"))
+	tagsL, ok := tagsV.(*starlarklib.List)
+	if !ok {
+		t.Fatalf("expected list, got %T", tagsV)
+	}
+	assert.Equal(t, 2, tagsL.Len())
+	assert.Equal(t, `"a"`, tagsL.Index(0).String())
+	assert.Equal(t, `"b"`, tagsL.Index(1).String())
 }

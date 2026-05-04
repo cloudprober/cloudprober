@@ -17,6 +17,7 @@ package starlark
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -316,11 +317,11 @@ def probe(target):
 // TestHTTP_RuntimeOwnsClient verifies the review comment fix: each Runtime
 // has its own *http.Client rather than reusing http.DefaultClient.
 func TestHTTP_RuntimeOwnsClient(t *testing.T) {
-	rt1, err := NewRuntime("rt1", "def probe(t): pass\n", "probe", &logger.Logger{})
+	rt1, err := NewRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt1: %v", err)
 	}
-	rt2, err := NewRuntime("rt2", "def probe(t): pass\n", "probe", &logger.Logger{})
+	rt2, err := NewRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt2: %v", err)
 	}
@@ -395,6 +396,44 @@ func TestInit_InvalidSource(t *testing.T) {
 	p := &Probe{}
 	err := p.Init("script-bad-source", opts)
 	assert.Error(t, err)
+}
+
+func TestInit_TopLevelLoopHonorsTimeout(t *testing.T) {
+	opts := newOpts(t, "example.com", `
+while True:
+    pass
+
+def probe(target):
+    pass
+`)
+	opts.Timeout = 50 * time.Millisecond
+	p := &Probe{}
+
+	start := time.Now()
+	err := p.Init("script-load-timeout", opts)
+	elapsed := time.Since(start)
+
+	assert.Error(t, err)
+	assert.Less(t, elapsed, time.Second, "load-time Starlark did not honor probe timeout")
+}
+
+func TestInit_TopLevelHTTPHasRuntimeClient(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	source := fmt.Sprintf(`
+r = http.get(url = "%s")
+assert.status(r, 200)
+
+def probe(target):
+    pass
+`, srv.URL)
+	opts := newOpts(t, hostFromServer(t, srv), source)
+
+	p := &Probe{}
+	assert.NoError(t, p.Init("script-load-http", opts))
 }
 
 func TestInit_MissingEntryPoint(t *testing.T) {
