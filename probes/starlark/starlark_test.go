@@ -413,11 +413,11 @@ def probe(target):
 // TestHTTP_RuntimeOwnsClient verifies the review comment fix: each Runtime
 // has its own *http.Client rather than reusing http.DefaultClient.
 func TestHTTP_RuntimeOwnsClient(t *testing.T) {
-	rt1, err := NewRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", &logger.Logger{})
+	rt1, err := NewRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt1: %v", err)
 	}
-	rt2, err := NewRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", &logger.Logger{})
+	rt2, err := NewRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt2: %v", err)
 	}
@@ -616,4 +616,85 @@ func TestInit_WrongConfigType(t *testing.T) {
 	p := &Probe{}
 	err := p.Init("script-bad-conf", opts)
 	assert.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// vars builtin
+
+func TestVars_GetReturnsConfiguredValues(t *testing.T) {
+	source := `
+def probe(target):
+    if vars.get("USER") != "alice":
+        fail("USER=%s" % vars.get("USER"))
+    if vars.get("PASS") != "s3cret":
+        fail("PASS=%s" % vars.get("PASS"))
+`
+	opts := options.DefaultOptions()
+	opts.Targets = targets.StaticTargets("example.com")
+	opts.Timeout = time.Second
+	opts.Logger = &logger.Logger{}
+	opts.LatencyUnit = time.Millisecond
+	opts.ProbeConf = &configpb.ProbeConf{
+		Source: proto.String(source),
+		Vars:   map[string]string{"USER": "alice", "PASS": "s3cret"},
+	}
+
+	p := &Probe{}
+	if err := p.Init("script-vars-get", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+func TestVars_GetMissingKey(t *testing.T) {
+	source := `
+def probe(target):
+    if vars.get("MISSING") != None:
+        fail("expected None for missing key, got %r" % vars.get("MISSING"))
+    if vars.get("MISSING", "fallback") != "fallback":
+        fail("expected fallback, got %r" % vars.get("MISSING", "fallback"))
+`
+	opts := options.DefaultOptions()
+	opts.Targets = targets.StaticTargets("example.com")
+	opts.Timeout = time.Second
+	opts.Logger = &logger.Logger{}
+	opts.LatencyUnit = time.Millisecond
+	opts.ProbeConf = &configpb.ProbeConf{Source: proto.String(source)}
+
+	p := &Probe{}
+	if err := p.Init("script-vars-missing", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+func TestVars_FlowsIntoHTTPRequest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer s3cret" {
+			http.Error(w, "no", http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	source := `
+def probe(target):
+    r = http.get(
+        url = "http://%s:%d/" % (target.name, target.port),
+        headers = {"Authorization": "Bearer " + vars.get("TOKEN")},
+    )
+    assert.status(r, 200)
+`
+	opts := newOpts(t, hostFromServer(t, srv), source)
+	opts.ProbeConf.(*configpb.ProbeConf).Vars = map[string]string{"TOKEN": "s3cret"}
+
+	p := &Probe{}
+	if err := p.Init("script-vars-http", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
 }
