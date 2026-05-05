@@ -39,7 +39,7 @@ type Probe struct {
 	opts    *options.Options
 	c       *configpb.ProbeConf
 	l       *logger.Logger
-	runtime *Runtime
+	runtime *runtime
 }
 
 type probeResult struct {
@@ -95,7 +95,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	loadCtx, cancel := context.WithTimeout(context.Background(), loadTimeout)
 	defer cancel()
 
-	rt, err := NewRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), p.l)
+	rt, err := newRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), p.l)
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
 	}
