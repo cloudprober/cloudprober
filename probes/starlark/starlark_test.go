@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -33,6 +34,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
 	"github.com/cloudprober/cloudprober/targets"
+	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -225,6 +227,100 @@ func TestStarlarkProbe_MultipleRuns(t *testing.T) {
 
 // TestHTTP_HeadersAndBodyReachServer verifies that headers and a string body
 // passed to http.post actually arrive at the target unchanged.
+// TestStarlarkProbe_TargetFields verifies the full target struct (name, port,
+// ip, labels) is exposed to scripts. Uses StaticEndpoints to set fields
+// directly since StaticTargets only handles host:port strings.
+func TestStarlarkProbe_TargetFields(t *testing.T) {
+	source := `
+def probe(target):
+    if target.name != "host-a":
+        fail("name=%s" % target.name)
+    if target.port != 8443:
+        fail("port=%d" % target.port)
+    if target.ip != "10.1.2.3":
+        fail("ip=%s" % target.ip)
+    if target.labels["env"] != "prod":
+        fail("labels[env]=%s" % target.labels["env"])
+    if target.labels["region"] != "us-east1":
+        fail("labels[region]=%s" % target.labels["region"])
+`
+	opts := options.DefaultOptions()
+	opts.Targets = targets.StaticEndpoints([]endpoint.Endpoint{{
+		Name:   "host-a",
+		Port:   8443,
+		IP:     net.ParseIP("10.1.2.3"),
+		Labels: map[string]string{"env": "prod", "region": "us-east1"},
+	}})
+	opts.Timeout = time.Second
+	opts.Logger = &logger.Logger{}
+	opts.LatencyUnit = time.Millisecond
+	opts.ProbeConf = &configpb.ProbeConf{Source: proto.String(source)}
+
+	p := &Probe{}
+	if err := p.Init("script-target-fields", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.Equal(t, 1, len(results))
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+// TestStarlarkProbe_TargetEmptyOptionalFields verifies the empty-value
+// conventions: port=0, ip="", labels={} when the endpoint has none.
+func TestStarlarkProbe_TargetEmptyOptionalFields(t *testing.T) {
+	source := `
+def probe(target):
+    if target.name != "host-b":
+        fail("name=%s" % target.name)
+    if target.port != 0:
+        fail("port=%d" % target.port)
+    if target.ip != "":
+        fail("ip=%s" % target.ip)
+    if len(target.labels) != 0:
+        fail("labels=%s" % target.labels)
+`
+	opts := options.DefaultOptions()
+	opts.Targets = targets.StaticEndpoints([]endpoint.Endpoint{{Name: "host-b"}})
+	opts.Timeout = time.Second
+	opts.Logger = &logger.Logger{}
+	opts.LatencyUnit = time.Millisecond
+	opts.ProbeConf = &configpb.ProbeConf{Source: proto.String(source)}
+
+	p := &Probe{}
+	if err := p.Init("script-target-empty", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+// TestStarlarkProbe_TargetLabelsFrozen verifies labels can't be mutated by
+// the script. Mutating a frozen value raises a Starlark error which becomes
+// a probe failure.
+func TestStarlarkProbe_TargetLabelsFrozen(t *testing.T) {
+	source := `
+def probe(target):
+    target.labels["leak"] = "x"
+`
+	opts := options.DefaultOptions()
+	opts.Targets = targets.StaticEndpoints([]endpoint.Endpoint{{
+		Name:   "host-c",
+		Labels: map[string]string{"a": "1"},
+	}})
+	opts.Timeout = time.Second
+	opts.Logger = &logger.Logger{}
+	opts.LatencyUnit = time.Millisecond
+	opts.ProbeConf = &configpb.ProbeConf{Source: proto.String(source)}
+
+	p := &Probe{}
+	if err := p.Init("script-target-frozen", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.False(t, results[0].Success)
+	assert.Contains(t, results[0].Error.Error(), "frozen")
+}
+
 func TestHTTP_HeadersAndBodyReachServer(t *testing.T) {
 	var (
 		gotMethod string

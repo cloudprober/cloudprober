@@ -204,11 +204,31 @@ func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
 	return err
 }
 
-// targetValue builds the Starlark value passed to probe(target). Phase 1
-// exposes .name and .port.
+// targetValue builds the Starlark value passed to probe(target). It mirrors
+// fields from endpoint.Endpoint:
+//
+//	target.name   — Endpoint.Name
+//	target.port   — Endpoint.Port (0 if none)
+//	target.ip     — Endpoint.IP.String() ("" if nil)
+//	target.labels — Endpoint.Labels (frozen dict[str,str], empty if nil)
+//
+// Endpoint.LastUpdated is not currently exposed; add it if scripts need it.
 func targetValue(ep endpoint.Endpoint) starlarklib.Value {
+	ip := ""
+	if ep.IP != nil {
+		ip = ep.IP.String()
+	}
+
+	labels := starlarklib.NewDict(len(ep.Labels))
+	for k, v := range ep.Labels {
+		_ = labels.SetKey(starlarklib.String(k), starlarklib.String(v))
+	}
+	labels.Freeze()
+
 	return starlarkstruct.FromStringDict(starlarkstruct.Default, starlarklib.StringDict{
-		"name": starlarklib.String(ep.Name),
-		"port": starlarklib.MakeInt(ep.Port),
+		"name":   starlarklib.String(ep.Name),
+		"port":   starlarklib.MakeInt(ep.Port),
+		"ip":     starlarklib.String(ip),
+		"labels": labels,
 	})
 }

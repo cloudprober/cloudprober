@@ -33,8 +33,23 @@ type ProbeConf struct {
 	// be set.
 	Source     *string `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
 	SourceFile *string `protobuf:"bytes,2,opt,name=source_file,json=sourceFile" json:"source_file,omitempty"`
-	// Name of the entry-point function. It must accept a single argument
-	// (the target). Defaults to "probe".
+	// Name of the entry-point function. It must accept a single argument: the
+	// target. The target is a struct-like value mirroring fields from
+	// cloudprober's targets/endpoint.Endpoint:
+	//
+	//	target.name    (string)        — Endpoint.Name (host or IP)
+	//	target.port    (int)           — Endpoint.Port (0 if none)
+	//	target.ip      (string)        — Endpoint.IP, stringified ("" if nil)
+	//	target.labels  (dict[str,str]) — Endpoint.Labels, frozen
+	//
+	// Example:
+	//
+	//	def probe(target):
+	//	    url = "http://%s:%d/healthz" % (target.name, target.port)
+	//	    env = target.labels.get("env", "unknown")
+	//	    ...
+	//
+	// Defaults to "probe".
 	EntryPoint    *string `protobuf:"bytes,3,opt,name=entry_point,json=entryPoint,def=probe" json:"entry_point,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
