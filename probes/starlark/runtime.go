@@ -42,7 +42,7 @@
 // Globals:
 //
 // Module-level code (top-level `def`, assignments, etc.) runs once during
-// starlarklib.ExecFile in NewRuntime. After ExecFile returns, the resulting
+// starlarklib.ExecFile in newRuntime. After ExecFile returns, the resulting
 // StringDict is implicitly frozen for *mutation from new threads*: a fresh
 // thread invoking probe() sees the globals as read-only. This means:
 //
@@ -65,32 +65,32 @@ import (
 	"go.starlark.net/starlarkstruct"
 )
 
-// Runtime owns a compiled Starlark program and its module-level globals.
+// runtime owns a compiled Starlark program and its module-level globals.
 // The compiled program is cached after Init; each Run call creates a fresh
 // thread to invoke the entry point.
-type Runtime struct {
+type runtime struct {
 	name        string
 	entryPoint  string
 	globals     starlarklib.StringDict
 	predeclared starlarklib.StringDict
 	l           *logger.Logger
 
-	// httpClient is the client used by the http builtin. Owned by Runtime
+	// httpClient is the client used by the http builtin. Owned by runtime
 	// rather than reusing http.DefaultClient so configuration of one probe
 	// can never leak into another (or into other in-process users of the
 	// default client).
 	httpClient *http.Client
 }
 
-// NewRuntime compiles the given Starlark source and verifies the entry point
+// newRuntime compiles the given Starlark source and verifies the entry point
 // exists with the expected arity. Module-level code runs once here and is
 // bounded by ctx; runtime calls to Run cannot mutate the resulting globals
 // (Starlark freezes them).
-func NewRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, l *logger.Logger) (*Runtime, error) {
+func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, l *logger.Logger) (*runtime, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	rt := &Runtime{
+	rt := &runtime{
 		name:       name,
 		entryPoint: entryPoint,
 		l:          l,
@@ -143,27 +143,27 @@ func ctxFromThread(t *starlarklib.Thread) context.Context {
 	return context.Background()
 }
 
-// httpClientFromThread returns the *http.Client owned by the Runtime that
+// httpClientFromThread returns the *http.Client owned by the runtime that
 // produced this thread. Panics if the key is missing or the wrong type: every
-// thread that runs script code is constructed by Runtime, which sets the key.
-// A miss means someone added a code path that builds a thread outside Runtime
-// losing the per-Runtime client isolation we deliberately introduced — and we
+// thread that runs script code is constructed by runtime, which sets the key.
+// A miss means someone added a code path that builds a thread outside runtime
+// losing the per-runtime client isolation we deliberately introduced — and we
 // want that to fail loudly, not silently fall back to http.DefaultClient.
 func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 	c, ok := t.Local(threadHTTPClientKey).(*http.Client)
 	if !ok {
-		panic("httpClientFromThread: thread missing httpClient local; constructed outside Runtime?")
+		panic("httpClientFromThread: thread missing httpClient local; constructed outside runtime?")
 	}
 	return c
 }
 
 // loggerFromThread returns the *logger.Logger stashed on the thread. Panics
 // for the same reason httpClientFromThread does — every script thread is
-// constructed by Runtime/runProbe, which sets the key.
+// constructed by runtime/runProbe, which sets the key.
 func loggerFromThread(t *starlarklib.Thread) *logger.Logger {
 	l, ok := t.Local(threadLoggerKey).(*logger.Logger)
 	if !ok {
-		panic("loggerFromThread: thread missing logger local; constructed outside Runtime?")
+		panic("loggerFromThread: thread missing logger local; constructed outside runtime?")
 	}
 	return l
 }
@@ -197,7 +197,7 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
-func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger) error {
+func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger) error {
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
 		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },

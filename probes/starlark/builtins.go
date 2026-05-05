@@ -261,7 +261,7 @@ func assertStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkli
 //
 // log.{info,warn,error,debug}(msg) routes through the per-target logger
 // stashed on the thread by runProbe (or the probe-level logger during
-// load-time evaluation in NewRuntime). Single-string signature; scripts
+// load-time evaluation in newRuntime). Single-string signature; scripts
 // build composite messages with Starlark's % operator before calling.
 
 func logModule() *starlarkstruct.Module {

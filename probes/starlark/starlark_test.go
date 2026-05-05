@@ -411,14 +411,14 @@ def probe(target):
 	assert.Contains(t, results[0].Error.Error(), "Response.json")
 }
 
-// TestHTTP_RuntimeOwnsClient verifies the review comment fix: each Runtime
+// TestHTTP_RuntimeOwnsClient verifies the review comment fix: each runtime
 // has its own *http.Client rather than reusing http.DefaultClient.
 func TestHTTP_RuntimeOwnsClient(t *testing.T) {
-	rt1, err := NewRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
+	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt1: %v", err)
 	}
-	rt2, err := NewRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
+	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt2: %v", err)
 	}
@@ -760,7 +760,7 @@ def probe(target):
 }
 
 // TestLog_AtModuleLevel checks that log.info called from top-level (i.e.
-// during NewRuntime, before any probe() call) doesn't panic. The thread
+// during newRuntime, before any probe() call) doesn't panic. The thread
 // constructed for ExecFile carries the probe-level logger as a fallback.
 func TestLog_AtModuleLevel(t *testing.T) {
 	source := `
