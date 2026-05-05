@@ -86,7 +86,11 @@ type Runtime struct {
 // exists with the expected arity. Module-level code runs once here and is
 // bounded by ctx; runtime calls to Run cannot mutate the resulting globals
 // (Starlark freezes them).
-func NewRuntime(ctx context.Context, name, source, entryPoint string, l *logger.Logger) (*Runtime, error) {
+//
+// vars is the ProbeConf.vars map (may be nil) exposed via the `vars` builtin.
+// It is captured by the module closure once at compile time — no per-run
+// plumbing — because vars are static for the runtime's lifetime.
+func NewRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, l *logger.Logger) (*Runtime, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -96,7 +100,7 @@ func NewRuntime(ctx context.Context, name, source, entryPoint string, l *logger.
 		l:          l,
 		httpClient: &http.Client{},
 	}
-	rt.predeclared = builtins()
+	rt.predeclared = builtins(vars)
 
 	// One-shot thread used only to evaluate the file's top level. After
 	// ExecFile returns we discard it; the resulting globals are reused.

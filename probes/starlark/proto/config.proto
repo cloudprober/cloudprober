@@ -30,4 +30,15 @@ message ProbeConf {
   //       ...
   // Defaults to "probe".
   optional string entry_point = 3 [default = "probe"];
+
+  // Variables exposed to the script via the `vars` builtin:
+  //   vars.get("KEY")          -> value, or None if missing
+  //   vars.get("KEY", "fallback")
+  //
+  // Deliberately not named env_var: there's no subprocess here, so the
+  // external/browser-probe meaning ("passed to subprocess env") would
+  // mislead. If you want a host environment value, bake it in via the
+  // existing config-load template layer (e.g. {{ envVar "PASS" }}); the
+  // script just sees the resolved string.
+  map<string, string> vars = 4;
 }

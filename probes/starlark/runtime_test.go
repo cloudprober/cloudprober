@@ -38,7 +38,7 @@ def probe(target):
 	defer cancel()
 
 	start := time.Now()
-	_, err := NewRuntime(ctx, "script-load-timeout", source, "probe", &logger.Logger{})
+	_, err := NewRuntime(ctx, "script-load-timeout", source, "probe", nil, &logger.Logger{})
 	elapsed := time.Since(start)
 
 	assert.Error(t, err)
