@@ -29,6 +29,7 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v0.44.0
 	go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
+	go.starlark.net v0.0.0-20260326113308-fadfc96def35
 	golang.org/x/net v0.52.0
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sys v0.42.0

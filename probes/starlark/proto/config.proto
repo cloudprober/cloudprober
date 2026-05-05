@@ -1,0 +1,33 @@
+syntax = "proto2";
+
+package cloudprober.probes.starlark;
+
+option go_package = "github.com/cloudprober/cloudprober/probes/starlark/proto";
+
+// ProbeConf configures a Starlark probe.
+//
+// The probe runs a user-supplied Starlark function once per resolved target
+// each interval. Wall time of the call becomes the probe's latency. Clean
+// return is success; any unhandled error (including assertion failures) is
+// failure.
+message ProbeConf {
+  // Source of the Starlark code. Exactly one of source or source_file must
+  // be set.
+  optional string source      = 1;
+  optional string source_file = 2;
+
+  // Name of the entry-point function. It must accept a single argument: the
+  // target. The target is a struct-like value mirroring fields from
+  // cloudprober's targets/endpoint.Endpoint:
+  //   target.name    (string)        — Endpoint.Name (host or IP)
+  //   target.port    (int)           — Endpoint.Port (0 if none)
+  //   target.ip      (string)        — Endpoint.IP, stringified ("" if nil)
+  //   target.labels  (dict[str,str]) — Endpoint.Labels, frozen
+  // Example:
+  //   def probe(target):
+  //       url = "http://%s:%d/healthz" % (target.name, target.port)
+  //       env = target.labels.get("env", "unknown")
+  //       ...
+  // Defaults to "probe".
+  optional string entry_point = 3 [default = "probe"];
+}
