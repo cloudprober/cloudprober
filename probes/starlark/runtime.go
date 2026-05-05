@@ -131,7 +131,6 @@ const (
 	threadCtxKey        = "cloudprober.ctx"
 	threadHTTPClientKey = "cloudprober.httpClient"
 	threadLoggerKey     = "cloudprober.logger"
-	threadMetricsKey    = "cloudprober.metrics"
 )
 
 // ctxFromThread returns the context stored on the Starlark thread.
@@ -169,20 +168,6 @@ func loggerFromThread(t *starlarklib.Thread) *logger.Logger {
 	return l
 }
 
-// metricsFromThread returns the per-call metric accumulator. Returns nil
-// during top-level (load-time) evaluation, where no per-target accumulator
-// exists. Builtins that need it (metric.*) error on nil with a useful message
-// rather than panicking — emitting a metric at module level is a script bug,
-// not an internal one.
-func metricsFromThread(t *starlarklib.Thread) *metricStore {
-	if v := t.Local(threadMetricsKey); v != nil {
-		if m, ok := v.(*metricStore); ok {
-			return m
-		}
-	}
-	return nil
-}
-
 func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func() {
 	if ctx == nil {
 		ctx = context.Background()
@@ -204,16 +189,15 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // return, or an error on Starlark eval failure / assertion failure / ctx
 // cancellation.
 //
-// l is the per-target logger and ms is the per-call metric accumulator —
-// both are stashed on the thread so log.* and metric.* builtins can find
-// them. Pass the per-target logger (not the probe-level one) so log lines
+// l is the per-target logger, stashed on the thread so the log builtin can
+// find it. Pass the per-target logger (not the probe-level one) so log lines
 // from script code carry the target attribute attached by runProbe.
 //
 // Per call we build a brand-new starlarklib.Thread. Threads are cheap and giving
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
-func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, ms *metricStore) error {
+func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger) error {
 	if l == nil {
 		l = rt.l
 	}
@@ -221,14 +205,11 @@ func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logg
 		Name:  rt.name,
 		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
 	}
-	// Stash ctx + httpClient + logger + metric store so builtins can pull
-	// them back out via *FromThread helpers. See top-of-file notes.
+	// Stash ctx + httpClient + logger so builtins can pull them back out via
+	// *FromThread helpers. See top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 	thread.SetLocal(threadLoggerKey, l)
-	if ms != nil {
-		thread.SetLocal(threadMetricsKey, ms)
-	}
 
 	// Bridge ctx cancellation to thread.Cancel. The interpreter checks the
 	// cancel flag at backward branches and call/return boundaries, so a
