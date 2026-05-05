@@ -106,6 +106,7 @@ func NewRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	}
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
+	thread.SetLocal(threadLoggerKey, l)
 	stopCancelBridge := cancelThreadOnContext(ctx, thread)
 	defer stopCancelBridge()
 
@@ -129,6 +130,7 @@ func NewRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 const (
 	threadCtxKey        = "cloudprober.ctx"
 	threadHTTPClientKey = "cloudprober.httpClient"
+	threadLoggerKey     = "cloudprober.logger"
 )
 
 // ctxFromThread returns the context stored on the Starlark thread.
@@ -155,6 +157,17 @@ func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 	return c
 }
 
+// loggerFromThread returns the *logger.Logger stashed on the thread. Panics
+// for the same reason httpClientFromThread does — every script thread is
+// constructed by Runtime/runProbe, which sets the key.
+func loggerFromThread(t *starlarklib.Thread) *logger.Logger {
+	l, ok := t.Local(threadLoggerKey).(*logger.Logger)
+	if !ok {
+		panic("loggerFromThread: thread missing logger local; constructed outside Runtime?")
+	}
+	return l
+}
+
 func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func() {
 	if ctx == nil {
 		ctx = context.Background()
@@ -176,19 +189,24 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // return, or an error on Starlark eval failure / assertion failure / ctx
 // cancellation.
 //
+// l is the per-target logger, stashed on the thread so the log builtin can
+// find it. Pass the per-target logger (not the probe-level one) so log lines
+// from script code carry the target attribute attached by runProbe.
+//
 // Per call we build a brand-new starlarklib.Thread. Threads are cheap and giving
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
-func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint) error {
+func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger) error {
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
-		Print: func(_ *starlarklib.Thread, msg string) { rt.l.Info(msg) },
+		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
 	}
-	// Stash ctx + httpClient so builtins can pull them back out via
-	// ctxFromThread / httpClientFromThread. See top-of-file notes.
+	// Stash ctx + httpClient + logger so builtins can pull them back out via
+	// *FromThread helpers. See top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
+	thread.SetLocal(threadLoggerKey, l)
 
 	// Bridge ctx cancellation to thread.Cancel. The interpreter checks the
 	// cancel flag at backward branches and call/return boundaries, so a

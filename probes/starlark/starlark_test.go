@@ -15,6 +15,7 @@
 package starlark
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -695,6 +696,86 @@ def probe(target):
 	if err := p.Init("script-vars-http", opts); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+// ---------------------------------------------------------------------------
+// log builtin
+
+// newLoggingOpts builds an options that captures log output to buf, so tests
+// can assert that log.* calls actually reach the cloudprober logger.
+func newLoggingOpts(t *testing.T, source string, buf *bytes.Buffer) *options.Options {
+	t.Helper()
+	opts := options.DefaultOptions()
+	opts.Targets = targets.StaticTargets("example.com")
+	opts.Timeout = time.Second
+	opts.Logger = logger.New(logger.WithWriter(buf))
+	opts.LatencyUnit = time.Millisecond
+	opts.ProbeConf = &configpb.ProbeConf{Source: proto.String(source)}
+	return opts
+}
+
+func TestLog_RoutesThroughLogger(t *testing.T) {
+	source := `
+def probe(target):
+    log.info("info-line")
+    log.warn(msg="warn-line")  # Test msg kwarg
+    log.error("error-line")
+`
+	var buf bytes.Buffer
+	opts := newLoggingOpts(t, source, &buf)
+	p := &Probe{}
+	if err := p.Init("script-log", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+
+	out := buf.String()
+	assert.Contains(t, out, "info-line")
+	assert.Contains(t, out, "warn-line")
+	assert.Contains(t, out, "error-line")
+}
+
+// TestLog_CarriesTargetAttribute pins that log.* lines emitted from a script
+// inherit the per-target attribute attached by runProbe. If we ever regress
+// to passing the probe-level logger into runtime.Run instead of the
+// per-target one, this test catches it.
+func TestLog_CarriesTargetAttribute(t *testing.T) {
+	source := `
+def probe(target):
+    log.info("hello-from-script")
+`
+	var buf bytes.Buffer
+	opts := newLoggingOpts(t, source, &buf)
+	opts.Targets = targets.StaticTargets("specific-host.example.com")
+	p := &Probe{}
+	if err := p.Init("script-log-target", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+	assert.Contains(t, buf.String(), "specific-host.example.com")
+}
+
+// TestLog_AtModuleLevel checks that log.info called from top-level (i.e.
+// during NewRuntime, before any probe() call) doesn't panic. The thread
+// constructed for ExecFile carries the probe-level logger as a fallback.
+func TestLog_AtModuleLevel(t *testing.T) {
+	source := `
+log.info("module-load-line")
+
+def probe(target):
+    pass
+`
+	var buf bytes.Buffer
+	opts := newLoggingOpts(t, source, &buf)
+	p := &Probe{}
+	if err := p.Init("script-log-toplevel", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	assert.Contains(t, buf.String(), "module-load-line")
 	results := p.RunOnce(context.Background())
 	assert.True(t, results[0].Success, "err=%v", results[0].Error)
 }

@@ -134,7 +134,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	runCtx, cancel := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancel()
 	start := time.Now()
-	err := p.runtime.Run(runCtx, target)
+	err := p.runtime.Run(runCtx, target, l)
 	latency := time.Since(start)
 
 	if err != nil {

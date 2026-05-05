@@ -32,6 +32,7 @@ func builtins(vars map[string]string) starlarklib.StringDict {
 		"http":   httpModule(),
 		"assert": assertModule(),
 		"vars":   varsModule(vars),
+		"log":    logModule(),
 	}
 }
 
@@ -161,11 +162,13 @@ type response struct {
 var _ starlarklib.Value = (*response)(nil)
 var _ starlarklib.HasAttrs = (*response)(nil)
 
-func (r *response) String() string        { return fmt.Sprintf("<response status=%d size=%d>", r.status, len(r.body)) }
-func (r *response) Type() string          { return "Response" }
-func (r *response) Freeze()               {}
-func (r *response) Truth() starlarklib.Bool  { return starlarklib.Bool(r.status > 0) }
-func (r *response) Hash() (uint32, error) { return 0, fmt.Errorf("Response is unhashable") }
+func (r *response) String() string {
+	return fmt.Sprintf("<response status=%d size=%d>", r.status, len(r.body))
+}
+func (r *response) Type() string            { return "Response" }
+func (r *response) Freeze()                 {}
+func (r *response) Truth() starlarklib.Bool { return starlarklib.Bool(r.status > 0) }
+func (r *response) Hash() (uint32, error)   { return 0, fmt.Errorf("Response is unhashable") }
 
 func (r *response) Attr(name string) (starlarklib.Value, error) {
 	switch name {
@@ -251,6 +254,47 @@ func assertStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkli
 		return nil, fmt.Errorf("assert.status: expected %d, got %d", expected, r.status)
 	}
 	return starlarklib.None, nil
+}
+
+// ----------------------------------------------------------------------------
+// log module
+//
+// log.{info,warn,error,debug}(msg) routes through the per-target logger
+// stashed on the thread by runProbe (or the probe-level logger during
+// load-time evaluation in NewRuntime). Single-string signature; scripts
+// build composite messages with Starlark's % operator before calling.
+
+func logModule() *starlarkstruct.Module {
+	return &starlarkstruct.Module{
+		Name: "log",
+		Members: starlarklib.StringDict{
+			"info":  starlarklib.NewBuiltin("log.info", logAt("info")),
+			"warn":  starlarklib.NewBuiltin("log.warn", logAt("warn")),
+			"error": starlarklib.NewBuiltin("log.error", logAt("error")),
+			"debug": starlarklib.NewBuiltin("log.debug", logAt("debug")),
+		},
+	}
+}
+
+func logAt(level string) func(*starlarklib.Thread, *starlarklib.Builtin, starlarklib.Tuple, []starlarklib.Tuple) (starlarklib.Value, error) {
+	return func(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+		var msg string
+		if err := starlarklib.UnpackArgs("log."+level, args, kwargs, "msg", &msg); err != nil {
+			return nil, err
+		}
+		l := loggerFromThread(thread)
+		switch level {
+		case "info":
+			l.Info(msg)
+		case "warn":
+			l.Warning(msg)
+		case "error":
+			l.Error(msg)
+		case "debug":
+			l.Debug(msg)
+		}
+		return starlarklib.None, nil
+	}
 }
 
 // ----------------------------------------------------------------------------
