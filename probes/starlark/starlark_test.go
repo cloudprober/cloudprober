@@ -720,7 +720,7 @@ func TestLog_RoutesThroughLogger(t *testing.T) {
 	source := `
 def probe(target):
     log.info("info-line")
-    log.warn("warn-line")
+    log.warn(msg="warn-line")  # Test msg kwarg
     log.error("error-line")
 `
 	var buf bytes.Buffer
@@ -779,4 +779,3 @@ def probe(target):
 	results := p.RunOnce(context.Background())
 	assert.True(t, results[0].Success, "err=%v", results[0].Error)
 }
-
