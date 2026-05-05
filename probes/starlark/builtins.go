@@ -27,9 +27,6 @@ import (
 )
 
 // builtins returns the predeclared globals available to every script.
-// Phase 1 surface: http (get, post), assert (status). Plus vars (get),
-// pre-baked from the probe's ProbeConf.vars map (static for the
-// runtime's lifetime, so no per-run plumbing is needed).
 func builtins(vars map[string]string) starlarklib.StringDict {
 	return starlarklib.StringDict{
 		"http":   httpModule(),
@@ -202,10 +199,6 @@ func (r *response) jsonMethod(_ *starlarklib.Thread, _ *starlarklib.Builtin, arg
 // ----------------------------------------------------------------------------
 // vars module
 
-// varsModule binds the ProbeConf.vars map into a Starlark module with a
-// single accessor: vars.get(name, default=None). The map is captured by
-// closure so we don't need thread-local plumbing — vars are static for
-// the runtime's lifetime.
 func varsModule(vars map[string]string) *starlarkstruct.Module {
 	get := func(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var name string

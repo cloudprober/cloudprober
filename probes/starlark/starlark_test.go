@@ -621,9 +621,6 @@ func TestInit_WrongConfigType(t *testing.T) {
 // ---------------------------------------------------------------------------
 // vars builtin
 
-// TestVars_GetReturnsConfiguredValues exercises the happy path: configured
-// keys flow through `vars.get(name)` as strings. The script asserts the
-// expected values and fails the probe on mismatch.
 func TestVars_GetReturnsConfiguredValues(t *testing.T) {
 	source := `
 def probe(target):
@@ -650,8 +647,6 @@ def probe(target):
 	assert.True(t, results[0].Success, "err=%v", results[0].Error)
 }
 
-// TestVars_GetMissingKey covers both missing-key paths: the no-default form
-// returns None, and the explicit-default form returns the supplied value.
 func TestVars_GetMissingKey(t *testing.T) {
 	source := `
 def probe(target):
@@ -675,10 +670,6 @@ def probe(target):
 	assert.True(t, results[0].Success, "err=%v", results[0].Error)
 }
 
-// TestVars_FlowsIntoHTTPRequest verifies the realistic use case: pulling a
-// secret out of `vars` and using it in an http call. The test server
-// rejects requests without the expected Authorization header, so success
-// implies vars.get round-tripped correctly.
 func TestVars_FlowsIntoHTTPRequest(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer s3cret" {

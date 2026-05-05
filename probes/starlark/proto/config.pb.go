@@ -51,16 +51,12 @@ type ProbeConf struct {
 	//
 	// Defaults to "probe".
 	EntryPoint *string `protobuf:"bytes,3,opt,name=entry_point,json=entryPoint,def=probe" json:"entry_point,omitempty"`
-	// Variables exposed to the script via the `vars` builtin:
+	// Variables exposed to the script via vars.get(name, default=None).
 	//
-	//	vars.get("KEY")          -> value, or None if missing
-	//	vars.get("KEY", "fallback")
-	//
-	// Deliberately not named env_var: there's no subprocess here, so the
-	// external/browser-probe meaning ("passed to subprocess env") would
-	// mislead. If you want a host environment value, bake it in via the
-	// existing config-load template layer (e.g. {{ envVar "PASS" }}); the
-	// script just sees the resolved string.
+	// Deliberately not named env_var: external/browser probes use that name
+	// for "passed to subprocess env"; there's no subprocess here. For host
+	// environment values, bake them in via the config-load template layer
+	// (e.g. {{ envVar "PASS" }}).
 	Vars          map[string]string `protobuf:"bytes,4,rep,name=vars" json:"vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
