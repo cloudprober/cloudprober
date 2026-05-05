@@ -15,6 +15,7 @@
 package starlark
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -31,6 +32,8 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
 	"github.com/cloudprober/cloudprober/targets"
@@ -697,4 +700,241 @@ def probe(target):
 	}
 	results := p.RunOnce(context.Background())
 	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+// ---------------------------------------------------------------------------
+// log builtin
+
+// newLoggingOpts builds an options that captures log output to buf, so tests
+// can assert that log.* calls actually reach the cloudprober logger.
+func newLoggingOpts(t *testing.T, source string, buf *bytes.Buffer) *options.Options {
+	t.Helper()
+	opts := options.DefaultOptions()
+	opts.Targets = targets.StaticTargets("example.com")
+	opts.Timeout = time.Second
+	opts.Logger = logger.New(logger.WithWriter(buf))
+	opts.LatencyUnit = time.Millisecond
+	opts.ProbeConf = &configpb.ProbeConf{Source: proto.String(source)}
+	return opts
+}
+
+func TestLog_RoutesThroughLogger(t *testing.T) {
+	source := `
+def probe(target):
+    log.info("info-line")
+    log.warn("warn-line")
+    log.error("error-line")
+`
+	var buf bytes.Buffer
+	opts := newLoggingOpts(t, source, &buf)
+	p := &Probe{}
+	if err := p.Init("script-log", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+
+	out := buf.String()
+	assert.Contains(t, out, "info-line")
+	assert.Contains(t, out, "warn-line")
+	assert.Contains(t, out, "error-line")
+}
+
+// TestLog_CarriesTargetAttribute pins that log.* lines emitted from a script
+// inherit the per-target attribute attached by runProbe. If we ever regress
+// to passing the probe-level logger into runtime.Run instead of the
+// per-target one, this test catches it.
+func TestLog_CarriesTargetAttribute(t *testing.T) {
+	source := `
+def probe(target):
+    log.info("hello-from-script")
+`
+	var buf bytes.Buffer
+	opts := newLoggingOpts(t, source, &buf)
+	opts.Targets = targets.StaticTargets("specific-host.example.com")
+	p := &Probe{}
+	if err := p.Init("script-log-target", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+	assert.Contains(t, buf.String(), "specific-host.example.com")
+}
+
+// TestLog_AtModuleLevel checks that log.info called from top-level (i.e.
+// during NewRuntime, before any probe() call) doesn't panic. The thread
+// constructed for ExecFile carries the probe-level logger as a fallback.
+func TestLog_AtModuleLevel(t *testing.T) {
+	source := `
+log.info("module-load-line")
+
+def probe(target):
+    pass
+`
+	var buf bytes.Buffer
+	opts := newLoggingOpts(t, source, &buf)
+	p := &Probe{}
+	if err := p.Init("script-log-toplevel", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	assert.Contains(t, buf.String(), "module-load-line")
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+// ---------------------------------------------------------------------------
+// metric builtin
+
+// metricValue extracts a numeric metric (Int/Float) from the first emitted
+// EventMetrics by name. Returns false if absent — fail in caller.
+func metricValue(t *testing.T, results []*singlerun.ProbeRunResult, name string) (float64, bool) {
+	t.Helper()
+	if len(results) == 0 || len(results[0].Metrics) == 0 {
+		return 0, false
+	}
+	v := results[0].Metrics[0].Metric(name)
+	if v == nil {
+		return 0, false
+	}
+	nv, ok := v.(metrics.NumValue)
+	if !ok {
+		return 0, false
+	}
+	return nv.Float64(), true
+}
+
+func TestMetric_AddAccumulates(t *testing.T) {
+	// Multiple metric.add calls in a single run accumulate. The same += on
+	// the int counter underpins cross-run accumulation under the long-running
+	// scheduler path, where probeResult is reused across ticks.
+	source := `
+def probe(target):
+    metric.add("items", 3)
+    metric.add("items", 4)
+    metric.add("items", 5)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-metric-add", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+
+	v, ok := metricValue(t, results, "items")
+	assert.True(t, ok, "items metric not found")
+	assert.Equal(t, float64(12), v)
+}
+
+func TestMetric_GaugeLastWriteWins(t *testing.T) {
+	source := `
+def probe(target):
+    metric.gauge("queue_depth", 5)
+    metric.gauge("queue_depth", 17)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-metric-gauge", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+
+	v, ok := metricValue(t, results, "queue_depth")
+	assert.True(t, ok)
+	assert.Equal(t, float64(17), v)
+}
+
+func TestMetric_ObserveSamplesDistribution(t *testing.T) {
+	source := `
+def probe(target):
+    metric.observe("step_latency_ms", 42)
+    metric.observe("step_latency_ms", 99)
+    metric.observe("step_latency_ms", 5)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-metric-observe", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+
+	v := results[0].Metrics[0].Metric("step_latency_ms")
+	assert.NotNil(t, v, "distribution not emitted")
+	dist, ok := v.(*metrics.Distribution)
+	assert.True(t, ok, "expected *metrics.Distribution, got %T", v)
+	// Distribution.String() includes "count:N sum:M" — coarse but sufficient.
+	s := dist.String()
+	assert.Contains(t, s, "count:3")
+}
+
+// TestMetric_AtModuleLevelErrors pins that metric.* called at module load
+// time produces a useful error rather than a silent drop or a panic.
+// (log.* is allowed at module level; metric.* is not because there's no
+// per-target accumulator yet.)
+func TestMetric_AtModuleLevelErrors(t *testing.T) {
+	source := `
+metric.add("oops", 1)
+
+def probe(target):
+    pass
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	err := p.Init("script-metric-toplevel", opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "metric.add")
+	assert.Contains(t, err.Error(), "module level")
+}
+
+func TestMetric_ReservedName(t *testing.T) {
+	source := `
+def probe(target):
+    metric.add("total", 1)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-metric-reserved", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.False(t, results[0].Success)
+	assert.Contains(t, results[0].Error.Error(), "reserved")
+}
+
+func TestMetric_AddRejectsFloat(t *testing.T) {
+	source := `
+def probe(target):
+    metric.add("counter", 1.5)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-metric-float", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.False(t, results[0].Success)
+	assert.Contains(t, results[0].Error.Error(), "must be int")
+}
+
+// TestMetric_GaugeAcceptsFloat smoke-tests that gauge + observe accept
+// both int and float inputs (the ergonomics phrase "use metric.gauge for
+// floats" in the metric.add error message has to actually be true).
+func TestMetric_GaugeAcceptsFloat(t *testing.T) {
+	source := `
+def probe(target):
+    metric.gauge("ratio", 0.42)
+    metric.observe("size", 1234.5)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-metric-floatok", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+	v, ok := metricValue(t, results, "ratio")
+	assert.True(t, ok)
+	assert.InDelta(t, 0.42, v, 1e-9)
 }

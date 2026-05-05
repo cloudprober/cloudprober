@@ -45,10 +45,13 @@ type Probe struct {
 type probeResult struct {
 	total, success int64
 	latency        metrics.LatencyValue
+	custom         *metricStore
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
-	r := &probeResult{}
+	r := &probeResult{
+		custom: newMetricStore("total", "success", p.opts.LatencyMetricName),
+	}
 	if p.opts.LatencyDist != nil {
 		r.latency = p.opts.LatencyDist.CloneDist()
 	} else {
@@ -63,6 +66,9 @@ func (r *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*m
 		AddMetric("success", metrics.NewInt(r.success)).
 		AddMetric(opts.LatencyMetricName, r.latency.Clone()).
 		AddLabel("ptype", "starlark")
+	if r.custom != nil {
+		r.custom.applyTo(em)
+	}
 	return []*metrics.EventMetrics{em}
 }
 
@@ -134,7 +140,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	runCtx, cancel := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancel()
 	start := time.Now()
-	err := p.runtime.Run(runCtx, target)
+	err := p.runtime.Run(runCtx, target, l, result.custom)
 	latency := time.Since(start)
 
 	if err != nil {

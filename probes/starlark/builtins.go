@@ -21,7 +21,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
+	"github.com/cloudprober/cloudprober/metrics"
 	starlarklib "go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -32,6 +34,8 @@ func builtins(vars map[string]string) starlarklib.StringDict {
 		"http":   httpModule(),
 		"assert": assertModule(),
 		"vars":   varsModule(vars),
+		"log":    logModule(),
+		"metric": metricModule(),
 	}
 }
 
@@ -161,11 +165,13 @@ type response struct {
 var _ starlarklib.Value = (*response)(nil)
 var _ starlarklib.HasAttrs = (*response)(nil)
 
-func (r *response) String() string        { return fmt.Sprintf("<response status=%d size=%d>", r.status, len(r.body)) }
-func (r *response) Type() string          { return "Response" }
-func (r *response) Freeze()               {}
-func (r *response) Truth() starlarklib.Bool  { return starlarklib.Bool(r.status > 0) }
-func (r *response) Hash() (uint32, error) { return 0, fmt.Errorf("Response is unhashable") }
+func (r *response) String() string {
+	return fmt.Sprintf("<response status=%d size=%d>", r.status, len(r.body))
+}
+func (r *response) Type() string            { return "Response" }
+func (r *response) Freeze()                 {}
+func (r *response) Truth() starlarklib.Bool { return starlarklib.Bool(r.status > 0) }
+func (r *response) Hash() (uint32, error)   { return 0, fmt.Errorf("Response is unhashable") }
 
 func (r *response) Attr(name string) (starlarklib.Value, error) {
 	switch name {
@@ -251,6 +257,266 @@ func assertStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkli
 		return nil, fmt.Errorf("assert.status: expected %d, got %d", expected, r.status)
 	}
 	return starlarklib.None, nil
+}
+
+// ----------------------------------------------------------------------------
+// log module
+//
+// log.{info,warn,error,debug}(msg) routes through the per-target logger
+// stashed on the thread by runProbe (or the probe-level logger during
+// load-time evaluation in NewRuntime). Single-string signature; scripts
+// build composite messages with Starlark's % operator before calling.
+
+func logModule() *starlarkstruct.Module {
+	return &starlarkstruct.Module{
+		Name: "log",
+		Members: starlarklib.StringDict{
+			"info":  starlarklib.NewBuiltin("log.info", logAt("info")),
+			"warn":  starlarklib.NewBuiltin("log.warn", logAt("warn")),
+			"error": starlarklib.NewBuiltin("log.error", logAt("error")),
+			"debug": starlarklib.NewBuiltin("log.debug", logAt("debug")),
+		},
+	}
+}
+
+func logAt(level string) func(*starlarklib.Thread, *starlarklib.Builtin, starlarklib.Tuple, []starlarklib.Tuple) (starlarklib.Value, error) {
+	return func(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+		var msg string
+		if err := starlarklib.UnpackArgs("log."+level, args, kwargs, "msg", &msg); err != nil {
+			return nil, err
+		}
+		l := loggerFromThread(thread)
+		switch level {
+		case "info":
+			l.Info(msg)
+		case "warn":
+			l.Warning(msg)
+		case "error":
+			l.Error(msg)
+		case "debug":
+			l.Debug(msg)
+		}
+		return starlarklib.None, nil
+	}
+}
+
+// ----------------------------------------------------------------------------
+// metric module + metricStore
+//
+// Custom metrics emitted by scripts alongside the standard total/success/
+// latency. Three semantics:
+//
+//   metric.add(name, value)      cumulative int counter; accumulates across runs
+//   metric.gauge(name, value)    last-write-wins float
+//   metric.observe(name, value)  distribution sample (default exponential buckets)
+//
+// No labels in v1. EventMetrics carries labels at the EM level (probe,
+// target, ptype), not per-metric — exposing per-metric labels would mean
+// either splitting into multiple EMs (real cardinality footgun) or
+// inventing a label-merging story. Defer until a real script needs it.
+//
+// Reserved names (total, success, the latency metric name) are rejected at
+// write time so the script author gets a clear error rather than a silent
+// drop in EventMetrics.AddMetric (which keeps the first registration).
+
+// distDefaultBase / distDefaultBuckets match metrics.NewDistributionFromProto
+// defaults so distributions emitted from scripts behave the same as those
+// declared via proto when neither side specifies buckets.
+const (
+	distDefaultBase    = 2.0
+	distDefaultScale   = 1.0
+	distDefaultBuckets = 20
+)
+
+// metricStore is the per-(probe, target) accumulator for script-emitted
+// metrics. One store lives on each probeResult; metric.* builtins write to
+// it via the thread-local set by runProbe; probeResult.Metrics reads it at
+// emission time.
+//
+// All maps are guarded by mu because in principle multiple goroutines could
+// touch one store concurrently — a single Starlark thread is sequential, but
+// the scheduler can in some configs run the same target's runProbe back-to-back
+// without serializing on store access. The cost is one mutex acquisition per
+// metric op, which is negligible compared to the script execution itself.
+type metricStore struct {
+	mu       sync.Mutex
+	counters map[string]int64
+	gauges   map[string]float64
+	dists    map[string]*metrics.Distribution
+	reserved map[string]struct{}
+}
+
+func newMetricStore(reserved ...string) *metricStore {
+	r := make(map[string]struct{}, len(reserved))
+	for _, n := range reserved {
+		r[n] = struct{}{}
+	}
+	return &metricStore{
+		counters: map[string]int64{},
+		gauges:   map[string]float64{},
+		dists:    map[string]*metrics.Distribution{},
+		reserved: r,
+	}
+}
+
+func (m *metricStore) checkName(name string) error {
+	if name == "" {
+		return fmt.Errorf("metric name must be non-empty")
+	}
+	if _, ok := m.reserved[name]; ok {
+		return fmt.Errorf("metric name %q is reserved by the standard probe metrics", name)
+	}
+	return nil
+}
+
+func (m *metricStore) add(name string, delta int64) error {
+	if err := m.checkName(name); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.counters[name] += delta
+	return nil
+}
+
+func (m *metricStore) gauge(name string, val float64) error {
+	if err := m.checkName(name); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.gauges[name] = val
+	return nil
+}
+
+func (m *metricStore) observe(name string, sample float64) error {
+	if err := m.checkName(name); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	d, ok := m.dists[name]
+	if !ok {
+		nd, err := metrics.NewExponentialDistribution(distDefaultBase, distDefaultScale, distDefaultBuckets)
+		if err != nil {
+			return err
+		}
+		d = nd
+		m.dists[name] = d
+	}
+	d.AddFloat64(sample)
+	return nil
+}
+
+// applyTo registers each accumulated metric on em. Call at EM-emission time.
+// Metrics are added in stable name-sorted order so output ordering is
+// deterministic across runs (helpful for tests and for human reading the
+// /metrics output).
+func (m *metricStore) applyTo(em *metrics.EventMetrics) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for name, v := range m.counters {
+		em.AddMetric(name, metrics.NewInt(v))
+	}
+	for name, v := range m.gauges {
+		em.AddMetric(name, metrics.NewFloat(v))
+	}
+	for name, d := range m.dists {
+		em.AddMetric(name, d.Clone())
+	}
+}
+
+func metricModule() *starlarkstruct.Module {
+	return &starlarkstruct.Module{
+		Name: "metric",
+		Members: starlarklib.StringDict{
+			"add":     starlarklib.NewBuiltin("metric.add", metricAdd),
+			"gauge":   starlarklib.NewBuiltin("metric.gauge", metricGauge),
+			"observe": starlarklib.NewBuiltin("metric.observe", metricObserve),
+		},
+	}
+}
+
+// metricAdd increments a cumulative integer counter. Floats are rejected
+// rather than silently truncated — a script trying to add 0.5 has almost
+// certainly mistyped what they wanted (gauge or observe).
+func metricAdd(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	var name string
+	var value starlarklib.Value
+	if err := starlarklib.UnpackArgs("metric.add", args, kwargs, "name", &name, "value", &value); err != nil {
+		return nil, err
+	}
+	store := metricsFromThread(thread)
+	if store == nil {
+		return nil, fmt.Errorf("metric.add: can only be called inside probe(), not at module level")
+	}
+	i, ok := value.(starlarklib.Int)
+	if !ok {
+		return nil, fmt.Errorf("metric.add: value must be int, got %s (use metric.gauge or metric.observe for floats)", value.Type())
+	}
+	n, ok := i.Int64()
+	if !ok {
+		return nil, fmt.Errorf("metric.add: value out of int64 range")
+	}
+	if err := store.add(name, n); err != nil {
+		return nil, fmt.Errorf("metric.add: %v", err)
+	}
+	return starlarklib.None, nil
+}
+
+func metricGauge(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	var name string
+	var value starlarklib.Value
+	if err := starlarklib.UnpackArgs("metric.gauge", args, kwargs, "name", &name, "value", &value); err != nil {
+		return nil, err
+	}
+	store := metricsFromThread(thread)
+	if store == nil {
+		return nil, fmt.Errorf("metric.gauge: can only be called inside probe(), not at module level")
+	}
+	f, err := numericToFloat(value)
+	if err != nil {
+		return nil, fmt.Errorf("metric.gauge: %v", err)
+	}
+	if err := store.gauge(name, f); err != nil {
+		return nil, fmt.Errorf("metric.gauge: %v", err)
+	}
+	return starlarklib.None, nil
+}
+
+func metricObserve(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	var name string
+	var value starlarklib.Value
+	if err := starlarklib.UnpackArgs("metric.observe", args, kwargs, "name", &name, "value", &value); err != nil {
+		return nil, err
+	}
+	store := metricsFromThread(thread)
+	if store == nil {
+		return nil, fmt.Errorf("metric.observe: can only be called inside probe(), not at module level")
+	}
+	f, err := numericToFloat(value)
+	if err != nil {
+		return nil, fmt.Errorf("metric.observe: %v", err)
+	}
+	if err := store.observe(name, f); err != nil {
+		return nil, fmt.Errorf("metric.observe: %v", err)
+	}
+	return starlarklib.None, nil
+}
+
+// numericToFloat coerces a Starlark int or float to float64. Used for
+// gauge/observe where the metric value is naturally floating-point.
+func numericToFloat(v starlarklib.Value) (float64, error) {
+	switch x := v.(type) {
+	case starlarklib.Int:
+		if i, ok := x.Int64(); ok {
+			return float64(i), nil
+		}
+		return float64(x.Float()), nil
+	case starlarklib.Float:
+		return float64(x), nil
+	}
+	return 0, fmt.Errorf("value must be int or float, got %s", v.Type())
 }
 
 // ----------------------------------------------------------------------------
