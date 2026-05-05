@@ -198,9 +198,6 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
 func (rt *Runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger) error {
-	if l == nil {
-		l = rt.l
-	}
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
 		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
