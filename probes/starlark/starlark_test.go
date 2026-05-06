@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
 	"github.com/cloudprober/cloudprober/targets"
@@ -757,6 +758,228 @@ def probe(target):
 	results := p.RunOnce(context.Background())
 	assert.True(t, results[0].Success, "err=%v", results[0].Error)
 	assert.Contains(t, buf.String(), "specific-host.example.com")
+}
+
+// ---------------------------------------------------------------------------
+// state builtin
+
+// runProbeWith drives p.runProbe with a stable runReq, mirroring the
+// scheduler's per-target goroutine. Tests that need cross-run persistence
+// can't use Probe.RunOnce — it builds fresh runReqs (and thus fresh state
+// buckets) per call.
+func runProbeWith(t *testing.T, p *Probe, runReq *sched.RunProbeForTargetRequest) {
+	t.Helper()
+	if runReq.LastRun == nil {
+		runReq.LastRun = &sched.LastRunResult{}
+	}
+	p.runProbe(context.Background(), runReq)
+}
+
+func TestState_PersistsAcrossRuns(t *testing.T) {
+	source := `
+def probe(target):
+    n = state.get("count", 0)
+    state.set("count", n + 1)
+    if n + 1 == 3:
+        log.info("hit-three")
+`
+	var buf bytes.Buffer
+	opts := newLoggingOpts(t, source, &buf)
+	p := &Probe{}
+	if err := p.Init("script-state-persist", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	runReq := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: "example.com"}}
+	for i := 0; i < 3; i++ {
+		runProbeWith(t, p, runReq)
+		assert.NoError(t, runReq.LastRun.Error, "run %d", i)
+	}
+	assert.Contains(t, buf.String(), "hit-three", "third run should see count==3")
+}
+
+func TestState_DefaultForMissing(t *testing.T) {
+	source := `
+def probe(target):
+    if state.get("missing") != None:
+        fail("expected None for missing key")
+    if state.get("missing", "fallback") != "fallback":
+        fail("expected fallback")
+    if state.get("missing", 42) != 42:
+        fail("expected 42")
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-state-default", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.True(t, results[0].Success, "err=%v", results[0].Error)
+}
+
+// TestState_IsolatedPerTarget interleaves two targets — the second A run
+// reads back A's owner, which would fail if B's write had clobbered it.
+func TestState_IsolatedPerTarget(t *testing.T) {
+	source := `
+def probe(target):
+    seen = state.get("owner")
+    if seen != None and seen != target.name:
+        fail("bucket leak: target %s saw owner=%s" % (target.name, seen))
+    state.set("owner", target.name)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-state-isolation", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	reqA := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: "host-a"}}
+	reqB := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: "host-b"}}
+	runProbeWith(t, p, reqA)
+	runProbeWith(t, p, reqB)
+	runProbeWith(t, p, reqA)
+	assert.NoError(t, reqA.LastRun.Error)
+	assert.NoError(t, reqB.LastRun.Error)
+}
+
+func TestState_DeepCopyOnGet(t *testing.T) {
+	source := `
+def probe(target):
+    if state.get("items") == None:
+        state.set("items", [1, 2, 3])
+        return
+    items = state.get("items")
+    items.append(99)
+    again = state.get("items")
+    if len(again) != 3:
+        fail("expected stored list unchanged, got %s" % again)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-state-deepcopy", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	runReq := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: "example.com"}}
+	for i := 0; i < 2; i++ {
+		runProbeWith(t, p, runReq)
+		assert.NoError(t, runReq.LastRun.Error, "run %d", i)
+	}
+}
+
+// TestState_FreshBucketAcrossRunOnce pins that persistence is a
+// scheduler-loop property, not a probe-instance one — RunOnce builds a fresh
+// runReq each call, so state from a prior RunOnce is gone.
+func TestState_FreshBucketAcrossRunOnce(t *testing.T) {
+	source := `
+def probe(target):
+    n = state.get("count", 0)
+    if n != 0:
+        fail("expected fresh bucket on RunOnce, got count=%d" % n)
+    state.set("count", n + 1)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-state-runonce-fresh", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		results := p.RunOnce(context.Background())
+		assert.True(t, results[0].Success, "run %d: %v", i, results[0].Error)
+	}
+}
+
+func TestState_RejectsUnsupportedValue(t *testing.T) {
+	source := `
+def helper():
+    return 1
+
+def probe(target):
+    state.set("fn", helper)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-state-bad-value", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.False(t, results[0].Success)
+	assert.Contains(t, results[0].Error.Error(), "state.set")
+}
+
+// TestState_RejectsTuple covers the contract that tuples are rejected at
+// set time — at the top level and nested inside lists / dicts. starlarkToGo
+// would silently convert them to lists, so a tuple in / list out round-trip
+// would be a debugging trap.
+func TestState_RejectsTuple(t *testing.T) {
+	cases := []struct{ name, expr string }{
+		{"top level", `state.set("k", (1, 2))`},
+		{"nested in list", `state.set("k", [(1, 2)])`},
+		{"nested in dict", `state.set("k", {"x": (1, 2)})`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			source := "def probe(target):\n    " + tc.expr + "\n"
+			opts := newOpts(t, "example.com", source)
+			p := &Probe{}
+			if err := p.Init("script-state-tuple-"+tc.name, opts); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+			results := p.RunOnce(context.Background())
+			assert.False(t, results[0].Success)
+			assert.Contains(t, results[0].Error.Error(), "tuple")
+		})
+	}
+}
+
+// TestState_MaxKeysCap exercises the 1024-key bucket cap. Keys above the
+// limit fail with a clear error; replacing an existing key still works.
+func TestState_MaxKeysCap(t *testing.T) {
+	source := `
+def probe(target):
+    for i in range(1024):
+        state.set("k%d" % i, i)
+    # 1025th distinct key should fail.
+    state.set("overflow", 1)
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-state-cap", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results := p.RunOnce(context.Background())
+	assert.False(t, results[0].Success)
+	assert.Contains(t, results[0].Error.Error(), "max keys")
+
+	// Replacing an existing key must not trip the cap.
+	source2 := `
+def probe(target):
+    for i in range(1024):
+        state.set("k%d" % i, i)
+    state.set("k0", 999)  # replacement, not new key
+`
+	opts2 := newOpts(t, "example.com", source2)
+	p2 := &Probe{}
+	if err := p2.Init("script-state-cap-replace", opts2); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	results2 := p2.RunOnce(context.Background())
+	assert.True(t, results2[0].Success, "err=%v", results2[0].Error)
+}
+
+// TestState_AtModuleLevel pins that top-level state.{get,set} doesn't panic
+// — the ExecFile thread carries a scratch bucket that's discarded after load.
+func TestState_AtModuleLevel(t *testing.T) {
+	source := `
+state.set("loaded", True)
+_loaded = state.get("loaded", False)
+
+def probe(target):
+    pass
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	err := p.Init("script-state-toplevel", opts)
+	assert.NoError(t, err)
 }
 
 // TestLog_AtModuleLevel checks that log.info called from top-level (i.e.
