@@ -125,7 +125,9 @@ func TestStarlarkToGo_Tuple(t *testing.T) {
 	}
 	got, err := starlarkToGo(tup)
 	assert.NoError(t, err)
-	assert.Equal(t, []interface{}{"a", int64(2)}, got)
+	// Tuple converts to starlarkTuple (not []interface{}) so goToStarlark
+	// can round-trip it back to a Tuple. Both share the same JSON encoding.
+	assert.Equal(t, starlarkTuple{"a", int64(2)}, got)
 }
 
 func TestStarlarkToGo_Nested(t *testing.T) {
@@ -192,6 +194,9 @@ func TestGoToStarlark_Scalars(t *testing.T) {
 		{"nil", nil, "NoneType", "None"},
 		{"bool true", true, "bool", "True"},
 		{"bool false", false, "bool", "False"},
+		{"int64 positive", int64(42), "int", "42"},
+		{"int64 negative", int64(-7), "int", "-7"},
+		{"int64 zero", int64(0), "int", "0"},
 		{"int-valued float", float64(42), "int", "42"},
 		{"negative int-valued float", float64(-5), "int", "-5"},
 		{"true float", float64(3.14), "float", "3.14"},

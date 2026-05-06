@@ -33,6 +33,7 @@ func builtins(vars map[string]string) starlarklib.StringDict {
 		"assert": assertModule(),
 		"vars":   varsModule(vars),
 		"log":    logModule(),
+		"state":  stateModule(),
 	}
 }
 
@@ -298,7 +299,87 @@ func logAt(level string) func(*starlarklib.Thread, *starlarklib.Builtin, starlar
 }
 
 // ----------------------------------------------------------------------------
+// state module
+//
+// The bucket lives on sched.RunProbeForTargetRequest.TargetState — created on
+// the first run for a target, freed automatically when the target disappears
+// from discovery (scheduler cancels the goroutine and drops the runReq).
+// Single-goroutine-per-target is a scheduler invariant, so no internal lock.
+//
+// Values round-trip through starlarkToGo / goToStarlark, giving copy-on-get
+// for free. Tuples preserve their identity (not flattened to lists) via the
+// starlarkTuple named type. stateMaxKeys caps unique-key growth (key count,
+// not byte size — a script that grows a single value unboundedly is not
+// protected against). Big-ints that overflow int64 round-trip lossily
+// through float64 (see the int64 case in goToStarlark below).
+
+const stateMaxKeys = 1024
+
+type stateBucket struct {
+	values map[string]interface{}
+}
+
+func newStateBucket() *stateBucket {
+	return &stateBucket{values: make(map[string]interface{})}
+}
+
+func stateModule() *starlarkstruct.Module {
+	return &starlarkstruct.Module{
+		Name: "state",
+		Members: starlarklib.StringDict{
+			"get": starlarklib.NewBuiltin("state.get", stateGet),
+			"set": starlarklib.NewBuiltin("state.set", stateSet),
+		},
+	}
+}
+
+func stateGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	var key string
+	var dflt starlarklib.Value = starlarklib.None
+	if err := starlarklib.UnpackArgs("state.get", args, kwargs,
+		"key", &key,
+		"default?", &dflt,
+	); err != nil {
+		return nil, err
+	}
+	bucket := stateBucketFromThread(thread)
+	v, ok := bucket.values[key]
+	if !ok {
+		return dflt, nil
+	}
+	return goToStarlark(v)
+}
+
+func stateSet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	var key string
+	var value starlarklib.Value
+	if err := starlarklib.UnpackArgs("state.set", args, kwargs,
+		"key", &key,
+		"value", &value,
+	); err != nil {
+		return nil, err
+	}
+	gv, err := starlarkToGo(value)
+	if err != nil {
+		return nil, fmt.Errorf("state.set: %v", err)
+	}
+	bucket := stateBucketFromThread(thread)
+	if _, exists := bucket.values[key]; !exists && len(bucket.values) >= stateMaxKeys {
+		return nil, fmt.Errorf("state.set: bucket exceeds max keys (%d)", stateMaxKeys)
+	}
+	bucket.values[key] = gv
+	return starlarklib.None, nil
+}
+
+// ----------------------------------------------------------------------------
 // Starlark <-> Go conversion (minimal: enough for json marshal/unmarshal)
+
+// starlarkTuple distinguishes a Starlark Tuple from a List in the Go-side
+// representation. It has []interface{} as the underlying type, so json.Marshal
+// emits it as an array (the http(json=…) and Response.json() paths don't
+// care). state.{set,get} reads the type back so a Tuple round-trips as a
+// Tuple, preserving immutability and hashability.
+type starlarkTuple []interface{}
 
 func starlarkToGo(v starlarklib.Value) (interface{}, error) {
 	switch x := v.(type) {
@@ -344,7 +425,7 @@ func starlarkToGo(v starlarklib.Value) (interface{}, error) {
 		}
 		return out, nil
 	case starlarklib.Tuple:
-		out := make([]interface{}, 0, x.Len())
+		out := make(starlarkTuple, 0, x.Len())
 		for i := 0; i < x.Len(); i++ {
 			gv, err := starlarkToGo(x.Index(i))
 			if err != nil {
@@ -363,6 +444,12 @@ func goToStarlark(v interface{}) (starlarklib.Value, error) {
 		return starlarklib.None, nil
 	case bool:
 		return starlarklib.Bool(x), nil
+	case int64:
+		// starlarkToGo produces int64 for Starlark Int values that fit;
+		// big-ints that overflow int64 fall through to its float64 branch,
+		// so state round-trip is lossy for those (rare in practice). JSON
+		// unmarshal never reaches this path — it emits float64 directly.
+		return starlarklib.MakeInt64(x), nil
 	case float64:
 		if x == float64(int64(x)) {
 			return starlarklib.MakeInt64(int64(x)), nil
@@ -370,6 +457,18 @@ func goToStarlark(v interface{}) (starlarklib.Value, error) {
 		return starlarklib.Float(x), nil
 	case string:
 		return starlarklib.String(x), nil
+	case starlarkTuple:
+		// Must precede the []interface{} case: a type switch matches in
+		// order, and the underlying type would otherwise win.
+		out := make(starlarklib.Tuple, 0, len(x))
+		for _, e := range x {
+			sv, err := goToStarlark(e)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, sv)
+		}
+		return out, nil
 	case []interface{}:
 		l := starlarklib.NewList(nil)
 		for _, e := range x {

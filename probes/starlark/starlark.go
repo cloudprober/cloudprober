@@ -122,7 +122,10 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	if runReq.Result == nil {
 		runReq.Result = p.newResult()
 	}
-	target, result := runReq.Target, runReq.Result.(*probeResult)
+	if runReq.TargetState == nil {
+		runReq.TargetState = newStateBucket()
+	}
+	target, result, bucket := runReq.Target, runReq.Result.(*probeResult), runReq.TargetState.(*stateBucket)
 	l := p.l.WithAttributes(slog.String("target", target.Name))
 
 	result.total++
@@ -134,7 +137,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	runCtx, cancel := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancel()
 	start := time.Now()
-	err := p.runtime.Run(runCtx, target, l)
+	err := p.runtime.Run(runCtx, target, l, bucket)
 	latency := time.Since(start)
 
 	if err != nil {

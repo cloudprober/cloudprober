@@ -107,6 +107,10 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 	thread.SetLocal(threadLoggerKey, l)
+	// Module-level state.{get,set} writes go into a scratch bucket that's
+	// discarded with the load thread. There's no target context at load time,
+	// so persistence has nowhere to land.
+	thread.SetLocal(threadStateKey, newStateBucket())
 	stopCancelBridge := cancelThreadOnContext(ctx, thread)
 	defer stopCancelBridge()
 
@@ -131,6 +135,7 @@ const (
 	threadCtxKey        = "cloudprober.ctx"
 	threadHTTPClientKey = "cloudprober.httpClient"
 	threadLoggerKey     = "cloudprober.logger"
+	threadStateKey      = "cloudprober.state"
 )
 
 // ctxFromThread returns the context stored on the Starlark thread.
@@ -168,6 +173,16 @@ func loggerFromThread(t *starlarklib.Thread) *logger.Logger {
 	return l
 }
 
+// stateBucketFromThread returns the per-target state bucket stashed on the
+// thread. Panics for the same reason httpClientFromThread does.
+func stateBucketFromThread(t *starlarklib.Thread) *stateBucket {
+	b, ok := t.Local(threadStateKey).(*stateBucket)
+	if !ok {
+		panic("stateBucketFromThread: thread missing state local; constructed outside runtime?")
+	}
+	return b
+}
+
 func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func() {
 	if ctx == nil {
 		ctx = context.Background()
@@ -193,20 +208,25 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // find it. Pass the per-target logger (not the probe-level one) so log lines
 // from script code carry the target attribute attached by runProbe.
 //
+// bucket is the per-target state bucket. The caller (runProbe) owns its
+// lifecycle by attaching it to runReq.TargetState; the scheduler frees it
+// when the target is removed from discovery.
+//
 // Per call we build a brand-new starlarklib.Thread. Threads are cheap and giving
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
-func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger) error {
+func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket) error {
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
 		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
 	}
-	// Stash ctx + httpClient + logger so builtins can pull them back out via
-	// *FromThread helpers. See top-of-file notes.
+	// Stash ctx + httpClient + logger + state bucket so builtins can pull
+	// them back out via *FromThread helpers. See top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 	thread.SetLocal(threadLoggerKey, l)
+	thread.SetLocal(threadStateKey, bucket)
 
 	// Bridge ctx cancellation to thread.Cancel. The interpreter checks the
 	// cancel flag at backward branches and call/return boundaries, so a
