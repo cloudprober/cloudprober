@@ -27,6 +27,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	"github.com/cloudprober/cloudprober/metrics/payload"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -40,11 +41,22 @@ type Probe struct {
 	c       *configpb.ProbeConf
 	l       *logger.Logger
 	runtime *runtime
+
+	// payloadParser parses the per-run buffer of print_metric lines into
+	// EventMetrics. Configured via the output_metrics_options proto field;
+	// shared across targets (aggregation is keyed by target inside the
+	// parser). Same surface as external + http probes use for custom
+	// metrics.
+	payloadParser *payload.Parser
 }
 
 type probeResult struct {
 	total, success int64
 	latency        metrics.LatencyValue
+	// payloadMetrics accumulates EMs produced from print_metric lines until
+	// the scheduler exports them via Metrics(). Mirrors http probe's
+	// payloadMetrics field.
+	payloadMetrics []*metrics.EventMetrics
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
@@ -58,12 +70,16 @@ func (p *Probe) newResult() sched.ProbeResult {
 }
 
 func (r *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
-	em := metrics.NewEventMetrics(ts).
-		AddMetric("total", metrics.NewInt(r.total)).
-		AddMetric("success", metrics.NewInt(r.success)).
-		AddMetric(opts.LatencyMetricName, r.latency.Clone()).
-		AddLabel("ptype", "starlark")
-	return []*metrics.EventMetrics{em}
+	ems := []*metrics.EventMetrics{
+		metrics.NewEventMetrics(ts).
+			AddMetric("total", metrics.NewInt(r.total)).
+			AddMetric("success", metrics.NewInt(r.success)).
+			AddMetric(opts.LatencyMetricName, r.latency.Clone()).
+			AddLabel("ptype", "starlark"),
+	}
+	ems = append(ems, r.payloadMetrics...)
+	r.payloadMetrics = nil
+	return ems
 }
 
 // Init initializes the probe with the given params.
@@ -100,6 +116,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("starlark compile error: %v", err)
 	}
 	p.runtime = rt
+
+	// payload.NewParser tolerates a nil opts (zero-value defaults: GAUGE
+	// kind, no aggregation, no distributions, no JSON / header metrics),
+	// so print_metric works out of the box for simple counters / gauges.
+	// Users wanting CUMULATIVE / dist buckets / aggregation set
+	// output_metrics_options in proto.
+	p.payloadParser, err = payload.NewParser(p.c.GetOutputMetricsOptions(), p.l)
+	if err != nil {
+		return fmt.Errorf("payload parser init: %v", err)
+	}
 	return nil
 }
 
@@ -136,8 +162,9 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	runCtx, cancel := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancel()
+	metricBuf := &metricBuffer{}
 	start := time.Now()
-	err := p.runtime.Run(runCtx, target, l, bucket)
+	err := p.runtime.Run(runCtx, target, l, bucket, metricBuf)
 	latency := time.Since(start)
 
 	if err != nil {
@@ -148,6 +175,15 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	runReq.LastRun.Set(true, latency, nil)
+
+	// Parse any print_metric output. Malformed lines log a warning inside
+	// the parser; we don't fail the run for them, matching external + http
+	// probe behavior.
+	if metricBuf.sb.Len() > 0 {
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(metricBuf.sb.String())}, target.Dst()) {
+			result.payloadMetrics = append(result.payloadMetrics, em.AddLabel("ptype", "starlark"))
+		}
+	}
 }
 
 // RunOnce runs the probe just once.

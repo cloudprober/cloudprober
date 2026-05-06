@@ -29,11 +29,12 @@ import (
 // builtins returns the predeclared globals available to every script.
 func builtins(vars map[string]string) starlarklib.StringDict {
 	return starlarklib.StringDict{
-		"http":   httpModule(),
-		"assert": assertModule(),
-		"vars":   varsModule(vars),
-		"log":    logModule(),
-		"state":  stateModule(),
+		"http":         httpModule(),
+		"assert":       assertModule(),
+		"vars":         varsModule(vars),
+		"log":          logModule(),
+		"state":        stateModule(),
+		"print_metric": starlarklib.NewBuiltin("print_metric", printMetric),
 	}
 }
 
@@ -368,6 +369,36 @@ func stateSet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 		return nil, fmt.Errorf("state.set: bucket exceeds max keys (%d)", stateMaxKeys)
 	}
 	bucket.values[key] = gv
+	return starlarklib.None, nil
+}
+
+// ----------------------------------------------------------------------------
+// print_metric builtin
+//
+// print_metric(line) appends line + "\n" to a per-run buffer that runProbe
+// hands to a metrics/payload Parser after the script returns successfully.
+// Line format is exactly what the parser already accepts (cloudprober's
+// payload syntax), so distributions, GAUGE/CUMULATIVE kind, in-cloudprober
+// aggregation, label syntax, and JSON / header metrics all carry over with
+// zero re-projection in Starlark:
+//
+//	print_metric("items_in_cart 5")
+//	print_metric('items_in_cart{user="alice"} 5')
+//	print_metric("checkout_latency_ms 234.5")  # routed to dist if configured
+//	print_metric("dist:sum:899|count:221|lb:-Inf,0.5,2|bc:34,54,121")
+
+type metricBuffer struct {
+	sb strings.Builder
+}
+
+func printMetric(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	var line string
+	if err := starlarklib.UnpackArgs("print_metric", args, kwargs, "line", &line); err != nil {
+		return nil, err
+	}
+	buf := metricBufferFromThread(thread)
+	buf.sb.WriteString(line)
+	buf.sb.WriteByte('\n')
 	return starlarklib.None, nil
 }
 

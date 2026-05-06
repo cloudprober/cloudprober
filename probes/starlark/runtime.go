@@ -111,6 +111,9 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	// discarded with the load thread. There's no target context at load time,
 	// so persistence has nowhere to land.
 	thread.SetLocal(threadStateKey, newStateBucket())
+	// Same story for module-level print_metric: scratch buffer, discarded
+	// after ExecFile. No probe run, nowhere to send the metrics.
+	thread.SetLocal(threadMetricBufferKey, &metricBuffer{})
 	stopCancelBridge := cancelThreadOnContext(ctx, thread)
 	defer stopCancelBridge()
 
@@ -132,10 +135,11 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 
 // Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.
 const (
-	threadCtxKey        = "cloudprober.ctx"
-	threadHTTPClientKey = "cloudprober.httpClient"
-	threadLoggerKey     = "cloudprober.logger"
-	threadStateKey      = "cloudprober.state"
+	threadCtxKey          = "cloudprober.ctx"
+	threadHTTPClientKey   = "cloudprober.httpClient"
+	threadLoggerKey       = "cloudprober.logger"
+	threadStateKey        = "cloudprober.state"
+	threadMetricBufferKey = "cloudprober.metricBuffer"
 )
 
 // ctxFromThread returns the context stored on the Starlark thread.
@@ -183,6 +187,16 @@ func stateBucketFromThread(t *starlarklib.Thread) *stateBucket {
 	return b
 }
 
+// metricBufferFromThread returns the per-run metric buffer stashed on the
+// thread. Panics for the same reason httpClientFromThread does.
+func metricBufferFromThread(t *starlarklib.Thread) *metricBuffer {
+	b, ok := t.Local(threadMetricBufferKey).(*metricBuffer)
+	if !ok {
+		panic("metricBufferFromThread: thread missing metricBuffer local; constructed outside runtime?")
+	}
+	return b
+}
+
 func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func() {
 	if ctx == nil {
 		ctx = context.Background()
@@ -212,21 +226,27 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // lifecycle by attaching it to runReq.TargetState; the scheduler frees it
 // when the target is removed from discovery.
 //
+// metricBuf is the per-run metric buffer. print_metric appends payload-format
+// lines to it; runProbe feeds the buffer to the payload parser after the
+// script returns successfully.
+//
 // Per call we build a brand-new starlarklib.Thread. Threads are cheap and giving
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
-func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket) error {
+func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket, metricBuf *metricBuffer) error {
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
 		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
 	}
-	// Stash ctx + httpClient + logger + state bucket so builtins can pull
-	// them back out via *FromThread helpers. See top-of-file notes.
+	// Stash ctx + httpClient + logger + state bucket + metric buffer so
+	// builtins can pull them back out via *FromThread helpers. See
+	// top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 	thread.SetLocal(threadLoggerKey, l)
 	thread.SetLocal(threadStateKey, bucket)
+	thread.SetLocal(threadMetricBufferKey, metricBuf)
 
 	// Bridge ctx cancellation to thread.Cancel. The interpreter checks the
 	// cancel flag at backward branches and call/return boundaries, so a

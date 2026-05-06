@@ -7,6 +7,7 @@
 package proto
 
 import (
+	proto "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -57,9 +58,14 @@ type ProbeConf struct {
 	// for "passed to subprocess env"; there's no subprocess here. For host
 	// environment values, bake them in via the config-load template layer
 	// (e.g. {{ envVar "PASS" }}).
-	Vars          map[string]string `protobuf:"bytes,4,rep,name=vars" json:"vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Vars map[string]string `protobuf:"bytes,4,rep,name=vars" json:"vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Custom metric emission options, used by the metric.emit() builtin. Same
+	// shape external + http probes already use, so kind (CUMULATIVE / GAUGE),
+	// distribution-bucket configuration, in-cloudprober aggregation, and
+	// additional labels all carry over with no Starlark-specific surface.
+	OutputMetricsOptions *proto.OutputMetricsOptions `protobuf:"bytes,5,opt,name=output_metrics_options,json=outputMetricsOptions" json:"output_metrics_options,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 // Default values for ProbeConf fields.
@@ -125,18 +131,26 @@ func (x *ProbeConf) GetVars() map[string]string {
 	return nil
 }
 
+func (x *ProbeConf) GetOutputMetricsOptions() *proto.OutputMetricsOptions {
+	if x != nil {
+		return x.OutputMetricsOptions
+	}
+	return nil
+}
+
 var File_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\"\xeb\x01\n" +
+	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xd4\x02\n" +
 	"\tProbeConf\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12&\n" +
 	"\ventry_point\x18\x03 \x01(\t:\x05probeR\n" +
 	"entryPoint\x12D\n" +
-	"\x04vars\x18\x04 \x03(\v20.cloudprober.probes.starlark.ProbeConf.VarsEntryR\x04vars\x1a7\n" +
+	"\x04vars\x18\x04 \x03(\v20.cloudprober.probes.starlark.ProbeConf.VarsEntryR\x04vars\x12g\n" +
+	"\x16output_metrics_options\x18\x05 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptions\x1a7\n" +
 	"\tVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B:Z8github.com/cloudprober/cloudprober/probes/starlark/proto"
@@ -155,16 +169,18 @@ func file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_
 
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_goTypes = []any{
-	(*ProbeConf)(nil), // 0: cloudprober.probes.starlark.ProbeConf
-	nil,               // 1: cloudprober.probes.starlark.ProbeConf.VarsEntry
+	(*ProbeConf)(nil),                  // 0: cloudprober.probes.starlark.ProbeConf
+	nil,                                // 1: cloudprober.probes.starlark.ProbeConf.VarsEntry
+	(*proto.OutputMetricsOptions)(nil), // 2: cloudprober.metrics.payload.OutputMetricsOptions
 }
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.probes.starlark.ProbeConf.vars:type_name -> cloudprober.probes.starlark.ProbeConf.VarsEntry
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: cloudprober.probes.starlark.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_init() }
