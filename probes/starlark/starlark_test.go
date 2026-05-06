@@ -933,37 +933,51 @@ func TestState_RejectsTuple(t *testing.T) {
 
 // TestState_MaxKeysCap exercises the 1024-key bucket cap. Keys above the
 // limit fail with a clear error; replacing an existing key still works.
+//
+// The 1024 in the scripts mirrors stateMaxKeys in builtins.go. They can't
+// share the constant directly — one's Go, the other's a Starlark literal.
 func TestState_MaxKeysCap(t *testing.T) {
-	source := `
+	cases := []struct {
+		name     string
+		source   string
+		wantErr  string // empty == expect success
+	}{
+		{
+			name: "overflow",
+			source: `
 def probe(target):
     for i in range(1024):
         state.set("k%d" % i, i)
-    # 1025th distinct key should fail.
-    state.set("overflow", 1)
-`
-	opts := newOpts(t, "example.com", source)
-	p := &Probe{}
-	if err := p.Init("script-state-cap", opts); err != nil {
-		t.Fatalf("Init: %v", err)
-	}
-	results := p.RunOnce(context.Background())
-	assert.False(t, results[0].Success)
-	assert.Contains(t, results[0].Error.Error(), "max keys")
-
-	// Replacing an existing key must not trip the cap.
-	source2 := `
+    state.set("overflow", 1)  # 1025th distinct key
+`,
+			wantErr: "max keys",
+		},
+		{
+			name: "replacement",
+			source: `
 def probe(target):
     for i in range(1024):
         state.set("k%d" % i, i)
-    state.set("k0", 999)  # replacement, not new key
-`
-	opts2 := newOpts(t, "example.com", source2)
-	p2 := &Probe{}
-	if err := p2.Init("script-state-cap-replace", opts2); err != nil {
-		t.Fatalf("Init: %v", err)
+    state.set("k0", 999)  # replacing existing key — must not trip cap
+`,
+		},
 	}
-	results2 := p2.RunOnce(context.Background())
-	assert.True(t, results2[0].Success, "err=%v", results2[0].Error)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := newOpts(t, "example.com", tc.source)
+			p := &Probe{}
+			if err := p.Init("script-state-cap-"+tc.name, opts); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+			results := p.RunOnce(context.Background())
+			if tc.wantErr != "" {
+				assert.False(t, results[0].Success)
+				assert.Contains(t, results[0].Error.Error(), tc.wantErr)
+			} else {
+				assert.True(t, results[0].Success, "err=%v", results[0].Error)
+			}
+		})
+	}
 }
 
 // TestState_AtModuleLevel pins that top-level state.{get,set} doesn't panic
