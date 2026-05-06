@@ -906,28 +906,36 @@ def probe(target):
 	assert.Contains(t, results[0].Error.Error(), "state.set")
 }
 
-// TestState_RejectsTuple covers the contract that tuples are rejected at
-// set time — at the top level and nested inside lists / dicts. starlarkToGo
-// would silently convert them to lists, so a tuple in / list out round-trip
-// would be a debugging trap.
-func TestState_RejectsTuple(t *testing.T) {
-	cases := []struct{ name, expr string }{
-		{"top level", `state.set("k", (1, 2))`},
-		{"nested in list", `state.set("k", [(1, 2)])`},
-		{"nested in dict", `state.set("k", {"x": (1, 2)})`},
+// TestState_TupleRoundTrip pins that a Tuple stored via state.set comes back
+// as a Tuple, not a List — preserving immutability and hashability. Covers
+// top-level tuples and tuples nested in lists.
+func TestState_TupleRoundTrip(t *testing.T) {
+	source := `
+def probe(target):
+    if state.get("pair") == None:
+        state.set("pair", ("a", 2))
+        state.set("nested", [("x", 1), ("y", 2)])
+        return
+    pair = state.get("pair")
+    if type(pair) != "tuple":
+        fail("expected tuple, got %s" % type(pair))
+    if pair != ("a", 2):
+        fail("expected (\"a\", 2), got %s" % str(pair))
+    # Hashability check — a list would fail here.
+    {pair: "ok"}
+    nested = state.get("nested")
+    if type(nested[0]) != "tuple":
+        fail("expected nested[0] to be tuple, got %s" % type(nested[0]))
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-state-tuple-rt", opts); err != nil {
+		t.Fatalf("Init: %v", err)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			source := "def probe(target):\n    " + tc.expr + "\n"
-			opts := newOpts(t, "example.com", source)
-			p := &Probe{}
-			if err := p.Init("script-state-tuple-"+tc.name, opts); err != nil {
-				t.Fatalf("Init: %v", err)
-			}
-			results := p.RunOnce(context.Background())
-			assert.False(t, results[0].Success)
-			assert.Contains(t, results[0].Error.Error(), "tuple")
-		})
+	runReq := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: "example.com"}}
+	for i := 0; i < 2; i++ {
+		runProbeWith(t, p, runReq)
+		assert.NoError(t, runReq.LastRun.Error, "run %d", i)
 	}
 }
 
