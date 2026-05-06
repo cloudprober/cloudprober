@@ -59,7 +59,7 @@ type ProbeConf struct {
 	// environment values, bake them in via the config-load template layer
 	// (e.g. {{ envVar "PASS" }}).
 	Vars map[string]string `protobuf:"bytes,4,rep,name=vars" json:"vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Custom metric emission options, used by the metric.emit() builtin. Same
+	// Custom metric emission options, used by the print_metric() builtin. Same
 	// shape external + http probes already use, so kind (CUMULATIVE / GAUGE),
 	// distribution-bucket configuration, in-cloudprober aggregation, and
 	// additional labels all carry over with no Starlark-specific surface.
