@@ -1180,6 +1180,33 @@ def probe(target):
 	}
 }
 
+// TestPrintMetric_SurvivesScriptError pins the streaming contract: a
+// print_metric call before the script errors still produces an EM. The
+// buffered approach used to drop these.
+func TestPrintMetric_SurvivesScriptError(t *testing.T) {
+	source := `
+def probe(target):
+    print_metric("attempts 1")
+    fail("boom")
+`
+	opts := newOpts(t, "example.com", source)
+	p := &Probe{}
+	if err := p.Init("script-print-metric-error", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	runReq := &sched.RunProbeForTargetRequest{
+		Target:  endpoint.Endpoint{Name: "example.com"},
+		LastRun: &sched.LastRunResult{},
+	}
+	p.runProbe(context.Background(), runReq)
+	assert.Error(t, runReq.LastRun.Error, "script should have failed")
+
+	ems := runReq.Result.Metrics(time.Now(), 1, p.opts)
+	if findMetric(ems, "attempts") == nil {
+		t.Fatalf("attempts metric should survive script error; got %d EMs", len(ems))
+	}
+}
+
 // TestPrintMetric_AtModuleLevel pins that top-level print_metric calls land
 // in a scratch buffer that's discarded after ExecFile, not silently retained.
 func TestPrintMetric_AtModuleLevel(t *testing.T) {

@@ -111,9 +111,9 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	// discarded with the load thread. There's no target context at load time,
 	// so persistence has nowhere to land.
 	thread.SetLocal(threadStateKey, newStateBucket())
-	// Same story for module-level print_metric: scratch buffer, discarded
-	// after ExecFile. No probe run, nowhere to send the metrics.
-	thread.SetLocal(threadMetricBufferKey, &metricBuffer{})
+	// Module-level print_metric is a no-op: there's no probe run yet, so
+	// nowhere to dispatch.
+	thread.SetLocal(threadMetricEmitKey, metricEmitFn(func(string) {}))
 	stopCancelBridge := cancelThreadOnContext(ctx, thread)
 	defer stopCancelBridge()
 
@@ -135,11 +135,11 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 
 // Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.
 const (
-	threadCtxKey          = "cloudprober.ctx"
-	threadHTTPClientKey   = "cloudprober.httpClient"
-	threadLoggerKey       = "cloudprober.logger"
-	threadStateKey        = "cloudprober.state"
-	threadMetricBufferKey = "cloudprober.metricBuffer"
+	threadCtxKey        = "cloudprober.ctx"
+	threadHTTPClientKey = "cloudprober.httpClient"
+	threadLoggerKey     = "cloudprober.logger"
+	threadStateKey      = "cloudprober.state"
+	threadMetricEmitKey = "cloudprober.metricEmit"
 )
 
 // ctxFromThread returns the context stored on the Starlark thread.
@@ -187,14 +187,14 @@ func stateBucketFromThread(t *starlarklib.Thread) *stateBucket {
 	return b
 }
 
-// metricBufferFromThread returns the per-run metric buffer stashed on the
-// thread. Panics for the same reason httpClientFromThread does.
-func metricBufferFromThread(t *starlarklib.Thread) *metricBuffer {
-	b, ok := t.Local(threadMetricBufferKey).(*metricBuffer)
+// metricEmitFromThread returns the per-run metric-emit callback stashed on
+// the thread. Panics for the same reason httpClientFromThread does.
+func metricEmitFromThread(t *starlarklib.Thread) metricEmitFn {
+	f, ok := t.Local(threadMetricEmitKey).(metricEmitFn)
 	if !ok {
-		panic("metricBufferFromThread: thread missing metricBuffer local; constructed outside runtime?")
+		panic("metricEmitFromThread: thread missing metricEmit local; constructed outside runtime?")
 	}
-	return b
+	return f
 }
 
 func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func() {
@@ -226,27 +226,27 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // lifecycle by attaching it to runReq.TargetState; the scheduler frees it
 // when the target is removed from discovery.
 //
-// metricBuf is the per-run metric buffer. print_metric appends payload-format
-// lines to it; runProbe feeds the buffer to the payload parser after the
-// script returns successfully.
+// metricEmit dispatches each print_metric line as the script runs (streaming,
+// not buffered). runProbe wires this to a closure that parses the line and
+// appends the resulting EventMetrics to result.payloadMetrics.
 //
 // Per call we build a brand-new starlarklib.Thread. Threads are cheap and giving
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
-func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket, metricBuf *metricBuffer) error {
+func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket, metricEmit metricEmitFn) error {
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
 		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
 	}
-	// Stash ctx + httpClient + logger + state bucket + metric buffer so
-	// builtins can pull them back out via *FromThread helpers. See
+	// Stash ctx + httpClient + logger + state bucket + metric-emit callback
+	// so builtins can pull them back out via *FromThread helpers. See
 	// top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 	thread.SetLocal(threadLoggerKey, l)
 	thread.SetLocal(threadStateKey, bucket)
-	thread.SetLocal(threadMetricBufferKey, metricBuf)
+	thread.SetLocal(threadMetricEmitKey, metricEmit)
 
 	// Bridge ctx cancellation to thread.Cancel. The interpreter checks the
 	// cancel flag at backward branches and call/return boundaries, so a

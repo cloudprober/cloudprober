@@ -162,9 +162,19 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	runCtx, cancel := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancel()
-	metricBuf := &metricBuffer{}
+	// Stream print_metric output through the parser as the script runs.
+	// Metrics emitted before a later script error survive — the parser
+	// has already produced their EMs and they're already on the result.
+	// Malformed lines log a warning inside the parser; we don't fail the
+	// run for them, matching external + http probe behavior.
+	dst := target.Dst()
+	emit := metricEmitFn(func(line string) {
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(line)}, dst) {
+			result.payloadMetrics = append(result.payloadMetrics, em.AddLabel("ptype", "starlark"))
+		}
+	})
 	start := time.Now()
-	err := p.runtime.Run(runCtx, target, l, bucket, metricBuf)
+	err := p.runtime.Run(runCtx, target, l, bucket, emit)
 	latency := time.Since(start)
 
 	if err != nil {
@@ -175,15 +185,6 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	runReq.LastRun.Set(true, latency, nil)
-
-	// Parse any print_metric output. Malformed lines log a warning inside
-	// the parser; we don't fail the run for them, matching external + http
-	// probe behavior.
-	if metricBuf.sb.Len() > 0 {
-		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(metricBuf.sb.String())}, target.Dst()) {
-			result.payloadMetrics = append(result.payloadMetrics, em.AddLabel("ptype", "starlark"))
-		}
-	}
 }
 
 // RunOnce runs the probe just once.

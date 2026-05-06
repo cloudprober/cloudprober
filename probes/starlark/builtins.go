@@ -375,8 +375,11 @@ func stateSet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 // ----------------------------------------------------------------------------
 // print_metric builtin
 //
-// print_metric(line) appends line + "\n" to a per-run buffer that runProbe
-// hands to a metrics/payload Parser after the script returns successfully.
+// print_metric(line) hands the line to a metrics/payload Parser via a
+// per-run callback installed on the thread by runProbe. Streaming, not
+// buffered: each call dispatches its EventMetrics immediately, matching
+// external probe behavior. Metrics emitted before a script error survive.
+//
 // Line format is exactly what the parser already accepts (cloudprober's
 // payload syntax), so distributions, GAUGE/CUMULATIVE kind, in-cloudprober
 // aggregation, label syntax, and JSON / header metrics all carry over with
@@ -387,18 +390,17 @@ func stateSet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 //	print_metric("checkout_latency_ms 234.5")  # routed to dist if configured
 //	print_metric("dist:sum:899|count:221|lb:-Inf,0.5,2|bc:34,54,121")
 
-type metricBuffer struct {
-	sb strings.Builder
-}
+// metricEmitFn dispatches one payload-format line. runProbe builds a closure
+// that parses the line and appends the resulting EventMetrics to
+// result.payloadMetrics; module-load installs a no-op.
+type metricEmitFn func(line string)
 
 func printMetric(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var line string
 	if err := starlarklib.UnpackArgs("print_metric", args, kwargs, "line", &line); err != nil {
 		return nil, err
 	}
-	buf := metricBufferFromThread(thread)
-	buf.sb.WriteString(line)
-	buf.sb.WriteByte('\n')
+	metricEmitFromThread(thread)(line)
 	return starlarklib.None, nil
 }
 
