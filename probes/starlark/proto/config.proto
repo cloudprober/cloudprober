@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.probes.starlark;
 
+import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
+
 option go_package = "github.com/cloudprober/cloudprober/probes/starlark/proto";
 
 // ProbeConf configures a Starlark probe.
@@ -38,4 +40,10 @@ message ProbeConf {
   // environment values, bake them in via the config-load template layer
   // (e.g. {{ envVar "PASS" }}).
   map<string, string> vars = 4;
+
+  // Custom metric emission options, used by the print_metric() builtin. Same
+  // shape external + http probes already use, so kind (CUMULATIVE / GAUGE),
+  // distribution-bucket configuration, in-cloudprober aggregation, and
+  // additional labels all carry over with no Starlark-specific surface.
+  optional metrics.payload.OutputMetricsOptions output_metrics_options = 5;
 }
