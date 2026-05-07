@@ -25,7 +25,7 @@ jobs:
 
       - name: Get dependencies
         run: |
-          go get -v -t -d ./... && go build -v .
+          go mod download && go build -v .
 
       - name: Test
         run: |
