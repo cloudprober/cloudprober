@@ -78,7 +78,7 @@ jobs:
       - name: Build pages
         run: |
           cd docs
-          npm install
+          npm ci
           npm run build
           ls public
           cd public && git status
