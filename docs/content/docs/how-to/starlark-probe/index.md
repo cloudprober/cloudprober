@@ -58,13 +58,13 @@ def probe(target):
         url = base + "/api-token-auth/",
         json = {"username": "demo", "password": "demo"},
     )
-    assert.status(r, 200)
+    assert.http_status(r, 200)
     token = r.json()["token"]
     auth = {"Authorization": "Token " + token}
 
     # 2. Accounts.
     r = http.get(url = base + "/accounts/", headers = auth)
-    assert.status(r, 200)
+    assert.http_status(r, 200)
     accounts = r.json()["results"]
     if len(accounts) == 0:
         fail("no accounts returned")
@@ -72,7 +72,7 @@ def probe(target):
     # 3. Portfolio for first account.
     account = accounts[0]["account_number"]
     r = http.get(url = base + "/portfolios/%s/" % account, headers = auth)
-    assert.status(r, 200)
+    assert.http_status(r, 200)
     print("equity for %s: %s" % (account, r.json()["equity"]))
 ```
 
@@ -92,7 +92,7 @@ probe {
 }
 ```
 
-Cloudprober calls `probe(target)` every 5 seconds. Each `assert.status` raises
+Cloudprober calls `probe(target)` every 5 seconds. Each `assert.http_status` raises
 on mismatch, ending the run as a failure -- without any extra plumbing,
 `total`, `success`, and `latency` metrics flow to your surfacers exactly like
 any other probe.
@@ -118,7 +118,7 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 |---|---|
 | `http.get(url, headers=None)` | HTTP GET, returns a `Response`. |
 | `http.post(url, headers=None, body=None, json=None)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. |
-| `assert.status(response, expected)` | Fails the probe if `response.status != expected`. |
+| `assert.http_status(response, expected)` | Fails the probe if `response.status != expected`. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
 | `log.info(msg)` / `log.warn(msg)` / `log.error(msg)` / `log.debug(msg)` | Route a message to Cloudprober's logger with the probe's `target` attribute attached. |
@@ -172,7 +172,7 @@ rate-limit countdown:
 def probe(target):
     last_id = state.get("last_id", 0)
     r = http.get(url = "http://%s/events?since=%d" % (target.name, last_id))
-    assert.status(r, 200)
+    assert.http_status(r, 200)
     events = r.json()["events"]
     if events:
         state.set("last_id", events[-1]["id"])
