@@ -9,10 +9,10 @@
 DOCS_VERSION=$1
 RELEASE=$1
 
-if [ -z "${DOCS_VERSION}" ]; then
+if [[ -z "${DOCS_VERSION}" ]]; then
     DOCS_VERSION=$(git describe --exact-match --exclude tip --tags HEAD 2>/dev/null || /bin/true)
 
-    if [ -z "${DOCS_VERSION}" ]; then
+    if [[ -z "${DOCS_VERSION}" ]]; then
         DOCS_VERSION=$(git rev-parse --abbrev-ref HEAD)
     fi
 fi
@@ -21,11 +21,11 @@ DOCS_VERSION=${DOCS_VERSION//\//_}
 
 ORIGINAL_DIR=$(pwd)
 
-if [ "${RELEASE}" == "latest" ]; then
+if [[ "${RELEASE}" == "latest" ]]; then
   RELEASE=$(curl -s https://api.github.com/repos/cloudprober/cloudprober/releases/latest | grep 'tag_name' | cut -d '"' -f4)
 fi
 
-if [ ! -z "${RELEASE}" ]; then
+if [[ ! -z "${RELEASE}" ]]; then
   TEMPDIR=$(mktemp -d) && cd $TEMPDIR
   wget https://github.com/cloudprober/cloudprober/archive/refs/tags/${RELEASE}.tar.gz
   tar -xzf ${RELEASE}.tar.gz
@@ -51,7 +51,7 @@ MENU_HDR="menu:
 "
 TITLE_VERSION=""
 
-if [ "${DOCS_VERSION}" != "latest" ]; then
+if [[ "${DOCS_VERSION}" != "latest" ]]; then
   MENU_HDR=""
   TITLE_VERSION=" (${DOCS_VERSION})"
 fi
@@ -61,7 +61,7 @@ generate_config_files() {
   local menu_hdr="$2"
   for dir in ${ORIGINAL_DIR}/docs/_config_docs/${DOCS_VERSION}/textpb/*; do
     baseName=$(basename $dir)
-    if [ ! -d $dir ]; then
+    if [[ ! -d $dir ]]; then
       continue
     fi
     cat > ${base_path}/${baseName}.md <<EOF
@@ -84,7 +84,7 @@ cp ${ORIGINAL_DIR}/docs/content/docs/config/_index.md ${BASE_PATH}/
 
 # Copy latest configs to non-versioned path as well to make sure
 # we don't break existing links.
-if [ "${DOCS_VERSION}" == "latest" ]; then
+if [[ "${DOCS_VERSION}" == "latest" ]]; then
   echo "Copying latest configs to non-versioned path as well."
   NON_VERSIONED_BASE_PATH=${ORIGINAL_DIR}/docs/content/docs/config
   mkdir -p ${NON_VERSIONED_BASE_PATH}

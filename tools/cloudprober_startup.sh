@@ -26,13 +26,13 @@ done
 
 shift $(($OPTIND - 1))
 cmd=$1
-if [ "$cmd" != "start" ]; then
+if [[ "$cmd" != "start" ]]; then
   # First execution by cloud-init. Make the script accessible to all.
   chmod a+rx "$0"
   exit
 fi
 
-if [ -z "${JOB}" ]; then
+if [[ -z "${JOB}" ]]; then
   echo "-j <job_name> is a required parameter"
   exit 1
 fi
