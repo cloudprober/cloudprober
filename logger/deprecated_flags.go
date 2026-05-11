@@ -22,10 +22,10 @@ import (
 
 // StripDeprecatedFlags removes -logtostderr from os.Args so callers can still
 // pass it for backwards compatibility without cloudprober declaring the flag
-// (which would conflict with packages like glog that also declare it). If
-// another package has already declared -logtostderr, this is a no-op so that
-// package parses the value normally. Call before flag.Parse.
+// (which would conflict with packages like glog that also declare it).
 func StripDeprecatedFlags() {
+	// If flag is already declared by another package, do nothing and let that
+	// package handle it.
 	if flag.Lookup("logtostderr") != nil {
 		return
 	}
