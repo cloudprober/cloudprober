@@ -21,7 +21,7 @@ RUN chmod +x /cloudprober
 # Install playwright
 WORKDIR /playwright
 COPY probes/browser/package*.json .
-RUN npm i && rm -rf /root/.npm
+RUN npm ci --ignore-scripts && rm -rf /root/.npm
 ENV PLAYWRIGHT_BROWSERS_PATH=0
 RUN npx -y playwright install --with-deps chromium
 ENV PLAYWRIGHT_DIR=/playwright
