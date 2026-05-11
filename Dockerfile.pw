@@ -23,7 +23,7 @@ WORKDIR /playwright
 COPY probes/browser/package*.json .
 RUN npm ci --ignore-scripts && rm -rf /root/.npm
 ENV PLAYWRIGHT_BROWSERS_PATH=0
-RUN npx -y playwright install --with-deps chromium
+RUN node_modules/.bin/playwright install --with-deps chromium
 ENV PLAYWRIGHT_DIR=/playwright
 
 # Metadata params
