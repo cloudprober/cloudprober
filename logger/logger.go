@@ -1,4 +1,4 @@
-// Copyright 2017-2025 The Cloudprober Authors.
+// Copyright 2017-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@ import (
 
 var (
 	logFmt = flag.String("logfmt", "text", "Log format. Valid values: text, json")
-	_      = flag.Bool("logtostderr", true, "(deprecated) this option doesn't do anything anymore. All logs to stderr by default.")
 
 	minLogLevel  = flag.String("min_log_level", "INFO", "Minimum log level to log. Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL")
 	debugLog     = flag.Bool("debug_log", false, "Whether to output debug logs or not. Deprecated: use --min_log_level=DEBUG instead.")
