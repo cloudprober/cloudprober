@@ -15,9 +15,31 @@
 package logger
 
 import (
+	"flag"
+	"os"
 	"reflect"
 	"testing"
 )
+
+func TestStripDeprecatedFlags_OtherPackageDeclared(t *testing.T) {
+	origArgs := os.Args
+	origCmdLine := flag.CommandLine
+	t.Cleanup(func() {
+		os.Args = origArgs
+		flag.CommandLine = origCmdLine
+	})
+
+	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
+	flag.Bool("logtostderr", false, "declared by another package")
+
+	os.Args = []string{"cmd", "-logtostderr=true", "-other"}
+	StripDeprecatedFlags()
+
+	want := []string{"cmd", "-logtostderr=true", "-other"}
+	if !reflect.DeepEqual(os.Args, want) {
+		t.Errorf("os.Args = %v, want %v (unchanged)", os.Args, want)
+	}
+}
 
 func TestStripLogtostderr(t *testing.T) {
 	tests := []struct {
