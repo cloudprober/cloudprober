@@ -102,14 +102,14 @@ def probe(target):
         url = base + "/login",
         json = {"user": "u", "pass": "p"},
     )
-    assert.status(r, 200)
+    assert.http_status(r, 200)
     token = r.json()["token"]
 
     r = http.get(
         url = base + "/cart",
         headers = {"Authorization": "Bearer " + token},
     )
-    assert.status(r, 200)
+    assert.http_status(r, 200)
 `
 
 // ---------------------------------------------------------------------------
@@ -165,7 +165,7 @@ func TestStarlarkProbe_OuterTimeoutCancelsInFlight(t *testing.T) {
 	source := `
 def probe(target):
     r = http.get(url = "http://%s:%d/" % (target.name, target.port))
-    assert.status(r, 200)
+    assert.http_status(r, 200)
 `
 	opts := newOpts(t, hostFromServer(t, srv), source)
 	opts.Timeout = 250 * time.Millisecond
@@ -347,7 +347,7 @@ def probe(target):
         body = "raw-body-bytes",
         headers = {"Authorization": "Bearer xyz", "Content-Type": "text/plain"},
     )
-    assert.status(r, 200)
+    assert.http_status(r, 200)
 `
 	opts := newOpts(t, hostFromServer(t, srv), source)
 	p := &Probe{}
@@ -374,7 +374,7 @@ func TestHTTP_ResponseHeadersVisible(t *testing.T) {
 	source := `
 def probe(target):
     r = http.get(url = "http://%s:%d/" % (target.name, target.port))
-    assert.status(r, 200)
+    assert.http_status(r, 200)
     if r.headers["X-Custom"] != "hello-world":
         fail("missing header, got: %s" % r.headers["X-Custom"])
 `
@@ -447,7 +447,7 @@ func TestHTTP_DistinctClientsBetweenProbes(t *testing.T) {
 	source := `
 def probe(target):
     r = http.get(url = "http://%s:%d/" % (target.name, target.port))
-    assert.status(r, 200)
+    assert.http_status(r, 200)
 `
 	mkProbe := func(name, host string) *Probe {
 		opts := newOpts(t, host, source)
@@ -470,10 +470,10 @@ def probe(target):
 // ---------------------------------------------------------------------------
 // assert builtin behavior
 
-func TestAssert_StatusWrongType(t *testing.T) {
+func TestAssert_HTTPStatusWrongType(t *testing.T) {
 	source := `
 def probe(target):
-    assert.status("not a response", 200)
+    assert.http_status("not a response", 200)
 `
 	opts := newOpts(t, "example.com", source)
 	p := &Probe{}
@@ -504,7 +504,7 @@ func TestInit_TopLevelHTTPHasRuntimeClient(t *testing.T) {
 
 	source := fmt.Sprintf(`
 r = http.get(url = "%s")
-assert.status(r, 200)
+assert.http_status(r, 200)
 
 def probe(target):
     pass
@@ -688,7 +688,7 @@ def probe(target):
         url = "http://%s:%d/" % (target.name, target.port),
         headers = {"Authorization": "Bearer " + vars.get("TOKEN")},
     )
-    assert.status(r, 200)
+    assert.http_status(r, 200)
 `
 	opts := newOpts(t, hostFromServer(t, srv), source)
 	opts.ProbeConf.(*configpb.ProbeConf).Vars = map[string]string{"TOKEN": "s3cret"}
