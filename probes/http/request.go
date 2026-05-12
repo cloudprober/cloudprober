@@ -22,10 +22,12 @@ import (
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
 
@@ -101,27 +103,41 @@ func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
 	return target.IP != nil
 }
 
+// dynamicHeaderSubst builds the per-request substitution map applied to
+// header values via @key@. New keys must be backwards compatible: stray
+// @something@ in existing configs is left untouched by SubstituteLabels, so
+// only collisions with a key added here would change behavior.
+func dynamicHeaderSubst() map[string]string {
+	return map[string]string{
+		"uuid": uuid.NewString(),
+	}
+}
+
 // setHeaders computes setHeaders for a target. Host header is computed slightly
 // differently than other setHeaders.
 //   - If host header is set in the probe, it overrides everything else.
 //   - Otherwise we use target's host (computed elsewhere) along with port.
+//
+// Header values support @uuid@ substitution: each request gets a fresh
+// UUIDv4. Use @@ to emit a literal @.
 func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	var hostHeader string
+	subst := dynamicHeaderSubst()
 
-	for _, h := range p.c.GetHeaders() {
-		if h.GetName() == "Host" {
-			hostHeader = h.GetValue()
-			continue
-		}
-		req.Header.Set(h.GetName(), h.GetValue())
-	}
-
-	for k, v := range p.c.GetHeader() {
+	set := func(k, v string) {
+		v, _ = strtemplate.SubstituteLabels(v, subst)
 		if k == "Host" {
 			hostHeader = v
-			continue
+			return
 		}
 		req.Header.Set(k, v)
+	}
+
+	for _, h := range p.c.GetHeaders() {
+		set(h.GetName(), h.GetValue())
+	}
+	for k, v := range p.c.GetHeader() {
+		set(k, v)
 	}
 
 	if hostHeader == "" {

@@ -30,6 +30,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 	"google.golang.org/protobuf/proto"
@@ -519,6 +520,45 @@ func TestRequestHasConfiguredHeaders(t *testing.T) {
 	val, ok = req.Header[testHeadersName]
 	assert.True(t, ok, "Configured header (via 'headers' setting) is not present in target request")
 	assert.Contains(t, val, testHeadersValue)
+}
+
+func TestDynamicHeaderSubstitution(t *testing.T) {
+	p := &Probe{}
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("test.com"),
+		Interval: 10 * time.Millisecond,
+		ProbeConf: &configpb.ProbeConf{
+			Header: map[string]string{
+				"X-Request-ID": "@uuid@",
+				"X-Static":     "no-substitution-here",
+				"X-Unknown":    "@some_other_key@",
+				"X-Literal-At": "left@@right",
+			},
+		},
+	}
+	if err := p.Init("http_test", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	target := endpoint.Endpoint{Name: "dyn-test"}
+
+	req1, err := p.httpRequestForTarget(target)
+	assert.NoError(t, err)
+	req2, err := p.httpRequestForTarget(target)
+	assert.NoError(t, err)
+
+	uuid1 := req1.Header.Get("X-Request-ID")
+	uuid2 := req2.Header.Get("X-Request-ID")
+
+	_, err = uuid.Parse(uuid1)
+	assert.NoError(t, err, "X-Request-ID is not a valid UUID: %q", uuid1)
+	assert.NotEqual(t, uuid1, uuid2, "consecutive requests got the same @uuid@ value")
+
+	// Static values pass through unchanged.
+	assert.Equal(t, "no-substitution-here", req1.Header.Get("X-Static"))
+	// Unknown @key@ is left untouched (backwards compatibility).
+	assert.Equal(t, "@some_other_key@", req1.Header.Get("X-Unknown"))
+	// @@ escapes to a single literal @.
+	assert.Equal(t, "left@right", req1.Header.Get("X-Literal-At"))
 }
 
 func TestResolveFirst(t *testing.T) {

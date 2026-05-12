@@ -72,7 +72,11 @@ message ProbeConf {
   // header {
   //   key: "Authorization"
   //   value: "Bearer {{env "AUTH_TOKEN"}}"
-  // }   
+  // }
+  //
+  // Header values support per-request @uuid@ substitution -- each probe call
+  // gets a fresh UUIDv4. Use "@@" to emit a literal "@". Example:
+  //   header { key: "X-Request-ID" value: "@uuid@" }
   repeated Header headers = 8;
   map<string, string> header = 20;
   
