@@ -157,11 +157,15 @@ func configHasDynamicHeader(c *configpb.ProbeConf) bool {
 	return false
 }
 
-// substituteDynamicHeaders is called only when configHasDynamicHeader was
-// true at Init time. It resolves @uuid@ (and any future @keys@) on a freshly
-// cloned request so each send gets its own value and parallel goroutines
-// from requests_per_probe > 1 don't race on the shared Header map.
-func substituteDynamicHeaders(req *http.Request, ctx context.Context) *http.Request {
+// requestForSend prepares the cached request for a single send. When the
+// config has no dynamic header tokens (the common case), this is just the
+// original cheap WithContext shallow copy. When it does, we Clone instead
+// so each send gets its own UUID and parallel goroutines from
+// requests_per_probe > 1 don't race on the shared Header map.
+func (p *Probe) requestForSend(req *http.Request, ctx context.Context) *http.Request {
+	if !p.hasDynamicHeader {
+		return req.WithContext(ctx)
+	}
 	out := req.Clone(ctx)
 	subst := map[string]string{"uuid": uuid.NewString()}
 	for k, vv := range out.Header {
