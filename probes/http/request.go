@@ -15,6 +15,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -103,47 +104,61 @@ func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
 	return target.IP != nil
 }
 
-// dynamicHeaderSubst builds the per-request substitution map applied to
-// header values via @key@. New keys must be backwards compatible: stray
-// @something@ in existing configs is left untouched by SubstituteLabels, so
-// only collisions with a key added here would change behavior.
-func dynamicHeaderSubst() map[string]string {
-	return map[string]string{
-		"uuid": uuid.NewString(),
-	}
-}
-
 // setHeaders computes setHeaders for a target. Host header is computed slightly
 // differently than other setHeaders.
 //   - If host header is set in the probe, it overrides everything else.
 //   - Otherwise we use target's host (computed elsewhere) along with port.
 //
-// Header values support @uuid@ substitution: each request gets a fresh
-// UUIDv4. Use @@ to emit a literal @.
+// Header values may contain @uuid@ tokens; those are kept verbatim here and
+// resolved per-send by requestForSend so each request gets a fresh UUIDv4.
+// Use @@ to emit a literal @.
 func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	var hostHeader string
-	subst := dynamicHeaderSubst()
-
-	set := func(k, v string) {
-		v, _ = strtemplate.SubstituteLabels(v, subst)
-		if k == "Host" {
-			hostHeader = v
-			return
-		}
-		req.Header.Set(k, v)
-	}
 
 	for _, h := range p.c.GetHeaders() {
-		set(h.GetName(), h.GetValue())
+		if h.GetName() == "Host" {
+			hostHeader = h.GetValue()
+			continue
+		}
+		req.Header.Set(h.GetName(), h.GetValue())
 	}
+
 	for k, v := range p.c.GetHeader() {
-		set(k, v)
+		if k == "Host" {
+			hostHeader = v
+			continue
+		}
+		req.Header.Set(k, v)
 	}
 
 	if hostHeader == "" {
 		hostHeader = hostWithPort(host, port)
 	}
 	req.Host = hostHeader
+}
+
+// requestForSend returns a per-call copy of req with dynamic header tokens
+// (currently just @uuid@) resolved. The cached request kept in tgtState
+// holds raw templates, so each invocation of this function -- including the
+// parallel goroutines launched when requests_per_probe > 1 -- gets its own
+// UUID without racing on the shared Header map.
+//
+// We always do the Clone, even when no header contains @, because the cost
+// is negligible compared to the network round-trip that follows.
+func requestForSend(req *http.Request, ctx context.Context) *http.Request {
+	out := req.Clone(ctx)
+	subst := map[string]string{"uuid": uuid.NewString()}
+	for k, vv := range out.Header {
+		for i, v := range vv {
+			if nv, _ := strtemplate.SubstituteLabels(v, subst); nv != v {
+				out.Header[k][i] = nv
+			}
+		}
+	}
+	if nv, _ := strtemplate.SubstituteLabels(out.Host, subst); nv != out.Host {
+		out.Host = nv
+	}
+	return out
 }
 
 func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string, string, error) {

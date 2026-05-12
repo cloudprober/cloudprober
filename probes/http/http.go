@@ -609,7 +609,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	startSuccess := result.success
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		err := p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
+		err := p.doHTTPRequest(requestForSend(tgtState.req, ctx), tgtState.clients[0], target, result, nil)
 		runReq.LastRun.Set(result.success > startSuccess, time.Since(start), err)
 		return
 	}
@@ -628,7 +628,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
 			// Ignore the error returned by doHTTPRequest, as it's already logged.
-			_ = p.doHTTPRequest(req.WithContext(ctx), tgtState.clients[numReq], target, result, &resultMu)
+			_ = p.doHTTPRequest(requestForSend(req, ctx), tgtState.clients[numReq], target, result, &resultMu)
 		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()

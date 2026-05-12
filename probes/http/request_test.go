@@ -15,15 +15,20 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	neturl "net/url"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	oauthpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	probesconfigpb "github.com/cloudprober/cloudprober/probes/proto"
 
@@ -522,11 +527,38 @@ func TestRequestHasConfiguredHeaders(t *testing.T) {
 	assert.Contains(t, val, testHeadersValue)
 }
 
+// Drives the real probe path: two runProbe calls on the same Probe must
+// land two different UUIDs on the wire. This pins the bug where the cached
+// tgtState.req baked the first UUID into its Header map and every
+// subsequent send reused it.
 func TestDynamicHeaderSubstitution(t *testing.T) {
+	var (
+		mu        sync.Mutex
+		seen      []string
+		seenStat  string
+		seenUnk   string
+		seenEscap string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen = append(seen, r.Header.Get("X-Request-ID"))
+		seenStat = r.Header.Get("X-Static")
+		seenUnk = r.Header.Get("X-Unknown")
+		seenEscap = r.Header.Get("X-Literal-At")
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	hostURL, _ := neturl.Parse(srv.URL)
+	host, portStr, _ := net.SplitHostPort(hostURL.Host)
+	port, _ := strconv.Atoi(portStr)
+
 	p := &Probe{}
+	target := endpoint.Endpoint{Name: host, Port: port}
 	opts := &options.Options{
-		Targets:  targets.StaticTargets("test.com"),
-		Interval: 10 * time.Millisecond,
+		Targets:  targets.StaticEndpoints([]endpoint.Endpoint{target}),
+		Interval: 5 * time.Second,
+		Timeout:  2 * time.Second,
 		ProbeConf: &configpb.ProbeConf{
 			Header: map[string]string{
 				"X-Request-ID": "@uuid@",
@@ -539,26 +571,29 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 	if err := p.Init("http_test", opts); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	target := endpoint.Endpoint{Name: "dyn-test"}
 
-	req1, err := p.httpRequestForTarget(target)
-	assert.NoError(t, err)
-	req2, err := p.httpRequestForTarget(target)
-	assert.NoError(t, err)
+	runReq := &sched.RunProbeForTargetRequest{Target: target}
+	for i := 0; i < 3; i++ {
+		p.runProbe(context.Background(), runReq)
+	}
 
-	uuid1 := req1.Header.Get("X-Request-ID")
-	uuid2 := req2.Header.Get("X-Request-ID")
+	mu.Lock()
+	defer mu.Unlock()
 
-	_, err = uuid.Parse(uuid1)
-	assert.NoError(t, err, "X-Request-ID is not a valid UUID: %q", uuid1)
-	assert.NotEqual(t, uuid1, uuid2, "consecutive requests got the same @uuid@ value")
+	assert.Equal(t, 3, len(seen), "server should have received 3 requests")
+	for i, id := range seen {
+		_, err := uuid.Parse(id)
+		assert.NoError(t, err, "request %d X-Request-ID is not a valid UUID: %q", i, id)
+	}
+	assert.NotEqual(t, seen[0], seen[1], "consecutive requests reused the same @uuid@")
+	assert.NotEqual(t, seen[1], seen[2], "consecutive requests reused the same @uuid@")
 
-	// Static values pass through unchanged.
-	assert.Equal(t, "no-substitution-here", req1.Header.Get("X-Static"))
-	// Unknown @key@ is left untouched (backwards compatibility).
-	assert.Equal(t, "@some_other_key@", req1.Header.Get("X-Unknown"))
+	// Non-templated values pass through untouched.
+	assert.Equal(t, "no-substitution-here", seenStat)
+	// Unknown @key@ is left as-is (backwards compatibility).
+	assert.Equal(t, "@some_other_key@", seenUnk)
 	// @@ escapes to a single literal @.
-	assert.Equal(t, "left@right", req1.Header.Get("X-Literal-At"))
+	assert.Equal(t, "left@right", seenEscap)
 }
 
 func TestResolveFirst(t *testing.T) {
