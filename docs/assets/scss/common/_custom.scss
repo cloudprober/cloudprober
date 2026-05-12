@@ -119,3 +119,19 @@ a.docs-link {
   font-size: $font-size-sm;
   margin-bottom: 0;
 }
+
+// Theme default is 1.25rem -- too dominant for inline callouts.
+blockquote {
+  font-size: 1.1rem;
+}
+
+// `ui-monospace` resolves to Cascadia Mono on Windows (metrics close to SF
+// Mono / Menlo). Without it, Windows falls through to Consolas, which renders
+// noticeably smaller at the same px size.
+pre,
+code,
+kbd,
+samp {
+  font-family: ui-monospace, "SF Mono", sfmono-regular, menlo, monaco, consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
