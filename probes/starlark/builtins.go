@@ -234,15 +234,15 @@ func assertModule() *starlarkstruct.Module {
 	return &starlarkstruct.Module{
 		Name: "assert",
 		Members: starlarklib.StringDict{
-			"status": starlarklib.NewBuiltin("assert.status", assertStatus),
+			"http_status": starlarklib.NewBuiltin("assert.http_status", assertHTTPStatus),
 		},
 	}
 }
 
-func assertStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+func assertHTTPStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var resp starlarklib.Value
 	var expected int
-	if err := starlarklib.UnpackArgs("assert.status", args, kwargs,
+	if err := starlarklib.UnpackArgs("assert.http_status", args, kwargs,
 		"response", &resp,
 		"expected", &expected,
 	); err != nil {
@@ -250,10 +250,10 @@ func assertStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkli
 	}
 	r, ok := resp.(*response)
 	if !ok {
-		return nil, fmt.Errorf("assert.status: first argument must be a Response, got %s", resp.Type())
+		return nil, fmt.Errorf("assert.http_status: first argument must be a Response, got %s", resp.Type())
 	}
 	if r.status != expected {
-		return nil, fmt.Errorf("assert.status: expected %d, got %d", expected, r.status)
+		return nil, fmt.Errorf("assert.http_status: expected %d, got %d", expected, r.status)
 	}
 	return starlarklib.None, nil
 }
