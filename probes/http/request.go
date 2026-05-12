@@ -162,20 +162,34 @@ func configHasDynamicHeader(c *configpb.ProbeConf) bool {
 // original cheap WithContext shallow copy. When it does, we Clone instead
 // so each send gets its own UUID and parallel goroutines from
 // requests_per_probe > 1 don't race on the shared Header map.
-func (p *Probe) requestForSend(req *http.Request, ctx context.Context) *http.Request {
+//
+// Substitution is lazy: a value without '@' skips SubstituteLabels (which
+// would otherwise strings.Split for nothing), and the UUID is only
+// generated on the first value that needs it.
+func (p *Probe) requestForSend(ctx context.Context, req *http.Request) *http.Request {
 	if !p.hasDynamicHeader {
 		return req.WithContext(ctx)
 	}
 	out := req.Clone(ctx)
-	subst := map[string]string{"uuid": uuid.NewString()}
-	for k, vv := range out.Header {
+	var subst map[string]string
+	sub := func(s string) string {
+		if !strings.Contains(s, "@") {
+			return s
+		}
+		if subst == nil {
+			subst = map[string]string{"uuid": uuid.NewString()}
+		}
+		nv, _ := strtemplate.SubstituteLabels(s, subst)
+		return nv
+	}
+	for _, vv := range out.Header {
 		for i, v := range vv {
-			if nv, _ := strtemplate.SubstituteLabels(v, subst); nv != v {
-				out.Header[k][i] = nv
+			if nv := sub(v); nv != v {
+				vv[i] = nv
 			}
 		}
 	}
-	if nv, _ := strtemplate.SubstituteLabels(out.Host, subst); nv != out.Host {
+	if nv := sub(out.Host); nv != out.Host {
 		out.Host = nv
 	}
 	return out

@@ -527,24 +527,17 @@ func TestRequestHasConfiguredHeaders(t *testing.T) {
 	assert.Contains(t, val, testHeadersValue)
 }
 
-// Drives the real probe path: two runProbe calls on the same Probe must
-// land two different UUIDs on the wire. This pins the bug where the cached
-// tgtState.req baked the first UUID into its Header map and every
-// subsequent send reused it.
+// Drives the real probe path: runProbe must put a fresh UUID on each send.
+// Each iteration captures the full header set so failure points at which
+// request misbehaved, not a last-write-wins ghost.
 func TestDynamicHeaderSubstitution(t *testing.T) {
 	var (
-		mu        sync.Mutex
-		seen      []string
-		seenStat  string
-		seenUnk   string
-		seenEscap string
+		mu   sync.Mutex
+		seen []http.Header
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		seen = append(seen, r.Header.Get("X-Request-ID"))
-		seenStat = r.Header.Get("X-Static")
-		seenUnk = r.Header.Get("X-Unknown")
-		seenEscap = r.Header.Get("X-Literal-At")
+		seen = append(seen, r.Header.Clone())
 		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -581,19 +574,21 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 	defer mu.Unlock()
 
 	assert.Equal(t, 3, len(seen), "server should have received 3 requests")
-	for i, id := range seen {
-		_, err := uuid.Parse(id)
-		assert.NoError(t, err, "request %d X-Request-ID is not a valid UUID: %q", i, id)
-	}
-	assert.NotEqual(t, seen[0], seen[1], "consecutive requests reused the same @uuid@")
-	assert.NotEqual(t, seen[1], seen[2], "consecutive requests reused the same @uuid@")
+	uuids := make([]string, len(seen))
+	for i, h := range seen {
+		uuids[i] = h.Get("X-Request-ID")
+		_, err := uuid.Parse(uuids[i])
+		assert.NoError(t, err, "request %d X-Request-ID is not a valid UUID: %q", i, uuids[i])
 
-	// Non-templated values pass through untouched.
-	assert.Equal(t, "no-substitution-here", seenStat)
-	// Unknown @key@ is left as-is (backwards compatibility).
-	assert.Equal(t, "@some_other_key@", seenUnk)
-	// @@ escapes to a single literal @.
-	assert.Equal(t, "left@right", seenEscap)
+		// Non-templated values pass through untouched.
+		assert.Equal(t, "no-substitution-here", h.Get("X-Static"))
+		// Unknown @key@ is left as-is (backwards compatibility).
+		assert.Equal(t, "@some_other_key@", h.Get("X-Unknown"))
+		// @@ escapes to a single literal @.
+		assert.Equal(t, "left@right", h.Get("X-Literal-At"))
+	}
+	assert.NotEqual(t, uuids[0], uuids[1], "consecutive requests reused the same @uuid@")
+	assert.NotEqual(t, uuids[1], uuids[2], "consecutive requests reused the same @uuid@")
 }
 
 func TestResolveFirst(t *testing.T) {
