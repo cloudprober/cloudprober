@@ -137,15 +137,31 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	req.Host = hostHeader
 }
 
-// requestForSend returns a per-call copy of req with dynamic header tokens
-// (currently just @uuid@) resolved. The cached request kept in tgtState
-// holds raw templates, so each invocation of this function -- including the
-// parallel goroutines launched when requests_per_probe > 1 -- gets its own
-// UUID without racing on the shared Header map.
-//
-// We always do the Clone, even when no header contains @, because the cost
-// is negligible compared to the network round-trip that follows.
-func requestForSend(req *http.Request, ctx context.Context) *http.Request {
+// configHasDynamicHeader reports whether any header value contains an '@'
+// (the substitution marker). When false, the cached request's headers are
+// stable across runs and the per-send clone+substitute can be skipped.
+// '@'-without-a-known-key is a false positive (e.g. an email in a header)
+// but harmless: substitution is a no-op for unknown keys, so the only cost
+// is the clone itself.
+func configHasDynamicHeader(c *configpb.ProbeConf) bool {
+	for _, h := range c.GetHeaders() {
+		if strings.Contains(h.GetValue(), "@") {
+			return true
+		}
+	}
+	for _, v := range c.GetHeader() {
+		if strings.Contains(v, "@") {
+			return true
+		}
+	}
+	return false
+}
+
+// substituteDynamicHeaders is called only when configHasDynamicHeader was
+// true at Init time. It resolves @uuid@ (and any future @keys@) on a freshly
+// cloned request so each send gets its own value and parallel goroutines
+// from requests_per_probe > 1 don't race on the shared Header map.
+func substituteDynamicHeaders(req *http.Request, ctx context.Context) *http.Request {
 	out := req.Clone(ctx)
 	subst := map[string]string{"uuid": uuid.NewString()}
 	for k, vv := range out.Header {

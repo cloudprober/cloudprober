@@ -62,10 +62,11 @@ type Probe struct {
 	redirectFunc  func(req *http.Request, via []*http.Request) error
 
 	// book-keeping params
-	targets []endpoint.Endpoint
-	method  string
-	url     string
-	oauthTS oauth2.TokenSource
+	targets          []endpoint.Endpoint
+	method           string
+	url              string
+	hasDynamicHeader bool
+	oauthTS          oauth2.TokenSource
 
 	responseParser *payload.Parser
 
@@ -185,6 +186,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
 			totalDuration, p.opts.Interval)
 	}
+
+	p.hasDynamicHeader = configHasDynamicHeader(p.c)
 
 	p.method = p.c.GetMethod().String()
 
@@ -609,7 +612,11 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	startSuccess := result.success
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		err := p.doHTTPRequest(requestForSend(tgtState.req, ctx), tgtState.clients[0], target, result, nil)
+		sendReq := tgtState.req.WithContext(ctx)
+		if p.hasDynamicHeader {
+			sendReq = substituteDynamicHeaders(tgtState.req, ctx)
+		}
+		err := p.doHTTPRequest(sendReq, tgtState.clients[0], target, result, nil)
 		runReq.LastRun.Set(result.success > startSuccess, time.Since(start), err)
 		return
 	}
@@ -627,8 +634,12 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 			defer wg.Done()
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
+			sendReq := req.WithContext(ctx)
+			if p.hasDynamicHeader {
+				sendReq = substituteDynamicHeaders(req, ctx)
+			}
 			// Ignore the error returned by doHTTPRequest, as it's already logged.
-			_ = p.doHTTPRequest(requestForSend(req, ctx), tgtState.clients[numReq], target, result, &resultMu)
+			_ = p.doHTTPRequest(sendReq, tgtState.clients[numReq], target, result, &resultMu)
 		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()
