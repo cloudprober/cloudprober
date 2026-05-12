@@ -3,7 +3,7 @@ menu:
   docs:
     parent: "how-to"
     name: "Script Probe"
-    weight: 15
+    weight: 14
 title: "Script Probe (Starlark)"
 date: 2026-05-10T10:00:00-07:00
 keywords: ["script probe", "starlark probe", "scripted probe", "multi-step", "api flow", "chained requests"]
