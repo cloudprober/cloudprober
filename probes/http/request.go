@@ -17,6 +17,7 @@ package http
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -137,55 +138,68 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	req.Host = hostHeader
 }
 
-// configHasDynamicHeader reports whether any header value contains an '@'
-// (the substitution marker). When false, the cached request's headers are
-// stable across runs and the per-send clone+substitute can be skipped.
-// '@'-without-a-known-key is a false positive (e.g. an email in a header)
-// but harmless: substitution is a no-op for unknown keys, so the only cost
-// is the clone itself.
-//
-// user_agent ends up as a request header too (set in httpRequestForTarget),
-// so check it here for the same reason.
-func configHasDynamicHeader(c *configpb.ProbeConf) bool {
-	for _, h := range c.GetHeaders() {
-		if strings.Contains(h.GetValue(), "@") {
-			return true
+// initDynamicHeaders records canonical names of headers whose values carry
+// a substitution token. Host is excluded: req.Host is not substituted, so
+// a literal '@' there is warned about and sent verbatim.
+func (p *Probe) initDynamicHeaders() {
+	seen := map[string]bool{}
+	add := func(name, val string) {
+		if !strings.Contains(val, "@") {
+			return
+		}
+		if name == "Host" {
+			p.l.Warningf("http probe %q: Host header value %q contains '@' but Host substitution is not supported; value will be sent verbatim", p.name, val)
+			return
+		}
+		canon := http.CanonicalHeaderKey(name)
+		if !seen[canon] {
+			seen[canon] = true
+			p.dynamicHeaderNames = append(p.dynamicHeaderNames, canon)
 		}
 	}
-	for _, v := range c.GetHeader() {
-		if strings.Contains(v, "@") {
-			return true
-		}
+	for _, h := range p.c.GetHeaders() {
+		add(h.GetName(), h.GetValue())
 	}
-	return strings.Contains(c.GetUserAgent(), "@")
+	for k, v := range p.c.GetHeader() {
+		add(k, v)
+	}
+	add("User-Agent", p.c.GetUserAgent())
 }
 
-// applyDynamicHeaders substitutes @uuid@ tokens (and any future tokens) in
-// the request's header values and Host. All @uuid@ occurrences within a
-// single send resolve to the same UUID; substitution is lazy so a value
-// without '@' skips strtemplate entirely.
-func applyDynamicHeaders(req *http.Request) {
+// applyDynamicHeaders substitutes @uuid@ (and future tokens) in tracked
+// header values. All @uuid@ occurrences within a single send resolve to
+// the same UUID. req.Host is intentionally left alone.
+func (p *Probe) applyDynamicHeaders(req *http.Request) {
 	var subst map[string]string
-	sub := func(s string) string {
-		if !strings.Contains(s, "@") {
-			return s
-		}
-		if subst == nil {
-			subst = map[string]string{"uuid": uuid.NewString()}
-		}
-		nv, _ := strtemplate.SubstituteLabels(s, subst)
-		return nv
-	}
-	for _, vv := range req.Header {
+	for _, name := range p.dynamicHeaderNames {
+		vv := req.Header[name]
 		for i, v := range vv {
-			if nv := sub(v); nv != v {
+			if !strings.Contains(v, "@") {
+				continue
+			}
+			if subst == nil {
+				subst = map[string]string{"uuid": uuid.NewString()}
+			}
+			if nv, _ := strtemplate.SubstituteLabels(v, subst); nv != v {
 				vv[i] = nv
 			}
 		}
 	}
-	if nv := sub(req.Host); nv != req.Host {
-		req.Host = nv
+}
+
+// dynamicHeaderAttrs returns the resolved per-send values for tracked
+// dynamic headers, for use in error-log attributes.
+func (p *Probe) dynamicHeaderAttrs(req *http.Request) []slog.Attr {
+	if len(p.dynamicHeaderNames) == 0 {
+		return nil
 	}
+	attrs := make([]slog.Attr, 0, len(p.dynamicHeaderNames))
+	for _, name := range p.dynamicHeaderNames {
+		if v := req.Header.Get(name); v != "" {
+			attrs = append(attrs, slog.String(name, v))
+		}
+	}
+	return attrs
 }
 
 func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string, string, error) {
@@ -262,13 +276,13 @@ func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
 // substitution, OAuth Authorization header, or a fresh streaming body --
 // and skip to a cheap WithContext copy otherwise.
 func (p *Probe) prepareRequest(ctx context.Context, req *http.Request) *http.Request {
-	if !p.hasDynamicHeader && p.oauthTS == nil && p.requestBody.Len() == 0 {
+	if len(p.dynamicHeaderNames) == 0 && p.oauthTS == nil && p.requestBody.Len() == 0 {
 		return req.WithContext(ctx)
 	}
 	req = req.Clone(ctx)
 
-	if p.hasDynamicHeader {
-		applyDynamicHeaders(req)
+	if len(p.dynamicHeaderNames) > 0 {
+		p.applyDynamicHeaders(req)
 	}
 
 	if p.oauthTS != nil {
