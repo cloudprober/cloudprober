@@ -581,6 +581,7 @@ func dynamicHeaderTestRig(t *testing.T, conf *configpb.ProbeConf) (*Probe, func(
 // request misbehaved, not a last-write-wins ghost.
 func TestDynamicHeaderSubstitution(t *testing.T) {
 	t.Run("sequential_runs", func(t *testing.T) {
+		hostName, hostVal := "Host", "api-@uuid@.example.com"
 		p, run := dynamicHeaderTestRig(t, &configpb.ProbeConf{
 			Header: map[string]string{
 				"X-Request-ID": "@uuid@",
@@ -589,9 +590,11 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 				"X-Unknown":    "@some_other_key@",
 				"X-Literal-At": "left@@right",
 			},
+			Headers:   []*configpb.ProbeConf_Header{{Name: &hostName, Value: &hostVal}},
 			UserAgent: proto.String("cloudprober/@uuid@"),
 		})
 		assert.NotEmpty(t, p.dynamicHeaderNames, "user_agent with @uuid@ should populate dynamicHeaderNames")
+		assert.NotContains(t, p.dynamicHeaderNames, "Host", "Host must never be tracked as a dynamic header")
 
 		uuids := make([]string, 0, 3)
 		for i := 0; i < 3; i++ {
@@ -635,23 +638,6 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 			seenIDs[id] = struct{}{}
 		}
 		assert.Equal(t, n, len(seenIDs), "parallel requests must each get a distinct UUID")
-	})
-
-	t.Run("host_not_substituted", func(t *testing.T) {
-		hostName, hostVal := "Host", "api-@uuid@.example.com"
-		p, run := dynamicHeaderTestRig(t, &configpb.ProbeConf{
-			Headers: []*configpb.ProbeConf_Header{{Name: &hostName, Value: &hostVal}},
-			Header:  map[string]string{"X-Request-ID": "@uuid@"},
-		})
-		for _, n := range p.dynamicHeaderNames {
-			assert.NotEqual(t, "Host", n, "Host must not be tracked as a dynamic header")
-		}
-		got := run()
-		assert.Equal(t, 1, len(got))
-		if len(got) == 1 {
-			_, err := uuid.Parse(got[0].Get("X-Request-ID"))
-			assert.NoError(t, err, "sibling dynamic header should still resolve")
-		}
 	})
 }
 
