@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cloudprober/cloudprober/common/httpclient"
 	starlarklib "go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -39,16 +40,24 @@ func httpModule() *starlarkstruct.Module {
 	}
 }
 
+// reqOpts holds per-call knobs that mirror http probe config fields.
+// maxRedirects: -1 = unset (default client behavior); >=0 = enforce limit.
+type reqOpts struct {
+	maxRedirects int
+}
+
 func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var url string
 	var headers *starlarklib.Dict
+	opts := reqOpts{maxRedirects: -1}
 	if err := starlarklib.UnpackArgs("http.get", args, kwargs,
 		"url", &url,
 		"headers?", &headers,
+		"max_redirects?", &opts.maxRedirects,
 	); err != nil {
 		return nil, err
 	}
-	return doHTTP(thread, "GET", url, headers, nil, nil)
+	return doHTTP(thread, "GET", url, headers, nil, nil, opts)
 }
 
 func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
@@ -56,18 +65,20 @@ func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 	var headers *starlarklib.Dict
 	var body starlarklib.Value
 	var jsonArg starlarklib.Value
+	opts := reqOpts{maxRedirects: -1}
 	if err := starlarklib.UnpackArgs("http.post", args, kwargs,
 		"url", &url,
 		"headers?", &headers,
 		"body?", &body,
 		"json?", &jsonArg,
+		"max_redirects?", &opts.maxRedirects,
 	); err != nil {
 		return nil, err
 	}
-	return doHTTP(thread, "POST", url, headers, body, jsonArg)
+	return doHTTP(thread, "POST", url, headers, body, jsonArg, opts)
 }
 
-func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib.Dict, body, jsonArg starlarklib.Value) (starlarklib.Value, error) {
+func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib.Dict, body, jsonArg starlarklib.Value, opts reqOpts) (starlarklib.Value, error) {
 	var reqBody io.Reader
 	contentType := ""
 	switch {
@@ -113,7 +124,15 @@ func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib
 		}
 	}
 
-	resp, err := httpClientFromThread(thread).Do(req)
+	client := httpClientFromThread(thread)
+	if opts.maxRedirects >= 0 {
+		// Clone the client to apply per-call CheckRedirect; the Transport
+		// pointer is shared, so connection pooling is preserved.
+		clone := *client
+		clone.CheckRedirect = httpclient.CheckRedirectFunc(opts.maxRedirects)
+		client = &clone
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
