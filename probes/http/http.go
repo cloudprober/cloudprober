@@ -312,8 +312,6 @@ func (p *Probe) requestTrace(result *probeResult) *httptrace.ClientTrace {
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
 	l := p.l.WithAttributes(slog.String("target", target.Name), slog.String("url", req.URL.String()))
 
-	req = p.prepareRequest(req)
-
 	start := time.Now()
 
 	if trace := p.requestTrace(result); trace != nil {
@@ -612,7 +610,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	startSuccess := result.success
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		err := p.doHTTPRequest(p.requestForSend(ctx, tgtState.req), tgtState.clients[0], target, result, nil)
+		err := p.doHTTPRequest(p.prepareRequest(ctx, tgtState.req), tgtState.clients[0], target, result, nil)
 		runReq.LastRun.Set(result.success > startSuccess, time.Since(start), err)
 		return
 	}
@@ -631,7 +629,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
 			// Ignore the error returned by doHTTPRequest, as it's already logged.
-			_ = p.doHTTPRequest(p.requestForSend(ctx, req), tgtState.clients[numReq], target, result, &resultMu)
+			_ = p.doHTTPRequest(p.prepareRequest(ctx, req), tgtState.clients[numReq], target, result, &resultMu)
 		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()

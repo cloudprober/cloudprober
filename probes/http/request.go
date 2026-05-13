@@ -160,20 +160,11 @@ func configHasDynamicHeader(c *configpb.ProbeConf) bool {
 	return strings.Contains(c.GetUserAgent(), "@")
 }
 
-// requestForSend prepares the cached request for a single send. When the
-// config has no dynamic header tokens (the common case), this is just the
-// original cheap WithContext shallow copy. When it does, we Clone instead
-// so each send gets its own UUID and parallel goroutines from
-// requests_per_probe > 1 don't race on the shared Header map.
-//
-// Substitution is lazy: a value without '@' skips SubstituteLabels (which
-// would otherwise strings.Split for nothing), and the UUID is only
-// generated on the first value that needs it.
-func (p *Probe) requestForSend(ctx context.Context, req *http.Request) *http.Request {
-	if !p.hasDynamicHeader {
-		return req.WithContext(ctx)
-	}
-	out := req.Clone(ctx)
+// applyDynamicHeaders substitutes @uuid@ tokens (and any future tokens) in
+// the request's header values and Host. All @uuid@ occurrences within a
+// single send resolve to the same UUID; substitution is lazy so a value
+// without '@' skips strtemplate entirely.
+func applyDynamicHeaders(req *http.Request) {
 	var subst map[string]string
 	sub := func(s string) string {
 		if !strings.Contains(s, "@") {
@@ -185,17 +176,16 @@ func (p *Probe) requestForSend(ctx context.Context, req *http.Request) *http.Req
 		nv, _ := strtemplate.SubstituteLabels(s, subst)
 		return nv
 	}
-	for _, vv := range out.Header {
+	for _, vv := range req.Header {
 		for i, v := range vv {
 			if nv := sub(v); nv != v {
 				vv[i] = nv
 			}
 		}
 	}
-	if nv := sub(out.Host); nv != out.Host {
-		out.Host = nv
+	if nv := sub(req.Host); nv != req.Host {
+		req.Host = nv
 	}
-	return out
 }
 
 func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string, string, error) {
@@ -266,18 +256,20 @@ func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
 	return "", fmt.Errorf("got unknown token: %v", tok)
 }
 
-func (p *Probe) prepareRequest(req *http.Request) *http.Request {
-	// We clone the request for the cases where we modify the request:
-	//   -- if request has a body, each request gets its own Body
-	//      as HTTP transport reads body in a streaming fashion, and we can't
-	//      share it across multiple requests.
-	//   -- if OAuth token is used, each request gets its own Authorization
-	//      header.
-	if p.oauthTS == nil && p.requestBody.Len() == 0 {
-		return req
+// prepareRequest derives a per-send request from the cached one. Cloning is
+// the only safe way to mutate without racing parallel sends (rpp > 1), so we
+// do it once when any of the per-send mutations apply -- dynamic header
+// substitution, OAuth Authorization header, or a fresh streaming body --
+// and skip to a cheap WithContext copy otherwise.
+func (p *Probe) prepareRequest(ctx context.Context, req *http.Request) *http.Request {
+	if !p.hasDynamicHeader && p.oauthTS == nil && p.requestBody.Len() == 0 {
+		return req.WithContext(ctx)
 	}
+	req = req.Clone(ctx)
 
-	req = req.Clone(req.Context())
+	if p.hasDynamicHeader {
+		applyDynamicHeaders(req)
+	}
 
 	if p.oauthTS != nil {
 		tok, err := getToken(p.oauthTS, p.l)
@@ -291,7 +283,9 @@ func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 		req.Header.Set("Authorization", fmt.Sprintf(p.c.GetOauthConfig().GetTokenTypeFormat(), tok))
 	}
 
-	req.Body = p.requestBody.Reader()
+	if p.requestBody.Len() > 0 {
+		req.Body = p.requestBody.Reader()
+	}
 
 	return req
 }
