@@ -143,6 +143,9 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 // '@'-without-a-known-key is a false positive (e.g. an email in a header)
 // but harmless: substitution is a no-op for unknown keys, so the only cost
 // is the clone itself.
+//
+// user_agent ends up as a request header too (set in httpRequestForTarget),
+// so check it here for the same reason.
 func configHasDynamicHeader(c *configpb.ProbeConf) bool {
 	for _, h := range c.GetHeaders() {
 		if strings.Contains(h.GetValue(), "@") {
@@ -154,7 +157,7 @@ func configHasDynamicHeader(c *configpb.ProbeConf) bool {
 			return true
 		}
 	}
-	return false
+	return strings.Contains(c.GetUserAgent(), "@")
 }
 
 // requestForSend prepares the cached request for a single send. When the
