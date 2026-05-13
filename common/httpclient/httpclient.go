@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package httpclient holds small helpers shared by probes that build their
-// own *http.Client (e.g. the HTTP probe and the Starlark probe). Grow it as
-// more configuration knobs need to be expressed identically in both places.
+// Package httpclient holds helpers shared by probes that build their own
+// *http.Client.
 package httpclient
 
 import "net/http"
 
-// CheckRedirectFunc returns an http.Client.CheckRedirect that follows up to
-// n redirects (n=0 disables redirect following). It uses
-// http.ErrUseLastResponse, so the client returns the redirect response itself
-// instead of an error — matching the HTTP probe's max_redirects semantics.
+// CheckRedirectFunc returns a CheckRedirect that follows up to n redirects
+// (n=0 disables). Uses ErrUseLastResponse so the redirect response is
+// returned to the caller instead of surfacing as an error.
 func CheckRedirectFunc(n int) func(*http.Request, []*http.Request) error {
 	return func(_ *http.Request, via []*http.Request) error {
 		if len(via) > n {
