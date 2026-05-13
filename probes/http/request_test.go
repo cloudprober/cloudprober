@@ -401,43 +401,50 @@ func TestPrepareRequest(t *testing.T) {
 		token             string
 		token_type_format string
 		data              []string
+		wantIsCloned      bool
 		wantNewBody       bool
 	}{
 		{
 			name: "No token source, no body",
 		},
 		{
-			name:        "No token source, small body",
-			data:        data[0:20],
-			wantNewBody: true,
+			name:         "No token source, small body",
+			data:         data[0:20],
+			wantIsCloned: true,
+			wantNewBody:  true,
 		},
 		{
-			name:        "No token source, large body",
-			data:        data,
-			wantNewBody: true,
+			name:         "No token source, large body",
+			data:         data,
+			wantIsCloned: true,
+			wantNewBody:  true,
 		},
 		{
-			name:        "token source, no body",
-			token:       "test-token",
-			wantNewBody: false, // Only request is cloned.
+			name:         "token source, no body",
+			token:        "test-token",
+			wantIsCloned: true,
+			wantNewBody:  false, // Only request is cloned.
 		},
 		{
 			name:              "token source, custom token format",
 			token:             "test-token",
 			token_type_format: `Snowflake Token="%s"`,
+			wantIsCloned:      true,
 			wantNewBody:       false, // Only request is cloned.
 		},
 		{
-			name:        "token source, small body",
-			data:        data[0:20],
-			token:       "test-token",
-			wantNewBody: true,
+			name:         "token source, small body",
+			data:         data[0:20],
+			token:        "test-token",
+			wantIsCloned: true,
+			wantNewBody:  true,
 		},
 		{
-			name:        "token source, large body",
-			data:        data,
-			token:       "test-token",
-			wantNewBody: true,
+			name:         "token source, large body",
+			data:         data,
+			token:        "test-token",
+			wantIsCloned: true,
+			wantNewBody:  true,
 		},
 	}
 	for _, tt := range tests {
@@ -459,13 +466,20 @@ func TestPrepareRequest(t *testing.T) {
 			inReq, _ := httpreq.NewRequest("GET", "http://cloudprober.org", p.requestBody)
 			got := p.prepareRequest(context.Background(), inReq)
 
+			// "Cloned" = headers are independently mutable. Writing to got
+			// should not leak into the cached inReq.
+			got.Header.Set("X-Probe-Test", "v")
+			sharedHeaders := inReq.Header.Get("X-Probe-Test") == "v"
+			if tt.wantIsCloned == sharedHeaders {
+				t.Errorf("wantIsCloned=%v, headers shared with cached request=%v", tt.wantIsCloned, sharedHeaders)
+			}
+
 			if tt.wantNewBody != (inReq.Body != got.Body) {
 				t.Errorf("wantNewBody=%v, (inReq.Body != got.Body) is %v", tt.wantNewBody, inReq.Body != got.Body)
 			}
 
 			if tt.token != "" {
 				assert.Equal(t, fmt.Sprintf(p.c.GetOauthConfig().GetTokenTypeFormat(), tt.token), got.Header.Get("Authorization"), "Token mismatch")
-				assert.Empty(t, inReq.Header.Get("Authorization"), "Cached request must not be mutated")
 			}
 
 			if len(tt.data) != 0 {
