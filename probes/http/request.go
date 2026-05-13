@@ -17,6 +17,7 @@ package http
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -137,55 +138,81 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	req.Host = hostHeader
 }
 
-// configHasDynamicHeader reports whether any header value contains an '@'
-// (the substitution marker). When false, the cached request's headers are
-// stable across runs and the per-send clone+substitute can be skipped.
-// '@'-without-a-known-key is a false positive (e.g. an email in a header)
-// but harmless: substitution is a no-op for unknown keys, so the only cost
-// is the clone itself.
+// initDynamicHeaders scans the config once and records canonical names of
+// headers whose values contain an '@' substitution marker. The list drives
+// both the per-send clone gate (hasDynamicHeader) and the error-log path,
+// which pulls the resolved value back out of req.Header by name.
 //
-// user_agent ends up as a request header too (set in httpRequestForTarget),
-// so check it here for the same reason.
-func configHasDynamicHeader(c *configpb.ProbeConf) bool {
-	for _, h := range c.GetHeaders() {
-		if strings.Contains(h.GetValue(), "@") {
-			return true
+// Host is intentionally excluded: req.Host is not substituted, so a literal
+// '@uuid@' in a Host config flows through unchanged. We warn so the user
+// isn't surprised. user_agent feeds the User-Agent header in
+// httpRequestForTarget, so it's tracked under that canonical name.
+//
+// '@'-without-a-known-key (e.g. an email in a header) is a false positive
+// but harmless: applyDynamicHeaders is a no-op for unknown keys.
+func (p *Probe) initDynamicHeaders() {
+	seen := map[string]bool{}
+	add := func(name, val string) {
+		if !strings.Contains(val, "@") {
+			return
+		}
+		if name == "Host" {
+			p.l.Warningf("http probe %q: Host header value %q contains '@' but Host substitution is not supported; value will be sent verbatim", p.name, val)
+			return
+		}
+		canon := http.CanonicalHeaderKey(name)
+		if !seen[canon] {
+			seen[canon] = true
+			p.dynamicHeaderNames = append(p.dynamicHeaderNames, canon)
 		}
 	}
-	for _, v := range c.GetHeader() {
-		if strings.Contains(v, "@") {
-			return true
-		}
+	for _, h := range p.c.GetHeaders() {
+		add(h.GetName(), h.GetValue())
 	}
-	return strings.Contains(c.GetUserAgent(), "@")
+	for k, v := range p.c.GetHeader() {
+		add(k, v)
+	}
+	add("User-Agent", p.c.GetUserAgent())
+	p.hasDynamicHeader = len(p.dynamicHeaderNames) > 0
 }
 
 // applyDynamicHeaders substitutes @uuid@ tokens (and any future tokens) in
-// the request's header values and Host. All @uuid@ occurrences within a
-// single send resolve to the same UUID; substitution is lazy so a value
-// without '@' skips strtemplate entirely.
+// the request's header values. All @uuid@ occurrences within a single send
+// resolve to the same UUID; substitution is lazy so a value without '@'
+// skips strtemplate entirely. req.Host is intentionally left alone.
 func applyDynamicHeaders(req *http.Request) {
 	var subst map[string]string
-	sub := func(s string) string {
-		if !strings.Contains(s, "@") {
-			return s
-		}
-		if subst == nil {
-			subst = map[string]string{"uuid": uuid.NewString()}
-		}
-		nv, _ := strtemplate.SubstituteLabels(s, subst)
-		return nv
-	}
 	for _, vv := range req.Header {
 		for i, v := range vv {
-			if nv := sub(v); nv != v {
+			if !strings.Contains(v, "@") {
+				continue
+			}
+			if subst == nil {
+				subst = map[string]string{"uuid": uuid.NewString()}
+			}
+			nv, _ := strtemplate.SubstituteLabels(v, subst)
+			if nv != v {
 				vv[i] = nv
 			}
 		}
 	}
-	if nv := sub(req.Host); nv != req.Host {
-		req.Host = nv
+}
+
+// dynamicHeaderAttrs returns slog attributes for each tracked dynamic header
+// holding its resolved per-send value. Returns nil when no dynamic headers
+// are configured so callers can no-op without branching. Used by error-log
+// paths in doHTTPRequest to make per-request UUIDs recoverable from logs.
+func (p *Probe) dynamicHeaderAttrs(req *http.Request) []slog.Attr {
+	if !p.hasDynamicHeader {
+		return nil
 	}
+	attrs := make([]slog.Attr, 0, len(p.dynamicHeaderNames))
+	for _, name := range p.dynamicHeaderNames {
+		if v := req.Header.Get(name); v != "" {
+			attrs = append(attrs, slog.String(name, v))
+		}
+	}
+	return attrs
 }
 
 func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string, string, error) {

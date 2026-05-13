@@ -62,11 +62,16 @@ type Probe struct {
 	redirectFunc  func(req *http.Request, via []*http.Request) error
 
 	// book-keeping params
-	targets          []endpoint.Endpoint
-	method           string
-	url              string
-	hasDynamicHeader bool
-	oauthTS          oauth2.TokenSource
+	targets []endpoint.Endpoint
+	method  string
+	url     string
+	// dynamicHeaderNames lists canonicalized header names whose configured
+	// values contain a substitution token (e.g. @uuid@). Recorded at init so
+	// error logs can pull the resolved value from req.Header on the fly.
+	// Substitution is intentionally limited to req.Header; Host is not dynamic.
+	dynamicHeaderNames []string
+	hasDynamicHeader   bool
+	oauthTS            oauth2.TokenSource
 
 	responseParser *payload.Parser
 
@@ -187,7 +192,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			totalDuration, p.opts.Interval)
 	}
 
-	p.hasDynamicHeader = configHasDynamicHeader(p.c)
+	p.initDynamicHeaders()
 
 	p.method = p.c.GetMethod().String()
 
@@ -337,7 +342,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 			result.success++
 			return nil
 		}
-		l.Warning(err.Error())
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
 		return err
 	}
 
@@ -349,7 +354,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		l.Warning(err.Error())
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
 		return err
 	}
 
@@ -379,7 +384,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		// counters unchanged.
 		if len(failedValidations) > 0 {
 			msg := fmt.Sprintf("failed validations: %s", strings.Join(failedValidations, ","))
-			l.Error(msg)
+			l.WithAttributes(p.dynamicHeaderAttrs(req)...).Error(msg)
 			return errors.New(msg)
 		}
 	}

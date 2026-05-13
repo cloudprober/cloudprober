@@ -636,6 +636,72 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 		}
 		assert.Equal(t, n, len(seenIDs), "parallel requests must each get a distinct UUID")
 	})
+
+	// Host substitution is intentionally unsupported: a Host config containing
+	// '@' should not be tracked, and applyDynamicHeaders must leave req.Host
+	// alone. Sibling dynamic headers must still resolve.
+	t.Run("host_not_substituted", func(t *testing.T) {
+		hostName, hostVal := "Host", "api-@uuid@.example.com"
+		p, run := dynamicHeaderTestRig(t, &configpb.ProbeConf{
+			Headers: []*configpb.ProbeConf_Header{{Name: &hostName, Value: &hostVal}},
+			Header:  map[string]string{"X-Request-ID": "@uuid@"},
+		})
+		for _, n := range p.dynamicHeaderNames {
+			assert.NotEqual(t, "Host", n, "Host must not be tracked as a dynamic header")
+		}
+		got := run()
+		assert.Equal(t, 1, len(got))
+		if len(got) == 1 {
+			_, err := uuid.Parse(got[0].Get("X-Request-ID"))
+			assert.NoError(t, err, "sibling dynamic header should still resolve")
+		}
+	})
+}
+
+// dynamicHeaderAttrs is what doHTTPRequest's error paths use to attach
+// resolved per-send values (e.g. UUIDs) to error logs. Verify it returns
+// only the tracked headers, with values matching what's on the request.
+func TestDynamicHeaderAttrs(t *testing.T) {
+	p := &Probe{}
+	err := p.Init("http_test", &options.Options{
+		Targets:  targets.StaticTargets("test.com"),
+		Interval: 10 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			Header: map[string]string{
+				"X-Request-ID": "@uuid@",
+				"X-Static":     "no-substitution",
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	req, err := p.httpRequestForTarget(endpoint.Endpoint{Name: "test.com"})
+	assert.NoError(t, err)
+	req = p.prepareRequest(context.Background(), req)
+
+	attrs := p.dynamicHeaderAttrs(req)
+	assert.Equal(t, 1, len(attrs), "only X-Request-ID should be dynamic")
+	if len(attrs) == 1 {
+		assert.Equal(t, "X-Request-Id", attrs[0].Key)
+		got := attrs[0].Value.String()
+		_, perr := uuid.Parse(got)
+		assert.NoError(t, perr, "attr value must be a UUID")
+		assert.Equal(t, req.Header.Get("X-Request-ID"), got, "attr value must match req.Header")
+	}
+
+	// No dynamic headers configured -> attrs is nil so callers can no-op.
+	p2 := &Probe{}
+	err = p2.Init("http_test", &options.Options{
+		Targets:   targets.StaticTargets("test.com"),
+		Interval:  10 * time.Second,
+		Timeout:   time.Second,
+		ProbeConf: &configpb.ProbeConf{Header: map[string]string{"X-Static": "no-substitution"}},
+	})
+	assert.NoError(t, err)
+	req2, err := p2.httpRequestForTarget(endpoint.Endpoint{Name: "test.com"})
+	assert.NoError(t, err)
+	assert.Nil(t, p2.dynamicHeaderAttrs(req2))
 }
 
 func TestResolveFirst(t *testing.T) {
