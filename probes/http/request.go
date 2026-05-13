@@ -15,6 +15,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,10 +23,12 @@ import (
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
 	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
 
@@ -105,6 +108,10 @@ func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
 // differently than other setHeaders.
 //   - If host header is set in the probe, it overrides everything else.
 //   - Otherwise we use target's host (computed elsewhere) along with port.
+//
+// Header values may contain @uuid@ tokens; those are kept verbatim here and
+// resolved per-send by requestForSend so each request gets a fresh UUIDv4.
+// Use @@ to emit a literal @.
 func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	var hostHeader string
 
@@ -128,6 +135,57 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 		hostHeader = hostWithPort(host, port)
 	}
 	req.Host = hostHeader
+}
+
+// configHasDynamicHeader reports whether any header value contains an '@'
+// (the substitution marker). When false, the cached request's headers are
+// stable across runs and the per-send clone+substitute can be skipped.
+// '@'-without-a-known-key is a false positive (e.g. an email in a header)
+// but harmless: substitution is a no-op for unknown keys, so the only cost
+// is the clone itself.
+//
+// user_agent ends up as a request header too (set in httpRequestForTarget),
+// so check it here for the same reason.
+func configHasDynamicHeader(c *configpb.ProbeConf) bool {
+	for _, h := range c.GetHeaders() {
+		if strings.Contains(h.GetValue(), "@") {
+			return true
+		}
+	}
+	for _, v := range c.GetHeader() {
+		if strings.Contains(v, "@") {
+			return true
+		}
+	}
+	return strings.Contains(c.GetUserAgent(), "@")
+}
+
+// applyDynamicHeaders substitutes @uuid@ tokens (and any future tokens) in
+// the request's header values and Host. All @uuid@ occurrences within a
+// single send resolve to the same UUID; substitution is lazy so a value
+// without '@' skips strtemplate entirely.
+func applyDynamicHeaders(req *http.Request) {
+	var subst map[string]string
+	sub := func(s string) string {
+		if !strings.Contains(s, "@") {
+			return s
+		}
+		if subst == nil {
+			subst = map[string]string{"uuid": uuid.NewString()}
+		}
+		nv, _ := strtemplate.SubstituteLabels(s, subst)
+		return nv
+	}
+	for _, vv := range req.Header {
+		for i, v := range vv {
+			if nv := sub(v); nv != v {
+				vv[i] = nv
+			}
+		}
+	}
+	if nv := sub(req.Host); nv != req.Host {
+		req.Host = nv
+	}
 }
 
 func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string, string, error) {
@@ -198,18 +256,20 @@ func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
 	return "", fmt.Errorf("got unknown token: %v", tok)
 }
 
-func (p *Probe) prepareRequest(req *http.Request) *http.Request {
-	// We clone the request for the cases where we modify the request:
-	//   -- if request has a body, each request gets its own Body
-	//      as HTTP transport reads body in a streaming fashion, and we can't
-	//      share it across multiple requests.
-	//   -- if OAuth token is used, each request gets its own Authorization
-	//      header.
-	if p.oauthTS == nil && p.requestBody.Len() == 0 {
-		return req
+// prepareRequest derives a per-send request from the cached one. Cloning is
+// the only safe way to mutate without racing parallel sends (rpp > 1), so we
+// do it once when any of the per-send mutations apply -- dynamic header
+// substitution, OAuth Authorization header, or a fresh streaming body --
+// and skip to a cheap WithContext copy otherwise.
+func (p *Probe) prepareRequest(ctx context.Context, req *http.Request) *http.Request {
+	if !p.hasDynamicHeader && p.oauthTS == nil && p.requestBody.Len() == 0 {
+		return req.WithContext(ctx)
 	}
+	req = req.Clone(ctx)
 
-	req = req.Clone(req.Context())
+	if p.hasDynamicHeader {
+		applyDynamicHeaders(req)
+	}
 
 	if p.oauthTS != nil {
 		tok, err := getToken(p.oauthTS, p.l)
@@ -223,7 +283,9 @@ func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 		req.Header.Set("Authorization", fmt.Sprintf(p.c.GetOauthConfig().GetTokenTypeFormat(), tok))
 	}
 
-	req.Body = p.requestBody.Reader()
+	if p.requestBody.Len() > 0 {
+		req.Body = p.requestBody.Reader()
+	}
 
 	return req
 }

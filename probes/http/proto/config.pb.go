@@ -265,6 +265,11 @@ type ProbeConf struct {
 	//	  key: "Authorization"
 	//	  value: "Bearer {{env "AUTH_TOKEN"}}"
 	//	}
+	//
+	// Header values support per-request @uuid@ substitution -- each probe call
+	// gets a fresh UUIDv4. Use "@@" to emit a literal "@". Example:
+	//
+	//	header { key: "X-Request-ID" value: "@uuid@" }
 	Headers []*ProbeConf_Header `protobuf:"bytes,8,rep,name=headers" json:"headers,omitempty"`
 	Header  map[string]string   `protobuf:"bytes,20,rep,name=header" json:"header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Request body. This field works similar to the curl's data flag. If there
