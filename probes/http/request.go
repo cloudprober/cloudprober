@@ -173,7 +173,6 @@ func (p *Probe) initDynamicHeaders() {
 		add(k, v)
 	}
 	add("User-Agent", p.c.GetUserAgent())
-	p.hasDynamicHeader = len(p.dynamicHeaderNames) > 0
 }
 
 // applyDynamicHeaders substitutes @uuid@ tokens (and any future tokens) in
@@ -203,7 +202,7 @@ func applyDynamicHeaders(req *http.Request) {
 // are configured so callers can no-op without branching. Used by error-log
 // paths in doHTTPRequest to make per-request UUIDs recoverable from logs.
 func (p *Probe) dynamicHeaderAttrs(req *http.Request) []slog.Attr {
-	if !p.hasDynamicHeader {
+	if len(p.dynamicHeaderNames) == 0 {
 		return nil
 	}
 	attrs := make([]slog.Attr, 0, len(p.dynamicHeaderNames))
@@ -289,12 +288,12 @@ func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
 // substitution, OAuth Authorization header, or a fresh streaming body --
 // and skip to a cheap WithContext copy otherwise.
 func (p *Probe) prepareRequest(ctx context.Context, req *http.Request) *http.Request {
-	if !p.hasDynamicHeader && p.oauthTS == nil && p.requestBody.Len() == 0 {
+	if len(p.dynamicHeaderNames) == 0 && p.oauthTS == nil && p.requestBody.Len() == 0 {
 		return req.WithContext(ctx)
 	}
 	req = req.Clone(ctx)
 
-	if p.hasDynamicHeader {
+	if len(p.dynamicHeaderNames) > 0 {
 		applyDynamicHeaders(req)
 	}
 

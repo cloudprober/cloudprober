@@ -591,7 +591,7 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 			},
 			UserAgent: proto.String("cloudprober/@uuid@"),
 		})
-		assert.True(t, p.hasDynamicHeader, "user_agent with @uuid@ should set hasDynamicHeader")
+		assert.NotEmpty(t, p.dynamicHeaderNames, "user_agent with @uuid@ should populate dynamicHeaderNames")
 
 		uuids := make([]string, 0, 3)
 		for i := 0; i < 3; i++ {
