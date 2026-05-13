@@ -40,24 +40,48 @@ func httpModule() *starlarkstruct.Module {
 	}
 }
 
-// reqOpts holds per-call knobs that mirror http probe config fields.
-// maxRedirects: -1 = unset (default client behavior); >=0 = enforce limit.
+// reqOpts holds per-call knobs that mirror http probe config fields. nil
+// pointers mean "unset" — fall back to the runtime's shared client default.
 type reqOpts struct {
-	maxRedirects int
+	maxRedirects *int
+}
+
+// optionalInt extracts a *int from a Starlark value bound by UnpackArgs.
+// Returns nil for an omitted kwarg (v == nil) or an explicit None; errors
+// for any other non-Int type. Used so optional int kwargs can distinguish
+// "unset" from a real value without resorting to magic sentinels.
+func optionalInt(v starlarklib.Value, name string) (*int, error) {
+	if v == nil || v == starlarklib.None {
+		return nil, nil
+	}
+	i, ok := v.(starlarklib.Int)
+	if !ok {
+		return nil, fmt.Errorf("%s: expected int, got %s", name, v.Type())
+	}
+	n, ok := i.Int64()
+	if !ok {
+		return nil, fmt.Errorf("%s: int does not fit in int64", name)
+	}
+	out := int(n)
+	return &out, nil
 }
 
 func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var url string
 	var headers *starlarklib.Dict
-	opts := reqOpts{maxRedirects: -1}
+	var maxRedirectsArg starlarklib.Value
 	if err := starlarklib.UnpackArgs("http.get", args, kwargs,
 		"url", &url,
 		"headers?", &headers,
-		"max_redirects?", &opts.maxRedirects,
+		"max_redirects?", &maxRedirectsArg,
 	); err != nil {
 		return nil, err
 	}
-	return doHTTP(thread, "GET", url, headers, nil, nil, opts)
+	maxRedirects, err := optionalInt(maxRedirectsArg, "http.get: max_redirects")
+	if err != nil {
+		return nil, err
+	}
+	return doHTTP(thread, "GET", url, headers, nil, nil, reqOpts{maxRedirects: maxRedirects})
 }
 
 func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
@@ -65,17 +89,21 @@ func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 	var headers *starlarklib.Dict
 	var body starlarklib.Value
 	var jsonArg starlarklib.Value
-	opts := reqOpts{maxRedirects: -1}
+	var maxRedirectsArg starlarklib.Value
 	if err := starlarklib.UnpackArgs("http.post", args, kwargs,
 		"url", &url,
 		"headers?", &headers,
 		"body?", &body,
 		"json?", &jsonArg,
-		"max_redirects?", &opts.maxRedirects,
+		"max_redirects?", &maxRedirectsArg,
 	); err != nil {
 		return nil, err
 	}
-	return doHTTP(thread, "POST", url, headers, body, jsonArg, opts)
+	maxRedirects, err := optionalInt(maxRedirectsArg, "http.post: max_redirects")
+	if err != nil {
+		return nil, err
+	}
+	return doHTTP(thread, "POST", url, headers, body, jsonArg, reqOpts{maxRedirects: maxRedirects})
 }
 
 func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib.Dict, body, jsonArg starlarklib.Value, opts reqOpts) (starlarklib.Value, error) {
@@ -125,11 +153,11 @@ func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib
 	}
 
 	client := httpClientFromThread(thread)
-	if opts.maxRedirects >= 0 {
+	if opts.maxRedirects != nil {
 		// Clone the client to apply per-call CheckRedirect; the Transport
 		// pointer is shared, so connection pooling is preserved.
 		clone := *client
-		clone.CheckRedirect = httpclient.CheckRedirectFunc(opts.maxRedirects)
+		clone.CheckRedirect = httpclient.CheckRedirectFunc(*opts.maxRedirects)
 		client = &clone
 	}
 	resp, err := client.Do(req)
