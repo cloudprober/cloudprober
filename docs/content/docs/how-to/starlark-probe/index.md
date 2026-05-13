@@ -116,8 +116,8 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 
 | Builtin | Purpose |
 |---|---|
-| `http.get(url, headers=None, max_redirects=None)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N. |
-| `http.post(url, headers=None, body=None, json=None, max_redirects=None)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects` matches `http.get`. |
+| `http.get(url, headers=None, max_redirects=N)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N. Omit the kwarg to use Go's default behavior (follow up to 10). |
+| `http.post(url, headers=None, body=None, json=None, max_redirects=N)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects` matches `http.get`. |
 | `assert.http_status(response, expected, msg=None)` | Fails the probe if `response.status != expected`. `msg` is appended to the failure error -- handy for recording context (e.g. dynamic headers) that produced the failed request. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
