@@ -118,7 +118,7 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 |---|---|
 | `http.get(url, headers=None)` | HTTP GET, returns a `Response`. |
 | `http.post(url, headers=None, body=None, json=None)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. |
-| `assert.http_status(response, expected)` | Fails the probe if `response.status != expected`. |
+| `assert.http_status(response, expected, msg=None)` | Fails the probe if `response.status != expected`. `msg` is appended to the failure error -- handy for recording context (e.g. dynamic headers) that produced the failed request. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
 | `log.info(msg)` / `log.warn(msg)` / `log.error(msg)` / `log.debug(msg)` | Route a message to Cloudprober's logger with the probe's `target` attribute attached. |
