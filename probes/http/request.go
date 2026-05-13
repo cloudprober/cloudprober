@@ -138,18 +138,9 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	req.Host = hostHeader
 }
 
-// initDynamicHeaders scans the config once and records canonical names of
-// headers whose values contain an '@' substitution marker. The list drives
-// both the per-send clone gate (hasDynamicHeader) and the error-log path,
-// which pulls the resolved value back out of req.Header by name.
-//
-// Host is intentionally excluded: req.Host is not substituted, so a literal
-// '@uuid@' in a Host config flows through unchanged. We warn so the user
-// isn't surprised. user_agent feeds the User-Agent header in
-// httpRequestForTarget, so it's tracked under that canonical name.
-//
-// '@'-without-a-known-key (e.g. an email in a header) is a false positive
-// but harmless: applyDynamicHeaders is a no-op for unknown keys.
+// initDynamicHeaders records canonical names of headers whose values carry
+// a substitution token. Host is excluded: req.Host is not substituted, so
+// a literal '@' there is warned about and sent verbatim.
 func (p *Probe) initDynamicHeaders() {
 	seen := map[string]bool{}
 	add := func(name, val string) {
@@ -175,13 +166,13 @@ func (p *Probe) initDynamicHeaders() {
 	add("User-Agent", p.c.GetUserAgent())
 }
 
-// applyDynamicHeaders substitutes @uuid@ tokens (and any future tokens) in
-// the request's header values. All @uuid@ occurrences within a single send
-// resolve to the same UUID; substitution is lazy so a value without '@'
-// skips strtemplate entirely. req.Host is intentionally left alone.
-func applyDynamicHeaders(req *http.Request) {
+// applyDynamicHeaders substitutes @uuid@ (and future tokens) in tracked
+// header values. All @uuid@ occurrences within a single send resolve to
+// the same UUID. req.Host is intentionally left alone.
+func (p *Probe) applyDynamicHeaders(req *http.Request) {
 	var subst map[string]string
-	for _, vv := range req.Header {
+	for _, name := range p.dynamicHeaderNames {
+		vv := req.Header[name]
 		for i, v := range vv {
 			if !strings.Contains(v, "@") {
 				continue
@@ -189,18 +180,15 @@ func applyDynamicHeaders(req *http.Request) {
 			if subst == nil {
 				subst = map[string]string{"uuid": uuid.NewString()}
 			}
-			nv, _ := strtemplate.SubstituteLabels(v, subst)
-			if nv != v {
+			if nv, _ := strtemplate.SubstituteLabels(v, subst); nv != v {
 				vv[i] = nv
 			}
 		}
 	}
 }
 
-// dynamicHeaderAttrs returns slog attributes for each tracked dynamic header
-// holding its resolved per-send value. Returns nil when no dynamic headers
-// are configured so callers can no-op without branching. Used by error-log
-// paths in doHTTPRequest to make per-request UUIDs recoverable from logs.
+// dynamicHeaderAttrs returns the resolved per-send values for tracked
+// dynamic headers, for use in error-log attributes.
 func (p *Probe) dynamicHeaderAttrs(req *http.Request) []slog.Attr {
 	if len(p.dynamicHeaderNames) == 0 {
 		return nil
@@ -294,7 +282,7 @@ func (p *Probe) prepareRequest(ctx context.Context, req *http.Request) *http.Req
 	req = req.Clone(ctx)
 
 	if len(p.dynamicHeaderNames) > 0 {
-		applyDynamicHeaders(req)
+		p.applyDynamicHeaders(req)
 	}
 
 	if p.oauthTS != nil {

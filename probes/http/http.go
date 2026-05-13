@@ -65,11 +65,9 @@ type Probe struct {
 	targets []endpoint.Endpoint
 	method  string
 	url     string
-	// dynamicHeaderNames lists canonicalized header names whose configured
-	// values contain a substitution token (e.g. @uuid@). Recorded at init so
-	// error logs can pull the resolved value from req.Header on the fly, and
-	// so prepareRequest knows whether the per-send clone is needed.
-	// Substitution is intentionally limited to req.Header; Host is not dynamic.
+	// Canonical names of headers whose values carry a substitution token
+	// (e.g. @uuid@). Empty when no header is dynamic; len() also gates the
+	// per-send clone in prepareRequest.
 	dynamicHeaderNames []string
 	oauthTS            oauth2.TokenSource
 

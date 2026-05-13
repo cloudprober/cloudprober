@@ -637,9 +637,6 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 		assert.Equal(t, n, len(seenIDs), "parallel requests must each get a distinct UUID")
 	})
 
-	// Host substitution is intentionally unsupported: a Host config containing
-	// '@' should not be tracked, and applyDynamicHeaders must leave req.Host
-	// alone. Sibling dynamic headers must still resolve.
 	t.Run("host_not_substituted", func(t *testing.T) {
 		hostName, hostVal := "Host", "api-@uuid@.example.com"
 		p, run := dynamicHeaderTestRig(t, &configpb.ProbeConf{
@@ -658,9 +655,6 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 	})
 }
 
-// dynamicHeaderAttrs is what doHTTPRequest's error paths use to attach
-// resolved per-send values (e.g. UUIDs) to error logs. Verify it returns
-// only the tracked headers, with values matching what's on the request.
 func TestDynamicHeaderAttrs(t *testing.T) {
 	p := &Probe{}
 	err := p.Init("http_test", &options.Options{
@@ -690,7 +684,6 @@ func TestDynamicHeaderAttrs(t *testing.T) {
 		assert.Equal(t, req.Header.Get("X-Request-ID"), got, "attr value must match req.Header")
 	}
 
-	// No dynamic headers configured -> attrs is nil so callers can no-op.
 	p2 := &Probe{}
 	err = p2.Init("http_test", &options.Options{
 		Targets:   targets.StaticTargets("test.com"),
