@@ -40,6 +40,15 @@ func httpModule() *starlarkstruct.Module {
 	}
 }
 
+// reqOpts collects everything from an http.{get,post} call that varies
+// between requests. Fields are zero/nil when unset.
+type reqOpts struct {
+	headers      *starlarklib.Dict
+	body         starlarklib.Value
+	jsonArg      starlarklib.Value
+	maxRedirects *int
+}
+
 // optionalInt converts a Value bound by UnpackArgs (with "??" suffix) into a
 // *int. nil result means the kwarg was omitted or None; otherwise the int
 // value. Errors on any other type.
@@ -61,11 +70,11 @@ func optionalInt(v starlarklib.Value, name string) (*int, error) {
 
 func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var url string
-	var headers *starlarklib.Dict
+	var opts reqOpts
 	var maxRedirectsArg starlarklib.Value
 	if err := starlarklib.UnpackArgs("http.get", args, kwargs,
 		"url", &url,
-		"headers?", &headers,
+		"headers?", &opts.headers,
 		"max_redirects??", &maxRedirectsArg,
 	); err != nil {
 		return nil, err
@@ -74,20 +83,19 @@ func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkli
 	if err != nil {
 		return nil, err
 	}
-	return doHTTP(thread, "GET", url, headers, nil, nil, maxRedirects)
+	opts.maxRedirects = maxRedirects
+	return doHTTP(thread, "GET", url, opts)
 }
 
 func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var url string
-	var headers *starlarklib.Dict
-	var body starlarklib.Value
-	var jsonArg starlarklib.Value
+	var opts reqOpts
 	var maxRedirectsArg starlarklib.Value
 	if err := starlarklib.UnpackArgs("http.post", args, kwargs,
 		"url", &url,
-		"headers?", &headers,
-		"body?", &body,
-		"json?", &jsonArg,
+		"headers?", &opts.headers,
+		"body?", &opts.body,
+		"json?", &opts.jsonArg,
 		"max_redirects??", &maxRedirectsArg,
 	); err != nil {
 		return nil, err
@@ -96,15 +104,16 @@ func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 	if err != nil {
 		return nil, err
 	}
-	return doHTTP(thread, "POST", url, headers, body, jsonArg, maxRedirects)
+	opts.maxRedirects = maxRedirects
+	return doHTTP(thread, "POST", url, opts)
 }
 
-func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib.Dict, body, jsonArg starlarklib.Value, maxRedirects *int) (starlarklib.Value, error) {
+func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starlarklib.Value, error) {
 	var reqBody io.Reader
 	contentType := ""
 	switch {
-	case jsonArg != nil:
-		raw, err := starlarkToGo(jsonArg)
+	case opts.jsonArg != nil:
+		raw, err := starlarkToGo(opts.jsonArg)
 		if err != nil {
 			return nil, fmt.Errorf("http.%s: encoding json arg: %v", strings.ToLower(method), err)
 		}
@@ -114,10 +123,10 @@ func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib
 		}
 		reqBody = bytes.NewReader(buf)
 		contentType = "application/json"
-	case body != nil:
-		s, ok := starlarklib.AsString(body)
+	case opts.body != nil:
+		s, ok := starlarklib.AsString(opts.body)
 		if !ok {
-			if b, ok := body.(starlarklib.Bytes); ok {
+			if b, ok := opts.body.(starlarklib.Bytes); ok {
 				reqBody = bytes.NewReader([]byte(b))
 			} else {
 				return nil, fmt.Errorf("http.%s: body must be string or bytes", strings.ToLower(method))
@@ -134,8 +143,8 @@ func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	if headers != nil {
-		for _, item := range headers.Items() {
+	if opts.headers != nil {
+		for _, item := range opts.headers.Items() {
 			k, ok1 := starlarklib.AsString(item[0])
 			v, ok2 := starlarklib.AsString(item[1])
 			if !ok1 || !ok2 {
@@ -146,11 +155,11 @@ func doHTTP(thread *starlarklib.Thread, method, url string, headers *starlarklib
 	}
 
 	client := httpClientFromThread(thread)
-	if maxRedirects != nil {
+	if opts.maxRedirects != nil {
 		// Shallow-copy: the Transport pointer is shared, so connection
 		// pooling is preserved across calls.
 		clone := *client
-		clone.CheckRedirect = httpclient.CheckRedirectFunc(*maxRedirects)
+		clone.CheckRedirect = httpclient.CheckRedirectFunc(*opts.maxRedirects)
 		client = &clone
 	}
 	resp, err := client.Do(req)
