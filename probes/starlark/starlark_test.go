@@ -553,6 +553,64 @@ def probe(target):
 	}
 }
 
+// TestHTTP_KeepAlive verifies the keep_alive kwarg controls TCP-connection
+// reuse:
+//   - keep_alive=False: request carries Connection: close and the next request
+//     opens a new TCP connection (distinct RemoteAddr).
+//   - keep_alive omitted: Go's default Transport pools the connection, so the
+//     next request reuses it (same RemoteAddr).
+func TestHTTP_KeepAlive(t *testing.T) {
+	cases := []struct {
+		name          string
+		callKwarg     string
+		wantConnClose bool
+		wantSameAddr  bool
+	}{
+		{"omitted_pools_connection", "", false, true},
+		{"false_closes_connection", ", keep_alive = False", true, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var (
+				gotConnClose atomic.Bool
+				addrs        []string
+			)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Connection") == "close" {
+					gotConnClose.Store(true)
+				}
+				addrs = append(addrs, r.RemoteAddr)
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer srv.Close()
+
+			source := fmt.Sprintf(`
+def probe(target):
+    r1 = http.get(url = "%s"%s)
+    assert.http_status(r1, 200)
+    r2 = http.get(url = "%s"%s)
+    assert.http_status(r2, 200)
+`, srv.URL, tc.callKwarg, srv.URL, tc.callKwarg)
+
+			opts := newOpts(t, hostFromServer(t, srv), source)
+			p := &Probe{}
+			if err := p.Init("script-keep-alive-"+tc.name, opts); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+			results := p.RunOnce(context.Background())
+			assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+			assert.Equal(t, tc.wantConnClose, gotConnClose.Load(), "Connection: close header")
+			if len(addrs) == 2 {
+				if tc.wantSameAddr {
+					assert.Equal(t, addrs[0], addrs[1], "expected pooled connection (same RemoteAddr)")
+				} else {
+					assert.NotEqual(t, addrs[0], addrs[1], "expected fresh connection (different RemoteAddr)")
+				}
+			}
+		})
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Init / config validation
 
