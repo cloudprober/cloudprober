@@ -509,6 +509,50 @@ def probe(target):
 	assert.Contains(t, results[0].Error.Error(), "trace=abc123")
 }
 
+// TestHTTP_MaxRedirects exercises the per-call max_redirects kwarg on
+// http.get. The server redirects /->/1->/2 then 200; the table walks the
+// boundary cases including =0 (which validates the clone codepath actually
+// blocks all redirects).
+func TestHTTP_MaxRedirects(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			http.Redirect(w, r, "/1", http.StatusTemporaryRedirect)
+		case "/1":
+			http.Redirect(w, r, "/2", http.StatusTemporaryRedirect)
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer srv.Close()
+
+	cases := []struct {
+		name       string
+		max        int
+		wantStatus int
+	}{
+		{"zero_disables", 0, http.StatusTemporaryRedirect},
+		{"one_follows_first_hop", 1, http.StatusTemporaryRedirect},
+		{"two_follows_both_hops", 2, http.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s", max_redirects = %d)
+    assert.http_status(r, %d)
+`, srv.URL, tc.max, tc.wantStatus)
+			opts := newOpts(t, hostFromServer(t, srv), source)
+			p := &Probe{}
+			if err := p.Init("script-max-redirects-"+tc.name, opts); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+			results := p.RunOnce(context.Background())
+			assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+		})
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Init / config validation
 

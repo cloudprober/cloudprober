@@ -32,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httpclient"
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
@@ -225,12 +226,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.baseTransport = transport
 
 	if p.c.MaxRedirects != nil {
-		p.redirectFunc = func(req *http.Request, via []*http.Request) error {
-			if len(via) > int(p.c.GetMaxRedirects()) {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		}
+		p.redirectFunc = httpclient.CheckRedirectFunc(int(p.c.GetMaxRedirects()))
 	}
 
 	if p.c.GetResponseMetricsOptions() != nil {
