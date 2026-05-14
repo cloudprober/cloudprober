@@ -554,10 +554,10 @@ def probe(target):
 }
 
 // TestHTTP_KeepAlive verifies the keep_alive kwarg controls TCP-connection
-// reuse:
-//   - keep_alive=False: request carries Connection: close and the next request
-//     opens a new TCP connection (distinct RemoteAddr).
-//   - keep_alive omitted: Go's default Transport pools the connection, so the
+// reuse. Default is False (matches the HTTP probe's keep_alive: false default):
+//   - keep_alive omitted or False: request carries Connection: close and the
+//     next request opens a new TCP connection (distinct RemoteAddr).
+//   - keep_alive=True: Go's default Transport pools the connection, so the
 //     next request reuses it (same RemoteAddr).
 func TestHTTP_KeepAlive(t *testing.T) {
 	cases := []struct {
@@ -566,8 +566,9 @@ func TestHTTP_KeepAlive(t *testing.T) {
 		wantConnClose bool
 		wantSameAddr  bool
 	}{
-		{"omitted_pools_connection", "", false, true},
+		{"omitted_closes_connection", "", true, false},
 		{"false_closes_connection", ", keep_alive = False", true, false},
+		{"true_pools_connection", ", keep_alive = True", false, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

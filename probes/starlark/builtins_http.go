@@ -166,9 +166,10 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 	if err != nil {
 		return nil, err
 	}
-	if opts.keepAlive != nil && !*opts.keepAlive {
-		// req.Close adds Connection: close to the request and tells the
-		// Transport not to keep the connection in its pool afterward.
+	// keep_alive defaults to False to match the HTTP probe's prober-style
+	// default (every call exercises DNS/TCP/TLS setup). Scripts that chain
+	// requests across one logical flow opt back in with keep_alive=True.
+	if opts.keepAlive == nil || !*opts.keepAlive {
 		req.Close = true
 	}
 	if contentType != "" {
