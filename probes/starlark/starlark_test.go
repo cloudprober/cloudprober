@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -38,6 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -574,13 +576,16 @@ func TestHTTP_KeepAlive(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var (
 				gotConnClose atomic.Bool
+				mu           sync.Mutex
 				addrs        []string
 			)
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("Connection") == "close" {
 					gotConnClose.Store(true)
 				}
+				mu.Lock()
 				addrs = append(addrs, r.RemoteAddr)
+				mu.Unlock()
 				w.WriteHeader(http.StatusOK)
 			}))
 			defer srv.Close()
@@ -601,12 +606,11 @@ def probe(target):
 			results := p.RunOnce(context.Background())
 			assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
 			assert.Equal(t, tc.wantConnClose, gotConnClose.Load(), "Connection: close header")
-			if len(addrs) == 2 {
-				if tc.wantSameAddr {
-					assert.Equal(t, addrs[0], addrs[1], "expected pooled connection (same RemoteAddr)")
-				} else {
-					assert.NotEqual(t, addrs[0], addrs[1], "expected fresh connection (different RemoteAddr)")
-				}
+			require.Len(t, addrs, 2, "expected exactly two requests to reach the server")
+			if tc.wantSameAddr {
+				assert.Equal(t, addrs[0], addrs[1], "expected pooled connection (same RemoteAddr)")
+			} else {
+				assert.NotEqual(t, addrs[0], addrs[1], "expected fresh connection (different RemoteAddr)")
 			}
 		})
 	}
