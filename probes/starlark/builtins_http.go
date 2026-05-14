@@ -40,8 +40,8 @@ func httpModule() *starlarkstruct.Module {
 	}
 }
 
-// reqOpts collects everything from an http.{get,post} call that varies
-// between requests. Fields are zero/nil when unset.
+// reqOpts holds per-call inputs to doHTTP. Fields default to their zero
+// values when the corresponding kwarg is omitted.
 type reqOpts struct {
 	headers      *starlarklib.Dict
 	body         starlarklib.Value
@@ -143,10 +143,9 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 	if err != nil {
 		return nil, err
 	}
-	// keep_alive defaults to False to match the HTTP probe's prober-style
-	// default (every call exercises DNS/TCP/TLS setup). Scripts that chain
-	// requests across one logical flow opt back in with keep_alive=True.
 	if !opts.keepAlive {
+		// req.Close: send Connection: close and don't return this conn
+		// to the Transport's idle pool after the response.
 		req.Close = true
 	}
 	if contentType != "" {

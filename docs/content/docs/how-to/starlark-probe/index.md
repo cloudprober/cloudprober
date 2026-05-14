@@ -126,12 +126,10 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 | `print(...)` | Standard Starlark `print`; routed to the logger at INFO. |
 | `fail(msg)` | Standard Starlark; ends the run as a failure. |
 
-> **Note on `keep_alive`:** the kwarg controls whether *this* request's
-> connection is pooled afterward. A `keep_alive=False` call will still
-> reuse a connection pooled by a prior `keep_alive=True` call to the same
-> host before closing it -- the pool isn't drained on demand. For uniform
-> fresh-TCP semantics, pass `keep_alive=False` on every call (or just
-> omit it -- that's the default).
+> `keep_alive=False` controls *post-request* pooling -- it doesn't drain
+> an already-pooled connection. If you mix `True` and `False` calls to
+> the same host, a `False` call may ride a previously-pooled connection
+> before closing it.
 
 ### Response
 
