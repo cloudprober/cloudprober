@@ -47,7 +47,7 @@ type reqOpts struct {
 	body         starlarklib.Value
 	jsonArg      starlarklib.Value
 	maxRedirects *int
-	keepAlive    *bool
+	keepAlive    bool
 }
 
 // optionalInt converts a Value bound by UnpackArgs (with "??" suffix) into a
@@ -69,28 +69,15 @@ func optionalInt(v starlarklib.Value, name string) (*int, error) {
 	return &out, nil
 }
 
-// optionalBool is the bool analog of optionalInt.
-func optionalBool(v starlarklib.Value, name string) (*bool, error) {
-	if v == nil {
-		return nil, nil
-	}
-	b, ok := v.(starlarklib.Bool)
-	if !ok {
-		return nil, fmt.Errorf("%s: expected bool, got %s", name, v.Type())
-	}
-	out := bool(b)
-	return &out, nil
-}
-
 func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var url string
 	var opts reqOpts
-	var maxRedirectsArg, keepAliveArg starlarklib.Value
+	var maxRedirectsArg starlarklib.Value
 	if err := starlarklib.UnpackArgs("http.get", args, kwargs,
 		"url", &url,
 		"headers?", &opts.headers,
 		"max_redirects??", &maxRedirectsArg,
-		"keep_alive??", &keepAliveArg,
+		"keep_alive??", &opts.keepAlive,
 	); err != nil {
 		return nil, err
 	}
@@ -98,26 +85,21 @@ func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkli
 	if err != nil {
 		return nil, err
 	}
-	keepAlive, err := optionalBool(keepAliveArg, "http.get: keep_alive")
-	if err != nil {
-		return nil, err
-	}
 	opts.maxRedirects = maxRedirects
-	opts.keepAlive = keepAlive
 	return doHTTP(thread, "GET", url, opts)
 }
 
 func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var url string
 	var opts reqOpts
-	var maxRedirectsArg, keepAliveArg starlarklib.Value
+	var maxRedirectsArg starlarklib.Value
 	if err := starlarklib.UnpackArgs("http.post", args, kwargs,
 		"url", &url,
 		"headers?", &opts.headers,
 		"body?", &opts.body,
 		"json?", &opts.jsonArg,
 		"max_redirects??", &maxRedirectsArg,
-		"keep_alive??", &keepAliveArg,
+		"keep_alive??", &opts.keepAlive,
 	); err != nil {
 		return nil, err
 	}
@@ -125,12 +107,7 @@ func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 	if err != nil {
 		return nil, err
 	}
-	keepAlive, err := optionalBool(keepAliveArg, "http.post: keep_alive")
-	if err != nil {
-		return nil, err
-	}
 	opts.maxRedirects = maxRedirects
-	opts.keepAlive = keepAlive
 	return doHTTP(thread, "POST", url, opts)
 }
 
@@ -169,7 +146,7 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 	// keep_alive defaults to False to match the HTTP probe's prober-style
 	// default (every call exercises DNS/TCP/TLS setup). Scripts that chain
 	// requests across one logical flow opt back in with keep_alive=True.
-	if opts.keepAlive == nil || !*opts.keepAlive {
+	if !opts.keepAlive {
 		req.Close = true
 	}
 	if contentType != "" {
