@@ -188,25 +188,29 @@ func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 // returns) see the new attributes. Without the holder, the script's
 // mutation would only be visible inside its own thread.
 type loggerHolder struct {
-	base  *logger.Logger
-	attrs map[string]string
-	l     *logger.Logger
+	base   *logger.Logger
+	attrs  []slog.Attr
+	keyPos map[string]int
+	l      *logger.Logger
 }
 
 func newLoggerHolder(base *logger.Logger) *loggerHolder {
-	return &loggerHolder{base: base, attrs: map[string]string{}, l: base}
+	return &loggerHolder{base: base, keyPos: map[string]int{}, l: base}
 }
 
-// SetAttr rebuilds l from base with the current attrs map so repeated calls
-// with the same key replace rather than append — Logger.WithAttributes
-// otherwise produces duplicate log fields.
+// SetAttr rebuilds l from base with the current attrs so repeated calls
+// with the same key replace in place rather than append — preserves the
+// script's set_attr call order in the log output, and avoids the duplicate
+// fields Logger.WithAttributes would otherwise produce on repeat keys.
 func (h *loggerHolder) SetAttr(key, value string) {
-	h.attrs[key] = value
-	attrs := make([]slog.Attr, 0, len(h.attrs))
-	for k, v := range h.attrs {
-		attrs = append(attrs, slog.String(k, v))
+	attr := slog.String(key, value)
+	if i, ok := h.keyPos[key]; ok {
+		h.attrs[i] = attr
+	} else {
+		h.keyPos[key] = len(h.attrs)
+		h.attrs = append(h.attrs, attr)
 	}
-	h.l = h.base.WithAttributes(attrs...)
+	h.l = h.base.WithAttributes(h.attrs...)
 }
 
 // loggerFromThread returns the current *logger.Logger from the per-thread

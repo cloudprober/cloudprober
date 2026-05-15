@@ -713,6 +713,37 @@ def probe(target):
 	}
 }
 
+// TestLogSetAttr_PreservesInsertionOrder pins that two log.set_attr calls
+// with different keys produce attrs in the order they were set (not
+// alphabetical, not random map-iteration order).
+func TestLogSetAttr_PreservesInsertionOrder(t *testing.T) {
+	source := `
+def probe(target):
+    log.set_attr("zeta", "1")
+    log.set_attr("alpha", "2")
+    log.set_attr("middle", "3")
+    log.info("ordered")
+`
+	var buf bytes.Buffer
+	opts := newOpts(t, "127.0.0.1", source)
+	opts.Logger = logger.New(logger.WithWriter(&buf))
+
+	p := &Probe{}
+	require.NoError(t, p.Init("script-log-setattr-order", opts))
+	results := p.RunOnce(context.Background())
+	require.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+
+	output := buf.String()
+	iZeta := strings.Index(output, "zeta=1")
+	iAlpha := strings.Index(output, "alpha=2")
+	iMiddle := strings.Index(output, "middle=3")
+	require.NotEqual(t, -1, iZeta, "zeta not in log output: %s", output)
+	require.NotEqual(t, -1, iAlpha, "alpha not in log output: %s", output)
+	require.NotEqual(t, -1, iMiddle, "middle not in log output: %s", output)
+	assert.Less(t, iZeta, iAlpha, "zeta should appear before alpha (set first)")
+	assert.Less(t, iAlpha, iMiddle, "alpha should appear before middle (set second)")
+}
+
 // ---------------------------------------------------------------------------
 // Init / config validation
 
