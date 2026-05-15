@@ -611,10 +611,6 @@ def probe(target):
 	}
 }
 
-// TestHTTP_TLSConfig verifies that probe-level tls_config governs cert
-// validation on script-side http.{get,post} calls. The test server uses a
-// self-signed cert: the probe must fail without tls_config and succeed
-// with disable_cert_validation: true.
 func TestHTTP_TLSConfig(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -168,9 +168,6 @@ tls_config {
 }
 ```
 
-For per-host TLS variation (rare), run the script under multiple probes
-with different `tls_config` blocks.
-
 ### `vars`
 
 `vars.get` reads from the probe's static config map -- useful for passing

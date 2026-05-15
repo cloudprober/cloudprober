@@ -87,10 +87,6 @@ type runtime struct {
 // exists with the expected arity. Module-level code runs once here and is
 // bounded by ctx; runtime calls to Run cannot mutate the resulting globals
 // (Starlark freezes them).
-//
-// tlsCfg, when non-nil, is applied to a fresh *http.Transport and used by
-// the runtime's *http.Client. nil = Go's default Transport (default trust
-// store, no client cert, no SNI override).
 func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, tlsCfg *tls.Config, l *logger.Logger) (*runtime, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -139,23 +135,17 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 }
 
 // newHTTPClient returns the *http.Client the runtime uses for script-side
-// http.{get,post} calls. When tlsCfg is non-nil, we install a fresh
-// http.Transport whose TLSClientConfig is tlsCfg — Go's DefaultTransport is
-// shared process-wide, so we can't mutate its TLS config without affecting
-// unrelated probes / dependencies. Other Transport defaults (proxy from env,
-// HTTP/2 attempt, dialer timeouts) are left at their stdlib values; future
-// proxy / keepalive / timeout knobs slot in here.
+// http.{get,post} calls. With tlsCfg set, we clone DefaultTransport rather
+// than starting from a zero-value Transport — Clone preserves the stdlib's
+// dial/handshake/idle-conn timeouts, which a bare &http.Transport{} drops.
+// Mutating DefaultTransport directly would leak into unrelated probes.
 func newHTTPClient(tlsCfg *tls.Config) *http.Client {
 	if tlsCfg == nil {
 		return &http.Client{}
 	}
-	return &http.Client{
-		Transport: &http.Transport{
-			Proxy:             http.ProxyFromEnvironment,
-			ForceAttemptHTTP2: true,
-			TLSClientConfig:   tlsCfg,
-		},
-	}
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.TLSClientConfig = tlsCfg
+	return &http.Client{Transport: t}
 }
 
 // Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.
