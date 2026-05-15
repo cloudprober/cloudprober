@@ -32,6 +32,7 @@ import (
 	"testing"
 	"time"
 
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -417,11 +418,11 @@ def probe(target):
 // TestHTTP_RuntimeOwnsClient verifies the review comment fix: each runtime
 // has its own *http.Client rather than reusing http.DefaultClient.
 func TestHTTP_RuntimeOwnsClient(t *testing.T) {
-	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
+	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt1: %v", err)
 	}
-	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, &logger.Logger{})
+	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt2: %v", err)
 	}
@@ -608,6 +609,44 @@ def probe(target):
 			}
 		})
 	}
+}
+
+func TestHTTP_TLSConfig(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s")
+    assert.http_status(r, 200)
+`, srv.URL)
+
+	t.Run("rejects_self_signed_by_default", func(t *testing.T) {
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		p := &Probe{}
+		if err := p.Init("script-tls-default", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success, "default TLS config should reject self-signed cert")
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "certificate")
+	})
+
+	t.Run("accepts_with_disable_cert_validation", func(t *testing.T) {
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfig = &tlsconfigpb.TLSConfig{
+			DisableCertValidation: proto.Bool(true),
+		}
+		p := &Probe{}
+		if err := p.Init("script-tls-skip-verify", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+	})
 }
 
 // ---------------------------------------------------------------------------

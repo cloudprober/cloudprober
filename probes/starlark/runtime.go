@@ -56,6 +56,7 @@ package starlark
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -86,7 +87,7 @@ type runtime struct {
 // exists with the expected arity. Module-level code runs once here and is
 // bounded by ctx; runtime calls to Run cannot mutate the resulting globals
 // (Starlark freezes them).
-func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, l *logger.Logger) (*runtime, error) {
+func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, tlsCfg *tls.Config, l *logger.Logger) (*runtime, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -94,7 +95,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 		name:       name,
 		entryPoint: entryPoint,
 		l:          l,
-		httpClient: &http.Client{},
+		httpClient: newHTTPClient(tlsCfg),
 	}
 	rt.predeclared = builtins(vars)
 
@@ -131,6 +132,20 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 		return nil, fmt.Errorf("entry point %q must take exactly one argument (target), got %d", entryPoint, fn.NumParams())
 	}
 	return rt, nil
+}
+
+// newHTTPClient returns the *http.Client the runtime uses for script-side
+// http.{get,post} calls. With tlsCfg set, we clone DefaultTransport rather
+// than starting from a zero-value Transport — Clone preserves the stdlib's
+// dial/handshake/idle-conn timeouts, which a bare &http.Transport{} drops.
+// Mutating DefaultTransport directly would leak into unrelated probes.
+func newHTTPClient(tlsCfg *tls.Config) *http.Client {
+	if tlsCfg == nil {
+		return &http.Client{}
+	}
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.TLSClientConfig = tlsCfg
+	return &http.Client{Transport: t}
 }
 
 // Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.

@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.starlark;
 
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/starlark/proto";
@@ -46,4 +47,11 @@ message ProbeConf {
   // distribution-bucket configuration, in-cloudprober aggregation, and
   // additional labels all carry over with no Starlark-specific surface.
   optional metrics.payload.OutputMetricsOptions output_metrics_options = 5;
+
+  // TLS config for outbound HTTPS calls made by the script. Applies to every
+  // http.{get,post} call in the probe — set this when the script targets
+  // hosts that need a custom CA bundle, a client certificate (mTLS), an SNI
+  // override, or disabled cert validation. Same message the HTTP probe uses;
+  // see common/tlsconfig/proto/config.proto for the full field list.
+  optional tlsconfig.TLSConfig tls_config = 6;
 }

@@ -141,6 +141,33 @@ r.body       # bytes
 r.json()     # parsed JSON (raises on parse error)
 ```
 
+### TLS configuration
+
+For HTTPS calls to hosts that need a custom CA bundle, mTLS client cert, SNI
+override, or disabled cert validation, set `tls_config` on the probe. Same
+message the HTTP probe uses; applies to every `http.get`/`http.post` in the
+script. Example using a custom CA:
+
+```proto
+probe {
+  type: STARLARK
+  starlark_probe {
+    source_file: "internal_api.star"
+    tls_config {
+      ca_cert_file: "/etc/ssl/internal-root-ca.pem"
+    }
+  }
+}
+```
+
+For development against self-signed certs:
+
+```proto
+tls_config {
+  disable_cert_validation: true
+}
+```
+
 ### `vars`
 
 `vars.get` reads from the probe's static config map -- useful for passing
