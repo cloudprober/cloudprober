@@ -20,11 +20,13 @@ package starlark
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"os"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -105,13 +107,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		entryPoint = "probe"
 	}
 
+	var tlsCfg *tls.Config
+	if p.c.GetTlsConfig() != nil {
+		tlsCfg = &tls.Config{}
+		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
+			return fmt.Errorf("starlark tls_config: %v", err)
+		}
+	}
+
 	// Timeout to compile the starlark script. This is a generous timeout
 	// to avoid accidental infinite loops in the script.
 	loadTimeout := 30 * time.Second
 	loadCtx, cancel := context.WithTimeout(context.Background(), loadTimeout)
 	defer cancel()
 
-	rt, err := newRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), p.l)
+	rt, err := newRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), tlsCfg, p.l)
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
 	}

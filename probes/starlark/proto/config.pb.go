@@ -7,6 +7,7 @@
 package proto
 
 import (
+	proto1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	proto "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -64,8 +65,14 @@ type ProbeConf struct {
 	// distribution-bucket configuration, in-cloudprober aggregation, and
 	// additional labels all carry over with no Starlark-specific surface.
 	OutputMetricsOptions *proto.OutputMetricsOptions `protobuf:"bytes,5,opt,name=output_metrics_options,json=outputMetricsOptions" json:"output_metrics_options,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// TLS config for outbound HTTPS calls made by the script. Applies to every
+	// http.{get,post} call in the probe — set this when the script targets
+	// hosts that need a custom CA bundle, a client certificate (mTLS), an SNI
+	// override, or disabled cert validation. Same message the HTTP probe uses;
+	// see common/tlsconfig/proto/config.proto for the full field list.
+	TlsConfig     *proto1.TLSConfig `protobuf:"bytes,6,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 // Default values for ProbeConf fields.
@@ -138,11 +145,18 @@ func (x *ProbeConf) GetOutputMetricsOptions() *proto.OutputMetricsOptions {
 	return nil
 }
 
+func (x *ProbeConf) GetTlsConfig() *proto1.TLSConfig {
+	if x != nil {
+		return x.TlsConfig
+	}
+	return nil
+}
+
 var File_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xd4\x02\n" +
+	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\x95\x03\n" +
 	"\tProbeConf\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
@@ -150,7 +164,9 @@ const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto
 	"\ventry_point\x18\x03 \x01(\t:\x05probeR\n" +
 	"entryPoint\x12D\n" +
 	"\x04vars\x18\x04 \x03(\v20.cloudprober.probes.starlark.ProbeConf.VarsEntryR\x04vars\x12g\n" +
-	"\x16output_metrics_options\x18\x05 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptions\x1a7\n" +
+	"\x16output_metrics_options\x18\x05 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptions\x12?\n" +
+	"\n" +
+	"tls_config\x18\x06 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfig\x1a7\n" +
 	"\tVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B:Z8github.com/cloudprober/cloudprober/probes/starlark/proto"
@@ -172,15 +188,17 @@ var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_g
 	(*ProbeConf)(nil),                  // 0: cloudprober.probes.starlark.ProbeConf
 	nil,                                // 1: cloudprober.probes.starlark.ProbeConf.VarsEntry
 	(*proto.OutputMetricsOptions)(nil), // 2: cloudprober.metrics.payload.OutputMetricsOptions
+	(*proto1.TLSConfig)(nil),           // 3: cloudprober.tlsconfig.TLSConfig
 }
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.probes.starlark.ProbeConf.vars:type_name -> cloudprober.probes.starlark.ProbeConf.VarsEntry
 	2, // 1: cloudprober.probes.starlark.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3, // 2: cloudprober.probes.starlark.ProbeConf.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_init() }

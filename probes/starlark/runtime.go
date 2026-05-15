@@ -56,6 +56,7 @@ package starlark
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -86,7 +87,11 @@ type runtime struct {
 // exists with the expected arity. Module-level code runs once here and is
 // bounded by ctx; runtime calls to Run cannot mutate the resulting globals
 // (Starlark freezes them).
-func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, l *logger.Logger) (*runtime, error) {
+//
+// tlsCfg, when non-nil, is applied to a fresh *http.Transport and used by
+// the runtime's *http.Client. nil = Go's default Transport (default trust
+// store, no client cert, no SNI override).
+func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, tlsCfg *tls.Config, l *logger.Logger) (*runtime, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -94,7 +99,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 		name:       name,
 		entryPoint: entryPoint,
 		l:          l,
-		httpClient: &http.Client{},
+		httpClient: newHTTPClient(tlsCfg),
 	}
 	rt.predeclared = builtins(vars)
 
@@ -131,6 +136,26 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 		return nil, fmt.Errorf("entry point %q must take exactly one argument (target), got %d", entryPoint, fn.NumParams())
 	}
 	return rt, nil
+}
+
+// newHTTPClient returns the *http.Client the runtime uses for script-side
+// http.{get,post} calls. When tlsCfg is non-nil, we install a fresh
+// http.Transport whose TLSClientConfig is tlsCfg — Go's DefaultTransport is
+// shared process-wide, so we can't mutate its TLS config without affecting
+// unrelated probes / dependencies. Other Transport defaults (proxy from env,
+// HTTP/2 attempt, dialer timeouts) are left at their stdlib values; future
+// proxy / keepalive / timeout knobs slot in here.
+func newHTTPClient(tlsCfg *tls.Config) *http.Client {
+	if tlsCfg == nil {
+		return &http.Client{}
+	}
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy:             http.ProxyFromEnvironment,
+			ForceAttemptHTTP2: true,
+			TLSClientConfig:   tlsCfg,
+		},
+	}
 }
 
 // Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.
