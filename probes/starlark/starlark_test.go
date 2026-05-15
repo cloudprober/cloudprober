@@ -489,29 +489,6 @@ def probe(target):
 	assert.Contains(t, results[0].Error.Error(), "must be a Response")
 }
 
-func TestAssert_HTTPStatusFailureMsg(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	source := fmt.Sprintf(`
-def probe(target):
-    r = http.get(url = "%s", headers = {"X-Trace": "abc123"})
-    assert.http_status(r, 200, msg = "trace=%%s" %% "abc123")
-`, srv.URL)
-	opts := newOpts(t, hostFromServer(t, srv), source)
-	p := &Probe{}
-	if err := p.Init("script-assert-msg", opts); err != nil {
-		t.Fatalf("Init: %v", err)
-	}
-
-	results := p.RunOnce(context.Background())
-	assert.False(t, results[0].Success)
-	assert.Contains(t, results[0].Error.Error(), "expected 200, got 500")
-	assert.Contains(t, results[0].Error.Error(), "trace=abc123")
-}
-
 // TestHTTP_MaxRedirects exercises the per-call max_redirects kwarg on
 // http.get. The server redirects /->/1->/2 then 200; the table walks the
 // boundary cases including =0 (which validates the clone codepath actually

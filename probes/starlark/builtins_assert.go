@@ -33,11 +33,9 @@ func assertModule() *starlarkstruct.Module {
 func assertHTTPStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 	var resp starlarklib.Value
 	var expected int
-	var msg string
 	if err := starlarklib.UnpackArgs("assert.http_status", args, kwargs,
 		"response", &resp,
 		"expected", &expected,
-		"msg?", &msg,
 	); err != nil {
 		return nil, err
 	}
@@ -46,9 +44,6 @@ func assertHTTPStatus(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starla
 		return nil, fmt.Errorf("assert.http_status: first argument must be a Response, got %s", resp.Type())
 	}
 	if r.status != expected {
-		if msg != "" {
-			return nil, fmt.Errorf("assert.http_status: expected %d, got %d: %s", expected, r.status, msg)
-		}
 		return nil, fmt.Errorf("assert.http_status: expected %d, got %d", expected, r.status)
 	}
 	return starlarklib.None, nil
