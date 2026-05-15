@@ -184,11 +184,14 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		}
 	})
 	start := time.Now()
-	err := p.runtime.Run(runCtx, target, l, bucket, emit)
+	finalL, err := p.runtime.Run(runCtx, target, l, bucket, emit)
 	latency := time.Since(start)
 
 	if err != nil {
-		l.Error(err.Error())
+		// finalL carries any attributes added by the script via log.set_attr,
+		// so the failure log line gets the same context (e.g. req_id) as the
+		// script's own log lines.
+		finalL.Error(err.Error())
 		runReq.LastRun.Set(false, 0, err)
 		return
 	}

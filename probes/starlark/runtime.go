@@ -107,7 +107,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	}
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
-	thread.SetLocal(threadLoggerKey, l)
+	thread.SetLocal(threadLoggerKey, &loggerHolder{l: l})
 	// Module-level state.{get,set} writes go into a scratch bucket that's
 	// discarded with the load thread. There's no target context at load time,
 	// so persistence has nowhere to land.
@@ -181,15 +181,30 @@ func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 	return c
 }
 
-// loggerFromThread returns the *logger.Logger stashed on the thread. Panics
-// for the same reason httpClientFromThread does — every script thread is
-// constructed by runtime/runProbe, which sets the key.
+// loggerHolder wraps a per-run *logger.Logger so script-side log.set_attr
+// can swap in an enriched logger and have *both* further script-side log
+// calls and the Go-side error-log line (run by runProbe after the script
+// returns) see the new attributes. Without the holder, the script's
+// mutation would only be visible inside its own thread.
+type loggerHolder struct {
+	l *logger.Logger
+}
+
+// loggerFromThread returns the current *logger.Logger from the per-thread
+// loggerHolder. Panics for the same reason httpClientFromThread does — every
+// script thread is constructed by runtime/runProbe, which sets the key.
 func loggerFromThread(t *starlarklib.Thread) *logger.Logger {
-	l, ok := t.Local(threadLoggerKey).(*logger.Logger)
+	return loggerHolderFromThread(t).l
+}
+
+// loggerHolderFromThread returns the per-run loggerHolder. log.set_attr uses
+// it to install an enriched logger that persists for the rest of the run.
+func loggerHolderFromThread(t *starlarklib.Thread) *loggerHolder {
+	h, ok := t.Local(threadLoggerKey).(*loggerHolder)
 	if !ok {
-		panic("loggerFromThread: thread missing logger local; constructed outside runtime?")
+		panic("loggerHolderFromThread: thread missing logger local; constructed outside runtime?")
 	}
-	return l
+	return h
 }
 
 // stateBucketFromThread returns the per-target state bucket stashed on the
@@ -229,9 +244,11 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 	}
 }
 
-// Run invokes the entry point with a target value. It returns nil on clean
-// return, or an error on Starlark eval failure / assertion failure / ctx
-// cancellation.
+// Run invokes the entry point with a target value. It returns the final
+// *logger.Logger (enriched by any log.set_attr calls in the script) so the
+// caller can use it to log the script's error with the same attributes, plus
+// nil on clean return or an error on Starlark eval failure / assertion
+// failure / ctx cancellation.
 //
 // l is the per-target logger, stashed on the thread so the log builtin can
 // find it. Pass the per-target logger (not the probe-level one) so log lines
@@ -249,17 +266,18 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // each call its own avoids any chance of state leaking between runs (target
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
-func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket, metricEmit metricEmitFn) error {
+func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket, metricEmit metricEmitFn) (*logger.Logger, error) {
+	lh := &loggerHolder{l: l}
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
-		Print: func(_ *starlarklib.Thread, msg string) { l.Info(msg) },
+		Print: func(_ *starlarklib.Thread, msg string) { lh.l.Info(msg) },
 	}
 	// Stash ctx + httpClient + logger + state bucket + metric-emit callback
 	// so builtins can pull them back out via *FromThread helpers. See
 	// top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
-	thread.SetLocal(threadLoggerKey, l)
+	thread.SetLocal(threadLoggerKey, lh)
 	thread.SetLocal(threadStateKey, bucket)
 	thread.SetLocal(threadMetricEmitKey, metricEmit)
 
@@ -274,7 +292,7 @@ func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logg
 	fn := rt.globals[rt.entryPoint]
 	target := targetValue(ep)
 	_, err := starlarklib.Call(thread, fn, starlarklib.Tuple{target}, nil)
-	return err
+	return lh.l, err
 }
 
 // targetValue builds the Starlark value passed to probe(target). It mirrors

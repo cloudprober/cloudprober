@@ -649,6 +649,55 @@ def probe(target):
 	})
 }
 
+func TestLogSetAttr_FlowsToProbeFailureLog(t *testing.T) {
+	// Closed server gives us a deterministic, immediate connection refused
+	// for the failure-path subcase.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	srv.Close()
+
+	cases := []struct {
+		name        string
+		source      string
+		wantSuccess bool
+	}{
+		{
+			name: "script_side_log_info_carries_attr",
+			source: `
+def probe(target):
+    log.set_attr("req_id", "abc123")
+    log.info("processing")
+`,
+			wantSuccess: true,
+		},
+		{
+			name: "probe_failure_log_carries_attr",
+			source: fmt.Sprintf(`
+def probe(target):
+    log.set_attr("req_id", "abc123")
+    http.get(url = "%s")
+`, srv.URL),
+			wantSuccess: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			opts := newOpts(t, "127.0.0.1", tc.source)
+			opts.Logger = logger.New(logger.WithWriter(&buf))
+
+			p := &Probe{}
+			require.NoError(t, p.Init("script-log-setattr-"+tc.name, opts))
+			results := p.RunOnce(context.Background())
+			assert.Equal(t, tc.wantSuccess, results[0].Success)
+
+			output := buf.String()
+			assert.Contains(t, output, "req_id=abc123", "expected attr in log output, got: %s", output)
+		})
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Init / config validation
 
