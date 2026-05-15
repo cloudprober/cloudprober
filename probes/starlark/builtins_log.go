@@ -28,12 +28,29 @@ func logModule() *starlarkstruct.Module {
 	return &starlarkstruct.Module{
 		Name: "log",
 		Members: starlarklib.StringDict{
-			"info":  starlarklib.NewBuiltin("log.info", logAt("info")),
-			"warn":  starlarklib.NewBuiltin("log.warn", logAt("warn")),
-			"error": starlarklib.NewBuiltin("log.error", logAt("error")),
-			"debug": starlarklib.NewBuiltin("log.debug", logAt("debug")),
+			"info":     starlarklib.NewBuiltin("log.info", logAt("info")),
+			"warn":     starlarklib.NewBuiltin("log.warn", logAt("warn")),
+			"error":    starlarklib.NewBuiltin("log.error", logAt("error")),
+			"debug":    starlarklib.NewBuiltin("log.debug", logAt("debug")),
+			"set_attr": starlarklib.NewBuiltin("log.set_attr", logSetAttr),
 		},
 	}
+}
+
+// logSetAttr installs an attribute (key=value) on the per-run logger so all
+// subsequent log calls from the script — and the probe-failure log line
+// runProbe writes if probe() returns an error — carry it. Sticky for the
+// duration of one probe() invocation; cleared on the next.
+func logSetAttr(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	var key, value string
+	if err := starlarklib.UnpackArgs("log.set_attr", args, kwargs,
+		"key", &key,
+		"value", &value,
+	); err != nil {
+		return nil, err
+	}
+	loggerHolderFromThread(thread).SetAttr(key, value)
+	return starlarklib.None, nil
 }
 
 func logAt(level string) func(*starlarklib.Thread, *starlarklib.Builtin, starlarklib.Tuple, []starlarklib.Tuple) (starlarklib.Value, error) {

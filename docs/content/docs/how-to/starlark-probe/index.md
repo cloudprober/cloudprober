@@ -122,6 +122,7 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
 | `log.info(msg)` / `log.warn(msg)` / `log.error(msg)` / `log.debug(msg)` | Route a message to Cloudprober's logger with the probe's `target` attribute attached. |
+| `log.set_attr(key, value)` | Add a sticky attribute to this run's logger. All subsequent `log.*` calls *and* the probe-failure log line Cloudprober writes if the script errors out (network timeout, assertion failure, etc.) carry it. Cleared at the end of the run. Useful for stamping `req_id` or other per-run context onto failure logs. |
 | `print_metric(line)` | Emit a custom metric line (see below). |
 | `print(...)` | Standard Starlark `print`; routed to the logger at INFO. |
 | `fail(msg)` | Standard Starlark; ends the run as a failure. |

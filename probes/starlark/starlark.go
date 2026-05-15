@@ -184,11 +184,11 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		}
 	})
 	start := time.Now()
-	err := p.runtime.Run(runCtx, target, l, bucket, emit)
+	finalL, err := p.runtime.Run(runCtx, target, l, bucket, emit)
 	latency := time.Since(start)
 
 	if err != nil {
-		l.Error(err.Error())
+		finalL.Error(err.Error())
 		runReq.LastRun.Set(false, 0, err)
 		return
 	}

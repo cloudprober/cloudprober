@@ -649,6 +649,101 @@ def probe(target):
 	})
 }
 
+func TestLogSetAttr_FlowsToProbeFailureLog(t *testing.T) {
+	// Closed server gives us a deterministic, immediate connection refused
+	// for the failure-path subcase.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	srv.Close()
+
+	cases := []struct {
+		name           string
+		source         string
+		wantSuccess    bool
+		wantNotInLog   string // optional: must not appear in output
+	}{
+		{
+			name: "script_side_log_info_carries_attr",
+			source: `
+def probe(target):
+    log.set_attr("req_id", "abc123")
+    log.info("processing")
+`,
+			wantSuccess: true,
+		},
+		{
+			name: "probe_failure_log_carries_attr",
+			source: fmt.Sprintf(`
+def probe(target):
+    log.set_attr("req_id", "abc123")
+    http.get(url = "%s")
+`, srv.URL),
+			wantSuccess: false,
+		},
+		{
+			name: "repeat_key_replaces",
+			source: `
+def probe(target):
+    log.set_attr("req_id", "first")
+    log.set_attr("req_id", "abc123")
+    log.info("processing")
+`,
+			wantSuccess:  true,
+			wantNotInLog: "req_id=first",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			opts := newOpts(t, "127.0.0.1", tc.source)
+			opts.Logger = logger.New(logger.WithWriter(&buf))
+
+			p := &Probe{}
+			require.NoError(t, p.Init("script-log-setattr-"+tc.name, opts))
+			results := p.RunOnce(context.Background())
+			assert.Equal(t, tc.wantSuccess, results[0].Success)
+
+			output := buf.String()
+			assert.Contains(t, output, "req_id=abc123", "expected attr in log output, got: %s", output)
+			if tc.wantNotInLog != "" {
+				assert.NotContains(t, output, tc.wantNotInLog, "stale attr value still present")
+			}
+		})
+	}
+}
+
+// TestLogSetAttr_PreservesInsertionOrder pins that two log.set_attr calls
+// with different keys produce attrs in the order they were set (not
+// alphabetical, not random map-iteration order).
+func TestLogSetAttr_PreservesInsertionOrder(t *testing.T) {
+	source := `
+def probe(target):
+    log.set_attr("zeta", "1")
+    log.set_attr("alpha", "2")
+    log.set_attr("middle", "3")
+    log.info("ordered")
+`
+	var buf bytes.Buffer
+	opts := newOpts(t, "127.0.0.1", source)
+	opts.Logger = logger.New(logger.WithWriter(&buf))
+
+	p := &Probe{}
+	require.NoError(t, p.Init("script-log-setattr-order", opts))
+	results := p.RunOnce(context.Background())
+	require.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+
+	output := buf.String()
+	iZeta := strings.Index(output, "zeta=1")
+	iAlpha := strings.Index(output, "alpha=2")
+	iMiddle := strings.Index(output, "middle=3")
+	require.NotEqual(t, -1, iZeta, "zeta not in log output: %s", output)
+	require.NotEqual(t, -1, iAlpha, "alpha not in log output: %s", output)
+	require.NotEqual(t, -1, iMiddle, "middle not in log output: %s", output)
+	assert.Less(t, iZeta, iAlpha, "zeta should appear before alpha (set first)")
+	assert.Less(t, iAlpha, iMiddle, "alpha should appear before middle (set second)")
+}
+
 // ---------------------------------------------------------------------------
 // Init / config validation
 
