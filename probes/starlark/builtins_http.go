@@ -40,13 +40,14 @@ func httpModule() *starlarkstruct.Module {
 	}
 }
 
-// reqOpts collects everything from an http.{get,post} call that varies
-// between requests. Fields are zero/nil when unset.
+// reqOpts holds per-call inputs to doHTTP. Fields default to their zero
+// values when the corresponding kwarg is omitted.
 type reqOpts struct {
 	headers      *starlarklib.Dict
 	body         starlarklib.Value
 	jsonArg      starlarklib.Value
 	maxRedirects *int
+	keepAlive    bool
 }
 
 // optionalInt converts a Value bound by UnpackArgs (with "??" suffix) into a
@@ -76,6 +77,7 @@ func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkli
 		"url", &url,
 		"headers?", &opts.headers,
 		"max_redirects??", &maxRedirectsArg,
+		"keep_alive??", &opts.keepAlive,
 	); err != nil {
 		return nil, err
 	}
@@ -97,6 +99,7 @@ func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarkl
 		"body?", &opts.body,
 		"json?", &opts.jsonArg,
 		"max_redirects??", &maxRedirectsArg,
+		"keep_alive??", &opts.keepAlive,
 	); err != nil {
 		return nil, err
 	}
@@ -139,6 +142,11 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 	req, err := http.NewRequestWithContext(ctxFromThread(thread), method, url, reqBody)
 	if err != nil {
 		return nil, err
+	}
+	if !opts.keepAlive {
+		// req.Close: send Connection: close and don't return this conn
+		// to the Transport's idle pool after the response.
+		req.Close = true
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)

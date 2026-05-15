@@ -116,8 +116,8 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 
 | Builtin | Purpose |
 |---|---|
-| `http.get(url, headers=None, max_redirects=N)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N. Omit the kwarg to use Go's default behavior (follow up to 10). |
-| `http.post(url, headers=None, body=None, json=None, max_redirects=N)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects` matches `http.get`. |
+| `http.get(url, headers=None, max_redirects=N, keep_alive=False)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N (omit for Go's default of 10). `keep_alive` defaults to `False` to match the HTTP probe -- every call exercises DNS/TCP/TLS setup, which is what you usually want from a prober. Pass `keep_alive=True` to reuse a pooled connection across calls in a chained API flow. |
+| `http.post(url, headers=None, body=None, json=None, max_redirects=N, keep_alive=False)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects` and `keep_alive` match `http.get`. |
 | `assert.http_status(response, expected, msg=None)` | Fails the probe if `response.status != expected`. `msg` is appended to the failure error -- handy for recording context (e.g. dynamic headers) that produced the failed request. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
@@ -125,6 +125,11 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 | `print_metric(line)` | Emit a custom metric line (see below). |
 | `print(...)` | Standard Starlark `print`; routed to the logger at INFO. |
 | `fail(msg)` | Standard Starlark; ends the run as a failure. |
+
+> `keep_alive=False` controls *post-request* pooling -- it doesn't drain
+> an already-pooled connection. If you mix `True` and `False` calls to
+> the same host, a `False` call may ride a previously-pooled connection
+> before closing it.
 
 ### Response
 
