@@ -187,9 +187,6 @@ func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 // calls and the Go-side error-log line (run by runProbe after the script
 // returns) see the new attributes. Without the holder, the script's
 // mutation would only be visible inside its own thread.
-//
-// SetAttr replaces (not appends) by key: it rebuilds l from base with the
-// current attrs map, so log lines never carry duplicate keys.
 type loggerHolder struct {
 	base  *logger.Logger
 	attrs map[string]string
@@ -197,16 +194,13 @@ type loggerHolder struct {
 }
 
 func newLoggerHolder(base *logger.Logger) *loggerHolder {
-	return &loggerHolder{base: base, l: base}
+	return &loggerHolder{base: base, attrs: map[string]string{}, l: base}
 }
 
-// SetAttr sets the script-side attribute key=value on l. Repeated calls with
-// the same key overwrite the previous value rather than producing duplicate
-// log fields.
+// SetAttr rebuilds l from base with the current attrs map so repeated calls
+// with the same key replace rather than append — Logger.WithAttributes
+// otherwise produces duplicate log fields.
 func (h *loggerHolder) SetAttr(key, value string) {
-	if h.attrs == nil {
-		h.attrs = map[string]string{}
-	}
 	h.attrs[key] = value
 	attrs := make([]slog.Attr, 0, len(h.attrs))
 	for k, v := range h.attrs {
@@ -271,9 +265,7 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 
 // Run invokes the entry point with a target value. It returns the final
 // *logger.Logger (enriched by any log.set_attr calls in the script) so the
-// caller can use it to log the script's error with the same attributes, plus
-// nil on clean return or an error on Starlark eval failure / assertion
-// failure / ctx cancellation.
+// caller can use it to log the script's error with the same attributes.
 //
 // l is the per-target logger, stashed on the thread so the log builtin can
 // find it. Pass the per-target logger (not the probe-level one) so log lines

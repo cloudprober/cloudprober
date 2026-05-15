@@ -682,8 +682,6 @@ def probe(target):
 			wantSuccess: false,
 		},
 		{
-			// Calling set_attr twice with the same key replaces (not appends);
-			// the log line should contain the second value once, not both.
 			name: "repeat_key_replaces",
 			source: `
 def probe(target):
