@@ -58,6 +58,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -107,7 +108,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	}
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
-	thread.SetLocal(threadLoggerKey, &loggerHolder{l: l})
+	thread.SetLocal(threadLoggerKey, newLoggerHolder(l))
 	// Module-level state.{get,set} writes go into a scratch bucket that's
 	// discarded with the load thread. There's no target context at load time,
 	// so persistence has nowhere to land.
@@ -186,8 +187,32 @@ func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 // calls and the Go-side error-log line (run by runProbe after the script
 // returns) see the new attributes. Without the holder, the script's
 // mutation would only be visible inside its own thread.
+//
+// SetAttr replaces (not appends) by key: it rebuilds l from base with the
+// current attrs map, so log lines never carry duplicate keys.
 type loggerHolder struct {
-	l *logger.Logger
+	base  *logger.Logger
+	attrs map[string]string
+	l     *logger.Logger
+}
+
+func newLoggerHolder(base *logger.Logger) *loggerHolder {
+	return &loggerHolder{base: base, l: base}
+}
+
+// SetAttr sets the script-side attribute key=value on l. Repeated calls with
+// the same key overwrite the previous value rather than producing duplicate
+// log fields.
+func (h *loggerHolder) SetAttr(key, value string) {
+	if h.attrs == nil {
+		h.attrs = map[string]string{}
+	}
+	h.attrs[key] = value
+	attrs := make([]slog.Attr, 0, len(h.attrs))
+	for k, v := range h.attrs {
+		attrs = append(attrs, slog.String(k, v))
+	}
+	h.l = h.base.WithAttributes(attrs...)
 }
 
 // loggerFromThread returns the current *logger.Logger from the per-thread
@@ -267,7 +292,7 @@ func cancelThreadOnContext(ctx context.Context, thread *starlarklib.Thread) func
 // X's failed assertion shouldn't poison target Y's thread.Cancel state).
 // The global StringDict is shared and treated as read-only.
 func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logger, bucket *stateBucket, metricEmit metricEmitFn) (*logger.Logger, error) {
-	lh := &loggerHolder{l: l}
+	lh := newLoggerHolder(l)
 	thread := &starlarklib.Thread{
 		Name:  rt.name,
 		Print: func(_ *starlarklib.Thread, msg string) { lh.l.Info(msg) },

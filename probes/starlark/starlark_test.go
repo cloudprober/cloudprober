@@ -658,9 +658,10 @@ func TestLogSetAttr_FlowsToProbeFailureLog(t *testing.T) {
 	srv.Close()
 
 	cases := []struct {
-		name        string
-		source      string
-		wantSuccess bool
+		name           string
+		source         string
+		wantSuccess    bool
+		wantNotInLog   string // optional: must not appear in output
 	}{
 		{
 			name: "script_side_log_info_carries_attr",
@@ -680,6 +681,19 @@ def probe(target):
 `, srv.URL),
 			wantSuccess: false,
 		},
+		{
+			// Calling set_attr twice with the same key replaces (not appends);
+			// the log line should contain the second value once, not both.
+			name: "repeat_key_replaces",
+			source: `
+def probe(target):
+    log.set_attr("req_id", "first")
+    log.set_attr("req_id", "abc123")
+    log.info("processing")
+`,
+			wantSuccess:  true,
+			wantNotInLog: "req_id=first",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -694,6 +708,9 @@ def probe(target):
 
 			output := buf.String()
 			assert.Contains(t, output, "req_id=abc123", "expected attr in log output, got: %s", output)
+			if tc.wantNotInLog != "" {
+				assert.NotContains(t, output, tc.wantNotInLog, "stale attr value still present")
+			}
 		})
 	}
 }

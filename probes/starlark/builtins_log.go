@@ -15,8 +15,6 @@
 package starlark
 
 import (
-	"log/slog"
-
 	starlarklib "go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -51,8 +49,7 @@ func logSetAttr(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlar
 	); err != nil {
 		return nil, err
 	}
-	h := loggerHolderFromThread(thread)
-	h.l = h.l.WithAttributes(slog.String(key, value))
+	loggerHolderFromThread(thread).SetAttr(key, value)
 	return starlarklib.None, nil
 }
 
