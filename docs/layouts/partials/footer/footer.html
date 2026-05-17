@@ -1,0 +1,82 @@
+{{- $isHome := .IsHome -}}
+<style>
+.cp-footer {
+  border-top: 1px solid #e9edf1;
+  padding: 3rem 0 1.5rem;
+  margin-top: 3rem;
+  font-size: 0.9rem;
+}
+[data-dark-mode] .cp-footer { border-color: #1f2e3f; }
+.cp-footer h6 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7785;
+  margin-bottom: 0.9rem;
+}
+[data-dark-mode] .cp-footer h6 { color: #8a96a3; }
+.cp-footer ul { list-style: none; padding: 0; margin: 0; }
+.cp-footer li { margin-bottom: 0.4rem; line-height: 1.4; }
+.cp-footer a { color: #4a5560; text-decoration: none; }
+.cp-footer a:hover { color: #176bab; text-decoration: underline; }
+[data-dark-mode] .cp-footer a { color: #c0c8d2; }
+.cp-footer-base {
+  margin-top: 2.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9edf1;
+  color: #6b7785;
+  font-size: 0.82rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+[data-dark-mode] .cp-footer-base { border-color: #1f2e3f; color: #8a96a3; }
+</style>
+<footer class="cp-footer">
+  <div class="container">
+    <div class="row gy-4">
+      <div class="col-6 col-md-3">
+        <h6>Docs</h6>
+        <ul>
+          <li><a href="/docs/overview/cloudprober">Overview</a></li>
+          <li><a href="/docs/overview/getting-started">Getting started</a></li>
+          <li><a href="/docs/config/latest/overview">Config reference</a></li>
+          <li><a href="/docs/how-to/list/">How-to</a></li>
+          <li><a href="/docs/surfacers/overview">Surfacers</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-md-3">
+        <h6>Community</h6>
+        <ul>
+          <li><a href="https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE">Slack</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/discussions">GitHub Discussions</a></li>
+          <li><a href="https://x.com/cloudprober">Twitter / X</a></li>
+          <li><a href="https://medium.com/cloudprober/">Blog</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-md-3">
+        <h6>Project</h6>
+        <ul>
+          <li><a href="https://github.com/cloudprober/cloudprober">GitHub</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/releases">Releases</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/blob/master/CONTRIBUTING.md">Contributing</a></li>
+          <li><a href="https://configtester.cloudprober.org/">Config Tester</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-md-3">
+        <h6>About</h6>
+        <ul>
+          <li><a href="/docs/about/">Origin story</a></li>
+          <li><a href="/docs/faq/list/">FAQ</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/blob/master/LICENSE">License (Apache&nbsp;2.0)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="cp-footer-base">
+      <div>&copy; {{ now.Year }} The Cloudprober Authors. Apache&nbsp;2.0.</div>
+      <div>{{ .Site.Params.footer | safeHTML }}</div>
+    </div>
+  </div>
+</footer>

@@ -1,16 +1,171 @@
 {{ define "main" }}
 <style>
-.logo-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 14px 16px;
-  justify-items: center;
-  align-items: center;
+/* ---------- Hero ---------- */
+.cp-hero {
+  padding: 1.25rem 0 1.5rem;
 }
-@media (max-width: 768px) {
-  .logo-grid {
-    display: none;
-  }
+.cp-hero h1 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin-bottom: 1rem;
+}
+.cp-hero .cp-sub {
+  font-size: 1.08rem;
+  line-height: 1.55;
+  color: #4a5560;
+  margin-bottom: 1.25rem;
+  max-width: 34rem;
+}
+.cp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+}
+.cp-meta a, .cp-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.22rem 0.6rem;
+  border: 1px solid #d9dee4;
+  border-radius: 999px;
+  color: #4a5560;
+  text-decoration: none;
+  background: #fff;
+}
+.cp-meta a:hover { border-color: #176bab; color: #176bab; }
+.cp-meta img { height: 14px; }
+.cp-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+.cp-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: ui-monospace, "SF Mono", sfmono-regular, menlo, monaco, consolas, monospace;
+  font-size: 0.92rem;
+  background: #0f1d2b;
+  color: #e8eef4;
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  user-select: all;
+}
+.cp-install::before {
+  content: "$";
+  color: #6b8aa4;
+  user-select: none;
+}
+
+/* ---------- Architecture diagram ---------- */
+.cp-arch {
+  width: 100%;
+  max-width: 580px;
+  height: auto;
+  display: block;
+  margin-left: auto;
+}
+.cp-arch .chip-bg     { fill: #ffffff; stroke: #d9dee4; stroke-width: 1.2; }
+.cp-arch .probe-bg    { fill: #eaf3fa; stroke: #b9d6ea; stroke-width: 1; }
+.cp-arch .core-bg     { fill: #ffffff; stroke: #176bab; stroke-width: 2; }
+.cp-arch .col-label   { font: 600 11px/1 Jost, system-ui, sans-serif; fill: #6b7785; letter-spacing: 0.14em; }
+.cp-arch .chip-text   { font: 500 13px/1 Jost, system-ui, sans-serif; fill: #2c3e50; }
+.cp-arch .probe-text  { font: 600 12px/1 ui-monospace, SFMono-Regular, monospace; fill: #176bab; }
+.cp-arch .core-label  { font: 700 13px/1 Jost, system-ui, sans-serif; fill: #176bab; letter-spacing: 0.1em; }
+.cp-arch .note        { font: 400 11px/1 Jost, system-ui, sans-serif; fill: #6b7785; }
+.cp-arch .arrow       { stroke: #b6becb; stroke-width: 1.4; fill: none; }
+.cp-arch .dot         { fill: #176bab; }
+[data-dark-mode] .cp-arch .chip-bg    { fill: #1a2531; stroke: #2c3e50; }
+[data-dark-mode] .cp-arch .probe-bg   { fill: #15293b; stroke: #2c4d6b; }
+[data-dark-mode] .cp-arch .core-bg    { fill: #0f1d2b; stroke: #2f8acf; }
+[data-dark-mode] .cp-arch .chip-text  { fill: #d6dde4; }
+[data-dark-mode] .cp-arch .col-label,
+[data-dark-mode] .cp-arch .note       { fill: #8a96a3; }
+[data-dark-mode] .cp-arch .probe-text,
+[data-dark-mode] .cp-arch .core-label { fill: #5fadea; }
+[data-dark-mode] .cp-arch .arrow      { stroke: #54616f; }
+[data-dark-mode] .cp-arch .dot        { fill: #5fadea; }
+
+/* ---------- Quick-start ---------- */
+.cp-quickstart {
+  background: #f6f8fa;
+  border-top: 1px solid #e9edf1;
+  border-bottom: 1px solid #e9edf1;
+  padding: 3rem 0;
+}
+[data-dark-mode] .cp-quickstart {
+  background: #0f1a26;
+  border-color: #1f2e3f;
+}
+.cp-qs-title {
+  font-weight: 700;
+  font-size: calc(1.3rem + 0.4vw);
+  margin-bottom: 0.4rem;
+  text-align: center;
+}
+.cp-qs-lead {
+  text-align: center;
+  color: #4a5560;
+  margin-bottom: 2rem;
+}
+[data-dark-mode] .cp-qs-lead { color: #8a96a3; }
+.cp-code {
+  background: #0f1d2b;
+  color: #e8eef4;
+  border-radius: 8px;
+  padding: 1.1rem 1.2rem;
+  font-family: ui-monospace, "SF Mono", sfmono-regular, menlo, monaco, consolas, monospace;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  margin: 0;
+  white-space: pre;
+}
+.cp-code .c { color: #7f93a8; }   /* comment */
+.cp-code .k { color: #5fadea; }   /* keyword */
+.cp-code .s { color: #b6e3c2; }   /* string */
+.cp-code .p { color: #d6dde4; }   /* punct */
+.cp-code .o { color: #6b8aa4; }   /* prompt */
+.cp-code .n { color: #f7c873; }   /* numbers */
+.cp-step {
+  font-size: 0.85rem;
+  color: #6b7785;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+[data-dark-mode] .cp-step { color: #8a96a3; }
+
+/* ---------- Trusted by ---------- */
+.cp-trusted {
+  padding: 3rem 0 2rem;
+  text-align: center;
+}
+.cp-trusted h3 {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7785;
+  margin-bottom: 2rem;
+}
+[data-dark-mode] .cp-trusted h3 { color: #8a96a3; }
+.logo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem 2.25rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+@media (max-width: 576px) {
+  .logo-grid { gap: 1.1rem 1.4rem; }
 }
 .logo-grid img {
   max-height: 30px;
@@ -18,93 +173,246 @@
   object-fit: contain;
   filter: grayscale(100%);
   transition: filter 0.3s ease;
+  flex: 0 0 auto;
 }
-.logo-grid .darker {
-  filter: grayscale(100%) brightness(40%);
+@media (max-width: 576px) {
+  .logo-grid img { max-height: 22px; max-width: 100px; }
 }
-.logo-grid .lighter {
-  filter: grayscale(100%) contrast(50%);
+.logo-grid .darker  { filter: grayscale(100%) brightness(40%); }
+.logo-grid .lighter { filter: grayscale(100%) contrast(50%); }
+[data-dark-mode] .logo-grid img         { filter: invert(50%); }
+[data-dark-mode] .logo-grid img:hover   { filter: grayscale(0%); }
+.logo-grid img:hover { filter: grayscale(0%); }
+
+/* ---------- Features ---------- */
+.cp-features { padding: 3.5rem 0 2rem; }
+.cp-features h2 {
+  font-weight: 700;
+  font-size: 1.1rem;
 }
-[data-dark-mode] .logo-grid img {
-  filter: invert(50%);
-}
-[data-dark-mode] .logo-grid img:hover {
-  filter: grayscale(0%);
-}
-.logo-grid img:hover {
-  filter: grayscale(0%);
+
+/* ---------- Mobile CTA spacing ---------- */
+@media (max-width: 576px) {
+  .cp-cta-row { flex-direction: column; align-items: stretch; }
+  .cp-cta-row .btn { width: 100%; }
+  .cp-arch { margin: 1rem auto 0; }
 }
 </style>
 
-<section class="section container-fluid mt-n3 pb-5 pt-4">
-  <div class="row justify-content-center mt-2 px-4">
-    <div class="col-lg-9 col-md-12 text-center mt-1">
-      <h3 class="h1 fw-bold mb-4">{{ .Params.lead | safeHTML }}</h3>
-      <div class="mb-5" style="font-size: 1.05rem">
-        Cloudprober is an open-source active monitoring tool designed to detect failures in software systems and services in real-time.
-      </div>
-      <a
-        class="btn btn-lg btn-primary mx-2"
-        style="font-size: 1.16rem"
-        href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/cloudprober"
-        role="button"
-        >Get Started</a
-      >
-      <a
-        class="btn btn-lg border border-primary mx-2"
-        style="font-size: 1.16rem"
-        href="https://github.com/cloudprober/cloudprober"
-        role="button"
-        >View on Github</a
-      >
-    </div>
-    <div class="col-lg-7 col-md-12 p-0">
-      <img
-        width="500"
-        style="float: right; padding: 20px 0px 20px 0px"
-        src="/homepage.png"
-      />
-    </div>
-  </div>
-</section>
-<section class="section section-sm">
+<!-- ===================== HERO ===================== -->
+<section class="cp-hero container-fluid">
   <div class="container">
-    <div class="row justify-content-center py-3">
-      <div class="col-lg-14 text-center" style="margin-bottom: 3rem">
-        <h3 class="h3" style="font-weight: 700; margin-top: 1rem; margin-bottom: 2rem" id="trusted-by">
-          Trusted by Leading Organizations
-        </h3>
-        <div style="font-weight: 400" class="d-block d-md-none">
-          <span class="emphasize">
-            Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart, Robinhood,
-            Okta, Goldman Sachs, JPMorganChase, Hostinger, DigitalOcean, Disney+,
-            Yahoo Japan</span
-          >, and more.
+    <div class="row align-items-center g-4">
+      <div class="col-lg-6">
+        <h1 class="display-5">{{ .Params.lead | safeHTML }}</h1>
+        <p class="cp-sub">
+          Cloudprober is open-source active monitoring with built-in probes for
+          HTTP, gRPC, DNS, PING, TCP, and UDP. Native integrations with
+          Prometheus, Datadog, CloudWatch, and more.
+        </p>
+        <div class="cp-meta">
+          <a href="https://github.com/cloudprober/cloudprober" rel="noopener">
+            <img src="https://img.shields.io/github/stars/cloudprober/cloudprober?style=flat&label=stars&color=176bab" alt="GitHub stars"/>
+          </a>
+          <a href="https://github.com/cloudprober/cloudprober/releases" rel="noopener">
+            <img src="https://img.shields.io/github/v/release/cloudprober/cloudprober?style=flat&color=176bab" alt="Latest release"/>
+          </a>
+          <span title="License">Apache 2.0</span>
         </div>
-        <div class="logo-grid">
-          <img src="/trusted-by-logos/google.svg" alt="Google"/>
-          <img src="/trusted-by-logos/tesla.svg" alt="Tesla" />
-          <img src="/trusted-by-logos/snowflake.svg" alt="Snowflake" class="darker"/>
-          <img src="/trusted-by-logos/doordash.svg" alt="DoorDash" class="darker"/>
-          <img src="/trusted-by-logos/apple.svg" alt="Apple" title="Apple" class="lighter" style="filter: grayscale(100%) contrast(5%);"/>
-          <img src="/trusted-by-logos/uber.svg" alt="Uber" height="30px" class="lighter"/>
-          <img src="/trusted-by-logos/cloudflare.svg" alt="Cloudflare" />
-          <img src="/trusted-by-logos/walmart.svg" alt="Walmart" />
-          <img src="/trusted-by-logos/robinhood.svg" alt="Robinhood" />
-          <img src="/trusted-by-logos/okta.svg" alt="Okta" class="lighter"/>
-          <img src="/trusted-by-logos/gs.svg" alt="Goldman Sachs" class="lighter"/>
-          <img src="/trusted-by-logos/jpm.svg" alt="JPMorgan Chase" />
-          <br/>
-          <img src="/trusted-by-logos/hostinger.svg" alt="Hostinger"/>
-          <img src="/trusted-by-logos/digitalocean.svg" alt="DigitalOcean" />
-          <img src="/trusted-by-logos/disneyplus.svg" alt="Disney+" />
-          <img src="/trusted-by-logos/yahoo-japan.svg" alt="Yahoo Japan" />
+        <div class="cp-cta-row">
+          <a class="btn btn-lg btn-primary"
+             href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/getting-started"
+             role="button">Get Started</a>
+          <a class="btn btn-lg border border-primary text-primary"
+             href="https://github.com/cloudprober/cloudprober"
+             role="button">View on GitHub</a>
         </div>
+        <code class="cp-install">docker run -p 9313:9313 cloudprober/cloudprober</code>
+      </div>
+
+      <div class="col-lg-6">
+        <svg class="cp-arch" viewBox="0 0 620 360" role="img"
+             aria-label="Cloudprober architecture: targets feed cloudprober probes, which export metrics and alerts to surfacers.">
+          <defs>
+            <marker id="cp-arr" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#b6becb"/>
+            </marker>
+          </defs>
+
+          <!-- Column labels -->
+          <text x="78"  y="24" class="col-label">TARGETS</text>
+          <text x="310" y="24" class="core-label" text-anchor="middle">CLOUDPROBER</text>
+          <text x="540" y="24" class="col-label" text-anchor="middle">SURFACERS</text>
+
+          <!-- LEFT: Targets -->
+          <g>
+            <rect x="20"  y="44"  width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="44"  y="67" class="chip-text">Kubernetes</text>
+            <circle cx="32" cy="62" r="3" class="dot"/>
+
+            <rect x="20"  y="92"  width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="44"  y="115" class="chip-text">GCP &amp; AWS</text>
+            <circle cx="32" cy="110" r="3" class="dot"/>
+
+            <rect x="20"  y="140" width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="44"  y="163" class="chip-text">Files / RDS</text>
+            <circle cx="32" cy="158" r="3" class="dot"/>
+
+            <rect x="20"  y="188" width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="44"  y="211" class="chip-text">Static hosts</text>
+            <circle cx="32" cy="206" r="3" class="dot"/>
+          </g>
+
+          <!-- CENTER: Cloudprober core -->
+          <g>
+            <rect x="208" y="44" width="204" height="252" rx="10" class="core-bg"/>
+
+            <!-- Probe pills, 2 cols x 3 rows -->
+            <rect x="220" y="64"  width="86" height="34" rx="4" class="probe-bg"/>
+            <text x="263" y="86"  class="probe-text" text-anchor="middle">HTTP</text>
+
+            <rect x="314" y="64"  width="86" height="34" rx="4" class="probe-bg"/>
+            <text x="357" y="86"  class="probe-text" text-anchor="middle">gRPC</text>
+
+            <rect x="220" y="106" width="86" height="34" rx="4" class="probe-bg"/>
+            <text x="263" y="128" class="probe-text" text-anchor="middle">DNS</text>
+
+            <rect x="314" y="106" width="86" height="34" rx="4" class="probe-bg"/>
+            <text x="357" y="128" class="probe-text" text-anchor="middle">PING</text>
+
+            <rect x="220" y="148" width="86" height="34" rx="4" class="probe-bg"/>
+            <text x="263" y="170" class="probe-text" text-anchor="middle">TCP</text>
+
+            <rect x="314" y="148" width="86" height="34" rx="4" class="probe-bg"/>
+            <text x="357" y="170" class="probe-text" text-anchor="middle">UDP</text>
+
+            <!-- Extensible footer inside core -->
+            <line x1="220" y1="206" x2="400" y2="206" stroke="#e9edf1" stroke-width="1"/>
+            <text x="310" y="226" class="chip-text" text-anchor="middle">External  ·  Starlark</text>
+            <text x="310" y="248" class="note"      text-anchor="middle">add your own probe type</text>
+            <text x="310" y="278" class="col-label" text-anchor="middle">EXTENSIBLE</text>
+          </g>
+
+          <!-- RIGHT: Surfacers + Alerts -->
+          <g>
+            <rect x="440" y="44"  width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="464" y="67"  class="chip-text">Prometheus</text>
+            <circle cx="452" cy="62" r="3" class="dot"/>
+
+            <rect x="440" y="92"  width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="464" y="115" class="chip-text">Datadog</text>
+            <circle cx="452" cy="110" r="3" class="dot"/>
+
+            <rect x="440" y="140" width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="464" y="163" class="chip-text">CloudWatch</text>
+            <circle cx="452" cy="158" r="3" class="dot"/>
+
+            <rect x="440" y="188" width="160" height="36" rx="6" class="chip-bg"/>
+            <text x="464" y="211" class="chip-text">PostgreSQL</text>
+            <circle cx="452" cy="206" r="3" class="dot"/>
+
+            <!-- Alerts subgroup -->
+            <text x="440" y="254" class="col-label">ALERTS</text>
+            <rect x="440" y="264" width="76" height="32" rx="4" class="chip-bg"/>
+            <text x="478" y="284" class="chip-text" text-anchor="middle" style="font-size:11px;">PagerDuty</text>
+
+            <rect x="524" y="264" width="76" height="32" rx="4" class="chip-bg"/>
+            <text x="562" y="284" class="chip-text" text-anchor="middle" style="font-size:11px;">Slack</text>
+          </g>
+
+          <!-- Connectors: targets -> core -->
+          <g>
+            <path d="M180 62  C 194 62, 194 100, 208 100" class="arrow" marker-end="url(#cp-arr)"/>
+            <path d="M180 110 C 194 110, 194 140, 208 140" class="arrow" marker-end="url(#cp-arr)"/>
+            <path d="M180 158 C 194 158, 194 180, 208 180" class="arrow" marker-end="url(#cp-arr)"/>
+            <path d="M180 206 C 194 206, 194 220, 208 220" class="arrow" marker-end="url(#cp-arr)"/>
+          </g>
+
+          <!-- Connectors: core -> surfacers/alerts -->
+          <g>
+            <path d="M412 100 C 426 100, 426 62,  440 62"  class="arrow" marker-end="url(#cp-arr)"/>
+            <path d="M412 130 C 426 130, 426 110, 440 110" class="arrow" marker-end="url(#cp-arr)"/>
+            <path d="M412 158 C 426 158, 426 158, 440 158" class="arrow" marker-end="url(#cp-arr)"/>
+            <path d="M412 190 C 426 190, 426 206, 440 206" class="arrow" marker-end="url(#cp-arr)"/>
+            <path d="M412 230 C 426 230, 426 280, 440 280" class="arrow" marker-end="url(#cp-arr)"/>
+          </g>
+        </svg>
       </div>
     </div>
   </div>
 </section>
-<section class="section section-sm">
+
+<!-- ===================== QUICK-START ===================== -->
+<section class="cp-quickstart">
+  <div class="container">
+    <h2 class="cp-qs-title">From zero to a probe in 30 seconds</h2>
+    <p class="cp-qs-lead">Drop a config file. Run a container. Scrape metrics.</p>
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <p class="cp-step">1 &middot; cloudprober.cfg</p>
+<pre class="cp-code"><span class="c"># Probe two hosts every 10s and alert on Slack.</span>
+<span class="k">probe</span> <span class="p">{</span>
+  <span class="k">name</span><span class="p">:</span> <span class="s">"homepage"</span>
+  <span class="k">type</span><span class="p">:</span> HTTP
+  <span class="k">targets</span> <span class="p">{</span>
+    <span class="k">host_names</span><span class="p">:</span> <span class="s">"cloudprober.org,github.com"</span>
+  <span class="p">}</span>
+  <span class="k">interval_msec</span><span class="p">:</span> <span class="n">10000</span>
+
+  <span class="k">alert</span> <span class="p">{</span>
+    <span class="k">name</span><span class="p">:</span> <span class="s">"homepage-down"</span>
+    <span class="k">notify</span> <span class="p">{</span> <span class="k">slack</span> <span class="p">{</span> <span class="k">webhook_url</span><span class="p">:</span> <span class="s">"https://hooks.slack.com/..."</span> <span class="p">}</span> <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">surfacer</span> <span class="p">{</span> <span class="k">type</span><span class="p">:</span> PROMETHEUS <span class="p">}</span>
+</pre>
+      </div>
+      <div class="col-lg-5">
+        <p class="cp-step">2 &middot; run it</p>
+<pre class="cp-code"><span class="o">$</span> docker run -p <span class="n">9313</span>:<span class="n">9313</span> \
+    -v <span class="s">$(pwd)/cloudprober.cfg</span>:/cfg/cloudprober.cfg \
+    cloudprober/cloudprober
+</pre>
+        <p class="cp-step mt-4">3 &middot; scrape /metrics</p>
+<pre class="cp-code"><span class="o">$</span> curl localhost:<span class="n">9313</span>/metrics
+total{probe=<span class="s">"homepage"</span>,dst=<span class="s">"cloudprober.org"</span>} <span class="n">24</span>
+success{probe=<span class="s">"homepage"</span>,dst=<span class="s">"cloudprober.org"</span>} <span class="n">24</span>
+latency{probe=<span class="s">"homepage"</span>,dst=<span class="s">"cloudprober.org"</span>} <span class="n">41.2</span>
+</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TRUSTED BY ===================== -->
+<section class="cp-trusted">
+  <div class="container">
+    <h3 id="trusted-by">Trusted by leading organizations</h3>
+    <div class="logo-grid">
+      <img src="/trusted-by-logos/google.svg"      alt="Google"/>
+      <img src="/trusted-by-logos/tesla.svg"       alt="Tesla"/>
+      <img src="/trusted-by-logos/snowflake.svg"   alt="Snowflake"   class="darker"/>
+      <img src="/trusted-by-logos/doordash.svg"    alt="DoorDash"    class="darker"/>
+      <img src="/trusted-by-logos/apple.svg"       alt="Apple"       class="lighter" style="filter: grayscale(100%) contrast(5%);"/>
+      <img src="/trusted-by-logos/uber.svg"        alt="Uber"        class="lighter"/>
+      <img src="/trusted-by-logos/cloudflare.svg"  alt="Cloudflare"/>
+      <img src="/trusted-by-logos/walmart.svg"     alt="Walmart"/>
+      <img src="/trusted-by-logos/robinhood.svg"   alt="Robinhood"/>
+      <img src="/trusted-by-logos/okta.svg"        alt="Okta"        class="lighter"/>
+      <img src="/trusted-by-logos/gs.svg"          alt="Goldman Sachs" class="lighter"/>
+      <img src="/trusted-by-logos/jpm.svg"         alt="JPMorgan Chase"/>
+      <img src="/trusted-by-logos/hostinger.svg"   alt="Hostinger"/>
+      <img src="/trusted-by-logos/digitalocean.svg" alt="DigitalOcean"/>
+      <img src="/trusted-by-logos/disneyplus.svg"  alt="Disney+"/>
+      <img src="/trusted-by-logos/yahoo-japan.svg" alt="Yahoo Japan"/>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FEATURES ===================== -->
+<section class="cp-features section section-sm">
   <div class="container">
     <div class="row justify-content-center text-center">
       <div class="col-lg-5">
