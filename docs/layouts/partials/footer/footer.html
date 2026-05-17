@@ -21,6 +21,20 @@
 .cp-footer a { color: #4a5560; text-decoration: none; }
 .cp-footer a:hover { color: #176bab; text-decoration: underline; }
 [data-dark-mode] .cp-footer a { color: #c0c8d2; }
+.cp-footer-cols {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2.25rem 4.5rem;
+}
+.cp-footer-cols > div { min-width: 140px; }
+@media (max-width: 992px) {
+  .cp-footer-cols { gap: 2rem 2.5rem; }
+  .cp-footer-cols > div { min-width: 130px; }
+}
+@media (max-width: 576px) {
+  .cp-footer-cols { gap: 1.75rem 2rem; }
+}
 .cp-footer-base {
   margin-top: 2.25rem;
   padding-top: 1rem;
@@ -36,8 +50,8 @@
 </style>
 <footer class="cp-footer">
   <div class="container">
-    <div class="row gy-4">
-      <div class="col-6 col-md-3">
+    <div class="cp-footer-cols">
+      <div>
         <h6>Docs</h6>
         <ul>
           <li><a href="/docs/overview/cloudprober">Overview</a></li>
@@ -47,7 +61,7 @@
           <li><a href="/docs/surfacers/overview">Surfacers</a></li>
         </ul>
       </div>
-      <div class="col-6 col-md-3">
+      <div>
         <h6>Community</h6>
         <ul>
           <li><a href="https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE">Slack</a></li>
@@ -56,7 +70,7 @@
           <li><a href="https://medium.com/cloudprober/">Blog</a></li>
         </ul>
       </div>
-      <div class="col-6 col-md-3">
+      <div>
         <h6>Project</h6>
         <ul>
           <li><a href="https://github.com/cloudprober/cloudprober">GitHub</a></li>
@@ -65,7 +79,7 @@
           <li><a href="https://configtester.cloudprober.org/">Config Tester</a></li>
         </ul>
       </div>
-      <div class="col-6 col-md-3">
+      <div>
         <h6>About</h6>
         <ul>
           <li><a href="/docs/about/">Origin story</a></li>

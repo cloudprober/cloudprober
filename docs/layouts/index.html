@@ -64,7 +64,7 @@
 /* ---------- Architecture diagram ---------- */
 .cp-arch {
   width: 100%;
-  max-width: 520px;
+  max-width: 620px;
   height: auto;
   display: block;
   margin: 0 auto;
@@ -133,7 +133,7 @@
 <section class="cp-hero container-fluid">
   <div class="container">
     <div class="row align-items-start g-4">
-      <div class="col-lg-6">
+      <div class="col-lg-8">
         <h1 class="display-5">{{ .Params.lead | safeHTML }}</h1>
         <p class="cp-sub">
           Cloudprober is open-source active monitoring software with built-in
@@ -160,7 +160,7 @@
         <code class="cp-install">docker run -p 9313:9313 cloudprober/cloudprober</code>
       </div>
 
-      <div class="col-lg-6">
+      <div class="col-lg-8">
         <svg class="cp-arch" viewBox="0 0 620 320" role="img"
              aria-label="Cloudprober architecture: targets feed cloudprober probes (HTTP, gRPC, DNS, PING, TCP, UDP, plus External and Extensions), which export metrics and alerts to surfacers.">
           <defs>
