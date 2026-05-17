@@ -156,27 +156,32 @@
 }
 [data-dark-mode] .cp-trusted h3 { color: #8a96a3; }
 .logo-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   align-items: center;
-  justify-content: center;
-  gap: 1.5rem 2.25rem;
+  justify-items: center;
+  gap: 1.5rem 1rem;
   max-width: 1100px;
   margin: 0 auto;
 }
+@media (max-width: 992px) {
+  .logo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5rem 1.25rem; }
+}
 @media (max-width: 576px) {
-  .logo-grid { gap: 1.1rem 1.4rem; }
+  .logo-grid { gap: 1.1rem 0.75rem; }
 }
 .logo-grid img {
-  max-height: 30px;
-  max-width: 140px;
+  max-height: 28px;
+  max-width: 110px;
   object-fit: contain;
   filter: grayscale(100%);
   transition: filter 0.3s ease;
-  flex: 0 0 auto;
+}
+@media (max-width: 992px) {
+  .logo-grid img { max-height: 30px; max-width: 130px; }
 }
 @media (max-width: 576px) {
-  .logo-grid img { max-height: 22px; max-width: 100px; }
+  .logo-grid img { max-height: 22px; max-width: 90px; }
 }
 .logo-grid .darker  { filter: grayscale(100%) brightness(40%); }
 .logo-grid .lighter { filter: grayscale(100%) contrast(50%); }
@@ -202,7 +207,7 @@
 <!-- ===================== HERO ===================== -->
 <section class="cp-hero container-fluid">
   <div class="container">
-    <div class="row align-items-center g-4">
+    <div class="row align-items-start g-4">
       <div class="col-lg-6">
         <h1 class="display-5">{{ .Params.lead | safeHTML }}</h1>
         <p class="cp-sub">
