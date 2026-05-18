@@ -61,7 +61,7 @@ type Surfacer struct {
 
 	// Rate limiter for write error logs.
 	logLimiter         *rate.Limiter
-	suppressedLogCount int64
+	suppressedLogCount atomic.Int64
 
 	closeOnce sync.Once
 }
@@ -135,14 +135,13 @@ func (s *Surfacer) init(ctx context.Context, id int64) error {
 func (s *Surfacer) close() {
 	s.closeOnce.Do(func() {
 		close(s.inChan)
+		s.processInputWg.Wait()
+
+		if s.compressionBuffer != nil {
+			s.compressionBuffer.Close()
+		}
+		s.outf.Close()
 	})
-	s.processInputWg.Wait()
-
-	if s.compressionBuffer != nil {
-		s.compressionBuffer.Close()
-	}
-
-	s.outf.Close()
 }
 
 // Write queues the incoming data into a channel. This channel is watched by a
@@ -153,10 +152,10 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	case s.inChan <- em:
 	default:
 		if s.logLimiter.Allow() {
-			suppressed := atomic.SwapInt64(&s.suppressedLogCount, 0)
+			suppressed := s.suppressedLogCount.Swap(0)
 			s.l.Errorf("Surfacer's write channel is full, dropping new data. (%d repeat messages suppressed)", suppressed)
 		} else {
-			atomic.AddInt64(&s.suppressedLogCount, 1)
+			s.suppressedLogCount.Add(1)
 		}
 	}
 }
