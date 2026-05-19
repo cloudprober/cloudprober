@@ -449,7 +449,7 @@
   }
   .cp-deepdive-text p:last-of-type { margin-bottom: 0; }
   .cp-deepdive-text strong { color: var(--text); font-weight: 600; }
-  .cp-deepdive-text a.cp-dd-link {
+  a.cp-dd-link {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -459,11 +459,11 @@
     font-size: 0.95rem;
     text-decoration: none;
   }
-  .cp-deepdive-text a.cp-dd-link::after {
+  a.cp-dd-link::after {
     content: '→';
     transition: transform 0.15s ease;
   }
-  .cp-deepdive-text a.cp-dd-link:hover::after { transform: translateX(3px); }
+  a.cp-dd-link:hover::after { transform: translateX(3px); }
 
   .cp-code-frame {
     background: #0e1116;
@@ -975,24 +975,28 @@
         <h3>Built-in Probes</h3>
         <p>Probe every layer of your stack with built-ins. <strong>HTTP</strong>, <strong>gRPC</strong>, and <strong>Starlark Script</strong> probes test the surface your users actually touch. <strong>DNS</strong>, <strong>PING</strong>, <strong>TCP</strong>, and <strong>UDP</strong> probes verify the network underneath — name resolution, packet loss, connection refused, byte-level transport issues.</p>
         <p>All built-ins share the same scheduling, target discovery, validators, and surfacers. Mix them in one config to monitor an application end-to-end — from DNS resolution, through the TCP handshake, to the HTTP response body.</p>
+        <a class="cp-dd-link" href="/docs/overview/probe/">See all probe types</a>
       </div>
 
       <div class="cp-cap-panel" data-cap="custom">
         <h3>Custom Probes &amp; Extensibility</h3>
         <p>When the built-ins don't fit, three escape hatches at increasing depth: shell out to any binary (<strong>External</strong>), run inline logic in <strong>Starlark Script</strong>, or compile a Go <strong>Extension</strong> into a private build.</p>
         <p>All three flow through the same scheduling, target discovery, validators, and surfacers — first-class citizens, not bolted on.</p>
+        <a class="cp-dd-link" href="/docs/how-to/extensions/">Read the extensibility guide</a>
       </div>
 
       <div class="cp-cap-panel" data-cap="output">
         <h3>Observability, Alerts &amp; Status</h3>
         <p>Every probe result has two destinations. <strong>Surfacers</strong> ship metrics where you already look — Prometheus, Datadog, CloudWatch, Google Cloud Monitoring, PostgreSQL, Pub/Sub, OpenTelemetry, plain stdout. No sidecars, no translation layers. <strong>Alert rules</strong> fire on failures, SLO breaches, or custom thresholds with delivery through PagerDuty, OpsGenie, Slack, email, or webhook.</p>
         <p>And a built-in <strong>status dashboard</strong> shows live probe state per target — useful for incident response when your main observability stack may itself be down. No external dependencies; cloudprober becomes the source of truth for your synthetic checks.</p>
+        <a class="cp-dd-link" href="/docs/surfacers/">Browse surfacers and alerts</a>
       </div>
 
       <div class="cp-cap-panel" data-cap="templates">
         <h3>Dynamic Templated Configs</h3>
         <p>Stop hand-writing thousands of probe definitions. Targets are discovered automatically — from <strong>Kubernetes</strong>, <strong>GCE</strong>, file-based lists, or any service you plug in — and probes are generated from templated configs.</p>
         <p>Add a new region, a new service, or a new endpoint, and cloudprober picks it up on its next reload. Templates use Go text/template, with target metadata as variables, so a single probe block can adapt across hundreds of endpoints.</p>
+        <a class="cp-dd-link" href="/docs/config/">Read the config guide</a>
       </div>
 
     </div>
