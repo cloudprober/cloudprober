@@ -1,169 +1,1289 @@
 {{ define "main" }}
+
+<!-- Inter font (homepage only) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
 <style>
-.logo-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 14px 16px;
-  justify-items: center;
-  align-items: center;
-}
-@media (max-width: 768px) {
-  .logo-grid {
-    display: none;
+  /* ============================================================
+     Cloudprober homepage — built on the tailscale-style band layout.
+     Loaded only on the home page (via this layout).
+     Dark mode hooks into doks's [data-dark-mode] attribute on <html>.
+     ============================================================ */
+
+  :root {
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --text: #0f1419;
+    --text-muted: #5a6470;
+    --border: #e6e8ec;
+    --accent: #176bab;         /* cloudprober brand blue */
+    --accent-hover: #125a90;
+    --accent-ink: #ffffff;
+    --announce-bg: #e8f1f8;
+    --announce-text: #0e4d80;
+    --shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
+    --shadow-hover: 0 4px 12px rgba(23, 107, 171, 0.18);
   }
-}
-.logo-grid img {
-  max-height: 30px;
-  max-width: 140px;
-  object-fit: contain;
-  filter: grayscale(100%);
-  transition: filter 0.3s ease;
-}
-.logo-grid .darker {
-  filter: grayscale(100%) brightness(40%);
-}
-.logo-grid .lighter {
-  filter: grayscale(100%) contrast(50%);
-}
-[data-dark-mode] .logo-grid img {
-  filter: invert(50%);
-}
-[data-dark-mode] .logo-grid img:hover {
-  filter: grayscale(0%);
-}
-.logo-grid img:hover {
-  filter: grayscale(0%);
-}
+
+  [data-dark-mode] {
+    --bg: #0a0c10;
+    --surface: #11141a;
+    --text: #ececec;
+    --text-muted: #8b94a3;
+    --border: #1d222b;
+    --accent: #5fa6e0;
+    --accent-hover: #7ab7e8;
+    --accent-ink: #0a0c10;
+    --announce-bg: #0f2436;
+    --announce-text: #a8c7e0;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-hover: 0 4px 16px rgba(95, 166, 224, 0.25);
+  }
+
+  /* ----- Keep doks navbar on home; hide doks footer (we render our own).
+         Neutralize the wrap container so bands can go edge-to-edge. ----- */
+  body.home > footer.footer { display: none !important; }
+
+  body.home > .wrap.container-xxl,
+  body.home > .wrap.container-fluid {
+    max-width: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-top: 0 !important;
+  }
+  body.home > .wrap > .content { padding: 0 !important; }
+
+  /* ----- Body font / base reset on home ----- */
+  body.home {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+  }
+  body.home a { color: inherit; text-decoration: none; }
+  /* Accent-color link classes need higher specificity than body.home a
+     (which is 0,1,2). Adding the body.home prefix bumps to 0,2,1. */
+  body.home a.cp-dd-link,
+  body.home .cp-closing-cta-link,
+  body.home .cp-testimonial-link,
+  body.home .cp-also-referenced a,
+  body.home .cp-footer-col a:hover { color: var(--accent); }
+  body.home .cp-footer-col a { color: var(--text); }
+
+  /* ===== Announcement bar (band 1) ===== */
+  .announce {
+    width: 100%;
+    background: var(--announce-bg);
+    color: var(--announce-text);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .announce-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.625rem 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .announce-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .announce a.announce-link {
+    color: var(--announce-text);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .announce a.announce-link:hover { text-decoration: underline; }
+  .announce a.announce-link::after {
+    content: '→';
+    transition: transform 0.15s ease;
+  }
+  .announce a.announce-link:hover::after { transform: translateX(2px); }
+
+  /* ===== Brand (used in footer) ===== */
+  .cp-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  .cp-icon-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--text-muted);
+    transition: background 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+  .cp-icon-btn:hover { background: var(--surface); color: var(--text); }
+  .cp-icon-btn svg { width: 18px; height: 18px; }
+
+  /* ===== Hero ===== */
+  .cp-hero {
+    padding: clamp(4.5rem, 9vw, 8rem) 1.5rem clamp(4rem, 8vw, 7rem);
+    text-align: center;
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .cp-hero h1 {
+    font-size: clamp(2.5rem, 5.5vw + 0.5rem, 4.5rem) !important;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    font-weight: 700;
+    margin: 0 0 1.25rem;
+    color: var(--text);
+  }
+  .cp-hero p.sub {
+    font-size: clamp(1.05rem, 0.6vw + 0.95rem, 1.25rem);
+    color: var(--text-muted);
+    max-width: 640px;
+    margin: 0 auto 2.25rem;
+    line-height: 1.55;
+  }
+  .cp-hero-ctas {
+    display: inline-flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .cp-btn-hero-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.5rem;
+    border-radius: 10px;
+    background: var(--accent);
+    color: var(--accent-ink) !important;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+    box-shadow: var(--shadow);
+  }
+  .cp-btn-hero-primary:hover {
+    background: var(--accent-hover);
+    box-shadow: var(--shadow-hover);
+    color: var(--accent-ink) !important;
+  }
+  .cp-btn-hero-primary:active { transform: translateY(1px); }
+  .cp-btn-hero-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.85rem 1.4rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text) !important;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.05s ease;
+  }
+  .cp-btn-hero-secondary:hover {
+    border-color: var(--text-muted);
+    background: var(--surface);
+    color: var(--text) !important;
+  }
+  .cp-btn-hero-secondary:active { transform: translateY(1px); }
+  .cp-btn-hero-secondary svg { width: 18px; height: 18px; }
+  .cp-star-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding-left: 0.6rem;
+    margin-left: 0.4rem;
+    border-left: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+  .cp-btn-hero-secondary:hover .cp-star-count { color: var(--text); }
+
+  /* ===== Capabilities (band 3) ===== */
+  .cp-capabilities {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: clamp(3.5rem, 7vw, 5.5rem) 1.5rem;
+  }
+  .cp-capabilities-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .cp-cap-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.75rem;
+  }
+  .cp-cap-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.7rem;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+    font: inherit;
+    color: inherit;
+    position: relative;
+  }
+  .cp-cap-card:hover { border-color: var(--text-muted); }
+  .cp-cap-card[aria-selected="true"] {
+    border-color: var(--accent);
+    background: var(--announce-bg);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .cp-cap-card[aria-selected="true"]::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 14px;
+    height: 14px;
+    background: var(--announce-bg);
+    border-right: 1px solid var(--accent);
+    border-bottom: 1px solid var(--accent);
+    z-index: 1;
+  }
+  .cp-cap-card-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--announce-bg);
+    color: var(--accent);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .cp-cap-card[aria-selected="true"] .cp-cap-card-icon {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .cp-cap-card-icon svg { width: 22px; height: 22px; }
+  .cp-cap-card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.008em;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .cp-cap-card-sub {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+  .cp-cap-panels {
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 2rem 2.25rem;
+    min-height: 170px;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(23, 107, 171, 0.06);
+  }
+  .cp-cap-panel { display: none; }
+  .cp-cap-panel[data-active="true"] {
+    display: block;
+    animation: cpCapFade 0.2s ease-out;
+  }
+  @keyframes cpCapFade {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .cp-cap-panel h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.012em;
+    color: var(--text);
+  }
+  .cp-cap-panel p {
+    margin: 0 0 0.85rem;
+    font-size: 0.98rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 80ch;
+  }
+  .cp-cap-panel p:last-child { margin-bottom: 0; }
+  .cp-cap-panel strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 1100px) {
+    .cp-cap-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cp-cap-card[aria-selected="true"]::after { display: none; }
+  }
+  @media (max-width: 540px) {
+    .cp-cap-cards { grid-template-columns: 1fr; gap: 0.6rem; }
+    .cp-cap-panels { padding: 1.5rem 1.25rem; }
+  }
+
+  /* ===== Trusted-by (band 4) ===== */
+  .cp-trusted {
+    padding: clamp(4rem, 8vw, 6.5rem) 1.5rem;
+    background: var(--bg);
+    text-align: center;
+  }
+  .cp-trusted-eyebrow {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 2rem;
+  }
+  .cp-logo-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 2.25rem 2rem;
+    justify-items: center;
+    align-items: center;
+  }
+  .cp-logo-grid > :nth-child(8n+1) { justify-self: start; }
+  .cp-logo-grid > :nth-child(8n)   { justify-self: end; }
+  .cp-logo-grid img {
+    max-height: 42px;
+    max-width: 100%;
+    object-fit: contain;
+    filter: grayscale(100%);
+    opacity: 0.85;
+    transition: filter 0.25s ease, opacity 0.25s ease;
+  }
+  .cp-logo-grid img:hover {
+    filter: grayscale(0%);
+    opacity: 1;
+  }
+  .cp-logo-grid .darker  { filter: grayscale(100%) brightness(40%); }
+  .cp-logo-grid .lighter { filter: grayscale(100%) contrast(50%);   }
+  .cp-logo-grid .apple-fix { filter: grayscale(100%) contrast(5%) !important; }
+  [data-dark-mode] .cp-logo-grid img {
+    filter: grayscale(100%) invert(85%);
+    opacity: 0.75;
+  }
+  [data-dark-mode] .cp-logo-grid img:hover {
+    filter: grayscale(0%) invert(0%);
+    opacity: 1;
+  }
+  [data-dark-mode] .cp-logo-grid .darker  { filter: grayscale(100%) invert(85%) brightness(150%); }
+  [data-dark-mode] .cp-logo-grid .lighter { filter: grayscale(100%) invert(75%); }
+  [data-dark-mode] .cp-logo-grid .apple-fix { filter: grayscale(100%) invert(95%) !important; }
+  .cp-logo-list {
+    display: none;
+    max-width: 720px;
+    margin: 0 auto;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+  .cp-logo-list strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 900px) {
+    .cp-logo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2rem 1.5rem; }
+    .cp-logo-grid > :nth-child(8n+1),
+    .cp-logo-grid > :nth-child(8n)   { justify-self: center; }
+    .cp-logo-grid > :nth-child(4n+1) { justify-self: start; }
+    .cp-logo-grid > :nth-child(4n)   { justify-self: end; }
+  }
+  @media (max-width: 600px) {
+    .cp-logo-grid { display: none; }
+    .cp-logo-list { display: block; }
+  }
+
+  /* ===== Deep-dive bands (band 5) ===== */
+  .cp-deepdive-section { background: var(--bg); }
+  .cp-deepdive {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: clamp(4rem, 8vw, 6.5rem) 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+  }
+  .cp-deepdive + .cp-deepdive { border-top: 1px solid var(--border); }
+  .cp-deepdive.reverse .cp-deepdive-text   { order: 2; }
+  .cp-deepdive.reverse .cp-deepdive-visual { order: 1; }
+  .cp-deepdive-text h2 {
+    font-size: clamp(1.5rem, 2.5vw + 0.6rem, 2.1rem);
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    line-height: 1.15;
+    margin: 0 0 1.1rem;
+    color: var(--text);
+  }
+  .cp-deepdive-text p {
+    color: var(--text-muted);
+    font-size: 1.02rem;
+    line-height: 1.65;
+    margin: 0 0 1rem;
+    max-width: 50ch;
+  }
+  .cp-deepdive-text p:last-of-type { margin-bottom: 0; }
+  .cp-deepdive-text strong { color: var(--text); font-weight: 600; }
+  a.cp-dd-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 1.25rem;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+  }
+  a.cp-dd-link::after {
+    content: '→';
+    transition: transform 0.15s ease;
+  }
+  a.cp-dd-link:hover::after { transform: translateX(3px); }
+
+  .cp-code-frame {
+    background: #0e1116;
+    border: 1px solid #1d222b;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.84rem;
+    line-height: 1.7;
+    color: #d4d4d4;
+    overflow-x: auto;
+    box-shadow: 0 12px 32px rgba(15, 20, 25, 0.08);
+    position: relative;
+  }
+  .cp-code-frame::before {
+    content: '';
+    position: absolute;
+    top: 12px; left: 14px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #3a3f47;
+    box-shadow: 14px 0 #3a3f47, 28px 0 #3a3f47;
+  }
+  .cp-code-frame pre {
+    margin: 18px 0 0;
+    font: inherit;
+    color: inherit;
+    white-space: pre;
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+  .cp-code-frame .kw    { color: #c586c0; }
+  .cp-code-frame .id    { color: #9cdcfe; }
+  .cp-code-frame .str   { color: #ce9178; }
+  .cp-code-frame .num   { color: #b5cea8; }
+  .cp-code-frame .cmt   { color: #6a9955; }
+  .cp-code-frame .punct { color: #808792; }
+  [data-dark-mode] .cp-code-frame { box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+
+  .cp-dd-diagram {
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+    color: var(--text);
+  }
+  .cp-dd-diagram .node {
+    fill: var(--bg);
+    stroke: var(--border);
+    stroke-width: 1.4;
+  }
+  .cp-dd-diagram .node-accent {
+    fill: var(--announce-bg);
+    stroke: var(--accent);
+    stroke-width: 1.8;
+  }
+  .cp-dd-diagram .node-optional {
+    fill: var(--surface);
+    stroke: var(--border);
+    stroke-width: 1.4;
+    stroke-dasharray: 4 4;
+  }
+  .cp-dd-diagram .inner-pill {
+    fill: var(--bg);
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .cp-dd-diagram .label {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    fill: var(--text);
+  }
+  .cp-dd-diagram .label-big {
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .cp-dd-diagram .sub {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    fill: var(--text-muted);
+  }
+  .cp-dd-diagram .sub-small {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    fill: var(--text-muted);
+  }
+  .cp-dd-diagram .arrow {
+    stroke: var(--text-muted);
+    stroke-width: 1.4;
+    fill: none;
+  }
+  .cp-dd-diagram .arrow-head { fill: var(--text-muted); }
+
+  .cp-stat-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg);
+    box-shadow: 0 12px 32px rgba(15, 20, 25, 0.05);
+  }
+  .cp-stat-cell {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .cp-stat-cell:last-child { border-right: none; }
+  .cp-stat-num {
+    font-size: clamp(1.6rem, 3vw + 0.5rem, 2.4rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+    margin: 0 0 0.4rem;
+  }
+  .cp-stat-num .unit {
+    font-size: 0.6em;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-left: 0.1em;
+  }
+  .cp-stat-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+  }
+  .cp-stat-foot {
+    margin-top: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+    font-style: italic;
+  }
+  @media (max-width: 560px) {
+    .cp-stat-panel { grid-template-columns: 1fr; }
+    .cp-stat-cell { border-right: none; border-bottom: 1px solid var(--border); }
+    .cp-stat-cell:last-child { border-bottom: none; }
+  }
+  @media (max-width: 820px) {
+    .cp-deepdive { grid-template-columns: 1fr; gap: 2rem; }
+    .cp-deepdive.reverse .cp-deepdive-text   { order: 1; }
+    .cp-deepdive.reverse .cp-deepdive-visual { order: 2; }
+  }
+
+  /* ===== Testimonials (band 8) ===== */
+  .cp-testimonials {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: clamp(4rem, 8vw, 6.5rem) 1.5rem;
+  }
+  .cp-testimonials-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .cp-testimonials-eyebrow {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 0 0 2.25rem;
+  }
+  .cp-testimonial-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+  .cp-testimonial-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2rem 2.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    position: relative;
+    transition: border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  }
+  .cp-testimonial-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+  }
+  .cp-testimonial-card::before {
+    content: '\201C';
+    position: absolute;
+    top: 0.5rem;
+    left: 1.6rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 4.5rem;
+    line-height: 1;
+    color: var(--accent);
+    opacity: 0.16;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .cp-testimonial-quote {
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: var(--text);
+    font-weight: 500;
+    margin: 0.5rem 0 0;
+  }
+  .cp-testimonial-source {
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+    margin-top: auto;
+  }
+  .cp-testimonial-source-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 0.25rem;
+  }
+  .cp-testimonial-source-title {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0 0 0.95rem;
+    line-height: 1.45;
+  }
+  .cp-testimonial-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.88rem;
+    text-decoration: none;
+  }
+  .cp-testimonial-link::after {
+    content: '↗';
+    font-size: 0.9em;
+    transition: transform 0.15s ease;
+  }
+  .cp-testimonial-link:hover::after { transform: translate(2px, -2px); }
+  @media (max-width: 1024px) {
+    .cp-testimonial-grid { grid-template-columns: 1fr; gap: 1rem; }
+  }
+  .cp-also-referenced {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+  }
+  .cp-also-referenced a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .cp-also-referenced a::after {
+    content: '↗';
+    font-size: 0.9em;
+    transition: transform 0.15s ease;
+  }
+  .cp-also-referenced a:hover::after { transform: translate(2px, -2px); }
+
+  /* ===== Closing CTA (band 9) ===== */
+  .cp-closing-cta {
+    background: var(--announce-bg);
+    border-top: 1px solid var(--border);
+    padding: clamp(2.25rem, 4vw, 3.25rem) 1.5rem;
+    text-align: center;
+  }
+  .cp-closing-cta p {
+    font-size: clamp(1.05rem, 0.4vw + 1rem, 1.3rem);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    line-height: 1.45;
+    margin: 0;
+    color: var(--text);
+  }
+  .cp-closing-cta-link {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 0.4rem;
+    white-space: nowrap;
+  }
+  .cp-closing-cta-link::after {
+    content: ' →';
+    display: inline-block;
+    transition: transform 0.15s ease;
+  }
+  .cp-closing-cta-link:hover::after { transform: translateX(3px); }
+
+  /* ===== Footer (band 10) ===== */
+  .cp-site-footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: clamp(3rem, 6vw, 4.5rem) 1.5rem 2rem;
+  }
+  .cp-footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .cp-footer-top {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr 1fr 1fr;
+    gap: 3rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .cp-footer-brand .cp-brand { margin-bottom: 0.9rem; }
+  .cp-footer-tagline {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    max-width: 30ch;
+    margin: 0;
+  }
+  .cp-footer-col h4 {
+    font-size: 0.78rem !important;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 1rem;
+  }
+  .cp-footer-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .cp-footer-col a {
+    color: var(--text);
+    font-size: 0.92rem;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .cp-footer-col a:hover { color: var(--accent); }
+  .cp-footer-bottom {
+    padding-top: 1.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .cp-footer-copy {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .cp-footer-social {
+    display: inline-flex;
+    gap: 0.4rem;
+  }
+  .cp-footer-social a {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--text-muted);
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .cp-footer-social a:hover { color: var(--text); background: var(--bg); }
+  .cp-footer-social svg { width: 16px; height: 16px; }
+  @media (max-width: 820px) {
+    .cp-footer-top { grid-template-columns: 1fr 1fr; gap: 2rem; }
+    .cp-footer-brand { grid-column: 1 / -1; }
+  }
+  @media (max-width: 480px) {
+    .cp-footer-top { grid-template-columns: 1fr; }
+  }
+
 </style>
 
-<section class="section container-fluid mt-n3 pb-5 pt-4">
-  <div class="row justify-content-center mt-2 px-4">
-    <div class="col-lg-9 col-md-12 text-center mt-1">
-      <h3 class="h1 fw-bold mb-4">{{ .Params.lead | safeHTML }}</h3>
-      <div class="mb-5" style="font-size: 1.05rem">
-        Cloudprober is an open-source active monitoring tool designed to detect failures in software systems and services in real-time.
-      </div>
-      <a
-        class="btn btn-lg btn-primary mx-2"
-        style="font-size: 1.16rem"
-        href="/docs/{{ if .Site.Params.options.docsVersioning }}{{ .Site.Params.docsVersion }}/{{ end }}overview/cloudprober"
-        role="button"
-        >Get Started</a
-      >
-      <a
-        class="btn btn-lg border border-primary mx-2"
-        style="font-size: 1.16rem"
-        href="https://github.com/cloudprober/cloudprober"
-        role="button"
-        >View on Github</a
-      >
-    </div>
-    <div class="col-lg-7 col-md-12 p-0">
-      <img
-        width="500"
-        style="float: right; padding: 20px 0px 20px 0px"
-        src="/homepage.png"
-      />
-    </div>
+
+<!-- ===== Announcement bar (band 1) ===== -->
+<div class="announce" role="region" aria-label="Announcement">
+  <div class="announce-inner">
+    <span class="announce-badge">New</span>
+    <a class="announce-link" href="/docs/how-to/starlark-probe/">Starlark probe is now available — write probes in a Python-like syntax</a>
+  </div>
+</div>
+
+<!-- ===== Hero (band 2) ===== -->
+<section class="cp-hero">
+  <h1>Catch outages before<br/>your users do.</h1>
+  <p class="sub">
+    Open-source active monitoring. Built at Google.
+    Runs anywhere — from a Raspberry Pi to global fleets.
+  </p>
+  <div class="cp-hero-ctas">
+    <a class="cp-btn-hero-primary" href="/docs/overview/cloudprober/">
+      Get started
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+        <path d="M5 12h14M13 5l7 7-7 7"/>
+      </svg>
+    </a>
+    <a class="cp-btn-hero-secondary" href="https://github.com/cloudprober/cloudprober">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 .5a11.5 11.5 0 0 0-3.63 22.42c.58.11.79-.25.79-.56v-2.02c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.13v3.16c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z"/>
+      </svg>
+      Star on GitHub
+      <span class="cp-star-count">★ 700</span>
+    </a>
   </div>
 </section>
-<section class="section section-sm">
-  <div class="container">
-    <div class="row justify-content-center py-3">
-      <div class="col-lg-14 text-center" style="margin-bottom: 3rem">
-        <h3 class="h3" style="font-weight: 700; margin-top: 1rem; margin-bottom: 2rem" id="trusted-by">
-          Trusted by Leading Organizations
-        </h3>
-        <div style="font-weight: 400" class="d-block d-md-none">
-          <span class="emphasize">
-            Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart, Robinhood,
-            Okta, Goldman Sachs, JPMorganChase, Hostinger, DigitalOcean, Disney+,
-            Yahoo Japan</span
-          >, and more.
+
+<!-- ===== Trusted-by (centerpiece — promoted to right after hero) ===== -->
+<section class="cp-trusted" aria-label="Trusted by">
+  <p class="cp-trusted-eyebrow">In production at</p>
+
+  <div class="cp-logo-grid" aria-hidden="false">
+    <img src="/trusted-by-logos/google.svg"        alt="Google" />
+    <img src="/trusted-by-logos/tesla.svg"         alt="Tesla" />
+    <img src="/trusted-by-logos/snowflake.svg"     alt="Snowflake"      class="darker" />
+    <img src="/trusted-by-logos/doordash.svg"      alt="DoorDash"       class="darker" />
+    <img src="/trusted-by-logos/apple.svg"         alt="Apple"          class="apple-fix" />
+    <img src="/trusted-by-logos/uber.svg"          alt="Uber"           class="lighter" />
+    <img src="/trusted-by-logos/cloudflare.svg"    alt="Cloudflare" />
+    <img src="/trusted-by-logos/walmart.svg"       alt="Walmart" />
+    <img src="/trusted-by-logos/robinhood.svg"     alt="Robinhood" />
+    <img src="/trusted-by-logos/okta.svg"          alt="Okta"           class="lighter" />
+    <img src="/trusted-by-logos/gs.svg"            alt="Goldman Sachs"  class="lighter" />
+    <img src="/trusted-by-logos/jpm.svg"           alt="JPMorgan Chase" />
+    <img src="/trusted-by-logos/hostinger.svg"     alt="Hostinger" />
+    <img src="/trusted-by-logos/digitalocean.svg"  alt="DigitalOcean" />
+    <img src="/trusted-by-logos/disneyplus.svg"    alt="Disney+" />
+    <img src="/trusted-by-logos/yahoo-japan.svg"   alt="Yahoo Japan" />
+  </div>
+
+  <p class="cp-logo-list">
+    <strong>Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart,
+    Robinhood, Okta, Goldman Sachs, JPMorgan Chase, Hostinger, DigitalOcean,
+    Disney+, Yahoo Japan</strong>, and more.
+  </p>
+</section>
+
+<!-- ===== Capabilities ===== -->
+<section class="cp-capabilities" aria-label="Cloudprober capabilities">
+  <div class="cp-capabilities-inner">
+
+    <div class="cp-cap-cards" role="tablist">
+
+      <button class="cp-cap-card" data-cap="builtin" role="tab" aria-selected="true">
+        <div class="cp-cap-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3"  y="3"  width="7" height="7" rx="1"/>
+            <rect x="14" y="3"  width="7" height="7" rx="1"/>
+            <rect x="3"  y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
         </div>
-        <div class="logo-grid">
-          <img src="/trusted-by-logos/google.svg" alt="Google"/>
-          <img src="/trusted-by-logos/tesla.svg" alt="Tesla" />
-          <img src="/trusted-by-logos/snowflake.svg" alt="Snowflake" class="darker"/>
-          <img src="/trusted-by-logos/doordash.svg" alt="DoorDash" class="darker"/>
-          <img src="/trusted-by-logos/apple.svg" alt="Apple" title="Apple" class="lighter" style="filter: grayscale(100%) contrast(5%);"/>
-          <img src="/trusted-by-logos/uber.svg" alt="Uber" height="30px" class="lighter"/>
-          <img src="/trusted-by-logos/cloudflare.svg" alt="Cloudflare" />
-          <img src="/trusted-by-logos/walmart.svg" alt="Walmart" />
-          <img src="/trusted-by-logos/robinhood.svg" alt="Robinhood" />
-          <img src="/trusted-by-logos/okta.svg" alt="Okta" class="lighter"/>
-          <img src="/trusted-by-logos/gs.svg" alt="Goldman Sachs" class="lighter"/>
-          <img src="/trusted-by-logos/jpm.svg" alt="JPMorgan Chase" />
-          <br/>
-          <img src="/trusted-by-logos/hostinger.svg" alt="Hostinger"/>
-          <img src="/trusted-by-logos/digitalocean.svg" alt="DigitalOcean" />
-          <img src="/trusted-by-logos/disneyplus.svg" alt="Disney+" />
-          <img src="/trusted-by-logos/yahoo-japan.svg" alt="Yahoo Japan" />
+        <div class="cp-cap-card-title">Built-in Probes</div>
+        <div class="cp-cap-card-sub">HTTP · gRPC · Script · DNS · PING · TCP · UDP</div>
+      </button>
+
+      <button class="cp-cap-card" data-cap="custom" role="tab" aria-selected="false">
+        <div class="cp-cap-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </div>
+        <div class="cp-cap-card-title">Custom Probes &amp; Extensibility</div>
+        <div class="cp-cap-card-sub">External · Go extensions</div>
+      </button>
+
+      <button class="cp-cap-card" data-cap="output" role="tab" aria-selected="false">
+        <div class="cp-cap-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 11a9 9 0 0 1 9 9"/>
+            <path d="M4 4a16 16 0 0 1 16 16"/>
+            <circle cx="5" cy="19" r="1.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="cp-cap-card-title">Observability, Alerts &amp; Status</div>
+        <div class="cp-cap-card-sub">Prometheus · Datadog · PagerDuty · status board</div>
+      </button>
+
+      <button class="cp-cap-card" data-cap="templates" role="tab" aria-selected="false">
+        <div class="cp-cap-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="3" width="16" height="18" rx="2"/>
+            <line x1="8"  y1="8"  x2="16" y2="8"/>
+            <line x1="8"  y1="12" x2="16" y2="12"/>
+            <line x1="8"  y1="16" x2="12" y2="16"/>
+          </svg>
+        </div>
+        <div class="cp-cap-card-title">Dynamic Templated Configs</div>
+        <div class="cp-cap-card-sub">Auto-discovery · Go templates</div>
+      </button>
+
+    </div>
+
+    <div class="cp-cap-panels" role="tabpanel">
+
+      <div class="cp-cap-panel" data-cap="builtin" data-active="true">
+        <h3>Built-in Probes</h3>
+        <p>Probe every layer of your stack with built-ins. <strong>HTTP</strong>, <strong>gRPC</strong>, and <strong>Starlark Script</strong> probes test the surface your users actually touch. <strong>DNS</strong>, <strong>PING</strong>, <strong>TCP</strong>, and <strong>UDP</strong> probes verify the network underneath — name resolution, packet loss, connection refused, byte-level transport issues.</p>
+        <p>All built-ins share the same scheduling, target discovery, validators, and surfacers. Mix them in one config to monitor an application end-to-end — from DNS resolution, through the TCP handshake, to the HTTP response body.</p>
+        <a class="cp-dd-link" href="/docs/overview/probe/">See all probe types</a>
+      </div>
+
+      <div class="cp-cap-panel" data-cap="custom">
+        <h3>Custom Probes &amp; Extensibility</h3>
+        <p>When the built-ins don't fit, three escape hatches at increasing depth: shell out to any binary (<strong>External</strong>), run inline logic in <strong>Starlark Script</strong>, or compile a Go <strong>Extension</strong> into a private build.</p>
+        <p>All three flow through the same scheduling, target discovery, validators, and surfacers — first-class citizens, not bolted on.</p>
+        <a class="cp-dd-link" href="/docs/how-to/extensions/">Read the extensibility guide</a>
+      </div>
+
+      <div class="cp-cap-panel" data-cap="output">
+        <h3>Observability, Alerts &amp; Status</h3>
+        <p>Every probe result has two destinations. <strong>Surfacers</strong> ship metrics where you already look — Prometheus, Datadog, CloudWatch, Google Cloud Monitoring, PostgreSQL, Pub/Sub, OpenTelemetry, plain stdout. No sidecars, no translation layers. <strong>Alert rules</strong> fire on failures, SLO breaches, or custom thresholds with delivery through PagerDuty, OpsGenie, Slack, email, or webhook.</p>
+        <p>And a built-in <strong>status dashboard</strong> shows live probe state per target — useful for incident response when your main observability stack may itself be down. No external dependencies; cloudprober becomes the source of truth for your synthetic checks.</p>
+        <a class="cp-dd-link" href="/docs/surfacers/overview/">Browse surfacers and alerts</a>
+      </div>
+
+      <div class="cp-cap-panel" data-cap="templates">
+        <h3>Dynamic Templated Configs</h3>
+        <p>Stop hand-writing thousands of probe definitions. Targets are discovered automatically — from <strong>Kubernetes</strong>, <strong>GCE</strong>, file-based lists, or any service you plug in — and probes are generated from templated configs.</p>
+        <p>Add a new region, a new service, or a new endpoint, and cloudprober picks it up on its next reload. Templates use Go text/template, with target metadata as variables, so a single probe block can adapt across hundreds of endpoints.</p>
+        <a class="cp-dd-link" href="/docs/config/">Read the config guide</a>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== Deep-dive bands ===== -->
+<section class="cp-deepdive-section" aria-label="Deep dives">
+
+  <div class="cp-deepdive">
+    <div class="cp-deepdive-text">
+      <h2>One binary. Thousands of probes.</h2>
+      <p>Cloudprober runs as a single Go process. Each probe is a goroutine — thousands run concurrently with sub-millisecond scheduling overhead, sharing one in-memory metrics pipeline.</p>
+      <p>Stop running an agent per region, per cluster, or per service. One cloudprober instance handles probing for an entire fleet on a single CPU core. Less ops surface. Less infrastructure to maintain. Less to break.</p>
+      <a class="cp-dd-link" href="/docs/">See the architecture</a>
+    </div>
+    <div class="cp-deepdive-visual">
+      <div class="cp-stat-panel" role="group" aria-label="Scale numbers">
+        <div class="cp-stat-cell">
+          <p class="cp-stat-num">1<span class="unit"> process</span></p>
+          <p class="cp-stat-label">single Go binary, no agent fleet</p>
+        </div>
+        <div class="cp-stat-cell">
+          <p class="cp-stat-num">10k<span class="unit">+ /sec</span></p>
+          <p class="cp-stat-label">probes per core, typical workload</p>
+        </div>
+        <div class="cp-stat-cell">
+          <p class="cp-stat-num">&lt;1<span class="unit"> ms</span></p>
+          <p class="cp-stat-label">scheduling overhead per probe</p>
         </div>
       </div>
+      <p class="cp-stat-foot">Goroutine per probe. One in-memory pipeline. No JVM, no Python, no sidecar.</p>
     </div>
   </div>
-</section>
-<section class="section section-sm">
-  <div class="container">
-    <div class="row justify-content-center text-center">
-      <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">⚡️ Fast native checks</h2>
-        <p style="font-weight: 400">
-          Cloudprober comes with efficient, highly scalable, built-in
-          <a href="https://cloudprober.org/docs/overview/probe/">probes</a> for
-          common types of checks: HTTP/S, gRPC, DNS, PING, TCP, UDP.
-        </p>
-      </div>
-      <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">
-          🧩 Flexible custom probes and extensibility
-        </h2>
-        <p>
-          Run any binary or script as a probe (see
-          <a href="docs/how-to/external-probe">external probe</a>). You can also
-          <a href="/docs/how-to/extensions/">add</a> your own probe types and
-          target types based on your organization's needs.
-        </p>
-      </div>
-      <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">🔌 Easy integration</h2>
-        <p style="font-weight: 400">
-          Out of the box, config based, integration with many popular monitoring
-          and alerting systems: Prometheus, Grafana, DataDog, PostgreSQL, AWS
-          Cloudwatch, Stackdriver, PagerDuty, Opsgenie, and more.
-        </p>
-      </div>
+
+  <div class="cp-deepdive reverse">
+    <div class="cp-deepdive-text">
+      <h2>Bring your own probe. First-class, not bolted on.</h2>
+      <p>Three escape hatches, at increasing depth — all integrated into the same pipeline.</p>
+      <p><strong>External</strong> shells out to any binary or script. <strong>Script</strong> runs Python-like Starlark inline in your config — multi-step, conditional, no rebuild step. <strong>Extension</strong> compiles a Go module into a private cloudprober binary for the deepest integration.</p>
+      <p>However you write it, your custom probe gets the same scheduling, target discovery, validators, and surfacers as anything built in.</p>
+      <a class="cp-dd-link" href="/docs/how-to/extensions/">Read the extensibility guide</a>
     </div>
-    <div class="row justify-content-center text-center">
-      <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">🎯 Automated targets discovery</h2>
-        <p>
-          Reliable, automated
-          <a href="docs/how-to/targets">targets discovery</a> for Kubernetes and
-          GCP resources. Or, use
-          <a href="/docs/how-to/targets/#file-based-targets">file targets</a>
-          to define probes once and have probes be automatically updated when
-          targets file changes.
-        </p>
-      </div>
-      <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">👥 Open Source</h2>
-        <p>
-          Cloudprober is <a href="https://github.com/cloudprober/cloudprober">
-          open-source</a> and free to use. It is actively maintained, and has
-          a growing community of users and contributors.
-        </p>
-      </div>
-      <div class="col-lg-5">
-        <h2 class="h3" style="font-weight: 700">🚀 Deployment friendly</h2>
-        <p>
-          Written entirely in Go. Available as a standalone static binary,
-          through a container image, or Helm charts. Multiple ways
-          to configure, including environment variables.
-        </p>
+    <div class="cp-deepdive-visual">
+      <div class="cp-code-frame" aria-label="Starlark Script probe example">
+<pre><span class="kw">probe</span> <span class="punct">{</span>
+  <span class="id">name</span><span class="punct">:</span> <span class="str">"checkout_flow"</span>
+  <span class="id">type</span><span class="punct">:</span> <span class="kw">SCRIPT</span>
+  <span class="id">script_probe</span> <span class="punct">{</span>
+    <span class="id">starlark</span><span class="punct">:</span> <span class="str">"""</span>
+<span class="cmt"># Multi-step probe, no rebuild required</span>
+<span class="kw">def</span> probe(target)<span class="punct">:</span>
+    r <span class="punct">=</span> http.get(<span class="str">"https://%s/login"</span> <span class="punct">%</span> target)
+    assert.http_status(r, <span class="num">200</span>)
+
+    r <span class="punct">=</span> http.post(
+        <span class="str">"https://%s/login"</span> <span class="punct">%</span> target,
+        data <span class="punct">=</span> {<span class="str">"user"</span><span class="punct">:</span> <span class="str">"test"</span>},
+    )
+    cookies <span class="punct">=</span> r.cookies
+
+    r <span class="punct">=</span> http.get(
+        <span class="str">"https://%s/checkout"</span> <span class="punct">%</span> target,
+        cookies <span class="punct">=</span> cookies,
+    )
+    assert.contains(r.body, <span class="str">"Your Cart"</span>)
+<span class="str">"""</span>
+  <span class="punct">}</span>
+<span class="punct">}</span></pre>
       </div>
     </div>
   </div>
+
+  <div class="cp-deepdive">
+    <div class="cp-deepdive-text">
+      <h2>One binary, the whole stack.</h2>
+      <p>Probes, target discovery, surfacers, alert rules, and a live status dashboard all live in the same process — driven by the same config. No alertmanager. No sidecar. No glue.</p>
+      <p>Add <strong>Prometheus</strong>, <strong>Grafana</strong>, <strong>PagerDuty</strong>, or any other tool you're already running. Don't, if you don't want to. The same setup grows from one VM to multi-region production without swapping in a "real" tool later.</p>
+      <a class="cp-dd-link" href="/docs/">See deployment patterns</a>
+    </div>
+    <div class="cp-deepdive-visual">
+      <svg class="cp-dd-diagram" viewBox="0 0 480 320" role="img" aria-label="Cloudprober all-in-one architecture">
+        <rect class="node" x="20"  y="10" width="120" height="36" rx="7"/>
+        <text class="label" x="80" y="34" text-anchor="middle">Kubernetes</text>
+        <rect class="node" x="180" y="10" width="120" height="36" rx="7"/>
+        <text class="label" x="240" y="34" text-anchor="middle">GCE</text>
+        <rect class="node" x="340" y="10" width="120" height="36" rx="7"/>
+        <text class="label" x="400" y="34" text-anchor="middle">file / RDS</text>
+
+        <path class="arrow" d="M 80  46 L 80  80"/>
+        <polygon class="arrow-head" points="80,80 76,72 84,72"/>
+        <path class="arrow" d="M 240 46 L 240 80"/>
+        <polygon class="arrow-head" points="240,80 236,72 244,72"/>
+        <path class="arrow" d="M 400 46 L 400 80"/>
+        <polygon class="arrow-head" points="400,80 396,72 404,72"/>
+
+        <rect class="node-accent" x="20" y="85" width="440" height="170" rx="14"/>
+        <text class="label-big" x="240" y="108" text-anchor="middle">cloudprober</text>
+        <text class="sub-small" x="240" y="122" text-anchor="middle">single Go binary</text>
+
+        <rect class="inner-pill" x="40"  y="138" width="195" height="32" rx="6"/>
+        <text class="sub" x="137" y="158" text-anchor="middle">probes &amp; target loop</text>
+
+        <rect class="inner-pill" x="245" y="138" width="195" height="32" rx="6"/>
+        <text class="sub" x="342" y="158" text-anchor="middle">surfacers</text>
+
+        <rect class="inner-pill" x="40"  y="180" width="195" height="32" rx="6"/>
+        <text class="sub" x="137" y="200" text-anchor="middle">alert rules</text>
+
+        <rect class="inner-pill" x="245" y="180" width="195" height="32" rx="6"/>
+        <text class="sub" x="342" y="200" text-anchor="middle">status dashboard</text>
+
+        <rect class="inner-pill" x="40"  y="222" width="400" height="22" rx="5"/>
+        <text class="sub-small" x="240" y="237" text-anchor="middle">one config · one process · one pipeline</text>
+
+        <path class="arrow" d="M 240 255 L 240 280"/>
+        <polygon class="arrow-head" points="240,280 236,272 244,272"/>
+
+        <rect class="node-optional" x="60" y="285" width="360" height="30" rx="7"/>
+        <text class="sub" x="240" y="304" text-anchor="middle">Prometheus · Grafana · PagerDuty · Slack · … &nbsp; (all optional)</text>
+      </svg>
+    </div>
+  </div>
+
 </section>
+
+<!-- ===== Testimonials (band 8) ===== -->
+<section class="cp-testimonials" aria-label="Stories from production">
+  <div class="cp-testimonials-inner">
+    <p class="cp-testimonials-eyebrow">Stories from production</p>
+
+    <div class="cp-testimonial-grid">
+
+      <article class="cp-testimonial-card">
+        <p class="cp-testimonial-quote">We overhauled Snowflake's monitoring at the network level and built our new monitoring stack on Cloudprober, which has since been adopted company-wide.</p>
+        <div class="cp-testimonial-source">
+          <p class="cp-testimonial-source-name">Snowflake Engineering</p>
+          <p class="cp-testimonial-source-title">A Deep Dive into Envoy at Snowflake · Apr 2025</p>
+          <a class="cp-testimonial-link" href="https://www.snowflake.com/en/blog/engineering/deep-dive-envoy-snowflake/" target="_blank" rel="noopener">Read the post</a>
+        </div>
+      </article>
+
+      <article class="cp-testimonial-card">
+        <p class="cp-testimonial-quote">Cloudprober does an excellent job running probes to determine the health of a system.</p>
+        <div class="cp-testimonial-source">
+          <p class="cp-testimonial-source-name">DoorDash Engineering</p>
+          <p class="cp-testimonial-source-title">Using Active Probing to Detect Infrastructure Failures · Jan 2021</p>
+          <a class="cp-testimonial-link" href="https://careersatdoordash.com/blog/infra-prober-active-infrastructure-monitor/" target="_blank" rel="noopener">Read the post</a>
+        </div>
+      </article>
+
+      <article class="cp-testimonial-card">
+        <p class="cp-testimonial-quote">Cloudprober only does one thing — launches and measures probes. The workflow is designed to be simple and lightweight to keep resource usage low.</p>
+        <div class="cp-testimonial-source">
+          <p class="cp-testimonial-source-name">Hostinger Engineering</p>
+          <p class="cp-testimonial-source-title">Cloudprober Explained: The Way We Use It · Sep 2021 &nbsp;·&nbsp; ~1.8M sites from a single instance</p>
+          <a class="cp-testimonial-link" href="https://www.hostinger.com/blog/cloudprober-explained-the-way-we-use-it-at-hostinger" target="_blank" rel="noopener">Read the post</a>
+        </div>
+      </article>
+
+    </div>
+
+    <p class="cp-also-referenced">
+      Also referenced in
+      <a href="https://blog.cloudflare.com/safe-change-at-any-scale/" target="_blank" rel="noopener">Cloudflare — Scaling with safety (May 2025)</a>
+    </p>
+  </div>
+</section>
+
+<!-- ===== Closing CTA (band 9) ===== -->
+<section class="cp-closing-cta" aria-label="Get started">
+  <p>
+    Start detecting failures before your users do.
+    <a class="cp-closing-cta-link" href="/docs/overview/cloudprober/">Get started</a>
+  </p>
+</section>
+
+<!-- ===== Footer (band 10) ===== -->
+<footer class="cp-site-footer">
+  <div class="cp-footer-inner">
+
+    <div class="cp-footer-top">
+
+      <div class="cp-footer-brand">
+        <a class="cp-brand" href="/">Cloudprober</a>
+        <p class="cp-footer-tagline">
+          Open-source active monitoring. Built at Google. Runs anywhere — from a Raspberry Pi to global fleets.
+        </p>
+      </div>
+
+      <div class="cp-footer-col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/cloudprober/cloudprober">GitHub</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/issues">Issues</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/discussions">Discussions</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/releases">Releases</a></li>
+        </ul>
+      </div>
+
+      <div class="cp-footer-col">
+        <h4>Community</h4>
+        <ul>
+          <li><a href="https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE">Slack</a></li>
+          <li><a href="https://twitter.com/cloudprober">Twitter / X</a></li>
+          <li><a href="https://github.com/cloudprober/cloudprober/blob/main/CONTRIBUTING.md">Contributing</a></li>
+        </ul>
+      </div>
+
+      <div class="cp-footer-col">
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="/docs/">Docs</a></li>
+          <li><a href="/docs/overview/cloudprober/">Quickstart</a></li>
+          <li><a href="/docs/surfacers/overview/">Surfacers</a></li>
+          <li><a href="/docs/about/">About</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="cp-footer-bottom">
+      <p class="cp-footer-copy">&copy; {{ now.Format "2006" }} The Cloudprober Authors. Apache 2.0 licensed.</p>
+      <div class="cp-footer-social">
+        <a href="https://github.com/cloudprober/cloudprober" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .5a11.5 11.5 0 0 0-3.63 22.42c.58.11.79-.25.79-.56v-2.02c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.13v3.16c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z"/>
+          </svg>
+        </a>
+        <a href="https://twitter.com/cloudprober" aria-label="Twitter/X">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</footer>
+
+<script>
+  // Live GitHub star count, with a 12-hour localStorage cache so we don't
+  // hit api.github.com on every page load (and to keep things working when
+  // it's rate-limited or offline).
+  (function () {
+    const KEY = 'cp-gh-stars';
+    const TTL = 12 * 60 * 60 * 1000;
+    function render(n) {
+      const text = '★ ' + n.toLocaleString();
+      document.querySelectorAll('.cp-star-count').forEach((el) => {
+        el.textContent = text;
+      });
+    }
+    try {
+      const cached = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (cached && typeof cached.n === 'number' && Date.now() - cached.ts < TTL) {
+        render(cached.n);
+        return;
+      }
+    } catch (_) { /* ignore */ }
+    fetch('https://api.github.com/repos/cloudprober/cloudprober')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || typeof d.stargazers_count !== 'number') return;
+        render(d.stargazers_count);
+        try {
+          localStorage.setItem(KEY, JSON.stringify({ n: d.stargazers_count, ts: Date.now() }));
+        } catch (_) { /* ignore */ }
+      })
+      .catch(() => { /* keep placeholder */ });
+  })();
+
+  // Capability tab switching
+  document.querySelectorAll('.cp-cap-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const cap = card.dataset.cap;
+      document.querySelectorAll('.cp-cap-card').forEach((c) => {
+        c.setAttribute('aria-selected', c === card ? 'true' : 'false');
+      });
+      document.querySelectorAll('.cp-cap-panel').forEach((p) => {
+        if (p.dataset.cap === cap) {
+          p.setAttribute('data-active', 'true');
+        } else {
+          p.removeAttribute('data-active');
+        }
+      });
+    });
+  });
+</script>
+
 {{ end }}
