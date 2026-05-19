@@ -66,6 +66,14 @@
     line-height: 1.5;
   }
   body.home a { color: inherit; text-decoration: none; }
+  /* Accent-color link classes need higher specificity than body.home a
+     (which is 0,1,2). Adding the body.home prefix bumps to 0,2,1. */
+  body.home a.cp-dd-link,
+  body.home .cp-closing-cta-link,
+  body.home .cp-testimonial-link,
+  body.home .cp-also-referenced a,
+  body.home .cp-footer-col a:hover { color: var(--accent); }
+  body.home .cp-footer-col a { color: var(--text); }
 
   /* ===== Announcement bar (band 1) ===== */
   .announce {
@@ -728,33 +736,30 @@
   .cp-closing-cta {
     background: var(--announce-bg);
     border-top: 1px solid var(--border);
-    padding: clamp(4.5rem, 9vw, 7.5rem) 1.5rem;
+    padding: clamp(2.25rem, 4vw, 3.25rem) 1.5rem;
     text-align: center;
   }
-  .cp-closing-cta-inner {
-    max-width: 720px;
-    margin: 0 auto;
-  }
-  .cp-closing-cta h2 {
-    font-size: clamp(2rem, 3.5vw + 0.5rem, 3rem);
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    line-height: 1.1;
-    margin: 0 0 0.9rem;
+  .cp-closing-cta p {
+    font-size: clamp(1.05rem, 0.4vw + 1rem, 1.3rem);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    line-height: 1.45;
+    margin: 0;
     color: var(--text);
   }
-  .cp-closing-cta p.sub {
-    font-size: clamp(1rem, 0.4vw + 0.9rem, 1.1rem);
-    color: var(--text-muted);
-    margin: 0 0 2rem;
-    line-height: 1.55;
+  .cp-closing-cta-link {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 0.4rem;
+    white-space: nowrap;
   }
-  .cp-closing-cta-actions {
-    display: inline-flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    justify-content: center;
+  .cp-closing-cta-link::after {
+    content: ' →';
+    display: inline-block;
+    transition: transform 0.15s ease;
   }
+  .cp-closing-cta-link:hover::after { transform: translateX(3px); }
 
   /* ===== Footer (band 10) ===== */
   .cp-site-footer {
@@ -1162,25 +1167,10 @@
 
 <!-- ===== Closing CTA (band 9) ===== -->
 <section class="cp-closing-cta" aria-label="Get started">
-  <div class="cp-closing-cta-inner">
-    <h2>Detect failures the moment they happen.</h2>
-    <p class="sub">Open source · Single binary · Minutes to first probe.</p>
-    <div class="cp-closing-cta-actions">
-      <a class="cp-btn-hero-primary" href="/docs/overview/cloudprober/">
-        Get started
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
-          <path d="M5 12h14M13 5l7 7-7 7"/>
-        </svg>
-      </a>
-      <a class="cp-btn-hero-secondary" href="https://github.com/cloudprober/cloudprober">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 .5a11.5 11.5 0 0 0-3.63 22.42c.58.11.79-.25.79-.56v-2.02c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.13v3.16c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z"/>
-        </svg>
-        Star on GitHub
-        <span class="cp-star-count">★ 700</span>
-      </a>
-    </div>
-  </div>
+  <p>
+    Start detecting failures before your users do.
+    <a class="cp-closing-cta-link" href="/docs/overview/cloudprober/">Get started</a>
+  </p>
 </section>
 
 <!-- ===== Footer (band 10) ===== -->
@@ -1247,6 +1237,37 @@
 </footer>
 
 <script>
+  // Live GitHub star count, with a 12-hour localStorage cache so we don't
+  // hit api.github.com on every page load (and to keep things working when
+  // it's rate-limited or offline).
+  (function () {
+    const KEY = 'cp-gh-stars';
+    const TTL = 12 * 60 * 60 * 1000;
+    function render(n) {
+      const text = '★ ' + n.toLocaleString();
+      document.querySelectorAll('.cp-star-count').forEach((el) => {
+        el.textContent = text;
+      });
+    }
+    try {
+      const cached = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (cached && typeof cached.n === 'number' && Date.now() - cached.ts < TTL) {
+        render(cached.n);
+        return;
+      }
+    } catch (_) { /* ignore */ }
+    fetch('https://api.github.com/repos/cloudprober/cloudprober')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || typeof d.stargazers_count !== 'number') return;
+        render(d.stargazers_count);
+        try {
+          localStorage.setItem(KEY, JSON.stringify({ n: d.stargazers_count, ts: Date.now() }));
+        } catch (_) { /* ignore */ }
+      })
+      .catch(() => { /* keep placeholder */ });
+  })();
+
   // Capability tab switching
   document.querySelectorAll('.cp-cap-card').forEach((card) => {
     card.addEventListener('click', () => {
