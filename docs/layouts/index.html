@@ -926,7 +926,7 @@
           </svg>
         </div>
         <div class="cp-cap-card-title">Built-in Probes</div>
-        <div class="cp-cap-card-sub">HTTP · gRPC · Script · DNS · PING · TCP · UDP</div>
+        <div class="cp-cap-card-sub">HTTP · gRPC · Browser · Script · DNS · PING · TCP · UDP</div>
       </button>
 
       <button class="cp-cap-card" data-cap="custom" role="tab" aria-selected="false">
@@ -971,9 +971,11 @@
 
       <div class="cp-cap-panel" data-cap="builtin" data-active="true">
         <h3>Built-in Probes</h3>
-        <p>Probe every layer of your stack with built-ins. <strong>HTTP</strong>, <strong>gRPC</strong>, and <strong>Starlark Script</strong> probes test the surface your users actually touch. <strong>DNS</strong>, <strong>PING</strong>, <strong>TCP</strong>, and <strong>UDP</strong> probes verify the network underneath — name resolution, packet loss, connection refused, byte-level transport issues.</p>
+        <p>Probe every layer of your stack with built-ins. <strong>HTTP</strong>, <strong>gRPC</strong>, <strong>Browser</strong>, and <strong>Starlark Script</strong> probes test the surface your users actually touch — including full headless-browser checks that drive multi-step user flows. <strong>DNS</strong>, <strong>PING</strong>, <strong>TCP</strong>, and <strong>UDP</strong> probes verify the network underneath — name resolution, packet loss, connection refused, byte-level transport issues.</p>
         <p>All built-ins share the same scheduling, target discovery, validators, and surfacers. Mix them in one config to monitor an application end-to-end — from DNS resolution, through the TCP handshake, to the HTTP response body.</p>
         <a class="cp-dd-link" href="/docs/overview/probe/">See all probe types</a>
+        &nbsp;&nbsp;
+        <a class="cp-dd-link" href="https://browser-probe-demo.cloudprober.org/status" target="_blank" rel="noopener">Try the Browser Probe demo</a>
       </div>
 
       <div class="cp-cap-panel" data-cap="custom">
