@@ -346,9 +346,9 @@
     .cp-cap-panels { padding: 1.5rem 1.25rem; }
   }
 
-  /* ===== Trusted-by (band 4) ===== */
+  /* ===== Trusted-by (band 4) — slim strip, not a centerpiece ===== */
   .cp-trusted {
-    padding: clamp(2rem, 3.5vw, 3rem) 1.5rem clamp(4rem, 8vw, 6.5rem);
+    padding: clamp(1.5rem, 2.5vw, 2rem) 1.5rem clamp(2.5rem, 5vw, 4rem);
     background: var(--bg);
     text-align: center;
   }
@@ -358,7 +358,7 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin: 0 0 2rem;
+    margin: 0 0 1.25rem;
   }
   .cp-logo-grid {
     max-width: 1200px;
@@ -366,14 +366,14 @@
     box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: 2.25rem 2rem;
+    gap: 1.4rem 1.5rem;
     justify-items: center;
     align-items: center;
   }
   .cp-logo-grid > :nth-child(8n+1) { justify-self: start; }
   .cp-logo-grid > :nth-child(8n)   { justify-self: end; }
   .cp-logo-grid img {
-    max-height: 42px;
+    max-height: 28px;
     max-width: 100%;
     object-fit: contain;
     filter: grayscale(100%);
@@ -408,7 +408,7 @@
   }
   .cp-logo-list strong { color: var(--text); font-weight: 600; }
   @media (max-width: 900px) {
-    .cp-logo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2rem 1.5rem; }
+    .cp-logo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem 1.25rem; }
     .cp-logo-grid > :nth-child(8n+1),
     .cp-logo-grid > :nth-child(8n)   { justify-self: center; }
     .cp-logo-grid > :nth-child(4n+1) { justify-self: start; }
