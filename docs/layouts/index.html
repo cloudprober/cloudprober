@@ -66,6 +66,12 @@
     line-height: 1.5;
   }
   body.home a { color: inherit; text-decoration: none; }
+  /* Bootstrap/doks emits `h1, .h1 { font-family: Jost, ... }` directly on
+     the element (specificity 0,0,1), which wins over our body.home
+     font-family by inheritance. Explicitly set Inter on home h1s. */
+  body.home h1, body.home .h1 {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
   /* Accent-color link classes need higher specificity than body.home a
      (which is 0,1,2). Adding the body.home prefix bumps to 0,2,1. */
   body.home a.cp-dd-link,
@@ -152,7 +158,7 @@
     margin: 0 auto;
   }
   .cp-hero h1 {
-    font-size: clamp(2.5rem, 5.5vw + 0.5rem, 4.5rem) !important;
+    font-size: clamp(2.25rem, 5vw + 0.25rem, 4rem) !important;
     line-height: 1.05;
     letter-spacing: -0.035em;
     font-weight: 700;
