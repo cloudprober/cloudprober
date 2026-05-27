@@ -104,6 +104,18 @@ message Slack {
     string webhook_url_env_var = 2; // Default: SLACK_WEBHOOK_URL;
 }
 
+message Teams {
+    // Webhook URL
+    // The Teams notifications use an Incoming Webhook URL to send
+    // notifications to a Teams channel.
+    // Note: set either webhook_url or webhook_url_env_var. webhook_url
+    // takes precedence over webhook_url_env_var.
+    string webhook_url = 1;
+
+    // The environment variable that is used to contain the Teams webhook URL.
+    string webhook_url_env_var = 2; // Default: TEAMS_WEBHOOK_URL;
+}
+
 message NotifyConfig {
     // Command to run when alert is fired. You can use this command to do
     // various things, e.g.:
@@ -137,6 +149,9 @@ message NotifyConfig {
 
     // Opsgenie configuration.
     Opsgenie opsgenie = 14;
+
+    // Microsoft Teams configuration.
+    Teams teams = 15;
 
     // Notify using an HTTP request. HTTP request fields are expanded using the
     // same template expansion rules as "command" above:
