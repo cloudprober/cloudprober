@@ -331,6 +331,58 @@ func TestLastRunResultSet(t *testing.T) {
 	}
 }
 
+func TestSchedulerInit(t *testing.T) {
+	tests := []struct {
+		name                  string
+		probeInterval         time.Duration
+		targetsUpdateInterval time.Duration
+		want                  time.Duration
+	}{
+		{
+			name:          "default when not set",
+			probeInterval: 10 * time.Second,
+			want:          DefaultTargetsUpdateInterval,
+		},
+		{
+			name:                  "custom interval is used",
+			probeInterval:         10 * time.Second,
+			targetsUpdateInterval: 30 * time.Second,
+			want:                  30 * time.Second,
+		},
+		{
+			name:                  "custom interval smaller than probe interval is clamped to probe interval",
+			probeInterval:         2 * time.Minute,
+			targetsUpdateInterval: 10 * time.Second,
+			want:                  2 * time.Minute,
+		},
+		{
+			name:                  "zero custom interval falls back to default",
+			probeInterval:         10 * time.Second,
+			targetsUpdateInterval: 0,
+			want:                  DefaultTargetsUpdateInterval,
+		},
+		{
+			name:          "probe interval larger than default clamps to probe interval",
+			probeInterval: 5 * time.Minute,
+			want:          5 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Scheduler{
+				Opts: &options.Options{
+					Interval:              tt.probeInterval,
+					TargetsUpdateInterval: tt.targetsUpdateInterval,
+					Logger:                &logger.Logger{},
+				},
+			}
+			s.init()
+			assert.Equal(t, tt.want, s.targetsUpdateInterval)
+		})
+	}
+}
+
 func TestSchedulerGapBetweenTargets(t *testing.T) {
 	testTargets := []endpoint.Endpoint{{Name: "test1.com"}, {Name: "test2.com"}}
 	tests := []struct {

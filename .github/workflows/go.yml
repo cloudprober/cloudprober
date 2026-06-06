@@ -63,7 +63,7 @@ jobs:
         run: echo "DISABLE_IPV6_TESTS=yes" >> $env:GITHUB_ENV
 
       - name: Get dependencies
-        run: go get -v -t -d ./...
+        run: go mod download
 
       - name: Build
         run: go build -v .
@@ -75,13 +75,13 @@ jobs:
       - name: Test on ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
-          go install gotest.tools/gotestsum@latest
+          go install gotest.tools/gotestsum@v1.13.0
           gotestsum --jsonfile=report.json --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic -coverprofile=cover.out
 
       - name: Test on non-ubuntu
         if: matrix.os != 'ubuntu-latest'
         run: |
-          go install gotest.tools/gotestsum@latest
+          go install gotest.tools/gotestsum@v1.13.0
           gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
 
       - name: SonarCloud Scan

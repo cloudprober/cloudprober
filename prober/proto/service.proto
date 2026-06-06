@@ -110,15 +110,30 @@ message GetProbeStatusRequest {
   // Unix epoch timestamp in seconds for the end of the window.
   // If not provided, it defaults to the current time.
   optional int64 end_time_sec = 3;
+
+  // If true, include recent logs in the response.
+  optional bool include_logs = 4;
+
+  // Max log entries per probe. Default: 100.
+  optional int32 log_limit = 5 [default = 100];
 }
 
 message GetProbeStatusResponse {
   repeated ProbeStatus probe_status = 1;
 }
 
+message LogEntry {
+  optional int64 timestamp_sec = 1;
+  optional int32 timestamp_nsec = 2;
+  optional string level = 3;
+  optional string message = 4;
+  map<string, string> attributes = 5;
+}
+
 message ProbeStatus {
   optional string name = 1;
   repeated TargetStatus target_status = 2;
+  repeated LogEntry logs = 3;
 }
 
 message TargetStatus {

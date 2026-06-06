@@ -32,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httpclient"
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
@@ -65,7 +66,11 @@ type Probe struct {
 	targets []endpoint.Endpoint
 	method  string
 	url     string
-	oauthTS oauth2.TokenSource
+	// Canonical names of headers whose values carry a substitution token
+	// (e.g. @uuid@). Empty when no header is dynamic; len() also gates the
+	// per-send clone in prepareRequest.
+	dynamicHeaderNames []string
+	oauthTS            oauth2.TokenSource
 
 	responseParser *payload.Parser
 
@@ -186,6 +191,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			totalDuration, p.opts.Interval)
 	}
 
+	p.initDynamicHeaders()
+
 	p.method = p.c.GetMethod().String()
 
 	p.url = p.c.GetRelativeUrl()
@@ -219,12 +226,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.baseTransport = transport
 
 	if p.c.MaxRedirects != nil {
-		p.redirectFunc = func(req *http.Request, via []*http.Request) error {
-			if len(via) > int(p.c.GetMaxRedirects()) {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		}
+		p.redirectFunc = httpclient.CheckRedirectFunc(int(p.c.GetMaxRedirects()))
 	}
 
 	if p.c.GetResponseMetricsOptions() != nil {
@@ -309,8 +311,6 @@ func (p *Probe) requestTrace(result *probeResult) *httptrace.ClientTrace {
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
 	l := p.l.WithAttributes(slog.String("target", target.Name), slog.String("url", req.URL.String()))
 
-	req = p.prepareRequest(req)
-
 	start := time.Now()
 
 	if trace := p.requestTrace(result); trace != nil {
@@ -336,7 +336,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 			result.success++
 			return nil
 		}
-		l.Warning(err.Error())
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
 		return err
 	}
 
@@ -348,7 +348,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		l.Warning(err.Error())
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
 		return err
 	}
 
@@ -378,7 +378,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		// counters unchanged.
 		if len(failedValidations) > 0 {
 			msg := fmt.Sprintf("failed validations: %s", strings.Join(failedValidations, ","))
-			l.Error(msg)
+			l.WithAttributes(p.dynamicHeaderAttrs(req)...).Error(msg)
 			return errors.New(msg)
 		}
 	}
@@ -609,7 +609,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	startSuccess := result.success
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		err := p.doHTTPRequest(tgtState.req.WithContext(ctx), tgtState.clients[0], target, result, nil)
+		err := p.doHTTPRequest(p.prepareRequest(ctx, tgtState.req), tgtState.clients[0], target, result, nil)
 		runReq.LastRun.Set(result.success > startSuccess, time.Since(start), err)
 		return
 	}
@@ -628,7 +628,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 			time.Sleep(time.Duration(numReq*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
 			// Ignore the error returned by doHTTPRequest, as it's already logged.
-			_ = p.doHTTPRequest(req.WithContext(ctx), tgtState.clients[numReq], target, result, &resultMu)
+			_ = p.doHTTPRequest(p.prepareRequest(ctx, req), tgtState.clients[numReq], target, result, &resultMu)
 		}(tgtState.req, numReq, target, result)
 	}
 	wg.Wait()

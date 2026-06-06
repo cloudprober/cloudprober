@@ -51,6 +51,7 @@ func TestWriteChannelFull(t *testing.T) {
 	// This goroutine will open the pipe for reading, but will not read from it.
 	// This will cause the writer to block, and the channel to fill up.
 	var wg sync.WaitGroup
+	doneCh := make(chan struct{})
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -59,8 +60,8 @@ func TestWriteChannelFull(t *testing.T) {
 			t.Errorf("Error opening pipe for reading: %v", err)
 			return
 		}
-		// Block until the test is over.
-		time.Sleep(2 * time.Second)
+		// Block until the test signals we're done.
+		<-doneCh
 		f.Close()
 	}()
 
@@ -91,5 +92,6 @@ func TestWriteChannelFull(t *testing.T) {
 		t.Errorf("Expected log on write channel full. Got: %s", buf.String())
 	}
 
-	wg.Done()
+	close(doneCh)
+	wg.Wait()
 }

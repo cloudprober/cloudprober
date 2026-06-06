@@ -9,6 +9,7 @@ weight: 100
 - [Alerting]({{< ref "alerting" >}})
 - [Targets]({{< ref "targets" >}})
 - [External Probe]({{< ref "external-probe" >}})
+- [Script Probe (Starlark)]({{< ref "starlark-probe" >}})
 - [Browser Probe]({{< ref "browser-probe" >}})
 - [Kubernetes Targets]({{< ref "k8s_targets" >}})
 - [Running on Kubernetes]({{< ref "run-on-kubernetes" >}})

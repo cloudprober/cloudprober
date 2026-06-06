@@ -56,6 +56,7 @@ func TestHeader(t *testing.T) {
   <b>Other Links </b>(<a href="links">all</a>):
   	<a href="status">/status</a>,
 	<a href="config-running">/config</a> (<a href="config-parsed">parsed</a> | <a href="config">raw</a>),
+	<a href="logs">/logs</a>,
 	<a href="metrics">/metrics</a>,
 	<a href="artifacts">/artifacts</a>,
 	<a href="alerts">/alerts</a>

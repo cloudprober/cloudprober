@@ -45,8 +45,8 @@ jobs:
         run: |
           python -m venv venv
           source venv/bin/activate
-          pip install -e probes/external/serverutils/py/
-          pip install pytest
+          pip install --only-binary :all: 'protobuf==7.34.1' 'pytest==9.0.3'
+          pip install --only-binary :all: --no-deps -e probes/external/serverutils/py/
           pytest probes/external/serverutils/py/tests
           deactivate
           rm -rf venv

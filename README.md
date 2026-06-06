@@ -45,7 +45,7 @@ monitoring signals.
 
 ## Why Cloudprober?
 
-* Versatile Probes: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom checks via external probes.
+* Versatile Probes: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom in-process scripts (Starlark) and external probes.
 
 * Auto-Discover Targets: Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
 

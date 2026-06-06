@@ -118,6 +118,9 @@ func (s *Scheduler) init() {
 	}
 
 	s.targetsUpdateInterval = DefaultTargetsUpdateInterval
+	if s.Opts.TargetsUpdateInterval > 0 {
+		s.targetsUpdateInterval = s.Opts.TargetsUpdateInterval
+	}
 	// There is no point refreshing targets before probe interval.
 	if s.targetsUpdateInterval < s.Opts.Interval {
 		s.targetsUpdateInterval = s.Opts.Interval

@@ -22,7 +22,7 @@ PROJECT="github.com/cloudprober/cloudprober"
 
 GOPATH=$(go env GOPATH)
 
-if [ -z "$GOPATH" ]; then
+if [[ -z "$GOPATH" ]]; then
   echo "Go environment is not setup correctly. Please look at"
   echo "https://golang.org/doc/code.html to set up Go environment."
   exit 1
@@ -31,7 +31,7 @@ fi
 # Change directory to the project workspace in GOPATH
 project_dir="${GOPATH}/src/${PROJECT}"
 
-if [ ! -d "${project_dir}" ];then
+if [[ ! -d "${project_dir}" ]];then
   echo "${PROJECT} not found under Go workspace: ${GOPATH}/src. Please download"
   echo " cloudprober source code from github.com/cloudprober/cloudprober and set it "
   echo "such that it's available at ${project_dir}."

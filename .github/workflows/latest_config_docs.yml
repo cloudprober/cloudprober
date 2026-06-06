@@ -58,9 +58,17 @@ jobs:
       - name: Generate config docs for latest (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag == 'all'
         run: |
-          for dir in docs/public/docs/config/v*.*.*
+          # Versions already published to gh-pages.
+          existing=$(for dir in docs/public/docs/config/v*.*.*; do
+            [ -d "$dir" ] && basename "$dir"
+          done | sort -V)
+          min_version=$(echo "$existing" | head -1)
+          # Union with release tags so newly-released versions are picked up,
+          # filtered to versions >= the oldest already-published one.
+          versions=$( (echo "$existing"; git tag --list 'v*.*.*') | sort -uV |
+            awk -v min="$min_version" '$0==min{seen=1} seen')
+          for version in $versions
           do
-            version=$(basename $dir)
             echo "Generating config docs for $version"
             tools/gen_config_docs.sh $version
           done
@@ -70,7 +78,7 @@ jobs:
       - name: Build pages
         run: |
           cd docs
-          npm install
+          npm ci
           npm run build
           ls public
           cd public && git status

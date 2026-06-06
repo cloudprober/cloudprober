@@ -273,8 +273,9 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			result.total++
 
 			cmd := &command.Command{
-				CmdLine: append([]string{p.cmdName}, args...),
-				EnvVars: p.envVars,
+				CmdLine:         append([]string{p.cmdName}, args...),
+				EnvVars:         p.envVars,
+				RawStderrOutput: p.c.GetRawStderrOutput(),
 			}
 			if p.c.GetOutputAsMetrics() && !p.c.GetDisableStreamingOutputMetrics() {
 				cmd.ProcessStreamingOutput = func(line []byte) {

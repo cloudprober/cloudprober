@@ -20,14 +20,14 @@ PROTOC_VERSION="33.5"
 
 GOPATH=$(go env GOPATH)
 
-if [ -z "$GOPATH" ]; then
+if [[ -z "$GOPATH" ]]; then
   echo "Go environment is not setup correctly. Please look at"
   echo "https://golang.org/doc/code.html to set up Go environment."
   exit 1
 fi
 echo GOPATH=${GOPATH}
 
-if [ -z ${PROJECTROOT+x} ]; then
+if [[ -z ${PROJECTROOT+x} ]]; then
   # If PROJECTROOT is not set, try to determine it from script's location
   SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   if [[ $SCRIPTDIR == *"/tools"* ]]; then
@@ -45,9 +45,9 @@ echo "Install protoc from the internet."
 echo "============================================"
 sleep 1
 
-if [ "$(uname -s)" == "Darwin" ]; then
+if [[ "$(uname -s)" == "Darwin" ]]; then
   os="osx"
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
   os="linux"
 else
   echo "OS unsupported by this this build script. Please install protoc manually."
@@ -56,7 +56,7 @@ fi
 arch=$(uname -m)
 
 # On Apple arm64, protoc is called aarch64.
-if [ "${os}" == "osx" ] && [ "${arch}" == "arm64" ]; then
+if [[ "${os}" == "osx" && "${arch}" == "arm64" ]]; then
   arch="aarch_64"
 fi
 

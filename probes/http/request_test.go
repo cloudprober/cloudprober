@@ -15,21 +15,27 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	neturl "net/url"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	oauthpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	probesconfigpb "github.com/cloudprober/cloudprober/probes/proto"
 
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 	"google.golang.org/protobuf/proto"
@@ -458,10 +464,14 @@ func TestPrepareRequest(t *testing.T) {
 			}
 
 			inReq, _ := httpreq.NewRequest("GET", "http://cloudprober.org", p.requestBody)
-			got := p.prepareRequest(inReq)
+			got := p.prepareRequest(context.Background(), inReq)
 
-			if tt.wantIsCloned != (inReq != got) {
-				t.Errorf("wantIsCloned=%v, (inReq != got) is %v", tt.wantIsCloned, inReq != got)
+			// "Cloned" = headers are independently mutable. Writing to got
+			// should not leak into the cached inReq.
+			got.Header.Set("X-Probe-Test", "v")
+			sharedHeaders := inReq.Header.Get("X-Probe-Test") == "v"
+			if tt.wantIsCloned == sharedHeaders {
+				t.Errorf("wantIsCloned=%v, headers shared with cached request=%v", tt.wantIsCloned, sharedHeaders)
 			}
 
 			if tt.wantNewBody != (inReq.Body != got.Body) {
@@ -519,6 +529,158 @@ func TestRequestHasConfiguredHeaders(t *testing.T) {
 	val, ok = req.Header[testHeadersName]
 	assert.True(t, ok, "Configured header (via 'headers' setting) is not present in target request")
 	assert.Contains(t, val, testHeadersValue)
+}
+
+// Spins up a test server and returns a func that runs one full probe cycle
+// and yields the captured request headers, one entry per HTTP request the
+// server saw during that cycle.
+func dynamicHeaderTestRig(t *testing.T, conf *configpb.ProbeConf) (*Probe, func() []http.Header) {
+	t.Helper()
+	var (
+		mu   sync.Mutex
+		seen []http.Header
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen = append(seen, r.Header.Clone())
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	hostURL, _ := neturl.Parse(srv.URL)
+	host, portStr, _ := net.SplitHostPort(hostURL.Host)
+	port, _ := strconv.Atoi(portStr)
+
+	p := &Probe{}
+	target := endpoint.Endpoint{Name: host, Port: port}
+	opts := &options.Options{
+		Targets:   targets.StaticEndpoints([]endpoint.Endpoint{target}),
+		Interval:  5 * time.Second,
+		Timeout:   2 * time.Second,
+		ProbeConf: conf,
+	}
+	if err := p.Init("http_test", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	runReq := &sched.RunProbeForTargetRequest{Target: target}
+	return p, func() []http.Header {
+		mu.Lock()
+		seen = seen[:0]
+		mu.Unlock()
+		p.runProbe(context.Background(), runReq)
+		mu.Lock()
+		defer mu.Unlock()
+		out := make([]http.Header, len(seen))
+		copy(out, seen)
+		return out
+	}
+}
+
+// Drives the real probe path: runProbe must put a fresh UUID on each send.
+// Each iteration captures the full header set so failure points at which
+// request misbehaved, not a last-write-wins ghost.
+func TestDynamicHeaderSubstitution(t *testing.T) {
+	t.Run("sequential_runs", func(t *testing.T) {
+		hostName, hostVal := "Host", "api-@uuid@.example.com"
+		p, run := dynamicHeaderTestRig(t, &configpb.ProbeConf{
+			Header: map[string]string{
+				"X-Request-ID": "@uuid@",
+				"X-Trace-Id":   "trace-@uuid@",
+				"X-Static":     "no-substitution-here",
+				"X-Unknown":    "@some_other_key@",
+				"X-Literal-At": "left@@right",
+			},
+			Headers:   []*configpb.ProbeConf_Header{{Name: &hostName, Value: &hostVal}},
+			UserAgent: proto.String("cloudprober/@uuid@"),
+		})
+		assert.NotEmpty(t, p.dynamicHeaderNames, "user_agent with @uuid@ should populate dynamicHeaderNames")
+		assert.NotContains(t, p.dynamicHeaderNames, "Host", "Host must never be tracked as a dynamic header")
+
+		uuids := make([]string, 0, 3)
+		for i := 0; i < 3; i++ {
+			got := run()
+			assert.Equal(t, 1, len(got), "iteration %d: server should see one request", i)
+			h := got[0]
+
+			id := h.Get("X-Request-ID")
+			_, err := uuid.Parse(id)
+			assert.NoError(t, err, "iteration %d: X-Request-ID is not a valid UUID: %q", i, id)
+			// Same @uuid@ within a single send resolves to the same value.
+			assert.Equal(t, "trace-"+id, h.Get("X-Trace-Id"), "iteration %d: @uuid@ should match within a send", i)
+			assert.Equal(t, "cloudprober/"+id, h.Get("User-Agent"), "iteration %d: user_agent should substitute too", i)
+
+			assert.Equal(t, "no-substitution-here", h.Get("X-Static"))
+			assert.Equal(t, "@some_other_key@", h.Get("X-Unknown"))
+			assert.Equal(t, "left@right", h.Get("X-Literal-At"))
+			uuids = append(uuids, id)
+		}
+		assert.NotEqual(t, uuids[0], uuids[1], "consecutive requests reused the same @uuid@")
+		assert.NotEqual(t, uuids[1], uuids[2], "consecutive requests reused the same @uuid@")
+	})
+
+	// requests_per_probe > 1 fans out to parallel goroutines that all share
+	// the cached request; each one must clone+substitute independently so
+	// (a) the UUIDs are distinct and (b) -race sees no write to a shared map.
+	t.Run("requests_per_probe_parallel", func(t *testing.T) {
+		const n = 5
+		_, run := dynamicHeaderTestRig(t, &configpb.ProbeConf{
+			RequestsPerProbe:     proto.Int32(n),
+			RequestsIntervalMsec: proto.Int32(0),
+			Header:               map[string]string{"X-Request-ID": "@uuid@"},
+		})
+		got := run()
+		assert.Equal(t, n, len(got), "server should see one request per requests_per_probe")
+		seenIDs := make(map[string]struct{}, n)
+		for i, h := range got {
+			id := h.Get("X-Request-ID")
+			_, err := uuid.Parse(id)
+			assert.NoError(t, err, "request %d X-Request-ID is not a valid UUID: %q", i, id)
+			seenIDs[id] = struct{}{}
+		}
+		assert.Equal(t, n, len(seenIDs), "parallel requests must each get a distinct UUID")
+	})
+}
+
+func TestDynamicHeaderAttrs(t *testing.T) {
+	p := &Probe{}
+	err := p.Init("http_test", &options.Options{
+		Targets:  targets.StaticTargets("test.com"),
+		Interval: 10 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			Header: map[string]string{
+				"X-Request-ID": "@uuid@",
+				"X-Static":     "no-substitution",
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	req, err := p.httpRequestForTarget(endpoint.Endpoint{Name: "test.com"})
+	assert.NoError(t, err)
+	req = p.prepareRequest(context.Background(), req)
+
+	attrs := p.dynamicHeaderAttrs(req)
+	assert.Equal(t, 1, len(attrs), "only X-Request-ID should be dynamic")
+	if len(attrs) == 1 {
+		assert.Equal(t, "X-Request-Id", attrs[0].Key)
+		got := attrs[0].Value.String()
+		_, perr := uuid.Parse(got)
+		assert.NoError(t, perr, "attr value must be a UUID")
+		assert.Equal(t, req.Header.Get("X-Request-ID"), got, "attr value must match req.Header")
+	}
+
+	p2 := &Probe{}
+	err = p2.Init("http_test", &options.Options{
+		Targets:   targets.StaticTargets("test.com"),
+		Interval:  10 * time.Second,
+		Timeout:   time.Second,
+		ProbeConf: &configpb.ProbeConf{Header: map[string]string{"X-Static": "no-substitution"}},
+	})
+	assert.NoError(t, err)
+	req2, err := p2.httpRequestForTarget(endpoint.Endpoint{Name: "test.com"})
+	assert.NoError(t, err)
+	assert.Nil(t, p2.dynamicHeaderAttrs(req2))
 }
 
 func TestResolveFirst(t *testing.T) {

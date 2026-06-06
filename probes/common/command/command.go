@@ -55,6 +55,7 @@ type Command struct {
 	EnvVars                []string
 	WorkDir                string
 	ProcessStreamingOutput func([]byte)
+	RawStderrOutput        bool
 
 	// We create a goroutine to wait for child processes to finish. This field
 	// dictates how long will that goroutine wait for child processes to finish
@@ -98,7 +99,11 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
 		scanner.Buffer(buf, maxScannerTokenSize)
 
 		for scanner.Scan() {
-			l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", c.CmdLine[0]))
+			if c.RawStderrOutput {
+				fmt.Fprintln(os.Stderr, scanner.Text())
+			} else {
+				l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", c.CmdLine[0]))
+			}
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			l.ErrorAttrs(fmt.Sprintf("Error reading from stderr: %v", err), slog.String("process_path", c.CmdLine[0]))

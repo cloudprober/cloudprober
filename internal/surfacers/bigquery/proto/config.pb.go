@@ -48,8 +48,12 @@ type SurfacerConf struct {
 	MetricTimeColName  *string `protobuf:"bytes,9,opt,name=metric_time_col_name,json=metricTimeColName,def=metric_time" json:"metric_time_col_name,omitempty"`
 	MetricNameColName  *string `protobuf:"bytes,10,opt,name=metric_name_col_name,json=metricNameColName,def=metric_name" json:"metric_name_col_name,omitempty"`
 	MetricValueColName *string `protobuf:"bytes,11,opt,name=metric_value_col_name,json=metricValueColName,def=metric_value" json:"metric_value_col_name,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// If true, write one wide row per EventMetrics instead of one tall row per
+	// metric. Each BQColumn entry must specify a metric_name to select the
+	// metric value written into that column.
+	WideRows      *bool `protobuf:"varint,12,opt,name=wide_rows,json=wideRows,def=0" json:"wide_rows,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 // Default values for SurfacerConf fields.
@@ -61,6 +65,7 @@ const (
 	Default_SurfacerConf_MetricTimeColName  = string("metric_time")
 	Default_SurfacerConf_MetricNameColName  = string("metric_name")
 	Default_SurfacerConf_MetricValueColName = string("metric_value")
+	Default_SurfacerConf_WideRows           = bool(false)
 )
 
 func (x *SurfacerConf) Reset() {
@@ -170,11 +175,22 @@ func (x *SurfacerConf) GetMetricValueColName() string {
 	return Default_SurfacerConf_MetricValueColName
 }
 
+func (x *SurfacerConf) GetWideRows() bool {
+	if x != nil && x.WideRows != nil {
+		return *x.WideRows
+	}
+	return Default_SurfacerConf_WideRows
+}
+
 type BQColumn struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Label         *string                `protobuf:"bytes,1,opt,name=label" json:"label,omitempty"`
-	ColumnName    *string                `protobuf:"bytes,2,opt,name=column_name,json=columnName" json:"column_name,omitempty"`
-	ColumnType    *string                `protobuf:"bytes,3,opt,name=column_type,json=columnType" json:"column_type,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Label      *string                `protobuf:"bytes,1,opt,name=label" json:"label,omitempty"`
+	ColumnName *string                `protobuf:"bytes,2,opt,name=column_name,json=columnName" json:"column_name,omitempty"`
+	ColumnType *string                `protobuf:"bytes,3,opt,name=column_type,json=columnType" json:"column_type,omitempty"`
+	// When wide_rows is enabled, select which metric's value to write into this
+	// column. Mutually exclusive with label (label maps a probe label to a
+	// column; metric_name maps a metric value to a column).
+	MetricName    *string `protobuf:"bytes,4,opt,name=metric_name,json=metricName" json:"metric_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -230,11 +246,18 @@ func (x *BQColumn) GetColumnType() string {
 	return ""
 }
 
+func (x *BQColumn) GetMetricName() string {
+	if x != nil && x.MetricName != nil {
+		return *x.MetricName
+	}
+	return ""
+}
+
 var File_github_com_cloudprober_cloudprober_internal_surfacers_bigquery_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_internal_surfacers_bigquery_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Qgithub.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto/config.proto\x12\x1dcloudprober.surfacer.bigquery\"\xe2\x04\n" +
+	"Qgithub.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto/config.proto\x12\x1dcloudprober.surfacer.bigquery\"\x86\x05\n" +
 	"\fSurfacerConf\x12!\n" +
 	"\fproject_name\x18\x01 \x01(\tR\vprojectName\x12)\n" +
 	"\x10bigquery_dataset\x18\x02 \x01(\tR\x0fbigqueryDataset\x12%\n" +
@@ -247,13 +270,16 @@ const file_github_com_cloudprober_cloudprober_internal_surfacers_bigquery_proto_
 	"\x14metric_time_col_name\x18\t \x01(\t:\vmetric_timeR\x11metricTimeColName\x12<\n" +
 	"\x14metric_name_col_name\x18\n" +
 	" \x01(\t:\vmetric_nameR\x11metricNameColName\x12?\n" +
-	"\x15metric_value_col_name\x18\v \x01(\t:\fmetric_valueR\x12metricValueColName\"b\n" +
+	"\x15metric_value_col_name\x18\v \x01(\t:\fmetric_valueR\x12metricValueColName\x12\"\n" +
+	"\twide_rows\x18\f \x01(\b:\x05falseR\bwideRows\"\x83\x01\n" +
 	"\bBQColumn\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x1f\n" +
 	"\vcolumn_name\x18\x02 \x01(\tR\n" +
 	"columnName\x12\x1f\n" +
 	"\vcolumn_type\x18\x03 \x01(\tR\n" +
-	"columnTypeBFZDgithub.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto"
+	"columnType\x12\x1f\n" +
+	"\vmetric_name\x18\x04 \x01(\tR\n" +
+	"metricNameBFZDgithub.com/cloudprober/cloudprober/internal/surfacers/bigquery/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_internal_surfacers_bigquery_proto_config_proto_rawDescOnce sync.Once
