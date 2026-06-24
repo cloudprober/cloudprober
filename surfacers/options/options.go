@@ -159,12 +159,12 @@ func processAdditionalLabels(envVar string, l *logger.Logger) [][2]string {
 	}
 	var labels [][2]string
 	for _, label := range strings.Split(labelsStr, ",") {
-		kv := strings.Split(label, "=")
-		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+		key, val, ok := strings.Cut(label, "=")
+		key, val = strings.TrimSpace(key), strings.TrimSpace(val)
+		if !ok || key == "" || val == "" {
 			l.Warningf("Invalid additional label format: %s", label)
 			continue
 		}
-		key, val := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
 		labels = append(labels, [2]string{key, val})
 	}
 	return labels

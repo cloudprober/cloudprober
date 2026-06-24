@@ -346,6 +346,14 @@ func TestProcessAdditionalLabels(t *testing.T) {
 			},
 		},
 		{
+			name:        "label_value_with_equal",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: "token=a=b",
+			want: [][2]string{
+				{"token", "a=b"},
+			},
+		},
+		{
 			name:        "invalid_label1",
 			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
 			envVarValue: "env=prod,=identity",
@@ -359,6 +367,22 @@ func TestProcessAdditionalLabels(t *testing.T) {
 			envVarValue: "env=,app=identity",
 			want: [][2]string{
 				{"app", "identity"},
+			},
+		},
+		{
+			name:        "invalid_label_key_after_trim",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: "env=prod, =identity",
+			want: [][2]string{
+				{"env", "prod"},
+			},
+		},
+		{
+			name:        "invalid_label_value_after_trim",
+			envVar:      "CLOUDPROBER_ADDITIONAL_LABELS",
+			envVarValue: "env=prod,app= ",
+			want: [][2]string{
+				{"env", "prod"},
 			},
 		},
 	}
