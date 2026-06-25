@@ -40,6 +40,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	consulreg "github.com/cloudprober/cloudprober/internal/registration/consul"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
@@ -378,6 +379,11 @@ func Start(ctx context.Context) {
 	srvMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "OK")
 	})
+
+	l := logger.NewWithAttrs(slog.String("component", "consul-registration"))
+	if err := consulreg.Start(ctx, l); err != nil {
+		l.Errorf("consul registration failed: %v", err)
+	}
 }
 
 // GetConfig returns the prober config.
