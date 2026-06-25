@@ -172,6 +172,11 @@ func TestConfigTest(t *testing.T) {
 			configFile: "testdata/cloudprober_bad_latency_unit.cfg",
 			wantErr:    "failed to parse the latency unit",
 		},
+		{
+			name:       "large_single_line",
+			configFile: "testdata/cloudprober_large_line.cfg",
+			wantErr:    "token too long",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

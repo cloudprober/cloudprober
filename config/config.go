@@ -127,6 +127,10 @@ func handleIncludes(baseDir string, content []byte) (string, error) {
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
 	newline := "\n"
 	if runtime.GOOS == "windows" {
 		newline = "\r\n"
