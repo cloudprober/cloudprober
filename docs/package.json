@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@babel/cli": "^7.18",
-    "@babel/core": "^7.18",
+    "@babel/core": "^7.29.6",
     "@babel/preset-env": "^7.18",
     "@fullhuman/postcss-purgecss": "^4.1",
     "@hyas/doks": "^0.5",
@@ -67,7 +67,9 @@
   "overrides": {
     "semver": "^7.6.0",
     "yauzl": "^3.2.1",
-    "lodash": "^4.18.0"
+    "lodash": "^4.18.0",
+    "js-yaml": "^4.2.0",
+    "markdown-it": "^14.2.0"
   },
   "otherDependencies": {
     "hugo": "0.101.0"
