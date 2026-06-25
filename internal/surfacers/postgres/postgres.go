@@ -39,6 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/surfacers/options"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/postgres/proto"
 )
@@ -210,7 +211,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 
 	var err error
 
-	if s.dbconn, err = s.openDB(s.c.GetConnectionString()); err != nil {
+	if s.dbconn, err = s.openDB(ctx, s.c.GetConnectionString()); err != nil {
 		return err
 	}
 	if err = s.dbconn.Ping(ctx); err != nil {
@@ -225,7 +226,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 	// Start a goroutine to run forever, polling on the writeChan. Allows
 	// for the surfacer to write asynchronously to the serial port.
 	go func() {
-		defer s.dbconn.Close(ctx)
+		defer s.dbconn.Close()
 
 		metricsBatchSize, batchTimerSec := s.c.GetMetricsBatchSize(), s.c.GetBatchTimerSec()
 
@@ -319,8 +320,8 @@ type Surfacer struct {
 	// Cloud logger
 	l *logger.Logger
 
-	openDB func(connectionString string) (*pgx.Conn, error)
-	dbconn *pgx.Conn
+	openDB func(ctx context.Context, connectionString string) (*pgxpool.Pool, error)
+	dbconn *pgxpool.Pool
 }
 
 // New initializes a Postgres surfacer. Postgres surfacer inserts probe results
@@ -330,8 +331,8 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		c:    config,
 		opts: opts,
 		l:    l,
-		openDB: func(cs string) (*pgx.Conn, error) {
-			return pgx.Connect(ctx, cs)
+		openDB: func(ctx context.Context, cs string) (*pgxpool.Pool, error) {
+			return pgxpool.New(ctx, cs)
 		},
 	}
 	return s, s.init(ctx)
