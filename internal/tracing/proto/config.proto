@@ -1,0 +1,84 @@
+syntax = "proto2";
+
+package cloudprober.tracing;
+
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/tracing/proto";
+
+enum Compression {
+  NONE = 0;
+  GZIP = 1;
+}
+
+message HTTPExporter {
+  // If no URL is provided, OpenTelemetry SDK will use the environment variable
+  // OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+  // preference order.
+  optional string endpoint_url = 1;
+
+  optional tlsconfig.TLSConfig tls_config = 2;
+
+  // HTTP request headers. These can also be set using environment variables.
+  map<string, string> http_header = 3;
+
+  // Compression algorithm to use for HTTP requests.
+  optional Compression compression = 4;
+}
+
+message GRPCExporter {
+  // If no URL is provided, OpenTelemetry SDK will use the environment variable
+  // OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
+  // preference order.
+  optional string endpoint = 1;
+
+  optional tlsconfig.TLSConfig tls_config = 2;
+
+  // gRPC request headers. These can also be set using environment variables.
+  map<string, string> http_header = 3;
+
+  // Compression algorithm to use for gRPC requests.
+  optional Compression compression = 4;
+
+  // Whether to use insecure gRPC connection.
+  optional bool insecure = 5;
+}
+
+// TracingConfig enables and configures distributed tracing for Cloudprober.
+// When set, Cloudprober initializes a global OpenTelemetry TracerProvider that
+// exports spans to the configured OTLP collector. All probes that support
+// tracing are instrumented automatically and share the sampling rate below.
+message TracingConfig {
+  oneof exporter {
+    // OTLP HTTP exporter.
+    HTTPExporter otlp_http_exporter = 1;
+
+    // OTLP gRPC exporter.
+    GRPCExporter otlp_grpc_exporter = 2;
+  }
+
+  // Additional attributes to be added to the trace resource (applied to all
+  // spans).
+  message Attribute {
+    optional string key = 1;
+    optional string value = 2;
+  }
+  repeated Attribute resource_attribute = 3;
+
+  // Fraction of probe requests to trace, in the range [0.0, 1.0]. Cloudprober
+  // is the root of the trace, so this is the probability that a given request
+  // starts a sampled trace. Defaults to 0.0, i.e. tracing is off until you
+  // raise the sampling rate.
+  optional double sampling_fraction = 4 [default = 0.0];
+
+  // Context propagators used to inject trace context into outgoing requests.
+  // Values are names of OpenTelemetry propagators, e.g. "tracecontext",
+  // "baggage", "b3", "b3multi", "jaeger", "xray", "ottrace", or "none". If
+  // unset, the OTEL_PROPAGATORS environment variable is used, falling back to
+  // ["tracecontext", "baggage"].
+  repeated string propagator = 5;
+
+  // Service name reported on the trace resource (service.name attribute).
+  // Defaults to "cloudprober".
+  optional string service_name = 6 [default = "cloudprober"];
+}
