@@ -24,6 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/alerting/notifier/opsgenie"
 	"github.com/cloudprober/cloudprober/internal/alerting/notifier/pagerduty"
 	"github.com/cloudprober/cloudprober/internal/alerting/notifier/slack"
+	"github.com/cloudprober/cloudprober/internal/alerting/notifier/teams"
 	configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
 	httpreqpb "github.com/cloudprober/cloudprober/internal/httpreq/proto"
 	"github.com/cloudprober/cloudprober/logger"
@@ -58,6 +59,7 @@ type Notifier struct {
 	pagerdutyNotifier *pagerduty.Client
 	opsgenieNotifier  *opsgenie.Client
 	slackNotifier     *slack.Client
+	teamsNotifier     *teams.Client
 	httpNotifier      *httpreqpb.HTTPRequest
 }
 
@@ -121,6 +123,14 @@ func (n *Notifier) Notify(ctx context.Context, alertInfo *alertinfo.AlertInfo) e
 		err := n.slackNotifier.Notify(ctx, fields)
 		if err != nil {
 			n.l.Errorf("Error sending Slack message: %v", err)
+			errs = errors.Join(errs, err)
+		}
+	}
+
+	if n.teamsNotifier != nil {
+		err := n.teamsNotifier.Notify(ctx, fields)
+		if err != nil {
+			n.l.Errorf("Error sending Teams message: %v", err)
 			errs = errors.Join(errs, err)
 		}
 	}
@@ -220,6 +230,14 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 			return nil, fmt.Errorf("error configuring Slack notifier: %v", err)
 		}
 		n.slackNotifier = slack
+	}
+
+	if n.cfg.GetTeams() != nil {
+		teams, err := teams.New(n.cfg.GetTeams(), l)
+		if err != nil {
+			return nil, fmt.Errorf("error configuring Teams notifier: %v", err)
+		}
+		n.teamsNotifier = teams
 	}
 
 	if n.cfg.GetHttpNotify() != nil {
