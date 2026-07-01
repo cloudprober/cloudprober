@@ -148,7 +148,7 @@ func TestTeamsNotify(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadAll() error = %v", err)
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusAccepted)
 	}))
 	defer httpServer.Close()
 
