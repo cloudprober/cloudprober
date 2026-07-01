@@ -132,7 +132,7 @@ func (x AlertConf_Severity) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AlertConf_Severity.Descriptor instead.
 func (AlertConf_Severity) EnumDescriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{6, 0}
+	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{7, 0}
 }
 
 type Email struct {
@@ -449,6 +449,64 @@ func (x *Slack) GetWebhookUrlEnvVar() string {
 	return ""
 }
 
+type Teams struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Webhook URL
+	// The Teams notifications use an Incoming Webhook URL to send
+	// notifications to a Teams channel.
+	// Note: set either webhook_url or webhook_url_env_var. webhook_url
+	// takes precedence over webhook_url_env_var.
+	WebhookUrl string `protobuf:"bytes,1,opt,name=webhook_url,json=webhookUrl,proto3" json:"webhook_url,omitempty"`
+	// The environment variable that is used to contain the Teams webhook URL.
+	WebhookUrlEnvVar string `protobuf:"bytes,2,opt,name=webhook_url_env_var,json=webhookUrlEnvVar,proto3" json:"webhook_url_env_var,omitempty"` // Default: TEAMS_WEBHOOK_URL;
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *Teams) Reset() {
+	*x = Teams{}
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Teams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Teams) ProtoMessage() {}
+
+func (x *Teams) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Teams.ProtoReflect.Descriptor instead.
+func (*Teams) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Teams) GetWebhookUrl() string {
+	if x != nil {
+		return x.WebhookUrl
+	}
+	return ""
+}
+
+func (x *Teams) GetWebhookUrlEnvVar() string {
+	if x != nil {
+		return x.WebhookUrlEnvVar
+	}
+	return ""
+}
+
 type NotifyConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Command to run when alert is fired. You can use this command to do
@@ -480,6 +538,8 @@ type NotifyConfig struct {
 	Slack *Slack `protobuf:"bytes,13,opt,name=slack,proto3" json:"slack,omitempty"`
 	// Opsgenie configuration.
 	Opsgenie *Opsgenie `protobuf:"bytes,14,opt,name=opsgenie,proto3" json:"opsgenie,omitempty"`
+	// Microsoft Teams configuration.
+	Teams *Teams `protobuf:"bytes,15,opt,name=teams,proto3" json:"teams,omitempty"`
 	// Notify using an HTTP request. HTTP request fields are expanded using the
 	// same template expansion rules as "command" above:
 	// For example, to send a notification using rest API:
@@ -500,7 +560,7 @@ type NotifyConfig struct {
 
 func (x *NotifyConfig) Reset() {
 	*x = NotifyConfig{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[4]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -512,7 +572,7 @@ func (x *NotifyConfig) String() string {
 func (*NotifyConfig) ProtoMessage() {}
 
 func (x *NotifyConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[4]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -525,7 +585,7 @@ func (x *NotifyConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotifyConfig.ProtoReflect.Descriptor instead.
 func (*NotifyConfig) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{4}
+	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *NotifyConfig) GetCommand() string {
@@ -563,6 +623,13 @@ func (x *NotifyConfig) GetOpsgenie() *Opsgenie {
 	return nil
 }
 
+func (x *NotifyConfig) GetTeams() *Teams {
+	if x != nil {
+		return x.Teams
+	}
+	return nil
+}
+
 func (x *NotifyConfig) GetHttpNotify() *proto.HTTPRequest {
 	if x != nil {
 		return x.HttpNotify
@@ -580,7 +647,7 @@ type Condition struct {
 
 func (x *Condition) Reset() {
 	*x = Condition{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[5]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -592,7 +659,7 @@ func (x *Condition) String() string {
 func (*Condition) ProtoMessage() {}
 
 func (x *Condition) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[5]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -605,7 +672,7 @@ func (x *Condition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Condition.ProtoReflect.Descriptor instead.
 func (*Condition) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{5}
+	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Condition) GetFailures() int32 {
@@ -666,7 +733,7 @@ type AlertConf struct {
 
 func (x *AlertConf) Reset() {
 	*x = AlertConf{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[6]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -678,7 +745,7 @@ func (x *AlertConf) String() string {
 func (*AlertConf) ProtoMessage() {}
 
 func (x *AlertConf) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[6]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -691,7 +758,7 @@ func (x *AlertConf) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertConf.ProtoReflect.Descriptor instead.
 func (*AlertConf) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{6}
+	return file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *AlertConf) GetName() string {
@@ -778,7 +845,7 @@ type Opsgenie_Responder struct {
 
 func (x *Opsgenie_Responder) Reset() {
 	*x = Opsgenie_Responder{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[7]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -790,7 +857,7 @@ func (x *Opsgenie_Responder) String() string {
 func (*Opsgenie_Responder) ProtoMessage() {}
 
 func (x *Opsgenie_Responder) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[7]
+	mi := &file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -895,7 +962,11 @@ const file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_pro
 	"\x05Slack\x12\x1f\n" +
 	"\vwebhook_url\x18\x01 \x01(\tR\n" +
 	"webhookUrl\x12-\n" +
-	"\x13webhook_url_env_var\x18\x02 \x01(\tR\x10webhookUrlEnvVar\"\xd3\x02\n" +
+	"\x13webhook_url_env_var\x18\x02 \x01(\tR\x10webhookUrlEnvVar\"W\n" +
+	"\x05Teams\x12\x1f\n" +
+	"\vwebhook_url\x18\x01 \x01(\tR\n" +
+	"webhookUrl\x12-\n" +
+	"\x13webhook_url_env_var\x18\x02 \x01(\tR\x10webhookUrlEnvVar\"\x86\x03\n" +
 	"\fNotifyConfig\x12\x18\n" +
 	"\acommand\x18\n" +
 	" \x01(\tR\acommand\x121\n" +
@@ -903,7 +974,8 @@ const file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_pro
 	"\n" +
 	"pager_duty\x18\f \x01(\v2\x1f.cloudprober.alerting.PagerDutyR\tpagerDuty\x121\n" +
 	"\x05slack\x18\r \x01(\v2\x1b.cloudprober.alerting.SlackR\x05slack\x12:\n" +
-	"\bopsgenie\x18\x0e \x01(\v2\x1e.cloudprober.alerting.OpsgenieR\bopsgenie\x12G\n" +
+	"\bopsgenie\x18\x0e \x01(\v2\x1e.cloudprober.alerting.OpsgenieR\bopsgenie\x121\n" +
+	"\x05teams\x18\x0f \x01(\v2\x1b.cloudprober.alerting.TeamsR\x05teams\x12G\n" +
 	"\vhttp_notify\x18\x03 \x01(\v2&.cloudprober.utils.httpreq.HTTPRequestR\n" +
 	"httpNotify\"=\n" +
 	"\tCondition\x12\x1a\n" +
@@ -948,7 +1020,7 @@ func file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_prot
 }
 
 var file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_goTypes = []any{
 	(Opsgenie_Responder_Type)(0), // 0: cloudprober.alerting.Opsgenie.Responder.Type
 	(AlertConf_Severity)(0),      // 1: cloudprober.alerting.AlertConf.Severity
@@ -956,30 +1028,32 @@ var file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto
 	(*Opsgenie)(nil),             // 3: cloudprober.alerting.Opsgenie
 	(*PagerDuty)(nil),            // 4: cloudprober.alerting.PagerDuty
 	(*Slack)(nil),                // 5: cloudprober.alerting.Slack
-	(*NotifyConfig)(nil),         // 6: cloudprober.alerting.NotifyConfig
-	(*Condition)(nil),            // 7: cloudprober.alerting.Condition
-	(*AlertConf)(nil),            // 8: cloudprober.alerting.AlertConf
-	(*Opsgenie_Responder)(nil),   // 9: cloudprober.alerting.Opsgenie.Responder
-	nil,                          // 10: cloudprober.alerting.AlertConf.OtherInfoEntry
-	(*proto.HTTPRequest)(nil),    // 11: cloudprober.utils.httpreq.HTTPRequest
+	(*Teams)(nil),                // 6: cloudprober.alerting.Teams
+	(*NotifyConfig)(nil),         // 7: cloudprober.alerting.NotifyConfig
+	(*Condition)(nil),            // 8: cloudprober.alerting.Condition
+	(*AlertConf)(nil),            // 9: cloudprober.alerting.AlertConf
+	(*Opsgenie_Responder)(nil),   // 10: cloudprober.alerting.Opsgenie.Responder
+	nil,                          // 11: cloudprober.alerting.AlertConf.OtherInfoEntry
+	(*proto.HTTPRequest)(nil),    // 12: cloudprober.utils.httpreq.HTTPRequest
 }
 var file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_depIdxs = []int32{
-	9,  // 0: cloudprober.alerting.Opsgenie.responders:type_name -> cloudprober.alerting.Opsgenie.Responder
+	10, // 0: cloudprober.alerting.Opsgenie.responders:type_name -> cloudprober.alerting.Opsgenie.Responder
 	2,  // 1: cloudprober.alerting.NotifyConfig.email:type_name -> cloudprober.alerting.Email
 	4,  // 2: cloudprober.alerting.NotifyConfig.pager_duty:type_name -> cloudprober.alerting.PagerDuty
 	5,  // 3: cloudprober.alerting.NotifyConfig.slack:type_name -> cloudprober.alerting.Slack
 	3,  // 4: cloudprober.alerting.NotifyConfig.opsgenie:type_name -> cloudprober.alerting.Opsgenie
-	11, // 5: cloudprober.alerting.NotifyConfig.http_notify:type_name -> cloudprober.utils.httpreq.HTTPRequest
-	7,  // 6: cloudprober.alerting.AlertConf.condition:type_name -> cloudprober.alerting.Condition
-	6,  // 7: cloudprober.alerting.AlertConf.notify:type_name -> cloudprober.alerting.NotifyConfig
-	10, // 8: cloudprober.alerting.AlertConf.other_info:type_name -> cloudprober.alerting.AlertConf.OtherInfoEntry
-	1,  // 9: cloudprober.alerting.AlertConf.severity:type_name -> cloudprober.alerting.AlertConf.Severity
-	0,  // 10: cloudprober.alerting.Opsgenie.Responder.type:type_name -> cloudprober.alerting.Opsgenie.Responder.Type
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	6,  // 5: cloudprober.alerting.NotifyConfig.teams:type_name -> cloudprober.alerting.Teams
+	12, // 6: cloudprober.alerting.NotifyConfig.http_notify:type_name -> cloudprober.utils.httpreq.HTTPRequest
+	8,  // 7: cloudprober.alerting.AlertConf.condition:type_name -> cloudprober.alerting.Condition
+	7,  // 8: cloudprober.alerting.AlertConf.notify:type_name -> cloudprober.alerting.NotifyConfig
+	11, // 9: cloudprober.alerting.AlertConf.other_info:type_name -> cloudprober.alerting.AlertConf.OtherInfoEntry
+	1,  // 10: cloudprober.alerting.AlertConf.severity:type_name -> cloudprober.alerting.AlertConf.Severity
+	0,  // 11: cloudprober.alerting.Opsgenie.Responder.type:type_name -> cloudprober.alerting.Opsgenie.Responder.Type
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_init() }
@@ -987,8 +1061,8 @@ func file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_prot
 	if File_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto != nil {
 		return
 	}
-	file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[6].OneofWrappers = []any{}
-	file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[7].OneofWrappers = []any{
+	file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[7].OneofWrappers = []any{}
+	file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_msgTypes[8].OneofWrappers = []any{
 		(*Opsgenie_Responder_Id)(nil),
 		(*Opsgenie_Responder_Name)(nil),
 	}
@@ -998,7 +1072,7 @@ func file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_prot
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_internal_alerting_proto_config_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
