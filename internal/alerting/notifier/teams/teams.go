@@ -144,8 +144,8 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 	}
 	defer resp.Body.Close()
 
-	// check status code, return error if not 200
-	if resp.StatusCode != http.StatusOK {
+	// check status code, return error if not 202
+	if resp.StatusCode != http.StatusAccepted {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("teams webhook returned error; statusCode: %d, response: %s", resp.StatusCode, string(b))
 	}
