@@ -28,6 +28,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/dns"
 	"github.com/cloudprober/cloudprober/probes/external"
 	grpcprobe "github.com/cloudprober/cloudprober/probes/grpc"
+	"github.com/cloudprober/cloudprober/probes/grpcext"
 	httpprobe "github.com/cloudprober/cloudprober/probes/http"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/probes/ping"
@@ -178,6 +179,9 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 	case configpb.ProbeDef_SQL:
 		probe = &sqlprobe.Probe{}
 		probeConf = p.GetSqlProbe()
+	case configpb.ProbeDef_EXTERNAL_GRPC:
+		probe = &grpcext.Probe{}
+		probeConf = p.GetExternalGrpcProbe()
 	case configpb.ProbeDef_EXTENSION:
 		probe, probeConf, err = getExtensionProbe(p)
 		if err != nil {

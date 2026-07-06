@@ -8,6 +8,7 @@ import "github.com/cloudprober/cloudprober/probes/browser/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/dns/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/external/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/grpc/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/http/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/ping/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/sql/proto/config.proto";
@@ -38,7 +39,9 @@ message ProbeDef {
     BROWSER = 8;
     SYSTEM = 9;
     STARLARK = 10;
-    SQL = 11;
+    // Probe runs are delegated to an external sidecar process over gRPC.
+    // See probes/grpcext for more details.
+    EXTERNAL_GRPC = 12;
 
     // One of the extension probe types. See "extensions" below for more
     // details.
@@ -190,6 +193,7 @@ message ProbeDef {
     system.ProbeConf system_probe = 29;
     starlark.ProbeConf starlark_probe = 30;
     sql.ProbeConf sql_probe = 31;
+    grpcext.ProbeConf external_grpc_probe = 32;
     // This field's contents are passed on to the user defined probe,
     // registered for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;
