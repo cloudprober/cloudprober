@@ -32,6 +32,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/probes/ping"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
+	sqlprobe "github.com/cloudprober/cloudprober/probes/sql"
 	"github.com/cloudprober/cloudprober/probes/starlark"
 	"github.com/cloudprober/cloudprober/probes/system"
 	"github.com/cloudprober/cloudprober/probes/tcp"
@@ -174,6 +175,9 @@ func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeC
 	case configpb.ProbeDef_STARLARK:
 		probe = &starlark.Probe{}
 		probeConf = p.GetStarlarkProbe()
+	case configpb.ProbeDef_SQL:
+		probe = &sqlprobe.Probe{}
+		probeConf = p.GetSqlProbe()
 	case configpb.ProbeDef_EXTENSION:
 		probe, probeConf, err = getExtensionProbe(p)
 		if err != nil {

@@ -1,0 +1,78 @@
+syntax = "proto2";
+
+package cloudprober.probes.sql;
+
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/probes/sql/proto";
+
+// ProbeConf configures a SQL probe.
+//
+// Each probe run establishes a new database connection, authenticates, and
+// runs the configured query (or just pings the server if no query is set), so
+// probe latency covers the full path: connect + auth + query. Clean
+// completion is success; any error is failure.
+message ProbeConf {
+  enum Flavor {
+    FLAVOR_UNSPECIFIED = 0;
+    POSTGRES = 1;
+  }
+  // Database flavor. Required. Currently only POSTGRES is supported; more
+  // flavors may be added based on demand.
+  optional Flavor flavor = 1;
+
+  // Connection parameters. Connection is configured in the following order,
+  // with later steps overriding the earlier ones:
+  //  1. Flavor-specific defaults and environment variables. For POSTGRES,
+  //     libpq environment variables (PGHOST, PGUSER, PGPASSWORD, PGDATABASE,
+  //     PGSSLMODE, ...) are honored.
+  //  2. connection_string, if set.
+  //  3. user, password, and database fields, if set.
+  //  4. Target's host and port, if the probe has targets.
+  //
+  // Targets are optional for this probe: with connection_string (or flavor
+  // environment variables) providing the endpoint, the probe can run with no
+  // targets at all. With targets, host and port come from the target, and one
+  // probe can fan out across many database instances.
+  //
+  // connection_string can be in URL form
+  // ("postgres://user:pass@host:5432/db?sslmode=require") or key/value form
+  // ("host=x port=5432 dbname=db user=u"). @target.xxx@ substitutions
+  // (target.name, target.ip, target.port, target.label.<label>, probe) are
+  // supported, but only reliably in the key/value form -- in the URL form,
+  // the literal '@' before the host confuses token parsing. For example:
+  //   connection_string: "dbname=@target.label.db@ sslmode=require"
+  //
+  // To keep secrets out of the config file, use the config-level envSecret
+  // template function, e.g. password: "{{envSecret "DB_PASSWORD"}}".
+  optional string connection_string = 2;
+  optional string user = 3;
+  optional string password = 4;
+  optional string database = 5;
+
+  // Query to run. If no query is configured, the probe only verifies that the
+  // database accepts connections and responds to a ping. Exactly one of query
+  // and query_file may be set.
+  //
+  // Query results are serialized as one line per row, with column values
+  // joined by a single space, e.g. the query
+  // "SELECT 'db_users', count(*) FROM users" may produce "db_users 42". This
+  // output is passed to the probe's validators, and to the payload metrics
+  // parser if response_metrics_options is set.
+  optional string query = 6;
+  optional string query_file = 7;
+
+  // TLS config for the database connection, e.g. for custom CA bundles or
+  // client certificates (mTLS). Same message other probes (http, tcp, grpc)
+  // use; see common/tlsconfig/proto/config.proto for the full field list.
+  // If set, it overrides any TLS parameters from connection_string
+  // (e.g. sslmode) or environment.
+  optional tlsconfig.TLSConfig tls_config = 8;
+
+  // Export query results as metrics. Same shape external + http probes
+  // already use; with the row serialization described above, a query like
+  // "SELECT 'queue_depth', count(*) FROM jobs" exports queue_depth as a
+  // metric with no extra configuration.
+  optional metrics.payload.OutputMetricsOptions response_metrics_options = 9;
+}
