@@ -21,8 +21,10 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -278,7 +280,7 @@ func TestPgConnConfigFallbacks(t *testing.T) {
 	}
 
 	// Explicit TLS config replaces connection string's TLS parameters and
-	// drops the plaintext fallback.
+	// drops the plaintext fallback. It's cloned, not shared.
 	p = testProbe(t, &configpb.ProbeConf{
 		ConnectionString: proto.String("host=orig.host user=u sslmode=prefer"),
 	}, nil)
@@ -287,8 +289,63 @@ func TestPgConnConfigFallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pgConnConfig: %v", err)
 	}
-	assert.Equal(t, p.tlsConfig, cfg.TLSConfig)
+	assert.NotSame(t, p.tlsConfig, cfg.TLSConfig)
+	assert.Equal(t, "tls.host", cfg.TLSConfig.ServerName)
 	assert.Empty(t, cfg.Fallbacks)
+}
+
+func TestPgConnConfigTLSServerName(t *testing.T) {
+	neutralizePGEnv(t)
+
+	// Explicit tls_config without ServerName: default to the target's name
+	// (pgconn fails the handshake on an empty ServerName).
+	p := testProbe(t, &configpb.ProbeConf{
+		ConnectionString: proto.String("host=orig.host user=u"),
+	}, nil)
+	p.tlsConfig = &tls.Config{}
+	cfg, err := p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host"})
+	if err != nil {
+		t.Fatalf("pgConnConfig: %v", err)
+	}
+	assert.Equal(t, "tgt.host", cfg.TLSConfig.ServerName)
+	assert.Empty(t, p.tlsConfig.ServerName, "shared tls config must not be mutated")
+
+	// Without a target, default to the connection string's host.
+	cfg, err = p.pgConnConfig(endpoint.Endpoint{})
+	if err != nil {
+		t.Fatalf("pgConnConfig: %v", err)
+	}
+	assert.Equal(t, "orig.host", cfg.TLSConfig.ServerName)
+
+	// sslmode=verify-full sets ServerName from the connection string's host
+	// at parse time; a target override must retarget it so certificates are
+	// verified against the target's name.
+	p = testProbe(t, &configpb.ProbeConf{
+		ConnectionString: proto.String("host=orig.host user=u sslmode=verify-full"),
+	}, nil)
+	cfg, err = p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host"})
+	if err != nil {
+		t.Fatalf("pgConnConfig: %v", err)
+	}
+	assert.Equal(t, "tgt.host", cfg.TLSConfig.ServerName)
+}
+
+func TestPgConnConfigTargetResolve(t *testing.T) {
+	neutralizePGEnv(t)
+
+	p := testProbe(t, &configpb.ProbeConf{User: proto.String("u")}, nil)
+
+	// Targets that come with an IP (e.g. k8s, rds) are dialed by IP; their
+	// names are often not resolvable over DNS.
+	cfg, err := p.pgConnConfig(endpoint.Endpoint{Name: "pod-1", Port: 5432, IP: net.ParseIP("192.168.9.9")})
+	if err != nil {
+		t.Fatalf("pgConnConfig: %v", err)
+	}
+	assert.Equal(t, "192.168.9.9", cfg.Host)
+
+	// Out-of-range target port is an error, not a silent uint16 wrap.
+	_, err = p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host", Port: 99999})
+	assert.ErrorContains(t, err, "invalid target port")
 }
 
 func TestRunProbe(t *testing.T) {
@@ -427,4 +484,23 @@ func TestSerializeRows(t *testing.T) {
 		t.Fatalf("serializeRows: %v", err)
 	}
 	assert.Equal(t, "row1 1 bytes\nrow2 2.5 <nil>\n", string(b))
+}
+
+func TestSerializeRowsSizeCap(t *testing.T) {
+	bigVal := strings.Repeat("x", 512*1024)
+	conn := &fakeConn{
+		cols: []string{"a"},
+		rows: [][]driver.Value{{bigVal}, {bigVal}, {bigVal}},
+	}
+	db := gosql.OpenDB(&fakeConnector{conn: conn})
+	defer db.Close()
+
+	rows, err := db.QueryContext(context.Background(), "SELECT ...")
+	if err != nil {
+		t.Fatalf("QueryContext: %v", err)
+	}
+	defer rows.Close()
+
+	_, err = serializeRows(rows)
+	assert.ErrorContains(t, err, "query result exceeded")
 }

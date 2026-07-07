@@ -192,6 +192,13 @@ func (p *Probe) runQuery(ctx context.Context, target endpoint.Endpoint) ([]byte,
 	return serializeRows(rows)
 }
 
+// maxQueryResultSize caps how much serialized query output a single probe run
+// can produce. Results are buffered in memory on every run, so a query
+// returning a huge result set would otherwise create sustained memory
+// pressure; exceeding the cap fails the probe with an error suggesting a
+// LIMIT.
+const maxQueryResultSize = 1 << 20 // 1MB
+
 // serializeRows converts query results into text that validators and the
 // payload metrics parser can consume: one line per row, with column values
 // joined by a single space.
@@ -220,6 +227,10 @@ func serializeRows(rows *gosql.Rows) ([]byte, error) {
 		}
 		buf.WriteString(strings.Join(parts, " "))
 		buf.WriteByte('\n')
+
+		if buf.Len() > maxQueryResultSize {
+			return nil, fmt.Errorf("query result exceeded %d bytes, consider adding a LIMIT to the query", maxQueryResultSize)
+		}
 	}
 	return buf.Bytes(), rows.Err()
 }

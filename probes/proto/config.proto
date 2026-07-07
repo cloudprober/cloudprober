@@ -73,7 +73,8 @@ message ProbeDef {
   optional string timeout = 17;
 
   // Targets for the probe. Targets are required for all probes except
-  // for external, user_defined, and extension probe types.
+  // for external, user_defined, extension, browser, system, and sql probe
+  // types.
   optional targets.TargetsDef targets = 6;
 
   // Latency distribution. If specified, latency is stored as a distribution.

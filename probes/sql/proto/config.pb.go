@@ -128,13 +128,22 @@ type ProbeConf struct {
 	// "SELECT 'db_users', count(*) FROM users" may produce "db_users 42". This
 	// output is passed to the probe's validators, and to the payload metrics
 	// parser if response_metrics_options is set.
+	//
+	// Keep query results small and line-friendly:
+	//   - Results are buffered in memory each run and capped at 1MB; exceeding
+	//     the cap fails the probe. Use a LIMIT for potentially large results.
+	//   - Column values containing spaces (free text, timestamps) span multiple
+	//     space-separated tokens, and SQL NULL is rendered as "<nil>"; cast or
+	//     format values in SQL if validators or payload parsing need clean
+	//     tokens.
 	Query     *string `protobuf:"bytes,6,opt,name=query" json:"query,omitempty"`
 	QueryFile *string `protobuf:"bytes,7,opt,name=query_file,json=queryFile" json:"query_file,omitempty"`
 	// TLS config for the database connection, e.g. for custom CA bundles or
 	// client certificates (mTLS). Same message other probes (http, tcp, grpc)
 	// use; see common/tlsconfig/proto/config.proto for the full field list.
 	// If set, it overrides any TLS parameters from connection_string
-	// (e.g. sslmode) or environment.
+	// (e.g. sslmode) or environment. If server_name is not set, it defaults to
+	// the host being connected to (target name when targets are used).
 	TlsConfig *proto.TLSConfig `protobuf:"bytes,8,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
 	// Export query results as metrics. Same shape external + http probes
 	// already use; with the row serialization described above, a query like
