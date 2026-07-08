@@ -118,7 +118,7 @@ func runProbeOnce(t *testing.T, p *Probe, runReq *sched.RunProbeForTargetRequest
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	p.runProbe(ctx, runReq)
+	p.runProbe(ctx, runReq, false)
 }
 
 func newRunReq() *sched.RunProbeForTargetRequest {
@@ -235,7 +235,7 @@ func TestProbeDeadline(t *testing.T) {
 	runReq := newRunReq()
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	p.runProbe(ctx, runReq)
+	p.runProbe(ctx, runReq, false)
 
 	assert.False(t, runReq.LastRun.Success)
 	result := runReq.Result.(*probeResult)
@@ -305,28 +305,26 @@ func TestProbeStateHandle(t *testing.T) {
 	assert.Equal(t, []byte("session-1"), reqs[1].GetStateHandle())
 }
 
-func TestRunOnceHandleReuse(t *testing.T) {
+func TestRunOnceIsOneShot(t *testing.T) {
 	f := &fakeSidecar{
 		respFn: func(req *configpb.ProbeRequest) *configpb.ProbeResponse {
-			resp := &configpb.ProbeResponse{Success: true, StateHandle: req.GetStateHandle()}
-			if len(req.GetStateHandle()) == 0 {
-				resp.StateHandle = []byte("session-1")
-			}
-			return resp
+			return &configpb.ProbeResponse{Success: true}
 		},
 	}
 	p := initProbe(t, newOpts(t, startFakeSidecar(t, f)))
 
-	// RunOnce-style: every invocation gets a throwaway runReq with nil
-	// TargetState. The probe-level handle cache must still reuse the
-	// sidecar session instead of minting one per call.
+	// Scheduled runs are not one-shot; RunOnce runs are, and carry no state
+	// handle (the sidecar keeps no session for them).
 	runProbeOnce(t, p, newRunReq())
-	runProbeOnce(t, p, newRunReq())
+	results := p.RunOnce(context.Background())
+	require.Equal(t, 1, len(results))
+	assert.True(t, results[0].Success)
 
 	reqs := f.requests()
 	require.Equal(t, 2, len(reqs))
-	assert.Empty(t, reqs[0].GetStateHandle())
-	assert.Equal(t, []byte("session-1"), reqs[1].GetStateHandle())
+	assert.False(t, reqs[0].GetOneShot())
+	assert.True(t, reqs[1].GetOneShot())
+	assert.Empty(t, reqs[1].GetStateHandle())
 }
 
 func TestInitErrors(t *testing.T) {

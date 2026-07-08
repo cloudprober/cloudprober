@@ -200,7 +200,13 @@ type ProbeRequest struct {
 	// Probe interval. Lets the sidecar size its per-target session idle TTL
 	// relative to the probe cadence, so sessions survive between runs of
 	// long-interval probes without manual TTL tuning.
-	Interval      *durationpb.Duration `protobuf:"bytes,6,opt,name=interval,proto3" json:"interval,omitempty"`
+	Interval *durationpb.Duration `protobuf:"bytes,6,opt,name=interval,proto3" json:"interval,omitempty"`
+	// one_shot marks a one-off diagnostic run (e.g. cloudprober's RunOnce /
+	// runprobe API) as opposed to a scheduled probe cycle. The sidecar must
+	// not retain any per-target session for such a request: for stateful
+	// probe types the SDK builds the session, runs the probe, and tears it
+	// down inline, and no state_handle is returned.
+	OneShot       bool `protobuf:"varint,7,opt,name=one_shot,json=oneShot,proto3" json:"one_shot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -275,6 +281,13 @@ func (x *ProbeRequest) GetInterval() *durationpb.Duration {
 		return x.Interval
 	}
 	return nil
+}
+
+func (x *ProbeRequest) GetOneShot() bool {
+	if x != nil {
+		return x.OneShot
+	}
+	return false
 }
 
 type ProbeResponse struct {
@@ -396,7 +409,7 @@ const file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto
 	"\x04port\x18\x04 \x01(\x05R\x04port\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xab\x02\n" +
 	"\fProbeRequest\x12\x1d\n" +
 	"\n" +
 	"probe_type\x18\x01 \x01(\tR\tprobeType\x12:\n" +
@@ -404,7 +417,8 @@ const file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto
 	"\x06config\x18\x03 \x01(\fR\x06config\x123\n" +
 	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x12!\n" +
 	"\fstate_handle\x18\x05 \x01(\fR\vstateHandle\x125\n" +
-	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\"\xd8\x01\n" +
+	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\x12\x19\n" +
+	"\bone_shot\x18\a \x01(\bR\aoneShot\"\xd8\x01\n" +
 	"\rProbeResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x123\n" +
 	"\alatency\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\alatency\x12%\n" +

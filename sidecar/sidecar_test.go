@@ -283,6 +283,29 @@ func TestSessionInvalidate(t *testing.T) {
 	assert.Equal(t, newBefore+2, newSessions.Load())
 }
 
+func TestOneShot(t *testing.T) {
+	client := startServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	newBefore, closedBefore := newSessions.Load(), closedSessions.Load()
+
+	// One-shot runs build a session, probe, and tear it down inline: no
+	// handle is returned and nothing is cached.
+	for i := 0; i < 2; i++ {
+		req := probeReq("counter", "", nil)
+		req.OneShot = true
+		resp, err := client.Probe(ctx, req)
+		require.NoError(t, err)
+		assert.True(t, resp.GetSuccess())
+		assert.Empty(t, resp.GetStateHandle())
+		// Fresh session every time: runs is always 1.
+		assert.Equal(t, []string{`runs{target="t1"} 1`}, resp.GetPayload())
+	}
+	assert.Equal(t, newBefore+2, newSessions.Load())
+	assert.Equal(t, closedBefore+2, closedSessions.Load())
+}
+
 func TestIdleEviction(t *testing.T) {
 	// Server with a very short TTL: the session created by one probe should
 	// be swept and Closed shortly after (sweep interval floors at 1s).

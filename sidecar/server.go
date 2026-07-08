@@ -190,6 +190,17 @@ func (s *server) Probe(ctx context.Context, req *pb.ProbeRequest) (*pb.ProbeResp
 		Port:   int(req.GetTarget().GetPort()),
 	}
 
+	// One-shot runs (RunOnce) must not leave any per-target state behind:
+	// build the session, probe, and tear it down inline; return no handle.
+	if h.stateful() && req.GetOneShot() {
+		val, err := h.newSession(ctx, t, req.GetConfig())
+		if err != nil {
+			return toProto(newSessionErrorResult(err), nil), nil
+		}
+		defer closeSafely(h, val)
+		return toProto(runProbeSafely(ctx, h, t, req.GetConfig(), val), nil), nil
+	}
+
 	var sess *session
 	var handle []byte
 	if h.stateful() {
@@ -212,6 +223,17 @@ func (s *server) Probe(ctx context.Context, req *pb.ProbeRequest) (*pb.ProbeResp
 		s.mu.Unlock()
 	}
 	return toProto(res, handle), nil
+}
+
+// newSessionErrorResult classifies a newSession failure: config-decode
+// errors are internal (misconfiguration), while errors from the author's
+// New — which typically connects to the target — are target-level failures.
+func newSessionErrorResult(err error) *Result {
+	var ce configError
+	if errors.As(err, &ce) {
+		return Internal(err)
+	}
+	return Fail(fmt.Errorf("creating session: %v", err))
 }
 
 // ValidateConfig implements the config check cloudprober runs at probe init.
@@ -253,11 +275,7 @@ func (s *server) acquireSession(ctx context.Context, h handler, t Target, req *p
 
 	val, err := h.newSession(ctx, t, req.GetConfig())
 	if err != nil {
-		var ce configError
-		if errors.As(err, &ce) {
-			return nil, nil, Internal(err)
-		}
-		return nil, nil, Fail(fmt.Errorf("creating session: %v", err))
+		return nil, nil, newSessionErrorResult(err)
 	}
 
 	handle = mintHandle()
@@ -279,7 +297,7 @@ func (s *server) releaseSession(key string, sess *session) {
 	}
 	s.mu.Unlock()
 	if evictNow {
-		closeSafely(sess)
+		closeSafely(sess.h, sess.val)
 	}
 }
 
@@ -315,7 +333,7 @@ func (s *server) sweepIdleSessions(stop <-chan struct{}) {
 		}
 		s.mu.Unlock()
 		for _, sess := range evicted {
-			closeSafely(sess)
+			closeSafely(sess.h, sess.val)
 		}
 		if len(evicted) > 0 {
 			log.Printf("cloudprober sidecar: evicted %d idle session(s)", len(evicted))
@@ -325,13 +343,13 @@ func (s *server) sweepIdleSessions(stop <-chan struct{}) {
 
 // closeSafely runs the author's Close hook, containing panics so a buggy
 // Close can't take down the sidecar (which may serve other probe types).
-func closeSafely(sess *session) {
+func closeSafely(h handler, val any) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("cloudprober sidecar: panic in session Close: %v", r)
 		}
 	}()
-	sess.h.closeSession(sess.val)
+	h.closeSession(val)
 }
 
 // runProbeSafely runs the probe handler, converting panics and nil results

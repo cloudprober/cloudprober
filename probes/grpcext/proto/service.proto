@@ -68,6 +68,13 @@ message ProbeRequest {
   // relative to the probe cadence, so sessions survive between runs of
   // long-interval probes without manual TTL tuning.
   google.protobuf.Duration interval = 6;
+
+  // one_shot marks a one-off diagnostic run (e.g. cloudprober's RunOnce /
+  // runprobe API) as opposed to a scheduled probe cycle. The sidecar must
+  // not retain any per-target session for such a request: for stateful
+  // probe types the SDK builds the session, runs the probe, and tears it
+  // down inline, and no state_handle is returned.
+  bool one_shot = 7;
 }
 
 message ProbeResponse {

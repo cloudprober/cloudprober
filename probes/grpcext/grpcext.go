@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/internal/validators"
@@ -56,14 +55,6 @@ type Probe struct {
 	// (payload-format lines) into EventMetrics. Same surface as external,
 	// http, and starlark probes use for custom metrics.
 	payloadParser *payload.Parser
-
-	// handleCache remembers the last state handle per target (keyed by
-	// endpoint key). The scheduler already persists handles across cycles on
-	// runReq.TargetState; this cache covers the paths where TargetState
-	// starts empty — RunOnce (which builds a throwaway runReq per call) and
-	// the first scheduled run — so repeated runs reuse one sidecar session
-	// per target instead of minting a new one each time.
-	handleCache sync.Map
 }
 
 type probeResult struct {
@@ -188,7 +179,10 @@ func respError(resp *configpb.ProbeResponse) string {
 	return "no error reported by sidecar"
 }
 
-func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+// runProbe runs one probe cycle for one target via the sidecar. oneShot
+// marks one-off runs (RunOnce): the sidecar is told not to retain any
+// per-target session for them.
+func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest, oneShot bool) {
 	if runReq.Result == nil {
 		runReq.Result = p.newResult()
 	}
@@ -208,20 +202,18 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		Config:   []byte(p.c.GetConfig()),
 		Timeout:  durationpb.New(p.opts.Timeout),
 		Interval: durationpb.New(p.opts.Interval),
+		OneShot:  oneShot,
 	}
 	if target.IP != nil {
 		req.Target.Ip = target.IP.String()
 	}
 	// state_handle is the wire image of the in-process TargetState: an opaque
 	// per-target session handle that the sidecar mints and we simply echo
-	// back each cycle. When TargetState is empty (first scheduled run, or
-	// RunOnce which gets a throwaway runReq per call), fall back to the
-	// probe-level handle cache so we don't mint a new sidecar session per
-	// run.
+	// back each cycle. TargetState is scheduler-owned and is the only place
+	// session handles live; one-shot runs get a throwaway runReq and don't
+	// carry (or produce) a handle.
 	if h, ok := runReq.TargetState.([]byte); ok {
 		req.StateHandle = h
-	} else if h, ok := p.handleCache.Load(target.Key()); ok {
-		req.StateHandle = h.([]byte)
 	}
 
 	// Every run counts toward total, including sidecar/infra failures —
@@ -241,7 +233,6 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	if h := resp.GetStateHandle(); len(h) > 0 {
 		runReq.TargetState = h
-		p.handleCache.Store(target.Key(), h)
 	}
 
 	// Parse payload metrics regardless of the run's outcome — sidecars may
@@ -289,19 +280,24 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	runReq.LastRun.Set(true, latency, nil)
 }
 
-// RunOnce runs the probe just once.
+// RunOnce runs the probe just once, as a one-shot: the sidecar doesn't
+// retain any per-target session for these runs.
 func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 	p.l.Info("Running external_grpc probe once.")
-	return sched.RunOnce(ctx, p.opts, p.runProbe)
+	return sched.RunOnce(ctx, p.opts, func(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+		p.runProbe(ctx, runReq, true)
+	})
 }
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	s := &sched.Scheduler{
-		ProbeName:         p.name,
-		DataChan:          dataChan,
-		Opts:              p.opts,
-		RunProbeForTarget: p.runProbe,
+		ProbeName: p.name,
+		DataChan:  dataChan,
+		Opts:      p.opts,
+		RunProbeForTarget: func(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+			p.runProbe(ctx, runReq, false)
+		},
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
 }
