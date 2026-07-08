@@ -84,13 +84,29 @@ var internalProbe = ProbeType[struct{}, any]{
 	},
 }
 
+// tempSocketPath returns a path for a unix socket in a short-named temp
+// directory (registered for cleanup), and the "unix:" address for it.
+// Deliberately not t.TempDir(): it nests under the full (long) test name,
+// which can push the socket path past macOS's ~104-byte sun_path limit.
+func tempSocketPath(t *testing.T, name string) (path, addr string) {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "cpext")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	path = filepath.Join(dir, name)
+	// "unix:" (single colon, no slashes) round-trips through gRPC's target
+	// parsing for both POSIX and Windows paths; "unix://" breaks on Windows
+	// paths with a drive letter (see Listen).
+	return path, "unix:" + path
+}
+
 // startServer runs Serve on a unix socket and returns a connected client.
 func startServer(t *testing.T, opts ...Option) pb.ProberClient {
 	t.Helper()
-	sock := filepath.Join(t.TempDir(), "test.sock")
+	sock, addr := tempSocketPath(t, "test.sock")
 	go func() {
 		opts := append([]Option{
-			Listen("unix://" + sock),
+			Listen(addr),
 			IdleTTL(time.Minute),
 			Register("counter", counterProbe),
 			Register("panicky", panicProbe),
@@ -108,7 +124,7 @@ func startServer(t *testing.T, opts ...Option) pb.ProberClient {
 		return err == nil
 	}, 5*time.Second, 10*time.Millisecond)
 
-	conn, err := grpc.NewClient("unix://"+sock, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 	return pb.NewProberClient(conn)

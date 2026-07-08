@@ -32,8 +32,9 @@ const (
 type ProbeConf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Sidecar server address. Typically a co-located unix domain socket, e.g.
-	// "unix:///var/run/cloudprober/sidecar.sock", but any gRPC target string
-	// works, e.g. "localhost:9314".
+	// "unix:/var/run/cloudprober/sidecar.sock" (single colon — this form works
+	// for both POSIX and Windows paths; see sidecar.Listen), but any gRPC
+	// target string works, e.g. "localhost:9314".
 	Server *string `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
 	// Probe type registered on the sidecar, e.g. "snowsql". A single sidecar
 	// process can serve multiple probe types.

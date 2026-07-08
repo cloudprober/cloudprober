@@ -17,6 +17,7 @@ package grpcext
 import (
 	"context"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -79,17 +80,33 @@ func (f *fakeSidecar) requests() []*configpb.ProbeRequest {
 	return append([]*configpb.ProbeRequest{}, f.reqs...)
 }
 
+// tempSocketPath returns a path for a unix socket in a short-named temp
+// directory (registered for cleanup), and the "unix:" address for it.
+// Deliberately not t.TempDir(): it nests under the full (long) test name,
+// which can push the socket path past macOS's ~104-byte sun_path limit.
+func tempSocketPath(t *testing.T, name string) (path, addr string) {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "cpext")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	path = filepath.Join(dir, name)
+	// "unix:" (single colon, no slashes) round-trips through gRPC's target
+	// parsing for both POSIX and Windows paths; "unix://" breaks on Windows
+	// paths with a drive letter (see sidecar.Listen).
+	return path, "unix:" + path
+}
+
 // startFakeSidecar runs f on a unix socket and returns the server address.
 func startFakeSidecar(t *testing.T, f *fakeSidecar) string {
 	t.Helper()
-	sock := filepath.Join(t.TempDir(), "sidecar.sock")
+	sock, addr := tempSocketPath(t, "sidecar.sock")
 	lis, err := net.Listen("unix", sock)
 	require.NoError(t, err)
 	srv := grpc.NewServer()
 	configpb.RegisterProberServer(srv, f)
 	go srv.Serve(lis)
 	t.Cleanup(srv.Stop)
-	return "unix://" + sock
+	return addr
 }
 
 func newOpts(t *testing.T, server string) *options.Options {
@@ -211,8 +228,8 @@ func TestProbeInternalError(t *testing.T) {
 
 func TestProbeSidecarDown(t *testing.T) {
 	// Point the probe at a socket that nothing listens on.
-	sock := filepath.Join(t.TempDir(), "nobody-home.sock")
-	p := initProbe(t, newOpts(t, "unix://"+sock))
+	_, addr := tempSocketPath(t, "nobody-home.sock")
+	p := initProbe(t, newOpts(t, addr))
 
 	runReq := newRunReq()
 	runProbeOnce(t, p, runReq)
@@ -349,6 +366,6 @@ func TestInitValidatesConfigWithSidecar(t *testing.T) {
 	require.NoError(t, (&Probe{}).Init("p", opts))
 
 	// Unreachable sidecar is not an Init error: it may just not be up yet.
-	sock := filepath.Join(t.TempDir(), "nobody-home.sock")
-	require.NoError(t, (&Probe{}).Init("p", newOpts(t, "unix://"+sock)))
+	_, addr := tempSocketPath(t, "nobody-home.sock")
+	require.NoError(t, (&Probe{}).Init("p", newOpts(t, addr)))
 }

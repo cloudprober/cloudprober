@@ -41,10 +41,28 @@ const defaultIdleTTL = 10 * time.Minute
 // Option configures Serve.
 type Option func(*server)
 
-// Listen sets the address to serve on: "unix:///path/to/socket" for a unix
-// domain socket (the co-located default), or a TCP address like ":9314".
+// Listen sets the address to serve on: a unix domain socket (the co-located
+// default) or a TCP address like ":9314".
+//
+// For the unix-socket form, prefer "unix:/path/to/socket" (single colon) —
+// it round-trips correctly through gRPC's target parsing for both POSIX
+// paths and Windows paths, including ones with a drive letter (e.g.
+// "unix:C:\Users\...\sidecar.sock"). "unix:///path/to/socket" (the more
+// familiar triple-slash form) also works for POSIX absolute paths, but
+// breaks on Windows: the drive letter's colon is misread as a URL port
+// separator.
 func Listen(addr string) Option {
 	return func(s *server) { s.addr = addr }
+}
+
+// unixSocketPath extracts the filesystem path from a unix-socket listen
+// address, accepting both the "unix:" and "unix://" prefixes (see Listen).
+// "unix://" must be checked first since "unix:" is a prefix of it.
+func unixSocketPath(addr string) (path string, ok bool) {
+	if p, ok := strings.CutPrefix(addr, "unix://"); ok {
+		return p, true
+	}
+	return strings.CutPrefix(addr, "unix:")
 }
 
 // IdleTTL overrides how long an unused per-target session is kept before
@@ -122,7 +140,7 @@ func Serve(opts ...Option) error {
 
 	var lis net.Listener
 	var err error
-	if path, ok := strings.CutPrefix(s.addr, "unix://"); ok {
+	if path, ok := unixSocketPath(s.addr); ok {
 		if err := removeStaleSocket(path); err != nil {
 			return err
 		}
