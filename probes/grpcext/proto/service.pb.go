@@ -22,6 +22,94 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ValidateConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProbeType     string                 `protobuf:"bytes,1,opt,name=probe_type,json=probeType,proto3" json:"probe_type,omitempty"`
+	Config        []byte                 `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateConfigRequest) Reset() {
+	*x = ValidateConfigRequest{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateConfigRequest) ProtoMessage() {}
+
+func (x *ValidateConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateConfigRequest.ProtoReflect.Descriptor instead.
+func (*ValidateConfigRequest) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ValidateConfigRequest) GetProbeType() string {
+	if x != nil {
+		return x.ProbeType
+	}
+	return ""
+}
+
+func (x *ValidateConfigRequest) GetConfig() []byte {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+type ValidateConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateConfigResponse) Reset() {
+	*x = ValidateConfigResponse{}
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateConfigResponse) ProtoMessage() {}
+
+func (x *ValidateConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateConfigResponse.ProtoReflect.Descriptor instead.
+func (*ValidateConfigResponse) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{1}
+}
+
 // Target mirrors cloudprober's targets/endpoint.Endpoint.
 type Target struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -35,7 +123,7 @@ type Target struct {
 
 func (x *Target) Reset() {
 	*x = Target{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[0]
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +135,7 @@ func (x *Target) String() string {
 func (*Target) ProtoMessage() {}
 
 func (x *Target) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[0]
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +148,7 @@ func (x *Target) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Target.ProtoReflect.Descriptor instead.
 func (*Target) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{0}
+	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Target) GetName() string {
@@ -108,14 +196,18 @@ type ProbeRequest struct {
 	// cloudprober restart. The handle is a hint: on unknown/stale handle
 	// (e.g. sidecar restarted), the sidecar re-initializes per-target state
 	// and mints a fresh one.
-	StateHandle   []byte `protobuf:"bytes,5,opt,name=state_handle,json=stateHandle,proto3" json:"state_handle,omitempty"`
+	StateHandle []byte `protobuf:"bytes,5,opt,name=state_handle,json=stateHandle,proto3" json:"state_handle,omitempty"`
+	// Probe interval. Lets the sidecar size its per-target session idle TTL
+	// relative to the probe cadence, so sessions survive between runs of
+	// long-interval probes without manual TTL tuning.
+	Interval      *durationpb.Duration `protobuf:"bytes,6,opt,name=interval,proto3" json:"interval,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ProbeRequest) Reset() {
 	*x = ProbeRequest{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[1]
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -127,7 +219,7 @@ func (x *ProbeRequest) String() string {
 func (*ProbeRequest) ProtoMessage() {}
 
 func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[1]
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -140,7 +232,7 @@ func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeRequest.ProtoReflect.Descriptor instead.
 func (*ProbeRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{1}
+	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ProbeRequest) GetProbeType() string {
@@ -178,6 +270,13 @@ func (x *ProbeRequest) GetStateHandle() []byte {
 	return nil
 }
 
+func (x *ProbeRequest) GetInterval() *durationpb.Duration {
+	if x != nil {
+		return x.Interval
+	}
+	return nil
+}
+
 type ProbeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Did the probe succeed? This is about the target, not the sidecar; see
@@ -186,10 +285,11 @@ type ProbeResponse struct {
 	// Probe latency as measured by the sidecar. Excludes the
 	// cloudprober<->sidecar hop.
 	Latency *durationpb.Duration `protobuf:"bytes,2,opt,name=latency,proto3" json:"latency,omitempty"`
-	// internal_error indicates a sidecar/infra failure, NOT "target down".
-	// Cloudprober records it separately (internal_errors metric) instead of
-	// counting the run as a probe failure, so a broken sidecar doesn't look
-	// like a broken target.
+	// internal_error indicates a sidecar/infra failure rather than "target
+	// down". Cloudprober counts the run as a probe failure either way (so
+	// alerting on total/success still works), and additionally increments the
+	// internal_errors metric so a broken sidecar can be told apart from a
+	// broken target; the failure reason is logged.
 	InternalError bool   `protobuf:"varint,3,opt,name=internal_error,json=internalError,proto3" json:"internal_error,omitempty"`
 	Error         string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
 	// Additional metrics in cloudprober payload format, one metric per line:
@@ -209,7 +309,7 @@ type ProbeResponse struct {
 
 func (x *ProbeResponse) Reset() {
 	*x = ProbeResponse{}
-	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[2]
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -221,7 +321,7 @@ func (x *ProbeResponse) String() string {
 func (*ProbeResponse) ProtoMessage() {}
 
 func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[2]
+	mi := &file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -234,7 +334,7 @@ func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeResponse.ProtoReflect.Descriptor instead.
 func (*ProbeResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{2}
+	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ProbeResponse) GetSuccess() bool {
@@ -283,7 +383,12 @@ var File_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto p
 
 const file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDesc = "" +
 	"\n" +
-	"Egithub.com/cloudprober/cloudprober/probes/grpcext/proto/service.proto\x12\x1acloudprober.probes.grpcext\x1a\x1egoogle/protobuf/duration.proto\"\xc3\x01\n" +
+	"Egithub.com/cloudprober/cloudprober/probes/grpcext/proto/service.proto\x12\x1acloudprober.probes.grpcext\x1a\x1egoogle/protobuf/duration.proto\"N\n" +
+	"\x15ValidateConfigRequest\x12\x1d\n" +
+	"\n" +
+	"probe_type\x18\x01 \x01(\tR\tprobeType\x12\x16\n" +
+	"\x06config\x18\x02 \x01(\fR\x06config\"\x18\n" +
+	"\x16ValidateConfigResponse\"\xc3\x01\n" +
 	"\x06Target\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12F\n" +
 	"\x06labels\x18\x02 \x03(\v2..cloudprober.probes.grpcext.Target.LabelsEntryR\x06labels\x12\x0e\n" +
@@ -291,23 +396,25 @@ const file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto
 	"\x04port\x18\x04 \x01(\x05R\x04port\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd9\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\x02\n" +
 	"\fProbeRequest\x12\x1d\n" +
 	"\n" +
 	"probe_type\x18\x01 \x01(\tR\tprobeType\x12:\n" +
 	"\x06target\x18\x02 \x01(\v2\".cloudprober.probes.grpcext.TargetR\x06target\x12\x16\n" +
 	"\x06config\x18\x03 \x01(\fR\x06config\x123\n" +
 	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x12!\n" +
-	"\fstate_handle\x18\x05 \x01(\fR\vstateHandle\"\xd8\x01\n" +
+	"\fstate_handle\x18\x05 \x01(\fR\vstateHandle\x125\n" +
+	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\"\xd8\x01\n" +
 	"\rProbeResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x123\n" +
 	"\alatency\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\alatency\x12%\n" +
 	"\x0einternal_error\x18\x03 \x01(\bR\rinternalError\x12\x14\n" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12\x18\n" +
 	"\apayload\x18\x05 \x03(\tR\apayload\x12!\n" +
-	"\fstate_handle\x18\x06 \x01(\fR\vstateHandle2f\n" +
+	"\fstate_handle\x18\x06 \x01(\fR\vstateHandle2\xdf\x01\n" +
 	"\x06Prober\x12\\\n" +
-	"\x05Probe\x12(.cloudprober.probes.grpcext.ProbeRequest\x1a).cloudprober.probes.grpcext.ProbeResponseB9Z7github.com/cloudprober/cloudprober/probes/grpcext/protob\x06proto3"
+	"\x05Probe\x12(.cloudprober.probes.grpcext.ProbeRequest\x1a).cloudprober.probes.grpcext.ProbeResponse\x12w\n" +
+	"\x0eValidateConfig\x121.cloudprober.probes.grpcext.ValidateConfigRequest\x1a2.cloudprober.probes.grpcext.ValidateConfigResponseB9Z7github.com/cloudprober/cloudprober/probes/grpcext/protob\x06proto3"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescOnce sync.Once
@@ -321,26 +428,31 @@ func file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_
 	return file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_goTypes = []any{
-	(*Target)(nil),              // 0: cloudprober.probes.grpcext.Target
-	(*ProbeRequest)(nil),        // 1: cloudprober.probes.grpcext.ProbeRequest
-	(*ProbeResponse)(nil),       // 2: cloudprober.probes.grpcext.ProbeResponse
-	nil,                         // 3: cloudprober.probes.grpcext.Target.LabelsEntry
-	(*durationpb.Duration)(nil), // 4: google.protobuf.Duration
+	(*ValidateConfigRequest)(nil),  // 0: cloudprober.probes.grpcext.ValidateConfigRequest
+	(*ValidateConfigResponse)(nil), // 1: cloudprober.probes.grpcext.ValidateConfigResponse
+	(*Target)(nil),                 // 2: cloudprober.probes.grpcext.Target
+	(*ProbeRequest)(nil),           // 3: cloudprober.probes.grpcext.ProbeRequest
+	(*ProbeResponse)(nil),          // 4: cloudprober.probes.grpcext.ProbeResponse
+	nil,                            // 5: cloudprober.probes.grpcext.Target.LabelsEntry
+	(*durationpb.Duration)(nil),    // 6: google.protobuf.Duration
 }
 var file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_depIdxs = []int32{
-	3, // 0: cloudprober.probes.grpcext.Target.labels:type_name -> cloudprober.probes.grpcext.Target.LabelsEntry
-	0, // 1: cloudprober.probes.grpcext.ProbeRequest.target:type_name -> cloudprober.probes.grpcext.Target
-	4, // 2: cloudprober.probes.grpcext.ProbeRequest.timeout:type_name -> google.protobuf.Duration
-	4, // 3: cloudprober.probes.grpcext.ProbeResponse.latency:type_name -> google.protobuf.Duration
-	1, // 4: cloudprober.probes.grpcext.Prober.Probe:input_type -> cloudprober.probes.grpcext.ProbeRequest
-	2, // 5: cloudprober.probes.grpcext.Prober.Probe:output_type -> cloudprober.probes.grpcext.ProbeResponse
-	5, // [5:6] is the sub-list for method output_type
-	4, // [4:5] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5, // 0: cloudprober.probes.grpcext.Target.labels:type_name -> cloudprober.probes.grpcext.Target.LabelsEntry
+	2, // 1: cloudprober.probes.grpcext.ProbeRequest.target:type_name -> cloudprober.probes.grpcext.Target
+	6, // 2: cloudprober.probes.grpcext.ProbeRequest.timeout:type_name -> google.protobuf.Duration
+	6, // 3: cloudprober.probes.grpcext.ProbeRequest.interval:type_name -> google.protobuf.Duration
+	6, // 4: cloudprober.probes.grpcext.ProbeResponse.latency:type_name -> google.protobuf.Duration
+	3, // 5: cloudprober.probes.grpcext.Prober.Probe:input_type -> cloudprober.probes.grpcext.ProbeRequest
+	0, // 6: cloudprober.probes.grpcext.Prober.ValidateConfig:input_type -> cloudprober.probes.grpcext.ValidateConfigRequest
+	4, // 7: cloudprober.probes.grpcext.Prober.Probe:output_type -> cloudprober.probes.grpcext.ProbeResponse
+	1, // 8: cloudprober.probes.grpcext.Prober.ValidateConfig:output_type -> cloudprober.probes.grpcext.ValidateConfigResponse
+	7, // [7:9] is the sub-list for method output_type
+	5, // [5:7] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_init() }
@@ -354,7 +466,7 @@ func file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_grpcext_proto_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -28,11 +29,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 type counterConfig struct {
-	FailAfter int `json:"fail_after"`
+	FailAfter  int  `json:"fail_after"`
+	Invalidate bool `json:"invalidate"`
 }
 
 // counterSession counts probe runs, letting tests observe session reuse.
@@ -50,9 +54,22 @@ var counterProbe = ProbeType[counterConfig, *counterSession]{
 		if c.FailAfter > 0 && s.runs > c.FailAfter {
 			return Fail(fmt.Errorf("failing after %d runs", c.FailAfter))
 		}
-		return OK(time.Millisecond).Metric("runs", s.runs, "target", t.Name)
+		res := OK(time.Millisecond).Metric("runs", s.runs, "target", t.Name)
+		if c.Invalidate {
+			res.InvalidateSession()
+		}
+		return res
 	},
 	Close: func(s *counterSession) { closedSessions.Add(1) },
+}
+
+var newFailProbe = ProbeType[struct{}, any]{
+	New: func(ctx context.Context, t Target, c struct{}) (any, error) {
+		return nil, errors.New("target db unreachable")
+	},
+	Probe: func(ctx context.Context, t Target, c struct{}, _ any) *Result {
+		return OK(time.Millisecond)
+	},
 }
 
 var panicProbe = ProbeType[struct{}, any]{
@@ -68,20 +85,21 @@ var internalProbe = ProbeType[struct{}, any]{
 }
 
 // startServer runs Serve on a unix socket and returns a connected client.
-func startServer(t *testing.T) pb.ProberClient {
+func startServer(t *testing.T, opts ...Option) pb.ProberClient {
 	t.Helper()
 	sock := filepath.Join(t.TempDir(), "test.sock")
 	go func() {
-		err := Serve(
-			Listen("unix://"+sock),
+		opts := append([]Option{
+			Listen("unix://" + sock),
 			IdleTTL(time.Minute),
 			Register("counter", counterProbe),
 			Register("panicky", panicProbe),
 			Register("internal", internalProbe),
-		)
+			Register("newfail", newFailProbe),
+		}, opts...)
 		// Serve only returns on error; the test process may be shutting
-		// down, so just log.
-		t.Log("Serve returned:", err)
+		// down, so log via stdlib log rather than t.Log.
+		log.Println("Serve returned:", Serve(opts...))
 	}()
 
 	// Wait for the socket to show up.
@@ -180,11 +198,103 @@ func TestServeInternalPaths(t *testing.T) {
 func TestResultMetric(t *testing.T) {
 	r := OK(time.Second).
 		Metric("bytes", 4096).
+		Metric("ratio", 0.75).
 		Metric("bytes", 1024, "phase", "scan").
-		Metric("note", "hi there", "k1", "v1", "k2", "v2")
+		Metric("note", "hi there", "k1", "v1", "k2", "v2").
+		Metric("ok", true).
+		Metric("lat", "dist:sum:899|count:221|lb:0,1|bc:34,54").
+		Metric("odd", 1, "dangling")
 	assert.Equal(t, []string{
 		"bytes 4096",
+		"ratio 0.75",
 		`bytes{phase="scan"} 1024`,
-		`note{k1="v1",k2="v2"} hi there`,
+		// Strings and bools are quoted so cloudprober's payload parser
+		// accepts them; dist:/map: strings pass through raw; a dangling
+		// label key gets an empty value.
+		`note{k1="v1",k2="v2"} "hi there"`,
+		`ok "true"`,
+		"lat dist:sum:899|count:221|lb:0,1|bc:34,54",
+		`odd{dangling=""} 1`,
 	}, r.payload)
+}
+
+func TestServeNewError(t *testing.T) {
+	client := startServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// New failing is a target-level failure (can't reach the target), NOT a
+	// sidecar internal error.
+	resp, err := client.Probe(ctx, probeReq("newfail", "", nil))
+	require.NoError(t, err)
+	assert.False(t, resp.GetSuccess())
+	assert.False(t, resp.GetInternalError())
+	assert.Contains(t, resp.GetError(), "target db unreachable")
+}
+
+func TestValidateConfig(t *testing.T) {
+	client := startServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := client.ValidateConfig(ctx, &pb.ValidateConfigRequest{ProbeType: "counter", Config: []byte(`{"fail_after": 1}`)})
+	assert.NoError(t, err)
+
+	_, err = client.ValidateConfig(ctx, &pb.ValidateConfigRequest{ProbeType: "nosuchtype"})
+	assert.Equal(t, codes.NotFound, status.Code(err))
+
+	_, err = client.ValidateConfig(ctx, &pb.ValidateConfigRequest{ProbeType: "counter", Config: []byte(`{not json`)})
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+func TestRegisterErrors(t *testing.T) {
+	err := Serve(
+		Listen("unix:///tmp/unused.sock"),
+		Register("dup", counterProbe),
+		Register("dup", counterProbe),
+	)
+	assert.ErrorContains(t, err, `"dup" registered twice`)
+
+	err = Serve(
+		Listen("unix:///tmp/unused.sock"),
+		Register("noprobe", ProbeType[struct{}, any]{}),
+	)
+	assert.ErrorContains(t, err, "Probe function is required")
+}
+
+func TestSessionInvalidate(t *testing.T) {
+	client := startServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	newBefore, closedBefore := newSessions.Load(), closedSessions.Load()
+
+	// InvalidateSession => session is Closed after the run; the echoed
+	// handle is stale, so the next probe builds a fresh session.
+	resp, err := client.Probe(ctx, probeReq("counter", `{"invalidate": true}`, nil))
+	require.NoError(t, err)
+	assert.True(t, resp.GetSuccess())
+	assert.Equal(t, closedBefore+1, closedSessions.Load())
+
+	resp2, err := client.Probe(ctx, probeReq("counter", `{"invalidate": true}`, resp.GetStateHandle()))
+	require.NoError(t, err)
+	// runs=1 again: fresh session, not the invalidated one.
+	assert.Equal(t, []string{`runs{target="t1"} 1`}, resp2.GetPayload())
+	assert.Equal(t, newBefore+2, newSessions.Load())
+}
+
+func TestIdleEviction(t *testing.T) {
+	// Server with a very short TTL: the session created by one probe should
+	// be swept and Closed shortly after (sweep interval floors at 1s).
+	client := startServer(t, IdleTTL(100*time.Millisecond))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	closedBefore := closedSessions.Load()
+	_, err := client.Probe(ctx, probeReq("counter", "", nil))
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return closedSessions.Load() > closedBefore
+	}, 5*time.Second, 100*time.Millisecond, "idle session was never evicted/closed")
 }

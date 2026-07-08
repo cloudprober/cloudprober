@@ -26,8 +26,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -36,7 +38,9 @@ import (
 	configpb "github.com/cloudprober/cloudprober/probes/grpcext/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -52,17 +56,28 @@ type Probe struct {
 	// (payload-format lines) into EventMetrics. Same surface as external,
 	// http, and starlark probes use for custom metrics.
 	payloadParser *payload.Parser
+
+	// handleCache remembers the last state handle per target (keyed by
+	// endpoint key). The scheduler already persists handles across cycles on
+	// runReq.TargetState; this cache covers the paths where TargetState
+	// starts empty — RunOnce (which builds a throwaway runReq per call) and
+	// the first scheduled run — so repeated runs reuse one sidecar session
+	// per target instead of minting a new one each time.
+	handleCache sync.Map
 }
 
 type probeResult struct {
 	total, success int64
 	// internalErrors counts runs that failed because of sidecar/infra
 	// problems (sidecar unreachable, sidecar-reported internal_error). Such
-	// runs are not counted in total/success at all: "sidecar down" must not
-	// look like "target down".
-	internalErrors int64
-	latency        metrics.LatencyValue
-	payloadMetrics []*metrics.EventMetrics
+	// runs still count as probe failures (total moves, success doesn't) so
+	// that alerting on total/success keeps working during a sidecar outage;
+	// internal_errors separates "sidecar broken" from "target down", and the
+	// failure reason is logged.
+	internalErrors    int64
+	latency           metrics.LatencyValue
+	validationFailure *metrics.Map[int64]
+	payloadMetrics    []*metrics.EventMetrics
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
@@ -72,19 +87,23 @@ func (p *Probe) newResult() sched.ProbeResult {
 	} else {
 		r.latency = metrics.NewFloat(0)
 	}
+	if len(p.opts.Validators) > 0 {
+		r.validationFailure = validators.ValidationFailureMap(p.opts.Validators)
+	}
 	return r
 }
 
 func (r *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*metrics.EventMetrics {
-	ems := []*metrics.EventMetrics{
-		metrics.NewEventMetrics(ts).
-			AddMetric("total", metrics.NewInt(r.total)).
-			AddMetric("success", metrics.NewInt(r.success)).
-			AddMetric(opts.LatencyMetricName, r.latency.Clone()).
-			AddMetric("internal_errors", metrics.NewInt(r.internalErrors)).
-			AddLabel("ptype", "external_grpc"),
+	em := metrics.NewEventMetrics(ts).
+		AddMetric("total", metrics.NewInt(r.total)).
+		AddMetric("success", metrics.NewInt(r.success)).
+		AddMetric(opts.LatencyMetricName, r.latency.Clone()).
+		AddMetric("internal_errors", metrics.NewInt(r.internalErrors)).
+		AddLabel("ptype", "external_grpc")
+	if r.validationFailure != nil {
+		em.AddMetric("validation_failure", r.validationFailure)
 	}
-	ems = append(ems, r.payloadMetrics...)
+	ems := append([]*metrics.EventMetrics{em}, r.payloadMetrics...)
 	r.payloadMetrics = nil
 	return ems
 }
@@ -121,7 +140,52 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if err != nil {
 		return fmt.Errorf("payload parser init: %v", err)
 	}
-	return nil
+
+	return p.validateConfigWithSidecar()
+}
+
+// validateConfigWithSidecar asks the sidecar to check probe_type and config
+// at init time, so misconfigurations (typo'd probe type, undecodable config)
+// fail at startup instead of surfacing as internal errors every cycle. An
+// unreachable sidecar is not an init error — it may simply not be up yet —
+// and neither is a sidecar that doesn't implement the RPC.
+func (p *Probe) validateConfigWithSidecar() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := p.client.ValidateConfig(ctx, &configpb.ValidateConfigRequest{
+		ProbeType: p.c.GetProbeType(),
+		Config:    []byte(p.c.GetConfig()),
+	})
+	switch status.Code(err) {
+	case codes.OK, codes.Unimplemented:
+		return nil
+	case codes.NotFound, codes.InvalidArgument:
+		return fmt.Errorf("external_grpc probe: sidecar %s rejected config: %v", p.c.GetServer(), err)
+	default:
+		p.l.Warningf("Could not validate config with sidecar %s (%v); proceeding, config errors will surface at probe time", p.c.GetServer(), err)
+		return nil
+	}
+}
+
+// isInternalRPCError classifies a failed Probe RPC: DeadlineExceeded and
+// Canceled mean the probe ran out of time — almost always a hung target
+// (the sidecar handler shares our deadline), so we count it as a plain probe
+// failure. Anything else (Unavailable, Unimplemented, ...) means we couldn't
+// properly talk to the sidecar.
+func isInternalRPCError(err error) bool {
+	switch status.Code(err) {
+	case codes.DeadlineExceeded, codes.Canceled:
+		return false
+	}
+	return true
+}
+
+func respError(resp *configpb.ProbeResponse) string {
+	if e := resp.GetError(); e != "" {
+		return e
+	}
+	return "no error reported by sidecar"
 }
 
 func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
@@ -141,39 +205,47 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 			Labels: target.Labels,
 			Port:   int32(target.Port),
 		},
-		Config:  []byte(p.c.GetConfig()),
-		Timeout: durationpb.New(p.opts.Timeout),
+		Config:   []byte(p.c.GetConfig()),
+		Timeout:  durationpb.New(p.opts.Timeout),
+		Interval: durationpb.New(p.opts.Interval),
 	}
 	if target.IP != nil {
 		req.Target.Ip = target.IP.String()
 	}
 	// state_handle is the wire image of the in-process TargetState: an opaque
 	// per-target session handle that the sidecar mints and we simply echo
-	// back each cycle.
+	// back each cycle. When TargetState is empty (first scheduled run, or
+	// RunOnce which gets a throwaway runReq per call), fall back to the
+	// probe-level handle cache so we don't mint a new sidecar session per
+	// run.
 	if h, ok := runReq.TargetState.([]byte); ok {
 		req.StateHandle = h
+	} else if h, ok := p.handleCache.Load(target.Key()); ok {
+		req.StateHandle = h.([]byte)
 	}
+
+	// Every run counts toward total, including sidecar/infra failures —
+	// alerting works off total/success deltas, so a sidecar outage must
+	// still register as failed runs. internal_errors tells the two apart.
+	result.total++
 
 	resp, err := p.client.Probe(ctx, req)
 	if err != nil {
-		result.internalErrors++
-		p.l.Warningf("target(%s): error talking to sidecar %s: %v", target.Name, p.c.GetServer(), err)
+		if isInternalRPCError(err) {
+			result.internalErrors++
+		}
+		p.l.Warningf("target(%s): probe via sidecar %s failed: %v", target.Name, p.c.GetServer(), err)
 		runReq.LastRun.Set(false, 0, err)
 		return
 	}
 
-	if len(resp.GetStateHandle()) > 0 {
-		runReq.TargetState = resp.GetStateHandle()
+	if h := resp.GetStateHandle(); len(h) > 0 {
+		runReq.TargetState = h
+		p.handleCache.Store(target.Key(), h)
 	}
 
-	if resp.GetInternalError() {
-		result.internalErrors++
-		err := fmt.Errorf("sidecar internal error: %s", resp.GetError())
-		p.l.Warningf("target(%s): %v", target.Name, err)
-		runReq.LastRun.Set(false, 0, err)
-		return
-	}
-
+	// Parse payload metrics regardless of the run's outcome — sidecars may
+	// attach diagnostics to failed runs too.
 	if len(resp.GetPayload()) > 0 {
 		text := strings.Join(resp.GetPayload(), "\n")
 		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: []byte(text)}, target.Dst()) {
@@ -181,13 +253,37 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 		}
 	}
 
-	result.total++
-	latency := resp.GetLatency().AsDuration()
-	if !resp.GetSuccess() {
-		p.l.Infof("target(%s): probe failed: %s", target.Name, resp.GetError())
-		runReq.LastRun.Set(false, latency, errors.New(resp.GetError()))
+	if resp.GetInternalError() {
+		result.internalErrors++
+		err := fmt.Errorf("sidecar internal error: %s", respError(resp))
+		p.l.Warningf("target(%s): %v", target.Name, err)
+		runReq.LastRun.Set(false, 0, err)
 		return
 	}
+
+	latency := resp.GetLatency().AsDuration()
+	if latency < 0 {
+		p.l.Warningf("target(%s): sidecar reported negative latency (%v), using 0", target.Name, latency)
+		latency = 0
+	}
+
+	if !resp.GetSuccess() {
+		p.l.Infof("target(%s): probe failed: %s", target.Name, respError(resp))
+		runReq.LastRun.Set(false, latency, errors.New(respError(resp)))
+		return
+	}
+
+	if result.validationFailure != nil {
+		payloadText := strings.Join(resp.GetPayload(), "\n")
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: []byte(payloadText)}, result.validationFailure, p.l)
+		if len(failedValidations) > 0 {
+			err := fmt.Errorf("validation failed: %v", failedValidations)
+			p.l.Infof("target(%s): %v", target.Name, err)
+			runReq.LastRun.Set(false, latency, err)
+			return
+		}
+	}
+
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	runReq.LastRun.Set(true, latency, nil)

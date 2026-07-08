@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Prober_Probe_FullMethodName = "/cloudprober.probes.grpcext.Prober/Probe"
+	Prober_Probe_FullMethodName          = "/cloudprober.probes.grpcext.Prober/Probe"
+	Prober_ValidateConfig_FullMethodName = "/cloudprober.probes.grpcext.Prober/ValidateConfig"
 )
 
 // ProberClient is the client API for Prober service.
@@ -37,6 +38,13 @@ const (
 type ProberClient interface {
 	// Probe runs one probe cycle for one target.
 	Probe(ctx context.Context, in *ProbeRequest, opts ...grpc.CallOption) (*ProbeResponse, error)
+	// ValidateConfig checks that probe_type is registered on this sidecar and
+	// that config is decodable, without running a probe. Cloudprober calls it
+	// once at probe init so misconfigurations fail fast at startup; errors are
+	// reported as gRPC statuses (NOT_FOUND for an unknown probe type,
+	// INVALID_ARGUMENT for a bad config). If the sidecar is unreachable at
+	// init or doesn't implement this RPC, cloudprober logs and proceeds.
+	ValidateConfig(ctx context.Context, in *ValidateConfigRequest, opts ...grpc.CallOption) (*ValidateConfigResponse, error)
 }
 
 type proberClient struct {
@@ -51,6 +59,16 @@ func (c *proberClient) Probe(ctx context.Context, in *ProbeRequest, opts ...grpc
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ProbeResponse)
 	err := c.cc.Invoke(ctx, Prober_Probe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *proberClient) ValidateConfig(ctx context.Context, in *ValidateConfigRequest, opts ...grpc.CallOption) (*ValidateConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateConfigResponse)
+	err := c.cc.Invoke(ctx, Prober_ValidateConfig_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +90,13 @@ func (c *proberClient) Probe(ctx context.Context, in *ProbeRequest, opts ...grpc
 type ProberServer interface {
 	// Probe runs one probe cycle for one target.
 	Probe(context.Context, *ProbeRequest) (*ProbeResponse, error)
+	// ValidateConfig checks that probe_type is registered on this sidecar and
+	// that config is decodable, without running a probe. Cloudprober calls it
+	// once at probe init so misconfigurations fail fast at startup; errors are
+	// reported as gRPC statuses (NOT_FOUND for an unknown probe type,
+	// INVALID_ARGUMENT for a bad config). If the sidecar is unreachable at
+	// init or doesn't implement this RPC, cloudprober logs and proceeds.
+	ValidateConfig(context.Context, *ValidateConfigRequest) (*ValidateConfigResponse, error)
 	mustEmbedUnimplementedProberServer()
 }
 
@@ -84,6 +109,9 @@ type UnimplementedProberServer struct{}
 
 func (UnimplementedProberServer) Probe(context.Context, *ProbeRequest) (*ProbeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Probe not implemented")
+}
+func (UnimplementedProberServer) ValidateConfig(context.Context, *ValidateConfigRequest) (*ValidateConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateConfig not implemented")
 }
 func (UnimplementedProberServer) mustEmbedUnimplementedProberServer() {}
 func (UnimplementedProberServer) testEmbeddedByValue()                {}
@@ -124,6 +152,24 @@ func _Prober_Probe_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Prober_ValidateConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProberServer).ValidateConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Prober_ValidateConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProberServer).ValidateConfig(ctx, req.(*ValidateConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Prober_ServiceDesc is the grpc.ServiceDesc for Prober service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +180,10 @@ var Prober_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Probe",
 			Handler:    _Prober_Probe_Handler,
+		},
+		{
+			MethodName: "ValidateConfig",
+			Handler:    _Prober_ValidateConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

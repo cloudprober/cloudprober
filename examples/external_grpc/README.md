@@ -37,9 +37,11 @@ curl -s localhost:9313/metrics | grep sidecar
 
 You should see `total`, `success`, `latency`, and `internal_errors` for both
 probes, plus the sidecar-provided `resp_bytes` metric for the `http` probe.
-`internal_errors` counts sidecar/infra failures (e.g. sidecar down) —
-separately from probe failures, so a broken sidecar doesn't look like a
-broken target. Try killing the sidecar to see it in action.
+Sidecar/infra failures (e.g. sidecar down) count as probe failures like any
+other — alerting on `total`/`success` keeps working — and additionally
+increment `internal_errors`, so you can tell a broken sidecar apart from a
+broken target; the failure reason is in cloudprober's logs. Try killing the
+sidecar to see it in action.
 
 ## Writing your own sidecar
 

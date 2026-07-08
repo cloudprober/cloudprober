@@ -17,19 +17,22 @@ package sidecar
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	pb "github.com/cloudprober/cloudprober/probes/grpcext/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -45,23 +48,44 @@ func Listen(addr string) Option {
 }
 
 // IdleTTL overrides how long an unused per-target session is kept before
-// being evicted and Closed. Default is 10 minutes. This is the backstop that
-// keeps a sidecar from leaking sessions when targets disappear on the
-// cloudprober side.
+// being evicted and Closed. Default is 10 minutes; a zero or negative value
+// disables idle eviction entirely. Sessions of probes that report their
+// interval are additionally kept for at least 2x the interval, so
+// long-interval probes don't lose their session between runs regardless of
+// this setting. This is the backstop that keeps a sidecar from leaking
+// sessions when targets disappear on the cloudprober side.
 func IdleTTL(d time.Duration) Option {
 	return func(s *server) { s.idleTTL = d }
 }
 
 // Register adds a probe type under the given name. A single sidecar process
-// can serve any number of probe types.
+// can serve any number of probe types. Registering a probe type without a
+// Probe function, or two probe types under the same name, is an error that
+// Serve reports.
 func Register[C, S any](name string, pt ProbeType[C, S]) Option {
-	return func(s *server) { s.probeTypes[name] = typedHandler[C, S]{pt: pt} }
+	return func(s *server) {
+		if pt.Probe == nil {
+			s.initErrs = append(s.initErrs, fmt.Errorf("probe type %q: Probe function is required", name))
+			return
+		}
+		if _, dup := s.probeTypes[name]; dup {
+			s.initErrs = append(s.initErrs, fmt.Errorf("probe type %q registered twice", name))
+			return
+		}
+		s.probeTypes[name] = typedHandler[C, S]{pt: pt}
+	}
 }
 
 type session struct {
 	val      any
 	h        handler
-	lastUsed time.Time // guarded by server.mu
+	typeName string
+
+	// Fields below are guarded by server.mu.
+	lastUsed time.Time
+	inUse    int           // in-flight probes using this session
+	evict    bool          // close and drop once inUse reaches 0
+	minTTL   time.Duration // interval-derived TTL floor (2x probe interval)
 }
 
 type server struct {
@@ -70,6 +94,7 @@ type server struct {
 	addr       string
 	idleTTL    time.Duration
 	probeTypes map[string]handler
+	initErrs   []error
 
 	mu       sync.Mutex
 	sessions map[string]*session // keyed by state handle
@@ -85,6 +110,9 @@ func Serve(opts ...Option) error {
 	for _, opt := range opts {
 		opt(s)
 	}
+	if len(s.initErrs) > 0 {
+		return errors.Join(s.initErrs...)
+	}
 	if s.addr == "" {
 		return fmt.Errorf("no listen address; use sidecar.Listen()")
 	}
@@ -95,7 +123,9 @@ func Serve(opts ...Option) error {
 	var lis net.Listener
 	var err error
 	if path, ok := strings.CutPrefix(s.addr, "unix://"); ok {
-		os.Remove(path) // remove stale socket from a previous run
+		if err := removeStaleSocket(path); err != nil {
+			return err
+		}
 		lis, err = net.Listen("unix", path)
 	} else {
 		lis, err = net.Listen("tcp", s.addr)
@@ -104,25 +134,53 @@ func Serve(opts ...Option) error {
 		return fmt.Errorf("listening on %s: %v", s.addr, err)
 	}
 
-	go s.sweepIdleSessions()
+	stopSweep := make(chan struct{})
+	defer close(stopSweep)
+	go s.sweepIdleSessions(stopSweep)
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterProberServer(grpcServer, s)
 	healthpb.RegisterHealthServer(grpcServer, health.NewServer())
 
+	log.Printf("cloudprober sidecar: serving probe types %v on %s", s.typeNames(), s.addr)
+	return grpcServer.Serve(lis)
+}
+
+// removeStaleSocket clears a leftover socket file from a previous run, but
+// refuses to remove a path that isn't a socket or that a live server is
+// still accepting connections on.
+func removeStaleSocket(path string) error {
+	fi, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSocket == 0 {
+		return fmt.Errorf("refusing to remove %s: it exists and is not a socket", path)
+	}
+	if conn, err := net.DialTimeout("unix", path, time.Second); err == nil {
+		conn.Close()
+		return fmt.Errorf("%s is in use by a running server", path)
+	}
+	return os.Remove(path)
+}
+
+func (s *server) typeNames() []string {
 	var types []string
 	for name := range s.probeTypes {
 		types = append(types, name)
 	}
-	log.Printf("cloudprober sidecar: serving probe types %v on %s", types, s.addr)
-	return grpcServer.Serve(lis)
+	sort.Strings(types)
+	return types
 }
 
 // Probe implements the cloudprober.probes.grpcext.Prober service.
 func (s *server) Probe(ctx context.Context, req *pb.ProbeRequest) (*pb.ProbeResponse, error) {
 	h := s.probeTypes[req.GetProbeType()]
 	if h == nil {
-		return toProto(Internal(fmt.Errorf("unknown probe type: %q", req.GetProbeType())), nil), nil
+		return toProto(Internal(fmt.Errorf("unknown probe type: %q (registered: %v)", req.GetProbeType(), s.typeNames())), nil), nil
 	}
 
 	t := Target{
@@ -132,72 +190,148 @@ func (s *server) Probe(ctx context.Context, req *pb.ProbeRequest) (*pb.ProbeResp
 		Port:   int(req.GetTarget().GetPort()),
 	}
 
-	var sessVal any
+	var sess *session
 	var handle []byte
 	if h.stateful() {
-		var err error
-		sessVal, handle, err = s.getSession(ctx, h, t, req)
-		if err != nil {
-			return toProto(Internal(fmt.Errorf("creating session: %v", err)), nil), nil
+		var errRes *Result
+		sess, handle, errRes = s.acquireSession(ctx, h, t, req)
+		if errRes != nil {
+			return toProto(errRes, nil), nil
 		}
+		defer s.releaseSession(string(handle), sess)
 	}
 
-	return toProto(runProbeSafely(ctx, h, t, req.GetConfig(), sessVal), handle), nil
+	var sessVal any
+	if sess != nil {
+		sessVal = sess.val
+	}
+	res := runProbeSafely(ctx, h, t, req.GetConfig(), sessVal)
+	if res.invalidateSession && sess != nil {
+		s.mu.Lock()
+		sess.evict = true
+		s.mu.Unlock()
+	}
+	return toProto(res, handle), nil
 }
 
-// getSession returns the session for the request's state handle, building a
-// new one (and minting a new handle) if the handle is empty or unknown —
-// e.g. on first contact, after sidecar restart, or after idle eviction.
+// ValidateConfig implements the config check cloudprober runs at probe init.
+func (s *server) ValidateConfig(ctx context.Context, req *pb.ValidateConfigRequest) (*pb.ValidateConfigResponse, error) {
+	h := s.probeTypes[req.GetProbeType()]
+	if h == nil {
+		return nil, status.Errorf(codes.NotFound, "unknown probe type: %q (registered: %v)", req.GetProbeType(), s.typeNames())
+	}
+	if err := h.validateConfig(req.GetConfig()); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "probe type %q: %v", req.GetProbeType(), err)
+	}
+	return &pb.ValidateConfigResponse{}, nil
+}
+
+// acquireSession returns the session for the request's state handle, pinned
+// against eviction until releaseSession. A new session (and handle) is built
+// if the handle is empty, unknown (first contact, sidecar restart, idle
+// eviction), or belongs to a different probe type. On failure it returns an
+// error Result: config-decode errors are internal (misconfiguration), while
+// New errors are target-level failures — for connection-per-target probe
+// types, New failing IS "can't reach the target".
 //
 // Note: sessions aren't single-flighted; cloudprober runs one probe loop per
 // target, so concurrent first-probes for the same target don't happen in
 // practice.
-func (s *server) getSession(ctx context.Context, h handler, t Target, req *pb.ProbeRequest) (any, []byte, error) {
+func (s *server) acquireSession(ctx context.Context, h handler, t Target, req *pb.ProbeRequest) (*session, []byte, *Result) {
 	handle := req.GetStateHandle()
+	minTTL := 2 * req.GetInterval().AsDuration()
 
 	s.mu.Lock()
-	if sess := s.sessions[string(handle)]; len(handle) > 0 && sess != nil {
+	if sess := s.sessions[string(handle)]; len(handle) > 0 && sess != nil && sess.typeName == req.GetProbeType() {
 		sess.lastUsed = time.Now()
+		sess.inUse++
+		sess.minTTL = minTTL
 		s.mu.Unlock()
-		return sess.val, handle, nil
+		return sess, handle, nil
 	}
 	s.mu.Unlock()
 
 	val, err := h.newSession(ctx, t, req.GetConfig())
 	if err != nil {
-		return nil, nil, err
+		var ce configError
+		if errors.As(err, &ce) {
+			return nil, nil, Internal(err)
+		}
+		return nil, nil, Fail(fmt.Errorf("creating session: %v", err))
 	}
 
 	handle = mintHandle()
+	sess := &session{val: val, h: h, typeName: req.GetProbeType(), lastUsed: time.Now(), inUse: 1, minTTL: minTTL}
 	s.mu.Lock()
-	s.sessions[string(handle)] = &session{val: val, h: h, lastUsed: time.Now()}
+	s.sessions[string(handle)] = sess
 	s.mu.Unlock()
 	log.Printf("cloudprober sidecar: new session for target %q (%s)", t.Name, req.GetProbeType())
-	return val, handle, nil
+	return sess, handle, nil
 }
 
-func (s *server) sweepIdleSessions() {
+func (s *server) releaseSession(key string, sess *session) {
+	s.mu.Lock()
+	sess.inUse--
+	sess.lastUsed = time.Now()
+	evictNow := sess.evict && sess.inUse == 0 && s.sessions[key] == sess
+	if evictNow {
+		delete(s.sessions, key)
+	}
+	s.mu.Unlock()
+	if evictNow {
+		closeSafely(sess)
+	}
+}
+
+func (s *server) sweepIdleSessions(stop <-chan struct{}) {
 	sweepInterval := s.idleTTL / 4
 	if sweepInterval < time.Second {
 		sweepInterval = time.Second
 	}
-	for range time.Tick(sweepInterval) {
+	ticker := time.NewTicker(sweepInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+		}
+
 		var evicted []*session
 		s.mu.Lock()
 		for key, sess := range s.sessions {
-			if time.Since(sess.lastUsed) > s.idleTTL {
+			ttl := s.idleTTL
+			if sess.minTTL > ttl {
+				ttl = sess.minTTL
+			}
+			// idleTTL <= 0 means idle eviction is disabled; explicit
+			// invalidation (sess.evict) still applies.
+			expired := s.idleTTL > 0 && time.Since(sess.lastUsed) > ttl
+			if sess.inUse == 0 && (expired || sess.evict) {
 				evicted = append(evicted, sess)
 				delete(s.sessions, key)
 			}
 		}
 		s.mu.Unlock()
 		for _, sess := range evicted {
-			sess.h.closeSession(sess.val)
+			closeSafely(sess)
 		}
 		if len(evicted) > 0 {
 			log.Printf("cloudprober sidecar: evicted %d idle session(s)", len(evicted))
 		}
 	}
+}
+
+// closeSafely runs the author's Close hook, containing panics so a buggy
+// Close can't take down the sidecar (which may serve other probe types).
+func closeSafely(sess *session) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("cloudprober sidecar: panic in session Close: %v", r)
+		}
+	}()
+	sess.h.closeSession(sess.val)
 }
 
 // runProbeSafely runs the probe handler, converting panics and nil results
@@ -232,5 +366,5 @@ func toProto(r *Result, stateHandle []byte) *pb.ProbeResponse {
 func mintHandle() []byte {
 	b := make([]byte, 16)
 	rand.Read(b)
-	return []byte(hex.EncodeToString(b))
+	return b
 }
