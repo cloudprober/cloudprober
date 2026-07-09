@@ -30,6 +30,7 @@ func builtins(vars map[string]string) starlarklib.StringDict {
 		"vars":         varsModule(vars),
 		"log":          logModule(),
 		"state":        stateModule(),
+		"jwt":          jwtModule(),
 		"print_metric": starlarklib.NewBuiltin("print_metric", printMetric),
 	}
 }
