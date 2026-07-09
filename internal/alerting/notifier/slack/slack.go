@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	// DEFAULT_SLACK_WEBHOOK_URL_ENV_VAR is the default environment variable
+	// DefaultSlackWebhookURLEnvVar is the default environment variable
 	// to use for the Slack webhook URL.
-	DEFAULT_SLACK_WEBHOOK_URL_ENV_VAR = "SLACK_WEBHOOK_URL"
+	DefaultSlackWebhookURLEnvVar = "SLACK_WEBHOOK_URL"
 )
 
 // Client is a Slack client.
@@ -80,7 +80,7 @@ func webhookUrlEnvVar(slackcfg *configpb.Slack) string {
 		return slackcfg.GetWebhookUrlEnvVar()
 	}
 
-	return DEFAULT_SLACK_WEBHOOK_URL_ENV_VAR
+	return DefaultSlackWebhookURLEnvVar
 }
 
 // webhookMessage is the message that is sent to the Slack webhook.

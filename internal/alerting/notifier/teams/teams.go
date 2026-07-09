@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	// DEFAULT_TEAMS_WEBHOOK_URL_ENV_VAR is the default environment variable
+	// DefaultTeamsWebhookURLEnvVar is the default environment variable
 	// to use for the Teams webhook URL.
-	DEFAULT_TEAMS_WEBHOOK_URL_ENV_VAR = "TEAMS_WEBHOOK_URL"
+	DefaultTeamsWebhookURLEnvVar = "TEAMS_WEBHOOK_URL"
 )
 
 // Client is a Teams client.
@@ -80,7 +80,7 @@ func webhookUrlEnvVar(teamscfg *configpb.Teams) string {
 		return teamscfg.GetWebhookUrlEnvVar()
 	}
 
-	return DEFAULT_TEAMS_WEBHOOK_URL_ENV_VAR
+	return DefaultTeamsWebhookURLEnvVar
 }
 
 // webhookMessage is the message that is sent to the Teams webhook.
