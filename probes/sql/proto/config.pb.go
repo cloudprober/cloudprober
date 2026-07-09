@@ -90,20 +90,19 @@ type ProbeConf struct {
 	// Database flavor. Required. Currently only POSTGRES is supported; more
 	// flavors may be added based on demand.
 	Flavor *ProbeConf_Flavor `protobuf:"varint,1,opt,name=flavor,enum=cloudprober.probes.sql.ProbeConf_Flavor" json:"flavor,omitempty"`
-	// Connection parameters. Host and port always come from the probe's
-	// target (like the tcp, http, and grpc probes); connection_string and the
-	// user/password/database fields below configure everything else
-	// (credentials, database name, sslmode, ...). If connection_string sets a
-	// host or port, it's overridden by the target.
+	// Connection parameters. Host always comes from the probe's target (like
+	// the tcp, http, and grpc probes); any host in connection_string or from
+	// environment (e.g. PGHOST) is ignored. Port comes from the target when
+	// set (target.port != 0); otherwise it falls back to connection_string or
+	// environment, following the same precedence as everything else below.
 	//
-	// Connection is configured in the following order, with later steps
-	// overriding the earlier ones:
+	// Credentials, database name, and other parameters (sslmode, ...) are
+	// resolved in the following order, each step overriding the earlier ones:
 	//  1. Flavor-specific defaults and environment variables. For POSTGRES,
-	//     libpq environment variables (PGHOST, PGUSER, PGPASSWORD, PGDATABASE,
-	//     PGSSLMODE, ...) are honored.
+	//     libpq environment variables (PGUSER, PGPASSWORD, PGDATABASE,
+	//     PGSSLMODE, PGPORT, ...) are honored.
 	//  2. connection_string, if set.
 	//  3. user, password, and database fields, if set.
-	//  4. Target's host and port.
 	//
 	// connection_string can be in URL form
 	// ("postgres://user:pass@host:5432/db?sslmode=require") or key/value form
