@@ -36,15 +36,16 @@ message ProbeConf {
   //  2. connection_string, if set.
   //  3. user, password, and database fields, if set.
   //
-  // connection_string can be in URL form
-  // ("postgres://user:pass@/db?sslmode=require") or key/value form
-  // ("dbname=db user=u"); a host/port can be included but is ignored or
-  // overridden as described above, so it's simplest to just omit it.
-  // @target.xxx@ substitutions (target.name, target.ip, target.port,
-  // target.label.<label>, probe) are supported, but only reliably in the
-  // key/value form -- in the URL form, the literal '@' before the (possibly
-  // empty) host confuses token parsing. For example:
+  // connection_string is a key/value list, e.g. "dbname=db user=u
+  // sslmode=require". @target.xxx@ substitutions (target.name, target.ip,
+  // target.port, target.label.<label>, probe) are supported, e.g.:
   //   connection_string: "dbname=@target.label.db@ sslmode=require"
+  //
+  // A postgres:// URL is also accepted (e.g. to reuse a connection string a
+  // cloud provider handed you, minus its host/port) but isn't recommended:
+  // a host/port in it is ignored or overridden as described above, and the
+  // literal '@' before the (possibly empty) host confuses @target.xxx@
+  // substitution token parsing -- use the key/value form when substituting.
   //
   // To keep secrets out of the config file, use the config-level envSecret
   // template function, e.g. password: "{{envSecret "DB_PASSWORD"}}".
