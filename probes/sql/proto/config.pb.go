@@ -90,19 +90,20 @@ type ProbeConf struct {
 	// Database flavor. Required. Currently only POSTGRES is supported; more
 	// flavors may be added based on demand.
 	Flavor *ProbeConf_Flavor `protobuf:"varint,1,opt,name=flavor,enum=cloudprober.probes.sql.ProbeConf_Flavor" json:"flavor,omitempty"`
-	// Connection parameters. Connection is configured in the following order,
-	// with later steps overriding the earlier ones:
+	// Connection parameters. Host and port always come from the probe's
+	// target (like the tcp, http, and grpc probes); connection_string and the
+	// user/password/database fields below configure everything else
+	// (credentials, database name, sslmode, ...). If connection_string sets a
+	// host or port, it's overridden by the target.
+	//
+	// Connection is configured in the following order, with later steps
+	// overriding the earlier ones:
 	//  1. Flavor-specific defaults and environment variables. For POSTGRES,
 	//     libpq environment variables (PGHOST, PGUSER, PGPASSWORD, PGDATABASE,
 	//     PGSSLMODE, ...) are honored.
 	//  2. connection_string, if set.
 	//  3. user, password, and database fields, if set.
-	//  4. Target's host and port, if the probe has targets.
-	//
-	// Targets are optional for this probe: with connection_string (or flavor
-	// environment variables) providing the endpoint, the probe can run with no
-	// targets at all. With targets, host and port come from the target, and one
-	// probe can fan out across many database instances.
+	//  4. Target's host and port.
 	//
 	// connection_string can be in URL form
 	// ("postgres://user:pass@host:5432/db?sslmode=require") or key/value form
@@ -143,7 +144,7 @@ type ProbeConf struct {
 	// use; see common/tlsconfig/proto/config.proto for the full field list.
 	// If set, it overrides any TLS parameters from connection_string
 	// (e.g. sslmode) or environment. If server_name is not set, it defaults to
-	// the host being connected to (target name when targets are used).
+	// the target's name.
 	TlsConfig *proto.TLSConfig `protobuf:"bytes,8,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
 	// Export query results as metrics. Same shape external + http probes
 	// already use; with the row serialization described above, a query like

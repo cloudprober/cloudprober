@@ -192,10 +192,11 @@ func TestPgConnConfig(t *testing.T) {
 		wantDB   string
 	}{
 		{
-			name: "connection string only",
+			name: "host from target, rest from connection string",
 			conf: &configpb.ProbeConf{
-				ConnectionString: proto.String("postgres://cpuser:cppass@dbhost:5433/cpdb?sslmode=disable"),
+				ConnectionString: proto.String("postgres://cpuser:cppass@ignored.host:5433/cpdb?sslmode=disable"),
 			},
+			target:   endpoint.Endpoint{Name: "dbhost"},
 			wantHost: "dbhost",
 			wantPort: 5433,
 			wantUser: "cpuser",
@@ -205,11 +206,12 @@ func TestPgConnConfig(t *testing.T) {
 		{
 			name: "fields override connection string",
 			conf: &configpb.ProbeConf{
-				ConnectionString: proto.String("postgres://cpuser:cppass@dbhost:5433/cpdb?sslmode=disable"),
+				ConnectionString: proto.String("postgres://cpuser:cppass@ignored.host:5433/cpdb?sslmode=disable"),
 				User:             proto.String("u2"),
 				Password:         proto.String("p2"),
 				Database:         proto.String("d2"),
 			},
+			target:   endpoint.Endpoint{Name: "dbhost"},
 			wantHost: "dbhost",
 			wantPort: 5433,
 			wantUser: "u2",
@@ -217,9 +219,9 @@ func TestPgConnConfig(t *testing.T) {
 			wantDB:   "d2",
 		},
 		{
-			name: "target overrides host and port",
+			name: "target port overrides connection string port",
 			conf: &configpb.ProbeConf{
-				ConnectionString: proto.String("host=orig.host port=5432 user=u dbname=db sslmode=disable"),
+				ConnectionString: proto.String("host=ignored.host port=5432 user=u dbname=db sslmode=disable"),
 			},
 			target:   endpoint.Endpoint{Name: "tgt.host", Port: 9432},
 			wantHost: "tgt.host",
@@ -285,7 +287,7 @@ func TestPgConnConfigFallbacks(t *testing.T) {
 		ConnectionString: proto.String("host=orig.host user=u sslmode=prefer"),
 	}, nil)
 	p.tlsConfig = &tls.Config{ServerName: "tls.host"}
-	cfg, err = p.pgConnConfig(endpoint.Endpoint{})
+	cfg, err = p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host"})
 	if err != nil {
 		t.Fatalf("pgConnConfig: %v", err)
 	}
@@ -309,13 +311,6 @@ func TestPgConnConfigTLSServerName(t *testing.T) {
 	}
 	assert.Equal(t, "tgt.host", cfg.TLSConfig.ServerName)
 	assert.Empty(t, p.tlsConfig.ServerName, "shared tls config must not be mutated")
-
-	// Without a target, default to the connection string's host.
-	cfg, err = p.pgConnConfig(endpoint.Endpoint{})
-	if err != nil {
-		t.Fatalf("pgConnConfig: %v", err)
-	}
-	assert.Equal(t, "orig.host", cfg.TLSConfig.ServerName)
 
 	// sslmode=verify-full sets ServerName from the connection string's host
 	// at parse time; a target override must retarget it so certificates are

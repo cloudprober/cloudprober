@@ -26,11 +26,16 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-// pgConnConfig builds the connection config for the POSTGRES flavor:
-// libpq defaults and environment variables (PGHOST, PGUSER, PGPASSWORD, ...),
-// overridden by connection_string, overridden by user/password/database
-// fields, overridden by target's host and port.
+// pgConnConfig builds the connection config for the POSTGRES flavor. Host and
+// port always come from target; connection_string, overridden by
+// user/password/database fields, configures everything else (libpq
+// environment variables PGUSER, PGPASSWORD, ... fill in whatever's still
+// unset).
 func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) {
+	if target.Port < 0 || target.Port > 65535 {
+		return nil, fmt.Errorf("invalid target port: %d", target.Port)
+	}
+
 	connStr := p.c.GetConnectionString()
 	if strings.Contains(connStr, "@") {
 		connStr, _ = strtemplate.SubstituteLabels(connStr, p.targetLabels(target))
@@ -51,39 +56,33 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		cfg.Database = v
 	}
 
-	if target.Name != "" {
-		if target.Port < 0 || target.Port > 65535 {
-			return nil, fmt.Errorf("invalid target port: %d", target.Port)
+	host := target.Name
+	// Like the TCP probe, dial the target's IP if the targets provider
+	// supplies one (e.g. k8s, rds); such target names are often not
+	// resolvable over DNS.
+	if target.IP != nil {
+		ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
+		if err != nil {
+			return nil, fmt.Errorf("resolving target %s: %v", target.Name, err)
 		}
+		host = ip.String()
+	}
 
-		host := target.Name
-		// Like the TCP probe, dial the target's IP if the targets provider
-		// supplies one (e.g. k8s, rds); such target names are often not
-		// resolvable over DNS.
-		if target.IP != nil {
-			ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
-			if err != nil {
-				return nil, fmt.Errorf("resolving target %s: %v", target.Name, err)
-			}
-			host = ip.String()
-		}
-
-		oldHost := cfg.Host
-		cfg.Host = host
-		if target.Port != 0 {
-			cfg.Port = uint16(target.Port)
-		}
-		// ParseConfig may have generated fallbacks (e.g. for sslmode=prefer,
-		// a plaintext retry) pointing at the pre-override host; redirect them
-		// to the target. TLS configs built from the connection string (e.g.
-		// sslmode=verify-full) carry the old host as ServerName; certificate
-		// verification must run against the target's name instead, even when
-		// we dial its IP.
-		retargetTLSServerName(cfg.TLSConfig, oldHost, target.Name)
-		for _, fb := range cfg.Fallbacks {
-			fb.Host, fb.Port = cfg.Host, cfg.Port
-			retargetTLSServerName(fb.TLSConfig, oldHost, target.Name)
-		}
+	oldHost := cfg.Host
+	cfg.Host = host
+	if target.Port != 0 {
+		cfg.Port = uint16(target.Port)
+	}
+	// ParseConfig may have generated fallbacks (e.g. for sslmode=prefer, a
+	// plaintext retry) pointing at connection_string's host; redirect them to
+	// the target. TLS configs built from the connection string (e.g.
+	// sslmode=verify-full) carry the old host as ServerName; certificate
+	// verification must run against the target's name instead, even when we
+	// dial its IP.
+	retargetTLSServerName(cfg.TLSConfig, oldHost, target.Name)
+	for _, fb := range cfg.Fallbacks {
+		fb.Host, fb.Port = cfg.Host, cfg.Port
+		retargetTLSServerName(fb.TLSConfig, oldHost, target.Name)
 	}
 
 	// Explicit tls_config replaces connection string's TLS parameters,
@@ -91,14 +90,10 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 	if p.tlsConfig != nil {
 		// Clone: the shared config would otherwise be mutated per target, and
 		// pgconn uses the config as-is — an empty ServerName fails the TLS
-		// handshake, so default it to the host we verify against.
+		// handshake, so default it to the target.
 		tlsCfg := p.tlsConfig.Clone()
 		if tlsCfg.ServerName == "" {
-			if target.Name != "" {
-				tlsCfg.ServerName = target.Name
-			} else {
-				tlsCfg.ServerName = cfg.Host
-			}
+			tlsCfg.ServerName = target.Name
 		}
 		cfg.TLSConfig = tlsCfg
 		cfg.Fallbacks = nil
