@@ -1,3 +1,17 @@
+// Copyright 2026 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package teams implements Microsoft Teams notifications for Cloudprober alert
 // events.
 package teams
@@ -43,7 +57,7 @@ func New(teamscfg *configpb.Teams, l *logger.Logger) (*Client, error) {
 }
 
 // lookupWebhookUrl looks up the webhook URL to use for the Teams client,
-// in order of precendence:
+// in order of precedence:
 // 1. Webhook URL in the config
 // 2. Webhook URL environment variable
 func lookupWebhookUrl(teamscfg *configpb.Teams) (string, error) {
@@ -144,8 +158,8 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 	}
 	defer resp.Body.Close()
 
-	// check status code, return error if not 202
-	if resp.StatusCode != http.StatusAccepted {
+	// check status code, return error if not 2xx
+	if resp.StatusCode/100 != 2 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("teams webhook returned error; statusCode: %d, response: %s", resp.StatusCode, string(b))
 	}
