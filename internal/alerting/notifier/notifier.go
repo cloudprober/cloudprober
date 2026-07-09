@@ -225,19 +225,19 @@ func New(alertcfg *configpb.AlertConf, l *logger.Logger) (*Notifier, error) {
 	}
 
 	if n.cfg.GetSlack() != nil {
-		slack, err := slack.New(n.cfg.GetSlack(), l)
+		slackC, err := slack.New(n.cfg.GetSlack(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring Slack notifier: %v", err)
 		}
-		n.slackNotifier = slack
+		n.slackNotifier = slackC
 	}
 
 	if n.cfg.GetTeams() != nil {
-		teams, err := teams.New(n.cfg.GetTeams(), l)
+		teamsC, err := teams.New(n.cfg.GetTeams(), l)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring Teams notifier: %v", err)
 		}
-		n.teamsNotifier = teams
+		n.teamsNotifier = teamsC
 	}
 
 	if n.cfg.GetHttpNotify() != nil {
