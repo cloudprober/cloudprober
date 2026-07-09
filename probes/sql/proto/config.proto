@@ -37,11 +37,13 @@ message ProbeConf {
   //  3. user, password, and database fields, if set.
   //
   // connection_string can be in URL form
-  // ("postgres://user:pass@host:5432/db?sslmode=require") or key/value form
-  // ("host=x port=5432 dbname=db user=u"). @target.xxx@ substitutions
-  // (target.name, target.ip, target.port, target.label.<label>, probe) are
-  // supported, but only reliably in the key/value form -- in the URL form,
-  // the literal '@' before the host confuses token parsing. For example:
+  // ("postgres://user:pass@/db?sslmode=require") or key/value form
+  // ("dbname=db user=u"); a host/port can be included but is ignored or
+  // overridden as described above, so it's simplest to just omit it.
+  // @target.xxx@ substitutions (target.name, target.ip, target.port,
+  // target.label.<label>, probe) are supported, but only reliably in the
+  // key/value form -- in the URL form, the literal '@' before the (possibly
+  // empty) host confuses token parsing. For example:
   //   connection_string: "dbname=@target.label.db@ sslmode=require"
   //
   // To keep secrets out of the config file, use the config-level envSecret
