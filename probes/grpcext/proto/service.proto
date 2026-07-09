@@ -12,7 +12,7 @@ option go_package = "github.com/cloudprober/cloudprober/probes/grpcext/proto";
 // target; the sidecar runs the actual probe logic and returns the result.
 //
 // A sidecar can be written in any language; the Go SDK
-// (github.com/cloudprober/cloudprober/sidecar) removes most of the
+// (github.com/cloudprober/cloudprober/pkg/sidecar) removes most of the
 // boilerplate.
 service Prober {
   // Probe runs one probe cycle for one target.

@@ -9,7 +9,7 @@ its own process, in any language, on its own release cadence.
 This directory contains:
 
 - `sidecar/` — an example sidecar built with the
-  [`sidecar`](../../sidecar) SDK. It serves two probe types: `http`
+  [`sidecar`](../../pkg/sidecar) SDK. It serves two probe types: `http`
   (stateful: per-target HTTP client cached across cycles) and `tcp`
   (stateless).
 - `cloudprober.cfg` — a cloudprober config that probes real websites through
@@ -48,4 +48,4 @@ sidecar to see it in action.
 A probe type is one struct — config in, result + metrics out; the SDK owns
 the gRPC server, health service, session cache, and idle-TTL eviction. See
 `sidecar/main.go` here and the package docs in
-[`sidecar`](../../sidecar/sidecar.go).
+[`sidecar`](../../pkg/sidecar/sidecar.go).

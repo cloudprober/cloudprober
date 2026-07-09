@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudprober/cloudprober/sidecar"
+	"github.com/cloudprober/cloudprober/pkg/sidecar"
 )
 
 type httpConfig struct {

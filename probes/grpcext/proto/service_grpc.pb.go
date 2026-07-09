@@ -33,7 +33,7 @@ const (
 // target; the sidecar runs the actual probe logic and returns the result.
 //
 // A sidecar can be written in any language; the Go SDK
-// (github.com/cloudprober/cloudprober/sidecar) removes most of the
+// (github.com/cloudprober/cloudprober/pkg/sidecar) removes most of the
 // boilerplate.
 type ProberClient interface {
 	// Probe runs one probe cycle for one target.
@@ -85,7 +85,7 @@ func (c *proberClient) ValidateConfig(ctx context.Context, in *ValidateConfigReq
 // target; the sidecar runs the actual probe logic and returns the result.
 //
 // A sidecar can be written in any language; the Go SDK
-// (github.com/cloudprober/cloudprober/sidecar) removes most of the
+// (github.com/cloudprober/cloudprober/pkg/sidecar) removes most of the
 // boilerplate.
 type ProberServer interface {
 	// Probe runs one probe cycle for one target.
