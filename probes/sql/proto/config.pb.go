@@ -90,31 +90,39 @@ type ProbeConf struct {
 	// Database flavor. Required. Currently only POSTGRES is supported; more
 	// flavors may be added based on demand.
 	Flavor *ProbeConf_Flavor `protobuf:"varint,1,opt,name=flavor,enum=cloudprober.probes.sql.ProbeConf_Flavor" json:"flavor,omitempty"`
-	// Connection parameters. Host always comes from the probe's target (like
-	// the tcp, http, and grpc probes); any host in connection_string or from
-	// environment (e.g. PGHOST) is ignored. Port comes from the target when
-	// set (target.port != 0); otherwise it falls back to connection_string or
-	// environment, following the same precedence as everything else below.
+	// Connection parameters. With a real target, host comes from it (like the
+	// tcp, http, and grpc probes) -- any host in connection_string or from
+	// environment (e.g. PGHOST) is ignored -- and port comes from the target
+	// when set (target.port != 0), otherwise from connection_string or
+	// environment.
+	//
+	// Without a target -- i.e. with an explicit
+	// "targets { dummy_targets {} }" -- host and port are taken from
+	// connection_string or environment instead, letting you reuse a full
+	// connection string (e.g. from a cloud provider) as-is.
 	//
 	// Credentials, database name, and other parameters (sslmode, ...) are
-	// resolved in the following order, each step overriding the earlier ones:
+	// resolved the same way in both cases, in the following order, each step
+	// overriding the earlier ones:
 	//  1. Flavor-specific defaults and environment variables. For POSTGRES,
 	//     libpq environment variables (PGUSER, PGPASSWORD, PGDATABASE,
 	//     PGSSLMODE, PGPORT, ...) are honored.
 	//  2. connection_string, if set.
 	//  3. user, password, and database fields, if set.
 	//
-	// connection_string is a key/value list, e.g. "dbname=db user=u
-	// sslmode=require". @target.xxx@ substitutions (target.name, target.ip,
-	// target.port, target.label.<label>, probe) are supported, e.g.:
+	// connection_string can be in URL form
+	// ("postgres://user:pass@host:5432/db?sslmode=require") or key/value form
+	// ("dbname=db user=u sslmode=require"). With a real target, any host/port
+	// in it is ignored or overridden as described above -- with dummy_targets,
+	// it's used as-is, so a connection string handed to you by a cloud
+	// provider can be pasted in unmodified.
+	//
+	// @target.xxx@ substitutions (target.name, target.ip, target.port,
+	// target.label.<label>, probe) are supported, but only reliably in the
+	// key/value form -- in the URL form, the literal '@' before the host
+	// confuses token parsing. For example:
 	//
 	//	connection_string: "dbname=@target.label.db@ sslmode=require"
-	//
-	// A postgres:// URL is also accepted (e.g. to reuse a connection string a
-	// cloud provider handed you, minus its host/port) but isn't recommended:
-	// a host/port in it is ignored or overridden as described above, and the
-	// literal '@' before the (possibly empty) host confuses @target.xxx@
-	// substitution token parsing -- use the key/value form when substituting.
 	//
 	// To keep secrets out of the config file, use the config-level envSecret
 	// template function, e.g. password: "{{envSecret "DB_PASSWORD"}}".
@@ -146,7 +154,8 @@ type ProbeConf struct {
 	// use; see common/tlsconfig/proto/config.proto for the full field list.
 	// If set, it overrides any TLS parameters from connection_string
 	// (e.g. sslmode) or environment. If server_name is not set, it defaults to
-	// the target's name.
+	// the host being connected to (the target's name, or connection_string's
+	// host with dummy_targets).
 	TlsConfig *proto.TLSConfig `protobuf:"bytes,8,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
 	// Export query results as metrics. Same shape external + http probes
 	// already use; with the row serialization described above, a query like
