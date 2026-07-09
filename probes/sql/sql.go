@@ -26,12 +26,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -125,7 +125,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.query = p.c.GetQuery()
 	if f := p.c.GetQueryFile(); f != "" {
-		b, err := os.ReadFile(f)
+		b, err := file.ReadFile(context.Background(), f)
 		if err != nil {
 			return fmt.Errorf("reading query_file %q: %v", f, err)
 		}
@@ -217,15 +217,16 @@ func serializeRows(rows *gosql.Rows) ([]byte, error) {
 		if err := rows.Scan(vals...); err != nil {
 			return nil, err
 		}
-		parts := make([]string, len(cols))
 		for i, v := range vals {
+			if i > 0 {
+				buf.WriteByte(' ')
+			}
 			val := *(v.(*any))
 			if b, ok := val.([]byte); ok {
 				val = string(b)
 			}
-			parts[i] = fmt.Sprintf("%v", val)
+			fmt.Fprintf(&buf, "%v", val)
 		}
-		buf.WriteString(strings.Join(parts, " "))
 		buf.WriteByte('\n')
 
 		if buf.Len() > maxQueryResultSize {

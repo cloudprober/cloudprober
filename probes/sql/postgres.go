@@ -76,16 +76,22 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		if target.Port != 0 {
 			cfg.Port = uint16(target.Port)
 		}
-		// ParseConfig may have generated fallbacks (e.g. for sslmode=prefer,
-		// a plaintext retry) pointing at connection_string's host; redirect
-		// them to the target. TLS configs built from the connection string
-		// (e.g. sslmode=verify-full) carry the old host as ServerName;
-		// certificate verification must run against the target's name
-		// instead, even when we dial its IP.
-		retargetTLSServerName(cfg.TLSConfig, oldHost, target.Name)
-		for _, fb := range cfg.Fallbacks {
-			fb.Host, fb.Port = cfg.Host, cfg.Port
-			retargetTLSServerName(fb.TLSConfig, oldHost, target.Name)
+		// An explicit tls_config below replaces connection string's TLS
+		// parameters entirely, including dropping any fallback, so there's
+		// nothing to retarget in that case.
+		if p.tlsConfig == nil {
+			// ParseConfig may have generated fallbacks (e.g. for
+			// sslmode=prefer, a plaintext retry) pointing at
+			// connection_string's host; redirect them to the target. TLS
+			// configs built from the connection string (e.g.
+			// sslmode=verify-full) carry the old host as ServerName;
+			// certificate verification must run against the target's name
+			// instead, even when we dial its IP.
+			retargetTLSServerName(cfg.TLSConfig, oldHost, target.Name)
+			for _, fb := range cfg.Fallbacks {
+				fb.Host, fb.Port = cfg.Host, cfg.Port
+				retargetTLSServerName(fb.TLSConfig, oldHost, target.Name)
+			}
 		}
 	}
 
