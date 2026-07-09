@@ -194,7 +194,7 @@ func TestPgConnConfig(t *testing.T) {
 		{
 			name: "host from target, rest from connection string",
 			conf: &configpb.ProbeConf{
-				ConnectionString: proto.String("postgres://cpuser:cppass@ignored.host:5433/cpdb?sslmode=disable"),
+				ConnectionString: proto.String("user=cpuser password=cppass dbname=cpdb sslmode=disable port=5433"),
 			},
 			target:   endpoint.Endpoint{Name: "dbhost"},
 			wantHost: "dbhost",
@@ -206,7 +206,7 @@ func TestPgConnConfig(t *testing.T) {
 		{
 			name: "fields override connection string",
 			conf: &configpb.ProbeConf{
-				ConnectionString: proto.String("postgres://cpuser:cppass@ignored.host:5433/cpdb?sslmode=disable"),
+				ConnectionString: proto.String("user=cpuser password=cppass dbname=cpdb sslmode=disable port=5433"),
 				User:             proto.String("u2"),
 				Password:         proto.String("p2"),
 				Database:         proto.String("d2"),
@@ -221,7 +221,7 @@ func TestPgConnConfig(t *testing.T) {
 		{
 			name: "target port overrides connection string port",
 			conf: &configpb.ProbeConf{
-				ConnectionString: proto.String("host=ignored.host port=5432 user=u dbname=db sslmode=disable"),
+				ConnectionString: proto.String("port=5432 user=u dbname=db sslmode=disable"),
 			},
 			target:   endpoint.Endpoint{Name: "tgt.host", Port: 9432},
 			wantHost: "tgt.host",
@@ -232,7 +232,7 @@ func TestPgConnConfig(t *testing.T) {
 		{
 			name: "substitution in connection string",
 			conf: &configpb.ProbeConf{
-				ConnectionString: proto.String("host=ignored.host port=1234 dbname=@target.label.db@ user=u sslmode=disable"),
+				ConnectionString: proto.String("port=1234 dbname=@target.label.db@ user=u sslmode=disable"),
 			},
 			target:   endpoint.Endpoint{Name: "sub.host", Labels: map[string]string{"db": "mydb"}},
 			wantHost: "sub.host",
@@ -277,10 +277,11 @@ func TestPgConnConfig(t *testing.T) {
 func TestPgConnConfigFallbacks(t *testing.T) {
 	neutralizePGEnv(t)
 
-	// sslmode=prefer (the default) generates a plaintext fallback; target
-	// override should redirect it.
+	// sslmode=prefer (the default) generates a plaintext fallback; the
+	// target's host/port is injected before parsing, so pgx derives the
+	// fallback natively, already pointing at the target.
 	p := testProbe(t, &configpb.ProbeConf{
-		ConnectionString: proto.String("host=orig.host user=u sslmode=prefer"),
+		ConnectionString: proto.String("user=u sslmode=prefer"),
 	}, nil)
 	cfg, err := p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host", Port: 9432})
 	if err != nil {
@@ -296,7 +297,7 @@ func TestPgConnConfigFallbacks(t *testing.T) {
 	// Explicit TLS config replaces connection string's TLS parameters and
 	// drops the plaintext fallback. It's cloned, not shared.
 	p = testProbe(t, &configpb.ProbeConf{
-		ConnectionString: proto.String("host=orig.host user=u sslmode=prefer"),
+		ConnectionString: proto.String("user=u sslmode=prefer"),
 	}, nil)
 	p.tlsConfig = &tls.Config{ServerName: "tls.host"}
 	cfg, err = p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host"})
@@ -314,7 +315,7 @@ func TestPgConnConfigTLSServerName(t *testing.T) {
 	// Explicit tls_config without ServerName: default to the target's name
 	// (pgconn fails the handshake on an empty ServerName).
 	p := testProbe(t, &configpb.ProbeConf{
-		ConnectionString: proto.String("host=orig.host user=u"),
+		ConnectionString: proto.String("user=u"),
 	}, nil)
 	p.tlsConfig = &tls.Config{}
 	cfg, err := p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host"})
@@ -326,19 +327,22 @@ func TestPgConnConfigTLSServerName(t *testing.T) {
 
 	// Without a target (dummy_targets), default to the connection string's
 	// host.
-	cfg, err = p.pgConnConfig(endpoint.Endpoint{})
+	p2 := testProbe(t, &configpb.ProbeConf{
+		ConnectionString: proto.String("host=orig.host user=u"),
+	}, nil)
+	p2.tlsConfig = &tls.Config{}
+	cfg, err = p2.pgConnConfig(endpoint.Endpoint{})
 	if err != nil {
 		t.Fatalf("pgConnConfig: %v", err)
 	}
 	assert.Equal(t, "orig.host", cfg.TLSConfig.ServerName)
 
-	// sslmode=verify-full sets ServerName from the connection string's host
-	// at parse time; a target override must retarget it so certificates are
-	// verified against the target's name.
-	p = testProbe(t, &configpb.ProbeConf{
-		ConnectionString: proto.String("host=orig.host user=u sslmode=verify-full"),
+	// sslmode=verify-full: with the target's host injected before parsing,
+	// pgx derives ServerName natively -- no retargeting needed.
+	p3 := testProbe(t, &configpb.ProbeConf{
+		ConnectionString: proto.String("user=u sslmode=verify-full"),
 	}, nil)
-	cfg, err = p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host"})
+	cfg, err = p3.pgConnConfig(endpoint.Endpoint{Name: "tgt.host"})
 	if err != nil {
 		t.Fatalf("pgConnConfig: %v", err)
 	}
@@ -351,16 +355,76 @@ func TestPgConnConfigTargetResolve(t *testing.T) {
 	p := testProbe(t, &configpb.ProbeConf{User: proto.String("u")}, nil)
 
 	// Targets that come with an IP (e.g. k8s, rds) are dialed by IP; their
-	// names are often not resolvable over DNS.
+	// names are often not resolvable over DNS. Certificate verification must
+	// still use the target's name, not the IP pgx would otherwise derive
+	// ServerName from.
 	cfg, err := p.pgConnConfig(endpoint.Endpoint{Name: "pod-1", Port: 5432, IP: net.ParseIP("192.168.9.9")})
 	if err != nil {
 		t.Fatalf("pgConnConfig: %v", err)
 	}
 	assert.Equal(t, "192.168.9.9", cfg.Host)
+	assert.Equal(t, "pod-1", cfg.TLSConfig.ServerName)
 
 	// Out-of-range target port is an error, not a silent uint16 wrap.
 	_, err = p.pgConnConfig(endpoint.Endpoint{Name: "tgt.host", Port: 99999})
 	assert.ErrorContains(t, err, "invalid target port")
+}
+
+func TestPgConnConfigTargetHostConflict(t *testing.T) {
+	neutralizePGEnv(t)
+
+	tests := []struct {
+		name    string
+		connStr string
+		target  endpoint.Endpoint
+		wantErr bool
+	}{
+		{
+			name:    "key/value host with real target: error",
+			connStr: "host=orig.host user=u",
+			target:  endpoint.Endpoint{Name: "tgt.host"},
+			wantErr: true,
+		},
+		{
+			name:    "hostaddr with real target: error",
+			connStr: "hostaddr=1.2.3.4 user=u",
+			target:  endpoint.Endpoint{Name: "tgt.host"},
+			wantErr: true,
+		},
+		{
+			name:    "URL form with real target: error, even without an explicit host",
+			connStr: "postgres://u@/db",
+			target:  endpoint.Endpoint{Name: "tgt.host"},
+			wantErr: true,
+		},
+		{
+			name:    "key/value host with dummy target: no error",
+			connStr: "host=orig.host user=u",
+			target:  endpoint.Endpoint{},
+		},
+		{
+			name:    "URL form with dummy target: no error",
+			connStr: "postgres://u@orig.host/db",
+			target:  endpoint.Endpoint{},
+		},
+		{
+			name:    "no host, real target: no error",
+			connStr: "user=u",
+			target:  endpoint.Endpoint{Name: "tgt.host"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := testProbe(t, &configpb.ProbeConf{ConnectionString: proto.String(tt.connStr)}, nil)
+			_, err := p.pgConnConfig(tt.target)
+			if tt.wantErr {
+				assert.ErrorContains(t, err, "connection_string")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestRunProbe(t *testing.T) {

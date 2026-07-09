@@ -90,16 +90,18 @@ type ProbeConf struct {
 	// Database flavor. Required. Currently only POSTGRES is supported; more
 	// flavors may be added based on demand.
 	Flavor *ProbeConf_Flavor `protobuf:"varint,1,opt,name=flavor,enum=cloudprober.probes.sql.ProbeConf_Flavor" json:"flavor,omitempty"`
-	// Connection parameters. With a real target, host comes from it (like the
-	// tcp, http, and grpc probes) -- any host in connection_string or from
-	// environment (e.g. PGHOST) is ignored -- and port comes from the target
-	// when set (target.port != 0), otherwise from connection_string or
-	// environment.
+	// Connection parameters. With a real target, host and port come from it
+	// (like the tcp, http, and grpc probes): connection_string must be in
+	// key/value form and must not itself specify a host (or hostaddr) -- doing
+	// so is a configuration error, since it'd be ambiguous which host to use.
+	// Port comes from the target when set (target.port != 0), otherwise from
+	// connection_string or environment.
 	//
 	// Without a target -- i.e. with an explicit
 	// "targets { dummy_targets {} }" -- host and port are taken from
-	// connection_string or environment instead, letting you reuse a full
-	// connection string (e.g. from a cloud provider) as-is.
+	// connection_string or environment instead, in any form (including a
+	// postgres:// URL with its own host), letting you reuse a full connection
+	// string (e.g. from a cloud provider) as-is.
 	//
 	// Credentials, database name, and other parameters (sslmode, ...) are
 	// resolved the same way in both cases, in the following order, each step
@@ -110,19 +112,17 @@ type ProbeConf struct {
 	//  2. connection_string, if set.
 	//  3. user, password, and database fields, if set.
 	//
-	// connection_string can be in URL form
-	// ("postgres://user:pass@host:5432/db?sslmode=require") or key/value form
-	// ("dbname=db user=u sslmode=require"). With a real target, any host/port
-	// in it is ignored or overridden as described above -- with dummy_targets,
-	// it's used as-is, so a connection string handed to you by a cloud
-	// provider can be pasted in unmodified.
-	//
-	// @target.xxx@ substitutions (target.name, target.ip, target.port,
-	// target.label.<label>, probe) are supported, but only reliably in the
-	// key/value form -- in the URL form, the literal '@' before the host
-	// confuses token parsing. For example:
+	// connection_string is a key/value list, e.g. "dbname=db user=u
+	// sslmode=require". @target.xxx@ substitutions (target.name, target.ip,
+	// target.port, target.label.<label>, probe) are supported, e.g.:
 	//
 	//	connection_string: "dbname=@target.label.db@ sslmode=require"
+	//
+	// With dummy_targets, connection_string can also be a postgres:// URL
+	// ("postgres://user:pass@host:5432/db?sslmode=require"); URL form isn't
+	// supported with a real target (use key/value form there), and
+	// @target.xxx@ substitution isn't reliable in it either -- the literal '@'
+	// before the host confuses token parsing.
 	//
 	// To keep secrets out of the config file, use the config-level envSecret
 	// template function, e.g. password: "{{envSecret "DB_PASSWORD"}}".

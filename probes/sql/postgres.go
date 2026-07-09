@@ -18,6 +18,8 @@ import (
 	"crypto/tls"
 	gosql "database/sql"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
@@ -26,13 +28,32 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
+// hostKeywordRe matches an explicit host=/hostaddr= keyword in a key/value
+// connection string.
+var hostKeywordRe = regexp.MustCompile(`(?:^|\s)(host|hostaddr)\s*=\s*\S`)
+
+// connStringConflictsWithTarget reports whether connStr can't be safely
+// combined with a real target's host: URL form always carries a host slot
+// (filled or not) that we don't attempt to rewrite, and key/value form may
+// already specify one explicitly.
+func connStringConflictsWithTarget(connStr string) bool {
+	s := strings.TrimSpace(connStr)
+	if strings.HasPrefix(s, "postgres://") || strings.HasPrefix(s, "postgresql://") {
+		return true
+	}
+	return hostKeywordRe.MatchString(s)
+}
+
 // pgConnConfig builds the connection config for the POSTGRES flavor. With a
 // real target, host and port come from it, like the tcp, http, and grpc
-// probes. With dummy_targets (target.Name == "", the only target provider
-// that produces that), there's no target to take a host/port from, so
-// connection_string's (or the flavor's environment variables, e.g. PGHOST)
-// are used as-is. Either way, connection_string, overridden by
-// user/password/database fields, configures everything else.
+// probes -- connection_string must be in key/value form and must not specify
+// a host itself (parsing/appending "host=..." works reliably for key/value
+// form, per libpq's own last-value-wins rule; not for URL form, so URL form
+// isn't supported here). With dummy_targets (target.Name == "", the only
+// target provider that produces that), there's no target to take a host/port
+// from, so connection_string's (or the flavor's environment variables, e.g.
+// PGHOST) are used as-is, in any form. Either way, connection_string,
+// overridden by user/password/database fields, configures everything else.
 func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) {
 	if target.Port < 0 || target.Port > 65535 {
 		return nil, fmt.Errorf("invalid target port: %d", target.Port)
@@ -41,6 +62,37 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 	connStr := p.c.GetConnectionString()
 	if strings.Contains(connStr, "@") {
 		connStr, _ = strtemplate.SubstituteLabels(connStr, p.targetLabels(target))
+	}
+
+	if target.Name != "" {
+		if connStringConflictsWithTarget(connStr) {
+			return nil, fmt.Errorf("connection_string must be in key/value form and must not specify a host when the probe has a target; remove the host or use dummy_targets")
+		}
+
+		host := target.Name
+		// Like the TCP probe, dial the target's IP if the targets provider
+		// supplies one (e.g. k8s, rds); such target names are often not
+		// resolvable over DNS.
+		if target.IP != nil {
+			ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
+			if err != nil {
+				return nil, fmt.Errorf("resolving target %s: %v", target.Name, err)
+			}
+			host = ip.String()
+		}
+
+		// Appending, rather than parsing-then-overwriting, lets pgx derive
+		// Fallbacks and TLS ServerName natively and correctly from the final
+		// host, instead of us patching its output after the fact.
+		inject := "host=" + host
+		if target.Port != 0 {
+			inject += " port=" + strconv.Itoa(target.Port)
+		}
+		if connStr == "" {
+			connStr = inject
+		} else {
+			connStr = connStr + " " + inject
+		}
 	}
 
 	cfg, err := pgx.ParseConfig(connStr)
@@ -56,43 +108,6 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 	}
 	if v := p.c.GetDatabase(); v != "" {
 		cfg.Database = v
-	}
-
-	if target.Name != "" {
-		host := target.Name
-		// Like the TCP probe, dial the target's IP if the targets provider
-		// supplies one (e.g. k8s, rds); such target names are often not
-		// resolvable over DNS.
-		if target.IP != nil {
-			ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
-			if err != nil {
-				return nil, fmt.Errorf("resolving target %s: %v", target.Name, err)
-			}
-			host = ip.String()
-		}
-
-		oldHost := cfg.Host
-		cfg.Host = host
-		if target.Port != 0 {
-			cfg.Port = uint16(target.Port)
-		}
-		// An explicit tls_config below replaces connection string's TLS
-		// parameters entirely, including dropping any fallback, so there's
-		// nothing to retarget in that case.
-		if p.tlsConfig == nil {
-			// ParseConfig may have generated fallbacks (e.g. for
-			// sslmode=prefer, a plaintext retry) pointing at
-			// connection_string's host; redirect them to the target. TLS
-			// configs built from the connection string (e.g.
-			// sslmode=verify-full) carry the old host as ServerName;
-			// certificate verification must run against the target's name
-			// instead, even when we dial its IP.
-			retargetTLSServerName(cfg.TLSConfig, oldHost, target.Name)
-			for _, fb := range cfg.Fallbacks {
-				fb.Host, fb.Port = cfg.Host, cfg.Port
-				retargetTLSServerName(fb.TLSConfig, oldHost, target.Name)
-			}
-		}
 	}
 
 	// Explicit tls_config replaces connection string's TLS parameters,
@@ -111,16 +126,22 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		}
 		cfg.TLSConfig = tlsCfg
 		cfg.Fallbacks = nil
+	} else if target.IP != nil {
+		// We dialed the target's IP above, so pgx derived TLS ServerName from
+		// the IP too; certificate verification must run against the target's
+		// name instead.
+		setServerName(cfg.TLSConfig, target.Name)
+		for _, fb := range cfg.Fallbacks {
+			setServerName(fb.TLSConfig, target.Name)
+		}
 	}
 
 	return cfg, nil
 }
 
-// retargetTLSServerName updates a TLS config that pgx.ParseConfig built for
-// the connection string's host when the connection is redirected to a target.
-func retargetTLSServerName(tlsCfg *tls.Config, oldHost, newName string) {
-	if tlsCfg != nil && tlsCfg.ServerName == oldHost {
-		tlsCfg.ServerName = newName
+func setServerName(tlsCfg *tls.Config, name string) {
+	if tlsCfg != nil {
+		tlsCfg.ServerName = name
 	}
 }
 
