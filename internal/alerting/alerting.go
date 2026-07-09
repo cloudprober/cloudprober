@@ -145,7 +145,9 @@ func (ah *AlertHandler) notify(ep endpoint.Endpoint, ts *targetState, totalFailu
 		ah.notifyCh <- alertInfo
 	}
 
-	ah.notifier.Notify(context.Background(), alertInfo)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	ah.notifier.Notify(ctx, alertInfo)
 	globalState.add(alertKey, alertInfo)
 }
 
@@ -162,7 +164,9 @@ func (ah *AlertHandler) resolveAlertCondition(ts *targetState, ep endpoint.Endpo
 		return
 	}
 
-	ah.notifier.NotifyResolve(context.Background(), ai)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	ah.notifier.NotifyResolve(ctx, ai)
 	globalState.resolve(key)
 }
 
