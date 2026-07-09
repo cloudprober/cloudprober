@@ -412,6 +412,14 @@ func TestPgConnConfigTargetHostConflict(t *testing.T) {
 			connStr: "user=u",
 			target:  endpoint.Endpoint{Name: "tgt.host"},
 		},
+		{
+			// A trailing backslash would otherwise silently swallow the
+			// appended "host=..." during parsing; it must error instead.
+			name:    "malformed connection_string with real target: error, not silent",
+			connStr: `user=u\`,
+			target:  endpoint.Endpoint{Name: "tgt.host"},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

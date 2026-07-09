@@ -69,6 +69,14 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 			return nil, fmt.Errorf("connection_string must be in key/value form and must not specify a host when the probe has a target; remove the host or use dummy_targets")
 		}
 
+		// Validate connection_string on its own before appending host/port
+		// below. A malformed value (e.g. a trailing backslash) would
+		// otherwise silently absorb the appended "host=..." during parsing,
+		// leaving the probe pointed at the default host instead of the target.
+		if _, err := pgx.ParseConfig(connStr); err != nil {
+			return nil, fmt.Errorf("parsing connection_string: %v", err)
+		}
+
 		host := target.Name
 		// Like the TCP probe, dial the target's IP if the targets provider
 		// supplies one (e.g. k8s, rds); such target names are often not
