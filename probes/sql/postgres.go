@@ -59,10 +59,7 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		return nil, fmt.Errorf("invalid target port: %d", target.Port)
 	}
 
-	connStr := p.c.GetConnectionString()
-	if strings.Contains(connStr, "@") {
-		connStr, _ = strtemplate.SubstituteLabels(connStr, p.targetLabels(target))
-	}
+	connStr, _ := strtemplate.SubstituteLabels(p.c.GetConnectionString(), p.targetLabels(target))
 
 	if target.Name != "" {
 		if connStringConflictsWithTarget(connStr) {
@@ -96,11 +93,7 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		if target.Port != 0 {
 			inject += " port=" + strconv.Itoa(target.Port)
 		}
-		if connStr == "" {
-			connStr = inject
-		} else {
-			connStr = connStr + " " + inject
-		}
+		connStr = strings.TrimSpace(connStr + " " + inject)
 	}
 
 	cfg, err := pgx.ParseConfig(connStr)
