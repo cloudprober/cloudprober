@@ -7,6 +7,7 @@
 package proto
 
 import (
+	proto2 "github.com/cloudprober/cloudprober/common/oauth/proto"
 	proto1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	proto "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -70,7 +71,28 @@ type ProbeConf struct {
 	// hosts that need a custom CA bundle, a client certificate (mTLS), an SNI
 	// override, or disabled cert validation. Same message the HTTP probe uses;
 	// see common/tlsconfig/proto/config.proto for the full field list.
-	TlsConfig     *proto1.TLSConfig `protobuf:"bytes,6,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
+	TlsConfig *proto1.TLSConfig `protobuf:"bytes,6,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
+	// OAuth token sources, keyed by a name the script uses to select one. Same
+	// oauth.Config message the HTTP probe uses, so every source (file, command,
+	// HTTP token endpoint, GCE metadata, k8s token file, Google credentials,
+	// self-signed JWT), plus refresh/expiry handling, carries over.
+	//
+	// Unlike the HTTP probe, tokens are NOT auto-injected: a Starlark script
+	// routinely hits several hosts in one run, so it must ask for the token
+	// explicitly and decide where it goes, via the oauth builtin:
+	//
+	//	oauth.token(name=None)  -- raw access token ("eyJ...")
+	//	oauth.header(name=None) -- formatted Authorization value ("Bearer eyJ...")
+	//
+	// name may be omitted when exactly one config is present. Example:
+	//
+	//	oauth_configs {
+	//	  key: "api"
+	//	  value { http_request { token_url: "https://issuer/token" ... } }
+	//	}
+	//	def probe(target):
+	//	    r = http.get(url, headers={"Authorization": oauth.header("api")})
+	OauthConfigs  map[string]*proto2.Config `protobuf:"bytes,7,rep,name=oauth_configs,json=oauthConfigs" json:"oauth_configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -152,11 +174,18 @@ func (x *ProbeConf) GetTlsConfig() *proto1.TLSConfig {
 	return nil
 }
 
+func (x *ProbeConf) GetOauthConfigs() map[string]*proto2.Config {
+	if x != nil {
+		return x.OauthConfigs
+	}
+	return nil
+}
+
 var File_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\x95\x03\n" +
+	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xd0\x04\n" +
 	"\tProbeConf\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
@@ -166,10 +195,14 @@ const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto
 	"\x04vars\x18\x04 \x03(\v20.cloudprober.probes.starlark.ProbeConf.VarsEntryR\x04vars\x12g\n" +
 	"\x16output_metrics_options\x18\x05 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptions\x12?\n" +
 	"\n" +
-	"tls_config\x18\x06 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfig\x1a7\n" +
+	"tls_config\x18\x06 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfig\x12]\n" +
+	"\roauth_configs\x18\a \x03(\v28.cloudprober.probes.starlark.ProbeConf.OauthConfigsEntryR\foauthConfigs\x1a7\n" +
 	"\tVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B:Z8github.com/cloudprober/cloudprober/probes/starlark/proto"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aZ\n" +
+	"\x11OauthConfigsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12/\n" +
+	"\x05value\x18\x02 \x01(\v2\x19.cloudprober.oauth.ConfigR\x05value:\x028\x01B:Z8github.com/cloudprober/cloudprober/probes/starlark/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescOnce sync.Once
@@ -183,22 +216,26 @@ func file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_
 	return file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_goTypes = []any{
 	(*ProbeConf)(nil),                  // 0: cloudprober.probes.starlark.ProbeConf
 	nil,                                // 1: cloudprober.probes.starlark.ProbeConf.VarsEntry
-	(*proto.OutputMetricsOptions)(nil), // 2: cloudprober.metrics.payload.OutputMetricsOptions
-	(*proto1.TLSConfig)(nil),           // 3: cloudprober.tlsconfig.TLSConfig
+	nil,                                // 2: cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry
+	(*proto.OutputMetricsOptions)(nil), // 3: cloudprober.metrics.payload.OutputMetricsOptions
+	(*proto1.TLSConfig)(nil),           // 4: cloudprober.tlsconfig.TLSConfig
+	(*proto2.Config)(nil),              // 5: cloudprober.oauth.Config
 }
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.probes.starlark.ProbeConf.vars:type_name -> cloudprober.probes.starlark.ProbeConf.VarsEntry
-	2, // 1: cloudprober.probes.starlark.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
-	3, // 2: cloudprober.probes.starlark.ProbeConf.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 1: cloudprober.probes.starlark.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
+	4, // 2: cloudprober.probes.starlark.ProbeConf.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	2, // 3: cloudprober.probes.starlark.ProbeConf.oauth_configs:type_name -> cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry
+	5, // 4: cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry.value:type_name -> cloudprober.oauth.Config
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_init() }
@@ -212,7 +249,7 @@ func file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

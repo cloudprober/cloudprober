@@ -115,13 +115,18 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 	}
 
+	oauthID, err := newOAuthIdentities(p.c.GetOauthConfigs(), p.l)
+	if err != nil {
+		return err
+	}
+
 	// Timeout to compile the starlark script. This is a generous timeout
 	// to avoid accidental infinite loops in the script.
 	loadTimeout := 30 * time.Second
 	loadCtx, cancel := context.WithTimeout(context.Background(), loadTimeout)
 	defer cancel()
 
-	rt, err := newRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), tlsCfg, p.l)
+	rt, err := newRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), tlsCfg, oauthID, p.l)
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
 	}

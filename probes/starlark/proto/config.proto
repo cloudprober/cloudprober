@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.starlark;
 
+import "github.com/cloudprober/cloudprober/common/oauth/proto/config.proto";
 import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
 
@@ -54,4 +55,23 @@ message ProbeConf {
   // override, or disabled cert validation. Same message the HTTP probe uses;
   // see common/tlsconfig/proto/config.proto for the full field list.
   optional tlsconfig.TLSConfig tls_config = 6;
+
+  // OAuth token sources, keyed by a name the script uses to select one. Same
+  // oauth.Config message the HTTP probe uses, so every source (file, command,
+  // HTTP token endpoint, GCE metadata, k8s token file, Google credentials,
+  // self-signed JWT), plus refresh/expiry handling, carries over.
+  //
+  // Unlike the HTTP probe, tokens are NOT auto-injected: a Starlark script
+  // routinely hits several hosts in one run, so it must ask for the token
+  // explicitly and decide where it goes, via the oauth builtin:
+  //   oauth.token(name=None)  -- raw access token ("eyJ...")
+  //   oauth.header(name=None) -- formatted Authorization value ("Bearer eyJ...")
+  // name may be omitted when exactly one config is present. Example:
+  //   oauth_configs {
+  //     key: "api"
+  //     value { http_request { token_url: "https://issuer/token" ... } }
+  //   }
+  //   def probe(target):
+  //       r = http.get(url, headers={"Authorization": oauth.header("api")})
+  map<string, oauth.Config> oauth_configs = 7;
 }
