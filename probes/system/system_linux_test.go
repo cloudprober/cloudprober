@@ -345,7 +345,7 @@ snap /snap/core/123 squashfs ro 0 0
 						}
 					}
 					// Verify no excluded mount points leaked through
-					for _, exclude := range []string{"/dev", "/sys", "/proc", "/run/netns", "/snap"} {
+					for _, exclude := range defaultExcludeMounts {
 						if mp == exclude || strings.HasPrefix(mp, exclude+"/") {
 							t.Errorf("got excluded mount point: %s", mp)
 						}
