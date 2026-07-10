@@ -296,7 +296,7 @@ func (p *Probe) exportDiskUsageStats(ts time.Time, dataChan chan *metrics.EventM
 
 	for _, mount := range mounts {
 		excluded := false
-		for _, exclude := range []string{"/dev", "/sys", "/proc", "/run/netns", "/run/containerd", "/run/k3s", "/run/docker", "/snap"} {
+		for _, exclude := range defaultExcludeMounts {
 			if mount == exclude || strings.HasPrefix(mount, exclude+"/") {
 				excluded = true
 				break
