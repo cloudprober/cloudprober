@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jwt
+package oauth
 
 import (
 	"crypto"
@@ -55,9 +55,9 @@ func decode(t *testing.T, token string) (header, claims map[string]any, signingI
 	return header, claims, parts[0] + "." + parts[1], sig
 }
 
-func TestEncode_RS256(t *testing.T) {
+func TestEncodeJWT_RS256(t *testing.T) {
 	keyPEM, pub := genRSAKeyPEM(t)
-	token, err := Encode(
+	token, err := encodeJWT(
 		map[string]any{"iss": "acct.user", "sub": "acct.user"},
 		map[string]any{"kid": "k1"},
 		keyPEM, "RS256")
@@ -73,22 +73,22 @@ func TestEncode_RS256(t *testing.T) {
 	assert.NoError(t, rsa.VerifyPKCS1v15(pub, crypto.SHA256, h[:], sig))
 }
 
-func TestEncode_PKCS1Key(t *testing.T) {
+func TestEncodeJWT_PKCS1Key(t *testing.T) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	keyPEM := string(pem.EncodeToMemory(&pem.Block{
 		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv),
 	}))
-	token, err := Encode(map[string]any{"sub": "x"}, nil, keyPEM, "RS256")
+	token, err := encodeJWT(map[string]any{"sub": "x"}, nil, keyPEM, "RS256")
 	require.NoError(t, err)
 	_, _, signingInput, sig := decode(t, token)
 	h := sha256.Sum256([]byte(signingInput))
 	assert.NoError(t, rsa.VerifyPKCS1v15(&priv.PublicKey, crypto.SHA256, h[:], sig))
 }
 
-func TestEncode_HS256(t *testing.T) {
+func TestEncodeJWT_HS256(t *testing.T) {
 	secret := "s3cret"
-	token, err := Encode(map[string]any{"sub": "alice"}, nil, secret, "HS256")
+	token, err := encodeJWT(map[string]any{"sub": "alice"}, nil, secret, "HS256")
 	require.NoError(t, err)
 	header, _, signingInput, sig := decode(t, token)
 	assert.Equal(t, "HS256", header["alg"])
@@ -97,25 +97,25 @@ func TestEncode_HS256(t *testing.T) {
 	assert.True(t, hmac.Equal(sig, mac.Sum(nil)))
 }
 
-func TestEncode_HeaderAlg(t *testing.T) {
+func TestEncodeJWT_HeaderAlg(t *testing.T) {
 	keyPEM, _ := genRSAKeyPEM(t)
 
 	// Matching alg in header is allowed.
-	_, err := Encode(map[string]any{"sub": "x"}, map[string]any{"alg": "RS256"}, keyPEM, "RS256")
+	_, err := encodeJWT(map[string]any{"sub": "x"}, map[string]any{"alg": "RS256"}, keyPEM, "RS256")
 	require.NoError(t, err)
 
 	// Conflicting alg is rejected.
-	_, err = Encode(map[string]any{"sub": "x"}, map[string]any{"alg": "none"}, keyPEM, "RS256")
+	_, err = encodeJWT(map[string]any{"sub": "x"}, map[string]any{"alg": "none"}, keyPEM, "RS256")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "conflicts with algorithm")
 }
 
-func TestEncode_Errors(t *testing.T) {
-	_, err := Encode(map[string]any{"sub": "x"}, nil, "secret", "XX999")
+func TestEncodeJWT_Errors(t *testing.T) {
+	_, err := encodeJWT(map[string]any{"sub": "x"}, nil, "secret", "XX999")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported algorithm")
 
-	_, err = Encode(map[string]any{"sub": "x"}, nil, "not-a-pem", "RS256")
+	_, err = encodeJWT(map[string]any{"sub": "x"}, nil, "not-a-pem", "RS256")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no PEM block")
 }

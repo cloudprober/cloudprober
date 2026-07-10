@@ -418,11 +418,11 @@ def probe(target):
 // TestHTTP_RuntimeOwnsClient verifies the review comment fix: each runtime
 // has its own *http.Client rather than reusing http.DefaultClient.
 func TestHTTP_RuntimeOwnsClient(t *testing.T) {
-	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, nil, &logger.Logger{})
+	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, nil, nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt1: %v", err)
 	}
-	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, nil, &logger.Logger{})
+	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, nil, nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt2: %v", err)
 	}

@@ -20,17 +20,15 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
-	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/google/uuid"
-	"golang.org/x/oauth2"
 )
 
 const relURLLabel = "relative_url"
@@ -251,25 +249,6 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) (*http.Request, e
 	return req, nil
 }
 
-func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
-	tok, err := ts.Token()
-	if err != nil {
-		return "", err
-	}
-	l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
-
-	if tok.AccessToken != "" {
-		return tok.AccessToken, nil
-	}
-
-	idToken, ok := tok.Extra("id_token").(string)
-	if ok {
-		return idToken, nil
-	}
-
-	return "", fmt.Errorf("got unknown token: %v", tok)
-}
-
 // prepareRequest derives a per-send request from the cached one. Cloning is
 // the only safe way to mutate without racing parallel sends (rpp > 1), so we
 // do it once when any of the per-send mutations apply -- dynamic header
@@ -286,7 +265,7 @@ func (p *Probe) prepareRequest(ctx context.Context, req *http.Request) *http.Req
 	}
 
 	if p.oauthTS != nil {
-		tok, err := getToken(p.oauthTS, p.l)
+		tok, err := oauth.GetToken(p.oauthTS, p.l)
 		// Note: We don't terminate the request if there is an error in getting
 		// token. That is to avoid complicating the flow, and to make sure that
 		// OAuth refresh failures show in probe failures.

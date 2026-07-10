@@ -82,13 +82,18 @@ type runtime struct {
 	// can never leak into another (or into other in-process users of the
 	// default client).
 	httpClient *http.Client
+
+	// oauth holds the token sources built from the probe's oauth_configs,
+	// keyed by config name, exposed to scripts via the oauth builtin. Nil
+	// when the probe configures no oauth_configs.
+	oauth map[string]*oauthIdentity
 }
 
 // newRuntime compiles the given Starlark source and verifies the entry point
 // exists with the expected arity. Module-level code runs once here and is
 // bounded by ctx; runtime calls to Run cannot mutate the resulting globals
 // (Starlark freezes them).
-func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, tlsCfg *tls.Config, l *logger.Logger) (*runtime, error) {
+func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, tlsCfg *tls.Config, oauthID map[string]*oauthIdentity, l *logger.Logger) (*runtime, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -97,6 +102,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 		entryPoint: entryPoint,
 		l:          l,
 		httpClient: newHTTPClient(tlsCfg),
+		oauth:      oauthID,
 	}
 	rt.predeclared = builtins(vars)
 
@@ -108,6 +114,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	}
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
+	thread.SetLocal(threadOAuthKey, rt.oauth)
 	thread.SetLocal(threadLoggerKey, newLoggerHolder(l))
 	// Module-level state.{get,set} writes go into a scratch bucket that's
 	// discarded with the load thread. There's no target context at load time,
@@ -153,6 +160,7 @@ func newHTTPClient(tlsCfg *tls.Config) *http.Client {
 const (
 	threadCtxKey        = "cloudprober.ctx"
 	threadHTTPClientKey = "cloudprober.httpClient"
+	threadOAuthKey      = "cloudprober.oauth"
 	threadLoggerKey     = "cloudprober.logger"
 	threadStateKey      = "cloudprober.state"
 	threadMetricEmitKey = "cloudprober.metricEmit"
@@ -298,6 +306,7 @@ func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logg
 	// top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
+	thread.SetLocal(threadOAuthKey, rt.oauth)
 	thread.SetLocal(threadLoggerKey, lh)
 	thread.SetLocal(threadStateKey, bucket)
 	thread.SetLocal(threadMetricEmitKey, metricEmit)
