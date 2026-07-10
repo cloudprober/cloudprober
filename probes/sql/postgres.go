@@ -18,7 +18,6 @@ import (
 	"crypto/tls"
 	gosql "database/sql"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -28,20 +27,30 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-// hostKeywordRe matches an explicit host=/hostaddr= keyword in a key/value
-// connection string.
-var hostKeywordRe = regexp.MustCompile(`(?:^|\s)(host|hostaddr)\s*=\s*\S`)
+// sentinelHost is an impossible host name used to detect whether a key/value
+// connection string sets a host of its own; ".invalid" is a reserved TLD, so
+// it can't collide with a real value.
+const sentinelHost = "cloudprober-internal-host-check.invalid"
 
 // connStringConflictsWithTarget reports whether connStr can't be safely
 // combined with a real target's host: URL form always carries a host slot
 // (filled or not) that we don't attempt to rewrite, and key/value form may
-// already specify one explicitly.
-func connStringConflictsWithTarget(connStr string) bool {
+// already specify one explicitly. Detection uses pgx's own parsing so that
+// quoted values (e.g. password='p host=x') don't false-positive: a sentinel
+// host prepended to the string survives only if the string doesn't set one
+// itself (libpq's last-value-wins rule). pgx doesn't map hostaddr to Host --
+// it ends up in RuntimeParams -- so look for it there. A parse error is
+// returned as such; connStr itself is what failed to parse.
+func connStringConflictsWithTarget(connStr string) (bool, error) {
 	s := strings.TrimSpace(connStr)
 	if strings.HasPrefix(s, "postgres://") || strings.HasPrefix(s, "postgresql://") {
-		return true
+		return true, nil
 	}
-	return hostKeywordRe.MatchString(s)
+	cfg, err := pgx.ParseConfig("host=" + sentinelHost + " " + connStr)
+	if err != nil {
+		return false, err
+	}
+	return cfg.Host != sentinelHost || cfg.RuntimeParams["hostaddr"] != "", nil
 }
 
 // pgConnConfig builds the connection config for the POSTGRES flavor. With a
@@ -62,16 +71,17 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 	connStr, _ := strtemplate.SubstituteLabels(p.c.GetConnectionString(), p.targetLabels(target))
 
 	if target.Name != "" {
-		if connStringConflictsWithTarget(connStr) {
-			return nil, fmt.Errorf("connection_string must be in key/value form and must not specify a host when the probe has a target; remove the host or use dummy_targets")
-		}
-
-		// Validate connection_string on its own before appending host/port
-		// below. A malformed value (e.g. a trailing backslash) would
-		// otherwise silently absorb the appended "host=..." during parsing,
-		// leaving the probe pointed at the default host instead of the target.
-		if _, err := pgx.ParseConfig(connStr); err != nil {
+		// The parse inside the conflict check also validates connection_string
+		// on its own before we append host/port below: a malformed value (e.g.
+		// a trailing backslash) would otherwise silently absorb the appended
+		// "host=..." during parsing, leaving the probe pointed at the default
+		// host instead of the target.
+		conflict, err := connStringConflictsWithTarget(connStr)
+		if err != nil {
 			return nil, fmt.Errorf("parsing connection_string: %v", err)
+		}
+		if conflict {
+			return nil, fmt.Errorf("connection_string must be in key/value form and must not specify a host when the probe has a target; remove the host or use dummy_targets")
 		}
 
 		host := target.Name

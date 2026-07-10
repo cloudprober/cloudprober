@@ -169,6 +169,32 @@ func TestInit(t *testing.T) {
 	}
 }
 
+func TestInitValidatorsRequireQuery(t *testing.T) {
+	vs, err := validators.Init([]*validatorpb.Validator{{
+		Name: "v",
+		Type: &validatorpb.Validator_Regex{Regex: "ok"},
+	}})
+	if err != nil {
+		t.Fatalf("validators.Init: %v", err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{Flavor: configpb.ProbeConf_POSTGRES.Enum()}
+	opts.Validators = vs
+
+	// Ping-only probe (no query): validators have nothing to validate.
+	p := &Probe{}
+	assert.ErrorContains(t, p.Init("sql_test", opts), "validators require a query")
+
+	// With a query, the same validators are fine.
+	opts.ProbeConf = &configpb.ProbeConf{
+		Flavor: configpb.ProbeConf_POSTGRES.Enum(),
+		Query:  proto.String("SELECT 1"),
+	}
+	p = &Probe{}
+	assert.NoError(t, p.Init("sql_test", opts))
+}
+
 func neutralizePGEnv(t *testing.T) {
 	t.Helper()
 	// pgconn ignores empty environment variables, so setting these to ""
@@ -396,6 +422,13 @@ func TestPgConnConfigTargetHostConflict(t *testing.T) {
 			connStr: "postgres://u@/db",
 			target:  endpoint.Endpoint{Name: "tgt.host"},
 			wantErr: true,
+		},
+		{
+			// "host=" inside a quoted value is not a host; the check must
+			// respect libpq quoting, not just scan for the substring.
+			name:    "host= inside quoted value with real target: no error",
+			connStr: "user=u password='p host=x' dbname=db",
+			target:  endpoint.Endpoint{Name: "tgt.host"},
 		},
 		{
 			name:    "key/value host with dummy target: no error",

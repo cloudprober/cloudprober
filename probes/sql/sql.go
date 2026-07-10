@@ -132,6 +132,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.query = string(b)
 	}
 
+	// A ping-only probe produces no response body, so validators would fail
+	// every run against a healthy database.
+	if p.opts.Validators != nil && p.query == "" {
+		return errors.New("validators require a query; a ping-only probe has no response to validate")
+	}
+
 	if p.c.GetTlsConfig() != nil {
 		p.tlsConfig = &tls.Config{}
 		if err := tlsconfig.UpdateTLSConfig(p.tlsConfig, p.c.GetTlsConfig()); err != nil {
