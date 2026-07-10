@@ -362,7 +362,7 @@ type ProbeDef struct {
 	// Default timeout is 1s.
 	Timeout *string `protobuf:"bytes,17,opt,name=timeout" json:"timeout,omitempty"`
 	// Targets for the probe. Targets are required for all probes except
-	// for external, user_defined, extension, browser, and system probe
+	// for external, user_defined, extension, browser, sql and system probe
 	// types.
 	Targets *proto.TargetsDef `protobuf:"bytes,6,opt,name=targets" json:"targets,omitempty"`
 	// Latency distribution. If specified, latency is stored as a distribution.

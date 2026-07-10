@@ -90,42 +90,23 @@ type ProbeConf struct {
 	// Database flavor. Required. Currently only POSTGRES is supported; more
 	// flavors may be added based on demand.
 	Flavor *ProbeConf_Flavor `protobuf:"varint,1,opt,name=flavor,enum=cloudprober.probes.sql.ProbeConf_Flavor" json:"flavor,omitempty"`
-	// Connection parameters. With a real target, host and port come from it
-	// (like the tcp, http, and grpc probes): connection_string must be in
-	// key/value form and must not itself specify a host (or hostaddr) -- doing
-	// so is a configuration error, since it'd be ambiguous which host to use.
-	// Port comes from the target when set (target.port != 0), otherwise from
-	// connection_string or environment.
+	// connection_string configures the database connection -- credentials,
+	// database name, sslmode, and other libpq parameters -- in key/value form
+	// e.g. "user=u dbname=db sslmode=require" or as a URI string
+	// e.g. "postgresql://user:password@host:port/database?sslmode=require".
 	//
-	// Without a target -- i.e. with an explicit
-	// "targets { dummy_targets {} }" -- host and port are taken from
-	// connection_string or environment instead, in any form (including a
-	// postgres:// URL with its own host), letting you reuse a full connection
-	// string (e.g. from a cloud provider) as-is.
+	// Note that connection string URI is incompatible with probe-targets
+	// configuration and results in an error. To use probe targets, define
+	// connection string in key-value form so that cloudprober can use the
+	// configured targets. Conversely, to connect using the connection_string's
+	// own host -- e.g. a full URI from a cloud provider -- omit the probe's
+	// targets entirely.
 	//
-	// Credentials, database name, and other parameters (sslmode, ...) are
-	// resolved the same way in both cases, in the following order, each step
-	// overriding the earlier ones:
-	//  1. Flavor-specific defaults and environment variables. For POSTGRES,
-	//     libpq environment variables (PGUSER, PGPASSWORD, PGDATABASE,
-	//     PGSSLMODE, PGPORT, ...) are honored.
-	//  2. connection_string, if set.
-	//  3. user, password, and database fields, if set.
-	//
-	// connection_string is a key/value list, e.g. "dbname=db user=u
-	// sslmode=require". @target.xxx@ substitutions (target.name, target.ip,
-	// target.port, target.label.<label>, probe) are supported, e.g.:
-	//
-	//	connection_string: "dbname=@target.label.db@ sslmode=require"
-	//
-	// With dummy_targets, connection_string can also be a postgres:// URL
-	// ("postgres://user:pass@host:5432/db?sslmode=require"); URL form isn't
-	// supported with a real target (use key/value form there), and
-	// @target.xxx@ substitution isn't reliable in it either -- the literal '@'
-	// before the host confuses token parsing.
-	//
-	// To keep secrets out of the config file, use the config-level envSecret
-	// template function, e.g. password: "{{envSecret "DB_PASSWORD"}}".
+	// In key-value form, @target.name@, @target.port@, @target.label.<name>@,
+	// etc. are substituted into connection_string. The user, password, and
+	// database fields below, if set, override the connection_string values.
+	// To keep secrets out of the config file, use the envSecret template
+	// function, e.g. password: "{{envSecret "DB_PASSWORD"}}".
 	ConnectionString *string `protobuf:"bytes,2,opt,name=connection_string,json=connectionString" json:"connection_string,omitempty"`
 	User             *string `protobuf:"bytes,3,opt,name=user" json:"user,omitempty"`
 	Password         *string `protobuf:"bytes,4,opt,name=password" json:"password,omitempty"`

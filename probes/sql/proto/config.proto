@@ -23,20 +23,22 @@ message ProbeConf {
   optional Flavor flavor = 1;
 
   // connection_string configures the database connection -- credentials,
-  // database name, sslmode, and other libpq parameters -- in key/value form,
-  // e.g. "user=u dbname=db sslmode=require".
+  // database name, sslmode, and other libpq parameters -- in key/value form
+  // e.g. "user=u dbname=db sslmode=require" or as a URI string
+  // e.g. "postgresql://user:password@host:port/database?sslmode=require".
   //
-  // Host and port come from the probe's target, so connection_string must not
-  // specify a host (doing so with a real target is a configuration error). To
-  // connect using a connection string's own host instead -- e.g. to paste a
-  // full postgres:// URL from a cloud provider as-is -- use a
-  // "targets { dummy_targets {} }" target, which has no host of its own.
+  // Note that connection string URI is incompatible with probe-targets
+  // configuration and results in an error. To use probe targets, define
+  // connection string in key-value form so that cloudprober can use the
+  // configured targets. Conversely, to connect using the connection_string's
+  // own host -- e.g. a full URI from a cloud provider -- omit the probe's
+  // targets entirely.
   //
-  // @target.name@, @target.port@, @target.label.<name>@, etc. are substituted
-  // into connection_string. The user, password, and database fields below, if
-  // set, override the connection_string values. To keep secrets out of the
-  // config file, use the envSecret template function, e.g.
-  // password: "{{envSecret "DB_PASSWORD"}}".
+  // In key-value form, @target.name@, @target.port@, @target.label.<name>@,
+  // etc. are substituted into connection_string. The user, password, and
+  // database fields below, if set, override the connection_string values.
+  // To keep secrets out of the config file, use the envSecret template
+  // function, e.g. password: "{{envSecret "DB_PASSWORD"}}".
   optional string connection_string = 2;
   optional string user = 3;
   optional string password = 4;
