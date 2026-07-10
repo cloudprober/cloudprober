@@ -158,21 +158,21 @@ def serve(probe_func: Callable, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer
             if request is None:
                 sys.exit(1)
             
-            def handle_request():
+            def handle_request(req):
                 reply = serverpb.ProbeReply()
-                reply.request_id = request.request_id
+                reply.request_id = req.request_id
                 done = threading.Event()
-                timeout = time.time() + request.time_limit / 1000
+                timeout = time.time() + req.time_limit / 1000.0
 
-                def probe():
-                    probe_func(request, reply)
+                def probe(req=req, reply=reply):
+                    probe_func(req, reply)
                     done.set()
 
                 threading.Thread(target=probe, daemon=True).start()
 
-                if done.wait(timeout - time.time()):
+                if done.wait(max(0.0, timeout - time.time())):
                     replies_queue.put(reply)
                 else:
-                    logging.error(f"Timeout for request {reply.request_id}", file=stderr)
+                    print(f"Timeout for request {reply.request_id}", file=stderr)
 
-            threading.Thread(target=handle_request, daemon=True).start()
+            threading.Thread(target=handle_request, args=(request,), daemon=True).start()

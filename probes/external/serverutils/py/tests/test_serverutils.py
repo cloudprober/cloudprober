@@ -86,6 +86,49 @@ class TestServerUtils(unittest.TestCase):
             self.assertEqual(reply.payload, "Hello, World!")
             time.sleep(1)  # Wait for the serve function to exit
             t.stop = True
+
+    @unittest.skipIf(os.name != "posix", "Skipping test on non-Unix systems")
+    def test_serve_concurrent(self):
+        def probe_func(request, reply):
+            time.sleep(0.02)
+            reply.request_id = request.request_id
+            reply.payload = f"Handled {request.request_id}"
+
+        stdin_read, stdin_write = os.pipe()
+        stdout_read, stdout_write = os.pipe()
+
+        ctx = Context("stop")
+        with open(stdin_read, "rb") as stdin, open(stdout_write, "wb") as stdout:
+            t = ExcThread(target=serve, args=(probe_func, stdin, stdout, io.BytesIO(), ctx), daemon=True)
+            t.start()
+            time.sleep(0.1)
+
+            num_requests = 10
+            requests = []
+            for i in range(num_requests):
+                req = serverpb.ProbeRequest()
+                req.request_id = i
+                req.time_limit = 1000
+                requests.append(req)
+
+            with open(stdin_write, "wb") as w:
+                for req in requests:
+                    _write_message(req, w)
+
+            replies = []
+            with open(stdout_read, "rb") as r:
+                for _ in range(num_requests):
+                    payload = _read_payload(r)
+                    reply = serverpb.ProbeReply()
+                    reply.ParseFromString(payload)
+                    replies.append(reply)
+
+            for reply in replies:
+                expected_payload = f"Handled {reply.request_id}"
+                self.assertEqual(reply.payload, expected_payload)
+
+            t.stop = True
         
 if __name__ == "__main__":
     unittest.main()
+
