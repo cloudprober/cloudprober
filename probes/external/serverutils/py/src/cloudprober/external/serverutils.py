@@ -173,6 +173,6 @@ def serve(probe_func: Callable, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer
                 if done.wait(max(0.0, deadline - time.monotonic())):
                     replies_queue.put(reply)
                 else:
-                    print(f"Timeout for request {reply.request_id}", file=stderr)
+                    print(f"Timeout for request {reply.request_id}", file=stderr, flush=True)
 
             threading.Thread(target=handle_request, args=(request,), daemon=True).start()
