@@ -162,7 +162,7 @@ def serve(probe_func: Callable, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer
                 reply = serverpb.ProbeReply()
                 reply.request_id = req.request_id
                 done = threading.Event()
-                timeout = time.time() + req.time_limit / 1000.0
+                deadline = time.monotonic() + req.time_limit / 1000.0
 
                 def probe(req=req, reply=reply):
                     probe_func(req, reply)
@@ -170,7 +170,7 @@ def serve(probe_func: Callable, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer
 
                 threading.Thread(target=probe, daemon=True).start()
 
-                if done.wait(max(0.0, timeout - time.time())):
+                if done.wait(max(0.0, deadline - time.monotonic())):
                     replies_queue.put(reply)
                 else:
                     print(f"Timeout for request {reply.request_id}", file=stderr)
