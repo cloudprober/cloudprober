@@ -27,9 +27,7 @@ import (
 // and signs a compact-serialization JWT (via common/jwt). It exists for APIs
 // that take a self-signed JWT directly as the bearer credential — Google
 // service-account JWTs are the driving case, Snowflake's SQL REST API key-pair
-// auth is the other. It is deliberately not part of the oauth module: there is
-// no token exchange here, the script signs its own short-lived token and sends
-// it.
+// auth is the other.
 //
 // The private key (for RS*) comes in as a PEM string, typically via the vars
 // module, e.g. jwt.encode(claims, vars.get("sa_private_key")). Scripts have no
