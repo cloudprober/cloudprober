@@ -137,6 +137,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.opts.Validators != nil && p.query == "" {
 		return errors.New("validators require a query; a ping-only probe has no response to validate")
 	}
+	if p.c.GetResponseMetricsOptions() != nil && p.query == "" {
+		return errors.New("response_metrics_options require a query; a ping-only probe has no response to parse")
+	}
 
 	if p.c.GetTlsConfig() != nil {
 		p.tlsConfig = &tls.Config{}
@@ -205,6 +208,38 @@ func (p *Probe) runQuery(ctx context.Context, target endpoint.Endpoint) ([]byte,
 // LIMIT.
 const maxQueryResultSize = 1 << 20 // 1MB
 
+// errQueryResultTooLarge is returned when serialized output would exceed
+// maxQueryResultSize.
+var errQueryResultTooLarge = fmt.Errorf("query result exceeded %d bytes, consider adding a LIMIT to the query", maxQueryResultSize)
+
+// writeResultValue appends one column value to buf, enforcing maxQueryResultSize
+// before writing large string/[]byte cells so a single oversized value cannot
+// grow the buffer well past the cap.
+func writeResultValue(buf *bytes.Buffer, val any) error {
+	if b, ok := val.([]byte); ok {
+		if buf.Len()+len(b) > maxQueryResultSize {
+			return errQueryResultTooLarge
+		}
+		buf.Write(b)
+		return nil
+	}
+	if s, ok := val.(string); ok {
+		if buf.Len()+len(s) > maxQueryResultSize {
+			return errQueryResultTooLarge
+		}
+		buf.WriteString(s)
+		return nil
+	}
+	// Numbers and other small types: format then check.
+	before := buf.Len()
+	fmt.Fprintf(buf, "%v", val)
+	if buf.Len() > maxQueryResultSize {
+		buf.Truncate(before)
+		return errQueryResultTooLarge
+	}
+	return nil
+}
+
 // serializeRows converts query results into text that validators and the
 // payload metrics parser can consume: one line per row, with column values
 // joined by a single space.
@@ -225,19 +260,19 @@ func serializeRows(rows *gosql.Rows) ([]byte, error) {
 		}
 		for i, v := range vals {
 			if i > 0 {
+				if buf.Len()+1 > maxQueryResultSize {
+					return nil, errQueryResultTooLarge
+				}
 				buf.WriteByte(' ')
 			}
-			val := *(v.(*any))
-			if b, ok := val.([]byte); ok {
-				val = string(b)
+			if err := writeResultValue(&buf, *(v.(*any))); err != nil {
+				return nil, err
 			}
-			fmt.Fprintf(&buf, "%v", val)
+		}
+		if buf.Len()+1 > maxQueryResultSize {
+			return nil, errQueryResultTooLarge
 		}
 		buf.WriteByte('\n')
-
-		if buf.Len() > maxQueryResultSize {
-			return nil, fmt.Errorf("query result exceeded %d bytes, consider adding a LIMIT to the query", maxQueryResultSize)
-		}
 	}
 	return buf.Bytes(), rows.Err()
 }

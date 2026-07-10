@@ -27,6 +27,16 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
+// quoteLibpqValue quotes a value for a PostgreSQL key/value connection
+// string. Unquoted values are whitespace-delimited, so characters like
+// spaces would otherwise be parsed as additional parameters (e.g. a host
+// of "h password=x" becoming host=h plus password=x).
+func quoteLibpqValue(v string) string {
+	escaped := strings.ReplaceAll(v, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `'`, `\'`)
+	return "'" + escaped + "'"
+}
+
 // connStringConflictsWithTarget reports whether connStr can't be safely
 // combined with a real target's host: URL form always carries a host slot
 // (filled or not) that we don't attempt to rewrite, and key/value form may
@@ -38,12 +48,19 @@ import (
 // returned as such; connStr itself is what failed to parse.
 func connStringConflictsWithTarget(connStr string) (bool, error) {
 	s := strings.TrimSpace(connStr)
-	if strings.HasPrefix(s, "postgres://") || strings.HasPrefix(s, "postgresql://") {
+	lower := strings.ToLower(s)
+	if strings.HasPrefix(lower, "postgres://") || strings.HasPrefix(lower, "postgresql://") {
 		return true, nil
 	}
 	// impossible host to detect if the connection string already has a host
 	const invalidHost = "cloudprober-internal-host-check.invalid"
-	cfg, err := pgx.ParseConfig("host=" + invalidHost + " " + connStr)
+	// pgx rejects a trailing space after a lone quoted value
+	// (host='x' ); only append connStr when non-empty.
+	check := "host=" + quoteLibpqValue(invalidHost)
+	if s != "" {
+		check += " " + s
+	}
+	cfg, err := pgx.ParseConfig(check)
 	if err != nil {
 		return false, err
 	}
@@ -86,8 +103,9 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 
 		// Appending, rather than parsing-then-overwriting, lets pgx derive
 		// Fallbacks and TLS ServerName natively and correctly from the final
-		// host, instead of us patching its output after the fact.
-		inject := "host=" + host
+		// host, instead of us patching its output after the fact. Quote the
+		// host so spaces/special characters cannot inject extra parameters.
+		inject := "host=" + quoteLibpqValue(host)
 		if target.Port != 0 {
 			inject += " port=" + strconv.Itoa(target.Port)
 		}

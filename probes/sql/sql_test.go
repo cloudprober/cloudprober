@@ -195,6 +195,26 @@ func TestInitValidatorsRequireQuery(t *testing.T) {
 	assert.NoError(t, p.Init("sql_test", opts))
 }
 
+func TestInitResponseMetricsRequireQuery(t *testing.T) {
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		Flavor:                 configpb.ProbeConf_POSTGRES.Enum(),
+		ResponseMetricsOptions: &payloadconfigpb.OutputMetricsOptions{},
+	}
+
+	// Ping-only probe (no query): nothing to parse into payload metrics.
+	p := &Probe{}
+	assert.ErrorContains(t, p.Init("sql_test", opts), "response_metrics_options require a query")
+
+	opts.ProbeConf = &configpb.ProbeConf{
+		Flavor:                 configpb.ProbeConf_POSTGRES.Enum(),
+		Query:                  proto.String("SELECT 1"),
+		ResponseMetricsOptions: &payloadconfigpb.OutputMetricsOptions{},
+	}
+	p = &Probe{}
+	assert.NoError(t, p.Init("sql_test", opts))
+}
+
 func neutralizePGEnv(t *testing.T) {
 	t.Helper()
 	// pgconn ignores empty environment variables, so setting these to ""
@@ -228,6 +248,20 @@ func TestPgConnConfig(t *testing.T) {
 			wantUser: "cpuser",
 			wantPass: "cppass",
 			wantDB:   "cpdb",
+		},
+		{
+			// Spaces and key-like fragments in the host must not become
+			// extra libpq parameters (e.g. password=injected).
+			name: "host with spaces and special chars is quoted",
+			conf: &configpb.ProbeConf{
+				ConnectionString: proto.String("user=u password=realpass dbname=db sslmode=disable port=5433"),
+			},
+			target:   endpoint.Endpoint{Name: "db.example.com password=injected sslmode=disable"},
+			wantHost: "db.example.com password=injected sslmode=disable",
+			wantPort: 5433,
+			wantUser: "u",
+			wantPass: "realpass",
+			wantDB:   "db",
 		},
 		{
 			name: "fields override connection string",
@@ -424,6 +458,12 @@ func TestPgConnConfigTargetHostConflict(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "URL form case-insensitive scheme with real target: error",
+			connStr: "Postgres://u@/db",
+			target:  endpoint.Endpoint{Name: "tgt.host"},
+			wantErr: true,
+		},
+		{
 			// "host=" inside a quoted value is not a host; the check must
 			// respect libpq quoting, not just scan for the substring.
 			name:    "host= inside quoted value with real target: no error",
@@ -611,6 +651,27 @@ func TestSerializeRowsSizeCap(t *testing.T) {
 	conn := &fakeConn{
 		cols: []string{"a"},
 		rows: [][]driver.Value{{bigVal}, {bigVal}, {bigVal}},
+	}
+	db := gosql.OpenDB(&fakeConnector{conn: conn})
+	defer db.Close()
+
+	rows, err := db.QueryContext(context.Background(), "SELECT ...")
+	if err != nil {
+		t.Fatalf("QueryContext: %v", err)
+	}
+	defer rows.Close()
+
+	_, err = serializeRows(rows)
+	assert.ErrorContains(t, err, "query result exceeded")
+}
+
+func TestSerializeRowsSingleCellSizeCap(t *testing.T) {
+	// A single cell larger than the cap must fail without growing the buffer
+	// well past maxQueryResultSize.
+	bigVal := strings.Repeat("x", maxQueryResultSize+1)
+	conn := &fakeConn{
+		cols: []string{"a"},
+		rows: [][]driver.Value{{[]byte(bigVal)}},
 	}
 	db := gosql.OpenDB(&fakeConnector{conn: conn})
 	defer db.Close()
