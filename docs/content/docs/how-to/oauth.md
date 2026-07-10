@@ -47,7 +47,8 @@ oauth_config: {
 # Run a command to generate the token
 oauth_config: {
   # Token generator could do custom stuff like generate a short-lived token
-  # from a private public key-pair (e.g. for Snowflake API).
+  # from a private public key-pair. For self-signed JWTs (e.g. Snowflake API)
+  # you can now use the built-in "jwt" source instead of a script -- see below.
   cmd: "{{configDir}}/scripts/token_generator.sh"
 }
 ```
@@ -100,6 +101,37 @@ oauth_config: {
   }
 }
 ```
+
+### Self-signed JWT
+
+For APIs that accept a self-signed JWT directly as the bearer credential (for
+example, Snowflake's SQL REST API key-pair auth), use the `jwt` source.
+Cloudprober mints a JWT from the configured claims, signs it with your private
+key, and re-mints it automatically before it expires -- no external token
+endpoint or helper script needed.
+
+```bash
+oauth_config: {
+  jwt: {
+    # PEM-encoded private key. Use envSecret so it stays masked in the
+    # served config. (HS256 uses this field as the shared secret.)
+    private_key: "{{envSecret "SNOWFLAKE_PRIVATE_KEY"}}"
+    algorithm: "RS256"       # default; HS256 also supported
+    lifetime_sec: 3600       # sets "exp" and drives re-minting
+
+    claims { key: "iss" value: "MYACCOUNT.MYUSER.SHA256:<pubkey-fingerprint>" }
+    claims { key: "sub" value: "MYACCOUNT.MYUSER" }
+
+    # Optional extra JOSE header fields, e.g. a key id:
+    # header { key: "kid" value: "..." }
+  }
+}
+```
+
+`iat` and `exp` are added automatically from the current time and
+`lifetime_sec`, so don't set them in `claims`. For Google service accounts,
+prefer `google_credentials` with `jwt_as_access_token` over building the JWT
+by hand.
 
 ## Config Reference
 

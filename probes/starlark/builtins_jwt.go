@@ -15,28 +15,19 @@
 package starlark
 
 import (
-	"crypto"
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/jwt"
 	starlarklib "go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
 
 // jwt.encode(payload, key, algorithm="RS256", headers=None, lifetime=60) mints
-// and signs a compact-serialization JWT. It exists for APIs that take a
-// self-signed JWT directly as the bearer credential — Google service-account
-// JWTs are the driving case, Snowflake's SQL REST API key-pair auth is the
-// other. It is deliberately not part of the oauth module: there is no token
-// exchange here, the script signs its own short-lived token and sends it.
+// and signs a compact-serialization JWT (via common/jwt). It exists for APIs
+// that take a self-signed JWT directly as the bearer credential — Google
+// service-account JWTs are the driving case, Snowflake's SQL REST API key-pair
+// auth is the other.
 //
 // The private key (for RS*) comes in as a PEM string, typically via the vars
 // module, e.g. jwt.encode(claims, vars.get("sa_private_key")). Scripts have no
@@ -92,37 +83,19 @@ func jwtEncode(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.T
 		}
 	}
 
-	header := map[string]interface{}{"alg": alg, "typ": "JWT"}
+	var header map[string]any
 	if headersV != starlarklib.None {
-		extra, err := jwtDict(headersV, "headers")
+		header, err = jwtDict(headersV, "headers")
 		if err != nil {
 			return nil, err
 		}
-		// A header alg must never disagree with the algorithm we actually sign
-		// with. An explicit matching alg is fine; a mismatch is an error.
-		if a, ok := extra["alg"]; ok && a != alg {
-			return nil, fmt.Errorf("jwt.encode: headers[\"alg\"]=%v conflicts with algorithm=%q", a, alg)
-		}
-		for k, v := range extra {
-			header[k] = v
-		}
 	}
 
-	headerJSON, err := json.Marshal(header)
-	if err != nil {
-		return nil, fmt.Errorf("jwt.encode: marshaling header: %v", err)
-	}
-	claimsJSON, err := json.Marshal(claims)
-	if err != nil {
-		return nil, fmt.Errorf("jwt.encode: marshaling payload: %v", err)
-	}
-
-	signingInput := jwtBase64(headerJSON) + "." + jwtBase64(claimsJSON)
-	sig, err := jwtSign(alg, []byte(signingInput), key)
+	tok, err := jwt.Encode(claims, header, key, alg)
 	if err != nil {
 		return nil, fmt.Errorf("jwt.encode: %v", err)
 	}
-	return starlarklib.String(signingInput + "." + jwtBase64(sig)), nil
+	return starlarklib.String(tok), nil
 }
 
 // jwtDict converts a Starlark dict argument to a Go map via the shared
@@ -137,53 +110,4 @@ func jwtDict(v starlarklib.Value, name string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("jwt.encode: %s must be a dict, got %s", name, v.Type())
 	}
 	return m, nil
-}
-
-func jwtBase64(b []byte) string {
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
-// jwtSign signs signingInput for the given JOSE alg. RS256 (RSA-PKCS1v15 +
-// SHA-256) is the Snowflake/GCP case; HS256 (HMAC-SHA256) is the shared-secret
-// companion. Add more alg entries here as concrete APIs need them.
-func jwtSign(alg string, signingInput []byte, key string) ([]byte, error) {
-	switch alg {
-	case "RS256":
-		priv, err := jwtParseRSAKey(key)
-		if err != nil {
-			return nil, err
-		}
-		h := sha256.Sum256(signingInput)
-		return rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, h[:])
-	case "HS256":
-		mac := hmac.New(sha256.New, []byte(key))
-		mac.Write(signingInput)
-		return mac.Sum(nil), nil
-	default:
-		return nil, fmt.Errorf("unsupported algorithm %q (supported: RS256, HS256)", alg)
-	}
-}
-
-func jwtParseRSAKey(pemStr string) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(pemStr))
-	if block == nil {
-		return nil, fmt.Errorf("no PEM block found in key")
-	}
-	if block.Type == "ENCRYPTED PRIVATE KEY" {
-		return nil, fmt.Errorf("encrypted private keys are not supported; provide an unencrypted PEM")
-	}
-	// Snowflake keys are usually PKCS#8 (openssl genpkey); older tooling emits
-	// PKCS#1. Try both.
-	if k, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
-		return k, nil
-	}
-	k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parsing RSA private key (tried PKCS1 and PKCS8): %v", err)
-	}
-	rsaKey, ok := k.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("key is %T, want an RSA private key for RS256", k)
-	}
-	return rsaKey, nil
 }
