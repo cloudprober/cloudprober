@@ -27,6 +27,12 @@ message Config {
     // Google credentials, either from a default source or a JSON file.
     GoogleCredentials google_credentials = 8;
 
+    // Self-signed JWT, used directly as the access token and re-minted before
+    // it expires. For APIs that take a JWT as the bearer credential (e.g.
+    // Snowflake key-pair auth). For Google service accounts, prefer
+    // google_credentials with jwt_as_access_token.
+    JWTSource jwt = 9;
+
     // Bearer token (deprecated)
     // This field is deprecated. Use one of the other source directly. This
     // layer turned out to be unnecessary.
@@ -101,6 +107,29 @@ message BearerToken {
   // every 30s by default. To disable this behavior set refresh_interval_sec to
   // zero.
   optional float refresh_interval_sec = 90;
+}
+
+// JWTSource mints a self-signed JWT and uses it directly as the access token.
+// Unlike google_credentials (which is Google-specific), it builds an arbitrary
+// JWT from the provided claims and signs it with the given key. The token is
+// re-minted automatically before it expires.
+message JWTSource {
+  // PEM-encoded private key for RS* algorithms, or the shared secret for HS*.
+  // Typically provided through the config layer's secret handling (envSecret).
+  optional string private_key = 1;
+
+  // Signing algorithm: RS256 (default) or HS256.
+  optional string algorithm = 2 [default = "RS256"];
+
+  // JWT claims, e.g. iss, sub, aud. "iat" (now) and "exp" (now + lifetime_sec)
+  // are added automatically.
+  map<string, string> claims = 3;
+
+  // Token lifetime in seconds; sets the "exp" claim and drives re-minting.
+  optional int32 lifetime_sec = 4 [default = 3600];
+
+  // Extra JOSE header fields, e.g. "kid".
+  map<string, string> header = 5;
 }
 
 // Google credentials in JSON format. We simply use oauth2/google package to

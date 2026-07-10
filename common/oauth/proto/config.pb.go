@@ -31,6 +31,7 @@ type Config struct {
 	//	*Config_GceServiceAccount
 	//	*Config_K8SLocalToken
 	//	*Config_GoogleCredentials
+	//	*Config_Jwt
 	//	*Config_BearerToken
 	Source isConfig_Source `protobuf_oneof:"source"`
 	// If auto-refreshing based on token's expiry, how long before the expiry do we
@@ -154,6 +155,15 @@ func (x *Config) GetGoogleCredentials() *GoogleCredentials {
 	return nil
 }
 
+func (x *Config) GetJwt() *JWTSource {
+	if x != nil {
+		if x, ok := x.Source.(*Config_Jwt); ok {
+			return x.Jwt
+		}
+	}
+	return nil
+}
+
 func (x *Config) GetBearerToken() *BearerToken {
 	if x != nil {
 		if x, ok := x.Source.(*Config_BearerToken); ok {
@@ -221,6 +231,14 @@ type Config_GoogleCredentials struct {
 	GoogleCredentials *GoogleCredentials `protobuf:"bytes,8,opt,name=google_credentials,json=googleCredentials,oneof"`
 }
 
+type Config_Jwt struct {
+	// Self-signed JWT, used directly as the access token and re-minted before
+	// it expires. For APIs that take a JWT as the bearer credential (e.g.
+	// Snowflake key-pair auth). For Google service accounts, prefer
+	// google_credentials with jwt_as_access_token.
+	Jwt *JWTSource `protobuf:"bytes,9,opt,name=jwt,oneof"`
+}
+
 type Config_BearerToken struct {
 	// Bearer token (deprecated)
 	// This field is deprecated. Use one of the other source directly. This
@@ -239,6 +257,8 @@ func (*Config_GceServiceAccount) isConfig_Source() {}
 func (*Config_K8SLocalToken) isConfig_Source() {}
 
 func (*Config_GoogleCredentials) isConfig_Source() {}
+
+func (*Config_Jwt) isConfig_Source() {}
 
 func (*Config_BearerToken) isConfig_Source() {}
 
@@ -455,6 +475,99 @@ func (*BearerToken_GceServiceAccount) isBearerToken_Source() {}
 
 func (*BearerToken_K8SLocalToken) isBearerToken_Source() {}
 
+// JWTSource mints a self-signed JWT and uses it directly as the access token.
+// Unlike google_credentials (which is Google-specific), it builds an arbitrary
+// JWT from the provided claims and signs it with the given key. The token is
+// re-minted automatically before it expires.
+type JWTSource struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// PEM-encoded private key for RS* algorithms, or the shared secret for HS*.
+	// Typically provided through the config layer's secret handling (envSecret).
+	PrivateKey *string `protobuf:"bytes,1,opt,name=private_key,json=privateKey" json:"private_key,omitempty"`
+	// Signing algorithm: RS256 (default) or HS256.
+	Algorithm *string `protobuf:"bytes,2,opt,name=algorithm,def=RS256" json:"algorithm,omitempty"`
+	// JWT claims, e.g. iss, sub, aud. "iat" (now) and "exp" (now + lifetime_sec)
+	// are added automatically.
+	Claims map[string]string `protobuf:"bytes,3,rep,name=claims" json:"claims,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Token lifetime in seconds; sets the "exp" claim and drives re-minting.
+	LifetimeSec *int32 `protobuf:"varint,4,opt,name=lifetime_sec,json=lifetimeSec,def=3600" json:"lifetime_sec,omitempty"`
+	// Extra JOSE header fields, e.g. "kid".
+	Header        map[string]string `protobuf:"bytes,5,rep,name=header" json:"header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+// Default values for JWTSource fields.
+const (
+	Default_JWTSource_Algorithm   = string("RS256")
+	Default_JWTSource_LifetimeSec = int32(3600)
+)
+
+func (x *JWTSource) Reset() {
+	*x = JWTSource{}
+	mi := &file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JWTSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JWTSource) ProtoMessage() {}
+
+func (x *JWTSource) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JWTSource.ProtoReflect.Descriptor instead.
+func (*JWTSource) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *JWTSource) GetPrivateKey() string {
+	if x != nil && x.PrivateKey != nil {
+		return *x.PrivateKey
+	}
+	return ""
+}
+
+func (x *JWTSource) GetAlgorithm() string {
+	if x != nil && x.Algorithm != nil {
+		return *x.Algorithm
+	}
+	return Default_JWTSource_Algorithm
+}
+
+func (x *JWTSource) GetClaims() map[string]string {
+	if x != nil {
+		return x.Claims
+	}
+	return nil
+}
+
+func (x *JWTSource) GetLifetimeSec() int32 {
+	if x != nil && x.LifetimeSec != nil {
+		return *x.LifetimeSec
+	}
+	return Default_JWTSource_LifetimeSec
+}
+
+func (x *JWTSource) GetHeader() map[string]string {
+	if x != nil {
+		return x.Header
+	}
+	return nil
+}
+
 // Google credentials in JSON format. We simply use oauth2/google package to
 // use these credentials.
 type GoogleCredentials struct {
@@ -472,7 +585,7 @@ type GoogleCredentials struct {
 
 func (x *GoogleCredentials) Reset() {
 	*x = GoogleCredentials{}
-	mi := &file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[3]
+	mi := &file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -484,7 +597,7 @@ func (x *GoogleCredentials) String() string {
 func (*GoogleCredentials) ProtoMessage() {}
 
 func (x *GoogleCredentials) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[3]
+	mi := &file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -497,7 +610,7 @@ func (x *GoogleCredentials) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GoogleCredentials.ProtoReflect.Descriptor instead.
 func (*GoogleCredentials) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDescGZIP(), []int{3}
+	return file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GoogleCredentials) GetJsonFile() string {
@@ -532,14 +645,15 @@ var File_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto prot
 
 const file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Bgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x12\x11cloudprober.oauth\"\xa5\x04\n" +
+	"Bgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x12\x11cloudprober.oauth\"\xd7\x04\n" +
 	"\x06Config\x12\x14\n" +
 	"\x04file\x18\x01 \x01(\tH\x00R\x04file\x12C\n" +
 	"\fhttp_request\x18\x02 \x01(\v2\x1e.cloudprober.oauth.HTTPRequestH\x00R\vhttpRequest\x12\x12\n" +
 	"\x03cmd\x18\x03 \x01(\tH\x00R\x03cmd\x120\n" +
 	"\x13gce_service_account\x18\x04 \x01(\tH\x00R\x11gceServiceAccount\x12(\n" +
 	"\x0fk8s_local_token\x18\x05 \x01(\bH\x00R\rk8sLocalToken\x12U\n" +
-	"\x12google_credentials\x18\b \x01(\v2$.cloudprober.oauth.GoogleCredentialsH\x00R\x11googleCredentials\x12C\n" +
+	"\x12google_credentials\x18\b \x01(\v2$.cloudprober.oauth.GoogleCredentialsH\x00R\x11googleCredentials\x120\n" +
+	"\x03jwt\x18\t \x01(\v2\x1c.cloudprober.oauth.JWTSourceH\x00R\x03jwt\x12C\n" +
 	"\fbearer_token\x18\a \x01(\v2\x1e.cloudprober.oauth.BearerTokenH\x00R\vbearerToken\x12=\n" +
 	"\x19refresh_expiry_buffer_sec\x18\x14 \x01(\x05:\x0260R\x16refreshExpiryBufferSec\x124\n" +
 	"\x14refresh_interval_sec\x18\x15 \x01(\x02:\x0230R\x12refreshIntervalSec\x125\n" +
@@ -559,7 +673,20 @@ const file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_ra
 	"\x13gce_service_account\x18\x03 \x01(\tH\x00R\x11gceServiceAccount\x12(\n" +
 	"\x0fk8s_local_token\x18\x04 \x01(\bH\x00R\rk8sLocalToken\x120\n" +
 	"\x14refresh_interval_sec\x18Z \x01(\x02R\x12refreshIntervalSecB\b\n" +
-	"\x06source\"\x91\x01\n" +
+	"\x06source\"\xf4\x02\n" +
+	"\tJWTSource\x12\x1f\n" +
+	"\vprivate_key\x18\x01 \x01(\tR\n" +
+	"privateKey\x12#\n" +
+	"\talgorithm\x18\x02 \x01(\t:\x05RS256R\talgorithm\x12@\n" +
+	"\x06claims\x18\x03 \x03(\v2(.cloudprober.oauth.JWTSource.ClaimsEntryR\x06claims\x12'\n" +
+	"\flifetime_sec\x18\x04 \x01(\x05:\x043600R\vlifetimeSec\x12@\n" +
+	"\x06header\x18\x05 \x03(\v2(.cloudprober.oauth.JWTSource.HeaderEntryR\x06header\x1a9\n" +
+	"\vClaimsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a9\n" +
+	"\vHeaderEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x91\x01\n" +
 	"\x11GoogleCredentials\x12\x1b\n" +
 	"\tjson_file\x18\x01 \x01(\tR\bjsonFile\x12\x14\n" +
 	"\x05scope\x18\x02 \x03(\tR\x05scope\x12-\n" +
@@ -578,24 +705,30 @@ func file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_raw
 	return file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_goTypes = []any{
 	(*Config)(nil),            // 0: cloudprober.oauth.Config
 	(*HTTPRequest)(nil),       // 1: cloudprober.oauth.HTTPRequest
 	(*BearerToken)(nil),       // 2: cloudprober.oauth.BearerToken
-	(*GoogleCredentials)(nil), // 3: cloudprober.oauth.GoogleCredentials
-	nil,                       // 4: cloudprober.oauth.HTTPRequest.HeaderEntry
+	(*JWTSource)(nil),         // 3: cloudprober.oauth.JWTSource
+	(*GoogleCredentials)(nil), // 4: cloudprober.oauth.GoogleCredentials
+	nil,                       // 5: cloudprober.oauth.HTTPRequest.HeaderEntry
+	nil,                       // 6: cloudprober.oauth.JWTSource.ClaimsEntry
+	nil,                       // 7: cloudprober.oauth.JWTSource.HeaderEntry
 }
 var file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.oauth.Config.http_request:type_name -> cloudprober.oauth.HTTPRequest
-	3, // 1: cloudprober.oauth.Config.google_credentials:type_name -> cloudprober.oauth.GoogleCredentials
-	2, // 2: cloudprober.oauth.Config.bearer_token:type_name -> cloudprober.oauth.BearerToken
-	4, // 3: cloudprober.oauth.HTTPRequest.header:type_name -> cloudprober.oauth.HTTPRequest.HeaderEntry
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 1: cloudprober.oauth.Config.google_credentials:type_name -> cloudprober.oauth.GoogleCredentials
+	3, // 2: cloudprober.oauth.Config.jwt:type_name -> cloudprober.oauth.JWTSource
+	2, // 3: cloudprober.oauth.Config.bearer_token:type_name -> cloudprober.oauth.BearerToken
+	5, // 4: cloudprober.oauth.HTTPRequest.header:type_name -> cloudprober.oauth.HTTPRequest.HeaderEntry
+	6, // 5: cloudprober.oauth.JWTSource.claims:type_name -> cloudprober.oauth.JWTSource.ClaimsEntry
+	7, // 6: cloudprober.oauth.JWTSource.header:type_name -> cloudprober.oauth.JWTSource.HeaderEntry
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_init() }
@@ -610,6 +743,7 @@ func file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_ini
 		(*Config_GceServiceAccount)(nil),
 		(*Config_K8SLocalToken)(nil),
 		(*Config_GoogleCredentials)(nil),
+		(*Config_Jwt)(nil),
 		(*Config_BearerToken)(nil),
 	}
 	file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_msgTypes[2].OneofWrappers = []any{
@@ -624,7 +758,7 @@ func file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_ini
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_common_oauth_proto_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

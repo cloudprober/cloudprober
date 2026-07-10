@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/jwt"
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
@@ -76,11 +77,40 @@ func readFromCommand(c *configpb.Config) (*oauth2.Token, error) {
 	return bytesToToken(out), nil
 }
 
+// jwtToken mints a self-signed JWT from the JWTSource config. iat/exp are set
+// from the current time and lifetime, and Expiry is stamped on the token so the
+// cache re-mints it before it expires.
+func jwtToken(c *configpb.Config) (*oauth2.Token, error) {
+	jc := c.GetJwt()
+	now := time.Now()
+	expiry := now.Add(time.Duration(jc.GetLifetimeSec()) * time.Second)
+
+	claims := map[string]any{"iat": now.Unix(), "exp": expiry.Unix()}
+	for k, v := range jc.GetClaims() {
+		claims[k] = v
+	}
+
+	var header map[string]any
+	if len(jc.GetHeader()) > 0 {
+		header = make(map[string]any, len(jc.GetHeader()))
+		for k, v := range jc.GetHeader() {
+			header[k] = v
+		}
+	}
+
+	tok, err := jwt.Encode(claims, header, jc.GetPrivateKey(), jc.GetAlgorithm())
+	if err != nil {
+		return nil, fmt.Errorf("oauth: minting JWT: %v", err)
+	}
+	return &oauth2.Token{AccessToken: tok, Expiry: expiry}, nil
+}
+
 var tokenFunctions = struct {
-	fromFile, fromCmd, fromGCEMetadata, fromK8sTokenFile, fromHTTP func(c *configpb.Config) (*oauth2.Token, error)
+	fromFile, fromCmd, fromGCEMetadata, fromK8sTokenFile, fromHTTP, fromJWT func(c *configpb.Config) (*oauth2.Token, error)
 }{
 	fromFile: readFromFile,
 	fromCmd:  readFromCommand,
+	fromJWT:  jwtToken,
 	fromGCEMetadata: func(c *configpb.Config) (*oauth2.Token, error) {
 		ts := google.ComputeTokenSource(c.GetGceServiceAccount())
 		tok, err := ts.Token()
@@ -155,6 +185,9 @@ func newTokenSource(c *configpb.Config, refreshExpiryBuffer time.Duration, l *lo
 
 	case *configpb.Config_Cmd:
 		ts.getTokenFromBackend = tokenFunctions.fromCmd
+
+	case *configpb.Config_Jwt:
+		ts.getTokenFromBackend = tokenFunctions.fromJWT
 
 	case *configpb.Config_GceServiceAccount:
 		ts.getTokenFromBackend = tokenFunctions.fromGCEMetadata
