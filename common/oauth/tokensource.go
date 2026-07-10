@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/jwt"
 	configpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
@@ -104,7 +103,7 @@ func jwtToken(c *configpb.Config) (*oauth2.Token, error) {
 		}
 	}
 
-	tok, err := jwt.Encode(claims, header, jc.GetPrivateKey(), jc.GetAlgorithm())
+	tok, err := encodeJWT(claims, header, jc.GetPrivateKey(), jc.GetAlgorithm())
 	if err != nil {
 		return nil, fmt.Errorf("oauth: minting JWT: %v", err)
 	}

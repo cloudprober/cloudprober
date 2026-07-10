@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package jwt mints and signs compact-serialization JSON Web Tokens. It is the
-// shared signing core used by the oauth module's self-signed JWT token source.
-package jwt
+package oauth
 
 import (
 	"crypto"
@@ -29,8 +27,9 @@ import (
 	"fmt"
 )
 
-// Encode builds and signs a compact-serialization JWT and returns the token
-// string. alg selects the signature:
+// encodeJWT builds and signs a compact-serialization JWT and returns the token
+// string. It is the signing core for the self-signed JWT token source
+// (jwtToken). alg selects the signature:
 //
 //   - "RS256": RSA PKCS1v15 with SHA-256; key is a PEM-encoded RSA private key
 //     (PKCS#1 or PKCS#8).
@@ -40,7 +39,7 @@ import (
 // an "alg" present in header must equal alg, so the header can never disagree
 // with how the token is actually signed. Callers own the claim set, including
 // any time claims (iat/exp).
-func Encode(claims, header map[string]any, key, alg string) (string, error) {
+func encodeJWT(claims, header map[string]any, key, alg string) (string, error) {
 	h := map[string]any{"alg": alg, "typ": "JWT"}
 	if a, ok := header["alg"]; ok && a != alg {
 		return "", fmt.Errorf("header[\"alg\"]=%v conflicts with algorithm=%q", a, alg)
