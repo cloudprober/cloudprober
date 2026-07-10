@@ -16,7 +16,8 @@ package starlark
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/oauth"
@@ -27,7 +28,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// oauth.token(name=None) returns the raw access token; oauth.header(name=None)
+// oauth.token(name="") returns the raw access token; oauth.header(name="")
 // returns the formatted Authorization value (token_type_format, default
 // "Bearer %s"). Tokens come from the probe's oauth_configs; unlike the HTTP
 // probe nothing is auto-injected, so the script chooses where the token goes:
@@ -36,9 +37,10 @@ import (
 //	    r = http.get(url, headers={"Authorization": oauth.header("api")})
 //	    assert.http_status(r, 200)
 //
-// name is optional when the probe has exactly one oauth_config; with several
-// it must be passed. Token-fetch errors surface as Starlark errors (no
-// <token-missing> fallback) so the script controls how to react.
+// name selects the oauth_config; omit it (or pass "") when the probe has
+// exactly one, otherwise it must be given. Token-fetch errors surface as
+// Starlark errors (no <token-missing> fallback) so the script controls how to
+// react.
 
 // oauthIdentity is one configured token source plus its token_type_format.
 type oauthIdentity struct {
@@ -47,12 +49,17 @@ type oauthIdentity struct {
 }
 
 // oauthIdentitiesFromThread returns the per-runtime oauth identities stashed on
-// the thread. Unlike httpClientFromThread this does not panic on a miss: a
-// probe with no oauth_configs stores a nil map, indistinguishable from unset,
-// and the builtins report the "none configured" case themselves.
+// the thread. It panics on a miss for the same reason httpClientFromThread does
+// -- every script thread is built by runtime, which sets the key. A probe with
+// no oauth_configs stores a (non-nil) nil map, so an absent key means the thread
+// was constructed outside runtime and we want that to fail loudly; the builtins
+// report the empty-map "none configured" case themselves.
 func oauthIdentitiesFromThread(t *starlarklib.Thread) map[string]*oauthIdentity {
-	ids, _ := t.Local(threadOAuthKey).(map[string]*oauthIdentity)
-	return ids
+	v := t.Local(threadOAuthKey)
+	if v == nil {
+		panic("oauthIdentitiesFromThread: thread missing oauth local; constructed outside runtime?")
+	}
+	return v.(map[string]*oauthIdentity)
 }
 
 func oauthModule() *starlarkstruct.Module {
@@ -65,26 +72,32 @@ func oauthModule() *starlarkstruct.Module {
 	}
 }
 
-func oauthToken(t *starlarklib.Thread, b *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+// fetchOAuthToken resolves the identity named by args/kwargs and fetches its
+// current access token. Shared by oauth.token (raw) and oauth.header (formatted).
+func fetchOAuthToken(t *starlarklib.Thread, b *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (*oauthIdentity, string, error) {
 	id, err := resolveOAuthIdentity(t, b.Name(), args, kwargs)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	tok, err := oauth.GetToken(id.ts, loggerFromThread(t))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %v", b.Name(), err)
+		return nil, "", fmt.Errorf("%s: %v", b.Name(), err)
+	}
+	return id, tok, nil
+}
+
+func oauthToken(t *starlarklib.Thread, b *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+	_, tok, err := fetchOAuthToken(t, b, args, kwargs)
+	if err != nil {
+		return nil, err
 	}
 	return starlarklib.String(tok), nil
 }
 
 func oauthHeader(t *starlarklib.Thread, b *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
-	id, err := resolveOAuthIdentity(t, b.Name(), args, kwargs)
+	id, tok, err := fetchOAuthToken(t, b, args, kwargs)
 	if err != nil {
 		return nil, err
-	}
-	tok, err := oauth.GetToken(id.ts, loggerFromThread(t))
-	if err != nil {
-		return nil, fmt.Errorf("%s: %v", b.Name(), err)
 	}
 	return starlarklib.String(fmt.Sprintf(id.format, tok)), nil
 }
@@ -120,12 +133,7 @@ func resolveOAuthIdentity(t *starlarklib.Thread, fname string, args starlarklib.
 }
 
 func sortedOAuthNames(ids map[string]*oauthIdentity) []string {
-	names := make([]string, 0, len(ids))
-	for name := range ids {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(ids))
 }
 
 // newOAuthIdentities builds a token source per configured oauth config. It

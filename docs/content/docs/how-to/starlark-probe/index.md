@@ -121,7 +121,7 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 | `assert.http_status(response, expected)` | Fails the probe if `response.status != expected`. Stamp per-call context onto the failure log line with `log.set_attr` instead of inlining it into the error message. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
-| `oauth.token(name=None)` / `oauth.header(name=None)` | Fetch a token from one of the probe's configured `oauth_configs`. `token()` returns the raw access token; `header()` returns the formatted `Authorization` value (e.g. `Bearer <token>`). `name` is optional when exactly one config is set (see below). |
+| `oauth.token(name="")` / `oauth.header(name="")` | Fetch a token from one of the probe's configured `oauth_configs`. `token()` returns the raw access token; `header()` returns the formatted `Authorization` value (e.g. `Bearer <token>`). `name` is optional when exactly one config is set (see below). |
 | `log.info(msg)` / `log.warn(msg)` / `log.error(msg)` / `log.debug(msg)` | Route a message to Cloudprober's logger with the probe's `target` attribute attached. |
 | `log.set_attr(key, value)` | Add a sticky attribute to this run's logger. All subsequent `log.*` calls *and* the probe-failure log line Cloudprober writes if the script errors out (network timeout, assertion failure, etc.) carry it. Cleared at the end of the run. Useful for stamping `req_id` or other per-run context onto failure logs. |
 | `print_metric(line)` | Emit a custom metric line (see below). |
@@ -226,9 +226,9 @@ with refresh and caching handled for you. See the
 
 Two builtins read these token sources:
 
-- `oauth.token(name=None)` returns the raw access token (`"eyJ..."`), for
+- `oauth.token(name="")` returns the raw access token (`"eyJ..."`), for
   query-param tokens, signed-URL flows, or non-`Bearer` schemes.
-- `oauth.header(name=None)` returns the formatted `Authorization` value
+- `oauth.header(name="")` returns the formatted `Authorization` value
   (`"Bearer eyJ..."`, per the config's `token_type_format`) -- the common case.
 
 Unlike the HTTP probe, **tokens are never auto-injected**. A script routinely
