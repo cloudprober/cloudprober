@@ -27,11 +27,6 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-// sentinelHost is an impossible host name used to detect whether a key/value
-// connection string sets a host of its own; ".invalid" is a reserved TLD, so
-// it can't collide with a real value.
-const sentinelHost = "cloudprober-internal-host-check.invalid"
-
 // connStringConflictsWithTarget reports whether connStr can't be safely
 // combined with a real target's host: URL form always carries a host slot
 // (filled or not) that we don't attempt to rewrite, and key/value form may
@@ -46,23 +41,16 @@ func connStringConflictsWithTarget(connStr string) (bool, error) {
 	if strings.HasPrefix(s, "postgres://") || strings.HasPrefix(s, "postgresql://") {
 		return true, nil
 	}
-	cfg, err := pgx.ParseConfig("host=" + sentinelHost + " " + connStr)
+	// impossible host to detect if the connection string already has a host
+	const invalidHost = "cloudprober-internal-host-check.invalid"
+	cfg, err := pgx.ParseConfig("host=" + invalidHost + " " + connStr)
 	if err != nil {
 		return false, err
 	}
-	return cfg.Host != sentinelHost || cfg.RuntimeParams["hostaddr"] != "", nil
+	return cfg.Host != invalidHost || cfg.RuntimeParams["hostaddr"] != "", nil
 }
 
-// pgConnConfig builds the connection config for the POSTGRES flavor. With a
-// real target, host and port come from it, like the tcp, http, and grpc
-// probes -- connection_string must be in key/value form and must not specify
-// a host itself (parsing/appending "host=..." works reliably for key/value
-// form, per libpq's own last-value-wins rule; not for URL form, so URL form
-// isn't supported here). With dummy_targets (target.Name == "", the only
-// target provider that produces that), there's no target to take a host/port
-// from, so connection_string's (or the flavor's environment variables, e.g.
-// PGHOST) are used as-is, in any form. Either way, connection_string,
-// overridden by user/password/database fields, configures everything else.
+// pgConnConfig builds the connection config for the POSTGRES flavor.
 func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) {
 	if target.Port < 0 || target.Port > 65535 {
 		return nil, fmt.Errorf("invalid target port: %d", target.Port)
@@ -85,10 +73,10 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		}
 
 		host := target.Name
-		// Like the TCP probe, dial the target's IP if the targets provider
-		// supplies one (e.g. k8s, rds); such target names are often not
-		// resolvable over DNS.
+		// Dial the target's IP if the targets provider supplies one (e.g. k8s,
+		// rds). Such target names are often not resolvable over DNS.
 		if target.IP != nil {
+			// target.Resolve will verify the IP version before using it.
 			ip, err := target.Resolve(p.opts.IPVersion, p.opts.Targets)
 			if err != nil {
 				return nil, fmt.Errorf("resolving target %s: %v", target.Name, err)
