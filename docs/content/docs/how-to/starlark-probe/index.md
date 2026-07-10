@@ -121,7 +121,7 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 | `assert.http_status(response, expected)` | Fails the probe if `response.status != expected`. Stamp per-call context onto the failure log line with `log.set_attr` instead of inlining it into the error message. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
-| `jwt.encode(payload, key, algorithm="RS256", headers=None, lifetime=60)` | Mint and sign a JWT for APIs that take a self-signed token as the bearer credential -- Google service-account JWTs, Snowflake key-pair auth (see below). |
+| `oauth.token(name=None)` / `oauth.header(name=None)` | Fetch a token from one of the probe's configured `oauth_configs`. `token()` returns the raw access token; `header()` returns the formatted `Authorization` value (e.g. `Bearer <token>`). `name` is optional when exactly one config is set (see below). |
 | `log.info(msg)` / `log.warn(msg)` / `log.error(msg)` / `log.debug(msg)` | Route a message to Cloudprober's logger with the probe's `target` attribute attached. |
 | `log.set_attr(key, value)` | Add a sticky attribute to this run's logger. All subsequent `log.*` calls *and* the probe-failure log line Cloudprober writes if the script errors out (network timeout, assertion failure, etc.) carry it. Cleared at the end of the run. Useful for stamping `req_id` or other per-run context onto failure logs. |
 | `print_metric(line)` | Emit a custom metric line (see below). |
@@ -215,48 +215,99 @@ def probe(target):
 The bucket lives only as long as the target does: when a target disappears
 from discovery, its state is dropped. Each bucket holds up to 1024 keys.
 
-### `jwt`
+### `oauth`
 
-`jwt.encode(payload, key, algorithm="RS256", headers=None, lifetime=60)` mints
-and signs a JWT and returns the compact token string. Use it for APIs that
-accept a self-signed JWT directly as the bearer credential -- no OAuth token
-exchange -- such as Google service-account JWTs or Snowflake's key-pair auth.
+Configure one or more OAuth token sources on the probe with `oauth_configs`, a
+map keyed by a name the script uses to select one. This is the same
+`oauth.Config` message the HTTP probe uses, so every source carries over: a
+token `file`, a `cmd` to run, an `http_request` to a token endpoint,
+`gce_service_account` metadata, a `k8s_local_token` file, `google_credentials`,
+or a self-signed `jwt`. Refresh and caching (re-minting before expiry) are
+handled for you.
 
-- `payload`: dict of claims. `iat` and `exp` are filled in from `lifetime`
-  (seconds) when the payload omits them, since scripts have no clock; an
-  explicit `iat`/`exp` in the payload wins.
-- `key`: the signing key. For `RS256` (default) this is a PEM-encoded RSA
-  private key (PKCS#1 or PKCS#8), typically loaded through `vars`; for `HS256`
-  it is the shared secret.
-- `headers`: extra JOSE header fields, e.g. `{"kid": ...}`. It may set `alg`
-  only to the same value as `algorithm` -- a conflicting `alg` is an error, so
-  the header can never disagree with how the token is actually signed.
+Two builtins read these token sources:
 
-Signing a JWT each run is cheap (sub-millisecond), so minting one per run is
-the simplest approach and what these examples do.
+- `oauth.token(name=None)` returns the raw access token (`"eyJ..."`), for
+  query-param tokens, signed-URL flows, or non-`Bearer` schemes.
+- `oauth.header(name=None)` returns the formatted `Authorization` value
+  (`"Bearer eyJ..."`, per the config's `token_type_format`) -- the common case.
 
-Probe a Google API with a service-account self-signed JWT (full example in
-[examples/starlark/gcp_jwt.star](https://github.com/cloudprober/cloudprober/tree/master/examples/starlark/gcp_jwt.star)):
+Unlike the HTTP probe, **tokens are never auto-injected**. A script routinely
+hits several hosts in one run (an authenticated API, a public health endpoint,
+a redirect target), and silently attaching the bearer token to all of them
+would leak it to the wrong hosts. So the script asks for the token explicitly
+and decides where it goes. A token-fetch failure surfaces as a script error,
+failing the run.
+
+`name` may be omitted when exactly one `oauth_config` is set; with several, pass
+the name (omitting it, or naming an unknown config, is an error).
+
+```proto
+probe {
+  type: STARLARK
+  starlark_probe {
+    source_file: "api_check.star"
+    oauth_configs {
+      key: "api"
+      value {
+        http_request {
+          token_url: "https://issuer.example.com/oauth2/token"
+          data: "grant_type=client_credentials"
+          # ...
+        }
+      }
+    }
+  }
+}
+```
 
 ```python
 def probe(target):
-    email = vars.get("sa_email")
-    token = jwt.encode(
-        {"iss": email, "sub": email, "aud": "https://storage.googleapis.com/"},
-        vars.get("sa_private_key"),
-        headers = {"kid": vars.get("sa_private_key_id")},
-        lifetime = 3600,
+    r = http.get(
+        url = "https://api.example.com/v1/me",
+        headers = {"Authorization": oauth.header("api")},
     )
+    assert.http_status(r, 200)
+
+    h = http.get(url = "https://api.example.com/healthz")  # unauthenticated
+    assert.http_status(h, 200)
+```
+
+#### Self-signed JWT
+
+For APIs that take a self-signed JWT directly as the bearer credential -- no
+token exchange -- such as Google service-account JWTs or Snowflake's key-pair
+auth, use the `jwt` source. Cloudprober mints and re-mints the JWT; `iat`/`exp`
+are derived from `lifetime_sec`. Probe a Google API with a service-account JWT
+(full example in
+[examples/starlark/gcp_oauth_jwt.star](https://github.com/cloudprober/cloudprober/tree/master/examples/starlark/gcp_oauth_jwt.star)
+and
+[gcp_oauth_jwt.cfg](https://github.com/cloudprober/cloudprober/tree/master/examples/starlark/gcp_oauth_jwt.cfg)):
+
+```proto
+oauth_configs {
+  key: "gcp"
+  value {
+    jwt {
+      private_key: "{{ envSecret "GCP_SA_PRIVATE_KEY" }}"
+      claims { key: "iss" value: "{{ env "GCP_SA_EMAIL" }}" }
+      claims { key: "sub" value: "{{ env "GCP_SA_EMAIL" }}" }
+      claims { key: "aud" value: "https://storage.googleapis.com/" }
+      header { key: "kid" value: "{{ env "GCP_SA_PRIVATE_KEY_ID" }}" }
+      lifetime_sec: 3600
+    }
+  }
+}
+```
+
+```python
+def probe(target):
     r = http.get(
         url = "https://storage.googleapis.com/storage/v1/b?project=%s" % vars.get("project"),
-        headers = {"Authorization": "Bearer " + token},
+        headers = {"Authorization": oauth.header("gcp")},
     )
     assert.http_status(r, 200)
 ```
-
-Load the service-account key material into `vars` from the JSON key file's
-`client_email`, `private_key`, and `private_key_id` fields (see
-[gcp_jwt.cfg](https://github.com/cloudprober/cloudprober/tree/master/examples/starlark/gcp_jwt.cfg)).
 
 ## Custom metrics with `print_metric`
 

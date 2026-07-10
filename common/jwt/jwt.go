@@ -13,8 +13,7 @@
 // limitations under the License.
 
 // Package jwt mints and signs compact-serialization JSON Web Tokens. It is the
-// shared signing core used by the Starlark probe's jwt.encode builtin and the
-// oauth module's self-signed JWT token source.
+// shared signing core used by the oauth module's self-signed JWT token source.
 package jwt
 
 import (
