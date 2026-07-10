@@ -79,14 +79,15 @@ func jwtEncode(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.T
 	if err != nil {
 		return nil, err
 	}
-	// Scripts have no clock, so fill the time claims here. Anything the payload
-	// already sets wins — an explicit iat/exp is never overwritten.
+	// Scripts have no clock, so fill the time claims here. An explicit
+	// (non-None) iat/exp in the payload wins; a None value counts as unset, so
+	// `exp = None` still gets a default rather than serializing as null.
 	now := time.Now().Unix()
-	if _, ok := claims["iat"]; !ok {
+	if v, ok := claims["iat"]; !ok || v == nil {
 		claims["iat"] = now
 	}
 	if lifetime > 0 {
-		if _, ok := claims["exp"]; !ok {
+		if v, ok := claims["exp"]; !ok || v == nil {
 			claims["exp"] = now + int64(lifetime)
 		}
 	}
@@ -96,6 +97,11 @@ func jwtEncode(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.T
 		extra, err := jwtDict(headersV, "headers")
 		if err != nil {
 			return nil, err
+		}
+		// A header alg must never disagree with the algorithm we actually sign
+		// with. An explicit matching alg is fine; a mismatch is an error.
+		if a, ok := extra["alg"]; ok && a != alg {
+			return nil, fmt.Errorf("jwt.encode: headers[\"alg\"]=%v conflicts with algorithm=%q", a, alg)
 		}
 		for k, v := range extra {
 			header[k] = v

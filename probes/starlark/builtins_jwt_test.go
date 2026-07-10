@@ -192,6 +192,48 @@ func TestJWTEncode_CustomHeaders(t *testing.T) {
 	assert.Equal(t, "RS256", header["alg"])
 }
 
+// TestJWTEncode_HeaderAlg covers the alg-in-headers rule: a matching explicit
+// alg is allowed, a mismatching one is rejected (header must not lie about the
+// signing algorithm).
+func TestJWTEncode_HeaderAlg(t *testing.T) {
+	keyPEM, _ := genRSAKeyPEM(t)
+	sub := dict(t, map[string]starlarklib.Value{"sub": starlarklib.String("x")})
+
+	// Matching alg is fine.
+	token, err := callJWTEncode(t, sub, keyPEM,
+		starlarklib.Tuple{starlarklib.String("headers"), dict(t, map[string]starlarklib.Value{
+			"alg": starlarklib.String("RS256"),
+		})})
+	require.NoError(t, err)
+	header, _, _, _ := decodeJWT(t, token)
+	assert.Equal(t, "RS256", header["alg"])
+
+	// Mismatching alg is rejected.
+	_, err = callJWTEncode(t, sub, keyPEM,
+		starlarklib.Tuple{starlarklib.String("headers"), dict(t, map[string]starlarklib.Value{
+			"alg": starlarklib.String("none"),
+		})})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "conflicts with algorithm")
+}
+
+// TestJWTEncode_NoneTimeClaim pins that an explicit None iat/exp is treated as
+// unset and auto-filled, not serialized as JSON null.
+func TestJWTEncode_NoneTimeClaim(t *testing.T) {
+	keyPEM, _ := genRSAKeyPEM(t)
+	token, err := callJWTEncode(t, dict(t, map[string]starlarklib.Value{
+		"sub": starlarklib.String("x"),
+		"exp": starlarklib.None,
+		"iat": starlarklib.None,
+	}), keyPEM, starlarklib.Tuple{starlarklib.String("lifetime"), starlarklib.MakeInt(3600)})
+	require.NoError(t, err)
+
+	_, claims, _, _ := decodeJWT(t, token)
+	require.NotNil(t, claims["exp"], "exp should be auto-filled, not null")
+	require.NotNil(t, claims["iat"], "iat should be auto-filled, not null")
+	assert.Equal(t, int64(claims["iat"].(float64))+3600, int64(claims["exp"].(float64)))
+}
+
 func TestJWTEncode_Errors(t *testing.T) {
 	keyPEM, _ := genRSAKeyPEM(t)
 	sub := dict(t, map[string]starlarklib.Value{"sub": starlarklib.String("x")})
