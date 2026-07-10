@@ -219,11 +219,10 @@ from discovery, its state is dropped. Each bucket holds up to 1024 keys.
 
 Configure one or more OAuth token sources on the probe with `oauth_configs`, a
 map keyed by a name the script uses to select one. This is the same
-`oauth.Config` message the HTTP probe uses, so every source carries over: a
-token `file`, a `cmd` to run, an `http_request` to a token endpoint,
-`gce_service_account` metadata, a `k8s_local_token` file, `google_credentials`,
-or a self-signed `jwt`. Refresh and caching (re-minting before expiry) are
-handled for you.
+`oauth.Config` message the HTTP probe uses -- token file, command, HTTP token
+endpoint, GCE metadata, k8s token file, Google credentials, self-signed JWT --
+with refresh and caching handled for you. See the
+[OAuth]({{< ref "oauth" >}}) page for the full config surface.
 
 Two builtins read these token sources:
 
@@ -271,42 +270,6 @@ def probe(target):
 
     h = http.get(url = "https://api.example.com/healthz")  # unauthenticated
     assert.http_status(h, 200)
-```
-
-#### Self-signed JWT
-
-For APIs that take a self-signed JWT directly as the bearer credential -- no
-token exchange -- such as Google service-account JWTs or Snowflake's key-pair
-auth, use the `jwt` source. Cloudprober mints and re-mints the JWT; `iat`/`exp`
-are derived from `lifetime_sec`. Probe a Google API with a service-account JWT
-(full example in
-[examples/starlark/gcp_oauth_jwt.star](https://github.com/cloudprober/cloudprober/tree/master/examples/starlark/gcp_oauth_jwt.star)
-and
-[gcp_oauth_jwt.cfg](https://github.com/cloudprober/cloudprober/tree/master/examples/starlark/gcp_oauth_jwt.cfg)):
-
-```proto
-oauth_configs {
-  key: "gcp"
-  value {
-    jwt {
-      private_key: "{{ envSecret "GCP_SA_PRIVATE_KEY" }}"
-      claims { key: "iss" value: "{{ env "GCP_SA_EMAIL" }}" }
-      claims { key: "sub" value: "{{ env "GCP_SA_EMAIL" }}" }
-      claims { key: "aud" value: "https://storage.googleapis.com/" }
-      header { key: "kid" value: "{{ env "GCP_SA_PRIVATE_KEY_ID" }}" }
-      lifetime_sec: 3600
-    }
-  }
-}
-```
-
-```python
-def probe(target):
-    r = http.get(
-        url = "https://storage.googleapis.com/storage/v1/b?project=%s" % vars.get("project"),
-        headers = {"Authorization": oauth.header("gcp")},
-    )
-    assert.http_status(r, 200)
 ```
 
 ## Custom metrics with `print_metric`
