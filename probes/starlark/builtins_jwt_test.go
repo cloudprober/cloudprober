@@ -16,7 +16,6 @@ package starlark
 
 import (
 	"crypto"
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -35,6 +34,11 @@ import (
 	"github.com/stretchr/testify/require"
 	starlarklib "go.starlark.net/starlark"
 )
+
+// The signing core (RS256/HS256, PEM parsing, base64url, the alg-conflict
+// guard) is tested in common/jwt. These tests cover only what the builtin adds
+// on top: arg handling, the iat/exp auto-fill (scripts have no clock), and the
+// end-to-end script path.
 
 // callJWTEncode invokes the jwt.encode builtin directly (it needs no
 // thread-locals) and returns the token string.
@@ -89,67 +93,8 @@ func genRSAKeyPEM(t *testing.T) (string, *rsa.PublicKey) {
 	return string(pemBytes), &priv.PublicKey
 }
 
-// TestJWTEncode_RS256 signs with an RSA key and verifies the signature and
-// header round-trips end to end — this is the Snowflake path.
-func TestJWTEncode_RS256(t *testing.T) {
-	keyPEM, pub := genRSAKeyPEM(t)
-	payload := dict(t, map[string]starlarklib.Value{
-		"iss": starlarklib.String("ACCT.USER.SHA256:abc"),
-		"sub": starlarklib.String("ACCT.USER"),
-	})
-
-	token, err := callJWTEncode(t, payload, keyPEM)
-	require.NoError(t, err)
-
-	header, claims, signingInput, sig := decodeJWT(t, token)
-	assert.Equal(t, "RS256", header["alg"])
-	assert.Equal(t, "JWT", header["typ"])
-	assert.Equal(t, "ACCT.USER.SHA256:abc", claims["iss"])
-	assert.Equal(t, "ACCT.USER", claims["sub"])
-
-	h := sha256.Sum256([]byte(signingInput))
-	assert.NoError(t, rsa.VerifyPKCS1v15(pub, crypto.SHA256, h[:], sig),
-		"signature must verify against the public key")
-}
-
-// TestJWTEncode_PKCS1Key checks that a legacy PKCS#1 ("RSA PRIVATE KEY") PEM
-// works too, not just PKCS#8.
-func TestJWTEncode_PKCS1Key(t *testing.T) {
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	require.NoError(t, err)
-	pemBytes := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(priv),
-	})
-	payload := dict(t, map[string]starlarklib.Value{"sub": starlarklib.String("x")})
-
-	token, err := callJWTEncode(t, payload, string(pemBytes))
-	require.NoError(t, err)
-
-	_, _, signingInput, sig := decodeJWT(t, token)
-	h := sha256.Sum256([]byte(signingInput))
-	assert.NoError(t, rsa.VerifyPKCS1v15(&priv.PublicKey, crypto.SHA256, h[:], sig))
-}
-
-// TestJWTEncode_HS256 signs with a shared secret and verifies the HMAC.
-func TestJWTEncode_HS256(t *testing.T) {
-	secret := "s3cret"
-	payload := dict(t, map[string]starlarklib.Value{"sub": starlarklib.String("alice")})
-
-	token, err := callJWTEncode(t, payload, secret,
-		starlarklib.Tuple{starlarklib.String("algorithm"), starlarklib.String("HS256")})
-	require.NoError(t, err)
-
-	header, _, signingInput, sig := decodeJWT(t, token)
-	assert.Equal(t, "HS256", header["alg"])
-
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(signingInput))
-	assert.True(t, hmac.Equal(sig, mac.Sum(nil)), "HMAC must verify")
-}
-
 // TestJWTEncode_AutoFillsTimeClaims covers the clock behavior: iat/exp are
-// filled from lifetime when absent, and an explicit exp is left untouched.
+// filled from lifetime when absent, and an explicit iat/exp is left untouched.
 func TestJWTEncode_AutoFillsTimeClaims(t *testing.T) {
 	keyPEM, _ := genRSAKeyPEM(t)
 
@@ -178,45 +123,6 @@ func TestJWTEncode_AutoFillsTimeClaims(t *testing.T) {
 	assert.Equal(t, int64(2000), int64(claims2["exp"].(float64)))
 }
 
-// TestJWTEncode_CustomHeaders checks that extra JOSE header fields (e.g. kid)
-// merge in and can override typ.
-func TestJWTEncode_CustomHeaders(t *testing.T) {
-	keyPEM, _ := genRSAKeyPEM(t)
-	token, err := callJWTEncode(t, dict(t, map[string]starlarklib.Value{"sub": starlarklib.String("x")}), keyPEM,
-		starlarklib.Tuple{starlarklib.String("headers"), dict(t, map[string]starlarklib.Value{
-			"kid": starlarklib.String("key-1"),
-		})})
-	require.NoError(t, err)
-	header, _, _, _ := decodeJWT(t, token)
-	assert.Equal(t, "key-1", header["kid"])
-	assert.Equal(t, "RS256", header["alg"])
-}
-
-// TestJWTEncode_HeaderAlg covers the alg-in-headers rule: a matching explicit
-// alg is allowed, a mismatching one is rejected (header must not lie about the
-// signing algorithm).
-func TestJWTEncode_HeaderAlg(t *testing.T) {
-	keyPEM, _ := genRSAKeyPEM(t)
-	sub := dict(t, map[string]starlarklib.Value{"sub": starlarklib.String("x")})
-
-	// Matching alg is fine.
-	token, err := callJWTEncode(t, sub, keyPEM,
-		starlarklib.Tuple{starlarklib.String("headers"), dict(t, map[string]starlarklib.Value{
-			"alg": starlarklib.String("RS256"),
-		})})
-	require.NoError(t, err)
-	header, _, _, _ := decodeJWT(t, token)
-	assert.Equal(t, "RS256", header["alg"])
-
-	// Mismatching alg is rejected.
-	_, err = callJWTEncode(t, sub, keyPEM,
-		starlarklib.Tuple{starlarklib.String("headers"), dict(t, map[string]starlarklib.Value{
-			"alg": starlarklib.String("none"),
-		})})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "conflicts with algorithm")
-}
-
 // TestJWTEncode_NoneTimeClaim pins that an explicit None iat/exp is treated as
 // unset and auto-filled, not serialized as JSON null.
 func TestJWTEncode_NoneTimeClaim(t *testing.T) {
@@ -234,33 +140,16 @@ func TestJWTEncode_NoneTimeClaim(t *testing.T) {
 	assert.Equal(t, int64(claims["iat"].(float64))+3600, int64(claims["exp"].(float64)))
 }
 
-func TestJWTEncode_Errors(t *testing.T) {
-	keyPEM, _ := genRSAKeyPEM(t)
-	sub := dict(t, map[string]starlarklib.Value{"sub": starlarklib.String("x")})
-
-	t.Run("bad algorithm", func(t *testing.T) {
-		_, err := callJWTEncode(t, sub, keyPEM,
-			starlarklib.Tuple{starlarklib.String("algorithm"), starlarklib.String("XX999")})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unsupported algorithm")
-	})
-
-	t.Run("not a PEM key", func(t *testing.T) {
-		_, err := callJWTEncode(t, sub, "not-a-pem")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no PEM block")
-	})
-
-	t.Run("payload not a dict", func(t *testing.T) {
-		_, err := jwtEncode(nil, nil,
-			starlarklib.Tuple{starlarklib.String("nope"), starlarklib.String(keyPEM)}, nil)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "payload must be a dict")
-	})
+// TestJWTEncode_PayloadNotDict covers the builtin's own argument validation.
+func TestJWTEncode_PayloadNotDict(t *testing.T) {
+	_, err := jwtEncode(nil, nil,
+		starlarklib.Tuple{starlarklib.String("nope"), starlarklib.String("key")}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "payload must be a dict")
 }
 
 // TestJWTEncode_InScript runs the builtin through a real script, exercising the
-// registration and the vars-supplied key path (the Snowflake shape).
+// registration and the vars-supplied key path, and verifies the token signs.
 func TestJWTEncode_InScript(t *testing.T) {
 	keyPEM, pub := genRSAKeyPEM(t)
 	source := `

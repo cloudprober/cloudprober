@@ -80,6 +80,32 @@ func TestJWTSource(t *testing.T) {
 	assert.NotNil(t, claims["exp"])
 }
 
+// TestJWTSource_ReservedTimeClaims pins that iat/exp in the configured claims
+// are ignored: they're derived from lifetime_sec so they stay in sync with the
+// token's Expiry, and a string value would otherwise produce a spec-invalid exp.
+func TestJWTSource_ReservedTimeClaims(t *testing.T) {
+	cfg := &configpb.Config{
+		Source: &configpb.Config_Jwt{
+			Jwt: &configpb.JWTSource{
+				PrivateKey:  proto.String(rsaKeyPEM(t)),
+				LifetimeSec: proto.Int32(3600),
+				Claims:      map[string]string{"sub": "x", "exp": "not-a-number", "iat": "nope"},
+			},
+		},
+	}
+	ts, err := TokenSourceFromConfig(cfg, &logger.Logger{})
+	require.NoError(t, err)
+	tok, err := ts.Token()
+	require.NoError(t, err)
+
+	claims := jwtClaims(t, tok.AccessToken)
+	// exp/iat must be the numeric derived values, not the user's strings.
+	_, expIsNum := claims["exp"].(float64)
+	_, iatIsNum := claims["iat"].(float64)
+	assert.True(t, expIsNum, "exp must be numeric, got %T", claims["exp"])
+	assert.True(t, iatIsNum, "iat must be numeric, got %T", claims["iat"])
+}
+
 // TestJWTSource_BadKey pins that a bad key fails at construction (verifyToken
 // mints an initial token), so config errors surface early.
 func TestJWTSource_BadKey(t *testing.T) {

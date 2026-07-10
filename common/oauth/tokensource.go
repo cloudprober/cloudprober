@@ -87,6 +87,12 @@ func jwtToken(c *configpb.Config) (*oauth2.Token, error) {
 
 	claims := map[string]any{"iat": now.Unix(), "exp": expiry.Unix()}
 	for k, v := range jc.GetClaims() {
+		// iat/exp are reserved: they're derived from lifetime_sec and must stay
+		// in sync with the token's Expiry (which drives re-minting). A
+		// user-supplied value would be a string and desync the two.
+		if k == "iat" || k == "exp" {
+			continue
+		}
 		claims[k] = v
 	}
 
