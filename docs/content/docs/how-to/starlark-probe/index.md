@@ -194,7 +194,7 @@ def probe(target):
 ```
 
 For host environment values, use Cloudprober's config-loading template layer
-(e.g. `vars { key: "api_key" value: "{{ envVar \"API_KEY\" }}" }`).
+(e.g. `vars { key: "api_key" value: "{{ env "API_KEY" }}" }`).
 
 ### `state`
 
