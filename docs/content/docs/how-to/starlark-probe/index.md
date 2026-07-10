@@ -232,8 +232,8 @@ exchange -- such as Google service-account JWTs or Snowflake's key-pair auth.
   only to the same value as `algorithm` -- a conflicting `alg` is an error, so
   the header can never disagree with how the token is actually signed.
 
-Signing a JWT each run is cheap, but if you probe frequently you can cache the
-token in `state` and re-mint periodically.
+Signing a JWT each run is cheap (sub-millisecond), so minting one per run is
+the simplest approach and what these examples do.
 
 Probe a Google API with a service-account self-signed JWT (full example in
 [examples/starlark/gcp_jwt.star](https://github.com/cloudprober/cloudprober/tree/master/examples/starlark/gcp_jwt.star)):

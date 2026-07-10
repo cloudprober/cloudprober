@@ -33,22 +33,22 @@ import (
 
 // jwt.encode(payload, key, algorithm="RS256", headers=None, lifetime=60) mints
 // and signs a compact-serialization JWT. It exists for APIs that take a
-// self-signed JWT directly as the bearer credential — Snowflake's SQL REST API
-// key-pair auth is the driving case, GCP service-account JWTs are the other.
-// It is deliberately not part of the oauth module: there is no token exchange
-// here, the script signs its own short-lived token and sends it.
+// self-signed JWT directly as the bearer credential — Google service-account
+// JWTs are the driving case, Snowflake's SQL REST API key-pair auth is the
+// other. It is deliberately not part of the oauth module: there is no token
+// exchange here, the script signs its own short-lived token and sends it.
 //
 // The private key (for RS*) comes in as a PEM string, typically via the vars
-// module, e.g. jwt.encode(claims, vars.get("sf_private_key")). Scripts have no
+// module, e.g. jwt.encode(claims, vars.get("sa_private_key")). Scripts have no
 // clock, so iat/exp are filled in from lifetime unless the payload sets them
-// (see jwtEncode). Cache the result across runs with the state builtin rather
-// than re-signing every run — Snowflake tokens are valid up to an hour.
+// (see jwtEncode).
 //
 //	def probe(target):
-//	    q = vars.get("sf_account") + "." + vars.get("sf_user")   # UPPERCASE
-//	    claims = {"iss": q + "." + vars.get("sf_pubkey_fp"), "sub": q}
-//	    tok = jwt.encode(claims, vars.get("sf_private_key"), lifetime=3600)
-//	    r = http.post(url, headers={"Authorization": "Bearer " + tok})
+//	    email = vars.get("sa_email")
+//	    claims = {"iss": email, "sub": email, "aud": "https://storage.googleapis.com/"}
+//	    tok = jwt.encode(claims, vars.get("sa_private_key"),
+//	                     headers={"kid": vars.get("sa_private_key_id")}, lifetime=3600)
+//	    r = http.get(url, headers={"Authorization": "Bearer " + tok})
 
 func jwtModule() *starlarkstruct.Module {
 	return &starlarkstruct.Module{
