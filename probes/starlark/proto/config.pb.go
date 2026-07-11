@@ -81,8 +81,8 @@ type ProbeConf struct {
 	// routinely hits several hosts in one run, so it must ask for the token
 	// explicitly and decide where it goes, via the oauth builtin:
 	//
-	//	oauth.token(name=None)  -- raw access token ("eyJ...")
-	//	oauth.header(name=None) -- formatted Authorization value ("Bearer eyJ...")
+	//	oauth.token(name="")  -- raw access token ("eyJ...")
+	//	oauth.header(name="") -- formatted Authorization value ("Bearer eyJ...")
 	//
 	// name may be omitted when exactly one config is present. Example:
 	//
