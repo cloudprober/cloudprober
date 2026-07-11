@@ -10,6 +10,7 @@ import "github.com/cloudprober/cloudprober/probes/external/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/grpc/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/http/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/ping/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/sql/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/starlark/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/udp/proto/config.proto";
@@ -37,6 +38,7 @@ message ProbeDef {
     BROWSER = 8;
     SYSTEM = 9;
     STARLARK = 10;
+    SQL = 11;
 
     // One of the extension probe types. See "extensions" below for more
     // details.
@@ -71,7 +73,8 @@ message ProbeDef {
   optional string timeout = 17;
 
   // Targets for the probe. Targets are required for all probes except
-  // for external, user_defined, and extension probe types.
+  // for external, user_defined, extension, browser, sql and system probe
+  // types.
   optional targets.TargetsDef targets = 6;
 
   // Latency distribution. If specified, latency is stored as a distribution.
@@ -186,6 +189,7 @@ message ProbeDef {
     browser.ProbeConf browser_probe = 28;
     system.ProbeConf system_probe = 29;
     starlark.ProbeConf starlark_probe = 30;
+    sql.ProbeConf sql_probe = 31;
     // This field's contents are passed on to the user defined probe,
     // registered for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;

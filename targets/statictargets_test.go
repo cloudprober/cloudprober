@@ -48,6 +48,17 @@ func TestStaticTargets(t *testing.T) {
 			wantPorts: []int{80, 8080, 8081},
 		},
 		{
+			desc:      "empty tokens (trailing and double comma) are skipped",
+			hosts:     "www.google.com,,127.0.0.1,",
+			wantNames: []string{"www.google.com", "127.0.0.1"},
+			wantPorts: []int{0, 0},
+		},
+		{
+			desc:    "invalid host, empty host name with port",
+			hosts:   ":8080",
+			wantErr: true,
+		},
+		{
 			desc:    "invalid host, IPv6 port in name without brackets",
 			hosts:   "www.google.com,127.0.0.1:8080,0:0:0:0:0:1:8081",
 			wantErr: true,

@@ -34,6 +34,13 @@ func staticTargets(hosts string) (Targets, error) {
 	for _, host := range hostsSlice {
 		host = strings.TrimSpace(host)
 
+		// Skip empty tokens, e.g. from a trailing comma. An empty-name
+		// endpoint would look like the dummy target to probes and get
+		// silently misprobed.
+		if host == "" {
+			continue
+		}
+
 		// Make sure there is no "/" in the host name. That typically happens
 		// when users accidentally add URLs in hostnames.
 		if strings.IndexByte(host, '/') >= 0 {
@@ -51,6 +58,9 @@ func staticTargets(hosts string) (Targets, error) {
 		// There is only 1 colon, assume it is for the port. An IPv6 address will
 		// more than 1 colon.
 		if len(hostColonParts) == 2 {
+			if hostColonParts[0] == "" {
+				return nil, fmt.Errorf("invalid host:port (%s): empty host name", host)
+			}
 			portNum, err := strconv.Atoi(hostColonParts[1])
 			if err != nil {
 				return nil, fmt.Errorf("error parsing port(%s): %v", hostColonParts[1], err)
