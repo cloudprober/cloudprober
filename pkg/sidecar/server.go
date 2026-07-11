@@ -155,13 +155,35 @@ func Serve(opts ...Option) error {
 	stopSweep := make(chan struct{})
 	defer close(stopSweep)
 	go s.sweepIdleSessions(stopSweep)
+	// Close whatever sessions are left when Serve returns (listener error,
+	// process shutdown): the idle sweeper doesn't get a chance to run again,
+	// so without this, live sessions (DB handles, connection pools, ...)
+	// leak until the process exits.
+	defer s.closeAllSessions()
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterProberServer(grpcServer, s)
-	healthpb.RegisterHealthServer(grpcServer, health.NewServer())
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+	// health.NewServer() starts with no statuses set, which makes Check
+	// return NotFound for everything — including the overall ("") service —
+	// even though we're about to start serving. Mark both the overall and
+	// Prober-specific status SERVING so liveness/readiness checks succeed.
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus(pb.Prober_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
 
 	log.Printf("cloudprober sidecar: serving probe types %v on %s", s.typeNames(), s.addr)
 	return grpcServer.Serve(lis)
+}
+
+func (s *server) closeAllSessions() {
+	s.mu.Lock()
+	sessions := s.sessions
+	s.sessions = make(map[string]*session)
+	s.mu.Unlock()
+	for _, sess := range sessions {
+		closeSafely(sess.h, sess.val)
+	}
 }
 
 // removeStaleSocket clears a leftover socket file from a previous run, but
@@ -211,7 +233,7 @@ func (s *server) Probe(ctx context.Context, req *pb.ProbeRequest) (*pb.ProbeResp
 	// One-shot runs (RunOnce) must not leave any per-target state behind:
 	// build the session, probe, and tear it down inline; return no handle.
 	if h.stateful() && req.GetOneShot() {
-		val, err := h.newSession(ctx, t, req.GetConfig())
+		val, err := newSessionSafely(ctx, h, t, req.GetConfig())
 		if err != nil {
 			return toProto(newSessionErrorResult(err), nil), nil
 		}
@@ -239,16 +261,29 @@ func (s *server) Probe(ctx context.Context, req *pb.ProbeRequest) (*pb.ProbeResp
 		s.mu.Lock()
 		sess.evict = true
 		s.mu.Unlock()
+		// The handle we just marked for eviction is dead on arrival for the
+		// next cycle anyway (release below drops it from the map); return no
+		// handle so cloudprober drops TargetState immediately instead of
+		// paying a guaranteed cache-miss round trip first.
+		handle = nil
 	}
 	return toProto(res, handle), nil
 }
 
+// panicError marks a recovered panic from the author's New, so
+// newSessionErrorResult reports it the same way runProbeSafely reports a
+// panic in Probe: internal (the probe type is broken), not a target
+// failure.
+type panicError struct{ error }
+
 // newSessionErrorResult classifies a newSession failure: config-decode
-// errors are internal (misconfiguration), while errors from the author's
-// New — which typically connects to the target — are target-level failures.
+// errors and panics are internal (the sidecar/probe type is broken), while
+// errors returned by the author's New — which typically connects to the
+// target — are target-level failures.
 func newSessionErrorResult(err error) *Result {
 	var ce configError
-	if errors.As(err, &ce) {
+	var pe panicError
+	if errors.As(err, &ce) || errors.As(err, &pe) {
 		return Internal(err)
 	}
 	return Fail(fmt.Errorf("creating session: %v", err))
@@ -291,7 +326,7 @@ func (s *server) acquireSession(ctx context.Context, h handler, t Target, req *p
 	}
 	s.mu.Unlock()
 
-	val, err := h.newSession(ctx, t, req.GetConfig())
+	val, err := newSessionSafely(ctx, h, t, req.GetConfig())
 	if err != nil {
 		return nil, nil, newSessionErrorResult(err)
 	}
@@ -383,6 +418,18 @@ func runProbeSafely(ctx context.Context, h handler, t Target, config []byte, ses
 		res = Internal(fmt.Errorf("probe returned nil result"))
 	}
 	return res
+}
+
+// newSessionSafely runs the author's New hook, containing panics the same
+// way runProbeSafely and closeSafely do — New is user code (typically
+// dialing the target) and gets no more trust than Probe or Close.
+func newSessionSafely(ctx context.Context, h handler, t Target, config []byte) (val any, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			val, err = nil, panicError{fmt.Errorf("session setup panicked: %v", r)}
+		}
+	}()
+	return h.newSession(ctx, t, config)
 }
 
 func toProto(r *Result, stateHandle []byte) *pb.ProbeResponse {

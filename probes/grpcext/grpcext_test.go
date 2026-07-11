@@ -36,6 +36,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -368,4 +369,43 @@ func TestInitValidatesConfigWithSidecar(t *testing.T) {
 	// Unreachable sidecar is not an Init error: it may just not be up yet.
 	_, addr := tempSocketPath(t, "nobody-home.sock")
 	require.NoError(t, (&Probe{}).Init("p", newOpts(t, addr)))
+}
+
+func TestInitClosesConnOnRejectedConfig(t *testing.T) {
+	// Init fails after the gRPC conn is already dialed (sidecar rejects the
+	// config); the conn must not be leaked.
+	f := &fakeSidecar{validateErr: status.Errorf(codes.NotFound, "unknown probe type")}
+	opts := newOpts(t, startFakeSidecar(t, f))
+	p := &Probe{}
+	require.Error(t, p.Init("p", opts))
+	require.NotNil(t, p.conn)
+	assert.Equal(t, connectivity.Shutdown, p.conn.GetState())
+}
+
+func TestStartClosesConnOnExit(t *testing.T) {
+	f := &fakeSidecar{
+		respFn: func(req *configpb.ProbeRequest) *configpb.ProbeResponse {
+			return &configpb.ProbeResponse{Success: true}
+		},
+	}
+	p := initProbe(t, newOpts(t, startFakeSidecar(t, f)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		p.Start(ctx, make(chan *metrics.EventMetrics, 10))
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		return p.conn.GetState() == connectivity.Ready || p.conn.GetState() == connectivity.Idle
+	}, 5*time.Second, 10*time.Millisecond, "probe never connected")
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return after context cancellation")
+	}
+	assert.Equal(t, connectivity.Shutdown, p.conn.GetState())
 }

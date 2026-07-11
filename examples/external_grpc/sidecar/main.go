@@ -106,7 +106,7 @@ var tcpProbe = sidecar.ProbeType[tcpConfig, any]{
 }
 
 func main() {
-	addr := flag.String("addr", "unix:///tmp/cloudprober-sidecar.sock", "Address to listen on: unix:///path/to/socket or a TCP address like :9314")
+	addr := flag.String("addr", "unix:/tmp/cloudprober-sidecar.sock", "Address to listen on: unix:/path/to/socket (portable form, see sidecar.Listen) or a TCP address like :9314")
 	flag.Parse()
 
 	log.Fatal(sidecar.Serve(

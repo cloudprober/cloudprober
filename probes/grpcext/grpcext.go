@@ -49,6 +49,7 @@ type Probe struct {
 	opts   *options.Options
 	c      *configpb.ProbeConf
 	l      *logger.Logger
+	conn   *grpc.ClientConn
 	client configpb.ProberClient
 
 	// payloadParser parses additional metrics returned by the sidecar
@@ -125,14 +126,20 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if err != nil {
 		return fmt.Errorf("error creating gRPC client for %s: %v", p.c.GetServer(), err)
 	}
+	p.conn = conn
 	p.client = configpb.NewProberClient(conn)
 
 	p.payloadParser, err = payload.NewParser(p.c.GetOutputMetricsOptions(), p.l)
 	if err != nil {
+		conn.Close()
 		return fmt.Errorf("payload parser init: %v", err)
 	}
 
-	return p.validateConfigWithSidecar()
+	if err := p.validateConfigWithSidecar(); err != nil {
+		conn.Close()
+		return err
+	}
+	return nil
 }
 
 // validateConfigWithSidecar asks the sidecar to check probe_type and config
@@ -300,4 +307,9 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		},
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
+
+	// UpdateTargetsAndStartProbes blocks until ctx is canceled (probe
+	// removed / cloudprober shutting down); clean up the sidecar connection
+	// now that nothing will use it again. Matches probes/grpc's Start.
+	p.conn.Close()
 }

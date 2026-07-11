@@ -85,8 +85,10 @@ func Fail(err error) *Result {
 }
 
 // Internal reports a sidecar/infra failure ("the probe broke", not "the
-// target is down"). Cloudprober records it separately so it doesn't pollute
-// the target's success ratio.
+// target is down"). Cloudprober still counts the run as a probe failure —
+// alerting on total/success keeps working during a sidecar outage — but
+// also increments a separate internal_errors counter, so a broken sidecar
+// can be told apart from a broken target.
 func Internal(err error) *Result {
 	return &Result{internal: true, err: err}
 }
@@ -170,6 +172,13 @@ type ProbeType[C, S any] struct {
 
 	// Close releases a session when it's evicted (idle TTL). Optional.
 	Close func(s S)
+
+	// Validate checks a decoded config beyond what JSON decoding alone
+	// catches (e.g. a required field left at its zero value). Optional. Runs
+	// as part of the ValidateConfig RPC cloudprober calls once at probe
+	// Init, so misconfigurations that decode fine but don't make sense fail
+	// at startup instead of on every cycle.
+	Validate func(c C) error
 }
 
 // handler is the type-erased form of ProbeType that the server dispatches
@@ -208,8 +217,14 @@ func (h typedHandler[C, S]) decodeConfig(config []byte) (C, error) {
 }
 
 func (h typedHandler[C, S]) validateConfig(config []byte) error {
-	_, err := h.decodeConfig(config)
-	return err
+	c, err := h.decodeConfig(config)
+	if err != nil {
+		return err
+	}
+	if h.pt.Validate != nil {
+		return h.pt.Validate(c)
+	}
+	return nil
 }
 
 func (h typedHandler[C, S]) runProbe(ctx context.Context, t Target, config []byte, session any) *Result {

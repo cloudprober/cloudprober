@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
 
@@ -78,6 +79,15 @@ var panicProbe = ProbeType[struct{}, any]{
 	},
 }
 
+var panicNewProbe = ProbeType[struct{}, any]{
+	New: func(ctx context.Context, t Target, c struct{}) (any, error) {
+		panic("setup oops")
+	},
+	Probe: func(ctx context.Context, t Target, c struct{}, _ any) *Result {
+		return OK(time.Millisecond)
+	},
+}
+
 var internalProbe = ProbeType[struct{}, any]{
 	Probe: func(ctx context.Context, t Target, c struct{}, _ any) *Result {
 		return Internal(errors.New("driver exploded"))
@@ -100,8 +110,10 @@ func tempSocketPath(t *testing.T, name string) (path, addr string) {
 	return path, "unix:" + path
 }
 
-// startServer runs Serve on a unix socket and returns a connected client.
-func startServer(t *testing.T, opts ...Option) pb.ProberClient {
+// startServer runs Serve on a unix socket and returns a connected client and
+// the server's address (for tests that need to dial it a second time, e.g.
+// for a health check).
+func startServer(t *testing.T, opts ...Option) (pb.ProberClient, string) {
 	t.Helper()
 	sock, addr := tempSocketPath(t, "test.sock")
 	go func() {
@@ -112,6 +124,7 @@ func startServer(t *testing.T, opts ...Option) pb.ProberClient {
 			Register("panicky", panicProbe),
 			Register("internal", internalProbe),
 			Register("newfail", newFailProbe),
+			Register("panickynew", panicNewProbe),
 		}, opts...)
 		// Serve only returns on error; the test process may be shutting
 		// down, so log via stdlib log rather than t.Log.
@@ -127,7 +140,7 @@ func startServer(t *testing.T, opts ...Option) pb.ProberClient {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
-	return pb.NewProberClient(conn)
+	return pb.NewProberClient(conn), addr
 }
 
 func probeReq(probeType, config string, handle []byte) *pb.ProbeRequest {
@@ -140,7 +153,7 @@ func probeReq(probeType, config string, handle []byte) *pb.ProbeRequest {
 }
 
 func TestServeSessionLifecycle(t *testing.T) {
-	client := startServer(t)
+	client, _ := startServer(t)
 	newSessionsBefore := newSessions.Load()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -169,7 +182,7 @@ func TestServeSessionLifecycle(t *testing.T) {
 }
 
 func TestServeFailureAndConfig(t *testing.T) {
-	client := startServer(t)
+	client, _ := startServer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -191,7 +204,7 @@ func TestServeFailureAndConfig(t *testing.T) {
 }
 
 func TestServeInternalPaths(t *testing.T) {
-	client := startServer(t)
+	client, _ := startServer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -209,6 +222,57 @@ func TestServeInternalPaths(t *testing.T) {
 		assert.True(t, resp.GetInternalError(), tc.probeType)
 		assert.Contains(t, resp.GetError(), tc.wantErr, tc.probeType)
 	}
+}
+
+func TestServeNewPanicIsContained(t *testing.T) {
+	client, _ := startServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// A panic in New (session setup) must be contained the same way a panic
+	// in Probe is — reported as an internal error, not crash the sidecar.
+	resp, err := client.Probe(ctx, probeReq("panickynew", "", nil))
+	require.NoError(t, err)
+	assert.False(t, resp.GetSuccess())
+	assert.True(t, resp.GetInternalError())
+	assert.Contains(t, resp.GetError(), "setup oops")
+
+	// The server is still alive and serving other probe types.
+	resp, err = client.Probe(ctx, probeReq("counter", "", nil))
+	require.NoError(t, err)
+	assert.True(t, resp.GetSuccess())
+}
+
+func TestServeHealthSERVING(t *testing.T) {
+	_, addr := startServer(t)
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	for _, service := range []string{"", pb.Prober_ServiceDesc.ServiceName} {
+		resp, err := healthpb.NewHealthClient(conn).Check(ctx, &healthpb.HealthCheckRequest{Service: service})
+		require.NoError(t, err, "service %q", service)
+		assert.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.GetStatus(), "service %q", service)
+	}
+}
+
+func TestCloseAllSessions(t *testing.T) {
+	closedBefore := closedSessions.Load()
+	s := &server{
+		sessions: map[string]*session{
+			"h1": {h: typedHandler[counterConfig, *counterSession]{pt: counterProbe}, val: &counterSession{}},
+			"h2": {h: typedHandler[counterConfig, *counterSession]{pt: counterProbe}, val: &counterSession{}},
+		},
+	}
+
+	s.closeAllSessions()
+
+	assert.Equal(t, closedBefore+2, closedSessions.Load())
+	assert.Empty(t, s.sessions)
 }
 
 func TestResultMetric(t *testing.T) {
@@ -235,7 +299,7 @@ func TestResultMetric(t *testing.T) {
 }
 
 func TestServeNewError(t *testing.T) {
-	client := startServer(t)
+	client, _ := startServer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -249,7 +313,7 @@ func TestServeNewError(t *testing.T) {
 }
 
 func TestValidateConfig(t *testing.T) {
-	client := startServer(t)
+	client, _ := startServer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -279,17 +343,18 @@ func TestRegisterErrors(t *testing.T) {
 }
 
 func TestSessionInvalidate(t *testing.T) {
-	client := startServer(t)
+	client, _ := startServer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	newBefore, closedBefore := newSessions.Load(), closedSessions.Load()
 
-	// InvalidateSession => session is Closed after the run; the echoed
-	// handle is stale, so the next probe builds a fresh session.
+	// InvalidateSession => session is Closed after the run, and no handle is
+	// echoed back, so the next probe builds a fresh session.
 	resp, err := client.Probe(ctx, probeReq("counter", `{"invalidate": true}`, nil))
 	require.NoError(t, err)
 	assert.True(t, resp.GetSuccess())
+	assert.Empty(t, resp.GetStateHandle())
 	assert.Equal(t, closedBefore+1, closedSessions.Load())
 
 	resp2, err := client.Probe(ctx, probeReq("counter", `{"invalidate": true}`, resp.GetStateHandle()))
@@ -300,7 +365,7 @@ func TestSessionInvalidate(t *testing.T) {
 }
 
 func TestOneShot(t *testing.T) {
-	client := startServer(t)
+	client, _ := startServer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -325,7 +390,7 @@ func TestOneShot(t *testing.T) {
 func TestIdleEviction(t *testing.T) {
 	// Server with a very short TTL: the session created by one probe should
 	// be swept and Closed shortly after (sweep interval floors at 1s).
-	client := startServer(t, IdleTTL(100*time.Millisecond))
+	client, _ := startServer(t, IdleTTL(100*time.Millisecond))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
