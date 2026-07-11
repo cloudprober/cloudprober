@@ -69,7 +69,8 @@
     "yauzl": "^3.2.1",
     "lodash": "^4.18.0",
     "js-yaml": "^4.2.0",
-    "markdown-it": "^14.2.0"
+    "markdown-it": "^14.2.0",
+    "decompress": "npm:@xhmikosr/decompress@^11.1.3"
   },
   "otherDependencies": {
     "hugo": "0.101.0"
