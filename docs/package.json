@@ -3,7 +3,7 @@
   "description": "Doks child theme",
   "version": "0.5.0",
   "engines": {
-    "node": ">=16.16.0"
+    "node": ">=20"
   },
   "browserslist": [
     "defaults"
