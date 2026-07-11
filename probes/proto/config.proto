@@ -39,6 +39,7 @@ message ProbeDef {
     BROWSER = 8;
     SYSTEM = 9;
     STARLARK = 10;
+    SQL = 11;
     // Probe runs are delegated to an external sidecar process over gRPC.
     // See probes/grpcext for more details.
     EXTERNAL_GRPC = 12;

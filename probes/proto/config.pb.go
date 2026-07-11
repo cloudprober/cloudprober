@@ -52,6 +52,7 @@ const (
 	ProbeDef_BROWSER      ProbeDef_Type = 8
 	ProbeDef_SYSTEM       ProbeDef_Type = 9
 	ProbeDef_STARLARK     ProbeDef_Type = 10
+	ProbeDef_SQL          ProbeDef_Type = 11
 	// Probe runs are delegated to an external sidecar process over gRPC.
 	// See probes/grpcext for more details.
 	ProbeDef_EXTERNAL_GRPC ProbeDef_Type = 12
@@ -79,6 +80,7 @@ var (
 		8:  "BROWSER",
 		9:  "SYSTEM",
 		10: "STARLARK",
+		11: "SQL",
 		12: "EXTERNAL_GRPC",
 		98: "EXTENSION",
 		99: "USER_DEFINED",
@@ -95,6 +97,7 @@ var (
 		"BROWSER":       8,
 		"SYSTEM":        9,
 		"STARLARK":      10,
+		"SQL":           11,
 		"EXTERNAL_GRPC": 12,
 		"EXTENSION":     98,
 		"USER_DEFINED":  99,
@@ -1171,7 +1174,7 @@ var File_github_com_cloudprober_cloudprober_probes_proto_config_proto protorefle
 
 const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\x85\x13\n" +
+	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\x8e\x13\n" +
 	"\bProbeDef\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x125\n" +
 	"\x04type\x18\x02 \x02(\x0e2!.cloudprober.probes.ProbeDef.TypeR\x04type\x12#\n" +
@@ -1214,7 +1217,7 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"\x12targets_update_sec\x18g \x01(\x05R\x10targetsUpdateSec\x12,\n" +
 	"\x12startup_delay_msec\x18f \x01(\rR\x10startupDelayMsec\x128\n" +
 	"\bschedule\x18e \x03(\v2\x1c.cloudprober.probes.ScheduleR\bschedule\x12E\n" +
-	"\rdebug_options\x18d \x01(\v2 .cloudprober.probes.DebugOptionsR\fdebugOptions\"\xba\x01\n" +
+	"\rdebug_options\x18d \x01(\v2 .cloudprober.probes.DebugOptionsR\fdebugOptions\"\xc3\x01\n" +
 	"\x04Type\x12\b\n" +
 	"\x04PING\x10\x00\x12\b\n" +
 	"\x04HTTP\x10\x01\x12\a\n" +
@@ -1228,7 +1231,8 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"\n" +
 	"\x06SYSTEM\x10\t\x12\f\n" +
 	"\bSTARLARK\x10\n" +
-	"\x12\x11\n" +
+	"\x12\a\n" +
+	"\x03SQL\x10\v\x12\x11\n" +
 	"\rEXTERNAL_GRPC\x10\f\x12\r\n" +
 	"\tEXTENSION\x10b\x12\x10\n" +
 	"\fUSER_DEFINED\x10c\";\n" +
