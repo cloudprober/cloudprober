@@ -323,6 +323,37 @@ func TestProbeStateHandle(t *testing.T) {
 	assert.Equal(t, []byte("session-1"), reqs[1].GetStateHandle())
 }
 
+func TestProbeClearsStateHandleOnEmptyResponse(t *testing.T) {
+	// Simulates the sidecar invalidating a session: the first response mints
+	// a handle, the second explicitly clears it (empty state_handle), as
+	// pkg/sidecar does after InvalidateSession.
+	call := 0
+	f := &fakeSidecar{
+		respFn: func(req *configpb.ProbeRequest) *configpb.ProbeResponse {
+			call++
+			if call == 1 {
+				return &configpb.ProbeResponse{Success: true, StateHandle: []byte("session-1")}
+			}
+			return &configpb.ProbeResponse{Success: true}
+		},
+	}
+	p := initProbe(t, newOpts(t, startFakeSidecar(t, f)))
+
+	runReq := newRunReq()
+	runProbeOnce(t, p, runReq)
+	assert.Equal(t, []byte("session-1"), runReq.TargetState)
+
+	runProbeOnce(t, p, runReq)
+	assert.Nil(t, runReq.TargetState)
+
+	// Third request must not echo the discarded handle.
+	runProbeOnce(t, p, runReq)
+	reqs := f.requests()
+	require.Equal(t, 3, len(reqs))
+	assert.Equal(t, []byte("session-1"), reqs[1].GetStateHandle())
+	assert.Empty(t, reqs[2].GetStateHandle())
+}
+
 func TestRunOnceIsOneShot(t *testing.T) {
 	f := &fakeSidecar{
 		respFn: func(req *configpb.ProbeRequest) *configpb.ProbeResponse {

@@ -185,6 +185,15 @@ func (p *Probe) validateConfigWithSidecar() error {
 // treatment: gRPC's default fail-fast behavior returns Unavailable for that
 // case immediately, without waiting out the deadline, and Unavailable is
 // already unambiguous (falls through to the `return true` below).
+//
+// Situation                          RPC code            Post-RPC state  internal_errors?
+// ---------------------------------  ------------------  --------------  ----------------
+// Handler hung (shared deadline)     DeadlineExceeded    Ready           no (target fail)
+// Hung handshake / mid-connect       DeadlineExceeded    not Ready       yes
+// Blackhole / connect still spinning DeadlineExceeded    Connecting      yes
+// Closed port / missing UDS          Unavailable         (any)           yes
+// TransientFailure fail-fast         Unavailable         (any)           yes
+// Any other non-OK status            *                   (any)           yes
 func isInternalRPCError(err error, connState connectivity.State) bool {
 	switch status.Code(err) {
 	case codes.DeadlineExceeded, codes.Canceled:
@@ -254,6 +263,11 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	if h := resp.GetStateHandle(); len(h) > 0 {
 		runReq.TargetState = h
+	} else {
+		// The sidecar clears the handle to signal the previous session is
+		// gone (e.g. after InvalidateSession) — drop it here too, instead of
+		// re-sending a handle the sidecar has already discarded.
+		runReq.TargetState = nil
 	}
 
 	// Parse payload metrics regardless of the run's outcome — sidecars may
