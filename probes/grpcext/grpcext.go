@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/cloudprober/cloudprober/internal/validators"
@@ -53,12 +52,6 @@ type Probe struct {
 	l      *logger.Logger
 	conn   *grpc.ClientConn
 	client configpb.ProberClient
-
-	// sentFirstRequest is set the first time runProbe attempts an RPC on
-	// conn. A cold connection legitimately starts out not Ready; only
-	// requests after the first get to treat "not Ready" as suspicious. See
-	// connLikelyDown.
-	sentFirstRequest atomic.Bool
 
 	// payloadParser parses additional metrics returned by the sidecar
 	// (payload-format lines) into EventMetrics. Same surface as external,
@@ -174,46 +167,30 @@ func (p *Probe) validateConfigWithSidecar() error {
 	}
 }
 
-// isInternalRPCError classifies a failed Probe RPC: DeadlineExceeded and
-// Canceled mean the probe ran out of time — almost always a hung target
-// (the sidecar handler shares our deadline), so we count it as a plain probe
-// failure. Anything else (Unavailable, Unimplemented, ...) means we couldn't
-// properly talk to the sidecar.
+// isInternalRPCError classifies a failed Probe RPC using both the error and
+// the connection's state read immediately after the RPC returned.
 //
-// DeadlineExceeded is ambiguous on its own: it also fires if the RPC never
-// even reached the sidecar because the underlying connection was still
-// mid-(re)connect when our deadline hit (gRPC dials lazily, and a single
-// connect attempt is allowed to run for a while before gRPC itself gives up
-// and reports the channel unreachable). connLikelyDown catches that case
-// ahead of time so it doesn't reach this classification at all.
-func isInternalRPCError(err error) bool {
+// DeadlineExceeded/Canceled normally mean the probe ran out of time while
+// the sidecar's handler was running — a plain target failure, since
+// reaching a running handler at all requires an already-healthy (Ready)
+// transport. But the same codes also fire when the deadline was consumed by
+// connection establishment instead: gRPC dials lazily, and a peer that
+// accepts the TCP connection but never completes the gRPC handshake (a
+// hung sidecar process, a misbehaving proxy) leaves the RPC blocked with no
+// fast failure — it just rides out to our deadline. If the transport still
+// isn't Ready by the time the RPC gives up, the deadline was spent on the
+// connection, not the handler, so this is sidecar/infra, not target.
+//
+// A connection that's already given up (TransientFailure) doesn't need this
+// treatment: gRPC's default fail-fast behavior returns Unavailable for that
+// case immediately, without waiting out the deadline, and Unavailable is
+// already unambiguous (falls through to the `return true` below).
+func isInternalRPCError(err error, connState connectivity.State) bool {
 	switch status.Code(err) {
 	case codes.DeadlineExceeded, codes.Canceled:
-		return false
+		return connState != connectivity.Ready
 	}
 	return true
-}
-
-// connLikelyDown reports whether the sidecar connection is almost certainly
-// unreachable, without spending an RPC (and a full timeout) to find out.
-// conn.GetState() is a free, local read of gRPC's channel state machine.
-//
-// TransientFailure is unambiguous: gRPC already attempted to connect and
-// gave up (for now) — unlike a DeadlineExceeded RPC error, which can't tell
-// "the sidecar's handler is slow" apart from "we're still waiting on the
-// very first connection attempt." The first request ever sent on this
-// connection is always given the benefit of the doubt even if the state
-// isn't Ready yet — a cold connection is normal, not suspicious — but every
-// request after that isn't: a healthy connection that has worked before and
-// is now in TransientFailure means something changed.
-//
-// Deliberately not triggered by Idle: connections legitimately go idle
-// between cycles on longer-interval probes and reconnect transparently on
-// next use, so treating idle as "down" would misfire on exactly the
-// long-running probes this feature targets.
-func (p *Probe) connLikelyDown() bool {
-	hadPriorRequest := p.sentFirstRequest.Swap(true)
-	return hadPriorRequest && p.conn.GetState() == connectivity.TransientFailure
 }
 
 func respError(resp *configpb.ProbeResponse) string {
@@ -265,17 +242,9 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	// still register as failed runs. internal_errors tells the two apart.
 	result.total++
 
-	if p.connLikelyDown() {
-		result.internalErrors++
-		err := fmt.Errorf("sidecar connection not ready (state: %s)", p.conn.GetState())
-		p.l.Warningf("target(%s): %v", target.Name, err)
-		runReq.LastRun.Set(false, 0, err)
-		return
-	}
-
 	resp, err := p.client.Probe(ctx, req)
 	if err != nil {
-		if isInternalRPCError(err) {
+		if isInternalRPCError(err, p.conn.GetState()) {
 			result.internalErrors++
 		}
 		p.l.Warningf("target(%s): probe via sidecar %s failed: %v", target.Name, p.c.GetServer(), err)

@@ -410,44 +410,40 @@ func TestStartClosesConnOnExit(t *testing.T) {
 	assert.Equal(t, connectivity.Shutdown, p.conn.GetState())
 }
 
-func TestConnLikelyDownSkipsAmbiguousRPCs(t *testing.T) {
-	// Grab a TCP port, then close it immediately: nothing is listening, so
-	// gRPC gets a real "connection refused" quickly and settles into
-	// TransientFailure — unlike a black-holed address, this doesn't require
-	// waiting out a full connect timeout, so the test stays fast.
+// hungHandshakeListener accepts TCP connections but never writes anything —
+// reachable at the network layer (no fast RST/ECONNREFUSED), but the gRPC
+// handshake never completes. This is what makes DeadlineExceeded ambiguous:
+// from the client's side, an RPC against this listener looks identical to
+// "the handler accepted the RPC and ran long," except the transport never
+// becomes Ready. A closed port, by contrast, fails fast with Unavailable
+// (gRPC's default fail-fast behavior) and was never actually ambiguous.
+func hungHandshakeListener(t *testing.T) string {
+	t.Helper()
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	addr := lis.Addr().String()
-	require.NoError(t, lis.Close())
+	t.Cleanup(func() { lis.Close() })
+	go func() {
+		for {
+			conn, err := lis.Accept()
+			if err != nil {
+				return
+			}
+			t.Cleanup(func() { conn.Close() })
+		}
+	}()
+	return lis.Addr().String()
+}
 
-	p := initProbe(t, newOpts(t, addr))
+func TestInternalErrorOnHungHandshake(t *testing.T) {
+	p := initProbe(t, newOpts(t, hungHandshakeListener(t)))
 
-	// First request: the connection has never been used, so even though
-	// it's not Ready, it must still be attempted rather than short-circuited
-	// — a cold connection isn't suspicious. Nothing is listening, so this
-	// still fails, just via the normal RPC-error path (already correctly
-	// classified as internal: Unavailable, not DeadlineExceeded).
-	runReq1 := newRunReq()
-	runProbeOnce(t, p, runReq1)
-	assert.False(t, runReq1.LastRun.Success)
-	result1 := runReq1.Result.(*probeResult)
-	assert.Equal(t, int64(1), result1.total)
-	assert.Equal(t, int64(1), result1.internalErrors)
+	runReq := newRunReq()
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	p.runProbe(ctx, runReq, false)
 
-	require.Eventually(t, func() bool {
-		return p.conn.GetState() == connectivity.TransientFailure
-	}, 5*time.Second, 10*time.Millisecond, "conn never settled into TransientFailure")
-
-	// Second request: same probe (same conn), which now has a prior request
-	// AND is in TransientFailure — connLikelyDown must short-circuit before
-	// ever calling the RPC, not wait out the probe's own timeout to find out.
-	runReq2 := newRunReq()
-	start := time.Now()
-	runProbeOnce(t, p, runReq2)
-	assert.Less(t, time.Since(start), 2*time.Second, "should short-circuit instead of attempting the RPC")
-	assert.False(t, runReq2.LastRun.Success)
-	assert.ErrorContains(t, runReq2.LastRun.Error, "not ready")
-	result2 := runReq2.Result.(*probeResult)
-	assert.Equal(t, int64(1), result2.total)
-	assert.Equal(t, int64(1), result2.internalErrors)
+	assert.False(t, runReq.LastRun.Success)
+	result := runReq.Result.(*probeResult)
+	assert.Equal(t, int64(1), result.total)
+	assert.Equal(t, int64(1), result.internalErrors)
 }
