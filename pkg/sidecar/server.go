@@ -22,9 +22,11 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	pb "github.com/cloudprober/cloudprober/probes/grpcext/proto"
@@ -76,6 +78,15 @@ func IdleTTL(d time.Duration) Option {
 	return func(s *server) { s.idleTTL = d }
 }
 
+// ShutdownOn makes Serve stop gracefully when ctx is canceled: it stops
+// accepting new probes, waits for in-flight ones to finish, closes all
+// per-target sessions, and returns nil. Without this option, Serve shuts
+// down the same way on SIGINT/SIGTERM. Useful for embedding a sidecar in a
+// larger process or stopping one from a test.
+func ShutdownOn(ctx context.Context) Option {
+	return func(s *server) { s.ctx = ctx }
+}
+
 // Register adds a probe type under the given name. A single sidecar process
 // can serve any number of probe types. Registering a probe type without a
 // Probe function, or two probe types under the same name, is an error that
@@ -113,6 +124,7 @@ type server struct {
 	idleTTL    time.Duration
 	probeTypes map[string]handler
 	initErrs   []error
+	ctx        context.Context
 
 	mu       sync.Mutex
 	sessions map[string]*session // keyed by state handle
@@ -172,8 +184,29 @@ func Serve(opts ...Option) error {
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	healthServer.SetServingStatus(pb.Prober_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
 
+	// Stop gracefully when the shutdown context is canceled (default:
+	// SIGINT/SIGTERM). GracefulStop stops accepting new probes and waits for
+	// in-flight ones to finish, which makes Serve(lis) return so the deferred
+	// closeAllSessions runs — sessions don't leak on a normal shutdown.
+	ctx := s.ctx
+	if ctx == nil {
+		var stop context.CancelFunc
+		ctx, stop = signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+	}
+
 	log.Printf("cloudprober sidecar: serving probe types %v on %s", s.typeNames(), s.addr)
-	return grpcServer.Serve(lis)
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- grpcServer.Serve(lis) }()
+	select {
+	case <-ctx.Done():
+		log.Printf("cloudprober sidecar: shutting down (%v)", context.Cause(ctx))
+		grpcServer.GracefulStop()
+		<-serveErr
+		return nil
+	case err := <-serveErr:
+		return err
+	}
 }
 
 func (s *server) closeAllSessions() {

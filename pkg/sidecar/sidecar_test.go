@@ -402,3 +402,44 @@ func TestIdleEviction(t *testing.T) {
 		return closedSessions.Load() > closedBefore
 	}, 5*time.Second, 100*time.Millisecond, "idle session was never evicted/closed")
 }
+
+func TestServeGracefulShutdown(t *testing.T) {
+	sock, addr := tempSocketPath(t, "shutdown.sock")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- Serve(
+			Listen(addr),
+			ShutdownOn(ctx),
+			Register("counter", counterProbe),
+		)
+	}()
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(sock)
+		return err == nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer conn.Close()
+	client := pb.NewProberClient(conn)
+
+	// Leave a live session behind, then cancel the shutdown context.
+	closedBefore := closedSessions.Load()
+	rpcCtx, rpcCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer rpcCancel()
+	_, err = client.Probe(rpcCtx, probeReq("counter", "", nil))
+	require.NoError(t, err)
+
+	cancel()
+	select {
+	case err := <-done:
+		require.NoError(t, err, "Serve should return nil on graceful shutdown")
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not return after shutdown context was canceled")
+	}
+	// The session left behind must have been closed on shutdown.
+	assert.Greater(t, closedSessions.Load(), closedBefore, "session was not closed on shutdown")
+}
