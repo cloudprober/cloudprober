@@ -34,8 +34,11 @@ func httpModule() *starlarkstruct.Module {
 	return &starlarkstruct.Module{
 		Name: "http",
 		Members: starlarklib.StringDict{
-			"get":  starlarklib.NewBuiltin("http.get", httpGet),
-			"post": starlarklib.NewBuiltin("http.post", httpPost),
+			"get":    starlarklib.NewBuiltin("http.get", httpVerb("GET", false)),
+			"post":   starlarklib.NewBuiltin("http.post", httpVerb("POST", true)),
+			"put":    starlarklib.NewBuiltin("http.put", httpVerb("PUT", true)),
+			"patch":  starlarklib.NewBuiltin("http.patch", httpVerb("PATCH", true)),
+			"delete": starlarklib.NewBuiltin("http.delete", httpVerb("DELETE", true)),
 		},
 	}
 }
@@ -69,46 +72,32 @@ func optionalInt(v starlarklib.Value, name string) (*int, error) {
 	return &out, nil
 }
 
-func httpGet(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
-	var url string
-	var opts reqOpts
-	var maxRedirectsArg starlarklib.Value
-	if err := starlarklib.UnpackArgs("http.get", args, kwargs,
-		"url", &url,
-		"headers?", &opts.headers,
-		"max_redirects??", &maxRedirectsArg,
-		"keep_alive??", &opts.keepAlive,
-	); err != nil {
-		return nil, err
+// httpVerb returns a builtin handler for the given HTTP method. When withBody
+// is true, the handler also accepts "body" and "json" kwargs; GET omits them.
+func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarklib.Builtin, starlarklib.Tuple, []starlarklib.Tuple) (starlarklib.Value, error) {
+	name := "http." + strings.ToLower(method)
+	return func(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+		var url string
+		var opts reqOpts
+		var maxRedirectsArg starlarklib.Value
+		spec := []interface{}{
+			"url", &url,
+			"headers?", &opts.headers,
+		}
+		if withBody {
+			spec = append(spec, "body?", &opts.body, "json?", &opts.jsonArg)
+		}
+		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive)
+		if err := starlarklib.UnpackArgs(name, args, kwargs, spec...); err != nil {
+			return nil, err
+		}
+		maxRedirects, err := optionalInt(maxRedirectsArg, name+": max_redirects")
+		if err != nil {
+			return nil, err
+		}
+		opts.maxRedirects = maxRedirects
+		return doHTTP(thread, method, url, opts)
 	}
-	maxRedirects, err := optionalInt(maxRedirectsArg, "http.get: max_redirects")
-	if err != nil {
-		return nil, err
-	}
-	opts.maxRedirects = maxRedirects
-	return doHTTP(thread, "GET", url, opts)
-}
-
-func httpPost(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
-	var url string
-	var opts reqOpts
-	var maxRedirectsArg starlarklib.Value
-	if err := starlarklib.UnpackArgs("http.post", args, kwargs,
-		"url", &url,
-		"headers?", &opts.headers,
-		"body?", &opts.body,
-		"json?", &opts.jsonArg,
-		"max_redirects??", &maxRedirectsArg,
-		"keep_alive??", &opts.keepAlive,
-	); err != nil {
-		return nil, err
-	}
-	maxRedirects, err := optionalInt(maxRedirectsArg, "http.post: max_redirects")
-	if err != nil {
-		return nil, err
-	}
-	opts.maxRedirects = maxRedirects
-	return doHTTP(thread, "POST", url, opts)
 }
 
 func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starlarklib.Value, error) {

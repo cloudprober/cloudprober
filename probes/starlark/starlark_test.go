@@ -366,6 +366,53 @@ def probe(target):
 	assert.Equal(t, "raw-body-bytes", gotBody)
 }
 
+// TestHTTP_Verbs covers the put/patch/delete verbs: the method reaches the
+// server, and body-carrying verbs (put/patch) deliver their body.
+func TestHTTP_Verbs(t *testing.T) {
+	for _, tc := range []struct {
+		verb     string
+		wantBody string
+	}{
+		{"put", "raw-put-body"},
+		{"patch", "raw-patch-body"},
+		{"delete", ""},
+	} {
+		t.Run(tc.verb, func(t *testing.T) {
+			var gotMethod, gotBody string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotMethod = r.Method
+				b, _ := io.ReadAll(r.Body)
+				gotBody = string(b)
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer srv.Close()
+
+			bodyArg := ""
+			if tc.wantBody != "" {
+				bodyArg = fmt.Sprintf(`body = %q,`, tc.wantBody)
+			}
+			source := fmt.Sprintf(`
+def probe(target):
+    r = http.%s(
+        url = "http://%%s:%%d/" %% (target.name, target.port),
+        %s
+    )
+    assert.http_status(r, 200)
+`, tc.verb, bodyArg)
+			opts := newOpts(t, hostFromServer(t, srv), source)
+			p := &Probe{}
+			if err := p.Init("script-verb-"+tc.verb, opts); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+
+			results := p.RunOnce(context.Background())
+			assert.True(t, results[0].Success, "err=%v", results[0].Error)
+			assert.Equal(t, strings.ToUpper(tc.verb), gotMethod)
+			assert.Equal(t, tc.wantBody, gotBody)
+		})
+	}
+}
+
 // TestHTTP_ResponseHeadersVisible covers reading response.headers from script.
 func TestHTTP_ResponseHeadersVisible(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
