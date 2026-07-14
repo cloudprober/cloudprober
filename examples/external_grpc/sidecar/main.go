@@ -107,11 +107,19 @@ var tcpProbe = sidecar.ProbeType[tcpConfig, any]{
 
 func main() {
 	addr := flag.String("addr", "unix:/tmp/cloudprober-sidecar.sock", "Address to listen on: unix:/path/to/socket (portable form, see sidecar.Listen) or a TCP address like :9314")
+	tlsCert := flag.String("tls_cert", "", "Server certificate file. If set, the sidecar serves over TLS.")
+	tlsKey := flag.String("tls_key", "", "Server private key file (required with -tls_cert).")
+	clientCA := flag.String("client_ca", "", "CA file to verify client certs. If set, clients must present a cert signed by it (mutual TLS).")
 	flag.Parse()
 
-	log.Fatal(sidecar.Serve(
+	opts := []sidecar.Option{
 		sidecar.Listen(*addr),
 		sidecar.Register("http", httpProbe),
 		sidecar.Register("tcp", tcpProbe),
-	))
+	}
+	if *tlsCert != "" {
+		opts = append(opts, sidecar.TLS(*tlsCert, *tlsKey, *clientCA))
+	}
+
+	log.Fatal(sidecar.Serve(opts...))
 }

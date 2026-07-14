@@ -17,6 +17,8 @@ package sidecar
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -32,6 +34,7 @@ import (
 	pb "github.com/cloudprober/cloudprober/probes/grpcext/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
@@ -76,6 +79,48 @@ func unixSocketPath(addr string) (path string, ok bool) {
 // sessions when targets disappear on the cloudprober side.
 func IdleTTL(d time.Duration) Option {
 	return func(s *server) { s.idleTTL = d }
+}
+
+// TLS makes the sidecar serve over TLS, presenting the certificate in
+// certFile/keyFile. If clientCAFile is non-empty, clients must present a
+// certificate signed by a CA in that file (mutual TLS) — the recommended
+// setup for a sidecar reachable over the network, so only cloudprober can
+// send it probe configs. An empty clientCAFile serves plain server-side TLS
+// (encrypts the connection but doesn't authenticate the caller).
+//
+// Whether to require a client cert is left to the sidecar author: wire
+// clientCAFile to a flag and mTLS is on when it's set. Without this option
+// the sidecar serves plaintext (fine for a co-located unix socket).
+func TLS(certFile, keyFile, clientCAFile string) Option {
+	return func(s *server) {
+		creds, err := loadServerTLS(certFile, keyFile, clientCAFile)
+		if err != nil {
+			s.initErrs = append(s.initErrs, err)
+			return
+		}
+		s.creds = creds
+	}
+}
+
+func loadServerTLS(certFile, keyFile, clientCAFile string) (credentials.TransportCredentials, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("loading TLS cert/key: %v", err)
+	}
+	cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	if clientCAFile != "" {
+		caPEM, err := os.ReadFile(clientCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading client CA file %s: %v", clientCAFile, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("no certificates found in client CA file %s", clientCAFile)
+		}
+		cfg.ClientCAs = pool
+		cfg.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+	return credentials.NewTLS(cfg), nil
 }
 
 // ShutdownOn makes Serve stop gracefully when ctx is canceled: it stops
@@ -125,6 +170,7 @@ type server struct {
 	probeTypes map[string]handler
 	initErrs   []error
 	ctx        context.Context
+	creds      credentials.TransportCredentials
 
 	mu       sync.Mutex
 	sessions map[string]*session // keyed by state handle
@@ -173,7 +219,11 @@ func Serve(opts ...Option) error {
 	// leak until the process exits.
 	defer s.closeAllSessions()
 
-	grpcServer := grpc.NewServer()
+	var serverOpts []grpc.ServerOption
+	if s.creds != nil {
+		serverOpts = append(serverOpts, grpc.Creds(s.creds))
+	}
+	grpcServer := grpc.NewServer(serverOpts...)
 	pb.RegisterProberServer(grpcServer, s)
 	healthServer := health.NewServer()
 	healthpb.RegisterHealthServer(grpcServer, healthServer)

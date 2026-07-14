@@ -16,6 +16,14 @@ package grpcext
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"net"
 	"os"
 	"path/filepath"
@@ -23,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
@@ -37,6 +46,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -108,6 +118,87 @@ func startFakeSidecar(t *testing.T, f *fakeSidecar) string {
 	go srv.Serve(lis)
 	t.Cleanup(srv.Stop)
 	return addr
+}
+
+// startFakeSidecarTLS runs f over TCP with mTLS (requires a client cert
+// signed by caFile) and returns the server address.
+func startFakeSidecarTLS(t *testing.T, f *fakeSidecar, certFile, keyFile, caFile string) string {
+	t.Helper()
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	require.NoError(t, err)
+	caPEM, err := os.ReadFile(caFile)
+	require.NoError(t, err)
+	pool := x509.NewCertPool()
+	require.True(t, pool.AppendCertsFromPEM(caPEM))
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    pool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+	})))
+	configpb.RegisterProberServer(srv, f)
+	go srv.Serve(lis)
+	t.Cleanup(srv.Stop)
+	return lis.Addr().String()
+}
+
+// writeTestCerts generates a throwaway CA and one leaf certificate usable as
+// both a server and a client cert (valid for localhost/127.0.0.1), and
+// returns the PEM file paths.
+func writeTestCerts(t *testing.T) (caFile, certFile, keyFile string) {
+	t.Helper()
+
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	caTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
+	require.NoError(t, err)
+	caCert, err := x509.ParseCertificate(caDER)
+	require.NoError(t, err)
+
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	leafTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "localhost"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
+	require.NoError(t, err)
+	leafKeyDER, err := x509.MarshalPKCS8PrivateKey(leafKey)
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	caFile = filepath.Join(dir, "ca.pem")
+	certFile = filepath.Join(dir, "cert.pem")
+	keyFile = filepath.Join(dir, "key.pem")
+	writePEM(t, caFile, "CERTIFICATE", caDER)
+	writePEM(t, certFile, "CERTIFICATE", leafDER)
+	writePEM(t, keyFile, "PRIVATE KEY", leafKeyDER)
+	return caFile, certFile, keyFile
+}
+
+func writePEM(t *testing.T, path, blockType string, der []byte) {
+	t.Helper()
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	defer f.Close()
+	require.NoError(t, pem.Encode(f, &pem.Block{Type: blockType, Bytes: der}))
 }
 
 func newOpts(t *testing.T, server string) *options.Options {
@@ -477,4 +568,69 @@ func TestInternalErrorOnHungHandshake(t *testing.T) {
 	result := runReq.Result.(*probeResult)
 	assert.Equal(t, int64(1), result.total)
 	assert.Equal(t, int64(1), result.internalErrors)
+}
+
+func TestProbeMutualTLS(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	f := &fakeSidecar{
+		respFn: func(*configpb.ProbeRequest) *configpb.ProbeResponse {
+			return &configpb.ProbeResponse{Success: true, Latency: durationpb.New(time.Millisecond)}
+		},
+	}
+	addr := startFakeSidecarTLS(t, f, certFile, keyFile, caFile)
+
+	opts := newOpts(t, addr)
+	opts.ProbeConf.(*configpb.ProbeConf).TlsConfig = &tlsconfigpb.TLSConfig{
+		CaCertFile:  proto.String(caFile),
+		TlsCertFile: proto.String(certFile),
+		TlsKeyFile:  proto.String(keyFile),
+		ServerName:  proto.String("localhost"),
+	}
+	p := initProbe(t, opts)
+
+	runReq := newRunReq()
+	runProbeOnce(t, p, runReq)
+
+	assert.True(t, runReq.LastRun.Success)
+	result := runReq.Result.(*probeResult)
+	assert.Equal(t, int64(1), result.success)
+	assert.Equal(t, int64(0), result.internalErrors)
+}
+
+// Without a client cert, the mTLS handshake fails; the probe run is reported
+// as an internal error, not a target failure.
+func TestProbeTLSNoClientCertIsInternalError(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	f := &fakeSidecar{
+		respFn: func(*configpb.ProbeRequest) *configpb.ProbeResponse {
+			return &configpb.ProbeResponse{Success: true, Latency: durationpb.New(time.Millisecond)}
+		},
+	}
+	addr := startFakeSidecarTLS(t, f, certFile, keyFile, caFile)
+
+	opts := newOpts(t, addr)
+	// CA + server name but no client cert/key: the server requires one.
+	opts.ProbeConf.(*configpb.ProbeConf).TlsConfig = &tlsconfigpb.TLSConfig{
+		CaCertFile: proto.String(caFile),
+		ServerName: proto.String("localhost"),
+	}
+	p := initProbe(t, opts)
+
+	runReq := newRunReq()
+	runProbeOnce(t, p, runReq)
+
+	assert.False(t, runReq.LastRun.Success)
+	result := runReq.Result.(*probeResult)
+	assert.Equal(t, int64(1), result.internalErrors)
+}
+
+func TestTransportCredentialsError(t *testing.T) {
+	opts := newOpts(t, "unix:/tmp/does-not-matter.sock")
+	opts.ProbeConf.(*configpb.ProbeConf).TlsConfig = &tlsconfigpb.TLSConfig{
+		TlsCertFile: proto.String("/no/such/cert.pem"),
+		TlsKeyFile:  proto.String("/no/such/key.pem"),
+	}
+	err := (&Probe{}).Init("test_probe", opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tls_config error")
 }

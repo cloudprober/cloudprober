@@ -16,9 +16,18 @@ package sidecar
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -30,10 +39,82 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
+
+// writeTestCerts generates a throwaway CA and one leaf certificate usable as
+// both a server and a client cert (valid for localhost/127.0.0.1), writes
+// them to a temp dir, and returns the file paths. Enough for an mTLS test:
+// the server presents the leaf, the client presents the same leaf, and each
+// trusts the CA.
+func writeTestCerts(t *testing.T) (caFile, certFile, keyFile string) {
+	t.Helper()
+
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	caTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
+	require.NoError(t, err)
+	caCert, err := x509.ParseCertificate(caDER)
+	require.NoError(t, err)
+
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	leafTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "localhost"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
+	require.NoError(t, err)
+	leafKeyDER, err := x509.MarshalPKCS8PrivateKey(leafKey)
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	caFile = filepath.Join(dir, "ca.pem")
+	certFile = filepath.Join(dir, "cert.pem")
+	keyFile = filepath.Join(dir, "key.pem")
+	writePEM(t, caFile, "CERTIFICATE", caDER)
+	writePEM(t, certFile, "CERTIFICATE", leafDER)
+	writePEM(t, keyFile, "PRIVATE KEY", leafKeyDER)
+	return caFile, certFile, keyFile
+}
+
+func writePEM(t *testing.T, path, blockType string, der []byte) {
+	t.Helper()
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	defer f.Close()
+	require.NoError(t, pem.Encode(f, &pem.Block{Type: blockType, Bytes: der}))
+}
+
+// freeTCPAddr returns a currently-free loopback TCP address. There's an
+// inherent race between releasing it and Serve re-binding, but it's fine for
+// a test — Serve needs a concrete address since it owns the listener.
+func freeTCPAddr(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := lis.Addr().String()
+	require.NoError(t, lis.Close())
+	return addr
+}
 
 type counterConfig struct {
 	FailAfter  int  `json:"fail_after"`
@@ -442,4 +523,66 @@ func TestServeGracefulShutdown(t *testing.T) {
 	}
 	// The session left behind must have been closed on shutdown.
 	assert.Greater(t, closedSessions.Load(), closedBefore, "session was not closed on shutdown")
+}
+
+func TestServeMutualTLS(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	addr := freeTCPAddr(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		err := Serve(
+			Listen(addr),
+			ShutdownOn(ctx),
+			TLS(certFile, keyFile, caFile),
+			Register("counter", counterProbe),
+		)
+		log.Println("Serve returned:", err)
+	}()
+
+	caPEM, err := os.ReadFile(caFile)
+	require.NoError(t, err)
+	pool := x509.NewCertPool()
+	require.True(t, pool.AppendCertsFromPEM(caPEM))
+	clientCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	require.NoError(t, err)
+
+	dial := func(t *testing.T, tlsCfg *tls.Config) pb.ProberClient {
+		conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
+		require.NoError(t, err)
+		t.Cleanup(func() { conn.Close() })
+		return pb.NewProberClient(conn)
+	}
+
+	// A client that presents the CA-signed cert succeeds. Retry until the
+	// server is up (also confirms readiness for the negative case below).
+	mtlsClient := dial(t, &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      pool,
+		ServerName:   "localhost",
+	})
+	require.Eventually(t, func() bool {
+		rpcCtx, c := context.WithTimeout(context.Background(), time.Second)
+		defer c()
+		_, err := mtlsClient.Probe(rpcCtx, probeReq("counter", "", nil))
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond, "mTLS probe never succeeded")
+
+	// A client that omits its certificate is rejected by the handshake.
+	noCertClient := dial(t, &tls.Config{RootCAs: pool, ServerName: "localhost"})
+	rpcCtx, c := context.WithTimeout(context.Background(), 3*time.Second)
+	defer c()
+	_, err = noCertClient.Probe(rpcCtx, probeReq("counter", "", nil))
+	require.Error(t, err, "probe without a client cert should be rejected")
+}
+
+func TestTLSOptionError(t *testing.T) {
+	err := Serve(
+		Listen(freeTCPAddr(t)),
+		TLS("/no/such/cert.pem", "/no/such/key.pem", ""),
+		Register("counter", counterProbe),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "loading TLS cert/key")
 }

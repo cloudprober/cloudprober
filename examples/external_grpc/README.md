@@ -43,6 +43,23 @@ increment `internal_errors`, so you can tell a broken sidecar apart from a
 broken target; the failure reason is in cloudprober's logs. Try killing the
 sidecar to see it in action.
 
+## Serving over TLS / mTLS
+
+The unix-socket default is meant for a co-located sidecar. To reach one over
+the network, serve over TLS so probe configs (which may carry credentials)
+aren't sent in the clear. The example takes cert flags:
+
+```sh
+go run ./sidecar --addr=:9314 \
+  --tls_cert=server.crt --tls_key=server.key --client_ca=ca.crt
+```
+
+Passing `--client_ca` requires clients to present a cert signed by that CA
+(mutual TLS), so only cloudprober can send probes. On the cloudprober side,
+set `tls_config` in the probe (`ca_cert_file`, plus `tls_cert_file` /
+`tls_key_file` for the client cert). Omitting `--client_ca` serves plain
+server-side TLS.
+
 ## Writing your own sidecar
 
 A probe type is one struct — config in, result + metrics out; the SDK owns
