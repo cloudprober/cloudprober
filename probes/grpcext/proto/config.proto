@@ -1,0 +1,37 @@
+syntax = "proto2";
+
+package cloudprober.probes.grpcext;
+
+import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/probes/grpcext/proto";
+
+// ProbeConf configures an EXTERNAL_GRPC probe.
+//
+// The probe delegates each per-target probe run to a sidecar gRPC service
+// implementing the cloudprober.probes.grpcext.Prober service (see
+// service.proto). Cloudprober keeps scheduling, targets, metrics, and
+// surfacers; the sidecar just runs the probe for one target and returns the
+// result.
+message ProbeConf {
+  // Sidecar server address. Typically a co-located unix domain socket, e.g.
+  // "unix:/var/run/cloudprober/sidecar.sock" (single colon — this form works
+  // for both POSIX and Windows paths; see sidecar.Listen), but any gRPC
+  // target string works, e.g. "localhost:9314".
+  optional string server = 1;
+
+  // Probe type registered on the sidecar, e.g. "snowsql". A single sidecar
+  // process can serve multiple probe types.
+  optional string probe_type = 2;
+
+  // Type-specific configuration, passed to the sidecar as-is. Opaque to
+  // cloudprober — it's decoded and validated by the sidecar. Typically JSON:
+  //   config: '{ "warehouse": "WH1", "query": "SELECT 1" }'
+  optional string config = 3;
+
+  // Options for parsing metrics returned by the sidecar. Sidecar returns
+  // additional metrics as payload-format lines ("name{labels} value"); these
+  // options control how they're parsed (metrics kind, aggregation,
+  // distributions, etc.). Same surface as external and http probes.
+  optional metrics.payload.OutputMetricsOptions output_metrics_options = 4;
+}

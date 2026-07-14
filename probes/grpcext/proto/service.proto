@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package cloudprober.probes.grpcext;
+
+import "google/protobuf/duration.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/probes/grpcext/proto";
+
+// Prober is the contract between cloudprober and a probe sidecar. It is the
+// wire version of cloudprober's internal per-target probe callback
+// (sched.RunProbeForTarget): cloudprober calls Probe once per probe cycle per
+// target; the sidecar runs the actual probe logic and returns the result.
+//
+// A sidecar can be written in any language; the Go SDK
+// (github.com/cloudprober/cloudprober/pkg/sidecar) removes most of the
+// boilerplate.
+service Prober {
+  // Probe runs one probe cycle for one target.
+  rpc Probe(ProbeRequest) returns (ProbeResponse);
+
+  // ValidateConfig checks that probe_type is registered on this sidecar and
+  // that config is decodable, without running a probe. Cloudprober calls it
+  // once at probe init so misconfigurations fail fast at startup; errors are
+  // reported as gRPC statuses (NOT_FOUND for an unknown probe type,
+  // INVALID_ARGUMENT for a bad config). If the sidecar is unreachable at
+  // init or doesn't implement this RPC, cloudprober logs and proceeds.
+  rpc ValidateConfig(ValidateConfigRequest) returns (ValidateConfigResponse);
+}
+
+message ValidateConfigRequest {
+  string probe_type = 1;
+  bytes config = 2;
+}
+
+message ValidateConfigResponse {}
+
+// Target mirrors cloudprober's targets/endpoint.Endpoint.
+message Target {
+  string name = 1;
+  map<string, string> labels = 2;
+  string ip = 3;  // Resolved IP, if available. Stringified, "" if none.
+  int32 port = 4;
+}
+
+message ProbeRequest {
+  // Probe type registered on the sidecar, e.g. "snowsql".
+  string probe_type = 1;
+
+  Target target = 2;
+
+  // Type-specific config, opaque to cloudprober (typically JSON). Same bytes
+  // as the "config" field in the probe's cloudprober config.
+  bytes config = 3;
+
+  // Probe timeout. The RPC context carries the same deadline; this field
+  // makes it available to sidecars whose language/framework doesn't surface
+  // gRPC deadlines conveniently.
+  google.protobuf.Duration timeout = 4;
+
+  // Opaque per-target session handle, echoed back from the last
+  // ProbeResponse for this target. Empty on first contact or after
+  // cloudprober restart. The handle is a hint: on unknown/stale handle
+  // (e.g. sidecar restarted), the sidecar re-initializes per-target state
+  // and mints a fresh one.
+  bytes state_handle = 5;
+
+  // Probe interval. Lets the sidecar size its per-target session idle TTL
+  // relative to the probe cadence, so sessions survive between runs of
+  // long-interval probes without manual TTL tuning.
+  google.protobuf.Duration interval = 6;
+
+  // one_shot marks a one-off diagnostic run (e.g. cloudprober's RunOnce /
+  // runprobe API) as opposed to a scheduled probe cycle. The sidecar must
+  // not retain any per-target session for such a request: for stateful
+  // probe types the SDK builds the session, runs the probe, and tears it
+  // down inline, and no state_handle is returned.
+  bool one_shot = 7;
+}
+
+message ProbeResponse {
+  // Did the probe succeed? This is about the target, not the sidecar; see
+  // internal_error below.
+  bool success = 1;
+
+  // Probe latency as measured by the sidecar. Excludes the
+  // cloudprober<->sidecar hop.
+  google.protobuf.Duration latency = 2;
+
+  // internal_error indicates a sidecar/infra failure rather than "target
+  // down". Cloudprober counts the run as a probe failure either way (so
+  // alerting on total/success still works), and additionally increments the
+  // internal_errors metric so a broken sidecar can be told apart from a
+  // broken target; the failure reason is logged.
+  bool internal_error = 3;
+
+  string error = 4;
+
+  // Additional metrics in cloudprober payload format, one metric per line:
+  //   "name value" or "name{key=val,key2=val2} value"
+  // Parsed by cloudprober with metrics/payload (same as external and http
+  // probes' custom metrics).
+  repeated string payload = 5;
+
+  // Session handle to store for this target and echo in the next
+  // ProbeRequest. Sidecars that don't need per-target sessions leave this
+  // empty.
+  bytes state_handle = 6;
+}
