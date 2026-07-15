@@ -16,17 +16,11 @@ package sidecar
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"os"
 	"path/filepath"
@@ -34,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/internal/testcerts"
 	pb "github.com/cloudprober/cloudprober/probes/grpcext/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,63 +40,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// writeTestCerts generates a throwaway CA and one leaf certificate usable as
-// both a server and a client cert (valid for localhost/127.0.0.1), writes
-// them to a temp dir, and returns the file paths. Enough for an mTLS test:
-// the server presents the leaf, the client presents the same leaf, and each
-// trusts the CA.
 func writeTestCerts(t *testing.T) (caFile, certFile, keyFile string) {
 	t.Helper()
-
-	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caFile, certFile, keyFile, err := testcerts.Generate(t.TempDir())
 	require.NoError(t, err)
-	caTmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "test-ca"},
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(time.Hour),
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
-		BasicConstraintsValid: true,
-	}
-	caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
-	require.NoError(t, err)
-	caCert, err := x509.ParseCertificate(caDER)
-	require.NoError(t, err)
-
-	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
-	leafTmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(2),
-		Subject:      pkix.Name{CommonName: "localhost"},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(time.Hour),
-		KeyUsage:     x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		DNSNames:     []string{"localhost"},
-		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-	}
-	leafDER, err := x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
-	require.NoError(t, err)
-	leafKeyDER, err := x509.MarshalPKCS8PrivateKey(leafKey)
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	caFile = filepath.Join(dir, "ca.pem")
-	certFile = filepath.Join(dir, "cert.pem")
-	keyFile = filepath.Join(dir, "key.pem")
-	writePEM(t, caFile, "CERTIFICATE", caDER)
-	writePEM(t, certFile, "CERTIFICATE", leafDER)
-	writePEM(t, keyFile, "PRIVATE KEY", leafKeyDER)
 	return caFile, certFile, keyFile
-}
-
-func writePEM(t *testing.T, path, blockType string, der []byte) {
-	t.Helper()
-	f, err := os.Create(path)
-	require.NoError(t, err)
-	defer f.Close()
-	require.NoError(t, pem.Encode(f, &pem.Block{Type: blockType, Bytes: der}))
 }
 
 // freeTCPAddr returns a currently-free loopback TCP address. There's an
