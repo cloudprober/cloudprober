@@ -577,6 +577,46 @@ func TestServeMutualTLS(t *testing.T) {
 	require.Error(t, err, "probe without a client cert should be rejected")
 }
 
+// TestServeServerTLS covers the server-only TLS mode (empty client CA): a
+// client that presents no client cert is still accepted, and the channel is
+// encrypted/authenticated against the server cert.
+func TestServeServerTLS(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	addr := freeTCPAddr(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		err := Serve(
+			Listen(addr),
+			ShutdownOn(ctx),
+			TLS(certFile, keyFile, ""), // empty client CA => no client cert required
+			Register("counter", counterProbe),
+		)
+		log.Println("Serve returned:", err)
+	}()
+
+	caPEM, err := os.ReadFile(caFile)
+	require.NoError(t, err)
+	pool := x509.NewCertPool()
+	require.True(t, pool.AppendCertsFromPEM(caPEM))
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+		RootCAs:    pool,
+		ServerName: "localhost",
+	})))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	client := pb.NewProberClient(conn)
+
+	require.Eventually(t, func() bool {
+		rpcCtx, c := context.WithTimeout(context.Background(), time.Second)
+		defer c()
+		_, err := client.Probe(rpcCtx, probeReq("counter", "", nil))
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond, "server-TLS probe never succeeded")
+}
+
 func TestTLSOptionError(t *testing.T) {
 	err := Serve(
 		Listen(freeTCPAddr(t)),
@@ -585,4 +625,14 @@ func TestTLSOptionError(t *testing.T) {
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "loading TLS cert/key")
+}
+
+func TestTLSOptionEmptyPaths(t *testing.T) {
+	err := Serve(
+		Listen(freeTCPAddr(t)),
+		TLS("cert.pem", "", ""),
+		Register("counter", counterProbe),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires both certFile and keyFile")
 }

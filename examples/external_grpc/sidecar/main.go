@@ -112,6 +112,12 @@ func main() {
 	clientCA := flag.String("client_ca", "", "CA file to verify client certs. If set, clients must present a cert signed by it (mutual TLS).")
 	flag.Parse()
 
+	// Guard against a half-configured TLS setup silently serving plaintext:
+	// -client_ca / -tls_key only mean anything with a server cert.
+	if *tlsCert == "" && (*tlsKey != "" || *clientCA != "") {
+		log.Fatal("-tls_key/-client_ca require -tls_cert; not serving plaintext by accident")
+	}
+
 	opts := []sidecar.Option{
 		sidecar.Listen(*addr),
 		sidecar.Register("http", httpProbe),

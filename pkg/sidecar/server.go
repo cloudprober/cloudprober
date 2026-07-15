@@ -103,6 +103,9 @@ func TLS(certFile, keyFile, clientCAFile string) Option {
 }
 
 func loadServerTLS(certFile, keyFile, clientCAFile string) (credentials.TransportCredentials, error) {
+	if certFile == "" || keyFile == "" {
+		return nil, fmt.Errorf("TLS requires both certFile and keyFile")
+	}
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("loading TLS cert/key: %v", err)

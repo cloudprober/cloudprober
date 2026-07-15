@@ -55,10 +55,36 @@ go run ./sidecar --addr=:9314 \
 ```
 
 Passing `--client_ca` requires clients to present a cert signed by that CA
-(mutual TLS), so only cloudprober can send probes. On the cloudprober side,
-set `tls_config` in the probe (`ca_cert_file`, plus `tls_cert_file` /
-`tls_key_file` for the client cert). Omitting `--client_ca` serves plain
-server-side TLS.
+(mutual TLS), so only cloudprober can send probes. Omitting `--client_ca`
+serves plain server-side TLS.
+
+On the cloudprober side, set `tls_config` in the probe:
+
+```
+probe {
+  name: "web_via_sidecar"
+  type: EXTERNAL_GRPC
+  targets { host_names: "cloudprober.org" }
+  external_grpc_probe {
+    server: "sidecar.example:9314"  # the sidecar, not the target
+    probe_type: "http"
+    tls_config {
+      ca_cert_file: "ca.crt"      # verifies the sidecar's server cert
+      tls_cert_file: "client.crt" # client cert (for mTLS)
+      tls_key_file: "client.key"
+      # server_name: "sidecar.example"
+    }
+  }
+}
+```
+
+`server_name` overrides the name checked against the sidecar's server cert.
+Set it when `server` is an IP or otherwise doesn't match a name/IP SAN on the
+cert (gRPC otherwise derives the expected name from the dial target, and
+verification fails) — e.g. `server: "10.0.0.5:9314"` with a cert issued for
+`sidecar.example` needs `server_name: "sidecar.example"`. Avoid
+`disable_cert_validation`: it skips verification entirely, which defeats the
+point of protecting credential-bearing probe configs on the wire.
 
 ## Writing your own sidecar
 
