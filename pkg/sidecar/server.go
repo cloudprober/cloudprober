@@ -70,6 +70,24 @@ func unixSocketPath(addr string) (path string, ok bool) {
 	return strings.CutPrefix(addr, "unix:")
 }
 
+// isLoopbackListen reports whether a TCP listen address binds only to
+// loopback, so plaintext traffic there never leaves the host. An empty host
+// (e.g. ":9314") binds all interfaces and is treated as non-loopback, as is
+// any hostname other than "localhost" (it may resolve anywhere).
+func isLoopbackListen(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
 // IdleTTL overrides how long an unused per-target session is kept before
 // being evicted and Closed. Default is 10 minutes; a zero or negative value
 // disables idle eviction entirely. Sessions of probes that report their
@@ -99,6 +117,11 @@ func TLS(certFile, keyFile, clientCAFile string) Option {
 			return
 		}
 		s.creds = creds
+		if clientCAFile != "" {
+			s.tlsMode = "mTLS"
+		} else {
+			s.tlsMode = "TLS"
+		}
 	}
 }
 
@@ -174,6 +197,7 @@ type server struct {
 	initErrs   []error
 	ctx        context.Context
 	creds      credentials.TransportCredentials
+	tlsMode    string // "", "TLS", or "mTLS" — for startup log only
 
 	mu       sync.Mutex
 	sessions map[string]*session // keyed by state handle
@@ -248,7 +272,15 @@ func Serve(opts ...Option) error {
 		defer stop()
 	}
 
-	log.Printf("cloudprober sidecar: serving probe types %v on %s", s.typeNames(), s.addr)
+	mode := "plaintext"
+	if s.tlsMode != "" {
+		mode = s.tlsMode
+	}
+	log.Printf("cloudprober sidecar: serving probe types %v on %s (%s)", s.typeNames(), s.addr, mode)
+	if _, isUnix := unixSocketPath(s.addr); s.tlsMode == "" && !isUnix && !isLoopbackListen(s.addr) {
+		log.Printf("cloudprober sidecar: WARNING serving plaintext on non-loopback address %s; "+
+			"probe configs may carry credentials — use sidecar.TLS()", s.addr)
+	}
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- grpcServer.Serve(lis) }()
 	select {

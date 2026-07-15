@@ -636,3 +636,18 @@ func TestTLSOptionEmptyPaths(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "requires both certFile and keyFile")
 }
+
+func TestIsLoopbackListen(t *testing.T) {
+	for addr, want := range map[string]bool{
+		"127.0.0.1:9314":       true,
+		"localhost:9314":       true,
+		"[::1]:9314":           true,
+		":9314":                false, // all interfaces
+		"0.0.0.0:9314":         false,
+		"10.0.0.5:9314":        false,
+		"sidecar.example:9314": false,
+		"not-an-addr":          false, // SplitHostPort error
+	} {
+		assert.Equalf(t, want, isLoopbackListen(addr), "isLoopbackListen(%q)", addr)
+	}
+}
