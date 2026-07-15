@@ -16,24 +16,48 @@ package sidecar
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/internal/testcerts"
 	pb "github.com/cloudprober/cloudprober/probes/grpcext/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
+
+func writeTestCerts(t *testing.T) (caFile, certFile, keyFile string) {
+	t.Helper()
+	caFile, certFile, keyFile, err := testcerts.Generate(t.TempDir())
+	require.NoError(t, err)
+	return caFile, certFile, keyFile
+}
+
+// freeTCPAddr returns a currently-free loopback TCP address. There's an
+// inherent race between releasing it and Serve re-binding, but it's fine for
+// a test — Serve needs a concrete address since it owns the listener.
+func freeTCPAddr(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := lis.Addr().String()
+	require.NoError(t, lis.Close())
+	return addr
+}
 
 type counterConfig struct {
 	FailAfter  int  `json:"fail_after"`
@@ -442,4 +466,179 @@ func TestServeGracefulShutdown(t *testing.T) {
 	}
 	// The session left behind must have been closed on shutdown.
 	assert.Greater(t, closedSessions.Load(), closedBefore, "session was not closed on shutdown")
+}
+
+func TestServeMutualTLS(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	addr := freeTCPAddr(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		err := Serve(
+			Listen(addr),
+			ShutdownOn(ctx),
+			TLS(certFile, keyFile, caFile),
+			Register("counter", counterProbe),
+		)
+		log.Println("Serve returned:", err)
+	}()
+
+	caPEM, err := os.ReadFile(caFile)
+	require.NoError(t, err)
+	pool := x509.NewCertPool()
+	require.True(t, pool.AppendCertsFromPEM(caPEM))
+	clientCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	require.NoError(t, err)
+
+	dial := func(t *testing.T, tlsCfg *tls.Config) pb.ProberClient {
+		conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
+		require.NoError(t, err)
+		t.Cleanup(func() { conn.Close() })
+		return pb.NewProberClient(conn)
+	}
+
+	// A client that presents the CA-signed cert succeeds. Retry until the
+	// server is up (also confirms readiness for the negative case below).
+	mtlsClient := dial(t, &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      pool,
+		ServerName:   "localhost",
+	})
+	require.Eventually(t, func() bool {
+		rpcCtx, c := context.WithTimeout(context.Background(), time.Second)
+		defer c()
+		_, err := mtlsClient.Probe(rpcCtx, probeReq("counter", "", nil))
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond, "mTLS probe never succeeded")
+
+	// A client that omits its certificate is rejected by the handshake.
+	noCertClient := dial(t, &tls.Config{RootCAs: pool, ServerName: "localhost"})
+	rpcCtx, c := context.WithTimeout(context.Background(), 3*time.Second)
+	defer c()
+	_, err = noCertClient.Probe(rpcCtx, probeReq("counter", "", nil))
+	require.Error(t, err, "probe without a client cert should be rejected")
+}
+
+// TestServeServerTLS covers the server-only TLS mode (empty client CA): a
+// client that presents no client cert is still accepted, and the channel is
+// encrypted/authenticated against the server cert.
+func TestServeServerTLS(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	addr := freeTCPAddr(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		err := Serve(
+			Listen(addr),
+			ShutdownOn(ctx),
+			TLS(certFile, keyFile, ""), // empty client CA => no client cert required
+			Register("counter", counterProbe),
+		)
+		log.Println("Serve returned:", err)
+	}()
+
+	caPEM, err := os.ReadFile(caFile)
+	require.NoError(t, err)
+	pool := x509.NewCertPool()
+	require.True(t, pool.AppendCertsFromPEM(caPEM))
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+		RootCAs:    pool,
+		ServerName: "localhost",
+	})))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	client := pb.NewProberClient(conn)
+
+	require.Eventually(t, func() bool {
+		rpcCtx, c := context.WithTimeout(context.Background(), time.Second)
+		defer c()
+		_, err := client.Probe(rpcCtx, probeReq("counter", "", nil))
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond, "server-TLS probe never succeeded")
+}
+
+// TestServeTLSConfigOption covers the TLSConfig escape hatch: the sidecar
+// serves with a caller-built *tls.Config (here requiring a client cert), so
+// authors can plug in reload/versions/etc. the simple TLS option doesn't
+// expose.
+func TestServeTLSConfigOption(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	addr := freeTCPAddr(t)
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	require.NoError(t, err)
+	caPEM, err := os.ReadFile(caFile)
+	require.NoError(t, err)
+	pool := x509.NewCertPool()
+	require.True(t, pool.AppendCertsFromPEM(caPEM))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		err := Serve(
+			Listen(addr),
+			ShutdownOn(ctx),
+			TLSConfig(&tls.Config{
+				Certificates: []tls.Certificate{cert},
+				ClientCAs:    pool,
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+			}),
+			Register("counter", counterProbe),
+		)
+		log.Println("Serve returned:", err)
+	}()
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      pool,
+		ServerName:   "localhost",
+	})))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	client := pb.NewProberClient(conn)
+
+	require.Eventually(t, func() bool {
+		rpcCtx, c := context.WithTimeout(context.Background(), time.Second)
+		defer c()
+		_, err := client.Probe(rpcCtx, probeReq("counter", "", nil))
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond, "TLSConfig probe never succeeded")
+}
+
+func TestTLSOptionError(t *testing.T) {
+	err := Serve(
+		Listen(freeTCPAddr(t)),
+		TLS("/no/such/cert.pem", "/no/such/key.pem", ""),
+		Register("counter", counterProbe),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "loading TLS cert/key")
+}
+
+func TestTLSOptionEmptyPaths(t *testing.T) {
+	err := Serve(
+		Listen(freeTCPAddr(t)),
+		TLS("cert.pem", "", ""),
+		Register("counter", counterProbe),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires both certFile and keyFile")
+}
+
+func TestIsLoopbackListen(t *testing.T) {
+	for addr, want := range map[string]bool{
+		"127.0.0.1:9314":       true,
+		"localhost:9314":       true,
+		"[::1]:9314":           true,
+		":9314":                false, // all interfaces
+		"0.0.0.0:9314":         false,
+		"10.0.0.5:9314":        false,
+		"sidecar.example:9314": false,
+		"not-an-addr":          false, // SplitHostPort error
+	} {
+		assert.Equalf(t, want, isLoopbackListen(addr), "isLoopbackListen(%q)", addr)
+	}
 }

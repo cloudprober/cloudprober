@@ -7,6 +7,7 @@
 package proto
 
 import (
+	proto1 "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	proto "github.com/cloudprober/cloudprober/metrics/payload/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -34,7 +35,9 @@ type ProbeConf struct {
 	// Sidecar server address. Typically a co-located unix domain socket, e.g.
 	// "unix:/var/run/cloudprober/sidecar.sock" (single colon — this form works
 	// for both POSIX and Windows paths; see sidecar.Listen), but any gRPC
-	// target string works, e.g. "localhost:9314".
+	// target string works, e.g. "localhost:9314". For a sidecar reachable over
+	// the network rather than a co-located socket, set tls_config below so the
+	// connection is authenticated and encrypted.
 	Server *string `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
 	// Probe type registered on the sidecar, e.g. "snowsql". A single sidecar
 	// process can serve multiple probe types.
@@ -49,8 +52,14 @@ type ProbeConf struct {
 	// options control how they're parsed (metrics kind, aggregation,
 	// distributions, etc.). Same surface as external and http probes.
 	OutputMetricsOptions *proto.OutputMetricsOptions `protobuf:"bytes,4,opt,name=output_metrics_options,json=outputMetricsOptions" json:"output_metrics_options,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// TLS config for the connection to the sidecar. If unset, the connection is
+	// insecure (plaintext) — fine for a co-located unix socket or loopback, but
+	// for a sidecar reached over the network set this so probe configs (which
+	// may carry credentials) aren't sent in the clear. Provide tls_cert_file /
+	// tls_key_file to present a client certificate for mTLS.
+	TlsConfig     *proto1.TLSConfig `protobuf:"bytes,5,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ProbeConf) Reset() {
@@ -111,17 +120,26 @@ func (x *ProbeConf) GetOutputMetricsOptions() *proto.OutputMetricsOptions {
 	return nil
 }
 
+func (x *ProbeConf) GetTlsConfig() *proto1.TLSConfig {
+	if x != nil {
+		return x.TlsConfig
+	}
+	return nil
+}
+
 var File_github_com_cloudprober_cloudprober_probes_grpcext_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_probes_grpcext_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Dgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x12\x1acloudprober.probes.grpcext\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xc3\x01\n" +
+	"Dgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x12\x1acloudprober.probes.grpcext\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\x84\x02\n" +
 	"\tProbeConf\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x1d\n" +
 	"\n" +
 	"probe_type\x18\x02 \x01(\tR\tprobeType\x12\x16\n" +
 	"\x06config\x18\x03 \x01(\tR\x06config\x12g\n" +
-	"\x16output_metrics_options\x18\x04 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptionsB9Z7github.com/cloudprober/cloudprober/probes/grpcext/proto"
+	"\x16output_metrics_options\x18\x04 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptions\x12?\n" +
+	"\n" +
+	"tls_config\x18\x05 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfigB9Z7github.com/cloudprober/cloudprober/probes/grpcext/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_grpcext_proto_config_proto_rawDescOnce sync.Once
@@ -139,14 +157,16 @@ var file_github_com_cloudprober_cloudprober_probes_grpcext_proto_config_proto_ms
 var file_github_com_cloudprober_cloudprober_probes_grpcext_proto_config_proto_goTypes = []any{
 	(*ProbeConf)(nil),                  // 0: cloudprober.probes.grpcext.ProbeConf
 	(*proto.OutputMetricsOptions)(nil), // 1: cloudprober.metrics.payload.OutputMetricsOptions
+	(*proto1.TLSConfig)(nil),           // 2: cloudprober.tlsconfig.TLSConfig
 }
 var file_github_com_cloudprober_cloudprober_probes_grpcext_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.probes.grpcext.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: cloudprober.probes.grpcext.ProbeConf.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_grpcext_proto_config_proto_init() }

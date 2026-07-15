@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.grpcext;
 
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
 import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/probes/grpcext/proto";
@@ -17,7 +18,9 @@ message ProbeConf {
   // Sidecar server address. Typically a co-located unix domain socket, e.g.
   // "unix:/var/run/cloudprober/sidecar.sock" (single colon — this form works
   // for both POSIX and Windows paths; see sidecar.Listen), but any gRPC
-  // target string works, e.g. "localhost:9314".
+  // target string works, e.g. "localhost:9314". For a sidecar reachable over
+  // the network rather than a co-located socket, set tls_config below so the
+  // connection is authenticated and encrypted.
   optional string server = 1;
 
   // Probe type registered on the sidecar, e.g. "snowsql". A single sidecar
@@ -34,4 +37,11 @@ message ProbeConf {
   // options control how they're parsed (metrics kind, aggregation,
   // distributions, etc.). Same surface as external and http probes.
   optional metrics.payload.OutputMetricsOptions output_metrics_options = 4;
+
+  // TLS config for the connection to the sidecar. If unset, the connection is
+  // insecure (plaintext) — fine for a co-located unix socket or loopback, but
+  // for a sidecar reached over the network set this so probe configs (which
+  // may carry credentials) aren't sent in the clear. Provide tls_cert_file /
+  // tls_key_file to present a client certificate for mTLS.
+  optional tlsconfig.TLSConfig tls_config = 5;
 }

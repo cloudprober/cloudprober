@@ -17,6 +17,8 @@ package sidecar
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -32,6 +34,7 @@ import (
 	pb "github.com/cloudprober/cloudprober/probes/grpcext/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
@@ -67,6 +70,24 @@ func unixSocketPath(addr string) (path string, ok bool) {
 	return strings.CutPrefix(addr, "unix:")
 }
 
+// isLoopbackListen reports whether a TCP listen address binds only to
+// loopback, so plaintext traffic there never leaves the host. An empty host
+// (e.g. ":9314") binds all interfaces and is treated as non-loopback, as is
+// any hostname other than "localhost" (it may resolve anywhere).
+func isLoopbackListen(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
 // IdleTTL overrides how long an unused per-target session is kept before
 // being evicted and Closed. Default is 10 minutes; a zero or negative value
 // disables idle eviction entirely. Sessions of probes that report their
@@ -76,6 +97,65 @@ func unixSocketPath(addr string) (path string, ok bool) {
 // sessions when targets disappear on the cloudprober side.
 func IdleTTL(d time.Duration) Option {
 	return func(s *server) { s.idleTTL = d }
+}
+
+// TLS makes the sidecar serve over TLS, presenting the certificate in
+// certFile/keyFile. If clientCAFile is non-empty, clients must present a
+// certificate signed by a CA in that file (mutual TLS) — the recommended
+// setup for a sidecar reachable over the network, so only cloudprober can
+// send it probe configs. An empty clientCAFile serves plain server-side TLS
+// (encrypts the connection but doesn't authenticate the caller).
+//
+// Whether to require a client cert is left to the sidecar author: wire
+// clientCAFile to a flag and mTLS is on when it's set. Without this option
+// the sidecar serves plaintext (fine for a co-located unix socket).
+func TLS(certFile, keyFile, clientCAFile string) Option {
+	return func(s *server) {
+		cfg, err := loadServerTLS(certFile, keyFile, clientCAFile)
+		if err != nil {
+			s.initErrs = append(s.initErrs, err)
+			return
+		}
+		s.tlsCfg = cfg
+	}
+}
+
+// TLSConfig serves with a caller-supplied tls.Config, for cases the simple
+// TLS option doesn't cover: automatic certificate reload (via
+// cfg.GetCertificate), non-default TLS versions, SPIFFE, etc. The config is
+// used as-is. For mutual TLS, set cfg.ClientCAs and
+// cfg.ClientAuth = tls.RequireAndVerifyClientCert.
+//
+// This is the escape hatch that keeps the SDK dependency-free: e.g. a
+// cloudprober user can build cfg with common/tlsconfig (which supports cert
+// reload) in their own main and pass it here, rather than the SDK pulling
+// that machinery in for everyone.
+func TLSConfig(cfg *tls.Config) Option {
+	return func(s *server) { s.tlsCfg = cfg }
+}
+
+func loadServerTLS(certFile, keyFile, clientCAFile string) (*tls.Config, error) {
+	if certFile == "" || keyFile == "" {
+		return nil, fmt.Errorf("TLS requires both certFile and keyFile")
+	}
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("loading TLS cert/key: %v", err)
+	}
+	cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	if clientCAFile != "" {
+		caPEM, err := os.ReadFile(clientCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading client CA file %s: %v", clientCAFile, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("no certificates found in client CA file %s", clientCAFile)
+		}
+		cfg.ClientCAs = pool
+		cfg.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+	return cfg, nil
 }
 
 // ShutdownOn makes Serve stop gracefully when ctx is canceled: it stops
@@ -125,6 +205,7 @@ type server struct {
 	probeTypes map[string]handler
 	initErrs   []error
 	ctx        context.Context
+	tlsCfg     *tls.Config // nil => serve plaintext
 
 	mu       sync.Mutex
 	sessions map[string]*session // keyed by state handle
@@ -173,7 +254,11 @@ func Serve(opts ...Option) error {
 	// leak until the process exits.
 	defer s.closeAllSessions()
 
-	grpcServer := grpc.NewServer()
+	var serverOpts []grpc.ServerOption
+	if s.tlsCfg != nil {
+		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(s.tlsCfg)))
+	}
+	grpcServer := grpc.NewServer(serverOpts...)
 	pb.RegisterProberServer(grpcServer, s)
 	healthServer := health.NewServer()
 	healthpb.RegisterHealthServer(grpcServer, healthServer)
@@ -195,7 +280,18 @@ func Serve(opts ...Option) error {
 		defer stop()
 	}
 
-	log.Printf("cloudprober sidecar: serving probe types %v on %s", s.typeNames(), s.addr)
+	mode := "plaintext"
+	if s.tlsCfg != nil {
+		mode = "TLS"
+		if s.tlsCfg.ClientAuth == tls.RequireAndVerifyClientCert {
+			mode = "mTLS"
+		}
+	}
+	log.Printf("cloudprober sidecar: serving probe types %v on %s (%s)", s.typeNames(), s.addr, mode)
+	if _, isUnix := unixSocketPath(s.addr); s.tlsCfg == nil && !isUnix && !isLoopbackListen(s.addr) {
+		log.Printf("cloudprober sidecar: WARNING serving plaintext on non-loopback address %s; "+
+			"probe configs may carry credentials — use sidecar.TLS()", s.addr)
+	}
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- grpcServer.Serve(lis) }()
 	select {

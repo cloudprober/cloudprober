@@ -23,11 +23,13 @@ package grpcext
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -39,6 +41,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -121,9 +124,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return errors.New("external_grpc probe: probe_type must be specified")
 	}
 
-	// Sidecars are expected to be co-located (unix domain socket or
-	// localhost). TODO(manugarg): Add mTLS support for TCP servers.
-	conn, err := grpc.NewClient(p.c.GetServer(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	creds, err := p.transportCredentials()
+	if err != nil {
+		return err
+	}
+	conn, err := grpc.NewClient(p.c.GetServer(), grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return fmt.Errorf("error creating gRPC client for %s: %v", p.c.GetServer(), err)
 	}
@@ -141,6 +146,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return err
 	}
 	return nil
+}
+
+// transportCredentials builds the gRPC transport credentials for the sidecar
+// connection. If tls_config is set, the connection uses TLS (and mTLS when a
+// client cert is configured); otherwise it's insecure — the expected default
+// for a co-located unix socket or loopback sidecar.
+func (p *Probe) transportCredentials() (credentials.TransportCredentials, error) {
+	if p.c.GetTlsConfig() == nil {
+		return insecure.NewCredentials(), nil
+	}
+	tlsCfg := &tls.Config{}
+	if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
+		return nil, fmt.Errorf("external_grpc probe: tls_config error: %v", err)
+	}
+	return credentials.NewTLS(tlsCfg), nil
 }
 
 // validateConfigWithSidecar asks the sidecar to check probe_type and config
