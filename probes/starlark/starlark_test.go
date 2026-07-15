@@ -465,14 +465,20 @@ def probe(target):
 // TestHTTP_RuntimeOwnsClient verifies the review comment fix: each runtime
 // has its own *http.Client rather than reusing http.DefaultClient.
 func TestHTTP_RuntimeOwnsClient(t *testing.T) {
-	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, nil, nil, nil, &logger.Logger{})
-	if err != nil {
-		t.Fatalf("rt1: %v", err)
+	newRT := func(name string) *runtime {
+		t.Helper()
+		rt, err := newRuntime(context.Background(), &runtimeOpts{
+			name:       name,
+			source:     "def probe(t): pass\n",
+			entryPoint: "probe",
+			l:          &logger.Logger{},
+		})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return rt
 	}
-	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, nil, nil, nil, &logger.Logger{})
-	if err != nil {
-		t.Fatalf("rt2: %v", err)
-	}
+	rt1, rt2 := newRT("rt1"), newRT("rt2")
 	assert.NotSame(t, http.DefaultClient, rt1.httpClient, "should not reuse http.DefaultClient")
 	assert.NotSame(t, rt1.httpClient, rt2.httpClient, "each runtime should own its own client")
 }
@@ -795,10 +801,10 @@ func TestLogSetAttr_FlowsToProbeFailureLog(t *testing.T) {
 	srv.Close()
 
 	cases := []struct {
-		name           string
-		source         string
-		wantSuccess    bool
-		wantNotInLog   string // optional: must not appear in output
+		name         string
+		source       string
+		wantSuccess  bool
+		wantNotInLog string // optional: must not appear in output
 	}{
 		{
 			name: "script_side_log_info_carries_attr",
@@ -1341,9 +1347,9 @@ def probe(target):
 // share the constant directly — one's Go, the other's a Starlark literal.
 func TestState_MaxKeysCap(t *testing.T) {
 	cases := []struct {
-		name     string
-		source   string
-		wantErr  string // empty == expect success
+		name    string
+		source  string
+		wantErr string // empty == expect success
 	}{
 		{
 			name: "overflow",

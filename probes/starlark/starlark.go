@@ -136,7 +136,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	loadCtx, cancel := context.WithTimeout(context.Background(), loadTimeout)
 	defer cancel()
 
-	rt, err := newRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), tlsCfg, tlsCfgs, oauthID, p.l)
+	rt, err := newRuntime(loadCtx, &runtimeOpts{
+		name:       name,
+		source:     source,
+		entryPoint: entryPoint,
+		vars:       p.c.GetVars(),
+		tlsCfg:     tlsCfg,
+		tlsCfgs:    tlsCfgs,
+		oauth:      oauthID,
+		l:          p.l,
+	})
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
 	}
