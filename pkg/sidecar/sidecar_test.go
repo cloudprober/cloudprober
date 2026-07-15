@@ -560,6 +560,54 @@ func TestServeServerTLS(t *testing.T) {
 	}, 5*time.Second, 50*time.Millisecond, "server-TLS probe never succeeded")
 }
 
+// TestServeTLSConfigOption covers the TLSConfig escape hatch: the sidecar
+// serves with a caller-built *tls.Config (here requiring a client cert), so
+// authors can plug in reload/versions/etc. the simple TLS option doesn't
+// expose.
+func TestServeTLSConfigOption(t *testing.T) {
+	caFile, certFile, keyFile := writeTestCerts(t)
+	addr := freeTCPAddr(t)
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	require.NoError(t, err)
+	caPEM, err := os.ReadFile(caFile)
+	require.NoError(t, err)
+	pool := x509.NewCertPool()
+	require.True(t, pool.AppendCertsFromPEM(caPEM))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		err := Serve(
+			Listen(addr),
+			ShutdownOn(ctx),
+			TLSConfig(&tls.Config{
+				Certificates: []tls.Certificate{cert},
+				ClientCAs:    pool,
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+			}),
+			Register("counter", counterProbe),
+		)
+		log.Println("Serve returned:", err)
+	}()
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      pool,
+		ServerName:   "localhost",
+	})))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	client := pb.NewProberClient(conn)
+
+	require.Eventually(t, func() bool {
+		rpcCtx, c := context.WithTimeout(context.Background(), time.Second)
+		defer c()
+		_, err := client.Probe(rpcCtx, probeReq("counter", "", nil))
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond, "TLSConfig probe never succeeded")
+}
+
 func TestTLSOptionError(t *testing.T) {
 	err := Serve(
 		Listen(freeTCPAddr(t)),

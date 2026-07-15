@@ -111,17 +111,30 @@ func IdleTTL(d time.Duration) Option {
 // the sidecar serves plaintext (fine for a co-located unix socket).
 func TLS(certFile, keyFile, clientCAFile string) Option {
 	return func(s *server) {
-		creds, err := loadServerTLS(certFile, keyFile, clientCAFile)
+		cfg, err := loadServerTLS(certFile, keyFile, clientCAFile)
 		if err != nil {
 			s.initErrs = append(s.initErrs, err)
 			return
 		}
-		s.creds = creds
-		s.mtls = clientCAFile != ""
+		s.tlsCfg = cfg
 	}
 }
 
-func loadServerTLS(certFile, keyFile, clientCAFile string) (credentials.TransportCredentials, error) {
+// TLSConfig serves with a caller-supplied tls.Config, for cases the simple
+// TLS option doesn't cover: automatic certificate reload (via
+// cfg.GetCertificate), non-default TLS versions, SPIFFE, etc. The config is
+// used as-is. For mutual TLS, set cfg.ClientCAs and
+// cfg.ClientAuth = tls.RequireAndVerifyClientCert.
+//
+// This is the escape hatch that keeps the SDK dependency-free: e.g. a
+// cloudprober user can build cfg with common/tlsconfig (which supports cert
+// reload) in their own main and pass it here, rather than the SDK pulling
+// that machinery in for everyone.
+func TLSConfig(cfg *tls.Config) Option {
+	return func(s *server) { s.tlsCfg = cfg }
+}
+
+func loadServerTLS(certFile, keyFile, clientCAFile string) (*tls.Config, error) {
 	if certFile == "" || keyFile == "" {
 		return nil, fmt.Errorf("TLS requires both certFile and keyFile")
 	}
@@ -142,7 +155,7 @@ func loadServerTLS(certFile, keyFile, clientCAFile string) (credentials.Transpor
 		cfg.ClientCAs = pool
 		cfg.ClientAuth = tls.RequireAndVerifyClientCert
 	}
-	return credentials.NewTLS(cfg), nil
+	return cfg, nil
 }
 
 // ShutdownOn makes Serve stop gracefully when ctx is canceled: it stops
@@ -192,8 +205,7 @@ type server struct {
 	probeTypes map[string]handler
 	initErrs   []error
 	ctx        context.Context
-	creds      credentials.TransportCredentials
-	mtls       bool // requires a client cert; for the startup log only
+	tlsCfg     *tls.Config // nil => serve plaintext
 
 	mu       sync.Mutex
 	sessions map[string]*session // keyed by state handle
@@ -243,8 +255,8 @@ func Serve(opts ...Option) error {
 	defer s.closeAllSessions()
 
 	var serverOpts []grpc.ServerOption
-	if s.creds != nil {
-		serverOpts = append(serverOpts, grpc.Creds(s.creds))
+	if s.tlsCfg != nil {
+		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(s.tlsCfg)))
 	}
 	grpcServer := grpc.NewServer(serverOpts...)
 	pb.RegisterProberServer(grpcServer, s)
@@ -269,14 +281,14 @@ func Serve(opts ...Option) error {
 	}
 
 	mode := "plaintext"
-	if s.creds != nil {
+	if s.tlsCfg != nil {
 		mode = "TLS"
-		if s.mtls {
+		if s.tlsCfg.ClientAuth == tls.RequireAndVerifyClientCert {
 			mode = "mTLS"
 		}
 	}
 	log.Printf("cloudprober sidecar: serving probe types %v on %s (%s)", s.typeNames(), s.addr, mode)
-	if _, isUnix := unixSocketPath(s.addr); s.creds == nil && !isUnix && !isLoopbackListen(s.addr) {
+	if _, isUnix := unixSocketPath(s.addr); s.tlsCfg == nil && !isUnix && !isLoopbackListen(s.addr) {
 		log.Printf("cloudprober sidecar: WARNING serving plaintext on non-loopback address %s; "+
 			"probe configs may carry credentials — use sidecar.TLS()", s.addr)
 	}
