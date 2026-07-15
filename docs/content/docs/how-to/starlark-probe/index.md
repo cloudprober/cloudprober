@@ -116,8 +116,8 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 
 | Builtin | Purpose |
 |---|---|
-| `http.get(url, headers=None, max_redirects=N, keep_alive=False)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N (omit for Go's default of 10). `keep_alive` defaults to `False` to match the HTTP probe -- every call exercises DNS/TCP/TLS setup, which is what you usually want from a prober. Pass `keep_alive=True` to reuse a pooled connection across calls in a chained API flow. |
-| `http.post(url, headers=None, body=None, json=None, max_redirects=N, keep_alive=False)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects` and `keep_alive` match `http.get`. |
+| `http.get(url, headers=None, max_redirects=N, keep_alive=False, tls="")` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N (omit for Go's default of 10). `keep_alive` defaults to `False` to match the HTTP probe -- every call exercises DNS/TCP/TLS setup, which is what you usually want from a prober. Pass `keep_alive=True` to reuse a pooled connection across calls in a chained API flow. `tls` selects one of the probe's `tls_configs` for this call (see below). |
+| `http.post(url, headers=None, body=None, json=None, max_redirects=N, keep_alive=False, tls="")` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects`, `keep_alive` and `tls` match `http.get`. |
 | `http.put(...)`, `http.patch(...)`, `http.delete(...)` | HTTP PUT/PATCH/DELETE. Same signature and kwargs as `http.post` (`body=`/`json=` accepted for all three). |
 | `assert.http_status(response, expected)` | Fails the probe if `response.status != expected`. Stamp per-call context onto the failure log line with `log.set_attr` instead of inlining it into the error message. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
@@ -170,6 +170,42 @@ tls_config {
   disable_cert_validation: true
 }
 ```
+
+#### Per-host TLS configs
+
+`tls_config` applies to every call, which stops working once one script talks
+to hosts with different TLS needs -- `ca_cert_file` *replaces* the system CA
+pool (so an internal CA breaks any public host the script also hits),
+`server_name` is an SNI override for one host by definition, and
+`disable_cert_validation` is rarely meant for all of them.
+
+Name the exceptions in `tls_configs` and select one per call with `tls=`:
+
+```proto
+starlark_probe {
+  source_file: "multi_host.star"
+  tls_config {
+    ca_cert_file: "/etc/ssl/internal-root-ca.pem"   # default for the script
+  }
+  tls_configs {
+    key: "legacy"
+    value {
+      disable_cert_validation: true                 # just this one host
+    }
+  }
+}
+```
+
+```python
+def probe(target):
+    http.get(url = "https://internal-api/healthz")            # uses tls_config
+    http.get(url = "https://legacy-box/healthz", tls = "legacy")
+```
+
+Omitting `tls=` always means `tls_config` (or Go's defaults when it isn't
+set), never "the only `tls_configs` entry" -- unlike `oauth.token(name="")`, a
+single entry still has to be asked for by name, so adding one can't silently
+retarget the rest of the script.
 
 ### `vars`
 

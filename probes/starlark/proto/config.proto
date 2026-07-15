@@ -49,12 +49,37 @@ message ProbeConf {
   // additional labels all carry over with no Starlark-specific surface.
   optional metrics.payload.OutputMetricsOptions output_metrics_options = 5;
 
-  // TLS config for outbound HTTPS calls made by the script. Applies to every
-  // http.{get,post} call in the probe — set this when the script targets
-  // hosts that need a custom CA bundle, a client certificate (mTLS), an SNI
-  // override, or disabled cert validation. Same message the HTTP probe uses;
-  // see common/tlsconfig/proto/config.proto for the full field list.
+  // Default TLS config for outbound HTTPS calls made by the script. Applies
+  // to every http call that doesn't select a different one via the tls kwarg
+  // (see tls_configs) — set this when the script targets hosts that need a
+  // custom CA bundle, a client certificate (mTLS), an SNI override, or
+  // disabled cert validation. Same message the HTTP probe uses; see
+  // common/tlsconfig/proto/config.proto for the full field list.
   optional tlsconfig.TLSConfig tls_config = 6;
+
+  // Alternate TLS configs, keyed by a name the script uses to select one via
+  // the tls kwarg on http calls:
+  //   http.get(url, tls="internal")
+  //
+  // A script routinely hits several hosts in one run, and TLS settings are
+  // per-host in a way the HTTP probe never has to deal with: ca_cert_file
+  // *replaces* the system CA pool (so a probe-wide internal CA breaks any
+  // public host the same script touches), server_name is an SNI override for
+  // one host by definition, and disable_cert_validation is rarely meant for
+  // every host. Name the exceptions here and leave tls_config as the default:
+  //   tls_config { ca_cert_file: "/etc/ssl/corp.pem" }   # most hosts
+  //   tls_configs {
+  //     key: "legacy"
+  //     value { disable_cert_validation: true }          # just this one
+  //   }
+  //   def probe(target):
+  //       http.get("https://internal/healthz")               # tls_config
+  //       http.get("https://legacy/healthz", tls="legacy")    # override
+  //
+  // Omitting the tls kwarg always means tls_config (or Go's defaults when
+  // that is unset), never "the only entry here" — a single tls_configs entry
+  // must still be asked for by name.
+  map<string, tlsconfig.TLSConfig> tls_configs = 8;
 
   // OAuth token sources, keyed by a name the script uses to select one. Same
   // oauth.Config message the HTTP probe uses, so every source (file, command,

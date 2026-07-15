@@ -465,11 +465,11 @@ def probe(target):
 // TestHTTP_RuntimeOwnsClient verifies the review comment fix: each runtime
 // has its own *http.Client rather than reusing http.DefaultClient.
 func TestHTTP_RuntimeOwnsClient(t *testing.T) {
-	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, nil, nil, &logger.Logger{})
+	rt1, err := newRuntime(context.Background(), "rt1", "def probe(t): pass\n", "probe", nil, nil, nil, nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt1: %v", err)
 	}
-	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, nil, nil, &logger.Logger{})
+	rt2, err := newRuntime(context.Background(), "rt2", "def probe(t): pass\n", "probe", nil, nil, nil, nil, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("rt2: %v", err)
 	}
@@ -670,6 +670,119 @@ def probe(target):
 		}
 		results := p.RunOnce(context.Background())
 		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+	})
+}
+
+// TestHTTP_TLSConfigs covers the tls kwarg: named tls_configs entries are
+// selected per call, and omitting the kwarg always means tls_config -- never
+// "the only tls_configs entry".
+func TestHTTP_TLSConfigs(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	insecure := func() map[string]*tlsconfigpb.TLSConfig {
+		return map[string]*tlsconfigpb.TLSConfig{
+			"insecure": {DisableCertValidation: proto.Bool(true)},
+		}
+	}
+
+	t.Run("named_config_selected_by_tls_kwarg", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s", tls = "insecure")
+    assert.http_status(r, 200)
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-named", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+	})
+
+	// The rule that separates tls= from oauth.token(name=""): a lone
+	// tls_configs entry is not implicitly applied to calls that don't ask for
+	// it, so adding an alternate config can't silently retarget the rest of
+	// the script.
+	t.Run("omitted_tls_uses_default_not_sole_entry", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s")
+    assert.http_status(r, 200)
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-omitted", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success, "call without tls= should use tls_config, not the sole tls_configs entry")
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "certificate")
+	})
+
+	// The motivating case: a script hitting two hosts where TLS settings can't
+	// be probe-wide. The default (tls_config) is strict and rejects the
+	// self-signed cert; the one host that needs an exception names it.
+	t.Run("default_and_named_in_one_script", func(t *testing.T) {
+		strict := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer strict.Close()
+
+		source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s")
+    assert.http_status(r, 200)
+    r = http.get(url = "%s", tls = "insecure")
+    assert.http_status(r, 200)
+`, strict.URL, srv.URL)
+		opts := newOpts(t, hostFromServer(t, strict), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-mixed", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+	})
+
+	t.Run("unknown_name_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", tls = "nope")
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-unknown", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), `no tls config named "nope" (configured: insecure)`)
+	})
+
+	t.Run("no_tls_configs_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", tls = "insecure")
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		p := &Probe{}
+		if err := p.Init("script-tls-none", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "probe has no tls_configs configured")
 	})
 }
 

@@ -19,7 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/httpclient"
@@ -51,6 +53,7 @@ type reqOpts struct {
 	jsonArg      starlarklib.Value
 	maxRedirects *int
 	keepAlive    bool
+	tlsName      string
 }
 
 // optionalInt converts a Value bound by UnpackArgs (with "??" suffix) into a
@@ -87,7 +90,7 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 		if withBody {
 			spec = append(spec, "body?", &opts.body, "json?", &opts.jsonArg)
 		}
-		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive)
+		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls?", &opts.tlsName)
 		if err := starlarklib.UnpackArgs(name, args, kwargs, spec...); err != nil {
 			return nil, err
 		}
@@ -98,6 +101,27 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 		opts.maxRedirects = maxRedirects
 		return doHTTP(thread, method, url, opts)
 	}
+}
+
+// resolveHTTPClient picks the client for a call: the probe's default client
+// (tls_config) when tls= is omitted, otherwise the one built from the named
+// tls_configs entry. Unlike oauth.token's name, a single tls_configs entry is
+// not implicitly selected — omitting tls= always means the default, so that
+// adding an alternate config can't silently retarget calls that don't mention
+// it.
+func resolveHTTPClient(thread *starlarklib.Thread, fname, tlsName string) (*http.Client, error) {
+	if tlsName == "" {
+		return httpClientFromThread(thread), nil
+	}
+	clients := tlsClientsFromThread(thread)
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, tlsName)
+	}
+	c, ok := clients[tlsName]
+	if !ok {
+		return nil, fmt.Errorf("%s: no tls config named %q (configured: %s)", fname, tlsName, strings.Join(slices.Sorted(maps.Keys(clients)), ", "))
+	}
+	return c, nil
 }
 
 func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starlarklib.Value, error) {
@@ -151,7 +175,10 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 		}
 	}
 
-	client := httpClientFromThread(thread)
+	client, err := resolveHTTPClient(thread, "http."+strings.ToLower(method), opts.tlsName)
+	if err != nil {
+		return nil, err
+	}
 	if opts.maxRedirects != nil {
 		// Shallow-copy: the Transport pointer is shared, so connection
 		// pooling is preserved across calls.

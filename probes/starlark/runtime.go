@@ -77,11 +77,19 @@ type runtime struct {
 	predeclared starlarklib.StringDict
 	l           *logger.Logger
 
-	// httpClient is the client used by the http builtin. Owned by runtime
-	// rather than reusing http.DefaultClient so configuration of one probe
-	// can never leak into another (or into other in-process users of the
-	// default client).
+	// httpClient is the client used by the http builtin for calls that don't
+	// pass tls=. Owned by runtime rather than reusing http.DefaultClient so
+	// configuration of one probe can never leak into another (or into other
+	// in-process users of the default client).
 	httpClient *http.Client
+
+	// tlsClients holds one client per tls_configs entry, keyed by config
+	// name, selected by the tls kwarg on http calls. Nil when the probe
+	// configures no tls_configs. Separate clients rather than one client
+	// with a swapped-in tls.Config per call: the TLS config belongs to the
+	// Transport, which is also what owns the connection pool, and pooling a
+	// connection across TLS identities would hand a request the wrong one.
+	tlsClients map[string]*http.Client
 
 	// oauth holds the token sources built from the probe's oauth_configs,
 	// keyed by config name, exposed to scripts via the oauth builtin. Nil
@@ -93,7 +101,7 @@ type runtime struct {
 // exists with the expected arity. Module-level code runs once here and is
 // bounded by ctx; runtime calls to Run cannot mutate the resulting globals
 // (Starlark freezes them).
-func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, tlsCfg *tls.Config, oauthID map[string]*oauthIdentity, l *logger.Logger) (*runtime, error) {
+func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[string]string, tlsCfg *tls.Config, tlsCfgs map[string]*tls.Config, oauthID map[string]*oauthIdentity, l *logger.Logger) (*runtime, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -102,6 +110,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 		entryPoint: entryPoint,
 		l:          l,
 		httpClient: newHTTPClient(tlsCfg),
+		tlsClients: newTLSClients(tlsCfgs),
 		oauth:      oauthID,
 	}
 	rt.predeclared = builtins(vars)
@@ -114,6 +123,7 @@ func newRuntime(ctx context.Context, name, source, entryPoint string, vars map[s
 	}
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
+	thread.SetLocal(threadTLSClientsKey, rt.tlsClients)
 	thread.SetLocal(threadOAuthKey, rt.oauth)
 	thread.SetLocal(threadLoggerKey, newLoggerHolder(l))
 	// Module-level state.{get,set} writes go into a scratch bucket that's
@@ -156,10 +166,24 @@ func newHTTPClient(tlsCfg *tls.Config) *http.Client {
 	return &http.Client{Transport: t}
 }
 
+// newTLSClients builds a client per named TLS config, for the tls kwarg on
+// http calls. Returns nil when none are configured.
+func newTLSClients(tlsCfgs map[string]*tls.Config) map[string]*http.Client {
+	if len(tlsCfgs) == 0 {
+		return nil
+	}
+	clients := make(map[string]*http.Client, len(tlsCfgs))
+	for name, cfg := range tlsCfgs {
+		clients[name] = newHTTPClient(cfg)
+	}
+	return clients
+}
+
 // Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.
 const (
 	threadCtxKey        = "cloudprober.ctx"
 	threadHTTPClientKey = "cloudprober.httpClient"
+	threadTLSClientsKey = "cloudprober.tlsClients"
 	threadOAuthKey      = "cloudprober.oauth"
 	threadLoggerKey     = "cloudprober.logger"
 	threadStateKey      = "cloudprober.state"
@@ -188,6 +212,19 @@ func httpClientFromThread(t *starlarklib.Thread) *http.Client {
 		panic("httpClientFromThread: thread missing httpClient local; constructed outside runtime?")
 	}
 	return c
+}
+
+// tlsClientsFromThread returns the per-runtime named TLS clients stashed on the
+// thread. Panics on a miss for the same reason httpClientFromThread does. A
+// probe with no tls_configs stores a (non-nil) nil map, so an absent key means
+// the thread was constructed outside runtime; the http builtin reports the
+// empty-map "none configured" case itself.
+func tlsClientsFromThread(t *starlarklib.Thread) map[string]*http.Client {
+	v := t.Local(threadTLSClientsKey)
+	if v == nil {
+		panic("tlsClientsFromThread: thread missing tlsClients local; constructed outside runtime?")
+	}
+	return v.(map[string]*http.Client)
 }
 
 // loggerHolder wraps a per-run *logger.Logger so script-side log.set_attr
@@ -306,6 +343,7 @@ func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logg
 	// top-of-file notes.
 	thread.SetLocal(threadCtxKey, ctx)
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
+	thread.SetLocal(threadTLSClientsKey, rt.tlsClients)
 	thread.SetLocal(threadOAuthKey, rt.oauth)
 	thread.SetLocal(threadLoggerKey, lh)
 	thread.SetLocal(threadStateKey, bucket)
