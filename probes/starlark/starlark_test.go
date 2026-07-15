@@ -17,9 +17,17 @@ package starlark
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -87,6 +95,57 @@ func newOpts(t *testing.T, target string, source string) *options.Options {
 		Source: proto.String(source),
 	}
 	return opts
+}
+
+// newPrivateCertTLSServer starts a TLS server holding a freshly generated
+// self-signed cert, and returns it alongside the path to that cert in PEM form
+// (usable as a ca_cert_file that trusts this server and nothing else).
+//
+// httptest.NewTLSServer is not usable here: every server it starts shares one
+// hardcoded cert, so a ca_cert_file built from one httptest server's cert
+// silently trusts all of them -- which would make a test meant to prove
+// per-host TLS selection pass no matter what the code does.
+func newPrivateCertTLSServer(t *testing.T, h http.Handler) (*httptest.Server, string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "cloudprober-test"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1"), net.IPv6loopback},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("creating cert: %v", err)
+	}
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		t.Fatalf("marshaling key: %v", err)
+	}
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatalf("building keypair: %v", err)
+	}
+
+	srv := httptest.NewUnstartedServer(h)
+	srv.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	srv.StartTLS()
+
+	path := filepath.Join(t.TempDir(), "ca.pem")
+	if err := os.WriteFile(path, certPEM, 0644); err != nil {
+		t.Fatalf("writing CA file: %v", err)
+	}
+	return srv, path
 }
 
 func hostFromServer(t *testing.T, srv *httptest.Server) string {
@@ -732,11 +791,13 @@ def probe(target):
 		assert.Contains(t, results[0].Error.Error(), "certificate")
 	})
 
-	// The motivating case: a script hitting two hosts where TLS settings can't
-	// be probe-wide. The default (tls_config) is strict and rejects the
-	// self-signed cert; the one host that needs an exception names it.
+	// The motivating case, over TLS on both hosts: tls_config pins a CA that
+	// trusts `strict` and nothing else -- exactly the ca_cert_file-replaces-
+	// the-system-pool situation that makes a probe-wide config unworkable --
+	// while the second host, whose cert that CA does not cover, is reached via
+	// a named exception. Both calls must succeed in one run.
 	t.Run("default_and_named_in_one_script", func(t *testing.T) {
-		strict := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		strict, caFile := newPrivateCertTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
 		defer strict.Close()
@@ -749,13 +810,115 @@ def probe(target):
     assert.http_status(r, 200)
 `, strict.URL, srv.URL)
 		opts := newOpts(t, hostFromServer(t, strict), source)
-		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		cfg := opts.ProbeConf.(*configpb.ProbeConf)
+		cfg.TlsConfig = &tlsconfigpb.TLSConfig{
+			CaCertFile: proto.String(caFile),
+		}
+		cfg.TlsConfigs = insecure()
 		p := &Probe{}
 		if err := p.Init("script-tls-mixed", opts); err != nil {
 			t.Fatalf("Init: %v", err)
 		}
 		results := p.RunOnce(context.Background())
 		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+	})
+
+	// Guards the premise of the test above: the default config really is
+	// strict about the *other* server, so the named exception is what makes
+	// that call work, not a lenient default.
+	t.Run("default_ca_does_not_cover_other_host", func(t *testing.T) {
+		strict, caFile := newPrivateCertTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer strict.Close()
+
+		source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s")
+    assert.http_status(r, 200)
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, strict), source)
+		cfg := opts.ProbeConf.(*configpb.ProbeConf)
+		cfg.TlsConfig = &tlsconfigpb.TLSConfig{
+			CaCertFile: proto.String(caFile),
+		}
+		cfg.TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-strict-default", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success, "default CA should not trust the other server's cert")
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "certificate")
+	})
+
+	t.Run("tls_kwarg_on_body_verbs", func(t *testing.T) {
+		for _, verb := range []string{"post", "put", "patch", "delete"} {
+			t.Run(verb, func(t *testing.T) {
+				source := fmt.Sprintf(`
+def probe(target):
+    r = http.%s(url = "%s", json = {"k": "v"}, tls = "insecure")
+    assert.http_status(r, 200)
+`, verb, srv.URL)
+				opts := newOpts(t, hostFromServer(t, srv), source)
+				opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+				p := &Probe{}
+				if err := p.Init("script-tls-"+verb, opts); err != nil {
+					t.Fatalf("Init: %v", err)
+				}
+				results := p.RunOnce(context.Background())
+				assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+			})
+		}
+	})
+
+	// An explicitly empty tls= is an error, not a silent fall back to the
+	// default: a script computing the name from a target label must fail loudly
+	// when the label is missing.
+	t.Run("empty_tls_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", tls = target.labels.get("tls_profile", ""))
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-empty", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "tls is empty")
+		assert.Contains(t, results[0].Error.Error(), "insecure")
+	})
+
+	t.Run("non_string_tls_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", tls = 42)
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-nonstring", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "tls: expected string, got int")
+	})
+
+	t.Run("bad_named_config_fails_init", func(t *testing.T) {
+		opts := newOpts(t, "example.com", "def probe(target): pass\n")
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = map[string]*tlsconfigpb.TLSConfig{
+			"internal": {CaCertFile: proto.String(filepath.Join(t.TempDir(), "missing.pem"))},
+		}
+		err := (&Probe{}).Init("script-tls-bad-init", opts)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `tls_configs["internal"]`)
 	})
 
 	t.Run("unknown_name_errors", func(t *testing.T) {

@@ -207,6 +207,18 @@ set), never "the only `tls_configs` entry" -- unlike `oauth.token(name="")`, a
 single entry still has to be asked for by name, so adding one can't silently
 retarget the rest of the script.
 
+Passing an *empty* `tls=` is an error rather than the default, so a selector
+computed from the target fails loudly instead of quietly probing with the
+wrong TLS settings:
+
+```python
+def probe(target):
+    # Target missing the label -> probe fails with "tls is empty", rather
+    # than silently falling back to tls_config.
+    http.get(url = "https://%s/healthz" % target.name,
+             tls = target.labels.get("tls_profile", ""))
+```
+
 ### `vars`
 
 `vars.get` reads from the probe's static config map -- useful for passing

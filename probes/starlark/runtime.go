@@ -79,8 +79,12 @@ type runtime struct {
 
 	// httpClient is the client used by the http builtin for calls that don't
 	// pass tls=. Owned by runtime rather than reusing http.DefaultClient so
-	// configuration of one probe can never leak into another (or into other
-	// in-process users of the default client).
+	// client-level configuration (CheckRedirect, and the TLS config via the
+	// transport) of one probe can never leak into another. Note the isolation
+	// stops at the client when there's no tls_config: newHTTPClient leaves
+	// Transport nil in that case, so the connection pool is the process-wide
+	// http.DefaultTransport's, shared with every other user of it. Nothing
+	// probe-specific rides on it, so that sharing is fine.
 	httpClient *http.Client
 
 	// tlsClients holds one client per tls_configs entry, keyed by config

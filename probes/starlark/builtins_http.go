@@ -19,9 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/httpclient"
@@ -53,7 +51,10 @@ type reqOpts struct {
 	jsonArg      starlarklib.Value
 	maxRedirects *int
 	keepAlive    bool
-	tlsName      string
+	// tlsName is nil when tls= was omitted (use the probe's default client)
+	// and non-nil when the script passed one, including the empty string --
+	// which is an error rather than a silent fall back to the default.
+	tlsName *string
 }
 
 // optionalInt converts a Value bound by UnpackArgs (with "??" suffix) into a
@@ -75,6 +76,20 @@ func optionalInt(v starlarklib.Value, name string) (*int, error) {
 	return &out, nil
 }
 
+// optionalString is optionalInt's counterpart: nil result means the kwarg was
+// omitted or None, otherwise the string value (which may be empty -- callers
+// that reject "" need to tell it apart from omitted).
+func optionalString(v starlarklib.Value, name string) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	s, ok := starlarklib.AsString(v)
+	if !ok {
+		return nil, fmt.Errorf("%s: expected string, got %s", name, v.Type())
+	}
+	return &s, nil
+}
+
 // httpVerb returns a builtin handler for the given HTTP method. When withBody
 // is true, the handler also accepts "body" and "json" kwargs; GET omits them.
 func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarklib.Builtin, starlarklib.Tuple, []starlarklib.Tuple) (starlarklib.Value, error) {
@@ -82,7 +97,7 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 	return func(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var url string
 		var opts reqOpts
-		var maxRedirectsArg starlarklib.Value
+		var maxRedirectsArg, tlsArg starlarklib.Value
 		spec := []interface{}{
 			"url", &url,
 			"headers?", &opts.headers,
@@ -90,7 +105,7 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 		if withBody {
 			spec = append(spec, "body?", &opts.body, "json?", &opts.jsonArg)
 		}
-		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls?", &opts.tlsName)
+		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls??", &tlsArg)
 		if err := starlarklib.UnpackArgs(name, args, kwargs, spec...); err != nil {
 			return nil, err
 		}
@@ -99,7 +114,12 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 			return nil, err
 		}
 		opts.maxRedirects = maxRedirects
-		return doHTTP(thread, method, url, opts)
+		tlsName, err := optionalString(tlsArg, name+": tls")
+		if err != nil {
+			return nil, err
+		}
+		opts.tlsName = tlsName
+		return doHTTP(thread, name, method, url, opts)
 	}
 }
 
@@ -109,33 +129,41 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 // not implicitly selected — omitting tls= always means the default, so that
 // adding an alternate config can't silently retarget calls that don't mention
 // it.
-func resolveHTTPClient(thread *starlarklib.Thread, fname, tlsName string) (*http.Client, error) {
-	if tlsName == "" {
+//
+// An explicitly passed empty name is an error rather than the default, so a
+// computed selector (tls = target.labels.get("tls_profile", "")) fails loudly
+// on a target that's missing the label instead of quietly probing with the
+// wrong TLS settings.
+func resolveHTTPClient(thread *starlarklib.Thread, fname string, tlsName *string) (*http.Client, error) {
+	if tlsName == nil {
 		return httpClientFromThread(thread), nil
 	}
 	clients := tlsClientsFromThread(thread)
-	if len(clients) == 0 {
-		return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, tlsName)
+	if *tlsName == "" {
+		return nil, fmt.Errorf("%s: tls is empty; omit tls to use the probe's tls_config, or name one of its tls_configs (%s)", fname, strings.Join(sortedNames(clients), ", "))
 	}
-	c, ok := clients[tlsName]
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, *tlsName)
+	}
+	c, ok := clients[*tlsName]
 	if !ok {
-		return nil, fmt.Errorf("%s: no tls config named %q (configured: %s)", fname, tlsName, strings.Join(slices.Sorted(maps.Keys(clients)), ", "))
+		return nil, fmt.Errorf("%s: no tls config named %q (configured: %s)", fname, *tlsName, strings.Join(sortedNames(clients), ", "))
 	}
 	return c, nil
 }
 
-func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starlarklib.Value, error) {
+func doHTTP(thread *starlarklib.Thread, fname, method, url string, opts reqOpts) (starlarklib.Value, error) {
 	var reqBody io.Reader
 	contentType := ""
 	switch {
 	case opts.jsonArg != nil:
 		raw, err := starlarkToGo(opts.jsonArg)
 		if err != nil {
-			return nil, fmt.Errorf("http.%s: encoding json arg: %v", strings.ToLower(method), err)
+			return nil, fmt.Errorf("%s: encoding json arg: %v", fname, err)
 		}
 		buf, err := json.Marshal(raw)
 		if err != nil {
-			return nil, fmt.Errorf("http.%s: encoding json arg: %v", strings.ToLower(method), err)
+			return nil, fmt.Errorf("%s: encoding json arg: %v", fname, err)
 		}
 		reqBody = bytes.NewReader(buf)
 		contentType = "application/json"
@@ -145,7 +173,7 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 			if b, ok := opts.body.(starlarklib.Bytes); ok {
 				reqBody = bytes.NewReader([]byte(b))
 			} else {
-				return nil, fmt.Errorf("http.%s: body must be string or bytes", strings.ToLower(method))
+				return nil, fmt.Errorf("%s: body must be string or bytes", fname)
 			}
 		} else {
 			reqBody = strings.NewReader(s)
@@ -169,13 +197,13 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 			k, ok1 := starlarklib.AsString(item[0])
 			v, ok2 := starlarklib.AsString(item[1])
 			if !ok1 || !ok2 {
-				return nil, fmt.Errorf("http.%s: headers keys and values must be strings", strings.ToLower(method))
+				return nil, fmt.Errorf("%s: headers keys and values must be strings", fname)
 			}
 			req.Header.Set(k, v)
 		}
 	}
 
-	client, err := resolveHTTPClient(thread, "http."+strings.ToLower(method), opts.tlsName)
+	client, err := resolveHTTPClient(thread, fname, opts.tlsName)
 	if err != nil {
 		return nil, err
 	}

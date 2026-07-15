@@ -96,7 +96,10 @@ type ProbeConf struct {
 	//
 	// Omitting the tls kwarg always means tls_config (or Go's defaults when
 	// that is unset), never "the only entry here" — a single tls_configs entry
-	// must still be asked for by name.
+	// must still be asked for by name. Passing an empty tls is an error rather
+	// than the default, so a computed selector fails loudly:
+	//
+	//	http.get(url, tls=target.labels["tls_profile"])  # missing label: error
 	TlsConfigs map[string]*proto1.TLSConfig `protobuf:"bytes,8,rep,name=tls_configs,json=tlsConfigs" json:"tls_configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// OAuth token sources, keyed by a name the script uses to select one. Same
 	// oauth.Config message the HTTP probe uses, so every source (file, command,

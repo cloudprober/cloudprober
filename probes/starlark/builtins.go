@@ -16,9 +16,18 @@ package starlark
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	starlarklib "go.starlark.net/starlark"
 )
+
+// sortedNames returns m's keys in sorted order. Used by the builtins that
+// select a probe-configured thing by name (oauth_configs, tls_configs) to list
+// the valid names in a deterministic error message.
+func sortedNames[T any](m map[string]T) []string {
+	return slices.Sorted(maps.Keys(m))
+}
 
 // builtins returns the predeclared globals available to every script.
 // Each module lives in its own builtins_<name>.go file; this file is the
