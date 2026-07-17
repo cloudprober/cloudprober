@@ -116,8 +116,8 @@ All scripts get a small, fixed set of builtins. No filesystem, network beyond
 
 | Builtin | Purpose |
 |---|---|
-| `http.get(url, headers=None, max_redirects=N, keep_alive=False)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N (omit for Go's default of 10). `keep_alive` defaults to `False` to match the HTTP probe -- every call exercises DNS/TCP/TLS setup, which is what you usually want from a prober. Pass `keep_alive=True` to reuse a pooled connection across calls in a chained API flow. |
-| `http.post(url, headers=None, body=None, json=None, max_redirects=N, keep_alive=False)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects` and `keep_alive` match `http.get`. |
+| `http.get(url, headers=None, max_redirects=N, keep_alive=False, tls=<name>)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N (omit for Go's default of 10). `keep_alive` defaults to `False` to match the HTTP probe -- every call exercises DNS/TCP/TLS setup, which is what you usually want from a prober. Pass `keep_alive=True` to reuse a pooled connection across calls in a chained API flow. `tls=<name>` selects one of the probe's `tls_configs` for this call; omit `tls` for system-default TLS. An empty string or `None` is an error, not a fall-back (see below). |
+| `http.post(url, headers=None, body=None, json=None, max_redirects=N, keep_alive=False, tls=<name>)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects`, `keep_alive` and `tls` match `http.get`. |
 | `http.put(...)`, `http.patch(...)`, `http.delete(...)` | HTTP PUT/PATCH/DELETE. Same signature and kwargs as `http.post` (`body=`/`json=` accepted for all three). |
 | `assert.http_status(response, expected)` | Fails the probe if `response.status != expected`. Stamp per-call context onto the failure log line with `log.set_attr` instead of inlining it into the error message. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
@@ -146,29 +146,57 @@ r.json()     # parsed JSON (raises on parse error)
 
 ### TLS configuration
 
-For HTTPS calls to hosts that need a custom CA bundle, mTLS client cert, SNI
-override, or disabled cert validation, set `tls_config` on the probe. Same
-message the HTTP probe uses; applies to every `http.get`/`http.post` in the
-script. Example using a custom CA:
+TLS is configured per call, not probe-wide. A script routinely hits several
+hosts in one run, and TLS settings are per-host in a way a single config can't
+capture: `ca_cert_file` *replaces* the system CA pool (so an internal CA breaks
+any public host the script also hits), `server_name` is an SNI override for one
+host by definition, and `disable_cert_validation` is rarely meant for all of
+them.
+
+Name each config under `tls_configs` and select one with the `tls=` kwarg on
+the http builtins. A call that passes no `tls=` uses system-default TLS (system
+CA pool, normal validation).
 
 ```proto
 probe {
   type: STARLARK
   starlark_probe {
-    source_file: "internal_api.star"
-    tls_config {
-      ca_cert_file: "/etc/ssl/internal-root-ca.pem"
+    source_file: "multi_host.star"
+    tls_configs {
+      key: "internal"
+      value {
+        ca_cert_file: "/etc/ssl/internal-root-ca.pem"
+      }
+    }
+    tls_configs {
+      key: "legacy"
+      value {
+        disable_cert_validation: true               # dev / self-signed
+      }
     }
   }
 }
 ```
 
-For development against self-signed certs:
+```python
+def probe(target):
+    http.get(url = "https://public/healthz")                    # system roots
+    http.get(url = "https://internal-api/healthz", tls = "internal")
+    http.get(url = "https://legacy-box/healthz", tls = "legacy")
+```
 
-```proto
-tls_config {
-  disable_cert_validation: true
-}
+There is no probe-wide default: a single `tls_configs` entry still has to be
+asked for by name, so adding one can't silently retarget calls that don't
+mention it. Passing an *empty* `tls=` is an error rather than falling back to
+system defaults, so a selector computed from the target fails loudly instead of
+quietly probing with the wrong TLS settings:
+
+```python
+def probe(target):
+    # Target missing the label -> probe fails with "tls is empty", rather
+    # than silently using system-default TLS.
+    http.get(url = "https://%s/healthz" % target.name,
+             tls = target.labels.get("tls_profile", ""))
 ```
 
 ### `vars`

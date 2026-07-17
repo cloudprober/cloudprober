@@ -49,12 +49,31 @@ message ProbeConf {
   // additional labels all carry over with no Starlark-specific surface.
   optional metrics.payload.OutputMetricsOptions output_metrics_options = 5;
 
-  // TLS config for outbound HTTPS calls made by the script. Applies to every
-  // http.{get,post} call in the probe — set this when the script targets
-  // hosts that need a custom CA bundle, a client certificate (mTLS), an SNI
-  // override, or disabled cert validation. Same message the HTTP probe uses;
-  // see common/tlsconfig/proto/config.proto for the full field list.
-  optional tlsconfig.TLSConfig tls_config = 6;
+  // TLS configs, keyed by a name the script uses to select one via the tls
+  // kwarg on http calls:
+  //   http.get(url, tls="internal")
+  //
+  // TLS is deliberately per-call, with no probe-wide default: a script
+  // routinely hits several hosts in one run, and TLS settings are per-host in
+  // a way a single config can't capture — ca_cert_file *replaces* the system
+  // CA pool (so an internal CA breaks any public host the same script
+  // touches), server_name is an SNI override for one host by definition, and
+  // disable_cert_validation is rarely meant for every host. Name each config
+  // here and select it explicitly:
+  //   tls_configs {
+  //     key: "legacy"
+  //     value { disable_cert_validation: true }
+  //   }
+  //   def probe(target):
+  //       http.get("https://public/healthz")                  # system roots
+  //       http.get("https://legacy/healthz", tls="legacy")    # named config
+  //
+  // Omitting the tls kwarg means Go's TLS defaults (system CA pool, normal
+  // validation), never "the only entry here" — a single config must still be
+  // asked for by name. Passing an empty tls is an error rather than the
+  // default, so a computed selector fails loudly:
+  //   http.get(url, tls=target.labels["tls_profile"])  # missing label: error
+  map<string, tlsconfig.TLSConfig> tls_configs = 6;
 
   // OAuth token sources, keyed by a name the script uses to select one. Same
   // oauth.Config message the HTTP probe uses, so every source (file, command,

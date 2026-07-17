@@ -51,6 +51,11 @@ type reqOpts struct {
 	jsonArg      starlarklib.Value
 	maxRedirects *int
 	keepAlive    bool
+	// tlsName is nil when tls= was omitted (use the probe's default client).
+	// A None or non-string value is rejected before it reaches here; an empty
+	// string is kept and rejected by resolveHTTPClient. So a non-nil value is
+	// always a string the script explicitly passed.
+	tlsName *string
 }
 
 // optionalInt converts a Value bound by UnpackArgs (with "??" suffix) into a
@@ -72,6 +77,20 @@ func optionalInt(v starlarklib.Value, name string) (*int, error) {
 	return &out, nil
 }
 
+// optionalString is optionalInt's counterpart: nil result means the kwarg was
+// omitted or None, otherwise the string value (which may be empty -- callers
+// that reject "" need to tell it apart from omitted).
+func optionalString(v starlarklib.Value, name string) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	s, ok := starlarklib.AsString(v)
+	if !ok {
+		return nil, fmt.Errorf("%s: expected string, got %s", name, v.Type())
+	}
+	return &s, nil
+}
+
 // httpVerb returns a builtin handler for the given HTTP method. When withBody
 // is true, the handler also accepts "body" and "json" kwargs; GET omits them.
 func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarklib.Builtin, starlarklib.Tuple, []starlarklib.Tuple) (starlarklib.Value, error) {
@@ -79,7 +98,7 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 	return func(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var url string
 		var opts reqOpts
-		var maxRedirectsArg starlarklib.Value
+		var maxRedirectsArg, tlsArg starlarklib.Value
 		spec := []interface{}{
 			"url", &url,
 			"headers?", &opts.headers,
@@ -87,7 +106,12 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 		if withBody {
 			spec = append(spec, "body?", &opts.body, "json?", &opts.jsonArg)
 		}
-		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive)
+		// tls uses a single "?" (not "??" like the others): "??" would treat a
+		// None value as absent, but for tls a None -- what target.labels.get(k)
+		// returns for a missing label -- must fail, not silently pick the
+		// default client. With "?" the None flows through and optionalString
+		// rejects it.
+		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls?", &tlsArg)
 		if err := starlarklib.UnpackArgs(name, args, kwargs, spec...); err != nil {
 			return nil, err
 		}
@@ -96,22 +120,60 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 			return nil, err
 		}
 		opts.maxRedirects = maxRedirects
-		return doHTTP(thread, method, url, opts)
+		tlsName, err := optionalString(tlsArg, name+": tls")
+		if err != nil {
+			return nil, err
+		}
+		opts.tlsName = tlsName
+		return doHTTP(thread, name, method, url, opts)
 	}
 }
 
-func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starlarklib.Value, error) {
+// resolveHTTPClient picks the client for a call: the probe's plain client
+// (system CA pool, normal validation) when tls= is omitted, otherwise the one
+// built from the named tls_configs entry. Unlike oauth.token's name, a single
+// tls_configs entry is not implicitly selected — omitting tls= always means
+// the plain client, so that adding a config can't silently retarget calls that
+// don't mention it.
+//
+// An explicitly passed empty name is an error rather than the plain client, so
+// a computed selector (tls = target.labels.get("tls_profile", "")) fails
+// loudly on a target that's missing the label instead of quietly probing with
+// the wrong TLS settings.
+func resolveHTTPClient(thread *starlarklib.Thread, fname string, tlsName *string) (*http.Client, error) {
+	if tlsName == nil {
+		return httpClientFromThread(thread), nil
+	}
+	clients := tlsClientsFromThread(thread)
+	if *tlsName == "" {
+		hint := "omit tls for system-default TLS"
+		if len(clients) > 0 {
+			hint += fmt.Sprintf(", or name one of the tls_configs (%s)", strings.Join(sortedNames(clients), ", "))
+		}
+		return nil, fmt.Errorf("%s: tls is empty; %s", fname, hint)
+	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, *tlsName)
+	}
+	c, ok := clients[*tlsName]
+	if !ok {
+		return nil, fmt.Errorf("%s: no tls config named %q (configured: %s)", fname, *tlsName, strings.Join(sortedNames(clients), ", "))
+	}
+	return c, nil
+}
+
+func doHTTP(thread *starlarklib.Thread, fname, method, url string, opts reqOpts) (starlarklib.Value, error) {
 	var reqBody io.Reader
 	contentType := ""
 	switch {
 	case opts.jsonArg != nil:
 		raw, err := starlarkToGo(opts.jsonArg)
 		if err != nil {
-			return nil, fmt.Errorf("http.%s: encoding json arg: %v", strings.ToLower(method), err)
+			return nil, fmt.Errorf("%s: encoding json arg: %v", fname, err)
 		}
 		buf, err := json.Marshal(raw)
 		if err != nil {
-			return nil, fmt.Errorf("http.%s: encoding json arg: %v", strings.ToLower(method), err)
+			return nil, fmt.Errorf("%s: encoding json arg: %v", fname, err)
 		}
 		reqBody = bytes.NewReader(buf)
 		contentType = "application/json"
@@ -121,7 +183,7 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 			if b, ok := opts.body.(starlarklib.Bytes); ok {
 				reqBody = bytes.NewReader([]byte(b))
 			} else {
-				return nil, fmt.Errorf("http.%s: body must be string or bytes", strings.ToLower(method))
+				return nil, fmt.Errorf("%s: body must be string or bytes", fname)
 			}
 		} else {
 			reqBody = strings.NewReader(s)
@@ -145,13 +207,16 @@ func doHTTP(thread *starlarklib.Thread, method, url string, opts reqOpts) (starl
 			k, ok1 := starlarklib.AsString(item[0])
 			v, ok2 := starlarklib.AsString(item[1])
 			if !ok1 || !ok2 {
-				return nil, fmt.Errorf("http.%s: headers keys and values must be strings", strings.ToLower(method))
+				return nil, fmt.Errorf("%s: headers keys and values must be strings", fname)
 			}
 			req.Header.Set(k, v)
 		}
 	}
 
-	client := httpClientFromThread(thread)
+	client, err := resolveHTTPClient(thread, fname, opts.tlsName)
+	if err != nil {
+		return nil, err
+	}
 	if opts.maxRedirects != nil {
 		// Shallow-copy: the Transport pointer is shared, so connection
 		// pooling is preserved across calls.

@@ -16,8 +16,6 @@ package starlark
 
 import (
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/oauth"
@@ -118,7 +116,7 @@ func resolveOAuthIdentity(t *starlarklib.Thread, fname string, args starlarklib.
 
 	if name == "" {
 		if len(ids) != 1 {
-			return nil, fmt.Errorf("%s: probe has %d oauth_configs (%s); pass a name to select one", fname, len(ids), strings.Join(sortedOAuthNames(ids), ", "))
+			return nil, fmt.Errorf("%s: probe has %d oauth_configs (%s); pass a name to select one", fname, len(ids), strings.Join(sortedNames(ids), ", "))
 		}
 		for _, id := range ids {
 			return id, nil
@@ -127,13 +125,9 @@ func resolveOAuthIdentity(t *starlarklib.Thread, fname string, args starlarklib.
 
 	id, ok := ids[name]
 	if !ok {
-		return nil, fmt.Errorf("%s: no oauth config named %q (configured: %s)", fname, name, strings.Join(sortedOAuthNames(ids), ", "))
+		return nil, fmt.Errorf("%s: no oauth config named %q (configured: %s)", fname, name, strings.Join(sortedNames(ids), ", "))
 	}
 	return id, nil
-}
-
-func sortedOAuthNames(ids map[string]*oauthIdentity) []string {
-	return slices.Sorted(maps.Keys(ids))
 }
 
 // newOAuthIdentities builds a token source per configured oauth config. It

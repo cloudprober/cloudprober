@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -107,11 +108,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		entryPoint = "probe"
 	}
 
-	var tlsCfg *tls.Config
-	if p.c.GetTlsConfig() != nil {
-		tlsCfg = &tls.Config{}
-		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
-			return fmt.Errorf("starlark tls_config: %v", err)
+	var tlsCfgs map[string]*tls.Config
+	if len(p.c.GetTlsConfigs()) > 0 {
+		tlsCfgs = make(map[string]*tls.Config, len(p.c.GetTlsConfigs()))
+		for cfgName, c := range p.c.GetTlsConfigs() {
+			// An empty name is unreachable: tls="" is an error, and an omitted
+			// tls uses system defaults without consulting this map. Reject it
+			// so a config that can never be selected fails loudly at Init.
+			if cfgName == "" {
+				return fmt.Errorf("starlark tls_configs: empty config name; every entry must have a non-empty key")
+			}
+			tc, err := tlsConfigFromProto(c)
+			if err != nil {
+				return fmt.Errorf("starlark tls_configs[%q]: %v", cfgName, err)
+			}
+			tlsCfgs[cfgName] = tc
 		}
 	}
 
@@ -126,7 +137,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	loadCtx, cancel := context.WithTimeout(context.Background(), loadTimeout)
 	defer cancel()
 
-	rt, err := newRuntime(loadCtx, name, source, entryPoint, p.c.GetVars(), tlsCfg, oauthID, p.l)
+	rt, err := newRuntime(loadCtx, &runtimeOpts{
+		name:       name,
+		source:     source,
+		entryPoint: entryPoint,
+		vars:       p.c.GetVars(),
+		tlsCfgs:    tlsCfgs,
+		oauth:      oauthID,
+		l:          p.l,
+	})
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
 	}
@@ -142,6 +161,19 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("payload parser init: %v", err)
 	}
 	return nil
+}
+
+// tlsConfigFromProto turns a TLSConfig proto into a *tls.Config, returning nil
+// for a nil proto (meaning: Go's defaults).
+func tlsConfigFromProto(c *tlsconfigpb.TLSConfig) (*tls.Config, error) {
+	if c == nil {
+		return nil, nil
+	}
+	tc := &tls.Config{}
+	if err := tlsconfig.UpdateTLSConfig(tc, c); err != nil {
+		return nil, err
+	}
+	return tc, nil
 }
 
 func loadSource(c *configpb.ProbeConf) (string, error) {
