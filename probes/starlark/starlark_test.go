@@ -847,6 +847,27 @@ def probe(target):
 		assert.Contains(t, results[0].Error.Error(), "insecure")
 	})
 
+	// The idiomatic missing-label form: target.labels.get(k) with no default
+	// returns None. tls=None must fail loudly, not silently fall back to the
+	// default client (which "tls??" would have done). Distinct from an omitted
+	// tls=, which does use the default client.
+	t.Run("none_tls_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", tls = target.labels.get("tls_profile"))
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
+		p := &Probe{}
+		if err := p.Init("script-tls-none-val", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "tls: expected string, got NoneType")
+	})
+
 	t.Run("non_string_tls_errors", func(t *testing.T) {
 		source := fmt.Sprintf(`
 def probe(target):

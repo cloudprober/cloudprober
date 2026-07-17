@@ -51,9 +51,10 @@ type reqOpts struct {
 	jsonArg      starlarklib.Value
 	maxRedirects *int
 	keepAlive    bool
-	// tlsName is nil when tls= was omitted (use the probe's default client)
-	// and non-nil when the script passed one, including the empty string --
-	// which is an error rather than a silent fall back to the default.
+	// tlsName is nil when tls= was omitted (use the probe's default client).
+	// A None or non-string value is rejected before it reaches here; an empty
+	// string is kept and rejected by resolveHTTPClient. So a non-nil value is
+	// always a string the script explicitly passed.
 	tlsName *string
 }
 
@@ -105,7 +106,12 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 		if withBody {
 			spec = append(spec, "body?", &opts.body, "json?", &opts.jsonArg)
 		}
-		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls??", &tlsArg)
+		// tls uses a single "?" (not "??" like the others): "??" would treat a
+		// None value as absent, but for tls a None -- what target.labels.get(k)
+		// returns for a missing label -- must fail, not silently pick the
+		// default client. With "?" the None flows through and optionalString
+		// rejects it.
+		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls?", &tlsArg)
 		if err := starlarklib.UnpackArgs(name, args, kwargs, spec...); err != nil {
 			return nil, err
 		}
