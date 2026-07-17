@@ -874,6 +874,16 @@ def probe(target):
 		assert.Contains(t, err.Error(), `tls_configs["internal"]`)
 	})
 
+	t.Run("empty_config_name_fails_init", func(t *testing.T) {
+		opts := newOpts(t, "example.com", "def probe(target): pass\n")
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = map[string]*tlsconfigpb.TLSConfig{
+			"": {DisableCertValidation: proto.Bool(true)},
+		}
+		err := (&Probe{}).Init("script-tls-empty-key", opts)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty config name")
+	})
+
 	t.Run("unknown_name_errors", func(t *testing.T) {
 		source := fmt.Sprintf(`
 def probe(target):

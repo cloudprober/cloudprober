@@ -112,6 +112,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if len(p.c.GetTlsConfigs()) > 0 {
 		tlsCfgs = make(map[string]*tls.Config, len(p.c.GetTlsConfigs()))
 		for cfgName, c := range p.c.GetTlsConfigs() {
+			// An empty name is unreachable: tls="" is an error, and an omitted
+			// tls uses system defaults without consulting this map. Reject it
+			// so a config that can never be selected fails loudly at Init.
+			if cfgName == "" {
+				return fmt.Errorf("starlark tls_configs: empty config name; every entry must have a non-empty key")
+			}
 			tc, err := tlsConfigFromProto(c)
 			if err != nil {
 				return fmt.Errorf("starlark tls_configs[%q]: %v", cfgName, err)
