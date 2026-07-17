@@ -847,6 +847,26 @@ def probe(target):
 		assert.Contains(t, results[0].Error.Error(), "insecure")
 	})
 
+	// With no tls_configs at all, an empty tls= still errors on "tls is empty"
+	// and the message omits the "name one of ..." hint (there's nothing to
+	// name) rather than printing an empty "()".
+	t.Run("empty_tls_no_configs_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", tls = "")
+`, srv.URL)
+		opts := newOpts(t, hostFromServer(t, srv), source)
+		p := &Probe{}
+		if err := p.Init("script-tls-empty-noconfigs", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "tls is empty")
+		assert.NotContains(t, results[0].Error.Error(), "name one of")
+	})
+
 	// The idiomatic missing-label form: target.labels.get(k) with no default
 	// returns None. tls=None must fail loudly, not silently fall back to the
 	// default client (which "tls??" would have done). Distinct from an omitted

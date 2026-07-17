@@ -146,7 +146,11 @@ func resolveHTTPClient(thread *starlarklib.Thread, fname string, tlsName *string
 	}
 	clients := tlsClientsFromThread(thread)
 	if *tlsName == "" {
-		return nil, fmt.Errorf("%s: tls is empty; omit tls for system-default TLS, or name one of the tls_configs (%s)", fname, strings.Join(sortedNames(clients), ", "))
+		hint := "omit tls for system-default TLS"
+		if len(clients) > 0 {
+			hint += fmt.Sprintf(", or name one of the tls_configs (%s)", strings.Join(sortedNames(clients), ", "))
+		}
+		return nil, fmt.Errorf("%s: tls is empty; %s", fname, hint)
 	}
 	if len(clients) == 0 {
 		return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, *tlsName)
