@@ -78,13 +78,11 @@ type runtime struct {
 	l           *logger.Logger
 
 	// httpClient is the client used by the http builtin for calls that don't
-	// pass tls=. Owned by runtime rather than reusing http.DefaultClient so
-	// client-level configuration (CheckRedirect, and the TLS config via the
-	// transport) of one probe can never leak into another. Note the isolation
-	// stops at the client when there's no tls_config: newHTTPClient leaves
-	// Transport nil in that case, so the connection pool is the process-wide
-	// http.DefaultTransport's, shared with every other user of it. Nothing
-	// probe-specific rides on it, so that sharing is fine.
+	// pass tls= — plain TLS with the system CA pool. Owned by runtime (rather
+	// than reusing http.DefaultClient) only so a per-call CheckRedirect clone
+	// never mutates a shared client. It has a nil Transport, so its connection
+	// pool is the process-wide http.DefaultTransport's; nothing probe-specific
+	// rides on it, so that sharing is fine.
 	httpClient *http.Client
 
 	// tlsClients holds one client per tls_configs entry, keyed by config
@@ -111,9 +109,8 @@ type runtimeOpts struct {
 	// vars backs the vars.get builtin.
 	vars map[string]string
 
-	// tlsCfg is the default for http calls that don't pass tls=; tlsCfgs are
-	// the named alternates the tls kwarg selects from.
-	tlsCfg  *tls.Config
+	// tlsCfgs are the named TLS configs the tls kwarg selects from. A call
+	// that passes no tls= uses plain TLS with the system CA pool.
 	tlsCfgs map[string]*tls.Config
 
 	// oauth holds the token sources for the oauth builtin, keyed by name.
@@ -134,7 +131,7 @@ func newRuntime(ctx context.Context, opts *runtimeOpts) (*runtime, error) {
 		name:       opts.name,
 		entryPoint: opts.entryPoint,
 		l:          opts.l,
-		httpClient: newHTTPClient(opts.tlsCfg),
+		httpClient: newHTTPClient(nil),
 		tlsClients: newTLSClients(opts.tlsCfgs),
 		oauth:      opts.oauth,
 	}

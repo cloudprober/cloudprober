@@ -123,24 +123,24 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 	}
 }
 
-// resolveHTTPClient picks the client for a call: the probe's default client
-// (tls_config) when tls= is omitted, otherwise the one built from the named
-// tls_configs entry. Unlike oauth.token's name, a single tls_configs entry is
-// not implicitly selected — omitting tls= always means the default, so that
-// adding an alternate config can't silently retarget calls that don't mention
-// it.
+// resolveHTTPClient picks the client for a call: the probe's plain client
+// (system CA pool, normal validation) when tls= is omitted, otherwise the one
+// built from the named tls_configs entry. Unlike oauth.token's name, a single
+// tls_configs entry is not implicitly selected — omitting tls= always means
+// the plain client, so that adding a config can't silently retarget calls that
+// don't mention it.
 //
-// An explicitly passed empty name is an error rather than the default, so a
-// computed selector (tls = target.labels.get("tls_profile", "")) fails loudly
-// on a target that's missing the label instead of quietly probing with the
-// wrong TLS settings.
+// An explicitly passed empty name is an error rather than the plain client, so
+// a computed selector (tls = target.labels.get("tls_profile", "")) fails
+// loudly on a target that's missing the label instead of quietly probing with
+// the wrong TLS settings.
 func resolveHTTPClient(thread *starlarklib.Thread, fname string, tlsName *string) (*http.Client, error) {
 	if tlsName == nil {
 		return httpClientFromThread(thread), nil
 	}
 	clients := tlsClientsFromThread(thread)
 	if *tlsName == "" {
-		return nil, fmt.Errorf("%s: tls is empty; omit tls to use the probe's tls_config, or name one of its tls_configs (%s)", fname, strings.Join(sortedNames(clients), ", "))
+		return nil, fmt.Errorf("%s: tls is empty; omit tls for system-default TLS, or name one of the tls_configs (%s)", fname, strings.Join(sortedNames(clients), ", "))
 	}
 	if len(clients) == 0 {
 		return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, *tlsName)

@@ -700,47 +700,9 @@ def probe(target):
 	}
 }
 
-func TestHTTP_TLSConfig(t *testing.T) {
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	source := fmt.Sprintf(`
-def probe(target):
-    r = http.get(url = "%s")
-    assert.http_status(r, 200)
-`, srv.URL)
-
-	t.Run("rejects_self_signed_by_default", func(t *testing.T) {
-		opts := newOpts(t, hostFromServer(t, srv), source)
-		p := &Probe{}
-		if err := p.Init("script-tls-default", opts); err != nil {
-			t.Fatalf("Init: %v", err)
-		}
-		results := p.RunOnce(context.Background())
-		assert.False(t, results[0].Success, "default TLS config should reject self-signed cert")
-		require.NotNil(t, results[0].Error)
-		assert.Contains(t, results[0].Error.Error(), "certificate")
-	})
-
-	t.Run("accepts_with_disable_cert_validation", func(t *testing.T) {
-		opts := newOpts(t, hostFromServer(t, srv), source)
-		opts.ProbeConf.(*configpb.ProbeConf).TlsConfig = &tlsconfigpb.TLSConfig{
-			DisableCertValidation: proto.Bool(true),
-		}
-		p := &Probe{}
-		if err := p.Init("script-tls-skip-verify", opts); err != nil {
-			t.Fatalf("Init: %v", err)
-		}
-		results := p.RunOnce(context.Background())
-		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
-	})
-}
-
 // TestHTTP_TLSConfigs covers the tls kwarg: named tls_configs entries are
-// selected per call, and omitting the kwarg always means tls_config -- never
-// "the only tls_configs entry".
+// selected per call, and omitting the kwarg always means system-default TLS --
+// never "the only tls_configs entry".
 func TestHTTP_TLSConfigs(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -771,9 +733,9 @@ def probe(target):
 
 	// The rule that separates tls= from oauth.token(name=""): a lone
 	// tls_configs entry is not implicitly applied to calls that don't ask for
-	// it, so adding an alternate config can't silently retarget the rest of
-	// the script.
-	t.Run("omitted_tls_uses_default_not_sole_entry", func(t *testing.T) {
+	// it. A plain call uses system-default TLS, which rejects the self-signed
+	// cert -- so the sole insecure entry is demonstrably not in play.
+	t.Run("omitted_tls_uses_system_default_not_sole_entry", func(t *testing.T) {
 		source := fmt.Sprintf(`
 def probe(target):
     r = http.get(url = "%s")
@@ -786,21 +748,19 @@ def probe(target):
 			t.Fatalf("Init: %v", err)
 		}
 		results := p.RunOnce(context.Background())
-		assert.False(t, results[0].Success, "call without tls= should use tls_config, not the sole tls_configs entry")
+		assert.False(t, results[0].Success, "call without tls= should use system-default TLS, not the sole tls_configs entry")
 		require.NotNil(t, results[0].Error)
 		assert.Contains(t, results[0].Error.Error(), "certificate")
 	})
 
-	// The motivating case, over TLS on both hosts: tls_config pins a CA that
-	// trusts `strict` and nothing else -- exactly the ca_cert_file-replaces-
-	// the-system-pool situation that makes a probe-wide config unworkable --
-	// while the second host, whose cert that CA does not cover, is reached via
-	// a named exception. Both calls must succeed in one run.
-	t.Run("default_and_named_in_one_script", func(t *testing.T) {
-		strict, caFile := newPrivateCertTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	// The motivating case: one script, two hosts. A public host reached with
+	// system-default TLS, and one host needing an exception reached by naming
+	// a config. Both calls must succeed in one run.
+	t.Run("system_default_and_named_in_one_script", func(t *testing.T) {
+		public := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
-		defer strict.Close()
+		defer public.Close()
 
 		source := fmt.Sprintf(`
 def probe(target):
@@ -808,13 +768,9 @@ def probe(target):
     assert.http_status(r, 200)
     r = http.get(url = "%s", tls = "insecure")
     assert.http_status(r, 200)
-`, strict.URL, srv.URL)
-		opts := newOpts(t, hostFromServer(t, strict), source)
-		cfg := opts.ProbeConf.(*configpb.ProbeConf)
-		cfg.TlsConfig = &tlsconfigpb.TLSConfig{
-			CaCertFile: proto.String(caFile),
-		}
-		cfg.TlsConfigs = insecure()
+`, public.URL, srv.URL)
+		opts := newOpts(t, hostFromServer(t, public), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = insecure()
 		p := &Probe{}
 		if err := p.Init("script-tls-mixed", opts); err != nil {
 			t.Fatalf("Init: %v", err)
@@ -823,10 +779,11 @@ def probe(target):
 		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
 	})
 
-	// Guards the premise of the test above: the default config really is
-	// strict about the *other* server, so the named exception is what makes
-	// that call work, not a lenient default.
-	t.Run("default_ca_does_not_cover_other_host", func(t *testing.T) {
+	// A named config carrying a real ca_cert_file (not just
+	// disable_cert_validation): the call succeeds against a server whose cert
+	// only that CA file covers, proving the named config's TLS settings are
+	// actually applied.
+	t.Run("named_ca_cert_file_config", func(t *testing.T) {
 		strict, caFile := newPrivateCertTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
@@ -834,23 +791,19 @@ def probe(target):
 
 		source := fmt.Sprintf(`
 def probe(target):
-    r = http.get(url = "%s")
+    r = http.get(url = "%s", tls = "corp")
     assert.http_status(r, 200)
-`, srv.URL)
+`, strict.URL)
 		opts := newOpts(t, hostFromServer(t, strict), source)
-		cfg := opts.ProbeConf.(*configpb.ProbeConf)
-		cfg.TlsConfig = &tlsconfigpb.TLSConfig{
-			CaCertFile: proto.String(caFile),
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = map[string]*tlsconfigpb.TLSConfig{
+			"corp": {CaCertFile: proto.String(caFile)},
 		}
-		cfg.TlsConfigs = insecure()
 		p := &Probe{}
-		if err := p.Init("script-tls-strict-default", opts); err != nil {
+		if err := p.Init("script-tls-ca", opts); err != nil {
 			t.Fatalf("Init: %v", err)
 		}
 		results := p.RunOnce(context.Background())
-		assert.False(t, results[0].Success, "default CA should not trust the other server's cert")
-		require.NotNil(t, results[0].Error)
-		assert.Contains(t, results[0].Error.Error(), "certificate")
+		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
 	})
 
 	t.Run("tls_kwarg_on_body_verbs", func(t *testing.T) {

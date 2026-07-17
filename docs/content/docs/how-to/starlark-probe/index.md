@@ -146,51 +146,33 @@ r.json()     # parsed JSON (raises on parse error)
 
 ### TLS configuration
 
-For HTTPS calls to hosts that need a custom CA bundle, mTLS client cert, SNI
-override, or disabled cert validation, set `tls_config` on the probe. Same
-message the HTTP probe uses; applies to every `http.get`/`http.post` in the
-script. Example using a custom CA:
+TLS is configured per call, not probe-wide. A script routinely hits several
+hosts in one run, and TLS settings are per-host in a way a single config can't
+capture: `ca_cert_file` *replaces* the system CA pool (so an internal CA breaks
+any public host the script also hits), `server_name` is an SNI override for one
+host by definition, and `disable_cert_validation` is rarely meant for all of
+them.
+
+Name each config under `tls_configs` and select one with the `tls=` kwarg on
+the http builtins. A call that passes no `tls=` uses system-default TLS (system
+CA pool, normal validation).
 
 ```proto
 probe {
   type: STARLARK
   starlark_probe {
-    source_file: "internal_api.star"
-    tls_config {
-      ca_cert_file: "/etc/ssl/internal-root-ca.pem"
+    source_file: "multi_host.star"
+    tls_configs {
+      key: "internal"
+      value {
+        ca_cert_file: "/etc/ssl/internal-root-ca.pem"
+      }
     }
-  }
-}
-```
-
-For development against self-signed certs:
-
-```proto
-tls_config {
-  disable_cert_validation: true
-}
-```
-
-#### Per-host TLS configs
-
-`tls_config` applies to every call, which stops working once one script talks
-to hosts with different TLS needs -- `ca_cert_file` *replaces* the system CA
-pool (so an internal CA breaks any public host the script also hits),
-`server_name` is an SNI override for one host by definition, and
-`disable_cert_validation` is rarely meant for all of them.
-
-Name the exceptions in `tls_configs` and select one per call with `tls=`:
-
-```proto
-starlark_probe {
-  source_file: "multi_host.star"
-  tls_config {
-    ca_cert_file: "/etc/ssl/internal-root-ca.pem"   # default for the script
-  }
-  tls_configs {
-    key: "legacy"
-    value {
-      disable_cert_validation: true                 # just this one host
+    tls_configs {
+      key: "legacy"
+      value {
+        disable_cert_validation: true               # dev / self-signed
+      }
     }
   }
 }
@@ -198,23 +180,21 @@ starlark_probe {
 
 ```python
 def probe(target):
-    http.get(url = "https://internal-api/healthz")            # uses tls_config
+    http.get(url = "https://public/healthz")                    # system roots
+    http.get(url = "https://internal-api/healthz", tls = "internal")
     http.get(url = "https://legacy-box/healthz", tls = "legacy")
 ```
 
-Omitting `tls=` always means `tls_config` (or Go's defaults when it isn't
-set), never "the only `tls_configs` entry" -- unlike `oauth.token(name="")`, a
-single entry still has to be asked for by name, so adding one can't silently
-retarget the rest of the script.
-
-Passing an *empty* `tls=` is an error rather than the default, so a selector
-computed from the target fails loudly instead of quietly probing with the
-wrong TLS settings:
+There is no probe-wide default: a single `tls_configs` entry still has to be
+asked for by name, so adding one can't silently retarget calls that don't
+mention it. Passing an *empty* `tls=` is an error rather than falling back to
+system defaults, so a selector computed from the target fails loudly instead of
+quietly probing with the wrong TLS settings:
 
 ```python
 def probe(target):
     # Target missing the label -> probe fails with "tls is empty", rather
-    # than silently falling back to tls_config.
+    # than silently using system-default TLS.
     http.get(url = "https://%s/healthz" % target.name,
              tls = target.labels.get("tls_profile", ""))
 ```

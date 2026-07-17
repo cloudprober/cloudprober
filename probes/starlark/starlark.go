@@ -108,11 +108,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		entryPoint = "probe"
 	}
 
-	tlsCfg, err := tlsConfigFromProto(p.c.GetTlsConfig())
-	if err != nil {
-		return fmt.Errorf("starlark tls_config: %v", err)
-	}
-
 	var tlsCfgs map[string]*tls.Config
 	if len(p.c.GetTlsConfigs()) > 0 {
 		tlsCfgs = make(map[string]*tls.Config, len(p.c.GetTlsConfigs()))
@@ -141,7 +136,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		source:     source,
 		entryPoint: entryPoint,
 		vars:       p.c.GetVars(),
-		tlsCfg:     tlsCfg,
 		tlsCfgs:    tlsCfgs,
 		oauth:      oauthID,
 		l:          p.l,
