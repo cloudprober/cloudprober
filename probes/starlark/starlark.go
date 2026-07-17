@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
-	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
@@ -118,7 +117,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			if cfgName == "" {
 				return fmt.Errorf("starlark tls_configs: empty config name; every entry must have a non-empty key")
 			}
-			tc, err := tlsConfigFromProto(c)
+			tc, err := tlsconfig.FromProto(c)
 			if err != nil {
 				return fmt.Errorf("starlark tls_configs[%q]: %v", cfgName, err)
 			}
@@ -161,19 +160,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("payload parser init: %v", err)
 	}
 	return nil
-}
-
-// tlsConfigFromProto turns a TLSConfig proto into a *tls.Config, returning nil
-// for a nil proto (meaning: Go's defaults).
-func tlsConfigFromProto(c *tlsconfigpb.TLSConfig) (*tls.Config, error) {
-	if c == nil {
-		return nil, nil
-	}
-	tc := &tls.Config{}
-	if err := tlsconfig.UpdateTLSConfig(tc, c); err != nil {
-		return nil, err
-	}
-	return tc, nil
 }
 
 func loadSource(c *configpb.ProbeConf) (string, error) {

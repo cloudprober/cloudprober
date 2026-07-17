@@ -142,10 +142,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	if p.c.GetTlsConfig() != nil {
-		p.tlsConfig = &tls.Config{}
-		if err := tlsconfig.UpdateTLSConfig(p.tlsConfig, p.c.GetTlsConfig()); err != nil {
+		tlsConfig, err := tlsconfig.FromProto(p.c.GetTlsConfig())
+		if err != nil {
 			return fmt.Errorf("tls_config error: %v", err)
 		}
+		p.tlsConfig = tlsConfig
 	}
 
 	if p.c.GetResponseMetricsOptions() != nil {

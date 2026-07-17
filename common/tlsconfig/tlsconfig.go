@@ -141,3 +141,18 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig) error {
 
 	return nil
 }
+
+// FromProto builds a new *tls.Config from the given proto by applying
+// UpdateTLSConfig to a zero-value config. It returns (nil, nil) for a nil
+// proto. Callers that need to modify an existing *tls.Config in place (e.g. a
+// transport's TLSClientConfig) should call UpdateTLSConfig directly.
+func FromProto(c *configpb.TLSConfig) (*tls.Config, error) {
+	if c == nil {
+		return nil, nil
+	}
+	tlsConfig := &tls.Config{}
+	if err := UpdateTLSConfig(tlsConfig, c); err != nil {
+		return nil, err
+	}
+	return tlsConfig, nil
+}
