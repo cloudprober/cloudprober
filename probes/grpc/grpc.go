@@ -22,7 +22,6 @@ package grpc
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -180,8 +179,8 @@ func (p *Probe) transportCredentials() (credentials.TransportCredentials, error)
 		return alts.NewClientCreds(altsOpts), nil
 	}
 	if p.c.GetTlsConfig() != nil {
-		tlsCfg := &tls.Config{}
-		if err := tlsconfig.UpdateTLSConfig(tlsCfg, p.c.GetTlsConfig()); err != nil {
+		tlsCfg, err := tlsconfig.FromProto(p.c.GetTlsConfig())
+		if err != nil {
 			return nil, fmt.Errorf("tls_config error: %v", err)
 		}
 		return credentials.NewTLS(tlsCfg), nil

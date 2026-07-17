@@ -23,7 +23,6 @@ package cloudprober
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -75,9 +74,9 @@ const (
 )
 
 var (
-	disableSysMetrics  = flag.Bool("disable_sys_metrics", false, "Disable system metrics probe")
-	logStoreMaxMemMB   = flag.Int("log_store_max_mem_mb", 50, "Max memory in MB for in-memory log store. 0 to disable.")
-	logStoreMinLevel   = flag.String("log_store_min_level", "INFO", "Minimum log level for stored logs. Valid values: DEBUG, INFO, WARNING, ERROR")
+	disableSysMetrics = flag.Bool("disable_sys_metrics", false, "Disable system metrics probe")
+	logStoreMaxMemMB  = flag.Int("log_store_max_mem_mb", 50, "Max memory in MB for in-memory log store. 0 to disable.")
+	logStoreMinLevel  = flag.String("log_store_min_level", "INFO", "Minimum log level for stored logs. Valid values: DEBUG, INFO, WARNING, ERROR")
 )
 
 // Global prober.Prober instance protected by a mutex.
@@ -266,8 +265,8 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 			var serverOpts []grpc.ServerOption
 
 			if cfg.GetGrpcTlsConfig() != nil {
-				tlsConfig := &tls.Config{}
-				if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig()); err != nil {
+				tlsConfig, err := tlsconfig.FromProto(cfg.GetGrpcTlsConfig())
+				if err != nil {
 					return err
 				}
 				tlsConfig.ClientCAs = tlsConfig.RootCAs

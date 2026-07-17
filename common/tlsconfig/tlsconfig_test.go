@@ -185,3 +185,31 @@ func TestUpdateTLSConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestFromProto(t *testing.T) {
+	t.Run("nil proto returns nil config", func(t *testing.T) {
+		tc, err := FromProto(nil)
+		assert.NoError(t, err)
+		assert.Nil(t, tc)
+	})
+
+	t.Run("applies config to a fresh tls.Config", func(t *testing.T) {
+		tc, err := FromProto(&configpb.TLSConfig{
+			DisableCertValidation: proto.Bool(true),
+			ServerName:            proto.String("example.com"),
+		})
+		assert.NoError(t, err)
+		if assert.NotNil(t, tc) {
+			assert.True(t, tc.InsecureSkipVerify)
+			assert.Equal(t, "example.com", tc.ServerName)
+		}
+	})
+
+	t.Run("propagates UpdateTLSConfig error", func(t *testing.T) {
+		tc, err := FromProto(&configpb.TLSConfig{
+			CaCertFile: proto.String("/no/such/ca.pem"),
+		})
+		assert.Error(t, err)
+		assert.Nil(t, tc)
+	})
+}
