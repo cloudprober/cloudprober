@@ -52,6 +52,11 @@ import (
 
 const playwrightReportDir = "_playwright_report"
 
+// internalErrorMarkerFile is written into the playwright report dir by the
+// cloudprober reporter when a run fails because of the browser harness itself
+// (browser missing, browser failed to launch/crashed) rather than the target.
+const internalErrorMarkerFile = "cloudprober_internal_error"
+
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name string
@@ -93,6 +98,7 @@ var templates embed.FS
 type probeRunResult struct {
 	total             metrics.Int
 	success           metrics.Int
+	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
 }
@@ -118,6 +124,7 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
+		AddMetric("internal_errors", &prr.internalErrors).
 		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
 		AddLabel("ptype", "browser")
 
@@ -157,21 +164,23 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 func (p *Probe) initTemplates() error {
 	// Set up playwright config in workdir
 	data := struct {
-		TestDir            string
-		GlobalTimeoutMsec  int64
-		Screenshot         string
-		Trace              string
-		EnableStepMetrics  bool
-		DisableTestMetrics bool
-		Retries            int32
+		TestDir                 string
+		GlobalTimeoutMsec       int64
+		Screenshot              string
+		Trace                   string
+		EnableStepMetrics       bool
+		DisableTestMetrics      bool
+		Retries                 int32
+		InternalErrorMarkerFile string
 	}{
-		TestDir:            p.testDirPath(),
-		GlobalTimeoutMsec:  p.playwrightGlobalTimeoutMsec(),
-		Screenshot:         "only-on-failure",
-		Trace:              "off",
-		EnableStepMetrics:  p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
-		DisableTestMetrics: p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
-		Retries:            p.c.GetRetries(),
+		TestDir:                 p.testDirPath(),
+		GlobalTimeoutMsec:       p.playwrightGlobalTimeoutMsec(),
+		Screenshot:              "only-on-failure",
+		Trace:                   "off",
+		EnableStepMetrics:       p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
+		DisableTestMetrics:      p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
+		Retries:                 p.c.GetRetries(),
+		InternalErrorMarkerFile: internalErrorMarkerFile,
 	}
 	if p.c.GetSaveScreenshotsForSuccess() {
 		data.Screenshot = "on"
@@ -458,6 +467,13 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 		}
 	}
 
+	// The cloudprober reporter writes internalErrorMarkerFile when the run
+	// failed because of the browser harness (browser missing/failed to launch)
+	// rather than the target. The process has fully exited by now, so the marker
+	// (if any) is on disk.
+	_, markerErr := os.Stat(filepath.Join(reportDir, internalErrorMarkerFile))
+	internalError := markerErr == nil
+
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.
 	p.artifactsHandler.Handle(p.startCtx, reportDir)
@@ -470,6 +486,9 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 	}
 
 	runReq.LastRun.Set(err == nil, latency, err)
+	if internalError {
+		result.internalErrors.Inc()
+	}
 	if err != nil {
 		return
 	}

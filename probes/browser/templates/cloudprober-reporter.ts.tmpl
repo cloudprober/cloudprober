@@ -1,11 +1,28 @@
 import type {
-  Reporter, FullConfig, Suite, TestCase, TestStep, TestResult
+  Reporter, FullConfig, FullResult, Suite, TestCase, TestError, TestStep, TestResult
 } from '@playwright/test/reporter';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const info = (string: string) => process.stderr.write("INFO "+string+'\n');
 const warning = (string: string) => process.stderr.write("WARNING "+string+'\n');
 
 const print = (string: string) => process.stdout.write(string+'\n');
+
+// Error substrings that indicate the browser harness itself failed (browser
+// missing, browser failed to launch, browser crashed) rather than the target
+// under test failing. These map to an internal_error rather than a probe
+// failure. In-test failures (e.g. a locator/navigation timeout) do not match
+// any of these and are treated as normal failures.
+const launchErrorSignatures = [
+  "browserType.launch",
+  "Executable doesn't exist",
+  "Browser has been closed",
+  "Target crashed",
+];
+
+const isLaunchError = (message?: string) =>
+  message != null && launchErrorSignatures.some((sig) => message.includes(sig));
 
 const testLabels= (test: TestCase) => {
     var titleLabel = `test="${test.title.replace(/ /g,"_")}"`;
@@ -24,8 +41,17 @@ const testLabels= (test: TestCase) => {
 }
 
 class CloudproberReporter implements Reporter {
+  // Set when the run fails outside the test body: a run-level error reported via
+  // onError, or a browser-launch failure attached to a test's before-hooks.
+  private internalError = false;
+
   onBegin(config: FullConfig, suite: Suite) {
     info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
+  }
+
+  onError(error: TestError) {
+    warning(`Run-level error (not attached to a test): ${JSON.stringify(error)}`);
+    this.internalError = true;
   }
 
   onTestBegin(test: TestCase) {
@@ -50,10 +76,30 @@ class CloudproberReporter implements Reporter {
     if (result.status !== "passed" && result.status !== "skipped") {
       warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
     }
+    if ((result.errors || []).some((e) => isLaunchError(e.message))) {
+      this.internalError = true;
+    }
     {{ if not .DisableTestMetrics }}
     print(`test_status{${testLabels(test)},status="${result.status}"} 1`);
     print(`test_latency{${testLabels(test)},status="${result.status}"} ${result.duration*1000}`);
     {{ end }}
+  }
+
+  onEnd(result: FullResult) {
+    if (!this.internalError) {
+      return;
+    }
+    const reportDir = process.env.PLAYWRIGHT_HTML_REPORT;
+    if (!reportDir) {
+      warning("PLAYWRIGHT_HTML_REPORT not set; cannot write internal error marker");
+      return;
+    }
+    try {
+      fs.mkdirSync(reportDir, { recursive: true });
+      fs.writeFileSync(path.join(reportDir, "{{ .InternalErrorMarkerFile }}"), "1");
+    } catch (e) {
+      warning(`Failed to write internal error marker: ${e}`);
+    }
   }
 }
 export default CloudproberReporter;

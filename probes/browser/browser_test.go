@@ -368,6 +368,12 @@ func TestProbeInitTemplates(t *testing.T) {
 			for _, want := range tt.reporterNotContains {
 				assert.NotContains(t, string(got), want, "reporter file should not contain: %s", want)
 			}
+
+			// Internal-error detection is always wired up, regardless of the
+			// test/step metric options.
+			for _, want := range []string{"onError(error: TestError)", internalErrorMarkerFile} {
+				assert.Contains(t, string(got), want, "reporter file should contain: %s", want)
+			}
 		})
 	}
 }
@@ -555,5 +561,20 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 				assert.Equal(t, tt.wantArgs, got)
 			}
 		})
+	}
+}
+
+func TestProbeRunResultMetrics(t *testing.T) {
+	prr := &probeRunResult{latency: metrics.NewFloat(0)}
+	prr.total.IncBy(2)
+	prr.success.Inc()
+	prr.internalErrors.Inc()
+
+	ems := prr.Metrics(time.Now(), 0, options.DefaultOptions())
+	if assert.Len(t, ems, 1) {
+		em := ems[0]
+		assert.Equal(t, "2", em.Metric("total").String())
+		assert.Equal(t, "1", em.Metric("success").String())
+		assert.Equal(t, "1", em.Metric("internal_errors").String())
 	}
 }
