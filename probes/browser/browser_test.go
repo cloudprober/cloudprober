@@ -15,6 +15,7 @@
 package browser
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -209,6 +211,55 @@ func TestInitPreflight(t *testing.T) {
 			assert.ErrorContains(t, err, tt.wantErr)
 		})
 	}
+}
+
+// TestRunProbeInternalError drives a full probe run through runProbe with a
+// stub npx that fails with a Playwright missing-browser error on stderr, and
+// asserts the run is counted as an internal_error: total advances, success
+// stays put, internal_errors increments, and LastRun records the failure.
+func TestRunProbeInternalError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("stub npx is a /bin/sh script; skip on Windows")
+	}
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Stub npx: ignore args, emit Playwright's missing-browser error to stderr,
+	// exit non-zero.
+	npx := filepath.Join(dir, "npx")
+	script := "#!/bin/sh\n" +
+		"echo \"browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium/chrome\" 1>&2\n" +
+		"exit 1\n"
+	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		NpxPath:       proto.String(npx),
+		PlaywrightDir: proto.String(dir),
+	}
+	p := &Probe{}
+	if err := p.Init("test_browser", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	p.startCtx = context.Background()
+	p.dataChan = make(chan *metrics.EventMetrics, 10)
+
+	runReq := &sched.RunProbeForTargetRequest{
+		Target:  endpoint.Endpoint{Name: "t"},
+		LastRun: &sched.LastRunResult{},
+	}
+	p.runProbe(context.Background(), runReq)
+
+	result := runReq.Result.(*probeRunResult)
+	assert.Equal(t, int64(1), result.total.Int64(), "total")
+	assert.Equal(t, int64(0), result.success.Int64(), "success")
+	assert.Equal(t, int64(1), result.internalErrors.Int64(), "internal_errors")
+	assert.False(t, runReq.LastRun.Success, "LastRun.Success")
+	assert.Error(t, runReq.LastRun.Error, "LastRun.Error")
 }
 
 func TestInternalErrorRe(t *testing.T) {

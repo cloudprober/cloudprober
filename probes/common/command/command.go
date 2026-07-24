@@ -58,7 +58,10 @@ type Command struct {
 	ProcessStreamingOutput func([]byte)
 	// ProcessStderr, if set, is called for each stderr line (in addition to
 	// the usual logging). It lets callers inspect stderr while streaming, e.g.
-	// to classify known failure signatures. Only used in streaming mode.
+	// to classify known failure signatures. Only used in streaming mode. The
+	// passed slice's backing array is reused on the next scan (same as
+	// ProcessStreamingOutput / bufio.Scanner), so callers must not retain it
+	// without copying.
 	ProcessStderr   func([]byte)
 	RawStderrOutput bool
 

@@ -104,10 +104,10 @@ type probeRunResult struct {
 	total   metrics.Int
 	success metrics.Int
 	// internalErrors counts runs that failed because of environment/infra
-	// problems (a missing browser binary today) rather than the target being
-	// unhealthy. Such runs still count as failures (total moves, success
-	// doesn't); internal_errors tells "environment broken" apart from "target
-	// down".
+	// problems (a missing browser binary or an unresolvable Playwright package
+	// today; see internalErrorRe) rather than the target being unhealthy. Such
+	// runs still count as failures (total moves, success doesn't);
+	// internal_errors tells "environment broken" apart from "target down".
 	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
