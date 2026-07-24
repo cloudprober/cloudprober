@@ -57,6 +57,13 @@ const playwrightReportDir = "_playwright_report"
 // (browser missing, browser failed to launch/crashed) rather than the target.
 const internalErrorMarkerFile = "cloudprober_internal_error"
 
+// harnessStartedMarkerFile is written into the playwright report dir by the
+// cloudprober reporter's onBegin hook, i.e. once Playwright has started running
+// the suite. Its absence on a failed run means the harness never got that far
+// (npx/Playwright missing, config load error, or the process was killed before
+// onBegin), which we classify as an internal error.
+const harnessStartedMarkerFile = "cloudprober_harness_started"
+
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name string
@@ -164,23 +171,25 @@ func (p *Probe) initTemplateFile(templates embed.FS, fileName string, data any) 
 func (p *Probe) initTemplates() error {
 	// Set up playwright config in workdir
 	data := struct {
-		TestDir                 string
-		GlobalTimeoutMsec       int64
-		Screenshot              string
-		Trace                   string
-		EnableStepMetrics       bool
-		DisableTestMetrics      bool
-		Retries                 int32
-		InternalErrorMarkerFile string
+		TestDir                  string
+		GlobalTimeoutMsec        int64
+		Screenshot               string
+		Trace                    string
+		EnableStepMetrics        bool
+		DisableTestMetrics       bool
+		Retries                  int32
+		InternalErrorMarkerFile  string
+		HarnessStartedMarkerFile string
 	}{
-		TestDir:                 p.testDirPath(),
-		GlobalTimeoutMsec:       p.playwrightGlobalTimeoutMsec(),
-		Screenshot:              "only-on-failure",
-		Trace:                   "off",
-		EnableStepMetrics:       p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
-		DisableTestMetrics:      p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
-		Retries:                 p.c.GetRetries(),
-		InternalErrorMarkerFile: internalErrorMarkerFile,
+		TestDir:                  p.testDirPath(),
+		GlobalTimeoutMsec:        p.playwrightGlobalTimeoutMsec(),
+		Screenshot:               "only-on-failure",
+		Trace:                    "off",
+		EnableStepMetrics:        p.c.GetTestMetricsOptions().GetEnableStepMetrics(),
+		DisableTestMetrics:       p.c.GetTestMetricsOptions().GetDisableTestMetrics(),
+		Retries:                  p.c.GetRetries(),
+		InternalErrorMarkerFile:  internalErrorMarkerFile,
+		HarnessStartedMarkerFile: harnessStartedMarkerFile,
 	}
 	if p.c.GetSaveScreenshotsForSuccess() {
 		data.Screenshot = "on"
@@ -426,7 +435,11 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		"test",
 		"--config=" + p.playwrightConfigPath,
 		"--output=" + filepath.Join(outputDir, "results"),
-		"--reporter=html," + p.reporterPath,
+		// The cloudprober reporter is listed before html so that, on a tight
+		// timeout teardown, its tiny marker write in onEnd runs before html's
+		// (potentially slow) report serialization -- and before the probe's
+		// SIGKILL lands.
+		"--reporter=" + p.reporterPath + ",html",
 	}
 	cmdLine = append(cmdLine, p.testSpecArgs...)
 
@@ -453,6 +466,25 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	return cmd, reportDir
 }
 
+// classifyInternalError decides whether a failed browser run is an internal
+// (harness/infra) error rather than a target failure, from the reporter markers
+// left in reportDir. Two signals cover the two harness-failure regions:
+//  1. internalErrorMarkerFile present: the reporter saw a browser launch/crash
+//     failure while the harness was running.
+//  2. harnessStartedMarkerFile absent: the harness never reached onBegin
+//     (npx/Playwright missing, config load error, or killed before start).
+//
+// A successful run (err == nil) is never an internal error, even if a stale or
+// spurious marker is present.
+func classifyInternalError(reportDir string, err error) bool {
+	if err == nil {
+		return false
+	}
+	_, launchMarkerErr := os.Stat(filepath.Join(reportDir, internalErrorMarkerFile))
+	_, startedErr := os.Stat(filepath.Join(reportDir, harnessStartedMarkerFile))
+	return launchMarkerErr == nil || startedErr != nil
+}
+
 func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRequest, resultMu *sync.Mutex) {
 	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 	startTime := time.Now()
@@ -467,12 +499,8 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 		}
 	}
 
-	// The cloudprober reporter writes internalErrorMarkerFile when the run
-	// failed because of the browser harness (browser missing/failed to launch)
-	// rather than the target. The process has fully exited by now, so the marker
-	// (if any) is on disk.
-	_, markerErr := os.Stat(filepath.Join(reportDir, internalErrorMarkerFile))
-	internalError := markerErr == nil
+	// The process has fully exited by now, so any reporter markers are on disk.
+	internalError := classifyInternalError(reportDir, err)
 
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.

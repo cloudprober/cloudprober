@@ -15,6 +15,7 @@
 package browser
 
 import (
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -41,7 +42,7 @@ func TestProbePrepareCommand(t *testing.T) {
 	}
 
 	cmdLine := func(npxPath string) []string {
-		return []string{npxPath, "playwright", "test", "--config={WORKDIR}/playwright.config.ts", "--output=${OUTPUT_DIR}/results", "--reporter=html,{WORKDIR}/cloudprober-reporter.ts"}
+		return []string{npxPath, "playwright", "test", "--config={WORKDIR}/playwright.config.ts", "--output=${OUTPUT_DIR}/results", "--reporter={WORKDIR}/cloudprober-reporter.ts,html"}
 	}
 
 	baseWantEMLabels := [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}}
@@ -164,12 +165,12 @@ func TestProbePrepareCommand(t *testing.T) {
 
 func TestProbeOutputDirPath(t *testing.T) {
 	tests := []struct {
-		name       string
-		outputDir  string
-		target     endpoint.Endpoint
-		targets    []endpoint.Endpoint
-		ts         time.Time
-		want       string
+		name      string
+		outputDir string
+		target    endpoint.Endpoint
+		targets   []endpoint.Endpoint
+		ts        time.Time
+		want      string
 	}{
 		{
 			name:      "default",
@@ -370,8 +371,10 @@ func TestProbeInitTemplates(t *testing.T) {
 			}
 
 			// Internal-error detection is always wired up, regardless of the
-			// test/step metric options.
-			for _, want := range []string{"onError(error: TestError)", internalErrorMarkerFile} {
+			// test/step metric options: onError + launch-error marker for
+			// in-run harness failures, and the onBegin heartbeat marker whose
+			// absence flags a harness that never started.
+			for _, want := range []string{"onError(error: TestError)", internalErrorMarkerFile, harnessStartedMarkerFile, "this.writeMarker(\"" + harnessStartedMarkerFile + "\")"} {
 				assert.Contains(t, string(got), want, "reporter file should contain: %s", want)
 			}
 		})
@@ -561,6 +564,45 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 				assert.Equal(t, tt.wantArgs, got)
 			}
 		})
+	}
+}
+
+func TestClassifyInternalError(t *testing.T) {
+	runErr := errors.New("playwright failed")
+	for _, tt := range []struct {
+		name          string
+		err           error
+		launchMarker  bool // internalErrorMarkerFile present
+		startedMarker bool // harnessStartedMarkerFile present (heartbeat)
+		want          bool
+	}{
+		// Successful run is never internal, even with a stale marker.
+		{name: "success_no_markers", err: nil, want: false},
+		{name: "success_with_launch_marker", err: nil, launchMarker: true, want: false},
+		// Failed run, harness started: target failure vs. reporter-flagged launch.
+		{name: "fail_target_failure", err: runErr, startedMarker: true, want: false},
+		{name: "fail_launch_after_start", err: runErr, startedMarker: true, launchMarker: true, want: true},
+		// Failed run, no heartbeat: harness never started (npx/PW missing, etc.).
+		{name: "fail_harness_never_started", err: runErr, want: true},
+		{name: "fail_no_heartbeat_with_launch_marker", err: runErr, launchMarker: true, want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			reportDir := t.TempDir()
+			if tt.launchMarker {
+				writeTestMarker(t, reportDir, internalErrorMarkerFile)
+			}
+			if tt.startedMarker {
+				writeTestMarker(t, reportDir, harnessStartedMarkerFile)
+			}
+			assert.Equal(t, tt.want, classifyInternalError(reportDir, tt.err))
+		})
+	}
+}
+
+func writeTestMarker(t *testing.T, dir, name string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte("1"), 0644); err != nil {
+		t.Fatalf("writing marker %s: %v", name, err)
 	}
 }
 

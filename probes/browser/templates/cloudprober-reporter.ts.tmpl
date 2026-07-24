@@ -45,8 +45,28 @@ class CloudproberReporter implements Reporter {
   // onError, or a browser-launch failure attached to a test's before-hooks.
   private internalError = false;
 
+  // writeMarker writes a zero-content marker file into the playwright report
+  // dir that the probe (Go side) reads after the process exits.
+  private writeMarker(filename: string) {
+    const reportDir = process.env.PLAYWRIGHT_HTML_REPORT;
+    if (!reportDir) {
+      warning(`PLAYWRIGHT_HTML_REPORT not set; cannot write ${filename}`);
+      return;
+    }
+    try {
+      fs.mkdirSync(reportDir, { recursive: true });
+      fs.writeFileSync(path.join(reportDir, filename), "1");
+    } catch (e) {
+      warning(`Failed to write ${filename}: ${e}`);
+    }
+  }
+
   onBegin(config: FullConfig, suite: Suite) {
     info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
+    // Heartbeat: records that the harness got far enough to start running the
+    // suite. Its absence on a failed run tells the probe the harness never
+    // started (npx/Playwright missing, config load error, early kill).
+    this.writeMarker("{{ .HarnessStartedMarkerFile }}");
   }
 
   onError(error: TestError) {
@@ -89,17 +109,7 @@ class CloudproberReporter implements Reporter {
     if (!this.internalError) {
       return;
     }
-    const reportDir = process.env.PLAYWRIGHT_HTML_REPORT;
-    if (!reportDir) {
-      warning("PLAYWRIGHT_HTML_REPORT not set; cannot write internal error marker");
-      return;
-    }
-    try {
-      fs.mkdirSync(reportDir, { recursive: true });
-      fs.writeFileSync(path.join(reportDir, "{{ .InternalErrorMarkerFile }}"), "1");
-    } catch (e) {
-      warning(`Failed to write internal error marker: ${e}`);
-    }
+    this.writeMarker("{{ .InternalErrorMarkerFile }}");
   }
 }
 export default CloudproberReporter;
