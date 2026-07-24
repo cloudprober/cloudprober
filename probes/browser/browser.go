@@ -23,6 +23,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -323,6 +324,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("playwrightDir is not provided through config or PLAYWRIGHT_DIR env variable")
 	}
 
+	if err := preflightFn(p.c.GetNpxPath(), p.playwrightDir); err != nil {
+		return fmt.Errorf("browser harness preflight failed: %v", err)
+	}
+
 	p.workdir = p.c.GetWorkdir()
 	if p.c.GetWorkdir() == "" {
 		d, err := os.MkdirTemp("", "cloudprober_"+p.name)
@@ -464,6 +469,28 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	}
 
 	return cmd, reportDir
+}
+
+// preflightFn verifies the browser harness's static dependencies at Init. It is
+// a package var so tests exercising other Init paths can stub it.
+var preflightFn = defaultPreflight
+
+// defaultPreflight fails loudly at Init when a misconfigured deployment is
+// missing the browser harness, rather than silently emitting internal_errors on
+// every run. It checks that npx resolves and the Playwright test package is
+// installed under playwrightDir. Browser-binary availability is intentionally
+// not checked here -- Playwright's versioned cache dirs make a static check
+// unreliable, and a missing/broken browser is caught per-run via the
+// internal_errors metric.
+func defaultPreflight(npxPath, playwrightDir string) error {
+	if _, err := exec.LookPath(npxPath); err != nil {
+		return fmt.Errorf("npx not found (npx_path=%q): %v", npxPath, err)
+	}
+	pwPkg := filepath.Join(playwrightDir, "node_modules", "@playwright", "test")
+	if _, err := os.Stat(pwPkg); err != nil {
+		return fmt.Errorf("playwright test package not found at %s (is Playwright installed in playwrightDir?): %v", pwPkg, err)
+	}
+	return nil
 }
 
 // classifyInternalError decides whether a failed browser run is an internal

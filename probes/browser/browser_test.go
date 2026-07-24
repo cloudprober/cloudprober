@@ -37,6 +37,12 @@ func TestProbePrepareCommand(t *testing.T) {
 	os.Setenv("PLAYWRIGHT_DIR", "/playwright")
 	defer os.Unsetenv("PLAYWRIGHT_DIR")
 
+	// This test exercises command construction, not harness validation, and
+	// uses fake playwright/npx paths that don't exist on disk. Stub the Init
+	// preflight so those paths don't trip it.
+	defer func(orig func(string, string) error) { preflightFn = orig }(preflightFn)
+	preflightFn = func(_, _ string) error { return nil }
+
 	baseEnvVars := func(pwDir string) []string {
 		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/" + playwrightReportDir, "PLAYWRIGHT_HTML_OPEN=never"}
 	}
@@ -565,6 +571,37 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDefaultPreflight(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake npx executable bit / LookPath semantics differ on Windows")
+	}
+
+	// A resolvable npx: a real executable file addressed by absolute path.
+	binDir := t.TempDir()
+	npx := filepath.Join(binDir, "npx")
+	if err := os.WriteFile(npx, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// A playwrightDir with @playwright/test installed.
+	pwDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(pwDir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("ok", func(t *testing.T) {
+		assert.NoError(t, defaultPreflight(npx, pwDir))
+	})
+	t.Run("npx_missing", func(t *testing.T) {
+		err := defaultPreflight(filepath.Join(binDir, "does-not-exist"), pwDir)
+		assert.ErrorContains(t, err, "npx not found")
+	})
+	t.Run("playwright_not_installed", func(t *testing.T) {
+		err := defaultPreflight(npx, t.TempDir())
+		assert.ErrorContains(t, err, "playwright test package not found")
+	})
 }
 
 func TestClassifyInternalError(t *testing.T) {
