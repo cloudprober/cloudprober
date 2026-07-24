@@ -15,6 +15,7 @@
 package browser
 
 import (
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -36,12 +37,18 @@ func TestProbePrepareCommand(t *testing.T) {
 	os.Setenv("PLAYWRIGHT_DIR", "/playwright")
 	defer os.Unsetenv("PLAYWRIGHT_DIR")
 
+	// This test exercises command construction, not harness validation, and
+	// uses fake playwright/npx paths that don't exist on disk. Stub the Init
+	// preflight so those paths don't trip it.
+	defer func(orig func(string, string) error) { preflightFn = orig }(preflightFn)
+	preflightFn = func(_, _ string) error { return nil }
+
 	baseEnvVars := func(pwDir string) []string {
 		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/" + playwrightReportDir, "PLAYWRIGHT_HTML_OPEN=never"}
 	}
 
 	cmdLine := func(npxPath string) []string {
-		return []string{npxPath, "playwright", "test", "--config={WORKDIR}/playwright.config.ts", "--output=${OUTPUT_DIR}/results", "--reporter=html,{WORKDIR}/cloudprober-reporter.ts"}
+		return []string{npxPath, "playwright", "test", "--config={WORKDIR}/playwright.config.ts", "--output=${OUTPUT_DIR}/results", "--reporter={WORKDIR}/cloudprober-reporter.ts,html"}
 	}
 
 	baseWantEMLabels := [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", ""}}
@@ -164,12 +171,12 @@ func TestProbePrepareCommand(t *testing.T) {
 
 func TestProbeOutputDirPath(t *testing.T) {
 	tests := []struct {
-		name       string
-		outputDir  string
-		target     endpoint.Endpoint
-		targets    []endpoint.Endpoint
-		ts         time.Time
-		want       string
+		name      string
+		outputDir string
+		target    endpoint.Endpoint
+		targets   []endpoint.Endpoint
+		ts        time.Time
+		want      string
 	}{
 		{
 			name:      "default",
@@ -368,6 +375,23 @@ func TestProbeInitTemplates(t *testing.T) {
 			for _, want := range tt.reporterNotContains {
 				assert.NotContains(t, string(got), want, "reporter file should not contain: %s", want)
 			}
+
+			// Internal-error detection is always wired up, regardless of the
+			// test/step metric options.
+			for _, want := range []string{
+				"onError(error: TestError)",
+				internalErrorMarkerFile,
+				"this.writeMarker(\"" + harnessStartedMarkerFile + "\")", // heartbeat
+				`"browserType.launch"`,                                   // narrow launch signature kept
+				`"Target crashed"`,                                       // narrow crash signature kept
+				"isLaunchError(error.message)",                           // onError is filtered, not blanket
+				`outcome() === "unexpected"`,                             // onEnd decides from final outcomes
+			} {
+				assert.Contains(t, string(got), want, "reporter file should contain: %s", want)
+			}
+			// The over-broad signature is dropped to avoid misclassifying
+			// ordinary target failures as internal errors.
+			assert.NotContains(t, string(got), `"Browser has been closed"`, "over-broad signature should be dropped")
 		})
 	}
 }
@@ -555,5 +579,90 @@ func TestProbeComputeTestSpecArgs(t *testing.T) {
 				assert.Equal(t, tt.wantArgs, got)
 			}
 		})
+	}
+}
+
+func TestDefaultPreflight(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake npx executable bit / LookPath semantics differ on Windows")
+	}
+
+	// A resolvable npx: a real executable file addressed by absolute path.
+	binDir := t.TempDir()
+	npx := filepath.Join(binDir, "npx")
+	if err := os.WriteFile(npx, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// A playwrightDir with @playwright/test installed.
+	pwDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(pwDir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("ok", func(t *testing.T) {
+		assert.NoError(t, defaultPreflight(npx, pwDir))
+	})
+	t.Run("npx_missing", func(t *testing.T) {
+		err := defaultPreflight(filepath.Join(binDir, "does-not-exist"), pwDir)
+		assert.ErrorContains(t, err, "npx not found")
+	})
+	t.Run("playwright_not_installed", func(t *testing.T) {
+		err := defaultPreflight(npx, t.TempDir())
+		assert.ErrorContains(t, err, "playwright test package not found")
+	})
+}
+
+func TestClassifyInternalError(t *testing.T) {
+	runErr := errors.New("playwright failed")
+	for _, tt := range []struct {
+		name          string
+		err           error
+		launchMarker  bool // internalErrorMarkerFile present
+		startedMarker bool // harnessStartedMarkerFile present (heartbeat)
+		want          bool
+	}{
+		// Successful run is never internal, even with a stale marker.
+		{name: "success_no_markers", err: nil, want: false},
+		{name: "success_with_launch_marker", err: nil, launchMarker: true, want: false},
+		// Failed run, harness started: target failure vs. reporter-flagged launch.
+		{name: "fail_target_failure", err: runErr, startedMarker: true, want: false},
+		{name: "fail_launch_after_start", err: runErr, startedMarker: true, launchMarker: true, want: true},
+		// Failed run, no heartbeat: harness never started (npx/PW missing, etc.).
+		{name: "fail_harness_never_started", err: runErr, want: true},
+		{name: "fail_no_heartbeat_with_launch_marker", err: runErr, launchMarker: true, want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			reportDir := t.TempDir()
+			if tt.launchMarker {
+				writeTestMarker(t, reportDir, internalErrorMarkerFile)
+			}
+			if tt.startedMarker {
+				writeTestMarker(t, reportDir, harnessStartedMarkerFile)
+			}
+			assert.Equal(t, tt.want, classifyInternalError(reportDir, tt.err))
+		})
+	}
+}
+
+func writeTestMarker(t *testing.T, dir, name string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte("1"), 0644); err != nil {
+		t.Fatalf("writing marker %s: %v", name, err)
+	}
+}
+
+func TestProbeRunResultMetrics(t *testing.T) {
+	prr := &probeRunResult{latency: metrics.NewFloat(0)}
+	prr.total.IncBy(2)
+	prr.success.Inc()
+	prr.internalErrors.Inc()
+
+	ems := prr.Metrics(time.Now(), 0, options.DefaultOptions())
+	if assert.Len(t, ems, 1) {
+		em := ems[0]
+		assert.Equal(t, "2", em.Metric("total").String())
+		assert.Equal(t, "1", em.Metric("success").String())
+		assert.Equal(t, "1", em.Metric("internal_errors").String())
 	}
 }

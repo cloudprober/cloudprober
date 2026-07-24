@@ -1,11 +1,30 @@
 import type {
-  Reporter, FullConfig, Suite, TestCase, TestStep, TestResult
+  Reporter, FullConfig, FullResult, Suite, TestCase, TestError, TestStep, TestResult
 } from '@playwright/test/reporter';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const info = (string: string) => process.stderr.write("INFO "+string+'\n');
 const warning = (string: string) => process.stderr.write("WARNING "+string+'\n');
 
 const print = (string: string) => process.stdout.write(string+'\n');
+
+// Error substrings that mean the browser harness failed (missing / failed to
+// launch / crashed) rather than the target. A match is still a failed run; it
+// only adds the internal_error count. In-test failures (locator/navigation
+// timeouts) don't match and stay normal failures.
+//
+// Kept narrow to avoid diluting the metric. Playwright's browser-has-been-closed
+// message is deliberately not a signature: it fires for ordinary target failures
+// (use-after-close / teardown races), not just harness failures.
+const launchErrorSignatures = [
+  "browserType.launch",
+  "Executable doesn't exist",
+  "Target crashed",
+];
+
+const isLaunchError = (message?: string) =>
+  message != null && launchErrorSignatures.some((sig) => message.includes(sig));
 
 const testLabels= (test: TestCase) => {
     var titleLabel = `test="${test.title.replace(/ /g,"_")}"`;
@@ -24,8 +43,44 @@ const testLabels= (test: TestCase) => {
 }
 
 class CloudproberReporter implements Reporter {
+  // A run-level (onError) error whose message matched a launch/crash signature.
+  private runLevelInternal = false;
+  // Tests that hit a launch/crash error on a failing attempt. Counted at onEnd
+  // only if the test finally failed ("unexpected"); a retry-recovered crash
+  // ("flaky") does not count.
+  private launchFailedTests = new Set<TestCase>();
+
+  // writeMarker writes a zero-content marker file into the playwright report
+  // dir that the probe (Go side) reads after the process exits.
+  private writeMarker(filename: string) {
+    const reportDir = process.env.PLAYWRIGHT_HTML_REPORT;
+    if (!reportDir) {
+      warning(`PLAYWRIGHT_HTML_REPORT not set; cannot write ${filename}`);
+      return;
+    }
+    try {
+      fs.mkdirSync(reportDir, { recursive: true });
+      fs.writeFileSync(path.join(reportDir, filename), "1");
+    } catch (e) {
+      warning(`Failed to write ${filename}: ${e}`);
+    }
+  }
+
   onBegin(config: FullConfig, suite: Suite) {
     info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
+    // Heartbeat: marks that the harness started running the suite; its absence
+    // on a failed run tells the probe the harness never started.
+    this.writeMarker("{{ .HarnessStartedMarkerFile }}");
+  }
+
+  onError(error: TestError) {
+    warning(`Run-level error (not attached to a test): ${JSON.stringify(error)}`);
+    // onError fires for any global/worker error, including test-author bugs.
+    // Only a launch/crash message counts as internal; a never-started harness
+    // is caught by the missing heartbeat instead.
+    if (isLaunchError(error.message)) {
+      this.runLevelInternal = true;
+    }
   }
 
   onTestBegin(test: TestCase) {
@@ -50,10 +105,25 @@ class CloudproberReporter implements Reporter {
     if (result.status !== "passed" && result.status !== "skipped") {
       warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
     }
+    if (result.status !== "passed" && (result.errors || []).some((e) => isLaunchError(e.message))) {
+      this.launchFailedTests.add(test);
+    }
     {{ if not .DisableTestMetrics }}
     print(`test_status{${testLabels(test)},status="${result.status}"} 1`);
     print(`test_latency{${testLabels(test)},status="${result.status}"} ${result.duration*1000}`);
     {{ end }}
+  }
+
+  onEnd(result: FullResult) {
+    // Mark internal only if a launch/crash-failing test finally failed, or a
+    // run-level launch error was seen. Retry-recovered crashes ("flaky") and
+    // ordinary target failures don't qualify.
+    const testCausedInternal =
+      Array.from(this.launchFailedTests).some((t) => t.outcome() === "unexpected");
+    if (!this.runLevelInternal && !testCausedInternal) {
+      return;
+    }
+    this.writeMarker("{{ .InternalErrorMarkerFile }}");
   }
 }
 export default CloudproberReporter;
