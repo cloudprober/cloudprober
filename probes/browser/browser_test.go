@@ -377,19 +377,15 @@ func TestProbeInitTemplates(t *testing.T) {
 			}
 
 			// Internal-error detection is always wired up, regardless of the
-			// test/step metric options: onError + launch-error marker for
-			// in-run harness failures, and the onBegin heartbeat marker whose
-			// absence flags a harness that never started.
+			// test/step metric options.
 			for _, want := range []string{
 				"onError(error: TestError)",
 				internalErrorMarkerFile,
-				harnessStartedMarkerFile,
-				"this.writeMarker(\"" + harnessStartedMarkerFile + "\")",
-				// Narrowed, filtered classification (layer 3):
-				`"browserType.launch"`,         // narrow launch signature kept
-				`"Target crashed"`,             // narrow crash signature kept
-				"isLaunchError(error.message)", // onError is filtered, not blanket
-				`outcome() === "unexpected"`,   // onEnd decides from final outcomes
+				"this.writeMarker(\"" + harnessStartedMarkerFile + "\")", // heartbeat
+				`"browserType.launch"`,                                   // narrow launch signature kept
+				`"Target crashed"`,                                       // narrow crash signature kept
+				"isLaunchError(error.message)",                           // onError is filtered, not blanket
+				`outcome() === "unexpected"`,                             // onEnd decides from final outcomes
 			} {
 				assert.Contains(t, string(got), want, "reporter file should contain: %s", want)
 			}

@@ -9,17 +9,14 @@ const warning = (string: string) => process.stderr.write("WARNING "+string+'\n')
 
 const print = (string: string) => process.stdout.write(string+'\n');
 
-// Error substrings that indicate the browser harness itself failed (browser
-// missing, browser failed to launch, browser crashed) rather than the target
-// under test failing. A matching run is still a failed run; the marker only
-// tells the probe to also count it as an internal_error. In-test failures
-// (e.g. a locator/navigation timeout) do not match any of these and are
-// treated as normal failures.
+// Error substrings that mean the browser harness failed (missing / failed to
+// launch / crashed) rather than the target. A match is still a failed run; it
+// only adds the internal_error count. In-test failures (locator/navigation
+// timeouts) don't match and stay normal failures.
 //
-// Signatures are kept narrow to avoid diluting the metric. Notably "Browser
-// has been closed" is excluded: Playwright reports "Target page, context or
-// browser has been closed" for ordinary use-after-close / teardown races in
-// non-harness failures, so it would misclassify many target failures.
+// Kept narrow to avoid diluting the metric. Playwright's browser-has-been-closed
+// message is deliberately not a signature: it fires for ordinary target failures
+// (use-after-close / teardown races), not just harness failures.
 const launchErrorSignatures = [
   "browserType.launch",
   "Executable doesn't exist",
@@ -48,10 +45,9 @@ const testLabels= (test: TestCase) => {
 class CloudproberReporter implements Reporter {
   // A run-level (onError) error whose message matched a launch/crash signature.
   private runLevelInternal = false;
-  // Tests that hit a launch/crash error on a failing attempt. At onEnd we count
-  // the run internal only if one of these FINALLY failed (outcome
-  // "unexpected"); a crash that a retry recovered from (outcome "flaky") does
-  // not count, and an unrelated normal failure is never in this set.
+  // Tests that hit a launch/crash error on a failing attempt. Counted at onEnd
+  // only if the test finally failed ("unexpected"); a retry-recovered crash
+  // ("flaky") does not count.
   private launchFailedTests = new Set<TestCase>();
 
   // writeMarker writes a zero-content marker file into the playwright report
@@ -72,18 +68,16 @@ class CloudproberReporter implements Reporter {
 
   onBegin(config: FullConfig, suite: Suite) {
     info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
-    // Heartbeat: records that the harness got far enough to start running the
-    // suite. Its absence on a failed run tells the probe the harness never
-    // started (npx/Playwright missing, config load error, early kill).
+    // Heartbeat: marks that the harness started running the suite; its absence
+    // on a failed run tells the probe the harness never started.
     this.writeMarker("{{ .HarnessStartedMarkerFile }}");
   }
 
   onError(error: TestError) {
     warning(`Run-level error (not attached to a test): ${JSON.stringify(error)}`);
-    // onError fires for any global/worker error, including test-author bugs and
-    // config mistakes. Only treat it as internal if it looks like a browser
-    // launch/crash; other run-level failures are already a failed run and, if
-    // the harness never started, are caught by the missing heartbeat instead.
+    // onError fires for any global/worker error, including test-author bugs.
+    // Only a launch/crash message counts as internal; a never-started harness
+    // is caught by the missing heartbeat instead.
     if (isLaunchError(error.message)) {
       this.runLevelInternal = true;
     }
@@ -121,12 +115,9 @@ class CloudproberReporter implements Reporter {
   }
 
   onEnd(result: FullResult) {
-    // Decide from final outcomes, not a sticky flag: count the run internal only
-    // if a launch/crash-failing test ultimately failed, or a run-level launch
-    // error was seen. A crash a retry recovered from ("flaky") does not count,
-    // and an ordinary target failure is never in launchFailedTests. There is no
-    // status gate: the Go side only counts internal_errors on a non-zero exit,
-    // so a passed/exit-0 run is already never counted.
+    // Mark internal only if a launch/crash-failing test finally failed, or a
+    // run-level launch error was seen. Retry-recovered crashes ("flaky") and
+    // ordinary target failures don't qualify.
     const testCausedInternal =
       Array.from(this.launchFailedTests).some((t) => t.outcome() === "unexpected");
     if (!this.runLevelInternal && !testCausedInternal) {

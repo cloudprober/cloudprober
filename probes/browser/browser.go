@@ -58,11 +58,9 @@ const playwrightReportDir = "_playwright_report"
 // (browser missing, browser failed to launch/crashed) rather than the target.
 const internalErrorMarkerFile = "cloudprober_internal_error"
 
-// harnessStartedMarkerFile is written into the playwright report dir by the
-// cloudprober reporter's onBegin hook, i.e. once Playwright has started running
-// the suite. Its absence on a failed run means the harness never got that far
-// (npx/Playwright missing, config load error, or the process was killed before
-// onBegin), which we classify as an internal error.
+// harnessStartedMarkerFile is written by the reporter's onBegin hook, once the
+// suite starts running. Its absence on a failed run means the harness never
+// started. See classifyInternalError.
 const harnessStartedMarkerFile = "cloudprober_harness_started"
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -440,10 +438,8 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		"test",
 		"--config=" + p.playwrightConfigPath,
 		"--output=" + filepath.Join(outputDir, "results"),
-		// The cloudprober reporter is listed before html so that, on a tight
-		// timeout teardown, its tiny marker write in onEnd runs before html's
-		// (potentially slow) report serialization -- and before the probe's
-		// SIGKILL lands.
+		// cloudprober reporter before html: on a tight timeout teardown its
+		// small onEnd marker write should land before html's slow serialization.
 		"--reporter=" + p.reporterPath + ",html",
 	}
 	cmdLine = append(cmdLine, p.testSpecArgs...)
@@ -475,13 +471,11 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 // a package var so tests exercising other Init paths can stub it.
 var preflightFn = defaultPreflight
 
-// defaultPreflight fails loudly at Init when a misconfigured deployment is
-// missing the browser harness, rather than silently emitting internal_errors on
-// every run. It checks that npx resolves and the Playwright test package is
-// installed under playwrightDir. Browser-binary availability is intentionally
-// not checked here -- Playwright's versioned cache dirs make a static check
-// unreliable, and a missing/broken browser is caught per-run via the
-// internal_errors metric.
+// defaultPreflight fails Init loudly when the browser harness is missing (npx
+// unresolvable, or @playwright/test not installed under playwrightDir), instead
+// of emitting internal_errors on every run. Browser-binary availability is left
+// to the per-run internal_errors signal: Playwright's versioned cache dirs make
+// a static check unreliable.
 func defaultPreflight(npxPath, playwrightDir string) error {
 	if _, err := exec.LookPath(npxPath); err != nil {
 		return fmt.Errorf("npx not found (npx_path=%q): %v", npxPath, err)
@@ -494,22 +488,18 @@ func defaultPreflight(npxPath, playwrightDir string) error {
 }
 
 // classifyInternalError decides whether a failed browser run is an internal
-// (harness/infra) error rather than a target failure, from the reporter markers
-// left in reportDir. Two signals cover the two harness-failure regions:
-//  1. internalErrorMarkerFile present: the reporter saw a browser launch/crash
-//     failure while the harness was running.
-//  2. harnessStartedMarkerFile absent: the harness never reached onBegin
-//     (npx/Playwright missing, config load error, or killed before start).
-//
-// A successful run (err == nil) is never an internal error, even if a stale or
-// spurious marker is present.
+// (harness) error rather than a target failure, from the reporter markers in
+// reportDir. A run is internal if the reporter flagged a browser launch/crash
+// (internalErrorMarkerFile present), or the harness never started
+// (harnessStartedMarkerFile absent). A successful run is never internal,
+// regardless of a stale or spurious marker.
 func classifyInternalError(reportDir string, err error) bool {
 	if err == nil {
 		return false
 	}
 	_, launchMarkerErr := os.Stat(filepath.Join(reportDir, internalErrorMarkerFile))
-	_, startedErr := os.Stat(filepath.Join(reportDir, harnessStartedMarkerFile))
-	return launchMarkerErr == nil || startedErr != nil
+	_, heartbeatErr := os.Stat(filepath.Join(reportDir, harnessStartedMarkerFile))
+	return launchMarkerErr == nil || heartbeatErr != nil
 }
 
 func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRequest, resultMu *sync.Mutex) {
