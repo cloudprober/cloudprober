@@ -11,13 +11,18 @@ const print = (string: string) => process.stdout.write(string+'\n');
 
 // Error substrings that indicate the browser harness itself failed (browser
 // missing, browser failed to launch, browser crashed) rather than the target
-// under test failing. These map to an internal_error rather than a probe
-// failure. In-test failures (e.g. a locator/navigation timeout) do not match
-// any of these and are treated as normal failures.
+// under test failing. A matching run is still a failed run; the marker only
+// tells the probe to also count it as an internal_error. In-test failures
+// (e.g. a locator/navigation timeout) do not match any of these and are
+// treated as normal failures.
+//
+// Signatures are kept narrow to avoid diluting the metric. Notably "Browser
+// has been closed" is excluded: Playwright reports "Target page, context or
+// browser has been closed" for ordinary use-after-close / teardown races in
+// non-harness failures, so it would misclassify many target failures.
 const launchErrorSignatures = [
   "browserType.launch",
   "Executable doesn't exist",
-  "Browser has been closed",
   "Target crashed",
 ];
 
@@ -41,8 +46,9 @@ const testLabels= (test: TestCase) => {
 }
 
 class CloudproberReporter implements Reporter {
-  // Set when the run fails outside the test body: a run-level error reported via
-  // onError, or a browser-launch failure attached to a test's before-hooks.
+  // Set only for harness failures: a run-level error whose message matches a
+  // launch/crash signature, or a browser-launch failure attached to a test.
+  // Ordinary test-author bugs surfaced via onError do not set it.
   private internalError = false;
 
   // writeMarker writes a zero-content marker file into the playwright report
@@ -71,7 +77,13 @@ class CloudproberReporter implements Reporter {
 
   onError(error: TestError) {
     warning(`Run-level error (not attached to a test): ${JSON.stringify(error)}`);
-    this.internalError = true;
+    // onError fires for any global/worker error, including test-author bugs and
+    // config mistakes. Only treat it as internal if it looks like a browser
+    // launch/crash; other run-level failures are already a failed run and, if
+    // the harness never started, are caught by the missing heartbeat instead.
+    if (isLaunchError(error.message)) {
+      this.internalError = true;
+    }
   }
 
   onTestBegin(test: TestCase) {
@@ -106,7 +118,10 @@ class CloudproberReporter implements Reporter {
   }
 
   onEnd(result: FullResult) {
-    if (!this.internalError) {
+    // Gate on the final outcome as well as the sticky flag: with retries, a
+    // launch failure on one attempt can set internalError while a later attempt
+    // passes. Don't mark a run the suite ultimately reports as passed.
+    if (!this.internalError || result.status === "passed") {
       return;
     }
     this.writeMarker("{{ .InternalErrorMarkerFile }}");

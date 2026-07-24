@@ -380,9 +380,22 @@ func TestProbeInitTemplates(t *testing.T) {
 			// test/step metric options: onError + launch-error marker for
 			// in-run harness failures, and the onBegin heartbeat marker whose
 			// absence flags a harness that never started.
-			for _, want := range []string{"onError(error: TestError)", internalErrorMarkerFile, harnessStartedMarkerFile, "this.writeMarker(\"" + harnessStartedMarkerFile + "\")"} {
+			for _, want := range []string{
+				"onError(error: TestError)",
+				internalErrorMarkerFile,
+				harnessStartedMarkerFile,
+				"this.writeMarker(\"" + harnessStartedMarkerFile + "\")",
+				// Narrowed, filtered classification (layer 3):
+				`"browserType.launch"`,         // narrow launch signature kept
+				`"Target crashed"`,             // narrow crash signature kept
+				"isLaunchError(error.message)", // onError is filtered, not blanket
+				`result.status === "passed"`,   // onEnd gated on final outcome
+			} {
 				assert.Contains(t, string(got), want, "reporter file should contain: %s", want)
 			}
+			// The over-broad signature is dropped to avoid misclassifying
+			// ordinary target failures as internal errors.
+			assert.NotContains(t, string(got), `"Browser has been closed"`, "over-broad signature should be dropped")
 		})
 	}
 }
