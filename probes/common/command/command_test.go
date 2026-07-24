@@ -154,3 +154,30 @@ func TestCommand(t *testing.T) {
 		})
 	}
 }
+
+// TestProcessStderr verifies that, in streaming mode, ProcessStderr receives
+// the child's stderr lines and that Execute drains them before returning (so
+// reading the captured lines afterwards is race-free). TestShellProcessSuccess
+// writes a "Running test command." line to stderr.
+func TestProcessStderr(t *testing.T) {
+	var stderr []string
+	p := &Command{
+		CmdLine:                []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd"},
+		EnvVars:                []string{"GO_CP_TEST_PROCESS=1"},
+		ProcessStreamingOutput: func([]byte) {},
+		ProcessStderr: func(line []byte) {
+			stderr = append(stderr, string(line))
+		},
+	}
+
+	_, err := p.Execute(context.Background(), nil)
+	assert.NoError(t, err)
+
+	found := false
+	for _, line := range stderr {
+		if strings.Contains(line, "Running test command.") {
+			found = true
+		}
+	}
+	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
+}

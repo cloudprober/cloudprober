@@ -33,8 +33,17 @@ import (
 )
 
 func TestProbePrepareCommand(t *testing.T) {
-	os.Setenv("PLAYWRIGHT_DIR", "/playwright")
-	defer os.Unsetenv("PLAYWRIGHT_DIR")
+	// npx is a real, resolvable executable that stands in for npx so the Init
+	// preflight (exec.LookPath) passes. playwrightDir must contain
+	// node_modules/@playwright/test for the preflight to pass too.
+	npx := os.Args[0]
+	pwDir, appDir := t.TempDir(), t.TempDir()
+	for _, d := range []string{pwDir, appDir} {
+		if err := os.MkdirAll(filepath.Join(d, "node_modules", "@playwright", "test"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PLAYWRIGHT_DIR", pwDir)
 
 	baseEnvVars := func(pwDir string) []string {
 		return []string{"NODE_PATH=" + pwDir + "/node_modules", "PLAYWRIGHT_HTML_REPORT={OUTPUT_DIR}/" + playwrightReportDir, "PLAYWRIGHT_HTML_OPEN=never"}
@@ -51,7 +60,6 @@ func TestProbePrepareCommand(t *testing.T) {
 	tests := []struct {
 		name               string
 		disableAggregation bool
-		npxPath            string
 		playwrightDir      string
 		testSpec           []string
 		target             endpoint.Endpoint
@@ -62,49 +70,41 @@ func TestProbePrepareCommand(t *testing.T) {
 	}{
 		{
 			name:         "default",
-			wantCmdLine:  cmdLine("npx"),
-			wantEnvVars:  baseEnvVars("/playwright"),
-			wantWorkDir:  "/playwright",
+			wantCmdLine:  cmdLine(npx),
+			wantEnvVars:  baseEnvVars(pwDir),
+			wantWorkDir:  pwDir,
 			wantEMLabels: baseWantEMLabels,
 		},
 		{
 			name:         "with_target",
 			target:       endpoint.Endpoint{Name: "test_target", IP: net.ParseIP("12.12.12.12"), Port: 9313, Labels: map[string]string{"env": "prod"}},
-			wantCmdLine:  cmdLine("npx"),
-			wantEnvVars:  append(baseEnvVars("/playwright"), "target_name=test_target", "target_ip=12.12.12.12", "target_port=9313", "target_label_env=prod"),
-			wantWorkDir:  "/playwright",
+			wantCmdLine:  cmdLine(npx),
+			wantEnvVars:  append(baseEnvVars(pwDir), "target_name=test_target", "target_ip=12.12.12.12", "target_port=9313", "target_label_env=prod"),
+			wantWorkDir:  pwDir,
 			wantEMLabels: [][2]string{{"ptype", "browser"}, {"probe", "test_browser"}, {"dst", "test_target:9313"}},
 		},
 		{
 			name:               "disable_aggregation",
 			disableAggregation: true,
-			wantCmdLine:        cmdLine("npx"),
-			wantEnvVars:        baseEnvVars("/playwright"),
-			wantWorkDir:        "/playwright",
+			wantCmdLine:        cmdLine(npx),
+			wantEnvVars:        baseEnvVars(pwDir),
+			wantWorkDir:        pwDir,
 			wantEMLabels:       append(baseWantEMLabels, [2]string{"run_id", "0"}),
 		},
 		{
 			name:          "with_playwright_dir",
-			playwrightDir: "/app",
-			wantCmdLine:   cmdLine("npx"),
-			wantEnvVars:   baseEnvVars("/app"),
-			wantWorkDir:   "/app",
+			playwrightDir: appDir,
+			wantCmdLine:   cmdLine(npx),
+			wantEnvVars:   baseEnvVars(appDir),
+			wantWorkDir:   appDir,
 			wantEMLabels:  baseWantEMLabels,
-		},
-		{
-			name:         "with_npx_path",
-			npxPath:      "/usr/bin/npx",
-			wantCmdLine:  cmdLine("/usr/bin/npx"),
-			wantEnvVars:  baseEnvVars("/playwright"),
-			wantWorkDir:  "/playwright",
-			wantEMLabels: baseWantEMLabels,
 		},
 		{
 			name:         "with_test_spec",
 			testSpec:     []string{"test_spec_1", "test_spec_2"},
-			wantCmdLine:  append(cmdLine("npx"), "^.*/test_spec_1$", "^.*/test_spec_2$"),
-			wantEnvVars:  baseEnvVars("/playwright"),
-			wantWorkDir:  "/playwright",
+			wantCmdLine:  append(cmdLine(npx), "^.*/test_spec_1$", "^.*/test_spec_2$"),
+			wantEnvVars:  baseEnvVars(pwDir),
+			wantWorkDir:  pwDir,
 			wantEMLabels: baseWantEMLabels,
 		},
 	}
@@ -113,15 +113,13 @@ func TestProbePrepareCommand(t *testing.T) {
 			conf := &configpb.ProbeConf{
 				TestSpec: tt.testSpec,
 				TestDir:  &testDir,
+				NpxPath:  proto.String(npx),
 				TestMetricsOptions: &configpb.TestMetricsOptions{
 					DisableAggregation: &tt.disableAggregation,
 				},
 			}
 			if tt.playwrightDir != "" {
 				conf.PlaywrightDir = &tt.playwrightDir
-			}
-			if tt.npxPath != "" {
-				conf.NpxPath = proto.String(filepath.FromSlash(tt.npxPath))
 			}
 
 			opts := options.DefaultOptions()
@@ -162,14 +160,72 @@ func TestProbePrepareCommand(t *testing.T) {
 	}
 }
 
+func TestInitPreflight(t *testing.T) {
+	// A playwright dir that has the @playwright/test package installed.
+	pwOK := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(pwOK, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name          string
+		npxPath       string
+		playwrightDir string
+		wantErr       string
+	}{
+		{
+			name:          "npx_missing",
+			npxPath:       "cloudprober-nonexistent-npx-xyz",
+			playwrightDir: pwOK,
+			wantErr:       "npx not found",
+		},
+		{
+			name:          "playwright_missing",
+			npxPath:       os.Args[0],
+			playwrightDir: t.TempDir(), // no node_modules/@playwright/test
+			wantErr:       "playwright is not installed",
+		},
+		{
+			name:          "ok",
+			npxPath:       os.Args[0],
+			playwrightDir: pwOK,
+			wantErr:       "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conf := &configpb.ProbeConf{
+				NpxPath:       proto.String(tt.npxPath),
+				PlaywrightDir: proto.String(tt.playwrightDir),
+			}
+			opts := options.DefaultOptions()
+			opts.ProbeConf = conf
+
+			err := (&Probe{}).Init("test_browser", opts)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestBrowserMissingRe(t *testing.T) {
+	missing := "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium-1091/chrome-linux/chrome\n" +
+		"Please run the following command to download new browsers:\nnpx playwright install"
+	assert.True(t, browserMissingRe.MatchString(missing))
+	assert.False(t, browserMissingRe.MatchString("Error: expect(received).toBe(expected)"))
+}
+
 func TestProbeOutputDirPath(t *testing.T) {
 	tests := []struct {
-		name       string
-		outputDir  string
-		target     endpoint.Endpoint
-		targets    []endpoint.Endpoint
-		ts         time.Time
-		want       string
+		name      string
+		outputDir string
+		target    endpoint.Endpoint
+		targets   []endpoint.Endpoint
+		ts        time.Time
+		want      string
 	}{
 		{
 			name:      "default",

@@ -29,6 +29,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/cloudprober/cloudprober/logger"
@@ -55,7 +56,11 @@ type Command struct {
 	EnvVars                []string
 	WorkDir                string
 	ProcessStreamingOutput func([]byte)
-	RawStderrOutput        bool
+	// ProcessStderr, if set, is called for each stderr line (in addition to
+	// the usual logging). It lets callers inspect stderr while streaming, e.g.
+	// to classify known failure signatures. Only used in streaming mode.
+	ProcessStderr   func([]byte)
+	RawStderrOutput bool
 
 	// We create a goroutine to wait for child processes to finish. This field
 	// dictates how long will that goroutine wait for child processes to finish
@@ -64,11 +69,15 @@ type Command struct {
 	ChildProcessWaitTime time.Duration
 }
 
-func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
+// setupStreaming wires up stdout/stderr streaming for cmd. It returns a wait
+// function that blocks until all streamed output has been processed; callers
+// must invoke it after the process exits so that ProcessStreamingOutput and
+// ProcessStderr are guaranteed to have seen every line.
+func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error) {
 	stdout := make(chan []byte)
 	stdoutR, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	go func() {
 		defer close(stdout)
@@ -89,9 +98,14 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
 	// Capture stderr
 	stderrR, err := cmd.StderrPipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	go func() {
+		defer wg.Done()
 		defer stderrR.Close()
 		scanner := bufio.NewScanner(stderrR)
 
@@ -104,6 +118,9 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
 			} else {
 				l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", c.CmdLine[0]))
 			}
+			if c.ProcessStderr != nil {
+				c.ProcessStderr(scanner.Bytes())
+			}
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			l.ErrorAttrs(fmt.Sprintf("Error reading from stderr: %v", err), slog.String("process_path", c.CmdLine[0]))
@@ -111,12 +128,13 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) error {
 	}()
 
 	go func() {
+		defer wg.Done()
 		for line := range stdout {
 			c.ProcessStreamingOutput(line)
 		}
 	}()
 
-	return nil
+	return wg.Wait, nil
 }
 
 func (c *Command) Execute(ctx context.Context, l *logger.Logger) (string, error) {
@@ -134,16 +152,22 @@ func (c *Command) Execute(ctx context.Context, l *logger.Logger) (string, error)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
+	var waitStreaming func()
 	if c.ProcessStreamingOutput != nil {
-		if err := c.setupStreaming(cmd, l); err != nil {
+		w, err := c.setupStreaming(cmd, l)
+		if err != nil {
 			return "", fmt.Errorf("error setting up stdout/stderr streaming: %v", err)
 		}
+		waitStreaming = w
 	} else {
 		cmd.Stdout, cmd.Stderr = &stdoutBuf, &stderrBuf
 	}
 
 	l.Debugf("Running command: %v", cmd)
 	err := runCommand(ctx, cmd, c.ChildProcessWaitTime)
+	if waitStreaming != nil {
+		waitStreaming()
+	}
 
 	if err != nil {
 		stdout, stderr := stdoutBuf.String(), stderrBuf.String()

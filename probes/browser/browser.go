@@ -23,6 +23,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -51,6 +52,12 @@ import (
 )
 
 const playwrightReportDir = "_playwright_report"
+
+// browserMissingRe matches Playwright's error when the browser binary is not
+// installed, e.g. "browserType.launch: Executable doesn't exist at
+// /path/to/chromium... Please run the following command to download new
+// browsers: npx playwright install". We treat this as an internal error.
+var browserMissingRe = regexp.MustCompile(`Executable doesn't exist`)
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
@@ -91,8 +98,14 @@ var templates embed.FS
 // (see documentation with statsKeeper below). That's the reason we use metrics.Int
 // types instead of metrics.AtomicInt.
 type probeRunResult struct {
-	total             metrics.Int
-	success           metrics.Int
+	total   metrics.Int
+	success metrics.Int
+	// internalErrors counts runs that failed because of environment/infra
+	// problems (a missing browser binary today) rather than the target being
+	// unhealthy. Such runs still count as failures (total moves, success
+	// doesn't); internal_errors tells "environment broken" apart from "target
+	// down".
+	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
 }
@@ -118,6 +131,7 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
+		AddMetric("internal_errors", &prr.internalErrors).
 		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
 		AddLabel("ptype", "browser")
 
@@ -305,6 +319,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("playwrightDir is not provided through config or PLAYWRIGHT_DIR env variable")
 	}
 
+	// Preflight: npx and the Playwright package are static install-time
+	// dependencies -- if they're missing the probe can never run, so fail here
+	// (fatal) with a clear message rather than silently failing every run.
+	if _, err := exec.LookPath(p.c.GetNpxPath()); err != nil {
+		return fmt.Errorf("npx not found (npx_path=%q): %v", p.c.GetNpxPath(), err)
+	}
+	if _, err := os.Stat(filepath.Join(p.playwrightDir, "node_modules", "@playwright", "test")); err != nil {
+		return fmt.Errorf("playwright is not installed in %s (missing node_modules/@playwright/test): %v", p.playwrightDir, err)
+	}
+
 	p.workdir = p.c.GetWorkdir()
 	if p.c.GetWorkdir() == "" {
 		d, err := os.MkdirTemp("", "cloudprober_"+p.name)
@@ -449,6 +473,16 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 	startTime := time.Now()
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
+
+	// browserMissing is set from the stderr streaming goroutine. cmd.Execute
+	// drains all stderr before returning, so it's safe to read afterwards.
+	var browserMissing bool
+	cmd.ProcessStderr = func(line []byte) {
+		if browserMissingRe.Match(line) {
+			browserMissing = true
+		}
+	}
+
 	_, err := cmd.Execute(ctx, p.l)
 
 	if err != nil {
@@ -471,6 +505,9 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 
 	runReq.LastRun.Set(err == nil, latency, err)
 	if err != nil {
+		if browserMissing {
+			result.internalErrors.Inc()
+		}
 		return
 	}
 
