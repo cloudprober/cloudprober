@@ -70,9 +70,14 @@ type Command struct {
 }
 
 // setupStreaming wires up stdout/stderr streaming for cmd. It returns a wait
-// function that blocks until all streamed output has been processed; callers
-// must invoke it after the process exits so that ProcessStreamingOutput and
-// ProcessStderr are guaranteed to have seen every line.
+// function that blocks until all stderr has been processed; callers must invoke
+// it after the process exits so that ProcessStderr is guaranteed to have seen
+// every line (e.g. to classify failure signatures). We only wait on stderr:
+// stderr processing is bounded (logging + a caller-supplied matcher), whereas
+// the stdout consumer runs ProcessStreamingOutput, which for our probes writes
+// to a metrics channel and could block on back-pressure -- we don't want
+// Execute's return gated on that. The pipe reads themselves can't hang: cmd.Wait
+// closes the pipe read ends on process exit, unblocking the scanners.
 func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error) {
 	stdout := make(chan []byte)
 	stdoutR, err := cmd.StdoutPipe()
@@ -102,7 +107,7 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
@@ -128,7 +133,6 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 	}()
 
 	go func() {
-		defer wg.Done()
 		for line := range stdout {
 			c.ProcessStreamingOutput(line)
 		}
