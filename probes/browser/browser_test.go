@@ -180,10 +180,10 @@ func TestInitPreflight(t *testing.T) {
 			wantErr:       "npx not found",
 		},
 		{
-			name:          "playwright_missing",
+			name:          "playwright_missing_is_not_fatal",
 			npxPath:       os.Args[0],
-			playwrightDir: t.TempDir(), // no node_modules/@playwright/test
-			wantErr:       "playwright is not installed",
+			playwrightDir: t.TempDir(), // no node_modules/@playwright/test; warns, doesn't fail
+			wantErr:       "",
 		},
 		{
 			name:          "ok",
@@ -211,11 +211,14 @@ func TestInitPreflight(t *testing.T) {
 	}
 }
 
-func TestBrowserMissingRe(t *testing.T) {
-	missing := "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium-1091/chrome-linux/chrome\n" +
+func TestInternalErrorRe(t *testing.T) {
+	browserMissing := "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium-1091/chrome-linux/chrome\n" +
 		"Please run the following command to download new browsers:\nnpx playwright install"
-	assert.True(t, browserMissingRe.MatchString(missing))
-	assert.False(t, browserMissingRe.MatchString("Error: expect(received).toBe(expected)"))
+	playwrightMissing := "npm error could not determine executable to run"
+
+	assert.True(t, internalErrorRe.MatchString(browserMissing))
+	assert.True(t, internalErrorRe.MatchString(playwrightMissing))
+	assert.False(t, internalErrorRe.MatchString("Error: expect(received).toBe(expected)"))
 }
 
 func TestProbeOutputDirPath(t *testing.T) {

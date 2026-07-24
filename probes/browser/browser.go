@@ -53,11 +53,14 @@ import (
 
 const playwrightReportDir = "_playwright_report"
 
-// browserMissingRe matches Playwright's error when the browser binary is not
-// installed, e.g. "browserType.launch: Executable doesn't exist at
-// /path/to/chromium... Please run the following command to download new
-// browsers: npx playwright install". We treat this as an internal error.
-var browserMissingRe = regexp.MustCompile(`Executable doesn't exist`)
+// internalErrorRe matches process-output signatures that indicate an
+// environment/infra problem rather than a target failure, so the run is
+// counted as an internal_error:
+//   - a missing browser binary -- Playwright's "browserType.launch: Executable
+//     doesn't exist at ..." error, and
+//   - an unresolvable Playwright package -- npx's "could not determine
+//     executable to run" error.
+var internalErrorRe = regexp.MustCompile(`Executable doesn't exist|could not determine executable to run`)
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
@@ -319,14 +322,19 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("playwrightDir is not provided through config or PLAYWRIGHT_DIR env variable")
 	}
 
-	// Preflight: npx and the Playwright package are static install-time
-	// dependencies -- if they're missing the probe can never run, so fail here
-	// (fatal) with a clear message rather than silently failing every run.
+	// Preflight: npx must be resolvable -- it's the command we exec, so a
+	// missing npx means the probe can never run. Fail here (fatal) with a clear
+	// message rather than silently failing every run.
 	if _, err := exec.LookPath(p.c.GetNpxPath()); err != nil {
 		return fmt.Errorf("npx not found (npx_path=%q): %v", p.c.GetNpxPath(), err)
 	}
+	// The Playwright package's location isn't guaranteed to be under
+	// playwrightDir: Node resolves it via NODE_PATH, the cwd walk-up, or a
+	// global install. So this is only a heads-up warning; if it's genuinely
+	// unresolvable at runtime, the run is counted as an internal_error (see
+	// internalErrorRe).
 	if _, err := os.Stat(filepath.Join(p.playwrightDir, "node_modules", "@playwright", "test")); err != nil {
-		return fmt.Errorf("playwright is not installed in %s (missing node_modules/@playwright/test): %v", p.playwrightDir, err)
+		p.l.Warningf("Playwright package not found under %s (node_modules/@playwright/test); relying on Node module resolution at runtime", p.playwrightDir)
 	}
 
 	p.workdir = p.c.GetWorkdir()
@@ -474,12 +482,12 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
 
-	// browserMissing is set from the stderr streaming goroutine. cmd.Execute
+	// internalErr is set from the stderr streaming goroutine. cmd.Execute
 	// drains all stderr before returning, so it's safe to read afterwards.
-	var browserMissing bool
+	var internalErr bool
 	cmd.ProcessStderr = func(line []byte) {
-		if browserMissingRe.Match(line) {
-			browserMissing = true
+		if internalErrorRe.Match(line) {
+			internalErr = true
 		}
 	}
 
@@ -505,7 +513,7 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 
 	runReq.LastRun.Set(err == nil, latency, err)
 	if err != nil {
-		if browserMissing {
+		if internalErr {
 			result.internalErrors.Inc()
 		}
 		return
