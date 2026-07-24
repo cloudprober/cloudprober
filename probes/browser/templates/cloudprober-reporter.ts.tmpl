@@ -46,10 +46,13 @@ const testLabels= (test: TestCase) => {
 }
 
 class CloudproberReporter implements Reporter {
-  // Set only for harness failures: a run-level error whose message matches a
-  // launch/crash signature, or a browser-launch failure attached to a test.
-  // Ordinary test-author bugs surfaced via onError do not set it.
-  private internalError = false;
+  // A run-level (onError) error whose message matched a launch/crash signature.
+  private runLevelInternal = false;
+  // Tests that hit a launch/crash error on a failing attempt. At onEnd we count
+  // the run internal only if one of these FINALLY failed (outcome
+  // "unexpected"); a crash that a retry recovered from (outcome "flaky") does
+  // not count, and an unrelated normal failure is never in this set.
+  private launchFailedTests = new Set<TestCase>();
 
   // writeMarker writes a zero-content marker file into the playwright report
   // dir that the probe (Go side) reads after the process exits.
@@ -82,7 +85,7 @@ class CloudproberReporter implements Reporter {
     // launch/crash; other run-level failures are already a failed run and, if
     // the harness never started, are caught by the missing heartbeat instead.
     if (isLaunchError(error.message)) {
-      this.internalError = true;
+      this.runLevelInternal = true;
     }
   }
 
@@ -108,8 +111,8 @@ class CloudproberReporter implements Reporter {
     if (result.status !== "passed" && result.status !== "skipped") {
       warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
     }
-    if ((result.errors || []).some((e) => isLaunchError(e.message))) {
-      this.internalError = true;
+    if (result.status !== "passed" && (result.errors || []).some((e) => isLaunchError(e.message))) {
+      this.launchFailedTests.add(test);
     }
     {{ if not .DisableTestMetrics }}
     print(`test_status{${testLabels(test)},status="${result.status}"} 1`);
@@ -118,10 +121,15 @@ class CloudproberReporter implements Reporter {
   }
 
   onEnd(result: FullResult) {
-    // Gate on the final outcome as well as the sticky flag: with retries, a
-    // launch failure on one attempt can set internalError while a later attempt
-    // passes. Don't mark a run the suite ultimately reports as passed.
-    if (!this.internalError || result.status === "passed") {
+    // Decide from final outcomes, not a sticky flag: count the run internal only
+    // if a launch/crash-failing test ultimately failed, or a run-level launch
+    // error was seen. A crash a retry recovered from ("flaky") does not count,
+    // and an ordinary target failure is never in launchFailedTests. There is no
+    // status gate: the Go side only counts internal_errors on a non-zero exit,
+    // so a passed/exit-0 run is already never counted.
+    const testCausedInternal =
+      Array.from(this.launchFailedTests).some((t) => t.outcome() === "unexpected");
+    if (!this.runLevelInternal && !testCausedInternal) {
       return;
     }
     this.writeMarker("{{ .InternalErrorMarkerFile }}");

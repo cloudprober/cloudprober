@@ -389,7 +389,7 @@ func TestProbeInitTemplates(t *testing.T) {
 				`"browserType.launch"`,         // narrow launch signature kept
 				`"Target crashed"`,             // narrow crash signature kept
 				"isLaunchError(error.message)", // onError is filtered, not blanket
-				`result.status === "passed"`,   // onEnd gated on final outcome
+				`outcome() === "unexpected"`,   // onEnd decides from final outcomes
 			} {
 				assert.Contains(t, string(got), want, "reporter file should contain: %s", want)
 			}
