@@ -18,10 +18,13 @@ import (
 	"context"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
@@ -280,6 +283,63 @@ func TestInternalErrorRe(t *testing.T) {
 	assert.True(t, internalErrorRe.MatchString(playwrightMissing))
 	assert.True(t, internalErrorRe.MatchString(launchTimeout))
 	assert.False(t, internalErrorRe.MatchString("Error: expect(received).toBe(expected)"))
+}
+
+// nodeSupportsStripTypes reports whether the node on PATH can run a TypeScript
+// file directly (import()/strip-types, node >= 22.6). Returns the node path.
+func nodeSupportsStripTypes(t *testing.T) string {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not found; skipping reporter decision test")
+	}
+	out, err := exec.Command(node, "--version").Output()
+	if err != nil {
+		t.Skipf("node --version failed: %v", err)
+	}
+	// Output looks like "v22.6.0\n".
+	ver := strings.TrimPrefix(strings.TrimSpace(string(out)), "v")
+	parts := strings.Split(ver, ".")
+	if len(parts) < 2 {
+		t.Skipf("unexpected node version %q", ver)
+	}
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	if major < 22 || (major == 22 && minor < 6) {
+		t.Skipf("node %s too old for TypeScript strip-types (need >= 22.6)", ver)
+	}
+	return node
+}
+
+// TestReporterDecision renders the cloudprober Playwright reporter and drives
+// it through synthetic reporter-event streams (testdata harness), asserting the
+// launch-timeout internal-error sentinel fires only when the browser never
+// launched. This covers the reporter's browserReady/onEnd logic -- the novel
+// part of the launch-timeout detection -- which the Go-side regex test cannot.
+func TestReporterDecision(t *testing.T) {
+	node := nodeSupportsStripTypes(t)
+
+	// Render the reporter template to a temp .ts file. Only EnableStepMetrics
+	// and DisableTestMetrics are referenced by this template; the harness only
+	// sends pw:api steps and onEnd, so their values don't affect the outcome.
+	tmpl := template.Must(template.ParseFiles(filepath.Join("templates", "cloudprober-reporter.ts.tmpl")))
+	reporterPath := filepath.Join(t.TempDir(), "cloudprober-reporter.ts")
+	f, err := os.Create(reporterPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpl.Execute(f, struct{ EnableStepMetrics, DisableTestMetrics bool }{}); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	harness := filepath.Join("testdata", "reporter_decision_harness.mjs")
+	cmd := exec.Command(node, "--experimental-strip-types", harness, reporterPath)
+	out, err := cmd.CombinedOutput()
+	t.Logf("harness output:\n%s", out)
+	if err != nil {
+		t.Fatalf("reporter decision harness failed: %v", err)
+	}
 }
 
 func TestProbeOutputDirPath(t *testing.T) {
