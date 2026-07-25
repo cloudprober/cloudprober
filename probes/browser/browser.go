@@ -482,8 +482,15 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
 
-	// internalErr is set from the stderr streaming goroutine. cmd.Execute
-	// drains all stderr before returning, so it's safe to read afterwards.
+	// We classify on stderr, not stdout: in cloudprober's setup the custom
+	// Playwright reporter (--reporter=html,cloudprober-reporter.ts) mirrors
+	// failing test errors to stderr, and npx writes its own errors there too.
+	// (Stock Playwright's default reporter prints test errors to stdout, but
+	// cloudprober replaces that reporter, so that path doesn't apply.) Verified
+	// against production logs for the missing-browser case.
+	//
+	// internalErr is set from the stderr streaming goroutine; cmd.Execute waits
+	// for stderr processing before returning, so it's safe to read afterwards.
 	var internalErr bool
 	cmd.ProcessStderr = func(line []byte) {
 		if internalErrorRe.Match(line) {
