@@ -45,19 +45,29 @@ func latencyMethod(recvName string, d time.Duration) *starlarklib.Builtin {
 
 // optionalDurationSeconds converts a Value bound by UnpackArgs (with "??"
 // suffix) into a duration, interpreting the number as seconds. The bool result
-// is false when the kwarg was omitted or None.
+// is false when the kwarg was omitted or None. Non-positive values are an
+// error: callers use this for timeouts, where 0 or negative would cancel the
+// context immediately with a confusing deadline error.
 func optionalDurationSeconds(v starlarklib.Value, name string) (time.Duration, bool, error) {
-	if v == nil {
-		return 0, false, nil
-	}
+	var d time.Duration
 	switch n := v.(type) {
+	case nil:
+		return 0, false, nil
 	case starlarklib.Int:
-		i, _ := n.Int64()
-		return time.Duration(i) * time.Second, true, nil
+		i, ok := n.Int64()
+		if !ok {
+			return 0, false, fmt.Errorf("%s: int does not fit in int64", name)
+		}
+		d = time.Duration(i) * time.Second
 	case starlarklib.Float:
-		return time.Duration(float64(n) * float64(time.Second)), true, nil
+		d = time.Duration(float64(n) * float64(time.Second))
+	default:
+		return 0, false, fmt.Errorf("%s: expected a number of seconds, got %s", name, v.Type())
 	}
-	return 0, false, fmt.Errorf("%s: expected a number of seconds, got %s", name, v.Type())
+	if d <= 0 {
+		return 0, false, fmt.Errorf("%s: expected a positive number of seconds, got %v", name, v)
+	}
+	return d, true, nil
 }
 
 // sortedNames returns m's keys in sorted order. Used by the builtins that

@@ -66,8 +66,13 @@ func testDNSServer(t *testing.T) string {
 // script's server= address is filled from the in-process test DNS server.
 func runDNSScript(t *testing.T, script string) *dnsRunResult {
 	t.Helper()
-	server := testDNSServer(t)
-	source := fmt.Sprintf(script, server)
+	return runScript(t, fmt.Sprintf(script, testDNSServer(t)))
+}
+
+// runScript is runDNSScript without the server= substitution, for scripts that
+// never reach a lookup.
+func runScript(t *testing.T, source string) *dnsRunResult {
+	t.Helper()
 	opts := newOpts(t, "example.com", source)
 	p := &Probe{}
 	require.NoError(t, p.Init("dns-test", opts))
@@ -118,6 +123,21 @@ def probe(target):
 	assert.True(t, r.success, "expected success, err=%v", r.err)
 }
 
+// server=None must behave like an omitted kwarg (system resolver config), not
+// be rejected as a non-string. timeout is validated immediately after server
+// and here is deliberately bad, so a timeout complaint proves server=None got
+// through -- and no lookup is attempted, keeping the test off the network.
+func TestDNS_ServerNoneUsesSystemResolver(t *testing.T) {
+	r := runScript(t, `
+def probe(target):
+    dns.resolve("good.example.", server=None, timeout="soon")
+`)
+	assert.False(t, r.success)
+	require.Error(t, r.err)
+	assert.Contains(t, r.err.Error(), "timeout: expected a number of seconds")
+	assert.NotContains(t, r.err.Error(), "server")
+}
+
 func TestDNS_UnsupportedType(t *testing.T) {
 	r := runDNSScript(t, `
 def probe(target):
@@ -126,6 +146,59 @@ def probe(target):
 	assert.False(t, r.success)
 	require.Error(t, r.err)
 	assert.Contains(t, r.err.Error(), "unsupported record type")
+}
+
+func TestNormalizeDNSServer(t *testing.T) {
+	for _, tt := range []struct {
+		in, want string
+	}{
+		{"8.8.8.8", "8.8.8.8:53"},
+		{"8.8.8.8:5353", "8.8.8.8:5353"},
+		{"dns.example.com", "dns.example.com:53"},
+		{"dns.example.com:5353", "dns.example.com:5353"},
+		{"::1", "[::1]:53"},
+		{"[::1]", "[::1]:53"},
+		{"[::1]:5353", "[::1]:5353"},
+		{"2001:4860:4860::8888", "[2001:4860:4860::8888]:53"},
+	} {
+		t.Run(tt.in, func(t *testing.T) {
+			assert.Equal(t, tt.want, normalizeDNSServer(tt.in))
+		})
+	}
+}
+
+// TestOptionalDurationSeconds covers the shared timeout parser (builtins.go),
+// which dns.resolve is the first caller of.
+func TestOptionalDurationSeconds(t *testing.T) {
+	tooBig := starlarklib.MakeInt64(1).Lsh(70) // does not fit in int64
+
+	for _, tt := range []struct {
+		desc    string
+		in      starlarklib.Value
+		want    time.Duration
+		wantOK  bool
+		wantErr string
+	}{
+		{desc: "omitted", in: nil},
+		{desc: "int", in: starlarklib.MakeInt(3), want: 3 * time.Second, wantOK: true},
+		{desc: "float", in: starlarklib.Float(1.5), want: 1500 * time.Millisecond, wantOK: true},
+		{desc: "string", in: starlarklib.String("3"), wantErr: "expected a number of seconds, got string"},
+		{desc: "too big for int64", in: tooBig, wantErr: "does not fit in int64"},
+		{desc: "zero", in: starlarklib.MakeInt(0), wantErr: "expected a positive number of seconds"},
+		{desc: "negative", in: starlarklib.Float(-1), wantErr: "expected a positive number of seconds"},
+	} {
+		t.Run(tt.desc, func(t *testing.T) {
+			got, ok, err := optionalDurationSeconds(tt.in, "timeout")
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 // TestLatencyMethod covers the shared latency() unit selector directly (dns and

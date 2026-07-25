@@ -32,8 +32,18 @@ import (
 // Thin wrapper around Go's net.Resolver (deliberately not a reuse of
 // probes/dns, mirroring how the http builtin stays independent of probes/http).
 // server=None uses the system resolver config; an explicit server routes the
-// pure-Go resolver at that address. A response with an NXDOMAIN/NODATA rcode is
-// a result (empty .answers), not an error -- only transport failures raise.
+// pure-Go resolver at that address.
+//
+// A name-not-found lookup is a result (empty .answers), not an error; every
+// other lookup failure -- timeout, SERVFAIL, REFUSED, network error, malformed
+// response -- raises.
+//
+// .rcode is synthetic, not the wire rcode: net.Resolver never exposes one, so
+// we reconstruct it from the error and it takes exactly two values, "NOERROR"
+// and "NXDOMAIN". NODATA ("name exists, no records of this type") is
+// indistinguishable from true NXDOMAIN through net.DNSError.IsNotFound and is
+// reported as "NXDOMAIN" too. SERVFAIL/REFUSED never appear as an .rcode --
+// they raise. Real wire rcodes would need a real DNS client, not net.Resolver.
 
 func dnsModule() *starlarkstruct.Module {
 	return &starlarkstruct.Module{
@@ -59,7 +69,7 @@ func dnsResolve(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlar
 	if err := starlarklib.UnpackArgs(fname, args, kwargs,
 		"name", &name,
 		"type?", &rtype,
-		"server?", &serverArg,
+		"server??", &serverArg,
 		"timeout??", &timeoutArg,
 	); err != nil {
 		return nil, err
@@ -105,6 +115,8 @@ func dnsResolve(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlar
 	if err != nil {
 		var dnsErr *net.DNSError
 		if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+			// Synthetic: covers NODATA as well as true NXDOMAIN. See the
+			// package comment above.
 			rcode, answers = "NXDOMAIN", nil
 		} else {
 			return nil, fmt.Errorf("%s: %v", fname, err)
@@ -115,9 +127,15 @@ func dnsResolve(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlar
 }
 
 // normalizeDNSServer appends the default DNS port when the server has none.
+// A port-less IPv6 address is accepted bare ("::1") or bracketed ("[::1]");
+// JoinHostPort re-adds the brackets, so an existing pair has to come off first
+// or we'd emit "[[::1]]:53".
 func normalizeDNSServer(s string) string {
 	if _, _, err := net.SplitHostPort(s); err == nil {
 		return s
+	}
+	if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
+		s = s[1 : len(s)-1]
 	}
 	return net.JoinHostPort(s, "53")
 }
