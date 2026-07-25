@@ -8,6 +8,7 @@ import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/rds/server/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/servers/proto/config.proto";
 import "github.com/cloudprober/cloudprober/internal/surfacers/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/tracing/proto/config.proto";
 import "github.com/cloudprober/cloudprober/targets/proto/targets.proto";
 
 option go_package = "github.com/cloudprober/cloudprober/config/proto";
@@ -67,7 +68,7 @@ message ProberConfig {
   repeated SharedTargets shared_targets = 4;
 
   // Common services related options.
-  // Next tag: 106
+  // Next tag: 107
 
   // Resource discovery server
   optional rds.ServerConf rds_server = 95;
@@ -146,6 +147,12 @@ message ProberConfig {
   //   }
   // }
   optional probes.browser.artifacts.ArtifactsOptions global_artifacts_options = 103;
+
+  // Distributed tracing configuration. When set, Cloudprober initializes a
+  // global OpenTelemetry TracerProvider that exports spans to the configured
+  // OTLP collector, and all tracing-capable probes (HTTP today) are
+  // instrumented automatically.
+  optional tracing.TracingConfig tracing = 106;
 }
 
 message SharedTargets {

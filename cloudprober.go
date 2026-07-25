@@ -35,12 +35,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
+	"github.com/cloudprober/cloudprober/internal/tracing"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
@@ -87,6 +89,7 @@ var cloudProber struct {
 	configSource    config.ConfigSource
 	config          *configpb.ProberConfig
 	cancelInitCtx   context.CancelFunc
+	tracingShutdown tracing.ShutdownFunc
 	sync.RWMutex
 }
 
@@ -236,6 +239,15 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		}
 	}
 
+	var tracingShutdown tracing.ShutdownFunc
+	if cfg.GetTracing() != nil {
+		tl := logger.NewWithAttrs(slog.String("component", "tracing"))
+		tracingShutdown, err = tracing.Init(context.Background(), cfg.GetTracing(), tl)
+		if err != nil {
+			return fmt.Errorf("error while initializing tracing: %v", err)
+		}
+	}
+
 	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
 
 	// Start default HTTP server. It's used for profile handlers and
@@ -307,6 +319,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
+	cloudProber.tracingShutdown = tracingShutdown
 
 	return nil
 }
@@ -351,6 +364,14 @@ func Start(ctx context.Context) {
 		if grpcSrv != nil {
 			grpcSrv.Stop()
 		}
+		// Flush any buffered trace spans before exiting.
+		if cloudProber.tracingShutdown != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if err := cloudProber.tracingShutdown(shutdownCtx); err != nil {
+				slog.Warn("Error shutting down tracing", "err", err)
+			}
+			cancel()
+		}
 		cloudProber.cancelInitCtx()
 		cloudProber.Lock()
 		defer cloudProber.Unlock()
@@ -359,6 +380,7 @@ func Start(ctx context.Context) {
 		cloudProber.config = nil
 		cloudProber.configSource = nil
 		cloudProber.prober = nil
+		cloudProber.tracingShutdown = nil
 		// prevent reuse in, for example, tests
 		state.SetDefaultGRPCServer(nil)
 		state.SetDefaultHTTPServeMux(nil)
