@@ -18,6 +18,14 @@ on:
   release:
     types: [published]
 
+concurrency:
+  # Only pull requests are collapsed, so that a new push supersedes the run in
+  # flight. Everything else gets a group of its own: GitHub keeps just one
+  # pending run per group, so sharing one would let a burst of pushes to main
+  # cancel a queued workflow_dispatch or an intermediate release build.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-test:
     name: Build and Test
@@ -29,6 +37,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          # Race detection is covered by the ubuntu and macos jobs; skipping it
+          # on windows, where it's the slowest, keeps the job off the critical
+          # path.
+          - os: windows-latest
+            race_flag: ""
+          - os: macos-latest
+            race_flag: "-race"
+            # The race detector sleeps 1s at exit by default (TSAN's
+            # atexit_sleep_ms), which adds up across the ~130 test binaries.
+            # That sleep is what lets it catch races on the shutdown path, so
+            # macos is now weaker at those, not just faster. ubuntu keeps the
+            # default and stays the thorough one.
+            gorace: "atexit_sleep_ms=0"
     steps:
       - name: Check out code into the Go module directory
         if: github.event_name != 'workflow_dispatch'
@@ -80,18 +102,11 @@ jobs:
 
       - name: Test on non-ubuntu
         if: matrix.os != 'ubuntu-latest'
+        env:
+          GORACE: ${{ matrix.gorace }}
         run: |
           go install gotest.tools/gotestsum@v1.13.0
-          gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic
-
-      - name: SonarCloud Scan
-        if: |
-          matrix.os == 'ubuntu-latest' &&
-          github.repository == 'cloudprober/cloudprober' &&
-          (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} ${{ matrix.race_flag }}
 
       - name: Privileged ping tests.
         if: matrix.os != 'windows-latest'
@@ -104,13 +119,52 @@ jobs:
         run: tools/test_example_configs.sh
 
       - name: Upload test and coverage reports
-        if: matrix.os == 'ubuntu-latest'
+        # Upload even when an earlier step failed, so that a failing run still
+        # gets analyzed. gotestsum and -coverprofile write these files whether
+        # or not the tests pass.
+        if: always() && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: |
             report.json
             cover.out
+
+  sonarcloud:
+    name: SonarCloud Scan
+    needs: [build-and-test]
+    # As a step in build-and-test, this used to run whenever the ubuntu tests
+    # passed, regardless of the other legs. needs: can only wait on a whole
+    # job, so don't gate on its success -- gate on the reports being there
+    # instead, which is what the scan actually needs.
+    if: |
+      !cancelled() &&
+      github.repository == 'cloudprober/cloudprober' &&
+      (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+
+    steps:
+      # This job only runs for push and same-repo pull_request events, so it
+      # doesn't need the workflow_dispatch checkout the other jobs have.
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Download test and coverage reports
+        id: reports
+        # If build-and-test died before producing them, there is nothing to
+        # scan; skip rather than fail and add a second red check.
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: test-reports
+
+      - name: SonarCloud Scan
+        if: steps.reports.outcome == 'success'
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build-binaries:
     name: Build binaries
@@ -137,6 +191,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          # This job builds through the Makefile (CGO_ENABLED=0 cross
+          # compiles), whose artifacts share nothing with a normal build. Keep
+          # it on its own cache key, so that it doesn't win the race to
+          # populate the key build-and-test needs.
+          cache-dependency-path: |
+            go.sum
+            Makefile
         id: go
 
       - run: make cloudprober-linux-{amd64,arm64,armv7}
@@ -181,7 +242,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          # This job's GOCACHE is built with GOEXPERIMENT=boringcrypto and is
+          # useless to every other job, so it doesn't share a cache key with
+          # them. Caching it separately isn't worth it either: the module
+          # download is only a few seconds, and the boringcrypto build gets
+          # recompiled regardless.
+          cache: false
         id: go
 
       - run: make cloudprober-fips && mv cloudprober-fips cloudprober-fips-${{ matrix.distname }}
@@ -194,6 +260,7 @@ jobs:
         
   build-dist:
     name: Build cloudprober release
+    if: github.event_name != 'pull_request'
     needs: [build-and-test, build-binaries]
     runs-on: ubuntu-latest
 

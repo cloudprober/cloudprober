@@ -519,11 +519,17 @@ func TestWriteToBQ(t *testing.T) {
 	colTypeMap := map[string]string{
 		"id": "string",
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*11)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 
+	// Tick every second instead of the default 10s, so that writeToBQ gets to
+	// drain the write channel well within the context's deadline.
+	batchTimerSec := int64(1)
+	conf := newSurfacerConfig(colTypeMap)
+	conf.BatchTimerSec = &batchTimerSec
+
 	s := &Surfacer{
-		c:         newSurfacerConfig(colTypeMap),
+		c:         conf,
 		l:         &logger.Logger{},
 		writeChan: make(chan *metrics.EventMetrics, 4500),
 	}
