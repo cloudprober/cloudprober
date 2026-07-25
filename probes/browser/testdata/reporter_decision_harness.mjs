@@ -25,28 +25,34 @@ if (!reporterPath) {
 // (e.g. C:\...), which node's ESM loader otherwise reads as a URL scheme.
 const Reporter = (await import(pathToFileURL(reporterPath).href)).default;
 
-// Event helpers. A "pw:api" step that ends without error models a successful
-// browser launch (or context/page creation); with an error it models a failed
-// launch. "end" is onEnd with the given suite status.
-const stepOk = { t: "stepEnd", category: "pw:api", error: undefined };
-const stepErr = { t: "stepEnd", category: "pw:api", error: { message: "boom" } };
+// Event helpers. The browser launch is a Playwright API call ("pw:api" step):
+// its onStepBegin models "launch started", and a matching onStepEnd without
+// error models "browser came up". "hook" models non-Playwright work (e.g. a
+// beforeAll doing a plain fetch). "end" is onEnd with the given suite status.
+const apiBegin = { t: "stepBegin", category: "pw:api" };
+const apiOk = { t: "stepEnd", category: "pw:api", error: undefined };
+const apiErr = { t: "stepEnd", category: "pw:api", error: { message: "boom" } };
+const hookBegin = { t: "stepBegin", category: "hook" };
 const end = (status) => ({ t: "end", status });
 
 const scenarios = [
-  // Launch hang: browser never comes up -> no successful pw:api step before the
+  // Launch hang: launch started (pw:api begins) but never completed before the
   // global timeout. Internal error.
-  { name: "launch_hang_timeout", events: [end("timedout")], wantSentinel: true },
-  // Launch reported an error (still no successful pw:api) then timeout. Internal.
-  { name: "launch_errored_timeout", events: [stepErr, end("timedout")], wantSentinel: true },
+  { name: "launch_hang_timeout", events: [apiBegin, end("timedout")], wantSentinel: true },
+  // Launch started then reported an error (no successful pw:api) then timeout.
+  { name: "launch_errored_timeout", events: [apiBegin, apiErr, end("timedout")], wantSentinel: true },
   // Mid-test hang: browser launched (pw:api ok), a later navigation hung until
   // the global timeout. Target failure, not internal.
-  { name: "midtest_hang_timeout", events: [stepOk, end("timedout")], wantSentinel: false },
+  { name: "midtest_hang_timeout", events: [apiBegin, apiOk, end("timedout")], wantSentinel: false },
   // Multi-test: an earlier test ran (pw:api ok), a later one was in flight at
   // the global timeout. Browser clearly worked -> target failure.
-  { name: "multitest_hang_timeout", events: [stepOk, stepOk, end("timedout")], wantSentinel: false },
+  { name: "multitest_hang_timeout", events: [apiBegin, apiOk, apiOk, end("timedout")], wantSentinel: false },
+  // Pre-launch hang: a hook (e.g. beforeAll raw fetch) hung before the browser
+  // was ever touched -- no pw:api step began. Target failure, not internal.
+  { name: "prelaunch_hook_hang_timeout", events: [hookBegin, end("timedout")], wantSentinel: false },
   // Normal outcomes: not a global timeout at all.
-  { name: "passed", events: [stepOk, end("passed")], wantSentinel: false },
-  { name: "failed_not_timedout", events: [stepOk, end("failed")], wantSentinel: false },
+  { name: "passed", events: [apiBegin, apiOk, end("passed")], wantSentinel: false },
+  { name: "failed_not_timedout", events: [apiBegin, apiOk, end("failed")], wantSentinel: false },
   { name: "interrupted", events: [end("interrupted")], wantSentinel: false },
 ];
 
@@ -57,8 +63,11 @@ function runScenario(s) {
   process.stderr.write = (chunk) => { captured += chunk; return true; };
   try {
     for (const e of s.events) {
-      if (e.t === "stepEnd") {
-        r.onStepEnd({}, {}, { category: e.category, error: e.error, title: "", duration: 0 });
+      const step = { category: e.category, error: e.error, title: "", duration: 0 };
+      if (e.t === "stepBegin") {
+        r.onStepBegin({}, {}, step);
+      } else if (e.t === "stepEnd") {
+        r.onStepEnd({}, {}, step);
       } else if (e.t === "end") {
         r.onEnd({ status: e.status });
       }

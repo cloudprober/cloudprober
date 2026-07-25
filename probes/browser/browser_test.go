@@ -277,7 +277,7 @@ func TestInternalErrorRe(t *testing.T) {
 	playwrightMissing := "npm error could not determine executable to run"
 	// Emitted by the cloudprober reporter's onEnd on a launch-timeout (see
 	// cloudprober-reporter.ts).
-	launchTimeout := "WARNING [cloudprober-internal-error] test suite timed out before the browser launched"
+	launchTimeout := "WARNING [cloudprober-internal-error] test suite timed out during browser launch"
 
 	assert.True(t, internalErrorRe.MatchString(browserMissing))
 	assert.True(t, internalErrorRe.MatchString(playwrightMissing))
@@ -323,7 +323,14 @@ func TestReporterDecision(t *testing.T) {
 	// and DisableTestMetrics are referenced by this template; the harness only
 	// sends pw:api steps and onEnd, so their values don't affect the outcome.
 	tmpl := template.Must(template.ParseFiles(filepath.Join("templates", "cloudprober-reporter.ts.tmpl")))
-	reporterPath := filepath.Join(t.TempDir(), "cloudprober-reporter.ts")
+	tmpDir := t.TempDir()
+	// node < 22.7 doesn't detect module syntax on its own, and picks the format
+	// from the nearest package.json; without this the stripped reporter's
+	// "export default" would be loaded as CommonJS and fail to parse.
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(`{"type":"module"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	reporterPath := filepath.Join(tmpDir, "cloudprober-reporter.ts")
 	f, err := os.Create(reporterPath)
 	if err != nil {
 		t.Fatal(err)
