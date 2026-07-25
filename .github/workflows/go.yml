@@ -179,6 +179,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          # This job builds through the Makefile (CGO_ENABLED=0 cross
+          # compiles), whose artifacts share nothing with a normal build. Keep
+          # it on its own cache key, so that it doesn't win the race to
+          # populate the key build-and-test needs.
+          cache-dependency-path: |
+            go.sum
+            Makefile
         id: go
 
       - run: make cloudprober-linux-{amd64,arm64,armv7}
@@ -224,6 +231,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          # Same as build-binaries: this job's GOCACHE is built with
+          # GOEXPERIMENT=boringcrypto and shares nothing with a normal build,
+          # so keep it off the key build-and-test needs.
+          cache-dependency-path: |
+            go.sum
+            Makefile
         id: go
 
       - run: make cloudprober-fips && mv cloudprober-fips cloudprober-fips-${{ matrix.distname }}
