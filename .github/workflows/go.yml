@@ -41,6 +41,11 @@ jobs:
             race_flag: ""
           - os: macos-latest
             race_flag: "-race"
+            # The race detector sleeps 1s at exit by default (TSAN's
+            # atexit_sleep_ms), which adds up across the ~130 test binaries.
+            # Trying it on macos only for now; ubuntu still runs with the
+            # default.
+            gorace: "atexit_sleep_ms=0"
     steps:
       - name: Check out code into the Go module directory
         if: github.event_name != 'workflow_dispatch'
@@ -92,6 +97,8 @@ jobs:
 
       - name: Test on non-ubuntu
         if: matrix.os != 'ubuntu-latest'
+        env:
+          GORACE: ${{ matrix.gorace }}
         run: |
           go install gotest.tools/gotestsum@v1.13.0
           gotestsum --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} ${{ matrix.race_flag }}
