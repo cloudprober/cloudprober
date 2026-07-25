@@ -53,14 +53,18 @@ import (
 
 const playwrightReportDir = "_playwright_report"
 
-// internalErrorRe matches process-output signatures that indicate an
+// internalErrorRe matches process-output (stderr) signatures that indicate an
 // environment/infra problem rather than a target failure, so the run is
 // counted as an internal_error:
 //   - a missing browser binary -- Playwright's "browserType.launch: Executable
-//     doesn't exist at ..." error, and
+//     doesn't exist at ..." error,
 //   - an unresolvable Playwright package -- npx's "could not determine
-//     executable to run" error.
-var internalErrorRe = regexp.MustCompile(`Executable doesn't exist|could not determine executable to run`)
+//     executable to run" error, and
+//   - a browser that failed to launch -- the cloudprober reporter emits
+//     "[cloudprober-internal-error]" from onEnd when the suite hits the global
+//     timeout while the browser launch was in progress (see
+//     cloudprober-reporter.ts).
+var internalErrorRe = regexp.MustCompile(`Executable doesn't exist|could not determine executable to run|\[cloudprober-internal-error\]`)
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
@@ -104,10 +108,11 @@ type probeRunResult struct {
 	total   metrics.Int
 	success metrics.Int
 	// internalErrors counts runs that failed because of environment/infra
-	// problems (a missing browser binary or an unresolvable Playwright package
-	// today; see internalErrorRe) rather than the target being unhealthy. Such
-	// runs still count as failures (total moves, success doesn't);
-	// internal_errors tells "environment broken" apart from "target down".
+	// problems (a missing browser binary, an unresolvable Playwright package, or
+	// a browser that never launched before the global timeout; see
+	// internalErrorRe) rather than the target being unhealthy. Such runs still
+	// count as failures (total moves, success doesn't); internal_errors tells
+	// "environment broken" apart from "target down".
 	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]

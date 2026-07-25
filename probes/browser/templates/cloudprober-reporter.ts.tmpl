@@ -1,5 +1,5 @@
 import type {
-  Reporter, FullConfig, Suite, TestCase, TestStep, TestResult
+  Reporter, FullConfig, FullResult, Suite, TestCase, TestStep, TestResult
 } from '@playwright/test/reporter';
 
 const info = (string: string) => process.stderr.write("INFO "+string+'\n');
@@ -24,6 +24,29 @@ const testLabels= (test: TestCase) => {
 }
 
 class CloudproberReporter implements Reporter {
+  // launchStarted / browserReady track how far the browser got before a global
+  // timeout, so onEnd can tell a browser-launch failure (an internal error)
+  // apart from a test/target stall (a target failure) -- both end in a global
+  // timeout with no onTestEnd, so we can't rely on test status.
+  //
+  // The browser launch is a Playwright API call, so it shows up as a "pw:api"
+  // step. launchStarted = a pw:api step began; browserReady = a pw:api step
+  // completed without error. Requiring launchStarted (not just !browserReady)
+  // avoids a false positive when the run stalls *before* the browser is ever
+  // touched -- e.g. a beforeAll/hook doing a plain fetch() against a dead
+  // target, which is a target failure, not an internal error. A fresh process
+  // (and reporter) is created per probe run, so these reset each cycle.
+  //
+  // Confirmed empirically against real Playwright:
+  //   - mid-test hang: "Launch browser"/"Create context"/"Create page" pw:api
+  //     steps end err=0, then "Navigate to ..." hangs -> browserReady true.
+  //   - launch hang: "Launch browser" pw:api step begins but never ends before
+  //     onEnd -> launchStarted true, browserReady false.
+  //   - pre-launch hang (beforeAll raw fetch): only "hook" steps begin, no
+  //     pw:api step -> launchStarted false.
+  private launchStarted = false;
+  private browserReady = false;
+
   onBegin(config: FullConfig, suite: Suite) {
     info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
   }
@@ -32,7 +55,16 @@ class CloudproberReporter implements Reporter {
     info(`Starting test "${test.title}"`);
   }
 
+  onStepBegin(test: TestCase, result: TestResult, step: TestStep) {
+    if (step.category === 'pw:api') {
+      this.launchStarted = true;
+    }
+  }
+
   onStepEnd(test: TestCase, result: TestResult, step: TestStep) {
+    if (step.category === 'pw:api' && !step.error) {
+      this.browserReady = true;
+    }
     if (step.category === 'test.step') {
       if (result.status !== "passed" && result.status !== "skipped") {
         warning(`Test step "${step.title}" of test "${test.title}" failed with error: ${JSON.stringify(step.error)}`);
@@ -54,6 +86,19 @@ class CloudproberReporter implements Reporter {
     print(`test_status{${testLabels(test)},status="${result.status}"} 1`);
     print(`test_latency{${testLabels(test)},status="${result.status}"} ${result.duration*1000}`);
     {{ end }}
+  }
+
+  onEnd(result: FullResult) {
+    // A global timeout (cloudprober's globalTimeout) where the browser launch
+    // was started but never completed means the run stalled bringing the
+    // browser up -- e.g. a launch failure under resource pressure. Emit a
+    // sentinel to stderr so cloudprober counts it as an internal_error (matched
+    // by internalErrorRe). If the browser launched (browserReady) or the run
+    // never got to launching it (launchStarted false, e.g. a hook hung on a
+    // plain fetch), the stall is in the test/target, which is a target failure.
+    if (result.status === "timedout" && this.launchStarted && !this.browserReady) {
+      warning("[cloudprober-internal-error] test suite timed out during browser launch");
+    }
   }
 }
 export default CloudproberReporter;
