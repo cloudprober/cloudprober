@@ -30,7 +30,9 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
-          cache: true
+          # Not worth caching for a docs build, and it would otherwise compete
+          # to populate the Go cache key that go.yml's build-and-test needs.
+          cache: false
         id: go
 
       - name: Setup public worktree

@@ -230,13 +230,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
-          # Same as build-binaries: this job's GOCACHE is built with
-          # GOEXPERIMENT=boringcrypto and shares nothing with a normal build,
-          # so keep it off the key build-and-test needs.
-          cache-dependency-path: |
-            go.sum
-            Makefile
+          # This job's GOCACHE is built with GOEXPERIMENT=boringcrypto and is
+          # useless to every other job, so it doesn't share a cache key with
+          # them. Caching it separately isn't worth it either: the module
+          # download is only a few seconds, and the boringcrypto build gets
+          # recompiled regardless.
+          cache: false
         id: go
 
       - run: make cloudprober-fips && mv cloudprober-fips cloudprober-fips-${{ matrix.distname }}
