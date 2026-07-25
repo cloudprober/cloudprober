@@ -12,6 +12,8 @@
 // real browser): the first Playwright API call is the browser launch, so a
 // "pw:api" step that ends without error means the browser came up.
 
+import { pathToFileURL } from "node:url";
+
 const SENTINEL = "[cloudprober-internal-error]";
 
 const reporterPath = process.argv[2];
@@ -19,7 +21,9 @@ if (!reporterPath) {
   console.error("usage: harness <reporter.ts>");
   process.exit(2);
 }
-const Reporter = (await import(reporterPath)).default;
+// Convert to a file:// URL so dynamic import() accepts a Windows absolute path
+// (e.g. C:\...), which node's ESM loader otherwise reads as a URL scheme.
+const Reporter = (await import(pathToFileURL(reporterPath).href)).default;
 
 // Event helpers. A "pw:api" step that ends without error models a successful
 // browser launch (or context/page creation); with an error it models a failed
