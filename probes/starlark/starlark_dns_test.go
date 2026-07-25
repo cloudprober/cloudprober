@@ -53,6 +53,10 @@ func testDNSServer(t *testing.T) string {
 		case "missing.example.":
 			m.SetRcode(r, dns.RcodeNameError) // NXDOMAIN
 		}
+		// Without this, Go's pure resolver reads an empty non-authoritative
+		// reply as a lame referral and retries against the system resolvers,
+		// taking the NODATA case off this server entirely.
+		m.Authoritative = true
 		_ = w.WriteMsg(m)
 	})
 
@@ -94,7 +98,7 @@ func TestDNS_ARecord(t *testing.T) {
 	r := runDNSScript(t, `
 def probe(target):
     r = dns.resolve("good.example.", server="%s")
-    if r.rcode != "NOERROR": fail("rcode=" + r.rcode)
+    if not r: fail("expected a truthy result")
     if "10.0.0.5" not in r.answers: fail("answers=%%s" %% r.answers)
     if r.name != "good.example.": fail("name=" + r.name)
     if r.type != "A": fail("type=" + r.type)
@@ -113,14 +117,42 @@ def probe(target):
 	assert.True(t, r.success, "expected success, err=%v", r.err)
 }
 
-func TestDNS_NXDOMAIN_IsResultNotError(t *testing.T) {
+// Nothing found is a result with no answers, not a raised error -- and the
+// result is falsey, so scripts can branch with a plain "if not r:".
+func TestDNS_NotFoundIsResultNotError(t *testing.T) {
 	r := runDNSScript(t, `
 def probe(target):
     r = dns.resolve("missing.example.", server="%s")
-    if r.rcode != "NXDOMAIN": fail("rcode=" + r.rcode)
+    if r: fail("expected a falsey result")
+    if len(r.answers) != 0: fail("answers=%%s" %% r.answers)
+    if r.name != "missing.example.": fail("name=" + r.name)
+`)
+	assert.True(t, r.success, "expected success, err=%v", r.err)
+}
+
+// NODATA -- the name exists but has no record of the requested type -- is
+// indistinguishable from NXDOMAIN through net.Resolver, and the API no longer
+// claims otherwise: both are simply "found nothing".
+func TestDNS_NoDataIsResultNotError(t *testing.T) {
+	r := runDNSScript(t, `
+def probe(target):
+    r = dns.resolve("good.example.", type="TXT", server="%s")
+    if r: fail("expected a falsey result")
     if len(r.answers) != 0: fail("answers=%%s" %% r.answers)
 `)
 	assert.True(t, r.success, "expected success, err=%v", r.err)
+}
+
+// rcode was removed: it could only ever be reconstructed from the error, and
+// was exactly redundant with an empty .answers. Guard against it creeping back.
+func TestDNS_NoRcodeAttr(t *testing.T) {
+	r := runDNSScript(t, `
+def probe(target):
+    dns.resolve("good.example.", server="%s").rcode
+`)
+	assert.False(t, r.success)
+	require.Error(t, r.err)
+	assert.Contains(t, r.err.Error(), "has no .rcode field or method")
 }
 
 // server=None must behave like an omitted kwarg (system resolver config), not

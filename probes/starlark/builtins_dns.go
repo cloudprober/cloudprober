@@ -29,21 +29,31 @@ import (
 // ----------------------------------------------------------------------------
 // dns module
 //
-// Thin wrapper around Go's net.Resolver (deliberately not a reuse of
-// probes/dns, mirroring how the http builtin stays independent of probes/http).
-// server=None uses the system resolver config; an explicit server routes the
-// pure-Go resolver at that address.
+// This builtin resolves a name as one step inside a script -- get the A/TXT
+// records, branch on them, feed them into an http call. Monitoring a DNS
+// *server* (wire rcodes, UDP/TCP/TLS, per-record validators) is the dns probe
+// type's job, and this is deliberately not a second one: it is a thin wrapper
+// around Go's net.Resolver, with no probes/dns or miekg dependency, the same
+// way the http builtin stays independent of probes/http.
 //
-// A name-not-found lookup is a result (empty .answers), not an error; every
-// other lookup failure -- timeout, SERVFAIL, REFUSED, network error, malformed
+// That backend is a resolver, not a DNS client, which bounds what a result can
+// say. There is no wire rcode, no TTL, no authority/additional section, and no
+// way to tell NODATA ("name exists, no records of this type") from NXDOMAIN --
+// net.DNSError.IsNotFound covers both. So a result reports only what it can
+// stand behind: the answers it found, or none. Scripts that must assert real
+// server behavior (SERVFAIL vs REFUSED, NODATA vs NXDOMAIN) want the dns probe
+// type instead; that is a different capability, not a gap to fill in here.
+//
+// Finding nothing is a result (empty .answers), not an error. Every other
+// lookup failure -- timeout, SERVFAIL, REFUSED, network error, malformed
 // response -- raises.
 //
-// .rcode is synthetic, not the wire rcode: net.Resolver never exposes one, so
-// we reconstruct it from the error and it takes exactly two values, "NOERROR"
-// and "NXDOMAIN". NODATA ("name exists, no records of this type") is
-// indistinguishable from true NXDOMAIN through net.DNSError.IsNotFound and is
-// reported as "NXDOMAIN" too. SERVFAIL/REFUSED never appear as an .rcode --
-// they raise. Real wire rcodes would need a real DNS client, not net.Resolver.
+// The two server modes are not interchangeable. server=None resolves the way
+// the host does, honoring /etc/hosts, the search list, ndots and (where it
+// applies) the cgo resolver -- that is the mode for "what does this machine
+// see?". An explicit server forces the pure-Go resolver to dial that address,
+// which skips /etc/hosts and the host's resolver choice; it answers "what does
+// that nameserver say?" well enough for a probe step, but it is not dig.
 
 func dnsModule() *starlarkstruct.Module {
 	return &starlarkstruct.Module{
@@ -111,19 +121,17 @@ func dnsResolve(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlar
 	answers, err := dnsLookup(ctx, resolver, rtype, name)
 	latency := time.Since(start)
 
-	rcode := "NOERROR"
 	if err != nil {
+		// IsNotFound covers NXDOMAIN and NODATA alike; both mean "found
+		// nothing", which is a result with no answers. Anything else raises.
 		var dnsErr *net.DNSError
-		if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
-			// Synthetic: covers NODATA as well as true NXDOMAIN. See the
-			// package comment above.
-			rcode, answers = "NXDOMAIN", nil
-		} else {
+		if !errors.As(err, &dnsErr) || !dnsErr.IsNotFound {
 			return nil, fmt.Errorf("%s: %v", fname, err)
 		}
+		answers = nil
 	}
 
-	return &dnsResult{name: name, rtype: rtype, answers: answers, rcode: rcode, latency: latency}, nil
+	return &dnsResult{name: name, rtype: rtype, answers: answers, latency: latency}, nil
 }
 
 // normalizeDNSServer appends the default DNS port when the server has none.
@@ -208,7 +216,6 @@ type dnsResult struct {
 	name    string
 	rtype   string
 	answers []string
-	rcode   string
 	latency time.Duration
 }
 
@@ -216,12 +223,15 @@ var _ starlarklib.Value = (*dnsResult)(nil)
 var _ starlarklib.HasAttrs = (*dnsResult)(nil)
 
 func (r *dnsResult) String() string {
-	return fmt.Sprintf("<dns_result name=%s type=%s rcode=%s answers=%d>", r.name, r.rtype, r.rcode, len(r.answers))
+	return fmt.Sprintf("<dns_result name=%s type=%s answers=%d>", r.name, r.rtype, len(r.answers))
 }
-func (r *dnsResult) Type() string            { return "DnsResult" }
-func (r *dnsResult) Freeze()                 {}
-func (r *dnsResult) Truth() starlarklib.Bool { return starlarklib.Bool(r.rcode == "NOERROR") }
-func (r *dnsResult) Hash() (uint32, error)   { return 0, fmt.Errorf("DnsResult is unhashable") }
+func (r *dnsResult) Type() string          { return "DnsResult" }
+func (r *dnsResult) Freeze()               {}
+func (r *dnsResult) Hash() (uint32, error) { return 0, fmt.Errorf("DnsResult is unhashable") }
+
+// Truth makes "if r:" mean "found something", so a lookup that resolved to
+// nothing is falsey without the script having to reach for len(r.answers).
+func (r *dnsResult) Truth() starlarklib.Bool { return starlarklib.Bool(len(r.answers) > 0) }
 
 func (r *dnsResult) Attr(name string) (starlarklib.Value, error) {
 	switch name {
@@ -229,8 +239,6 @@ func (r *dnsResult) Attr(name string) (starlarklib.Value, error) {
 		return starlarklib.String(r.name), nil
 	case "type":
 		return starlarklib.String(r.rtype), nil
-	case "rcode":
-		return starlarklib.String(r.rcode), nil
 	case "answers":
 		elems := make([]starlarklib.Value, len(r.answers))
 		for i, a := range r.answers {
@@ -246,5 +254,5 @@ func (r *dnsResult) Attr(name string) (starlarklib.Value, error) {
 }
 
 func (r *dnsResult) AttrNames() []string {
-	return []string{"answers", "latency", "name", "rcode", "type"}
+	return []string{"answers", "latency", "name", "type"}
 }
