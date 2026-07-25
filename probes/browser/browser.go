@@ -62,7 +62,7 @@ const playwrightReportDir = "_playwright_report"
 //     executable to run" error, and
 //   - a browser that never launched -- the cloudprober reporter emits
 //     "[cloudprober-internal-error]" from onEnd when the suite hits the global
-//     timeout without any test making progress (see cloudprober-reporter.ts).
+//     timeout before the browser launched (see cloudprober-reporter.ts).
 var internalErrorRe = regexp.MustCompile(`Executable doesn't exist|could not determine executable to run|\[cloudprober-internal-error\]`)
 
 // Probe holds aggregate information about all probe runs, per-target.

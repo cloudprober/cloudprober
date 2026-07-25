@@ -274,7 +274,7 @@ func TestInternalErrorRe(t *testing.T) {
 	playwrightMissing := "npm error could not determine executable to run"
 	// Emitted by the cloudprober reporter's onEnd on a launch-timeout (see
 	// cloudprober-reporter.ts).
-	launchTimeout := "WARNING [cloudprober-internal-error] test suite timed out before the browser made progress"
+	launchTimeout := "WARNING [cloudprober-internal-error] test suite timed out before the browser launched"
 
 	assert.True(t, internalErrorRe.MatchString(browserMissing))
 	assert.True(t, internalErrorRe.MatchString(playwrightMissing))

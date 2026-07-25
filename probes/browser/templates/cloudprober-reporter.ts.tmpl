@@ -24,13 +24,20 @@ const testLabels= (test: TestCase) => {
 }
 
 class CloudproberReporter implements Reporter {
-  // madeProgress is set once any test actually executes -- passed, or failed
-  // with a real error. It lets onEnd tell a genuine run that happened to hit
-  // the global timeout (browser worked, tests just took too long) apart from a
-  // run where the browser never made progress (e.g. launch failure under
-  // resource pressure). A fresh process (and reporter) is created per probe
-  // run, so this resets each cycle.
-  private madeProgress = false;
+  // browserReady becomes true once any Playwright API call ("pw:api" step)
+  // completes without error. The first such step is the browser launch, so a
+  // successful pw:api step means the browser came up. It's what onEnd uses to
+  // tell a launch failure (browser never came up) apart from a target/page
+  // stall (browser launched, a later navigation hung) when both end in a
+  // global timeout with no onTestEnd. A fresh process (and reporter) is created
+  // per probe run, so this resets each cycle.
+  //
+  // Confirmed empirically against real Playwright:
+  //   - mid-test hang: "Launch browser"/"Create context"/"Create page" pw:api
+  //     steps end err=0, then "Navigate to ..." hangs -> browserReady true.
+  //   - launch hang: "Launch browser" pw:api step never ends before onEnd; the
+  //     browser fixture only closes (err=1) during teardown -> browserReady false.
+  private browserReady = false;
 
   onBegin(config: FullConfig, suite: Suite) {
     info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
@@ -41,6 +48,9 @@ class CloudproberReporter implements Reporter {
   }
 
   onStepEnd(test: TestCase, result: TestResult, step: TestStep) {
+    if (step.category === 'pw:api' && !step.error) {
+      this.browserReady = true;
+    }
     if (step.category === 'test.step') {
       if (result.status !== "passed" && result.status !== "skipped") {
         warning(`Test step "${step.title}" of test "${test.title}" failed with error: ${JSON.stringify(step.error)}`);
@@ -55,13 +65,6 @@ class CloudproberReporter implements Reporter {
   }
   
   onTestEnd(test: TestCase, result: TestResult) {
-    // A genuine execution is a pass, or a failure with a real error. A
-    // timeout-aborted test shows up as "failed" with an empty errors array
-    // (errors.length === 0), so it does not count as progress.
-    if (result.status === "passed" ||
-        (result.status === "failed" && result.errors.length > 0)) {
-      this.madeProgress = true;
-    }
     if (result.status !== "passed" && result.status !== "skipped") {
       warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
     }
@@ -72,14 +75,15 @@ class CloudproberReporter implements Reporter {
   }
 
   onEnd(result: FullResult) {
-    // The global timeout (cloudprober's globalTimeout) being reached with no
-    // test having made progress means the run stalled before the browser could
-    // do anything -- e.g. a browser launch failure under resource pressure.
-    // Emit a sentinel to stderr so cloudprober counts it as an internal_error
-    // (matched by internalErrorRe). A genuine but slow run (madeProgress) that
-    // hits the same timeout is a target/config issue, not an internal error.
-    if (result.status === "timedout" && !this.madeProgress) {
-      warning("[cloudprober-internal-error] test suite timed out before the browser made progress");
+    // The global timeout (cloudprober's globalTimeout) being reached before the
+    // browser ever launched means the run stalled in the browser environment
+    // -- e.g. a launch failure under resource pressure. Emit a sentinel to
+    // stderr so cloudprober counts it as an internal_error (matched by
+    // internalErrorRe). If the browser did launch (browserReady) and the suite
+    // still timed out, the stall is in the test/target (e.g. a hung
+    // navigation), which is a target failure, not an internal error.
+    if (result.status === "timedout" && !this.browserReady) {
+      warning("[cloudprober-internal-error] test suite timed out before the browser launched");
     }
   }
 }
