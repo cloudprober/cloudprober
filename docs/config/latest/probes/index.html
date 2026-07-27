@@ -1,12 +1,13 @@
-<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="ie=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-italic.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-italic.woff2 type=font/woff2 crossorigin><script>(()=>{var t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,e=localStorage.getItem("theme");t&&e===null&&(localStorage.setItem("theme","dark"),document.documentElement.setAttribute("data-dark-mode","")),t&&e==="dark"&&document.documentElement.setAttribute("data-dark-mode",""),e==="dark"&&document.documentElement.setAttribute("data-dark-mode","")})()</script><link rel=stylesheet href=https://cloudprober.org/main.d30af25e1637af88d0a23b42e94b28685ad42363ab1e5e2508217e03f9168570873e111dfe2380fa6a3de140cd8c77e6810bd0e9ee1b72ee0d276b4e16a6de0d.css integrity="sha512-0wryXhY3r4jQojtC6UsoaFrUI2OrHl4lCCF+A/kWhXCHPhEd/iOA+mo94UDNjHfmgQvQ6e4bcu4NJ2tOFqbeDQ==" crossorigin=anonymous><noscript><style>img.lazyload{display:none}</style></noscript><meta name=robots content="index, follow"><meta name=googlebot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><meta name=bingbot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><title>Probes Config - Cloudprober</title><meta name=description content="Configs:&amp;nbsp;&amp;nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.13.7 v0.13.8 v0.13.9 v0.14.0 v0.14.1 v0.14.2 v0.14.3 | Language: YAML|TextPB cloudprober.probes.AdditionalLabel # key: &amp;lt;string> # Value can either be a static value or can be derived from target&amp;#39;s labels. # To get value from target&amp;#39;s labels, use target.labels.&amp;lt;target&amp;#39;s label key&amp;gt; # as value.value: &amp;lt;string> cloudprober."><link rel=canonical href=https://cloudprober.org/docs/config/latest/probes/><meta property="og:locale" content="en_US"><meta property="og:type" content="article"><meta property="og:title" content="Probes Config"><meta property="og:description" content="Configs:&nbsp;&nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.13.7 v0.13.8 v0.13.9 v0.14.0 v0.14.1 v0.14.2 v0.14.3 | Language: YAML|TextPB cloudprober.probes.AdditionalLabel # key: <string> # Value can either be a static value or can be derived from target's labels. # To get value from target's labels, use target.labels.<target's label key> # as value.value: <string> cloudprober."><meta property="og:url" content="https://cloudprober.org/docs/config/latest/probes/"><meta property="og:site_name" content="Cloudprober"><meta name=twitter:card content="summary_large_image"><meta name=twitter:site content="@cloudprober"><meta name=twitter:creator content="@manugarg"><meta name=twitter:title content="Probes Config"><meta name=twitter:description content><meta name=twitter:card content="summary"><meta name=twitter:image:alt content="Probes Config"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://cloudprober.org/#/schema/organization/1","name":"Cloudprober","url":"https://cloudprober.org/","sameAs":["https://twitter.com/cloudprober","https://github.com/cloudprober/cloudprober"],"logo":{"@type":"ImageObject","@id":"https://cloudprober.org/#/schema/image/1","url":"https://cloudprober.org/\u003cnil\u003e","width":512,"height":512,"caption":"Cloudprober"},"image":{"@id":"https://cloudprober.org/#/schema/image/1"}},{"@type":"WebSite","@id":"https://cloudprober.org/#/schema/website/1","url":"https://cloudprober.org/","name":"Cloudprober","description":"An active\/synthetic monitoring software to reliably detect outages before your customers do.","publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"}},{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/latest/probes/","url":"https://cloudprober.org/docs/config/latest/probes/","name":"Probes Config","description":"","isPartOf":{"@id":"https://cloudprober.org/#/schema/website/1"},"about":{"@id":"https://cloudprober.org/#/schema/organization/1"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","breadcrumb":{"@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/breadcrumb/1"},"primaryImageOfPage":{"@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/image/2"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://cloudprober.org/docs/config/latest/probes/"]}]},{"@type":"BreadcrumbList","@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/breadcrumb/1","name":"Breadcrumbs","itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"WebPage","@id":"https://cloudprober.org","url":"https://cloudprober.org","name":"Home"}},{"@type":"ListItem","position":3,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/","url":"https://cloudprober.org/docs/","name":"Docs"}},{"@type":"ListItem","position":4,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/","url":"https://cloudprober.org/docs/config/","name":"Config"}},{"@type":"ListItem","position":5,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/latest/","url":"https://cloudprober.org/docs/config/latest/","name":"Latest"}},{"@type":"ListItem","position":6,"item":{"@id":"https://cloudprober.org/docs/config/latest/probes/"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://cloudprober.org/#/schema/article/1","headline":"Probes Config","description":"","isPartOf":{"@id":"https://cloudprober.org/docs/config/latest/probes/"},"mainEntityOfPage":{"@id":"https://cloudprober.org/docs/config/latest/probes/"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","author":{"@id":"https://cloudprober.org/#/schema/person/2"},"publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"},"image":{"@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/image/2"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://cloudprober.org/#/schema/person/2","name":"Manu Garg","sameAs":["https://twitter.com/manugarg","https://www.linkedin.com/in/manugarg/","https://github.com/manugarg"]}]},{"@context":"https://schema.org","@graph":[{"@type":"ImageObject","@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/image/2","url":null,"contentUrl":null,"caption":"Probes Config"}]}]}</script><meta name=theme-color content="#fff"><link rel=icon href=https://cloudprober.org/favicon.ico sizes=any><link rel=apple-touch-icon sizes=180x180 href=https://cloudprober.org/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=https://cloudprober.org/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=https://cloudprober.org/favicon-16x16.png><link rel=manifest crossorigin=use-credentials href=https://cloudprober.org/site.webmanifest><script async src="https://www.googletagmanager.com/gtag/js?id=G-FHHPC1TNQV"></script>
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="ie=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-italic.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/open-sans/open-sans-v35-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-regular.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-500.woff2 type=font/woff2 crossorigin><link rel=preload as=font href=https://cloudprober.org/fonts/jost/jost-v14-latin-italic.woff2 type=font/woff2 crossorigin><script>(()=>{var t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,e=localStorage.getItem("theme");t&&e===null&&(localStorage.setItem("theme","dark"),document.documentElement.setAttribute("data-dark-mode","")),t&&e==="dark"&&document.documentElement.setAttribute("data-dark-mode",""),e==="dark"&&document.documentElement.setAttribute("data-dark-mode","")})()</script><link rel=stylesheet href=https://cloudprober.org/main.18e38b3ffb92f01cdddbe53fdfa0c04781e6cb2046d8a21e7574f2d63391a33ece67556c7acf7d1496eb1e81b25eb68ea63be114ca7b01ac4764004e18a79d53.css integrity="sha512-GOOLP/uS8Bzd2+U/36DAR4HmyyBG2KIedXTy1jORoz7OZ1Vses99FJbrHoGyXraOpjvhFMp7AaxHZABOGKedUw==" crossorigin=anonymous><noscript><style>img.lazyload{display:none}</style></noscript><meta name=robots content="index, follow"><meta name=googlebot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><meta name=bingbot content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"><title>Probes Config - Cloudprober</title><meta name=description content="Configs:&amp;nbsp;&amp;nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.14.3 v0.14.2 v0.14.1 v0.14.0 v0.13.9 v0.13.8 v0.13.7 | Language: YAML|TextPB cloudprober.probes.AdditionalLabel # key: &amp;lt;string> # Value can either be a static value or can be derived from target&amp;#39;s labels. # To get value from target&amp;#39;s labels, use target.labels.&amp;lt;target&amp;#39;s label key&amp;gt; # as value.value: &amp;lt;string> cloudprober."><link rel=canonical href=https://cloudprober.org/docs/config/latest/probes/><meta property="og:locale" content="en_US"><meta property="og:type" content="article"><meta property="og:title" content="Probes Config"><meta property="og:description" content="Configs:&nbsp;&nbsp;main | alerting | metrics | oauth | probes | rds | servers | surfacer | targets | tlsconfig | utils | validators Version: latest main v0.14.3 v0.14.2 v0.14.1 v0.14.0 v0.13.9 v0.13.8 v0.13.7 | Language: YAML|TextPB
+cloudprober.probes.AdditionalLabel # key: <string> # Value can either be a static value or can be derived from target's labels. # To get value from target's labels, use target.labels.<target's label key> # as value.value: <string> cloudprober."><meta property="og:url" content="https://cloudprober.org/docs/config/latest/probes/"><meta property="og:site_name" content="Cloudprober"><meta name=twitter:card content="summary_large_image"><meta name=twitter:site content="@cloudprober"><meta name=twitter:creator content="@manugarg"><meta name=twitter:title content="Probes Config"><meta name=twitter:description content><meta name=twitter:card content="summary"><meta name=twitter:image:alt content="Probes Config"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://cloudprober.org/#/schema/organization/1","name":"Cloudprober","url":"https://cloudprober.org/","sameAs":["https://twitter.com/cloudprober","https://github.com/cloudprober/cloudprober"],"logo":{"@type":"ImageObject","@id":"https://cloudprober.org/#/schema/image/1","url":"https://cloudprober.org/\u003cnil\u003e","width":512,"height":512,"caption":"Cloudprober"},"image":{"@id":"https://cloudprober.org/#/schema/image/1"}},{"@type":"WebSite","@id":"https://cloudprober.org/#/schema/website/1","url":"https://cloudprober.org/","name":"Cloudprober","description":"An active\/synthetic monitoring software to reliably detect outages before your customers do.","publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"}},{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/latest/probes/","url":"https://cloudprober.org/docs/config/latest/probes/","name":"Probes Config","description":"","isPartOf":{"@id":"https://cloudprober.org/#/schema/website/1"},"about":{"@id":"https://cloudprober.org/#/schema/organization/1"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","breadcrumb":{"@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/breadcrumb/1"},"primaryImageOfPage":{"@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/image/2"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://cloudprober.org/docs/config/latest/probes/"]}]},{"@type":"BreadcrumbList","@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/breadcrumb/1","name":"Breadcrumbs","itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"WebPage","@id":"https://cloudprober.org","url":"https://cloudprober.org","name":"Home"}},{"@type":"ListItem","position":3,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/","url":"https://cloudprober.org/docs/","name":"Docs"}},{"@type":"ListItem","position":4,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/","url":"https://cloudprober.org/docs/config/","name":"Config"}},{"@type":"ListItem","position":5,"item":{"@type":"WebPage","@id":"https://cloudprober.org/docs/config/latest/","url":"https://cloudprober.org/docs/config/latest/","name":"Latest"}},{"@type":"ListItem","position":6,"item":{"@id":"https://cloudprober.org/docs/config/latest/probes/"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://cloudprober.org/#/schema/article/1","headline":"Probes Config","description":"","isPartOf":{"@id":"https://cloudprober.org/docs/config/latest/probes/"},"mainEntityOfPage":{"@id":"https://cloudprober.org/docs/config/latest/probes/"},"datePublished":"0001-01-01T00:00:00CET","dateModified":"0001-01-01T00:00:00CET","author":{"@id":"https://cloudprober.org/#/schema/person/2"},"publisher":{"@id":"https://cloudprober.org/#/schema/organization/1"},"image":{"@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/image/2"}}]},{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://cloudprober.org/#/schema/person/2","name":"Manu Garg","sameAs":["https://twitter.com/manugarg","https://www.linkedin.com/in/manugarg/","https://github.com/manugarg"]}]},{"@context":"https://schema.org","@graph":[{"@type":"ImageObject","@id":"https://cloudprober.org/docs/config/latest/probes/#/schema/image/2","url":null,"contentUrl":null,"caption":"Probes Config"}]}]}</script><meta name=theme-color content="#fff"><link rel=icon href=https://cloudprober.org/favicon.ico sizes=any><link rel=apple-touch-icon sizes=180x180 href=https://cloudprober.org/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=https://cloudprober.org/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=https://cloudprober.org/favicon-16x16.png><link rel=manifest crossorigin=use-credentials href=https://cloudprober.org/site.webmanifest><script async src="https://www.googletagmanager.com/gtag/js?id=G-FHHPC1TNQV"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FHHPC1TNQV")</script><script>(function(e,t,n,s,o,i,a){e.GoogleAnalyticsObject=o,e[o]=e[o]||function(){(e[o].q=e[o].q||[]).push(arguments)},e[o].l=1*new Date,i=t.createElement(n),a=t.getElementsByTagName(n)[0],i.async=1,i.src=s,a.parentNode.insertBefore(i,a)})(window,document,"script","https://www.google-analytics.com/analytics.js","ga"),ga("create","UA-79661-8","auto"),ga("set","anonymizeIp",!0),ga("send","pageview");var buttons=document.querySelectorAll("a"),query;Array.prototype.map.call(buttons,function(e){e.host!=document.location.host&&e.addEventListener("click",function(){var t=e.getAttribute("data-action")||"follow";ga("send","event","outbound",t,e.href)})}),query=document.querySelector(".query"),query&&query.addEventListener("blur",function(){if(this.value){var e=document.location.pathname;ga("send","pageview",e+"?q="+this.value)}})</script></head><body class="docs single"><div class=sticky-top><div class=header-bar></div><header class="navbar navbar-expand-lg navbar-light doks-navbar"><nav class="container-xxl flex-wrap flex-lg-nowrap" aria-label="Main navigation"><a class="navbar-brand order-0" href=https://cloudprober.org/ aria-label=Cloudprober>Cloudprober</a>
 <button class="btn btn-menu order-2 d-block d-lg-none" type=button data-bs-toggle=offcanvas data-bs-target=#offcanvasDoks aria-controls=offcanvasDoks aria-label="Open main menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="offcanvas offcanvas-end border-0 py-lg-1" tabindex=-1 id=offcanvasDoks data-bs-backdrop=true aria-labelledby=offcanvasDoksLabel><div class="header-bar d-lg-none"></div><div class="offcanvas-header d-lg-none"><h2 class="h5 offcanvas-title ps-2" id=offcanvasDoksLabel><a class=text-dark href=https://cloudprober.org/>Cloudprober</a></h2><button type=button class="btn-close text-reset me-2" data-bs-dismiss=offcanvas aria-label="Close main menu"></button></div><div class="offcanvas-body p-4 p-lg-0"><ul class="nav flex-column flex-lg-row align-items-lg-center mt-2 mt-lg-0 ms-lg-2 me-lg-auto"><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>Get Started
 <span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/getting-started>Getting Started</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/overview/probe>What is a Probe</a></li></ul></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>Config
 <span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/config/guide>Config Guide</a></li><li><a class=dropdown-item href=https://cloudprober.org/docs/config/probe-options>Common Probe Options</a></li><li><a class=dropdown-item href=https://configtester.cloudprober.org/>🛠 Config Tester</a></li></ul></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/how-to/list/>How-To</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></li><li class=nav-item><a class="nav-link ps-0 py-1" href=https://cloudprober.org/docs/faq/list/>FAQ</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle ps-0 py-1" href=# id=navbarDropdownMenuLink role=button data-bs-toggle=dropdown aria-expanded=false>Community
 <span class=dropdown-caret><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"/></svg></span></a><ul class="dropdown-menu dropdown-menu-main shadow rounded border-0" aria-labelledby=navbarDropdownMenuLink><li><a class=dropdown-item href=https://cloudprober.org/docs/about/>Origin Story</a></li><li><a class=dropdown-item href=https://medium.com/cloudprober/>Blog</a></li><li><a class=dropdown-item href=https://github.com/cloudprober/cloudprober/discussions>Github Discussions</a></li><li><a class=dropdown-item href=https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE>Slack</a></li><li><a class=dropdown-item href=https://x.com/cloudprober>Twitter</a></li></ul></li></ul><hr class="text-black-50 my-4 d-lg-none"><form class="doks-search position-relative flex-grow-1 ms-lg-auto me-lg-2"><input id=search class="form-control is-search" type=search placeholder aria-label autocomplete=off><div id=suggestions class="shadow bg-white rounded d-none"></div></form><hr class="text-black-50 my-4 d-lg-none"><ul class="nav flex-column flex-lg-row"><li class=nav-item><a class="nav-link social-link" href=https://github.com/cloudprober/cloudprober><img src=https://img.shields.io/github/stars/cloudprober/cloudprober alt=GitHub><small class="ms-2 d-lg-none">GitHub</small></a></li></ul><hr class="text-black-50 my-4 d-lg-none"><button id=mode class="btn btn-link" type=button aria-label="Toggle user interface mode">
-<span class=toggle-dark><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-moon"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span><span class=toggle-light><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-sun"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span></button></div></div></nav></header></div><div class=container-xxl><aside class=doks-sidebar><nav id=doks-docs-nav class="collapse d-lg-none" aria-label="Tertiary navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/probe-options/>Common Probe Options</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/browser-probe/>Browser Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/faq/list/>FAQ</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/faq/general/>General</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/metrics-and-surfacers/>Metrics and Surfacers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/troubleshooting/>Troubleshooting</a></li></ul></nav></aside></div><div class="wrap container-xxl" role=document><div class=content><div class="row flex-xl-nowrap"><div class="col-lg-5 col-xl-4 docs-sidebar d-none d-lg-block"><nav id=sidebar-default class=docs-links aria-label="Main navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/probe-options/>Common Probe Options</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/browser-probe/>Browser Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/faq/list/>FAQ</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/faq/general/>General</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/metrics-and-surfacers/>Metrics and Surfacers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/troubleshooting/>Troubleshooting</a></li></ul></nav></div><nav class="docs-toc d-none d-xl-block col-xl-3" aria-label="Secondary navigation"></nav><main class="docs-content col-lg-11 col-xl-9 mx-xl-auto"><h1>Probes Config</h1><p class=lead></p><nav class=d-xl-none aria-label="Quaternary navigation"></nav><style>#config-doc-links{margin-bottom:.5rem;font-size:.94rem}.set-lang{border-radius:3px;font-size:smaller}.config-link-active{font-weight:bolder}.protodoc{margin:1rem 0}.btn-toggle{text-transform:none;font-weight:400}.btn-toggle::before{margin-top:.125rem;margin-bottom:0}h3[id]::before{content:'';display:block;height:5rem;margin:-5rem 0 0}</style><script src=https://cloudprober.org/configdoc.js></script><div id=config-doc-links>Configs:&nbsp;&nbsp;<a href=../overview/>main</a> | <a href=../alerting/>alerting</a> | <a href=../metrics/>metrics</a> | <a href=../oauth/>oauth</a> | <a href=../probes/>probes</a> | <a href=../rds/>rds</a> | <a href=../servers/>servers</a> | <a href=../surfacer/>surfacer</a> | <a href=../targets/>targets</a> | <a href=../tlsconfig/>tlsconfig</a> | <a href=../utils/>utils</a> | <a href=../validators/>validators</a></div><br><div style=font-size:85%><label for=config-version-selector>Version:</label>
-<select id=config-version-selector><option selected value=latest>latest</option><option value=main>main</option><option value=v0.13.7>v0.13.7</option><option value=v0.13.8>v0.13.8</option><option value=v0.13.9>v0.13.9</option><option value=v0.14.0>v0.14.0</option><option value=v0.14.1>v0.14.1</option><option value=v0.14.2>v0.14.2</option><option value=v0.14.3>v0.14.3</option></select> |
-Language: <button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-lang-textpb class=set-lang>TextPB</button></div><div id=content-lang-yaml class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_probes_AdditionalLabel>cloudprober.probes.AdditionalLabel <a class=anchor href=#cloudprober_probes_AdditionalLabel>#</a></h3><pre class=protodoc>
+<span class=toggle-dark><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-moon"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span><span class=toggle-light><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-sun"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span></button></div></div></nav></header></div><div class=container-xxl><aside class=doks-sidebar><nav id=doks-docs-nav class="collapse d-lg-none" aria-label="Tertiary navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/probe-options/>Common Probe Options</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/starlark-probe/>Script Probe (Starlark)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/browser-probe/>Browser Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/faq/list/>FAQ</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/faq/general/>General</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/metrics-and-surfacers/>Metrics and Surfacers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/troubleshooting/>Troubleshooting</a></li></ul></nav></aside></div><div class="wrap container-xxl" role=document><div class=content><div class="row flex-xl-nowrap"><div class="col-lg-5 col-xl-4 docs-sidebar d-none d-lg-block"><nav id=sidebar-default class=docs-links aria-label="Main navigation"><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/overview/cloudprober>Overview</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/overview/getting-started/>Getting Started</a></li><li><a class=docs-link href=https://cloudprober.org/docs/overview/probe/>What is a Probe</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class="docs-link active" href=https://cloudprober.org/docs/config/guide>Configuration</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/config/guide/>Config Guide</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/probe-options/>Common Probe Options</a></li><li><a class=docs-link href=https://cloudprober.org/docs/config/latest/overview>Config Reference</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/how-to/list/>How-To</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/how-to/targets/>Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/external-probe/>External Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/starlark-probe/>Script Probe (Starlark)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/browser-probe/>Browser Probe</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/run-on-kubernetes/>Running On Kubernetes</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/k8s_targets/>Kubernetes Targets</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/additional-labels/>Additional Labels</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/validators/>Validators</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/oauth/>OAuth Based Authentication</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/percentiles/>Percentiles and Histograms</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/extensions/>Extending Cloudprober</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/built-in-servers/>Built-in Servers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/how-to/rds/>Resource Discovery Service</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview>Surfacers</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/overview/>Exporting Metrics (Surfacers)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/cloudwatch/>Cloudwatch (AWS)</a></li><li><a class=docs-link href=https://cloudprober.org/docs/surfacers/stackdriver/>Stackdriver (Google Cloud)</a></li></ul><h3 class="h6 text-uppercase mb-2"><a class=docs-link href=https://cloudprober.org/docs/faq/list/>FAQ</a></h3><ul class=list-unstyled><li><a class=docs-link href=https://cloudprober.org/docs/faq/general/>General</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/alerting/>Alerting</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/metrics-and-surfacers/>Metrics and Surfacers</a></li><li><a class=docs-link href=https://cloudprober.org/docs/faq/troubleshooting/>Troubleshooting</a></li></ul></nav></div><nav class="docs-toc d-none d-xl-block col-xl-3" aria-label="Secondary navigation"></nav><main class="docs-content col-lg-11 col-xl-9 mx-xl-auto"><h1>Probes Config</h1><p class=lead></p><nav class=d-xl-none aria-label="Quaternary navigation"></nav><style>#config-doc-links{margin-bottom:.5rem;font-size:.94rem}.set-lang{border-radius:3px;font-size:smaller}.config-link-active{font-weight:bolder}.protodoc{margin:1rem 0}.btn-toggle{text-transform:none;font-weight:400}.btn-toggle::before{margin-top:.125rem;margin-bottom:0}h3[id]::before{content:'';display:block;height:5rem;margin:-5rem 0 0}</style><script src=https://cloudprober.org/configdoc.js></script><div id=config-doc-links>Configs:&nbsp;&nbsp;<a href=../overview/>main</a> | <a href=../alerting/>alerting</a> | <a href=../metrics/>metrics</a> | <a href=../oauth/>oauth</a> | <a href=../probes/>probes</a> | <a href=../rds/>rds</a> | <a href=../servers/>servers</a> | <a href=../surfacer/>surfacer</a> | <a href=../targets/>targets</a> | <a href=../tlsconfig/>tlsconfig</a> | <a href=../utils/>utils</a> | <a href=../validators/>validators</a></div><br><div style=font-size:85%><label for=config-version-selector>Version:</label>
+<select id=config-version-selector><option selected value=latest>latest</option><option value=main>main</option><option value=v0.14.3>v0.14.3</option><option value=v0.14.2>v0.14.2</option><option value=v0.14.1>v0.14.1</option><option value=v0.14.0>v0.14.0</option><option value=v0.13.9>v0.13.9</option><option value=v0.13.8>v0.13.8</option><option value=v0.13.7>v0.13.7</option><p></select> |
+Language: <button id=set-lang-yaml class=set-lang>YAML</button>|<button id=set-lang-textpb class=set-lang>TextPB</button></p></div><div id=content-lang-yaml class=select-content-lang style=display:none><style>.comment{color:#888}.protodoc{border:1px solid #ddd;border-left:3px solid #e6522c;border-radius:0;padding-left:10px}</style><h3 id=cloudprober_probes_AdditionalLabel>cloudprober.probes.AdditionalLabel <a class=anchor href=#cloudprober_probes_AdditionalLabel>#</a></h3><pre class=protodoc>
 
 key: &lt;string>
 
@@ -22,7 +23,7 @@ key: &lt;string>
 
 <div class=comment># Probe name. It should be unique across all probes.</div>name: &lt;string>
 
-type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|EXTENSION|USER_DEFINED): &lt;enum>
+type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|STARLARK|SQL|EXTERNAL_GRPC|EXTENSION|USER_DEFINED): &lt;enum>
 
 <div class=comment># Interval between two probe runs in milliseconds.
 # Only one of &#34;interval&#34; and &#34;inteval_msec&#34; should be defined.
@@ -41,7 +42,8 @@ type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|EXTENSION
 # Default timeout is 1s.</div>timeout: &lt;string>
 
 <div class=comment># Targets for the probe. Targets are required for all probes except
-# for external, user_defined, and extension probe types.</div>targets: &lt;<a href=../targets#cloudprober_targets_TargetsDef>cloudprober.targets.TargetsDef</a>>
+# for external, user_defined, extension, browser, sql and system probe
+# types.</div>targets: &lt;<a href=../targets#cloudprober_targets_TargetsDef>cloudprober.targets.TargetsDef</a>>
 
 <div class=comment># Latency distribution. If specified, latency is stored as a distribution.</div>latency_distribution: &lt;<a href=../metrics#cloudprober_metrics_Dist>cloudprober.metrics.Dist</a>>
 
@@ -119,7 +121,8 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 &nbsp;udp_probe &lt;<a href=../probes#cloudprober_probes_udp_ProbeConf>cloudprober.probes.udp.ProbeConf</a>&gt; | udp_listener_probe &lt;<a href=../probes#cloudprober_probes_udplistener_ProbeConf>cloudprober.probes.udplistener.ProbeConf</a>&gt; | 
 &nbsp;grpc_probe &lt;<a href=../probes#cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf</a>&gt; | tcp_probe &lt;<a href=../probes#cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf</a>&gt; | 
 &nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | system_probe &lt;<a href=../probes#cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf</a>&gt; | 
-&nbsp;user_defined_probe &lt;string&gt;]: &lt;oneof>
+&nbsp;starlark_probe &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf>cloudprober.probes.starlark.ProbeConf</a>&gt; | sql_probe &lt;<a href=../probes#cloudprober_probes_sql_ProbeConf>cloudprober.probes.sql.ProbeConf</a>&gt; | 
+&nbsp;external_grpc_probe &lt;<a href=../probes#cloudprober_probes_grpcext_ProbeConf>cloudprober.probes.grpcext.ProbeConf</a>&gt; | user_defined_probe &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Which machines this probe should run on. If defined, cloudprober will run
 # this probe only if machine&#39;s hostname matches this value. This is useful
@@ -560,6 +563,33 @@ name: &lt;string>
 
 value: &lt;string>
 
+</pre><h3 id=cloudprober_probes_grpcext_ProbeConf>cloudprober.probes.grpcext.ProbeConf <a class=anchor href=#cloudprober_probes_grpcext_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Sidecar server address. Typically a co-located unix domain socket, e.g.
+# &#34;unix:/var/run/cloudprober/sidecar.sock&#34; (single colon — this form works
+# for both POSIX and Windows paths; see sidecar.Listen), but any gRPC
+# target string works, e.g. &#34;localhost:9314&#34;. For a sidecar reachable over
+# the network rather than a co-located socket, set tls_config below so the
+# connection is authenticated and encrypted.</div>server: &lt;string>
+
+<div class=comment># Probe type registered on the sidecar, e.g. &#34;snowsql&#34;. A single sidecar
+# process can serve multiple probe types.</div>probe_type: &lt;string>
+
+<div class=comment># Type-specific configuration, passed to the sidecar as-is. Opaque to
+# cloudprober — it&#39;s decoded and validated by the sidecar. Typically JSON:
+#   config: &#39;{ &#34;warehouse&#34;: &#34;WH1&#34;, &#34;query&#34;: &#34;SELECT 1&#34; }&#39;</div>config: &lt;string>
+
+<div class=comment># Options for parsing metrics returned by the sidecar. Sidecar returns
+# additional metrics as payload-format lines (&#34;name{labels} value&#34;); these
+# options control how they&#39;re parsed (metrics kind, aggregation,
+# distributions, etc.). Same surface as external and http probes.</div>output_metrics_options: &lt;<a href=../metrics#cloudprober_metrics_payload_OutputMetricsOptions>cloudprober.metrics.payload.OutputMetricsOptions</a>>
+
+<div class=comment># TLS config for the connection to the sidecar. If unset, the connection is
+# insecure (plaintext) — fine for a co-located unix socket or loopback, but
+# for a sidecar reached over the network set this so probe configs (which
+# may carry credentials) aren&#39;t sent in the clear. Provide tls_cert_file /
+# tls_key_file to present a client certificate for mTLS.</div>tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
 </pre><h3 id=cloudprober_probes_http_ProbeConf>cloudprober.probes.http.ProbeConf <a class=anchor href=#cloudprober_probes_http_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># HTTP request scheme (Corresponding target label: &#34;scheme&#34;). If not set, we
@@ -595,7 +625,11 @@ value: &lt;string>
 # header {
 #   key: &#34;Authorization&#34;
 #   value: &#34;Bearer {{env &#34;AUTH_TOKEN&#34;}}&#34;
-# }   </div>headers: &lt;<a href=../probes#cloudprober_probes_http_ProbeConf_Header>cloudprober.probes.http.ProbeConf.Header</a>>
+# }
+#
+# Header values support per-request @uuid@ substitution -- each probe call
+# gets a fresh UUIDv4. Use &#34;@@&#34; to emit a literal &#34;@&#34;. Example:
+#   header { key: &#34;X-Request-ID&#34; value: &#34;@uuid@&#34; }</div>headers: &lt;<a href=../probes#cloudprober_probes_http_ProbeConf_Header>cloudprober.probes.http.ProbeConf.Header</a>>
 
 header: &lt;<a href=../probes#cloudprober_probes_http_ProbeConf_HeaderEntry>cloudprober.probes.http.ProbeConf.HeaderEntry</a>>
 
@@ -729,6 +763,162 @@ value: &lt;string>
 # the reply payload matches the same format.</div>disable_integrity_check: &lt;bool> | default: false
 
 <div class=comment># Do not allow OS-level fragmentation, only works on Linux systems.</div>disable_fragmentation: &lt;bool> | default: false
+
+</pre><h3 id=cloudprober_probes_sql_ProbeConf>cloudprober.probes.sql.ProbeConf <a class=anchor href=#cloudprober_probes_sql_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Database flavor. Required. Currently only POSTGRES is supported; more
+# flavors may be added based on demand.</div>flavor: (FLAVOR_UNSPECIFIED|POSTGRES): &lt;enum>
+
+<div class=comment># connection_string configures the database connection -- credentials,
+# database name, sslmode, and other libpq parameters -- in key/value form
+# e.g. &#34;user=u dbname=db sslmode=require&#34; or as a URI string
+# e.g. &#34;postgresql://user:password@host:port/database?sslmode=require&#34;.
+#
+# Note that connection string URI is incompatible with probe-targets
+# configuration and results in an error. To use probe targets, define
+# connection string in key-value form so that cloudprober can use the
+# configured targets. Conversely, to connect using the connection_string&#39;s
+# own host -- e.g. a full URI from a cloud provider -- omit the probe&#39;s
+# targets entirely.
+#
+# In key-value form, @target.name@, @target.port@, @target.label.&lt;name&gt;@,
+# etc. are substituted into connection_string. The user, password, and
+# database fields below, if set, override the connection_string values.
+# To keep secrets out of the config file, use the envSecret template
+# function, e.g. password: &#34;{{envSecret &#34;DB_PASSWORD&#34;}}&#34;.</div>connection_string: &lt;string>
+
+user: &lt;string>
+
+password: &lt;string>
+
+database: &lt;string>
+
+<div class=comment># Query to run. If no query is configured, the probe only verifies that the
+# database accepts connections and responds to a ping. Exactly one of query
+# and query_file may be set.
+#
+# Query results are serialized as one line per row, with column values
+# joined by a single space, e.g. the query
+# &#34;SELECT &#39;db_users&#39;, count(*) FROM users&#34; may produce &#34;db_users 42&#34;. This
+# output is passed to the probe&#39;s validators, and to the payload metrics
+# parser if response_metrics_options is set.
+#
+# Keep query results small and line-friendly:
+#  - Results are buffered in memory each run and capped at 1MB; exceeding
+#    the cap fails the probe. Use a LIMIT for potentially large results.
+#  - Column values containing spaces (free text, timestamps) span multiple
+#    space-separated tokens, and SQL NULL is rendered as &#34;&lt;nil&gt;&#34;; cast or
+#    format values in SQL if validators or payload parsing need clean
+#    tokens.</div>query: &lt;string>
+
+query_file: &lt;string>
+
+<div class=comment># TLS config for the database connection, e.g. for custom CA bundles or
+# client certificates (mTLS). Same message other probes (http, tcp, grpc)
+# use; see common/tlsconfig/proto/config.proto for the full field list.
+# If set, it overrides any TLS parameters from connection_string
+# (e.g. sslmode) or environment. If server_name is not set, it defaults to
+# the host being connected to (the target&#39;s name, or connection_string&#39;s
+# host with dummy_targets).</div>tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+<div class=comment># Export query results as metrics. Same shape external &#43; http probes
+# already use; with the row serialization described above, a query like
+# &#34;SELECT &#39;queue_depth&#39;, count(*) FROM jobs&#34; exports queue_depth as a
+# metric with no extra configuration.</div>response_metrics_options: &lt;<a href=../metrics#cloudprober_metrics_payload_OutputMetricsOptions>cloudprober.metrics.payload.OutputMetricsOptions</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf>cloudprober.probes.starlark.ProbeConf <a class=anchor href=#cloudprober_probes_starlark_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Source of the Starlark code. Exactly one of source or source_file must
+# be set.</div>source: &lt;string>
+
+source_file: &lt;string>
+
+<div class=comment># Name of the entry-point function. It must accept a single argument: the
+# target. The target is a struct-like value mirroring fields from
+# cloudprober&#39;s targets/endpoint.Endpoint:
+#   target.name    (string)        — Endpoint.Name (host or IP)
+#   target.port    (int)           — Endpoint.Port (0 if none)
+#   target.ip      (string)        — Endpoint.IP, stringified (&#34;&#34; if nil)
+#   target.labels  (dict[str,str]) — Endpoint.Labels, frozen
+# Example:
+#   def probe(target):
+#       url = &#34;http://%s:%d/healthz&#34; % (target.name, target.port)
+#       env = target.labels.get(&#34;env&#34;, &#34;unknown&#34;)
+#       ...
+# Defaults to &#34;probe&#34;.</div>entry_point: &lt;string> | default: probe
+
+<div class=comment># Variables exposed to the script via vars.get(name, default=None).
+#
+# Deliberately not named env_var: external/browser probes use that name
+# for &#34;passed to subprocess env&#34;; there&#39;s no subprocess here. For host
+# environment values, bake them in via the config-load template layer
+# (e.g. {{ envVar &#34;PASS&#34; }}).</div>vars: &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf_VarsEntry>cloudprober.probes.starlark.ProbeConf.VarsEntry</a>>
+
+<div class=comment># Custom metric emission options, used by the print_metric() builtin. Same
+# shape external &#43; http probes already use, so kind (CUMULATIVE / GAUGE),
+# distribution-bucket configuration, in-cloudprober aggregation, and
+# additional labels all carry over with no Starlark-specific surface.</div>output_metrics_options: &lt;<a href=../metrics#cloudprober_metrics_payload_OutputMetricsOptions>cloudprober.metrics.payload.OutputMetricsOptions</a>>
+
+<div class=comment># TLS configs, keyed by a name the script uses to select one via the tls
+# kwarg on http calls:
+#   http.get(url, tls=&#34;internal&#34;)
+#
+# TLS is deliberately per-call, with no probe-wide default: a script
+# routinely hits several hosts in one run, and TLS settings are per-host in
+# a way a single config can&#39;t capture — ca_cert_file *replaces* the system
+# CA pool (so an internal CA breaks any public host the same script
+# touches), server_name is an SNI override for one host by definition, and
+# disable_cert_validation is rarely meant for every host. Name each config
+# here and select it explicitly:
+#   tls_configs {
+#     key: &#34;legacy&#34;
+#     value { disable_cert_validation: true }
+#   }
+#   def probe(target):
+#       http.get(&#34;https://public/healthz&#34;)                  # system roots
+#       http.get(&#34;https://legacy/healthz&#34;, tls=&#34;legacy&#34;)    # named config
+#
+# Omitting the tls kwarg means Go&#39;s TLS defaults (system CA pool, normal
+# validation), never &#34;the only entry here&#34; — a single config must still be
+# asked for by name. Passing an empty tls is an error rather than the
+# default, so a computed selector fails loudly:
+#   http.get(url, tls=target.labels[&#34;tls_profile&#34;])  # missing label: error</div>tls_configs: &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf_TlsConfigsEntry>cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry</a>>
+
+<div class=comment># OAuth token sources, keyed by a name the script uses to select one. Same
+# oauth.Config message the HTTP probe uses, so every source (file, command,
+# HTTP token endpoint, GCE metadata, k8s token file, Google credentials,
+# self-signed JWT), plus refresh/expiry handling, carries over.
+#
+# Unlike the HTTP probe, tokens are NOT auto-injected: a Starlark script
+# routinely hits several hosts in one run, so it must ask for the token
+# explicitly and decide where it goes, via the oauth builtin:
+#   oauth.token(name=&#34;&#34;)  -- raw access token (&#34;eyJ...&#34;)
+#   oauth.header(name=&#34;&#34;) -- formatted Authorization value (&#34;Bearer eyJ...&#34;)
+# name may be omitted when exactly one config is present. Example:
+#   oauth_configs {
+#     key: &#34;api&#34;
+#     value { http_request { token_url: &#34;https://issuer/token&#34; ... } }
+#   }
+#   def probe(target):
+#       r = http.get(url, headers={&#34;Authorization&#34;: oauth.header(&#34;api&#34;)})</div>oauth_configs: &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf_OauthConfigsEntry>cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf_OauthConfigsEntry>cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry <a class=anchor href=#cloudprober_probes_starlark_ProbeConf_OauthConfigsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf_TlsConfigsEntry>cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry <a class=anchor href=#cloudprober_probes_starlark_ProbeConf_TlsConfigsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf_VarsEntry>cloudprober.probes.starlark.ProbeConf.VarsEntry <a class=anchor href=#cloudprober_probes_starlark_ProbeConf_VarsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
 
 </pre><h3 id=cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf <a class=anchor href=#cloudprober_probes_system_ProbeConf>#</a></h3><pre class=protodoc>
 
@@ -848,7 +1038,7 @@ key: &lt;string>
 
 <div class=comment># Probe name. It should be unique across all probes.</div>name: &lt;string>
 
-type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|EXTENSION|USER_DEFINED): &lt;enum>
+type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|STARLARK|SQL|EXTERNAL_GRPC|EXTENSION|USER_DEFINED): &lt;enum>
 
 <div class=comment># Interval between two probe runs in milliseconds.
 # Only one of &#34;interval&#34; and &#34;inteval_msec&#34; should be defined.
@@ -867,7 +1057,8 @@ type: (PING|HTTP|DNS|EXTERNAL|UDP|UDP_LISTENER|GRPC|TCP|BROWSER|SYSTEM|EXTENSION
 # Default timeout is 1s.</div>timeout: &lt;string>
 
 <div class=comment># Targets for the probe. Targets are required for all probes except
-# for external, user_defined, and extension probe types.</div>targets: &lt;<a href=../targets#cloudprober_targets_TargetsDef>cloudprober.targets.TargetsDef</a>>
+# for external, user_defined, extension, browser, sql and system probe
+# types.</div>targets: &lt;<a href=../targets#cloudprober_targets_TargetsDef>cloudprober.targets.TargetsDef</a>>
 
 <div class=comment># Latency distribution. If specified, latency is stored as a distribution.</div>latency_distribution: &lt;<a href=../metrics#cloudprober_metrics_Dist>cloudprober.metrics.Dist</a>>
 
@@ -945,7 +1136,8 @@ ip_version: (IP_VERSION_UNSPECIFIED|IPV4|IPV6): &lt;enum>
 &nbsp;udp_probe &lt;<a href=../probes#cloudprober_probes_udp_ProbeConf>cloudprober.probes.udp.ProbeConf</a>&gt; | udp_listener_probe &lt;<a href=../probes#cloudprober_probes_udplistener_ProbeConf>cloudprober.probes.udplistener.ProbeConf</a>&gt; | 
 &nbsp;grpc_probe &lt;<a href=../probes#cloudprober_probes_grpc_ProbeConf>cloudprober.probes.grpc.ProbeConf</a>&gt; | tcp_probe &lt;<a href=../probes#cloudprober_probes_tcp_ProbeConf>cloudprober.probes.tcp.ProbeConf</a>&gt; | 
 &nbsp;browser_probe &lt;<a href=../probes#cloudprober_probes_browser_ProbeConf>cloudprober.probes.browser.ProbeConf</a>&gt; | system_probe &lt;<a href=../probes#cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf</a>&gt; | 
-&nbsp;user_defined_probe &lt;string&gt;]: &lt;oneof>
+&nbsp;starlark_probe &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf>cloudprober.probes.starlark.ProbeConf</a>&gt; | sql_probe &lt;<a href=../probes#cloudprober_probes_sql_ProbeConf>cloudprober.probes.sql.ProbeConf</a>&gt; | 
+&nbsp;external_grpc_probe &lt;<a href=../probes#cloudprober_probes_grpcext_ProbeConf>cloudprober.probes.grpcext.ProbeConf</a>&gt; | user_defined_probe &lt;string&gt;]: &lt;oneof>
 
 <div class=comment># Which machines this probe should run on. If defined, cloudprober will run
 # this probe only if machine&#39;s hostname matches this value. This is useful
@@ -1386,6 +1578,33 @@ name: &lt;string>
 
 value: &lt;string>
 
+</pre><h3 id=cloudprober_probes_grpcext_ProbeConf>cloudprober.probes.grpcext.ProbeConf <a class=anchor href=#cloudprober_probes_grpcext_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Sidecar server address. Typically a co-located unix domain socket, e.g.
+# &#34;unix:/var/run/cloudprober/sidecar.sock&#34; (single colon — this form works
+# for both POSIX and Windows paths; see sidecar.Listen), but any gRPC
+# target string works, e.g. &#34;localhost:9314&#34;. For a sidecar reachable over
+# the network rather than a co-located socket, set tls_config below so the
+# connection is authenticated and encrypted.</div>server: &lt;string>
+
+<div class=comment># Probe type registered on the sidecar, e.g. &#34;snowsql&#34;. A single sidecar
+# process can serve multiple probe types.</div>probe_type: &lt;string>
+
+<div class=comment># Type-specific configuration, passed to the sidecar as-is. Opaque to
+# cloudprober — it&#39;s decoded and validated by the sidecar. Typically JSON:
+#   config: &#39;{ &#34;warehouse&#34;: &#34;WH1&#34;, &#34;query&#34;: &#34;SELECT 1&#34; }&#39;</div>config: &lt;string>
+
+<div class=comment># Options for parsing metrics returned by the sidecar. Sidecar returns
+# additional metrics as payload-format lines (&#34;name{labels} value&#34;); these
+# options control how they&#39;re parsed (metrics kind, aggregation,
+# distributions, etc.). Same surface as external and http probes.</div>output_metrics_options: &lt;<a href=../metrics#cloudprober_metrics_payload_OutputMetricsOptions>cloudprober.metrics.payload.OutputMetricsOptions</a>>
+
+<div class=comment># TLS config for the connection to the sidecar. If unset, the connection is
+# insecure (plaintext) — fine for a co-located unix socket or loopback, but
+# for a sidecar reached over the network set this so probe configs (which
+# may carry credentials) aren&#39;t sent in the clear. Provide tls_cert_file /
+# tls_key_file to present a client certificate for mTLS.</div>tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
 </pre><h3 id=cloudprober_probes_http_ProbeConf>cloudprober.probes.http.ProbeConf <a class=anchor href=#cloudprober_probes_http_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># HTTP request scheme (Corresponding target label: &#34;scheme&#34;). If not set, we
@@ -1421,7 +1640,11 @@ value: &lt;string>
 # header {
 #   key: &#34;Authorization&#34;
 #   value: &#34;Bearer {{env &#34;AUTH_TOKEN&#34;}}&#34;
-# }   </div>headers: &lt;<a href=../probes#cloudprober_probes_http_ProbeConf_Header>cloudprober.probes.http.ProbeConf.Header</a>>
+# }
+#
+# Header values support per-request @uuid@ substitution -- each probe call
+# gets a fresh UUIDv4. Use &#34;@@&#34; to emit a literal &#34;@&#34;. Example:
+#   header { key: &#34;X-Request-ID&#34; value: &#34;@uuid@&#34; }</div>headers: &lt;<a href=../probes#cloudprober_probes_http_ProbeConf_Header>cloudprober.probes.http.ProbeConf.Header</a>>
 
 header: &lt;<a href=../probes#cloudprober_probes_http_ProbeConf_HeaderEntry>cloudprober.probes.http.ProbeConf.HeaderEntry</a>>
 
@@ -1556,6 +1779,162 @@ value: &lt;string>
 
 <div class=comment># Do not allow OS-level fragmentation, only works on Linux systems.</div>disable_fragmentation: &lt;bool> | default: false
 
+</pre><h3 id=cloudprober_probes_sql_ProbeConf>cloudprober.probes.sql.ProbeConf <a class=anchor href=#cloudprober_probes_sql_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Database flavor. Required. Currently only POSTGRES is supported; more
+# flavors may be added based on demand.</div>flavor: (FLAVOR_UNSPECIFIED|POSTGRES): &lt;enum>
+
+<div class=comment># connection_string configures the database connection -- credentials,
+# database name, sslmode, and other libpq parameters -- in key/value form
+# e.g. &#34;user=u dbname=db sslmode=require&#34; or as a URI string
+# e.g. &#34;postgresql://user:password@host:port/database?sslmode=require&#34;.
+#
+# Note that connection string URI is incompatible with probe-targets
+# configuration and results in an error. To use probe targets, define
+# connection string in key-value form so that cloudprober can use the
+# configured targets. Conversely, to connect using the connection_string&#39;s
+# own host -- e.g. a full URI from a cloud provider -- omit the probe&#39;s
+# targets entirely.
+#
+# In key-value form, @target.name@, @target.port@, @target.label.&lt;name&gt;@,
+# etc. are substituted into connection_string. The user, password, and
+# database fields below, if set, override the connection_string values.
+# To keep secrets out of the config file, use the envSecret template
+# function, e.g. password: &#34;{{envSecret &#34;DB_PASSWORD&#34;}}&#34;.</div>connection_string: &lt;string>
+
+user: &lt;string>
+
+password: &lt;string>
+
+database: &lt;string>
+
+<div class=comment># Query to run. If no query is configured, the probe only verifies that the
+# database accepts connections and responds to a ping. Exactly one of query
+# and query_file may be set.
+#
+# Query results are serialized as one line per row, with column values
+# joined by a single space, e.g. the query
+# &#34;SELECT &#39;db_users&#39;, count(*) FROM users&#34; may produce &#34;db_users 42&#34;. This
+# output is passed to the probe&#39;s validators, and to the payload metrics
+# parser if response_metrics_options is set.
+#
+# Keep query results small and line-friendly:
+#  - Results are buffered in memory each run and capped at 1MB; exceeding
+#    the cap fails the probe. Use a LIMIT for potentially large results.
+#  - Column values containing spaces (free text, timestamps) span multiple
+#    space-separated tokens, and SQL NULL is rendered as &#34;&lt;nil&gt;&#34;; cast or
+#    format values in SQL if validators or payload parsing need clean
+#    tokens.</div>query: &lt;string>
+
+query_file: &lt;string>
+
+<div class=comment># TLS config for the database connection, e.g. for custom CA bundles or
+# client certificates (mTLS). Same message other probes (http, tcp, grpc)
+# use; see common/tlsconfig/proto/config.proto for the full field list.
+# If set, it overrides any TLS parameters from connection_string
+# (e.g. sslmode) or environment. If server_name is not set, it defaults to
+# the host being connected to (the target&#39;s name, or connection_string&#39;s
+# host with dummy_targets).</div>tls_config: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+<div class=comment># Export query results as metrics. Same shape external &#43; http probes
+# already use; with the row serialization described above, a query like
+# &#34;SELECT &#39;queue_depth&#39;, count(*) FROM jobs&#34; exports queue_depth as a
+# metric with no extra configuration.</div>response_metrics_options: &lt;<a href=../metrics#cloudprober_metrics_payload_OutputMetricsOptions>cloudprober.metrics.payload.OutputMetricsOptions</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf>cloudprober.probes.starlark.ProbeConf <a class=anchor href=#cloudprober_probes_starlark_ProbeConf>#</a></h3><pre class=protodoc>
+
+<div class=comment># Source of the Starlark code. Exactly one of source or source_file must
+# be set.</div>source: &lt;string>
+
+source_file: &lt;string>
+
+<div class=comment># Name of the entry-point function. It must accept a single argument: the
+# target. The target is a struct-like value mirroring fields from
+# cloudprober&#39;s targets/endpoint.Endpoint:
+#   target.name    (string)        — Endpoint.Name (host or IP)
+#   target.port    (int)           — Endpoint.Port (0 if none)
+#   target.ip      (string)        — Endpoint.IP, stringified (&#34;&#34; if nil)
+#   target.labels  (dict[str,str]) — Endpoint.Labels, frozen
+# Example:
+#   def probe(target):
+#       url = &#34;http://%s:%d/healthz&#34; % (target.name, target.port)
+#       env = target.labels.get(&#34;env&#34;, &#34;unknown&#34;)
+#       ...
+# Defaults to &#34;probe&#34;.</div>entry_point: &lt;string> | default: probe
+
+<div class=comment># Variables exposed to the script via vars.get(name, default=None).
+#
+# Deliberately not named env_var: external/browser probes use that name
+# for &#34;passed to subprocess env&#34;; there&#39;s no subprocess here. For host
+# environment values, bake them in via the config-load template layer
+# (e.g. {{ envVar &#34;PASS&#34; }}).</div>vars: &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf_VarsEntry>cloudprober.probes.starlark.ProbeConf.VarsEntry</a>>
+
+<div class=comment># Custom metric emission options, used by the print_metric() builtin. Same
+# shape external &#43; http probes already use, so kind (CUMULATIVE / GAUGE),
+# distribution-bucket configuration, in-cloudprober aggregation, and
+# additional labels all carry over with no Starlark-specific surface.</div>output_metrics_options: &lt;<a href=../metrics#cloudprober_metrics_payload_OutputMetricsOptions>cloudprober.metrics.payload.OutputMetricsOptions</a>>
+
+<div class=comment># TLS configs, keyed by a name the script uses to select one via the tls
+# kwarg on http calls:
+#   http.get(url, tls=&#34;internal&#34;)
+#
+# TLS is deliberately per-call, with no probe-wide default: a script
+# routinely hits several hosts in one run, and TLS settings are per-host in
+# a way a single config can&#39;t capture — ca_cert_file *replaces* the system
+# CA pool (so an internal CA breaks any public host the same script
+# touches), server_name is an SNI override for one host by definition, and
+# disable_cert_validation is rarely meant for every host. Name each config
+# here and select it explicitly:
+#   tls_configs {
+#     key: &#34;legacy&#34;
+#     value { disable_cert_validation: true }
+#   }
+#   def probe(target):
+#       http.get(&#34;https://public/healthz&#34;)                  # system roots
+#       http.get(&#34;https://legacy/healthz&#34;, tls=&#34;legacy&#34;)    # named config
+#
+# Omitting the tls kwarg means Go&#39;s TLS defaults (system CA pool, normal
+# validation), never &#34;the only entry here&#34; — a single config must still be
+# asked for by name. Passing an empty tls is an error rather than the
+# default, so a computed selector fails loudly:
+#   http.get(url, tls=target.labels[&#34;tls_profile&#34;])  # missing label: error</div>tls_configs: &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf_TlsConfigsEntry>cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry</a>>
+
+<div class=comment># OAuth token sources, keyed by a name the script uses to select one. Same
+# oauth.Config message the HTTP probe uses, so every source (file, command,
+# HTTP token endpoint, GCE metadata, k8s token file, Google credentials,
+# self-signed JWT), plus refresh/expiry handling, carries over.
+#
+# Unlike the HTTP probe, tokens are NOT auto-injected: a Starlark script
+# routinely hits several hosts in one run, so it must ask for the token
+# explicitly and decide where it goes, via the oauth builtin:
+#   oauth.token(name=&#34;&#34;)  -- raw access token (&#34;eyJ...&#34;)
+#   oauth.header(name=&#34;&#34;) -- formatted Authorization value (&#34;Bearer eyJ...&#34;)
+# name may be omitted when exactly one config is present. Example:
+#   oauth_configs {
+#     key: &#34;api&#34;
+#     value { http_request { token_url: &#34;https://issuer/token&#34; ... } }
+#   }
+#   def probe(target):
+#       r = http.get(url, headers={&#34;Authorization&#34;: oauth.header(&#34;api&#34;)})</div>oauth_configs: &lt;<a href=../probes#cloudprober_probes_starlark_ProbeConf_OauthConfigsEntry>cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf_OauthConfigsEntry>cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry <a class=anchor href=#cloudprober_probes_starlark_ProbeConf_OauthConfigsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;<a href=../oauth#cloudprober_oauth_Config>cloudprober.oauth.Config</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf_TlsConfigsEntry>cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry <a class=anchor href=#cloudprober_probes_starlark_ProbeConf_TlsConfigsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;<a href=../tlsconfig#cloudprober_tlsconfig_TLSConfig>cloudprober.tlsconfig.TLSConfig</a>>
+
+</pre><h3 id=cloudprober_probes_starlark_ProbeConf_VarsEntry>cloudprober.probes.starlark.ProbeConf.VarsEntry <a class=anchor href=#cloudprober_probes_starlark_ProbeConf_VarsEntry>#</a></h3><pre class=protodoc>
+
+key: &lt;string>
+
+value: &lt;string>
+
 </pre><h3 id=cloudprober_probes_system_ProbeConf>cloudprober.probes.system.ProbeConf <a class=anchor href=#cloudprober_probes_system_ProbeConf>#</a></h3><pre class=protodoc>
 
 <div class=comment># Export system-wide file descriptor stats (from /proc/sys/fs/file-nr)
@@ -1658,7 +2037,7 @@ type: (INVALID|ECHO|DISCARD): &lt;enum>
 
 <div class=comment># Number of packets sent in a single probe.</div>packets_per_probe: &lt;int32> | default: 1
 
-</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/v0.14.3/overview/><div class="card my-1"><div class="card-body py-2">&larr; Overview Config (v0.14.3)</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/probes/><div class="card my-1"><div class="card-body py-2">Probes Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.e88f97af25c65fb47a556a71d776264fd698b60be96e3f1834be445885340b675b7cf223e0ebfaa3f05cada378b3f9496dc2a3e6da07fae6de7a4108e5f8dbfd.js integrity="sha512-6I+XryXGX7R6VWpx13YmT9aYtgvpbj8YNL5EWIU0C2dbfPIj4Ov6o/BcraN4s/lJbcKj5toH+ubeekEI5fjb/Q==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/js/highlight.min.226296d88e3704fa2feb7a7b6f8611ec83d1de3c91feb4e189f8552145a0e9bea83a5ab9d2ebd4bcd95bb6736f02f7dbe76853b87c8abc7bbb9eeccc2fa3b0ae.js integrity="sha512-ImKW2I43BPov63p7b4YR7IPR3jyR/rThifhVIUWg6b6oOlq50uvUvNlbtnNvAvfb52hTuHyKvHu7nuzML6Owrg==" crossorigin=anonymous defer></script>
+</pre></div><div class="page-footer-meta d-flex flex-column flex-md-row justify-content-between"></div><div class="docs-navigation d-flex justify-content-between"><a href=https://cloudprober.org/docs/config/v0.14.4/overview/><div class="card my-1"><div class="card-body py-2">&larr; Overview Config (v0.14.4)</div></div></a><a class=ms-auto href=https://cloudprober.org/docs/config/probes/><div class="card my-1"><div class="card-body py-2">Probes Config &rarr;</div></div></a></div></main></div></div></div><footer class="footer text-muted"><div class=container-xxl><div class=row><div class="col-lg-8 order-last order-lg-first"><ul class=list-inline><li class=list-inline-item>Website powered by <a class=text-muted href=https://gohugo.io/>Hugo</a>, and <a class=text-muted href=https://getdoks.org/>Doks</a></li></ul></div><div class="col-lg-8 order-first order-lg-last text-lg-end"><ul class=list-inline></ul></div></div></div></footer><script src=https://cloudprober.org/js/bootstrap.min.e88f97af25c65fb47a556a71d776264fd698b60be96e3f1834be445885340b675b7cf223e0ebfaa3f05cada378b3f9496dc2a3e6da07fae6de7a4108e5f8dbfd.js integrity="sha512-6I+XryXGX7R6VWpx13YmT9aYtgvpbj8YNL5EWIU0C2dbfPIj4Ov6o/BcraN4s/lJbcKj5toH+ubeekEI5fjb/Q==" crossorigin=anonymous defer></script>
+<script src=https://cloudprober.org/js/highlight.min.b8ae1984bca1d249a3f9920396ce994b94b2f9aba0da661b9b4b3b7d47fe0a24a2a9deeeae60e554b7527620093437e483f90641532fd9fd1c700a621812aff2.js integrity="sha512-uK4ZhLyh0kmj+ZIDls6ZS5Sy+aug2mYbm0s7fUf+CiSiqd7urmDlVLdSdiAJNDfkg/kGQVMv2f0ccApiGBKv8g==" crossorigin=anonymous defer></script>
 <script src=https://cloudprober.org/main.min.5342c819d4c3c3863bbfa5a876a27f55208ef2e93cda9e9cb936cdc2b8888293a8f55792eb4e19b513d6a10d1123c2ce6b390c04d9b0739eac535e93738cc385.js integrity="sha512-U0LIGdTDw4Y7v6WodqJ/VSCO8uk82p6cuTbNwriIgpOo9VeS604ZtRPWoQ0RI8LOazkMBNmwc56sU16Tc4zDhQ==" crossorigin=anonymous defer></script>
-<script src=https://cloudprober.org/index.min.b239fc784e3ffb612ef800acf0658a2c31136ae7237cb4b69b9bf6e3571995021073611451260d789da8be8a080dbfa4dff3c4267b3cd30eaec6f5c88de82151.js integrity="sha512-sjn8eE4/+2Eu+ACs8GWKLDETaucjfLS2m5v241cZlQIQc2EUUSYNeJ2ovooIDb+k3/PEJns80w6uxvXIjeghUQ==" crossorigin=anonymous defer></script></body></html>
+<script src=https://cloudprober.org/index.min.4f9ddd55147e071a208037bdcea6896132dc1599488187870e4720722fcf307e15e8a93cecef7a5e0bcd389e81948b404a1608405f1715e08e955074d6cd0524.js integrity="sha512-T53dVRR+BxoggDe9zqaJYTLcFZlIgYeHDkcgci/PMH4V6Kk87O96XgvNOJ6BlItAShYIQF8XFeCOlVB01s0FJA==" crossorigin=anonymous defer></script></body></html>
