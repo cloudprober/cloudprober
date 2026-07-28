@@ -3,6 +3,7 @@
 
 package validators
 
+import dnspb "github.com/cloudprober/cloudprober/internal/validators/dns/proto"
 import httppb "github.com/cloudprober/cloudprober/internal/validators/http/proto"
 import integritypb "github.com/cloudprober/cloudprober/internal/validators/integrity/proto"
 import jsonpb "github.com/cloudprober/cloudprober/internal/validators/json/proto"
@@ -10,10 +11,14 @@ import validatorspb "github.com/cloudprober/cloudprober/internal/validators/prot
 
 // Symbols from github.com/cloudprober/cloudprober/internal/validators/proto
 type Validator = validatorspb.Validator
+type Validator_DnsValidator = validatorspb.Validator_DnsValidator
 type Validator_HttpValidator = validatorspb.Validator_HttpValidator
 type Validator_IntegrityValidator = validatorspb.Validator_IntegrityValidator
 type Validator_JsonValidator = validatorspb.Validator_JsonValidator
 type Validator_Regex = validatorspb.Validator_Regex
+
+// Symbols from github.com/cloudprober/cloudprober/internal/validators/dns/proto
+type DnsValidator = dnspb.Validator
 
 // Symbols from github.com/cloudprober/cloudprober/internal/validators/http/proto
 type HttpValidator = httppb.Validator

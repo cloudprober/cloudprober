@@ -7,6 +7,7 @@
 package proto
 
 import (
+	proto3 "github.com/cloudprober/cloudprober/internal/validators/dns/proto"
 	proto "github.com/cloudprober/cloudprober/internal/validators/http/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/validators/integrity/proto"
 	proto2 "github.com/cloudprober/cloudprober/internal/validators/json/proto"
@@ -33,6 +34,7 @@ type Validator struct {
 	//	*Validator_IntegrityValidator
 	//	*Validator_JsonValidator
 	//	*Validator_Regex
+	//	*Validator_DnsValidator
 	Type          isValidator_Type `protobuf_oneof:"type"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -118,6 +120,15 @@ func (x *Validator) GetRegex() string {
 	return ""
 }
 
+func (x *Validator) GetDnsValidator() *proto3.Validator {
+	if x != nil {
+		if x, ok := x.Type.(*Validator_DnsValidator); ok {
+			return x.DnsValidator
+		}
+	}
+	return nil
+}
+
 type isValidator_Type interface {
 	isValidator_Type()
 }
@@ -141,6 +152,11 @@ type Validator_Regex struct {
 	Regex string `protobuf:"bytes,4,opt,name=regex,proto3,oneof"`
 }
 
+type Validator_DnsValidator struct {
+	// DNS validator
+	DnsValidator *proto3.Validator `protobuf:"bytes,6,opt,name=dns_validator,json=dnsValidator,proto3,oneof"`
+}
+
 func (*Validator_HttpValidator) isValidator_Type() {}
 
 func (*Validator_IntegrityValidator) isValidator_Type() {}
@@ -149,17 +165,20 @@ func (*Validator_JsonValidator) isValidator_Type() {}
 
 func (*Validator_Regex) isValidator_Type() {}
 
+func (*Validator_DnsValidator) isValidator_Type() {}
+
 var File_github_com_cloudprober_cloudprober_internal_validators_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_internal_validators_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Igithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\x12\x16cloudprober.validators\x1aNgithub.com/cloudprober/cloudprober/internal/validators/http/proto/config.proto\x1aSgithub.com/cloudprober/cloudprober/internal/validators/integrity/proto/config.proto\x1aNgithub.com/cloudprober/cloudprober/internal/validators/json/proto/config.proto\"\xc1\x02\n" +
+	"Igithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\x12\x16cloudprober.validators\x1aMgithub.com/cloudprober/cloudprober/internal/validators/dns/proto/config.proto\x1aNgithub.com/cloudprober/cloudprober/internal/validators/http/proto/config.proto\x1aSgithub.com/cloudprober/cloudprober/internal/validators/integrity/proto/config.proto\x1aNgithub.com/cloudprober/cloudprober/internal/validators/json/proto/config.proto\"\x8f\x03\n" +
 	"\tValidator\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12O\n" +
 	"\x0ehttp_validator\x18\x02 \x01(\v2&.cloudprober.validators.http.ValidatorH\x00R\rhttpValidator\x12^\n" +
 	"\x13integrity_validator\x18\x03 \x01(\v2+.cloudprober.validators.integrity.ValidatorH\x00R\x12integrityValidator\x12O\n" +
 	"\x0ejson_validator\x18\x05 \x01(\v2&.cloudprober.validators.json.ValidatorH\x00R\rjsonValidator\x12\x16\n" +
-	"\x05regex\x18\x04 \x01(\tH\x00R\x05regexB\x06\n" +
+	"\x05regex\x18\x04 \x01(\tH\x00R\x05regex\x12L\n" +
+	"\rdns_validator\x18\x06 \x01(\v2%.cloudprober.validators.dns.ValidatorH\x00R\fdnsValidatorB\x06\n" +
 	"\x04typeB>Z<github.com/cloudprober/cloudprober/internal/validators/protob\x06proto3"
 
 var (
@@ -180,16 +199,18 @@ var file_github_com_cloudprober_cloudprober_internal_validators_proto_config_pro
 	(*proto.Validator)(nil),  // 1: cloudprober.validators.http.Validator
 	(*proto1.Validator)(nil), // 2: cloudprober.validators.integrity.Validator
 	(*proto2.Validator)(nil), // 3: cloudprober.validators.json.Validator
+	(*proto3.Validator)(nil), // 4: cloudprober.validators.dns.Validator
 }
 var file_github_com_cloudprober_cloudprober_internal_validators_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.validators.Validator.http_validator:type_name -> cloudprober.validators.http.Validator
 	2, // 1: cloudprober.validators.Validator.integrity_validator:type_name -> cloudprober.validators.integrity.Validator
 	3, // 2: cloudprober.validators.Validator.json_validator:type_name -> cloudprober.validators.json.Validator
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 3: cloudprober.validators.Validator.dns_validator:type_name -> cloudprober.validators.dns.Validator
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_internal_validators_proto_config_proto_init() }
@@ -202,6 +223,7 @@ func file_github_com_cloudprober_cloudprober_internal_validators_proto_config_pr
 		(*Validator_IntegrityValidator)(nil),
 		(*Validator_JsonValidator)(nil),
 		(*Validator_Regex)(nil),
+		(*Validator_DnsValidator)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
