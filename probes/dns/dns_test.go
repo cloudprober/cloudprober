@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/internal/validators"
+	dnsvalidatorpb "github.com/cloudprober/cloudprober/internal/validators/dns/proto"
 	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
@@ -49,6 +50,8 @@ var (
 )
 
 type mockClient struct {
+	authoritative bool
+
 	// mu protects lastMsg, which is written by all the requests of a probe
 	// run, and those can run concurrently (requests_per_probe > 1).
 	mu      sync.Mutex
@@ -72,7 +75,7 @@ func (c *mockClient) ExchangeContext(ctx context.Context, in *dns.Msg, fullTarge
 	if fullTarget != "8.8.8.8:53" {
 		return nil, 0, fmt.Errorf("unexpected target: %v", fullTarget)
 	}
-	out := &dns.Msg{}
+	out := &dns.Msg{MsgHdr: dns.MsgHdr{Authoritative: c.authoritative}}
 	question := in.Question[0]
 	if question.Name == questionBadDomain+"." || int(question.Qtype) == int(questionBadType) {
 		out.Rcode = dns.RcodeNameError
@@ -343,6 +346,56 @@ func TestRecursionDesired(t *testing.T) {
 			}
 			if got := client.getLastMsg().RecursionDesired; got != test.want {
 				t.Errorf("got recursion desired: %v, want: %v", got, test.want)
+			}
+		})
+	}
+}
+
+// Verify that DNS probe passes the DNS response to the validators, so that
+// DNS validator can look at the response header.
+func TestDNSValidator(t *testing.T) {
+	for _, test := range []struct {
+		description   string
+		authoritative bool
+		wantSuccess   int64
+	}{
+		{"authoritative_response", true, 1},
+		{"non_authoritative_response", false, 0},
+	} {
+		t.Run(test.description, func(t *testing.T) {
+			valPb := []*validatorpb.Validator{
+				{
+					Name: "authoritative",
+					Type: &validatorpb.Validator_DnsValidator{
+						DnsValidator: &dnsvalidatorpb.Validator{Authoritative: proto.Bool(true)},
+					},
+				},
+			}
+			validator, err := validators.Init(valPb)
+			if err != nil {
+				t.Fatalf("Error initializing validators: %v", err)
+			}
+
+			p := &Probe{}
+			opts := &options.Options{
+				Targets:    targets.StaticTargets("8.8.8.8"),
+				Interval:   2 * time.Second,
+				Timeout:    time.Second,
+				ProbeConf:  &configpb.ProbeConf{},
+				Validators: validator,
+			}
+			if err := p.Init("dns_validator_test", opts); err != nil {
+				t.Fatalf("Error creating probe: %v", err)
+			}
+
+			p.client = &mockClient{authoritative: test.authoritative}
+			p.targets = p.opts.Targets.ListEndpoints()
+			runReq := &sched.RunProbeForTargetRequest{Target: p.targets[0]}
+			p.runProbe(context.Background(), runReq)
+
+			result := runReq.Result.(*probeRunResult)
+			if result.success.Int64() != test.wantSuccess {
+				t.Errorf("got success: %d, want: %d", result.success.Int64(), test.wantSuccess)
 			}
 		})
 	}
