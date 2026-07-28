@@ -71,6 +71,10 @@ message ProbeConf {
   // if DNS response status is NOERROR.
   optional uint32 min_answers = 4 [default = 0];
 
+  // Whether to set the RD (Recursion Desired) flag in the query. Set it to
+  // false to probe authoritative DNS servers.
+  optional bool recursion_desired = 6 [default = true];
+
   // Whether to resolve the target (target is DNS server here) before making
   // the request. If set to false, we hand over the target directly to the DNS
   // client. Otherwise, we resolve the target first to an IP address.  By
