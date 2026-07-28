@@ -317,6 +317,9 @@ type ProbeConf struct {
 	// Minimum number of answers expected. Default behavior is to return success
 	// if DNS response status is NOERROR.
 	MinAnswers *uint32 `protobuf:"varint,4,opt,name=min_answers,json=minAnswers,def=0" json:"min_answers,omitempty"`
+	// Whether to set the RD (Recursion Desired) flag in the query. Set it to
+	// false to probe authoritative DNS servers.
+	RecursionDesired *bool `protobuf:"varint,6,opt,name=recursion_desired,json=recursionDesired,def=1" json:"recursion_desired,omitempty"`
 	// Whether to resolve the target (target is DNS server here) before making
 	// the request. If set to false, we hand over the target directly to the DNS
 	// client. Otherwise, we resolve the target first to an IP address.  By
@@ -350,6 +353,7 @@ const (
 	Default_ProbeConf_ResolvedDomain       = string("www.google.com.")
 	Default_ProbeConf_QueryType            = QueryType_MX
 	Default_ProbeConf_MinAnswers           = uint32(0)
+	Default_ProbeConf_RecursionDesired     = bool(true)
 	Default_ProbeConf_QueryClass           = QueryClass_IN
 	Default_ProbeConf_DnsProto             = DNSProto_UDP
 	Default_ProbeConf_RequestsPerProbe     = int32(1)
@@ -407,6 +411,13 @@ func (x *ProbeConf) GetMinAnswers() uint32 {
 	return Default_ProbeConf_MinAnswers
 }
 
+func (x *ProbeConf) GetRecursionDesired() bool {
+	if x != nil && x.RecursionDesired != nil {
+		return *x.RecursionDesired
+	}
+	return Default_ProbeConf_RecursionDesired
+}
+
 func (x *ProbeConf) GetResolveFirst() bool {
 	if x != nil && x.ResolveFirst != nil {
 		return *x.ResolveFirst
@@ -446,13 +457,14 @@ var File_github_com_cloudprober_cloudprober_probes_dns_proto_config_proto protor
 
 const file_github_com_cloudprober_cloudprober_probes_dns_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x12\x16cloudprober.probes.dns\"\xcb\x03\n" +
+	"@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x12\x16cloudprober.probes.dns\"\xfe\x03\n" +
 	"\tProbeConf\x128\n" +
 	"\x0fresolved_domain\x18\x01 \x01(\t:\x0fwww.google.com.R\x0eresolvedDomain\x12D\n" +
 	"\n" +
 	"query_type\x18\x03 \x01(\x0e2!.cloudprober.probes.dns.QueryType:\x02MXR\tqueryType\x12\"\n" +
 	"\vmin_answers\x18\x04 \x01(\r:\x010R\n" +
-	"minAnswers\x12#\n" +
+	"minAnswers\x121\n" +
+	"\x11recursion_desired\x18\x06 \x01(\b:\x04trueR\x10recursionDesired\x12#\n" +
 	"\rresolve_first\x18\x05 \x01(\bR\fresolveFirst\x12G\n" +
 	"\vquery_class\x18` \x01(\x0e2\".cloudprober.probes.dns.QueryClass:\x02INR\n" +
 	"queryClass\x12B\n" +

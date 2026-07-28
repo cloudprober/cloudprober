@@ -247,6 +247,7 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 	msg := new(dns.Msg)
 	msg.SetQuestion(p.fqdn, p.queryType)
 	msg.Question[0].Qclass = p.queryClass
+	msg.RecursionDesired = p.c.GetRecursionDesired()
 
 	resp, latency, err := p.client.ExchangeContext(ctx, msg, target)
 
