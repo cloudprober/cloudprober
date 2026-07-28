@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -48,14 +49,26 @@ var (
 )
 
 type mockClient struct {
+	// mu protects lastMsg, which is written by all the requests of a probe
+	// run, and those can run concurrently (requests_per_probe > 1).
+	mu      sync.Mutex
 	lastMsg *dns.Msg
+}
+
+func (c *mockClient) getLastMsg() *dns.Msg {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.lastMsg
 }
 
 // Exchange implementation that returns an error status if the query is for
 // questionBad[Domain|Type]. This allows us to check if query parameters are
 // populated correctly.
 func (c *mockClient) ExchangeContext(ctx context.Context, in *dns.Msg, fullTarget string) (*dns.Msg, time.Duration, error) {
+	c.mu.Lock()
 	c.lastMsg = in
+	c.mu.Unlock()
+
 	if fullTarget != "8.8.8.8:53" {
 		return nil, 0, fmt.Errorf("unexpected target: %v", fullTarget)
 	}
@@ -325,10 +338,10 @@ func TestRecursionDesired(t *testing.T) {
 			p.targets = p.opts.Targets.ListEndpoints()
 			p.runProbe(context.Background(), &sched.RunProbeForTargetRequest{Target: p.targets[0]})
 
-			if client.lastMsg == nil {
+			if client.getLastMsg() == nil {
 				t.Fatal("no DNS query was sent")
 			}
-			if got := client.lastMsg.RecursionDesired; got != test.want {
+			if got := client.getLastMsg().RecursionDesired; got != test.want {
 				t.Errorf("got recursion desired: %v, want: %v", got, test.want)
 			}
 		})
