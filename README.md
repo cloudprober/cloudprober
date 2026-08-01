@@ -3,7 +3,7 @@
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 
-[cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/getting-started)
+Quick Links: [cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/getting-started) | [Live Demo](https://browser-probe-demo.cloudprober.org/)
 
 # Cloudprober: Reliable System Monitoring, Simplified!
 
@@ -63,7 +63,7 @@ monitoring signals.
 
 * If you're familiar with Prometheus Blackbox Exporter, see how Cloudprober stacks against it: [Prometheus Blackbox Exporter vs Cloudprober](https://medium.com/cloudprober/prometheus-blackbox-exporter-vs-cloudprober-08a1d3beeda2).
   
-* If you're not very familiar with the blackbox/synthetic monitoring paradigm, take a look at [why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e).
+* If you're not very familiar with the blackbox/synthetic monitoring paradigm, take a look at [why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e) and [what should you probe?](https://medium.com/cloudprober/what-should-you-probe-9fa070d7a635).
 
 * Cloudprober's [origin story](https://medium.com/cloudprober/story-of-cloudprober-5ac1dbc0066c).
   
