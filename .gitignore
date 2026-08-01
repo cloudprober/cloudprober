@@ -26,3 +26,6 @@ vendor/
 
 docs/_config_docs
 docs/content/docs/config
+
+.agent/
+.claude/
