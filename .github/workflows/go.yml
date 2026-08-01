@@ -294,7 +294,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudprober-release-binaries
-          path: cloudprober-*.zip
+          path: |
+            cloudprober-*.zip
+            cloudprober-*.tar.gz
+            cloudprober-*-checksums.txt
 
   build_and_push_docker_multiarch:
     name: Build and push multiarch docker image
@@ -398,15 +401,17 @@ jobs:
         with:
           name: cloudprober-release-binaries
       - run: ls -R *
+      # Rename the versioned archives to "tip" ones, and regenerate checksums
+      # for the renamed files (the shipped checksums.txt refers to the
+      # versioned names).
       - run: |
-          mv cloudprober*-linux-arm64.zip cloudprober-tip-linux-arm64.zip
-          mv cloudprober*-linux-armv7.zip cloudprober-tip-linux-armv7.zip
-          mv cloudprober*-linux-x86_64.zip cloudprober-tip-linux-x86_64.zip
-          mv cloudprober*-macos-arm64.zip cloudprober-tip-macos-arm64.zip
-          mv cloudprober*-macos-x86_64.zip cloudprober-tip-macos-x86_64.zip
-          mv cloudprober*-windows-x86_64.zip cloudprober-tip-windows-x86_64.zip
+          rm -f cloudprober-*-checksums.txt
+          for f in cloudprober-*; do
+            mv "$f" "$(echo "$f" | sed -E 's/^cloudprober-.*-(linux|macos|windows)-/cloudprober-tip-\1-/')"
+          done
+          sha256sum cloudprober-tip-* > cloudprober-tip-checksums.txt
       - uses: pyTooling/Actions/releaser@r0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            cloudprober-*.zip
+            cloudprober-tip-*

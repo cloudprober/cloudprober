@@ -70,9 +70,16 @@ dist: $(BINARIES)
 	  bindir=cloudprober-$(VERSION)-$${bindir/cloudprober-/}; \
 	  mkdir -p $${bindir}; cp $${bin} $${bindir}/cloudprober; \
 	  chmod a+rx $${bindir}/cloudprober; \
-	  [[ "$${bin}" == *"windows"* ]] && mv $${bindir}/cloudprober{,.exe}; \
+	  if [[ "$${bin}" == *"windows"* ]]; then \
+	    mv $${bindir}/cloudprober{,.exe}; \
+	  else \
+	    tar -czf $${bindir}.tar.gz $${bindir}/; \
+	  fi; \
 	  zip -r $${bindir}.zip $${bindir}/; rm -rf $${bindir}; \
 	done
+	rm -f cloudprober-$(VERSION)-checksums.txt
+	sha256sum cloudprober-$(VERSION)-*.zip cloudprober-$(VERSION)-*.tar.gz \
+	  > cloudprober-$(VERSION)-checksums.txt
 
 PYVERSION := $(subst v,,$(VERSION))
 PYVERSION := $(word 1,$(subst -, ,$(PYVERSION)))-$(word 2,$(subst -, ,$(PYVERSION)))
