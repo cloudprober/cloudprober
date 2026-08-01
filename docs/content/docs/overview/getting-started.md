@@ -8,16 +8,25 @@ title: Getting Started
 
 ## Installation
 
-If you have Go installed, you can install cloudprober from source:
-
 ```bash
-go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest
+curl -fsSL https://cloudprober.org/install.sh | sh
 ```
+
+This downloads the latest release for your platform, verifies its SHA-256
+checksum, and installs the binary into `/usr/local/bin` (or `~/.local/bin` if
+that isn't writable). Set `VERSION` or `INSTALL_DIR` to override either
+default. Linux and macOS only.
+
+If you'd rather not pipe a script into a shell -- and it's a good habit not to
+-- read it first at
+[cloudprober.org/install.sh](https://cloudprober.org/install.sh), or use one of
+the methods below.
 
 ##### Other Installation Methods:
 
 | Method             | Instructions                                                                                                                            | Platform              |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Go                 | `go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest`                                                                  | MacOS, Linux, Windows |
 | Brew               | `brew install cloudprober`                                                                                                              | MacOS, Linux          |
 | Docker Image       | `docker run ghcr.io/cloudprober/cloudprober` ([other docker versions](https://github.com/cloudprober/cloudprober/wiki/Docker-versions)) | Docker                |
 | Helm chart         | [See instructions](https://github.com/cloudprober/helm-charts)                                                                          | Kubernetes            |
