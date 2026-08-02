@@ -110,8 +110,17 @@ curl -fsSL -o "${tmpdir}/${archive}" "${base_url}/${archive}" ||
 verify_checksum
 
 tar -xzf "${tmpdir}/${archive}" -C "$tmpdir"
-binary="${tmpdir}/cloudprober-${version}-${platform}/cloudprober"
-[ -f "$binary" ] || err "${archive} doesn't contain a cloudprober binary"
+# The archive holds a single directory, but its name tracks the build version
+# rather than $version ("tip" archives are renamed copies of versioned ones),
+# so find the binary instead of assuming the directory name.
+binary=""
+for f in "$tmpdir"/*/cloudprober; do
+  if [ -f "$f" ]; then
+    binary="$f"
+    break
+  fi
+done
+[ -n "$binary" ] || err "${archive} doesn't contain a cloudprober binary"
 
 pick_install_dir
 cp "$binary" "${install_dir}/cloudprober"
