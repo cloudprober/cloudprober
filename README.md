@@ -75,7 +75,7 @@ Jump in with our [Getting Started](https://cloudprober.org/docs/overview/getting
 
 ## Join the Community
 
-Join our [Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE), or discuss on [Github](https://github.com/cloudprober/cloudprober/discussions). Help shape Cloudprober's future by commenting
+Join our [Slack](https://cloudprober.org/goto/slack), or discuss on [Github](https://github.com/cloudprober/cloudprober/discussions). Help shape Cloudprober's future by commenting
 [here](https://github.com/cloudprober/cloudprober/discussions/121).
 
 
