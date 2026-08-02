@@ -68,7 +68,9 @@ verify_checksum() {
   curl -fsSL -o "${tmpdir}/checksums.txt" "${base_url}/cloudprober-${version}-checksums.txt" ||
     err "couldn't download checksums for ${version}; refusing to install unverified"
 
-  want=$(grep " ${archive}$" "${tmpdir}/checksums.txt" | cut -d' ' -f1)
+  # Exact string compare on the filename field: $archive embeds $version, which
+  # comes from the environment, so a regex match could pick the wrong line.
+  want=$(awk -v a="$archive" '$2 == a { print $1; exit }' "${tmpdir}/checksums.txt")
   [ -n "$want" ] || err "${archive} is not listed in checksums.txt"
   [ "$got" = "$want" ] || err "checksum mismatch for ${archive}: got ${got}, want ${want}"
 }
