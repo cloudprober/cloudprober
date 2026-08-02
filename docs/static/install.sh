@@ -1,4 +1,9 @@
 #!/bin/sh
+#
+# Copyright 2026 The Cloudprober Authors.
+# Licensed under the Apache License, Version 2.0:
+# https://github.com/cloudprober/cloudprober/blob/main/LICENSE
+#
 # Install script for cloudprober (https://cloudprober.org).
 #
 # Usage:
