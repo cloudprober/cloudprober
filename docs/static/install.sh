@@ -19,6 +19,10 @@ set -eu
 
 REPO_URL="https://github.com/cloudprober/cloudprober"
 
+# Every download goes through this. -L follows GitHub's redirects to the CDN,
+# and the --proto flags keep a redirect from taking us off HTTPS.
+CURL="curl --proto =https --proto-redir =https -fsSL"
+
 err() {
   echo "install.sh: $*" >&2
   exit 1
@@ -47,7 +51,7 @@ detect_platform() {
 # /releases/latest redirects to /releases/tag/<version>. Reading that redirect
 # avoids the GitHub API's unauthenticated rate limit.
 latest_version() {
-  url=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${REPO_URL}/releases/latest") ||
+  url=$($CURL -I -o /dev/null -w '%{url_effective}' "${REPO_URL}/releases/latest") ||
     err "couldn't reach GitHub to find the latest version"
   version="${url##*/}"
   case "$version" in
@@ -59,7 +63,7 @@ latest_version() {
 verify_checksum() {
   got=$($sha256_cmd "${tmpdir}/${archive}" | cut -d' ' -f1)
 
-  curl -fsSL -o "${tmpdir}/checksums.txt" "${base_url}/cloudprober-${version}-checksums.txt" ||
+  $CURL -o "${tmpdir}/checksums.txt" "${base_url}/cloudprober-${version}-checksums.txt" ||
     err "couldn't download checksums for ${version}; refusing to install unverified"
 
   # Exact string compare on the filename field: $archive embeds $version, which
@@ -118,7 +122,7 @@ trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM HUP
 
 echo "Downloading cloudprober ${version} (${platform})..."
-curl -fsSL -o "${tmpdir}/${archive}" "${base_url}/${archive}" ||
+$CURL -o "${tmpdir}/${archive}" "${base_url}/${archive}" ||
   err "couldn't download ${base_url}/${archive}"
 
 verify_checksum
