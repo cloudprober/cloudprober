@@ -57,13 +57,7 @@ latest_version() {
 }
 
 verify_checksum() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    got=$(sha256sum "${tmpdir}/${archive}" | cut -d' ' -f1)
-  elif command -v shasum >/dev/null 2>&1; then
-    got=$(shasum -a 256 "${tmpdir}/${archive}" | cut -d' ' -f1)
-  else
-    err "need sha256sum or shasum to verify the download; install either one, or grab a release manually from ${REPO_URL}/releases"
-  fi
+  got=$($sha256_cmd "${tmpdir}/${archive}" | cut -d' ' -f1)
 
   curl -fsSL -o "${tmpdir}/checksums.txt" "${base_url}/cloudprober-${version}-checksums.txt" ||
     err "couldn't download checksums for ${version}; refusing to install unverified"
@@ -80,8 +74,10 @@ pick_install_dir() {
   if [ -z "$install_dir" ]; then
     if [ -w /usr/local/bin ]; then
       install_dir="/usr/local/bin"
-    else
+    elif [ -n "${HOME:-}" ]; then
       install_dir="${HOME}/.local/bin"
+    else
+      err "/usr/local/bin isn't writable and HOME isn't set; set INSTALL_DIR"
     fi
   fi
   mkdir -p "$install_dir" || err "couldn't create ${install_dir}"
@@ -90,6 +86,16 @@ pick_install_dir() {
 
 command -v curl >/dev/null 2>&1 || err "curl is required"
 command -v tar >/dev/null 2>&1 || err "tar is required"
+
+# Resolve the hashing tool up front rather than after the download: macOS ships
+# shasum, not sha256sum.
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256_cmd="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  sha256_cmd="shasum -a 256"
+else
+  err "need sha256sum or shasum to verify the download; install either one, or grab a release manually from ${REPO_URL}/releases"
+fi
 
 detect_platform
 
@@ -106,6 +112,10 @@ cleanup() {
   [ -z "$tmpbin" ] || rm -f "$tmpbin"
 }
 trap cleanup EXIT
+# dash doesn't run the EXIT trap when the shell is killed by a signal, so Ctrl-C
+# would otherwise leave the temp dir (and possibly a half-copied binary) behind.
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM HUP
 
 echo "Downloading cloudprober ${version} (${platform})..."
 curl -fsSL -o "${tmpdir}/${archive}" "${base_url}/${archive}" ||
