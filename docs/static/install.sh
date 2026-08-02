@@ -62,15 +62,11 @@ verify_checksum() {
   elif command -v shasum >/dev/null 2>&1; then
     got=$(shasum -a 256 "${tmpdir}/${archive}" | cut -d' ' -f1)
   else
-    echo "Warning: no sha256sum or shasum; skipping checksum verification" >&2
-    return
+    err "need sha256sum or shasum to verify the download; install either one, or grab a release manually from ${REPO_URL}/releases"
   fi
 
-  # No -S here: a 404 is an expected case that we report ourselves.
-  if ! curl -fsL -o "${tmpdir}/checksums.txt" "${base_url}/cloudprober-${version}-checksums.txt"; then
-    echo "Warning: ${version} has no published checksums; skipping verification" >&2
-    return
-  fi
+  curl -fsSL -o "${tmpdir}/checksums.txt" "${base_url}/cloudprober-${version}-checksums.txt" ||
+    err "couldn't download checksums for ${version}; refusing to install unverified"
 
   want=$(grep " ${archive}$" "${tmpdir}/checksums.txt" | cut -d' ' -f1)
   [ -n "$want" ] || err "${archive} is not listed in checksums.txt"
