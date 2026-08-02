@@ -12,6 +12,8 @@ SOURCES := $(shell find . -name '*.go')
 VAR_LD_FLAGS := -X main.version=$(VERSION) -X main.buildTimestamp=$(BUILD_DATE) -X main.dirty=$(DIRTY)
 LDFLAGS ?= "$(VAR_LD_FLAGS) -s -w -extldflags -static"
 BINARY_SOURCE ?= "./cmd/cloudprober/."
+# macOS ships shasum, not sha256sum.
+SHA256SUM := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo "shasum -a 256")
 
 LINUX_PLATFORMS := linux-amd64 linux-arm64 linux-armv7
 BINARIES := $(addprefix cloudprober-, $(LINUX_PLATFORMS) macos-amd64 macos-arm64 windows-amd64)
@@ -78,7 +80,7 @@ dist: $(BINARIES)
 	  zip -r $${bindir}.zip $${bindir}/; rm -rf $${bindir}; \
 	done
 	rm -f cloudprober-$(VERSION)-checksums.txt
-	sha256sum cloudprober-$(VERSION)-*.zip cloudprober-$(VERSION)-*.tar.gz \
+	$(SHA256SUM) cloudprober-$(VERSION)-*.zip cloudprober-$(VERSION)-*.tar.gz \
 	  > cloudprober-$(VERSION)-checksums.txt
 
 PYVERSION := $(subst v,,$(VERSION))

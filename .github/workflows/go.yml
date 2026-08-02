@@ -407,9 +407,15 @@ jobs:
       - run: |
           rm -f cloudprober-*-checksums.txt
           for f in cloudprober-*; do
-            mv "$f" "$(echo "$f" | sed -E 's/^cloudprober-.*-(linux|macos|windows)-/cloudprober-tip-\1-/')"
+            tip=$(echo "$f" | sed -E 's/^cloudprober-.*-(linux|macos|windows)-/cloudprober-tip-\1-/')
+            if [[ "$tip" == "$f" ]]; then
+              echo "Unexpected release artifact, can't derive a tip name: $f" >&2
+              exit 1
+            fi
+            mv "$f" "$tip"
           done
-          sha256sum cloudprober-tip-* > cloudprober-tip-checksums.txt
+          sha256sum cloudprober-tip-*.zip cloudprober-tip-*.tar.gz \
+            > cloudprober-tip-checksums.txt
       - uses: pyTooling/Actions/releaser@r0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
