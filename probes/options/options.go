@@ -90,6 +90,46 @@ var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_HTTP: true,
 }
 
+var validatorProbeTypes = map[string][]configpb.ProbeDef_Type{
+	"http_validator": {configpb.ProbeDef_HTTP},
+	"dns_validator":  {configpb.ProbeDef_DNS},
+}
+
+var validatorsUnsupported = map[configpb.ProbeDef_Type]bool{
+	configpb.ProbeDef_UDP:          true,
+	configpb.ProbeDef_UDP_LISTENER: true,
+}
+
+func validateValidatorProbeTypes(p *configpb.ProbeDef) error {
+	if len(p.GetValidator()) == 0 {
+		return nil
+	}
+
+	if validatorsUnsupported[p.GetType()] {
+		return fmt.Errorf("validators are not supported by %s probes", p.GetType().String())
+	}
+
+	for _, validator := range p.GetValidator() {
+		if validator == nil {
+			continue
+		}
+
+		message := validator.ProtoReflect()
+		field := message.WhichOneof(message.Descriptor().Oneofs().ByName("type"))
+		if field == nil {
+			continue
+		}
+
+		validatorType := string(field.Name())
+		probeTypes, ok := validatorProbeTypes[validatorType]
+		if ok && !slices.Contains(probeTypes, p.GetType()) {
+			return fmt.Errorf("%s is not supported by %s probes", validatorType, p.GetType().String())
+		}
+	}
+
+	return nil
+}
+
 func defaultStatsExportInterval(p *configpb.ProbeDef, opts *Options) time.Duration {
 	minIntv := opts.Interval
 	if opts.Timeout > opts.Interval {
@@ -198,6 +238,10 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 
 	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
 		return nil, fmt.Errorf("negative_test is not supported by %s probes", p.GetType().String())
+	}
+
+	if err := validateValidatorProbeTypes(p); err != nil {
+		return nil, err
 	}
 
 	opts := &Options{
