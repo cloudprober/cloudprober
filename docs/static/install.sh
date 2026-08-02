@@ -87,6 +87,7 @@ pick_install_dir() {
 }
 
 command -v curl >/dev/null 2>&1 || err "curl is required"
+command -v tar >/dev/null 2>&1 || err "tar is required"
 
 detect_platform
 
@@ -97,7 +98,12 @@ base_url="${REPO_URL}/releases/download/${version}"
 archive="cloudprober-${version}-${platform}.tar.gz"
 
 tmpdir=$(mktemp -d)
-trap 'rm -rf "$tmpdir"' EXIT
+tmpbin=""
+cleanup() {
+  rm -rf "$tmpdir"
+  [ -z "$tmpbin" ] || rm -f "$tmpbin"
+}
+trap cleanup EXIT
 
 echo "Downloading cloudprober ${version} (${platform})..."
 curl -fsSL -o "${tmpdir}/${archive}" "${base_url}/${archive}" ||
@@ -119,8 +125,14 @@ done
 [ -n "$binary" ] || err "${archive} doesn't contain a cloudprober binary"
 
 pick_install_dir
-cp "$binary" "${install_dir}/cloudprober"
-chmod 755 "${install_dir}/cloudprober"
+# Install by rename: an interrupted copy can't leave a half-written binary in
+# place, and replacing a cloudprober that's currently running won't fail with
+# ETXTBSY.
+tmpbin="${install_dir}/.cloudprober.$$"
+cp "$binary" "$tmpbin"
+chmod 755 "$tmpbin"
+mv "$tmpbin" "${install_dir}/cloudprober"
+tmpbin=""
 
 echo "Installed cloudprober ${version} to ${install_dir}/cloudprober"
 case ":${PATH}:" in
