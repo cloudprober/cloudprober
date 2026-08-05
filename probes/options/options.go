@@ -28,6 +28,7 @@ import (
 	proberconfigpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	"github.com/cloudprober/cloudprober/internal/validators"
+	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
@@ -100,6 +101,16 @@ var validatorsUnsupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_UDP_LISTENER: true,
 }
 
+func validatorTypeName(v *validatorpb.Validator) string {
+	switch v.GetType().(type) {
+	case *validatorpb.Validator_HttpValidator:
+		return "http_validator"
+	case *validatorpb.Validator_DnsValidator:
+		return "dns_validator"
+	}
+	return ""
+}
+
 func validateValidatorProbeTypes(p *configpb.ProbeDef) error {
 	if len(p.GetValidator()) == 0 {
 		return nil
@@ -110,20 +121,10 @@ func validateValidatorProbeTypes(p *configpb.ProbeDef) error {
 	}
 
 	for _, validator := range p.GetValidator() {
-		if validator == nil {
-			continue
-		}
-
-		message := validator.ProtoReflect()
-		field := message.WhichOneof(message.Descriptor().Oneofs().ByName("type"))
-		if field == nil {
-			continue
-		}
-
-		validatorType := string(field.Name())
+		validatorType := validatorTypeName(validator)
 		probeTypes, ok := validatorProbeTypes[validatorType]
 		if ok && !slices.Contains(probeTypes, p.GetType()) {
-			return fmt.Errorf("%s is not supported by %s probes", validatorType, p.GetType().String())
+			return fmt.Errorf("validator %q: %s is not supported by %s probes", validator.GetName(), validatorType, p.GetType().String())
 		}
 	}
 
