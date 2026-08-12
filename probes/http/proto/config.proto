@@ -45,6 +45,12 @@ message ProbeConf {
   // Note that the relative_url should start with a '/'.
   optional string relative_url = 2;
 
+  // If set, redact the URL query string (everything after '?') in log
+  // messages, replacing it with "?<redacted>". Use this when the relative_url
+  // carries secrets (e.g. passwords) in query parameters. Default is false,
+  // i.e. the full URL is logged.
+  optional bool redact_url_query_in_logs = 25;
+
   // Port for HTTP requests (Corresponding target field: port)
   // Default is to use the scheme specific port, but if this field is not
   // set and discovered target has a port (e.g., k8s services, ingresses),
