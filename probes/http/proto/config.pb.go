@@ -240,6 +240,11 @@ type ProbeConf struct {
 	//
 	// Note that the relative_url should start with a '/'.
 	RelativeUrl *string `protobuf:"bytes,2,opt,name=relative_url,json=relativeUrl" json:"relative_url,omitempty"`
+	// If set, redact the URL query string (everything after '?') in log
+	// messages, replacing it with "?<redacted>". Use this when the relative_url
+	// carries secrets (e.g. passwords) in query parameters. Default is false,
+	// i.e. the full URL is logged.
+	RedactUrlQueryInLogs *bool `protobuf:"varint,25,opt,name=redact_url_query_in_logs,json=redactUrlQueryInLogs" json:"redact_url_query_in_logs,omitempty"`
 	// Port for HTTP requests (Corresponding target field: port)
 	// Default is to use the scheme specific port, but if this field is not
 	// set and discovered target has a port (e.g., k8s services, ingresses),
@@ -433,6 +438,13 @@ func (x *ProbeConf) GetRelativeUrl() string {
 		return *x.RelativeUrl
 	}
 	return ""
+}
+
+func (x *ProbeConf) GetRedactUrlQueryInLogs() bool {
+	if x != nil && x.RedactUrlQueryInLogs != nil {
+		return *x.RedactUrlQueryInLogs
+	}
+	return false
 }
 
 func (x *ProbeConf) GetPort() int32 {
@@ -668,11 +680,12 @@ var File_github_com_cloudprober_cloudprober_probes_http_proto_config_proto proto
 
 const file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\x9f\x0f\n" +
+	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xd7\x0f\n" +
 	"\tProbeConf\x12M\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\bprotocol\x12I\n" +
 	"\x06scheme\x18\x15 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\x06scheme\x12!\n" +
-	"\frelative_url\x18\x02 \x01(\tR\vrelativeUrl\x12\x12\n" +
+	"\frelative_url\x18\x02 \x01(\tR\vrelativeUrl\x126\n" +
+	"\x18redact_url_query_in_logs\x18\x19 \x01(\bR\x14redactUrlQueryInLogs\x12\x12\n" +
 	"\x04port\x18\x03 \x01(\x05R\x04port\x12#\n" +
 	"\rresolve_first\x18\x04 \x01(\bR\fresolveFirst\x12B\n" +
 	"\x1aexport_response_as_metrics\x18\x05 \x01(\b:\x05falseR\x17exportResponseAsMetrics\x12F\n" +
