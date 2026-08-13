@@ -108,11 +108,7 @@ populateD();
 
 <script>
 for (const probe in d) {
-  var chart = c3.generate(d[probe]);
-
-  setTimeout(function () {
-      chart.load();
-  }, 1000);
+  c3.generate(d[probe]);
 }
 </script>
 </html>
