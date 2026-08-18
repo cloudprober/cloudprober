@@ -112,13 +112,14 @@ target endpoint:
 ## Available builtins
 
 All scripts get a small, fixed set of builtins. No filesystem, network beyond
-`http`, or `exec` -- the probe is sandboxed by Starlark.
+`http` and `dns`, or `exec` -- the probe is sandboxed by Starlark.
 
 | Builtin | Purpose |
 |---|---|
 | `http.get(url, headers=None, max_redirects=N, keep_alive=False, tls=<name>)` | HTTP GET, returns a `Response`. `max_redirects=0` disables following; `max_redirects=N` follows up to N (omit for Go's default of 10). `keep_alive` defaults to `False` to match the HTTP probe -- every call exercises DNS/TCP/TLS setup, which is what you usually want from a prober. Pass `keep_alive=True` to reuse a pooled connection across calls in a chained API flow. `tls=<name>` selects one of the probe's `tls_configs` for this call; omit `tls` for system-default TLS. An empty string or `None` is an error, not a fall-back (see below). |
 | `http.post(url, headers=None, body=None, json=None, max_redirects=N, keep_alive=False, tls=<name>)` | HTTP POST. Pass `json=` for an auto-encoded JSON body (sets `Content-Type`), or `body=` for a raw string/bytes. `max_redirects`, `keep_alive` and `tls` match `http.get`. |
 | `http.put(...)`, `http.patch(...)`, `http.delete(...)` | HTTP PUT/PATCH/DELETE. Same signature and kwargs as `http.post` (`body=`/`json=` accepted for all three). |
+| `dns.resolve(name, type="A", server=None, timeout=None)` | Resolve `name`, returns a `DnsResult`. `type` is one of `A`, `AAAA`, `CNAME`, `MX`, `NS`, `TXT`, `SRV`, `PTR` (case-insensitive). `server=None` resolves the way the host does; pass `server="8.8.8.8"` (port optional) to ask a specific nameserver. `timeout` is in seconds (see below). |
 | `assert.http_status(response, expected)` | Fails the probe if `response.status != expected`. Stamp per-call context onto the failure log line with `log.set_attr` instead of inlining it into the error message. |
 | `vars.get(name, default=None)` | Read values from the probe's `vars` config map (see below). |
 | `state.get(key, default=None)` / `state.set(key, value)` | Per-target key-value store that persists across runs (see below). |
@@ -143,6 +144,58 @@ r.headers    # dict[str,str]; multi-valued headers are ", "-joined
 r.body       # bytes
 r.json()     # parsed JSON (raises on parse error)
 ```
+
+### `dns`
+
+`dns.resolve` is for resolving a name as a *step* in a script -- look up the
+records, branch on them, feed them into an HTTP call:
+
+```python
+def probe(target):
+    r = dns.resolve(target.name, type="A")
+    if not r:
+        fail("%s has no A record" % target.name)
+    if r.latency(unit="ms") > 200:
+        fail("slow resolution: %sms" % r.latency(unit="ms"))
+    http.get("http://%s/healthz" % r.answers[0])
+```
+
+A `DnsResult` carries the answers and how long the lookup took:
+
+```python
+r.answers          # list[str], frozen; [] if nothing was found
+r.name             # the name that was looked up
+r.type             # normalized record type, e.g. "A"
+r.latency()        # float seconds; r.latency(unit="ms") for milliseconds
+if r: ...          # truthy iff r.answers is non-empty
+```
+
+Answers are flat strings, formatted per record type: `A`/`AAAA` are IPs,
+`CNAME`/`NS`/`PTR` are names, `TXT` is the record text, `MX` is
+`"<pref> <host>"`, and `SRV` is `"<priority> <weight> <port> <target>"`.
+
+**Finding nothing is a result, not an error.** A name that doesn't resolve
+gives you an empty `.answers` (and a falsey result), so scripts decide whether
+that's a failure. Every *other* lookup failure -- timeout, SERVFAIL, REFUSED,
+network error, malformed response -- raises and fails the probe. Pass
+`timeout=<seconds>` to bound a single call; without it, the call is bounded by
+the probe timeout.
+
+**`server=None` and `server=<addr>` are not the same lookup.** The default
+resolves exactly the way the host does, honoring `/etc/hosts`, the search list
+and `ndots` -- that's the mode for "what does this machine see?". Naming a
+server dials it directly with Go's pure-Go resolver, which skips `/etc/hosts`
+and the host's resolver choice; it answers "what does that nameserver say?"
+well enough for a probe step, but it is not `dig`.
+
+{{< alert context="info" >}}
+**Use the [`dns` probe type](https://cloudprober.org/docs/config/latest/probes/#cloudprober_probes_dns_ProbeConf) to monitor a DNS server.**
+This builtin is a resolver, not a DNS client: there is no wire rcode, no TTL,
+and no way to tell NODATA ("the name exists, but has no record of this type")
+from NXDOMAIN -- both simply come back with no answers. If you need to assert
+real server behavior -- SERVFAIL vs REFUSED, NODATA vs NXDOMAIN, per-record
+validators, UDP/TCP/TLS -- that's the DNS probe's job.
+{{< /alert >}}
 
 ### TLS configuration
 
