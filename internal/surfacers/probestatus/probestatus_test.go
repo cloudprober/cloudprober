@@ -299,9 +299,10 @@ func TestSurfacerWriteData(t *testing.T) {
 		{
 			name: "default",
 			wantContains: []string{
-				"startTime", "allProbes", "chart",
+				"startTime", "allProbes", "chart", "c3.generate(",
 			},
-			probeNames: []string{"Probe: p1", "Probe: p2"},
+			wantNotContains: []string{"chart.load()", "setTimeout"},
+			probeNames:      []string{"Probe: p1", "Probe: p2"},
 		},
 		{
 			name:  "probe_filter",
