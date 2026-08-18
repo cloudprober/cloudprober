@@ -18,6 +18,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -334,6 +336,43 @@ func TestSurfacerWriteData(t *testing.T) {
 			for _, keyword := range tt.wantNotContains {
 				assert.NotContains(t, got, keyword)
 			}
+		})
+	}
+}
+
+func TestStatusPageStartTime(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		startTime time.Time
+	}{
+		{"utc", time.Date(2026, 8, 13, 21, 3, 32, 0, time.UTC)},
+		{"east_of_utc", time.Date(2026, 8, 13, 23, 3, 32, 0, time.FixedZone("CEST", 2*60*60))},
+		{"west_of_utc", time.Date(2026, 8, 13, 17, 3, 32, 0, time.FixedZone("EDT", -4*60*60))},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ps := &Surfacer{
+				pageCache:  newPageCache(1),
+				probeNames: []string{"p1"},
+				startTime:  tt.startTime,
+			}
+			hw := &httpWriter{
+				w: httptest.NewRecorder(),
+				r: httptest.NewRequest("", "/", nil),
+			}
+			ps.writeData(hw)
+
+			got := hw.w.(*httptest.ResponseRecorder).Body.String()
+			m := regexp.MustCompile(`var startTime = '([^']*)'`).FindStringSubmatch(got)
+			if m == nil {
+				t.Fatal("startTime is not set on the status page")
+			}
+			// html/template escapes "+" as \u002b in a script context.
+			ts := strings.ReplaceAll(m[1], `\u002b`, "+")
+			parsed, err := time.Parse(time.RFC3339, ts)
+			if err != nil {
+				t.Fatalf("startTime %q is not in RFC3339 format: %v", m[1], err)
+			}
+			assert.True(t, parsed.Equal(tt.startTime), "got %v, want %v", parsed, tt.startTime)
 		})
 	}
 }

@@ -500,7 +500,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		DebugData   map[string]template.HTML
 		Header      template.HTML
 		LinkPrefix  string
-		StartTime   fmt.Stringer
+		StartTime   string // RFC3339, for Javascript's Date().
 	}{
 		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
 		Durations:   ps.dashDurationsText,
@@ -511,7 +511,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		DebugData:   debugData,
 		Header:      resources.Header(linkPrefix),
 		LinkPrefix:  linkPrefix,
-		StartTime:   ps.startTime,
+		StartTime:   ps.startTime.Format(time.RFC3339),
 	})
 	if err != nil {
 		ps.l.Errorf("Error executing probe status template: %v", err)
