@@ -8,9 +8,15 @@ small guidelines you need to follow.
   Help](https://help.github.com/articles/about-pull-requests/) for more
   information on using pull requests.
 
-* Before you start working on a non-trivial change, please let us know through
-  [Issues](https://github.com/cloudprober/cloudprober/issues) or
-  [Discussions](https://github.com/cloudprober/cloudprober/discussions).
+* Please send a PR only if you use Cloudprober yourself and the change is a
+  feature or a bug fix that affects you. Changes that come out of actually
+  running Cloudprober are the ones we can review and maintain well.
+
+* Every PR should have an associated issue. If there isn't one already, please
+  file an [issue](https://github.com/cloudprober/cloudprober/issues), or start a
+  [discussion](https://github.com/cloudprober/cloudprober/discussions) if you're
+  not sure yet, so that we can agree on the approach before you spend time on
+  the code.
 
 * Please keep in mind that Cloudprober’s priority is not to add new features
   "quickly", but to evolve and grow in a mindful way, keeping the codebase small, cohesive, and easy to reason about.
