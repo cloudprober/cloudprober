@@ -63,6 +63,14 @@ When `ip_version` is not set, the behavior depends on the probe type:
 If you set both `ip_version` and `source_ip`, they must be consistent -- e.g.,
 an IPv6 source IP with `ip_version: IPV4` will cause an error.
 
+### Dual-stack targets
+
+IPv4 and IPv6 targets can't be mixed within a single probe -- to monitor both,
+run one probe per family. Declaring targets with `endpoint` keeps the `dst`
+metric label stable across the two, so a host stays comparable across families.
+See [examples/dual_stack](https://github.com/cloudprober/cloudprober/tree/main/examples/dual_stack)
+for a complete config.
+
 ## Latency Configuration
 
 All probes export a cumulative `latency` metric. You can customize the unit,

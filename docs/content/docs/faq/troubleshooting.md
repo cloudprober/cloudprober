@@ -131,7 +131,8 @@ probe {
 ```
 
 Note that IPv4 and IPv6 targets cannot be mixed in a single probe. If you need
-to monitor both, create separate probes for each IP version.
+to monitor both, create separate probes for each IP version -- see
+[dual-stack targets](/docs/config/probe-options/#dual-stack-targets).
 
 ## Probes show high latency or timeouts
 
