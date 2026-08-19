@@ -151,7 +151,8 @@ the NSS database at `$HOME/.pki/nssdb` (`cert9.db`) instead.
 Import your CA into that database with `certutil`:
 
 ```shell
-certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "<CERT_NAME>" -i <CERT_PATH>
+mkdir -p $HOME/.pki/nssdb && \
+  certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "<CERT_NAME>" -i <CERT_PATH>
 ```
 
 In containerized deployments, two things commonly make this fail silently:
@@ -167,20 +168,17 @@ In containerized deployments, two things commonly make this fail silently:
    read-only (common in k8s), even though `certutil` succeeded at build time.
 
 The fix for the read-only case is to copy the pre-built database to a writable
-location at startup and point `$HOME` there. Overriding the container `command`
-is one way to do it:
+location at startup and point `$HOME` there. For example if your container
+image already contains required certs at `/nssdb`, you can set them up correctly
+by overriding the container `command` with something like:
 
 ```yaml
 command:
   - /bin/sh
   - -c
   - mkdir -p /tmp/node-home/.pki/nssdb &&
-    cp -f $HOME/.pki/nssdb/* /tmp/node-home/.pki/nssdb/ &&
+    cp -f /certs/* /tmp/node-home/.pki/nssdb/ &&
     HOME=/tmp/node-home exec /cloudprober "$@"
   - --
 ```
 
-At startup this copies the database (built into the image at
-`$HOME/.pki/nssdb` during the Docker build) into `/tmp`, which is writable, and
-relaunches Cloudprober with `HOME=/tmp/node-home`. The `exec` replaces the
-shell so Cloudprober stays PID 1 and handles signals correctly.
