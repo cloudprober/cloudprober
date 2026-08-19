@@ -139,3 +139,91 @@ to monitor both, create separate probes for each IP version.
   1s, which might be too short for some probes.
 - Check network connectivity to the target from the host running Cloudprober.
 - For HTTP probes, verify that the target URL is correct and accessible.
+
+## BROWSER probes fail with "ERR_CERT_AUTHORITY_INVALID" against a custom CA
+
+If a BROWSER probe fails with `ERR_CERT_AUTHORITY_INVALID` on a target secured
+by a custom (private) CA, the usual fixes don't apply. Chromium on Linux
+ignores both the system trust store (`/usr/local/share/ca-certificates/` +
+`update-ca-certificates`) and `NODE_EXTRA_CA_CERTS`; it reads certificates from
+the NSS database at `$HOME/.pki/nssdb` (`cert9.db`) instead.
+
+Import your CA into that database with `certutil`:
+
+```shell
+mkdir -p $HOME/.pki/nssdb && \
+  certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "<CERT_NAME>" -i <CERT_PATH>
+```
+
+In containerized deployments, two things commonly make this fail silently:
+
+1. **`$HOME` mismatch.** The database must live under the `$HOME` of the user
+   Chromium actually runs as. Build it as root but let the container drop to a
+   non-root uid at runtime (e.g. k8s `runAsUser`), and Chromium won't find it.
+2. **Read-only root filesystem.** `cert9.db` is a SQLite file, and SQLite must
+   create journal files in the directory containing the database in order to
+   write to it. Chromium's NSS library opens the database in read-write mode,
+   so that directory has to be writable. A database baked into the image at
+   `$HOME/.pki/nssdb` therefore can't be used when the root filesystem is
+   read-only (common in k8s), even though `certutil` succeeded at build time.
+
+The fix for the read-only case is to copy the pre-built database to a writable
+location at startup and point `$HOME` there. (Build it during the Docker build
+with `certutil` — the runtime image doesn't ship `certutil`.) For example, if
+your image has the certs database at `/nssdb`, readable by the uid the container
+runs as (k8s `runAsUser`), you can configure your container command as the
+following to make chrome use your certs:
+
+```yaml
+command:
+  - /bin/sh
+  - -c
+  - mkdir -p /tmp/node-home/.pki/nssdb &&
+    cp -f /nssdb/* /tmp/node-home/.pki/nssdb/ &&
+    HOME=/tmp/node-home exec /cloudprober "$@"
+  - --
+```
+
+If you don't build your own Cloudprober image, you can do all of this in an
+init container instead. Run an image that has `certutil` (Alpine's `nss-tools`,
+Debian's `libnss3-tools`), build the database into a shared `emptyDir`, and
+point `$HOME` at it. The volume is writable, so the read-only root filesystem
+problem goes away and there's no need to override the container `command`:
+
+```yaml
+volumes:
+  - name: nss-home
+    emptyDir: {}
+  - name: ca
+    configMap:
+      name: custom-ca # contains ca.crt
+
+initContainers:
+  - name: build-nssdb
+    image: <image-with-certutil>
+    command:
+      - /bin/sh
+      - -c
+      - mkdir -p /nss-home/.pki/nssdb &&
+        certutil -d sql:/nss-home/.pki/nssdb -A -t "CT,C,C"
+        -n custom-ca -i /ca/ca.crt
+    volumeMounts:
+      - name: nss-home
+        mountPath: /nss-home
+      - name: ca
+        mountPath: /ca
+
+containers:
+  - name: cloudprober
+    image: cloudprober/cloudprober:latest-pw
+    env:
+      - name: HOME
+        value: /nss-home
+    volumeMounts:
+      - name: nss-home
+        mountPath: /nss-home
+```
+
+If the main container runs as a non-root user, run the init container as that
+same uid (e.g. set `runAsUser` at the pod level) so the database it creates is
+readable and writable by the main container.
