@@ -168,16 +168,16 @@ In containerized deployments, two things commonly make this fail silently:
    read-only (common in k8s), even though `certutil` succeeded at build time.
 
 The fix for the read-only case is to copy the pre-built database to a writable
-location at startup and point `$HOME` there. For example if your container
-image already contains required certs at `/nssdb`, you can set them up correctly
-by overriding the container `command` with something like:
+location at startup and point `$HOME` there. (Build it during the Docker build
+with `certutil` — the runtime image doesn't ship `certutil`.) For example, if
+your image has the database at `/nssdb`:
 
 ```yaml
 command:
   - /bin/sh
   - -c
   - mkdir -p /tmp/node-home/.pki/nssdb &&
-    cp -f /certs/* /tmp/node-home/.pki/nssdb/ &&
+    cp -f /nssdb/* /tmp/node-home/.pki/nssdb/ &&
     HOME=/tmp/node-home exec /cloudprober "$@"
   - --
 ```
