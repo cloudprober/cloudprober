@@ -170,7 +170,8 @@ In containerized deployments, two things commonly make this fail silently:
 The fix for the read-only case is to copy the pre-built database to a writable
 location at startup and point `$HOME` there. (Build it during the Docker build
 with `certutil` — the runtime image doesn't ship `certutil`.) For example, if
-your image has the database at `/nssdb`:
+your image has the database at `/nssdb`, readable by the uid the container runs
+as (k8s `runAsUser`):
 
 ```yaml
 command:
