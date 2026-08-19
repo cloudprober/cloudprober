@@ -190,6 +190,42 @@ func (*Ingresses) Descriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_rawDescGZIP(), []int{3}
 }
 
+type HTTPRoutes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HTTPRoutes) Reset() {
+	*x = HTTPRoutes{}
+	mi := &file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HTTPRoutes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HTTPRoutes) ProtoMessage() {}
+
+func (x *HTTPRoutes) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HTTPRoutes.ProtoReflect.Descriptor instead.
+func (*HTTPRoutes) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_rawDescGZIP(), []int{4}
+}
+
 // Kubernetes provider config.
 type ProviderConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -209,6 +245,11 @@ type ProviderConfig struct {
 	// ingresses discovery to be enabled.
 	// Note: Ingress support is experimental and may change in future.
 	Ingresses *Ingresses `protobuf:"bytes,5,opt,name=ingresses" json:"ingresses,omitempty"`
+	// HTTPRoutes discovery options. This field should be declared for the
+	// http_routes discovery to be enabled.
+	// Note: HTTPRoute (Gateway API) support is experimental and may change in
+	// future.
+	HttpRoutes *HTTPRoutes `protobuf:"bytes,6,opt,name=http_routes,json=httpRoutes" json:"http_routes,omitempty"`
 	// Label selectors to filter resources. This is useful for large clusters.
 	// label_selector: ["app=cloudprober", "env!=dev"]
 	LabelSelector []string `protobuf:"bytes,20,rep,name=label_selector,json=labelSelector" json:"label_selector,omitempty"`
@@ -230,7 +271,7 @@ const (
 
 func (x *ProviderConfig) Reset() {
 	*x = ProviderConfig{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes[4]
+	mi := &file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -242,7 +283,7 @@ func (x *ProviderConfig) String() string {
 func (*ProviderConfig) ProtoMessage() {}
 
 func (x *ProviderConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes[4]
+	mi := &file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -255,7 +296,7 @@ func (x *ProviderConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderConfig.ProtoReflect.Descriptor instead.
 func (*ProviderConfig) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_rawDescGZIP(), []int{4}
+	return file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ProviderConfig) GetNamespace() string {
@@ -289,6 +330,13 @@ func (x *ProviderConfig) GetServices() *Services {
 func (x *ProviderConfig) GetIngresses() *Ingresses {
 	if x != nil {
 		return x.Ingresses
+	}
+	return nil
+}
+
+func (x *ProviderConfig) GetHttpRoutes() *HTTPRoutes {
+	if x != nil {
+		return x.HttpRoutes
 	}
 	return nil
 }
@@ -330,13 +378,17 @@ const file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_conf
 	"\tEndpoints\"\n" +
 	"\n" +
 	"\bServices\"\v\n" +
-	"\tIngresses\"\xea\x03\n" +
+	"\tIngresses\"\f\n" +
+	"\n" +
+	"HTTPRoutes\"\xb3\x04\n" +
 	"\x0eProviderConfig\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x124\n" +
 	"\x04pods\x18\x02 \x01(\v2 .cloudprober.rds.kubernetes.PodsR\x04pods\x12C\n" +
 	"\tendpoints\x18\x03 \x01(\v2%.cloudprober.rds.kubernetes.EndpointsR\tendpoints\x12@\n" +
 	"\bservices\x18\x04 \x01(\v2$.cloudprober.rds.kubernetes.ServicesR\bservices\x12C\n" +
-	"\tingresses\x18\x05 \x01(\v2%.cloudprober.rds.kubernetes.IngressesR\tingresses\x12%\n" +
+	"\tingresses\x18\x05 \x01(\v2%.cloudprober.rds.kubernetes.IngressesR\tingresses\x12G\n" +
+	"\vhttp_routes\x18\x06 \x01(\v2&.cloudprober.rds.kubernetes.HTTPRoutesR\n" +
+	"httpRoutes\x12%\n" +
 	"\x0elabel_selector\x18\x14 \x03(\tR\rlabelSelector\x12,\n" +
 	"\x12api_server_address\x18[ \x01(\tR\x10apiServerAddress\x12?\n" +
 	"\n" +
@@ -355,26 +407,28 @@ func file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_confi
 	return file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_goTypes = []any{
 	(*Pods)(nil),            // 0: cloudprober.rds.kubernetes.Pods
 	(*Endpoints)(nil),       // 1: cloudprober.rds.kubernetes.Endpoints
 	(*Services)(nil),        // 2: cloudprober.rds.kubernetes.Services
 	(*Ingresses)(nil),       // 3: cloudprober.rds.kubernetes.Ingresses
-	(*ProviderConfig)(nil),  // 4: cloudprober.rds.kubernetes.ProviderConfig
-	(*proto.TLSConfig)(nil), // 5: cloudprober.tlsconfig.TLSConfig
+	(*HTTPRoutes)(nil),      // 4: cloudprober.rds.kubernetes.HTTPRoutes
+	(*ProviderConfig)(nil),  // 5: cloudprober.rds.kubernetes.ProviderConfig
+	(*proto.TLSConfig)(nil), // 6: cloudprober.tlsconfig.TLSConfig
 }
 var file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_depIdxs = []int32{
 	0, // 0: cloudprober.rds.kubernetes.ProviderConfig.pods:type_name -> cloudprober.rds.kubernetes.Pods
 	1, // 1: cloudprober.rds.kubernetes.ProviderConfig.endpoints:type_name -> cloudprober.rds.kubernetes.Endpoints
 	2, // 2: cloudprober.rds.kubernetes.ProviderConfig.services:type_name -> cloudprober.rds.kubernetes.Services
 	3, // 3: cloudprober.rds.kubernetes.ProviderConfig.ingresses:type_name -> cloudprober.rds.kubernetes.Ingresses
-	5, // 4: cloudprober.rds.kubernetes.ProviderConfig.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	4, // 4: cloudprober.rds.kubernetes.ProviderConfig.http_routes:type_name -> cloudprober.rds.kubernetes.HTTPRoutes
+	6, // 5: cloudprober.rds.kubernetes.ProviderConfig.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() {
@@ -390,7 +444,7 @@ func file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_confi
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_internal_rds_kubernetes_proto_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
