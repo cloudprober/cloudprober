@@ -170,8 +170,9 @@ In containerized deployments, two things commonly make this fail silently:
 The fix for the read-only case is to copy the pre-built database to a writable
 location at startup and point `$HOME` there. (Build it during the Docker build
 with `certutil` — the runtime image doesn't ship `certutil`.) For example, if
-your image has the database at `/nssdb`, readable by the uid the container runs
-as (k8s `runAsUser`):
+your image has the certs database at `/nssdb`, readable by the uid the container
+runs as (k8s `runAsUser`), you can configure your container command as the
+following to make chrome use your certs:
 
 ```yaml
 command:
@@ -183,3 +184,45 @@ command:
   - --
 ```
 
+If you don't build your own Cloudprober image, you can do all of this in an
+init container instead. Run an image that has `certutil` (Alpine's `nss-tools`,
+Debian's `libnss3-tools`), build the database into a shared `emptyDir`, and
+point `$HOME` at it. The volume is writable, so the read-only root filesystem
+problem goes away and there's no need to override the container `command`:
+
+```yaml
+volumes:
+  - name: nss-home
+    emptyDir: {}
+  - name: ca
+    configMap:
+      name: custom-ca # contains ca.crt
+
+initContainers:
+  - name: build-nssdb
+    image: <image-with-certutil>
+    command:
+      - /bin/sh
+      - -c
+      - mkdir -p /nss-home/.pki/nssdb &&
+        certutil -d sql:/nss-home/.pki/nssdb -A -t "CT,C,C"
+        -n custom-ca -i /ca/ca.crt
+    volumeMounts:
+      - name: nss-home
+        mountPath: /nss-home
+      - name: ca
+        mountPath: /ca
+
+containers:
+  - name: cloudprober
+    image: cloudprober/cloudprober:latest-pw
+    env:
+      - name: HOME
+        value: /nss-home
+    volumeMounts:
+      - name: nss-home
+        mountPath: /nss-home
+```
+
+Cloudprober passes its own environment on to the Playwright subprocess, so
+setting `HOME` on the pod is enough for Chromium to find the database.
