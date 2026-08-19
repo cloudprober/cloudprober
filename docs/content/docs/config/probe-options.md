@@ -65,33 +65,10 @@ an IPv6 source IP with `ip_version: IPV4` will cause an error.
 
 ### Dual-stack targets
 
-IPv4 and IPv6 targets can't be mixed within a single probe. To monitor both,
-run one probe per family:
-
-```proto
-probe {
-  name: "net4"
-  type: PING
-  ip_version: IPV4
-  targets {
-    endpoint { name: "serverA" ip: "192.168.10.10" }
-  }
-}
-
-probe {
-  name: "net6"
-  type: PING
-  ip_version: IPV6
-  targets {
-    endpoint { name: "serverA" ip: "2001:db8::a" }
-  }
-}
-```
-
-Declaring targets with `endpoint` keeps the `dst` metric label stable across
-both probes (`dst="serverA"` in each), so the two families stay comparable for
-the same host. See
-[examples/dual_stack](https://github.com/cloudprober/cloudprober/tree/main/examples/dual_stack)
+IPv4 and IPv6 targets can't be mixed within a single probe -- to monitor both,
+run one probe per family. Declaring targets with `endpoint` keeps the `dst`
+metric label stable across the two, so a host stays comparable across families.
+See [examples/dual_stack](https://github.com/cloudprober/cloudprober/tree/main/examples/dual_stack)
 for a complete config.
 
 ## Latency Configuration
