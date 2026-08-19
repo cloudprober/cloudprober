@@ -224,5 +224,6 @@ containers:
         mountPath: /nss-home
 ```
 
-Cloudprober passes its own environment on to the Playwright subprocess, so
-setting `HOME` on the pod is enough for Chromium to find the database.
+If the main container runs as a non-root user, run the init container as that
+same uid (e.g. set `runAsUser` at the pod level) so the database it creates is
+readable and writable by the main container.
