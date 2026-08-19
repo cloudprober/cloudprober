@@ -139,3 +139,33 @@ to monitor both, create separate probes for each IP version.
   1s, which might be too short for some probes.
 - Check network connectivity to the target from the host running Cloudprober.
 - For HTTP probes, verify that the target URL is correct and accessible.
+
+## BROWSER probes fail with "ERR_CERT_AUTHORITY_INVALID" against a custom CA
+
+If a BROWSER probe's `page.goto` fails with `ERR_CERT_AUTHORITY_INVALID` when
+the target is secured by a certificate from a custom (private) CA, adding the
+certificate to the system trust store
+(`/usr/local/share/ca-certificates/` + `update-ca-certificates`) or setting
+`NODE_EXTRA_CA_CERTS` won't help — Chromium doesn't consult either. On Linux,
+Chromium uses the NSS certificate database at `$HOME/.pki/nssdb` (`cert9.db`).
+
+Build that database with `certutil`:
+
+```shell
+certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "<CERT_NAME>" -i <CERT_PATH>
+```
+
+There are two pitfalls that produce this exact symptom:
+
+1. **`$HOME` mismatch.** The NSS DB has to live under the `$HOME` of the user
+   the container actually runs as when Chromium launches. If you build the DB
+   as root but the container (or a k8s `runAsUser`) switches to a non-root uid
+   at runtime, Chrome won't find it.
+2. **Read-only root filesystem.** `cert9.db` is a SQLite database, and SQLite
+   needs write access to its directory even just to open it for reads
+   (journal/WAL files). If your deployment runs with a read-only root
+   filesystem (common in k8s), an NSS DB baked into the image at
+   `$HOME/.pki/nssdb` will fail to open at runtime even though `certutil`
+   succeeded at build time. The fix is to copy the pre-built DB to a writable
+   location (e.g. `/tmp/.pki/nssdb`) at container startup — before Cloudprober's
+   Playwright subprocess launches — and point `$HOME` there.
