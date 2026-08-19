@@ -142,36 +142,32 @@ to monitor both, create separate probes for each IP version.
 
 ## BROWSER probes fail with "ERR_CERT_AUTHORITY_INVALID" against a custom CA
 
-If a BROWSER probe's `page.goto` fails with `ERR_CERT_AUTHORITY_INVALID` when
-the target is secured by a certificate from a custom (private) CA, adding the
-certificate to the system trust store
-(`/usr/local/share/ca-certificates/` + `update-ca-certificates`) or setting
-`NODE_EXTRA_CA_CERTS` won't help — Chromium doesn't consult either. On Linux,
-Chromium uses the NSS certificate database at `$HOME/.pki/nssdb` (`cert9.db`).
+If a BROWSER probe fails with `ERR_CERT_AUTHORITY_INVALID` on a target secured
+by a custom (private) CA, the usual fixes don't apply. Chromium on Linux
+ignores both the system trust store (`/usr/local/share/ca-certificates/` +
+`update-ca-certificates`) and `NODE_EXTRA_CA_CERTS`; it reads certificates from
+the NSS database at `$HOME/.pki/nssdb` (`cert9.db`) instead.
 
-Build that database with `certutil`:
+Import your CA into that database with `certutil`:
 
 ```shell
 certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "<CERT_NAME>" -i <CERT_PATH>
 ```
 
-There are two pitfalls that produce this exact symptom:
+In containerized deployments, two things commonly make this fail silently:
 
-1. **`$HOME` mismatch.** The NSS DB has to live under the `$HOME` of the user
-   the container actually runs as when Chromium launches. If you build the DB
-   as root but the container (or a k8s `runAsUser`) switches to a non-root uid
-   at runtime, Chrome won't find it.
-2. **Read-only root filesystem.** `cert9.db` is a SQLite database, and SQLite
-   needs write access to its directory even just to open it for reads
-   (journal/WAL files). If your deployment runs with a read-only root
-   filesystem (common in k8s), an NSS DB baked into the image at
-   `$HOME/.pki/nssdb` will fail to open at runtime even though `certutil`
-   succeeded at build time. The fix is to copy the pre-built DB to a writable
-   location (e.g. `/tmp/node-home/.pki/nssdb`) at container startup — before
-   Cloudprober's Playwright subprocess launches — and point `$HOME` there.
+1. **`$HOME` mismatch.** The database must live under the `$HOME` of the user
+   Chromium actually runs as. Build it as root but let the container drop to a
+   non-root uid at runtime (e.g. k8s `runAsUser`), and Chromium won't find it.
+2. **Read-only root filesystem.** `cert9.db` is a SQLite file, and SQLite must
+   write journal/WAL files into its directory even for a read-only open. A
+   database baked into the image at `$HOME/.pki/nssdb` therefore can't be
+   opened when the root filesystem is read-only (common in k8s), even though
+   `certutil` succeeded at build time.
 
-One way to do this is to override the container `command` so the copy happens
-at startup, right before Cloudprober launches:
+The fix for the read-only case is to copy the pre-built database to a writable
+location at startup and point `$HOME` there. Overriding the container `command`
+is one way to do it:
 
 ```yaml
 command:
@@ -183,6 +179,7 @@ command:
   - --
 ```
 
-This assumes the NSS DB was built into the image at `$HOME/.pki/nssdb` (via
-`certutil`) and that `/tmp` is writable. The `exec` replaces the shell so
-Cloudprober stays PID 1 and receives signals correctly.
+At startup this copies the database (built into the image at
+`$HOME/.pki/nssdb` during the Docker build) into `/tmp`, which is writable, and
+relaunches Cloudprober with `HOME=/tmp/node-home`. The `exec` replaces the
+shell so Cloudprober stays PID 1 and handles signals correctly.
