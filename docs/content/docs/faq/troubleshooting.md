@@ -160,10 +160,11 @@ In containerized deployments, two things commonly make this fail silently:
    Chromium actually runs as. Build it as root but let the container drop to a
    non-root uid at runtime (e.g. k8s `runAsUser`), and Chromium won't find it.
 2. **Read-only root filesystem.** `cert9.db` is a SQLite file, and SQLite must
-   write journal/WAL files into its directory even for a read-only open. A
-   database baked into the image at `$HOME/.pki/nssdb` therefore can't be
-   opened when the root filesystem is read-only (common in k8s), even though
-   `certutil` succeeded at build time.
+   create journal files in the directory containing the database in order to
+   write to it. Chromium's NSS library opens the database in read-write mode,
+   so that directory has to be writable. A database baked into the image at
+   `$HOME/.pki/nssdb` therefore can't be used when the root filesystem is
+   read-only (common in k8s), even though `certutil` succeeded at build time.
 
 The fix for the read-only case is to copy the pre-built database to a writable
 location at startup and point `$HOME` there. Overriding the container `command`
