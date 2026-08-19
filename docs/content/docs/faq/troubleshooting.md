@@ -167,5 +167,22 @@ There are two pitfalls that produce this exact symptom:
    filesystem (common in k8s), an NSS DB baked into the image at
    `$HOME/.pki/nssdb` will fail to open at runtime even though `certutil`
    succeeded at build time. The fix is to copy the pre-built DB to a writable
-   location (e.g. `/tmp/.pki/nssdb`) at container startup — before Cloudprober's
-   Playwright subprocess launches — and point `$HOME` there.
+   location (e.g. `/tmp/node-home/.pki/nssdb`) at container startup — before
+   Cloudprober's Playwright subprocess launches — and point `$HOME` there.
+
+One way to do this is to override the container `command` so the copy happens
+at startup, right before Cloudprober launches:
+
+```yaml
+command:
+  - /bin/sh
+  - -c
+  - mkdir -p /tmp/node-home/.pki/nssdb &&
+    cp -f $HOME/.pki/nssdb/* /tmp/node-home/.pki/nssdb/ &&
+    HOME=/tmp/node-home exec /cloudprober "$@"
+  - --
+```
+
+This assumes the NSS DB was built into the image at `$HOME/.pki/nssdb` (via
+`certutil`) and that `/tmp` is writable. The `exec` replaces the shell so
+Cloudprober stays PID 1 and receives signals correctly.
