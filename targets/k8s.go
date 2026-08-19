@@ -92,6 +92,9 @@ func parseConfig(pb *targetspb.K8STargets) (*k8sconfigpb.ProviderConfig, string,
 	case *targetspb.K8STargets_Pods:
 		pc.Pods = &k8sconfigpb.Pods{}
 		return pc, "pods", pb.GetPods()
+	case *targetspb.K8STargets_HttpRoutes:
+		pc.HttpRoutes = &k8sconfigpb.HTTPRoutes{}
+		return pc, "httproutes", pb.GetHttpRoutes()
 	}
 
 	return nil, "", ""

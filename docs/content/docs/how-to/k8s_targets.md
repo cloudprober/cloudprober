@@ -43,6 +43,12 @@ Cloudprober supports discovery for the following k8s resources:
 - **Endpoints**
 - **Pods**
 - **Ingresses**
+- **HTTPRoutes** (Gateway API)
+
+Note: For `HTTPRoute` resources, the discovered target IP is the route's
+hostname (an `HTTPRoute` does not carry a load balancer IP in its status,
+unlike `Ingress`). The probe resolves it via DNS, and the hostname is also
+exposed as the `fqdn` label so HTTP probes set the correct Host header / SNI.
 
 #### Filters
 
@@ -138,6 +144,11 @@ rules:
   resources:
   - ingresses
   - ingresses/status
+  verbs: ["get", "list"]
+- apiGroups:
+  - "gateway.networking.k8s.io"
+  resources:
+  - httproutes
   verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

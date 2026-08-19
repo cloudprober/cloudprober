@@ -139,6 +139,7 @@ type K8STargets struct {
 	//	*K8STargets_Endpoints
 	//	*K8STargets_Ingresses
 	//	*K8STargets_Pods
+	//	*K8STargets_HttpRoutes
 	Resources isK8STargets_Resources `protobuf_oneof:"resources"`
 	// portFilter can be used to filter resources by port name. This is useful
 	// for resources like endpoints and services, where each resource may have
@@ -242,6 +243,15 @@ func (x *K8STargets) GetPods() string {
 	return ""
 }
 
+func (x *K8STargets) GetHttpRoutes() string {
+	if x != nil {
+		if x, ok := x.Resources.(*K8STargets_HttpRoutes); ok {
+			return x.HttpRoutes
+		}
+	}
+	return ""
+}
+
 func (x *K8STargets) GetPortFilter() string {
 	if x != nil && x.PortFilter != nil {
 		return *x.PortFilter
@@ -283,6 +293,10 @@ type K8STargets_Pods struct {
 	Pods string `protobuf:"bytes,6,opt,name=pods,oneof"`
 }
 
+type K8STargets_HttpRoutes struct {
+	HttpRoutes string `protobuf:"bytes,7,opt,name=http_routes,json=httpRoutes,oneof"`
+}
+
 func (*K8STargets_Services) isK8STargets_Resources() {}
 
 func (*K8STargets_Endpoints) isK8STargets_Resources() {}
@@ -290,6 +304,8 @@ func (*K8STargets_Endpoints) isK8STargets_Resources() {}
 func (*K8STargets_Ingresses) isK8STargets_Resources() {}
 
 func (*K8STargets_Pods) isK8STargets_Resources() {}
+
+func (*K8STargets_HttpRoutes) isK8STargets_Resources() {}
 
 type DNSOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -809,7 +825,7 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\x12rds_server_options\x18\x01 \x01(\v2).cloudprober.rds.ClientConf.ServerOptionsR\x10rdsServerOptions\x12#\n" +
 	"\rresource_path\x18\x02 \x01(\tR\fresourcePath\x12/\n" +
 	"\x06filter\x18\x03 \x03(\v2\x17.cloudprober.rds.FilterR\x06filter\x126\n" +
-	"\tip_config\x18\x04 \x01(\v2\x19.cloudprober.rds.IPConfigR\bipConfig\"\xea\x02\n" +
+	"\tip_config\x18\x04 \x01(\v2\x19.cloudprober.rds.IPConfigR\bipConfig\"\x8d\x03\n" +
 	"\n" +
 	"K8sTargets\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12$\n" +
@@ -817,7 +833,9 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\bservices\x18\x03 \x01(\tH\x00R\bservices\x12\x1e\n" +
 	"\tendpoints\x18\x04 \x01(\tH\x00R\tendpoints\x12\x1e\n" +
 	"\tingresses\x18\x05 \x01(\tH\x00R\tingresses\x12\x14\n" +
-	"\x04pods\x18\x06 \x01(\tH\x00R\x04pods\x12\x1e\n" +
+	"\x04pods\x18\x06 \x01(\tH\x00R\x04pods\x12!\n" +
+	"\vhttp_routes\x18\a \x01(\tH\x00R\n" +
+	"httpRoutes\x12\x1e\n" +
 	"\n" +
 	"portFilter\x18\n" +
 	" \x01(\tR\n" +
@@ -919,6 +937,7 @@ func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() 
 		(*K8STargets_Endpoints)(nil),
 		(*K8STargets_Ingresses)(nil),
 		(*K8STargets_Pods)(nil),
+		(*K8STargets_HttpRoutes)(nil),
 	}
 	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[3].OneofWrappers = []any{
 		(*TargetsDef_HostNames)(nil),

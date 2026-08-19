@@ -37,6 +37,8 @@ message Services {}
 
 message Ingresses {}
 
+message HTTPRoutes {}
+
 // Kubernetes provider config.
 message ProviderConfig {
   // Namespace to list resources for. If not specified, we default to all
@@ -59,6 +61,12 @@ message ProviderConfig {
   // ingresses discovery to be enabled.
   // Note: Ingress support is experimental and may change in future.
   optional Ingresses ingresses = 5;
+
+  // HTTPRoutes discovery options. This field should be declared for the
+  // http_routes discovery to be enabled.
+  // Note: HTTPRoute (Gateway API) support is experimental and may change in
+  // future.
+  optional HTTPRoutes http_routes = 6;
 
   // Label selectors to filter resources. This is useful for large clusters.
   // label_selector: ["app=cloudprober", "env!=dev"]
