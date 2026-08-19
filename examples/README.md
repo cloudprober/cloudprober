@@ -5,6 +5,7 @@ This directory contains various examples demonstrating different features and us
 | Feature | Description | Subdirectory |
 |---------|-------------|--------------|
 | Additional Labels | Examples of adding custom labels to metrics | `additional_label/` |
+| Dual-stack | Probing the same hosts over both IPv4 and IPv6 | `dual_stack/` |
 | Extensions | How to extend Cloudprober with custom probes and targets | `extensions/` |
 | External Probes | Examples of external probes in different languages | `external/` |
 | File-based Targets | Configuring targets using files | `file_based_targets/` |
