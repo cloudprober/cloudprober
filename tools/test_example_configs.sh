@@ -20,6 +20,8 @@ for example in examples/**/*.cfg; do
             echo "Skipping ${example} (needs a custom build)"
             continue
             ;;
+        *)
+            ;;
     esac
     echo "Testing ${example}"
     go run ./cmd/cloudprober/. -configtest -config_file "${example}"
