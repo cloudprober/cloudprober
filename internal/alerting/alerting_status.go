@@ -158,7 +158,7 @@ func (st *state) statusHTML() (string, error) {
 	return statusBuf.String(), err
 }
 
-var globalState = state{
+var globalState = &state{
 	currentAlerts: make(map[string]*alertinfo.AlertInfo),
 }
 
