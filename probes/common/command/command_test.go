@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +43,11 @@ func TestShellProcessSuccess(t *testing.T) {
 			exportEnvList = append(exportEnvList, env)
 		}
 	}
+	// Sort the env list to make the output independent of the order in which
+	// os.Environ() returns the variables. On Windows the environment block is
+	// sorted by the OS, while on Unix it preserves the insertion order.
+	slices.Sort(exportEnvList)
+
 	fmt.Fprintf(os.Stderr, "Running test command. Env: %s\n", strings.Join(exportEnvList, ","))
 
 	pauseTime := 50 * time.Millisecond
@@ -81,7 +87,7 @@ func testCommandExecute(t *testing.T, disableStreaming bool) {
 	wantOutput := []string{
 		"cmd \"/test/cmd\"",
 		"args \"--address=a.com,--arg2\"",
-		"env \"GO_CP_TEST_PROCESS=1,GO_CP_TEST_PIDS_FILE=pidsFile\"",
+		"env \"GO_CP_TEST_PIDS_FILE=pidsFile,GO_CP_TEST_PROCESS=1\"",
 	}
 
 	var output []string
@@ -108,7 +114,7 @@ func testCommandExecute(t *testing.T, disableStreaming bool) {
 	})
 
 	wantOutput = append(wantOutput, wantOutput...)
-	wantOutput[len(wantOutput)-1] = "env \"GO_CP_TEST_PROCESS_FAIL=1,GO_CP_TEST_PROCESS=1,GO_CP_TEST_PIDS_FILE=pidsFile\""
+	wantOutput[len(wantOutput)-1] = "env \"GO_CP_TEST_PIDS_FILE=pidsFile,GO_CP_TEST_PROCESS=1,GO_CP_TEST_PROCESS_FAIL=1\""
 	t.Run("second-run", func(t *testing.T) {
 		os.Setenv("GO_CP_TEST_PROCESS_FAIL", "1")
 		defer os.Unsetenv("GO_CP_TEST_PROCESS_FAIL")
