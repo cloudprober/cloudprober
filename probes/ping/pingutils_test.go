@@ -117,6 +117,6 @@ func TestPktString(t *testing.T) {
 	expectedString := "peer=test-target id=5 seq=456 rtt=5ms"
 	got := testPkt.String(rtt)
 	if got != expectedString {
-		t.Errorf("pktString(%v, %s): expected=%s wanted=%s", testPkt, rtt, got, expectedString)
+		t.Errorf("pktString(%v, %s): got=%s want=%s", testPkt, rtt, got, expectedString)
 	}
 }
