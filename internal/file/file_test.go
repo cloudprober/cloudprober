@@ -16,6 +16,8 @@ package file
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -39,8 +41,8 @@ func createTempFile(t *testing.T, b []byte) string {
 	return tmpfile.Name()
 }
 
-func testReadFile(ctx context.Context, path string) ([]byte, error) {
-	return []byte("content-for-" + path), nil
+func testReadFile(ctx context.Context, fname string) ([]byte, error) {
+	return []byte("content-for-" + strings.TrimPrefix(fname, "test://")), nil
 }
 
 func TestReadFile(t *testing.T) {
@@ -73,6 +75,22 @@ func TestReadFile(t *testing.T) {
 				t.Errorf("ReadFile(%s) = %s, expected=%s", path, string(b), expectedContent)
 			}
 		})
+	}
+}
+
+func TestReadFileHTTP(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("http-content"))
+	}))
+	defer ts.Close()
+
+	b, err := ReadFile(context.Background(), ts.URL)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) returned error: %v", ts.URL, err)
+	}
+
+	if string(b) != "http-content" {
+		t.Errorf("ReadFile(%s) = %s, expected=http-content", ts.URL, string(b))
 	}
 }
 
