@@ -50,7 +50,15 @@ jobs:
           git checkout -b gh-pages-github-action gh-pages
 
       - name: Generate config docs
-        run: tools/gen_config_docs.sh
+        # The bare call generates docs for the current branch (config/main/).
+        # The 'latest' call regenerates config/latest/ and the non-versioned
+        # config/ pages, which are otherwise absent from the content tree on a
+        # docs push, and so drop out of the sitemap, RSS and search index that
+        # Hugo rebuilds from content. Output is derived from the latest release
+        # tarball, so it is identical between runs.
+        run: |
+          tools/gen_config_docs.sh
+          tools/gen_config_docs.sh latest
 
       - name: Build pages
         run: |

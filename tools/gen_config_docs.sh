@@ -1,13 +1,19 @@
 #!/bin/bash
 
+# Fail on error, on unset variables, and on any failure within a pipeline.
+# Without this the script would sail past a missing protodoc or a failed
+# download and exit 0 having generated nothing.
+set -euo pipefail
+
 # To generate config docs for a specific version, copy this script to a
 # different location and checkout cloudprober repo at the desired version.
 # Then run the script with the version as an argument. For example:
 #   cp tools/gen_config_docs.sh /tmp
 #   git checkout v0.13.7
 #   /tmp/gen_config_docs.sh v0.13.7
-DOCS_VERSION=$1
-RELEASE=$1
+# Both are optional; `set -u` requires an explicit default.
+DOCS_VERSION=${1:-}
+RELEASE=${1:-}
 
 if [[ -z "${DOCS_VERSION}" ]]; then
     DOCS_VERSION=$(git describe --exact-match --exclude tip --tags HEAD 2>/dev/null || /bin/true)
@@ -22,7 +28,15 @@ DOCS_VERSION=${DOCS_VERSION//\//_}
 ORIGINAL_DIR=$(pwd)
 
 if [[ "${RELEASE}" == "latest" ]]; then
-  RELEASE=$(curl -s https://api.github.com/repos/cloudprober/cloudprober/releases/latest | grep 'tag_name' | cut -d '"' -f4)
+  RELEASE=$(curl -s https://api.github.com/repos/cloudprober/cloudprober/releases/latest | grep 'tag_name' | cut -d '"' -f4 || true)
+  # Without this, an API hiccup leaves RELEASE empty, the tarball download
+  # below is skipped, and we'd generate "latest" from the working tree --
+  # publishing unreleased protos as the released config reference.
+  if [[ -z "${RELEASE}" ]]; then
+    echo "Could not resolve the latest release tag; refusing to generate" >&2
+    echo "'latest' config docs from the working tree." >&2
+    exit 1
+  fi
 fi
 
 if [[ ! -z "${RELEASE}" ]]; then
