@@ -1238,49 +1238,38 @@
   <div class="cp-deepdive">
     <div class="cp-deepdive-text">
       <h2>The whole stack, no glue.</h2>
-      <p>Most synthetic monitoring setups are three or four moving parts wired together: a prober, a scrape target, an alertmanager, a dashboard. Here they're one process reading one config.</p>
-      <p>That makes the optional things genuinely optional. Point it at <strong>Prometheus</strong>, <strong>Grafana</strong>, or <strong>PagerDuty</strong> if you already run them — or run nothing else at all and use the built-in status page. Either way the setup grows from one VM to multi-region without swapping in a "real" tool later.</p>
+      <p>Most synthetic monitoring setups are three or four moving parts you wire together yourself: a prober, a scrape target, an alertmanager, a dashboard. Cloudprober is one binary and one config, with all of it already connected.</p>
+      <p>Inside, they're still separate stages, each doing one job — so any of them can be swapped out or switched off without disturbing the rest. Point it at <strong>Prometheus</strong>, <strong>Grafana</strong>, or <strong>PagerDuty</strong> if you already run them — or run nothing else at all and use the built-in status page. Either way the setup grows from one VM to multi-region without swapping in a "real" tool later.</p>
     </div>
     <div class="cp-deepdive-visual">
-      <svg class="cp-dd-diagram" viewBox="0 0 480 320" role="img" aria-label="Cloudprober all-in-one architecture">
-        <rect class="node" x="20"  y="10" width="120" height="36" rx="7"/>
-        <text class="label" x="80" y="34" text-anchor="middle">Kubernetes</text>
-        <rect class="node" x="180" y="10" width="120" height="36" rx="7"/>
-        <text class="label" x="240" y="34" text-anchor="middle">GCE</text>
-        <rect class="node" x="340" y="10" width="120" height="36" rx="7"/>
-        <text class="label" x="400" y="34" text-anchor="middle">file / RDS</text>
-
-        <path class="arrow" d="M 80  46 L 80  80"/>
-        <polygon class="arrow-head" points="80,80 76,72 84,72"/>
-        <path class="arrow" d="M 240 46 L 240 80"/>
-        <polygon class="arrow-head" points="240,80 236,72 244,72"/>
-        <path class="arrow" d="M 400 46 L 400 80"/>
-        <polygon class="arrow-head" points="400,80 396,72 404,72"/>
-
-        <rect class="node-accent" x="20" y="85" width="440" height="170" rx="14"/>
-        <text class="label-big" x="240" y="108" text-anchor="middle">cloudprober</text>
-        <text class="sub-small" x="240" y="122" text-anchor="middle">single Go binary</text>
-
-        <rect class="inner-pill" x="40"  y="138" width="195" height="32" rx="6"/>
-        <text class="sub" x="137" y="158" text-anchor="middle">probes &amp; target loop</text>
-
-        <rect class="inner-pill" x="245" y="138" width="195" height="32" rx="6"/>
-        <text class="sub" x="342" y="158" text-anchor="middle">surfacers</text>
-
-        <rect class="inner-pill" x="40"  y="180" width="195" height="32" rx="6"/>
-        <text class="sub" x="137" y="200" text-anchor="middle">alert rules</text>
-
-        <rect class="inner-pill" x="245" y="180" width="195" height="32" rx="6"/>
-        <text class="sub" x="342" y="200" text-anchor="middle">status dashboard</text>
-
-        <rect class="inner-pill" x="40"  y="222" width="400" height="22" rx="5"/>
-        <text class="sub-small" x="240" y="237" text-anchor="middle">one config · one process · one pipeline</text>
-
-        <path class="arrow" d="M 240 255 L 240 280"/>
-        <polygon class="arrow-head" points="240,280 236,272 244,272"/>
-
-        <rect class="node-optional" x="60" y="285" width="360" height="30" rx="7"/>
-        <text class="sub" x="240" y="304" text-anchor="middle">Prometheus · Grafana · PagerDuty · Slack · … &nbsp; (all optional)</text>
+      <svg class="cp-dd-diagram" viewBox="0 0 480 300" role="img" aria-label="Cloudprober's layers -- targets, probes, validators, surfacers and alerts -- each a separate stage inside a single binary">
+        <rect class="node-accent" x="10" y="10" width="460" height="248" rx="14"/>
+        <text class="label-big" x="240" y="36" text-anchor="middle">cloudprober</text>
+        <text class="sub-small" x="240" y="51" text-anchor="middle">one binary &#183; one config</text>
+        <rect class="inner-pill" x="36" y="64" width="414" height="28" rx="6"/>
+        <text class="label" x="48" y="83">targets</text>
+        <text class="sub" x="132" y="83">Kubernetes · GCE · file · RDS</text>
+        <path class="arrow" d="M 240 92 L 240 102"/>
+        <polygon class="arrow-head" points="240,102 236,98 244,98"/>
+        <rect class="inner-pill" x="36" y="102" width="414" height="28" rx="6"/>
+        <text class="label" x="48" y="121">probes</text>
+        <text class="sub" x="132" y="121">HTTP · gRPC · Browser · DNS · PING · TCP · UDP</text>
+        <path class="arrow" d="M 240 130 L 240 140"/>
+        <polygon class="arrow-head" points="240,140 236,136 244,136"/>
+        <rect class="inner-pill" x="36" y="140" width="414" height="28" rx="6"/>
+        <text class="label" x="48" y="159">validators</text>
+        <text class="sub" x="132" y="159">HTTP status · regex · JSON · DNS</text>
+        <path class="arrow" d="M 240 168 L 240 178"/>
+        <polygon class="arrow-head" points="240,178 236,174 244,174"/>
+        <rect class="inner-pill" x="36" y="178" width="414" height="28" rx="6"/>
+        <text class="label" x="48" y="197">surfacers</text>
+        <text class="sub" x="132" y="197">Prometheus · OpenTelemetry · Datadog · status page</text>
+        <path class="arrow" d="M 240 206 L 240 216"/>
+        <polygon class="arrow-head" points="240,216 236,212 244,212"/>
+        <rect class="inner-pill" x="36" y="216" width="414" height="28" rx="6"/>
+        <text class="label" x="48" y="235">alerts</text>
+        <text class="sub" x="132" y="235">PagerDuty · Opsgenie · Slack · email · webhook</text>
+        <text class="sub-small" x="240" y="284" text-anchor="middle">each stage is swappable, and any of them can be switched off</text>
       </svg>
     </div>
   </div>
