@@ -7,50 +7,55 @@ menu:
       hide: true
 ---
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)](https://hub.docker.com/v2/repositories/cloudprober/cloudprober/)
-[![Go Build and Test](https://github.com/cloudprober/cloudprober/actions/workflows/go.yml/badge.svg)](https://github.com/cloudprober/cloudprober/actions/workflows/go.yml)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
-
 Cloudprober supercharges your monitoring with active probes (a.k.a. synthetic
 monitoring) to ensure your systems—homelabs, microservices, APIs, websites, or
-cloud-to-on-prem connections—run as expected. See
-[this post](https://medium.com/@manugarg/why-you-need-probers-f38400f5830e) for
-why probers provide one of the most reliable monitoring signals.
+cloud-to-on-prem connections—run as expected.
 
-<img width="460" src="https://cloudprober.org/homepage.png"/>
+<img width="560" src="/homepage.png"
+     alt="Cloudprober probes websites, internal services and partner
+          connectivity, and feeds dashboards, SLOs and alerts"/>
 
-## Why Cloudprober?
+Probes run continuously from wherever you choose to run them, measuring what
+your users actually experience rather than what your servers report about
+themselves. See [why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e)
+for why that turns out to be one of the most reliable monitoring signals you
+can have.
 
-* **Versatile Probes**: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom checks via external probes.
+## Ready to try it?
 
-* **Auto-Discover Targets**: Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
+[Getting Started](/docs/overview/getting-started/) has you probing a real
+endpoint in a couple of minutes: install, one small config file, done.
 
-* **Integrate with Existing Systems**: Out-of-the-box integration with Prometheus, Grafana, DataDog, AWS CloudWatch, PostgreSQL, and Google Cloud Monitoring.
+## What's in the box
 
-* **Easy Alerts**: Stay informed via email, Slack, PagerDuty, OpsGenie, or any other HTTP based system.
+| | What you get |
+| --- | --- |
+| [Probes](/docs/overview/probe/) | HTTP, gRPC, Browser, Starlark script, DNS, PING, TCP, and UDP, plus [external](/docs/how-to/external-probe/) commands and Go [extensions](/docs/how-to/extensions/) when you need something else. |
+| [Targets](/docs/how-to/targets/) | Discovered automatically from Kubernetes, GCP, or files, so you're not redeploying every time your fleet changes. |
+| [Surfacers](/docs/surfacers/overview/) | Metrics out to Prometheus, Grafana, Datadog, CloudWatch, PostgreSQL, Google Cloud Monitoring, and more. |
+| [Alerts](/docs/how-to/alerting/) | Email, Slack, PagerDuty, Opsgenie, or any HTTP endpoint. |
+| [Config](/docs/config/guide/) | Textproto or YAML, with Go templates for when one probe block has to cover hundreds of endpoints. |
 
-* **Lightweight & Scalable**: Written in Go, compiles to a single binary, and runs efficiently as a standalone app or Docker container.
+Written in Go, it compiles to a single binary and runs as happily on a
+Raspberry Pi as it does across a global fleet.
 
-* **Custom Metrics**: Flexible latency histograms and configurable labels for precise insights.
+## Learn more
 
-* **Extensible**: Easily add new probe types, targets, or monitoring systems.
+* Coming from Prometheus Blackbox Exporter? See how the two compare:
+  [Prometheus Blackbox Exporter vs Cloudprober](https://medium.com/cloudprober/prometheus-blackbox-exporter-vs-cloudprober-08a1d3beeda2).
 
-## Learn More
-
-* If you're familiar with Prometheus Blackbox Exporter, see how Cloudprober stacks against it: [Prometheus Blackbox Exporter vs Cloudprober](https://medium.com/cloudprober/prometheus-blackbox-exporter-vs-cloudprober-08a1d3beeda2).
-  
-* If you're not very familiar with the blackbox/synthetic monitoring paradigm, take a look at [why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e).
+* New to the blackbox/synthetic monitoring paradigm?
+  [Why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e).
 
 * Cloudprober's [origin story](https://medium.com/cloudprober/story-of-cloudprober-5ac1dbc0066c).
-  
-* How [DoorDash](https://careersatdoordash.com/blog/infra-prober-active-infrastructure-monitor/) & [Hostinger](https://www.hostinger.com/blog/cloudprober-explained-the-way-we-use-it-at-hostinger) use Cloudprober.
 
-## Get Started
+* How [DoorDash](https://careersatdoordash.com/blog/infra-prober-active-infrastructure-monitor/)
+  and [Hostinger](https://www.hostinger.com/blog/cloudprober-explained-the-way-we-use-it-at-hostinger)
+  use Cloudprober.
 
-Jump in with our [Getting Started](https://cloudprober.org/docs/overview/getting-started/) guide and start monitoring your systems in minutes.
+## Join the community
 
-## Join the Community
-
-Join our [Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE), or discuss on [Github](https://github.com/cloudprober/cloudprober/discussions). Help shape Cloudprober's future by commenting
-[here](https://github.com/cloudprober/cloudprober/discussions/121).
+Join our [Slack](/goto/slack-invite/), or discuss on
+[GitHub](https://github.com/cloudprober/cloudprober/discussions). And if you're
+already running it, tell us about it in
+[How do you use Cloudprober?](https://github.com/cloudprober/cloudprober/discussions/121)
