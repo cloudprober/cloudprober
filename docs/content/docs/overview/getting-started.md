@@ -62,6 +62,10 @@ Disk and network stats are aggregated across all devices by default. To get a
 separate series per mount point (`mount_point` label) or per interface (`iface`
 label), configure a `SYSTEM` probe yourself with `export_individual_stats: true`.
 
+Pass `--disable_sys_metrics` if you'd rather not have this probe added, or
+configure a `SYSTEM` probe of your own -- cloudprober skips the automatic one
+if your config already has a `SYSTEM` probe.
+
 On non-Linux platforms, system metrics aren't auto-added, but all configured
 probes still work.
 
@@ -100,7 +104,11 @@ Run with your config:
 cloudprober --config_file cloudprober.cfg
 ```
 
-Or if using Docker:
+If you don't pass `--config_file`, cloudprober reads `/etc/cloudprober.cfg`,
+and starts with an empty config if that file doesn't exist either -- which is
+what happened in [Your First Run](#your-first-run) above.
+
+Or, with Docker. Note that the config is mounted at that same default path:
 
 ```bash
 docker run -p 9313:9313 -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
@@ -127,12 +135,19 @@ latency{ptype="http",probe="cloudprober_website",dst="cloudprober.org"} 639773.4
 
 **Built-in web endpoints:**
 
-| Endpoint   | Description                      |
-| ---------- | -------------------------------- |
-| `/status`  | Probe status dashboard           |
-| `/config`  | Current configuration            |
-| `/metrics` | Prometheus-format metrics        |
-| `/alerts`  | Active alerts                    |
+| Endpoint          | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `/status`         | Probe status dashboard                            |
+| `/metrics`        | Prometheus-format metrics                         |
+| `/alerts`         | Active alerts                                     |
+| `/config`         | Config exactly as you provided it                 |
+| `/config-parsed`  | Config after templates and env vars are expanded  |
+| `/config-running` | Running probes, surfacers, and servers            |
+| `/logs`           | Recent log entries                                |
+| `/links`          | Index of all of the above                         |
+
+`/artifacts` also shows up when a probe produces artifacts, such as the
+screenshots from a browser probe.
 
 You can change the default port (`9313`) with the `CLOUDPROBER_PORT` environment
 variable and the listening address with `CLOUDPROBER_HOST`.
