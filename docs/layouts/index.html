@@ -890,7 +890,7 @@
 <section class="cp-trusted" aria-label="Trusted by">
   <p class="cp-trusted-eyebrow">In production at</p>
 
-  <div class="cp-logo-grid" aria-hidden="false">
+  <div class="cp-logo-grid">
     <img src="/trusted-by-logos/google.svg"        alt="Google" />
     <img src="/trusted-by-logos/tesla.svg"         alt="Tesla" />
     <img src="/trusted-by-logos/snowflake.svg"     alt="Snowflake"      class="darker" />
@@ -922,7 +922,8 @@
 
     <div class="cp-cap-cards" role="tablist">
 
-      <button class="cp-cap-card" data-cap="builtin" role="tab" aria-selected="true">
+      <button class="cp-cap-card" data-cap="builtin" role="tab" id="cap-tab-builtin"
+              aria-controls="cap-panel-builtin" aria-selected="true" tabindex="0">
         <div class="cp-cap-card-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3"  y="3"  width="7" height="7" rx="1"/>
@@ -935,7 +936,8 @@
         <div class="cp-cap-card-sub">HTTP · gRPC · Browser · Script · DNS · PING · TCP · UDP</div>
       </button>
 
-      <button class="cp-cap-card" data-cap="custom" role="tab" aria-selected="false">
+      <button class="cp-cap-card" data-cap="custom" role="tab" id="cap-tab-custom"
+              aria-controls="cap-panel-custom" aria-selected="false" tabindex="-1">
         <div class="cp-cap-card-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 18 22 12 16 6"/>
@@ -943,10 +945,11 @@
           </svg>
         </div>
         <div class="cp-cap-card-title">Custom Probes &amp; Extensibility</div>
-        <div class="cp-cap-card-sub">External · Go extensions</div>
+        <div class="cp-cap-card-sub">External · Starlark · Go extensions</div>
       </button>
 
-      <button class="cp-cap-card" data-cap="output" role="tab" aria-selected="false">
+      <button class="cp-cap-card" data-cap="output" role="tab" id="cap-tab-output"
+              aria-controls="cap-panel-output" aria-selected="false" tabindex="-1">
         <div class="cp-cap-card-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 11a9 9 0 0 1 9 9"/>
@@ -958,7 +961,8 @@
         <div class="cp-cap-card-sub">Prometheus · Datadog · PagerDuty · status board</div>
       </button>
 
-      <button class="cp-cap-card" data-cap="templates" role="tab" aria-selected="false">
+      <button class="cp-cap-card" data-cap="templates" role="tab" id="cap-tab-templates"
+              aria-controls="cap-panel-templates" aria-selected="false" tabindex="-1">
         <div class="cp-cap-card-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="4" y="3" width="16" height="18" rx="2"/>
@@ -973,9 +977,10 @@
 
     </div>
 
-    <div class="cp-cap-panels" role="tabpanel">
+    <div class="cp-cap-panels">
 
-      <div class="cp-cap-panel" data-cap="builtin" data-active="true">
+      <div class="cp-cap-panel" data-cap="builtin" data-active="true"
+           id="cap-panel-builtin" role="tabpanel" aria-labelledby="cap-tab-builtin">
         <h3>Built-in Probes</h3>
         <p>Probe every layer of your stack with built-ins. <strong>HTTP</strong>, <strong>gRPC</strong>, <strong>Browser</strong>, and <strong>Starlark Script</strong> probes test the surface your users actually touch — including full headless-browser checks that drive multi-step user flows. <strong>DNS</strong>, <strong>PING</strong>, <strong>TCP</strong>, and <strong>UDP</strong> probes verify the network underneath — name resolution, packet loss, connection refused, byte-level transport issues.</p>
         <p>All built-ins share the same scheduling, target discovery, validators, and surfacers. Mix them in one config to monitor an application end-to-end — from DNS resolution, through the TCP handshake, to the HTTP response body.</p>
@@ -984,21 +989,23 @@
         <a class="cp-dd-link" href="https://browser-probe-demo.cloudprober.org/status" target="_blank" rel="noopener">See the Browser Probe demo</a>
       </div>
 
-      <div class="cp-cap-panel" data-cap="custom">
+      <div class="cp-cap-panel" data-cap="custom"
+           id="cap-panel-custom" role="tabpanel" aria-labelledby="cap-tab-custom">
         <h3>Custom Probes &amp; Extensibility</h3>
         <p>When the built-ins don't fit, three escape hatches at increasing depth: shell out to any binary (<strong>External</strong>), run inline logic in <strong>Starlark Script</strong>, or compile a Go <strong>Extension</strong> into a private build.</p>
-        <p>All three flow through the same scheduling, target discovery, validators, and surfacers — first-class citizens, not bolted on.</p>
         <a class="cp-dd-link" href="/docs/how-to/extensions/">Read the extensibility guide</a>
       </div>
 
-      <div class="cp-cap-panel" data-cap="output">
+      <div class="cp-cap-panel" data-cap="output"
+           id="cap-panel-output" role="tabpanel" aria-labelledby="cap-tab-output">
         <h3>Observability, Alerts &amp; Status</h3>
-        <p>Every probe result has two destinations. <strong>Surfacers</strong> ship metrics where you already look — Prometheus, Datadog, CloudWatch, Google Cloud Monitoring, PostgreSQL, Pub/Sub, OpenTelemetry, plain stdout. No sidecars, no translation layers. <strong>Alert rules</strong> fire on failures, SLO breaches, or custom thresholds with delivery through PagerDuty, OpsGenie, Slack, email, or webhook.</p>
-        <p>And a built-in <strong>status dashboard</strong> shows live probe state per target — useful for incident response when your main observability stack may itself be down. No external dependencies; cloudprober becomes the source of truth for your synthetic checks.</p>
+        <p><strong>Surfacers</strong> ship metrics where you already look: Prometheus, Datadog, CloudWatch, Google Cloud Monitoring, PostgreSQL, Pub/Sub, OpenTelemetry, plain stdout. <strong>Alert rules</strong> fire on failures, SLO breaches, or custom thresholds, delivering through PagerDuty, OpsGenie, Slack, email, or webhook.</p>
+        <p>A built-in <strong>status dashboard</strong> shows live probe state per target — worth having when the observability stack you'd normally check is itself the thing that's down.</p>
         <a class="cp-dd-link" href="/docs/surfacers/overview/">Browse surfacers and alerts</a>
       </div>
 
-      <div class="cp-cap-panel" data-cap="templates">
+      <div class="cp-cap-panel" data-cap="templates"
+           id="cap-panel-templates" role="tabpanel" aria-labelledby="cap-tab-templates">
         <h3>Dynamic Templated Configs</h3>
         <p>Stop hand-writing thousands of probe definitions. Targets are discovered automatically — from <strong>Kubernetes</strong>, <strong>GCE</strong>, file-based lists, or any service you plug in — and probes are generated from templated configs.</p>
         <p>Add a new region, a new service, or a new endpoint, and cloudprober picks it up on its next reload. Templates use Go text/template, with target metadata as variables, so a single probe block can adapt across hundreds of endpoints.</p>
@@ -1041,11 +1048,10 @@
 
   <div class="cp-deepdive reverse">
     <div class="cp-deepdive-text">
-      <h2>Bring your own probe. First-class, not bolted on.</h2>
-      <p>Three escape hatches, at increasing depth — all integrated into the same pipeline.</p>
-      <p><strong>External</strong> shells out to any binary or script. <strong>Script</strong> runs Python-like Starlark inline in your config — multi-step, conditional, no rebuild step. <strong>Extension</strong> compiles a Go module into a private cloudprober binary for the deepest integration.</p>
-      <p>However you write it, your custom probe gets the same scheduling, target discovery, validators, and surfacers as anything built in.</p>
-      <a class="cp-dd-link" href="/docs/how-to/extensions/">Read the extensibility guide</a>
+      <h2>Check the flow, not just the endpoint.</h2>
+      <p>A 200 from your login page doesn't mean anyone can log in. This probe signs in, keeps the session cookie, loads the cart, and asserts on what came back — the actual journey, checked every interval.</p>
+      <p>It's Starlark, a Python-like language that runs inline in your config. Edit the script, reload, done: no plugin to compile, no binary to rebuild, no separate test runner to keep in sync.</p>
+      <a class="cp-dd-link" href="/docs/how-to/starlark-probe/">Write a Starlark probe</a>
     </div>
     <div class="cp-deepdive-visual">
       <div class="cp-code-frame" aria-label="Starlark Script probe example">
@@ -1079,9 +1085,9 @@
 
   <div class="cp-deepdive">
     <div class="cp-deepdive-text">
-      <h2>One binary, the whole stack.</h2>
-      <p>Probes, target discovery, surfacers, alert rules, and a live status dashboard all live in the same process — driven by the same config. No alertmanager. No sidecar. No glue.</p>
-      <p>Add <strong>Prometheus</strong>, <strong>Grafana</strong>, <strong>PagerDuty</strong>, or any other tool you're already running. Don't, if you don't want to. The same setup grows from one VM to multi-region production without swapping in a "real" tool later.</p>
+      <h2>The whole stack, no glue.</h2>
+      <p>Most synthetic monitoring setups are three or four moving parts wired together: a prober, a scrape target, an alertmanager, a dashboard. Here they're one process reading one config.</p>
+      <p>That makes the optional things genuinely optional. Point it at <strong>Prometheus</strong>, <strong>Grafana</strong>, or <strong>PagerDuty</strong> if you already run them — or run nothing else at all and use the built-in status page. Either way the setup grows from one VM to multi-region without swapping in a "real" tool later.</p>
     </div>
     <div class="cp-deepdive-visual">
       <svg class="cp-dd-diagram" viewBox="0 0 480 320" role="img" aria-label="Cloudprober all-in-one architecture">
@@ -1275,22 +1281,46 @@
       .catch(() => { /* keep placeholder */ });
   })();
 
-  // Capability tab switching
-  document.querySelectorAll('.cp-cap-card').forEach((card) => {
-    card.addEventListener('click', () => {
-      const cap = card.dataset.cap;
-      document.querySelectorAll('.cp-cap-card').forEach((c) => {
-        c.setAttribute('aria-selected', c === card ? 'true' : 'false');
+  // Capability tab switching, with roving tabindex + arrow keys so the
+  // tablist behaves the way a tablist is supposed to.
+  (function () {
+    const tabs = Array.from(document.querySelectorAll('.cp-cap-card'));
+    const panels = Array.from(document.querySelectorAll('.cp-cap-panel'));
+    if (!tabs.length) return;
+
+    function select(tab, focus) {
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
       });
-      document.querySelectorAll('.cp-cap-panel').forEach((p) => {
-        if (p.dataset.cap === cap) {
+      panels.forEach((p) => {
+        if (p.dataset.cap === tab.dataset.cap) {
           p.setAttribute('data-active', 'true');
         } else {
           p.removeAttribute('data-active');
         }
       });
+      if (focus) tab.focus();
+    }
+
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => select(tab, false));
+      tab.addEventListener('keydown', (e) => {
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+        if (step) {
+          e.preventDefault();
+          select(tabs[(i + step + tabs.length) % tabs.length], true);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          select(tabs[0], true);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          select(tabs[tabs.length - 1], true);
+        }
+      });
     });
-  });
+  })();
 </script>
 
 {{ end }}
