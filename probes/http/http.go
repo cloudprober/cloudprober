@@ -63,9 +63,10 @@ type Probe struct {
 	redirectFunc  func(req *http.Request, via []*http.Request) error
 
 	// book-keeping params
-	targets []endpoint.Endpoint
-	method  string
-	url     string
+	targets              []endpoint.Endpoint
+	method               string
+	url                  string
+	redactURLQueryInLogs bool
 	// Canonical names of headers whose values carry a substitution token
 	// (e.g. @uuid@). Empty when no header is dynamic; len() also gates the
 	// per-send clone in prepareRequest.
@@ -199,6 +200,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if len(p.url) > 0 && p.url[0] != '/' {
 		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.url)
 	}
+	p.redactURLQueryInLogs = p.c.GetRedactUrlQueryInLogs()
 
 	body := p.c.GetBody()
 	if len(body) == 0 && p.c.GetBodyFile() != "" {
@@ -309,7 +311,7 @@ func (p *Probe) requestTrace(result *probeResult) *httptrace.ClientTrace {
 
 // doHTTPRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
-	l := p.l.WithAttributes(slog.String("target", target.Name), slog.String("url", req.URL.String()))
+	l := p.l.WithAttributes(slog.String("target", target.Name), slog.String("url", p.redactedURL(req.URL)))
 
 	start := time.Now()
 
@@ -336,19 +338,19 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 			result.success++
 			return nil
 		}
-		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(p.redactedErr(req.URL, err))
 		return err
 	}
 
 	if p.opts.NegativeTest {
 		resp.Body.Close()
-		l.Error("Negative test, but HTTP request succeeded for: ", req.URL.String())
+		l.Error("Negative test, but HTTP request succeeded for: ", p.redactedURL(req.URL))
 		return errors.New("negative test: request succeeded unexpectedly")
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(p.redactedErr(req.URL, err))
 		return err
 	}
 

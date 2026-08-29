@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
@@ -94,6 +95,35 @@ func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 	}
 
 	return ""
+}
+
+// redactedURL returns the URL string for logging. When redaction is enabled
+// (redact_url_query_in_logs) and the URL has a query string, the query is
+// replaced with "<redacted>" so secrets carried in query parameters (e.g.
+// passwords) don't end up in logs. The rest of the URL is left intact.
+func (p *Probe) redactedURL(u *url.URL) string {
+	if !p.redactURLQueryInLogs || u.RawQuery == "" {
+		return u.String()
+	}
+	redacted := *u
+	redacted.RawQuery = "<redacted>"
+	return redacted.String()
+}
+
+// redactedErr returns err's message with any occurrence of the full request
+// URL replaced by its redacted form. This is needed because net/http errors (a
+// *url.Error) embed the full URL, including the query string, in their
+// text, so redacting only the logged "url" attribute would still leak the
+// query via the error message.
+func (p *Probe) redactedErr(u *url.URL, err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if !p.redactURLQueryInLogs || u.RawQuery == "" {
+		return msg
+	}
+	return strings.ReplaceAll(msg, u.String(), p.redactedURL(u))
 }
 
 func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
