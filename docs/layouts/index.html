@@ -494,6 +494,20 @@
   [data-dark-mode] .cp-logo-grid .darker  { filter: grayscale(100%) invert(85%) brightness(150%); }
   [data-dark-mode] .cp-logo-grid .lighter { filter: grayscale(100%) invert(75%); }
   [data-dark-mode] .cp-logo-grid .apple-fix { filter: grayscale(100%) invert(95%) !important; }
+  .cp-trusted-note {
+    margin: 1.5rem 0 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  body.home .cp-trusted-note a {
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1px;
+  }
+  body.home .cp-trusted-note a:hover {
+    color: var(--text);
+    border-bottom-color: var(--text-muted);
+  }
   .cp-logo-list {
     display: none;
     max-width: 720px;
@@ -960,7 +974,7 @@
     Runs anywhere — from a Raspberry Pi to global fleets.
   </p>
   <div class="cp-hero-ctas">
-    <a class="cp-btn-hero-primary" href="/docs/overview/cloudprober/">
+    <a class="cp-btn-hero-primary" href="/docs/overview/getting-started/">
       Get started
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
         <path d="M5 12h14M13 5l7 7-7 7"/>
@@ -1003,6 +1017,10 @@
     <strong>Google, Tesla, Snowflake, Apple, DoorDash, Uber, Cloudflare, Walmart,
     Robinhood, Okta, Goldman Sachs, JPMorgan Chase, Hostinger, DigitalOcean,
     Disney+, Yahoo Japan</strong>, and more.
+  </p>
+
+  <p class="cp-trusted-note">
+    <a href="https://hub.docker.com/r/cloudprober/cloudprober" target="_blank" rel="noopener">20M+ container pulls</a>
   </p>
 </section>
 
@@ -1316,7 +1334,7 @@
 <section class="cp-closing-cta" aria-label="Get started">
   <p>
     Start detecting failures before your users do.
-    <a class="cp-closing-cta-link" href="/docs/overview/cloudprober/">Get started</a>
+    <a class="cp-closing-cta-link" href="/docs/overview/getting-started/">Get started</a>
   </p>
 </section>
 
