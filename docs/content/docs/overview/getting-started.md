@@ -138,12 +138,12 @@ latency{ptype="http",probe="cloudprober_website",dst="cloudprober.org"} 639773.4
 | Endpoint          | Description                                       |
 | ----------------- | ------------------------------------------------- |
 | `/status`         | Probe status dashboard                            |
+| `/logs`           | Recent log entries                                |
 | `/metrics`        | Prometheus-format metrics                         |
 | `/alerts`         | Active alerts                                     |
 | `/config`         | Config exactly as you provided it                 |
 | `/config-parsed`  | Config after templates and env vars are expanded  |
 | `/config-running` | Running probes, surfacers, and servers            |
-| `/logs`           | Recent log entries                                |
 | `/links`          | Index of all of the above                         |
 
 `/artifacts` also shows up when a probe produces artifacts, such as the
