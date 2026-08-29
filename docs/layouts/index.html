@@ -352,7 +352,97 @@
     .cp-cap-panels { padding: 1.5rem 1.25rem; }
   }
 
-  /* ===== Trusted-by (band 4) — slim strip, not a centerpiece ===== */
+  /* ===== Quickstart (band 4) — what using it actually looks like ===== */
+  .cp-quickstart {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: clamp(3rem, 6vw, 4.5rem) 1.5rem;
+  }
+  .cp-quickstart-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: center;
+  }
+  /* Grid items default to min-width:auto, which lets the nowrap command
+     lines push the column wider than the viewport. */
+  .cp-qs-col { min-width: 0; }
+  .cp-qs-step-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 0.7rem;
+  }
+  .cp-qs-col h2 {
+    font-size: clamp(1.5rem, 2vw + 1rem, 2rem) !important;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+    color: var(--text);
+  }
+  .cp-qs-col p {
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1.65;
+    margin: 0 0 1.5rem;
+  }
+  .cp-qs-col p:last-of-type { margin-bottom: 0; }
+  .cp-qs-col p code { overflow-wrap: anywhere; }
+
+  /* Single-line install command, with a copy button. */
+  .cp-cmd {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #0e1116;
+    border: 1px solid #1d222b;
+    border-radius: 10px;
+    padding: 0.85rem 0.85rem 0.85rem 1.1rem;
+    margin: 0 0 1.5rem;
+    box-shadow: 0 6px 20px rgba(15, 20, 25, 0.06);
+  }
+  [data-dark-mode] .cp-cmd { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); }
+  .cp-cmd code {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    color: #d4d4d4;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .cp-cmd code .prompt { color: #6a9955; user-select: none; }
+  .cp-copy-btn {
+    flex: none;
+    border: 1px solid #2b313b;
+    background: #171b22;
+    color: #9aa4b2;
+    border-radius: 7px;
+    padding: 0.35rem 0.6rem;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .cp-copy-btn:hover { background: #1f242c; color: #e6e6e6; border-color: #3a414d; }
+  .cp-copy-btn[data-copied='true'] { color: #7ec699; border-color: #2f5d43; }
+
+  @media (max-width: 820px) {
+    .cp-quickstart-inner { grid-template-columns: 1fr; gap: 2.25rem; }
+  }
+
+  /* ===== Trusted-by (band 3) — the lead social proof, right under the hero ===== */
   .cp-trusted {
     padding: clamp(1.5rem, 2.5vw, 2rem) 1.5rem clamp(2.5rem, 5vw, 4rem);
     background: var(--bg);
@@ -886,7 +976,7 @@
   </div>
 </section>
 
-<!-- ===== Trusted-by (centerpiece — promoted to right after hero) ===== -->
+<!-- ===== Trusted-by (band 3) ===== -->
 <section class="cp-trusted" aria-label="Trusted by">
   <p class="cp-trusted-eyebrow">In production at</p>
 
@@ -914,6 +1004,50 @@
     Robinhood, Okta, Goldman Sachs, JPMorgan Chase, Hostinger, DigitalOcean,
     Disney+, Yahoo Japan</strong>, and more.
   </p>
+</section>
+
+<!-- ===== Quickstart (band 4) ===== -->
+<section class="cp-quickstart" aria-label="Quickstart">
+  <div class="cp-quickstart-inner">
+
+    <div class="cp-qs-col">
+      <h2>Monitoring in under a minute.</h2>
+      <p class="cp-qs-step-label">1 &middot; Install</p>
+      <div class="cp-cmd">
+        <code id="cp-install-cmd"><span class="prompt">$ </span>curl -fsSL https://cloudprober.org/install.sh | sh</code>
+        <button class="cp-copy-btn" type="button" data-copy-target="cp-install-cmd"
+                aria-label="Copy install command">Copy</button>
+      </div>
+      <p class="cp-qs-step-label">2 &middot; Run it</p>
+      <div class="cp-cmd">
+        <code id="cp-run-cmd"><span class="prompt">$ </span>cloudprober --config_file cloudprober.cfg</code>
+        <button class="cp-copy-btn" type="button" data-copy-target="cp-run-cmd"
+                aria-label="Copy run command">Copy</button>
+      </div>
+      <p>That's it. Probe results are live at <code>localhost:9313/status</code>,
+      and Prometheus-format metrics at <code>/metrics</code>. Single binary,
+      no agent to deploy, nothing else to stand up.</p>
+      <a class="cp-dd-link" href="/docs/overview/getting-started/">Read the getting started guide</a>
+    </div>
+
+    <div class="cp-qs-col">
+      <p class="cp-qs-step-label">The config, in full</p>
+      <div class="cp-code-frame" aria-label="Minimal HTTP probe config">
+<pre><span class="kw">probe</span> <span class="punct">{</span>
+  <span class="id">name</span><span class="punct">:</span> <span class="str">"cloudprober_website"</span>
+  <span class="id">type</span><span class="punct">:</span> <span class="kw">HTTP</span>
+  <span class="id">targets</span> <span class="punct">{</span>
+    <span class="id">host_names</span><span class="punct">:</span> <span class="str">"cloudprober.org"</span>
+  <span class="punct">}</span>
+  <span class="id">http_probe</span> <span class="punct">{</span>
+    <span class="id">protocol</span><span class="punct">:</span> <span class="kw">HTTPS</span>
+  <span class="punct">}</span>
+  <span class="id">interval</span><span class="punct">:</span> <span class="str">"5s"</span>
+<span class="punct">}</span></pre>
+      </div>
+    </div>
+
+  </div>
 </section>
 
 <!-- ===== Capabilities ===== -->
@@ -1280,6 +1414,28 @@
       })
       .catch(() => { /* keep placeholder */ });
   })();
+
+  // Copy buttons on the quickstart commands.
+  document.querySelectorAll('.cp-copy-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const el = document.getElementById(btn.dataset.copyTarget);
+      if (!el || !navigator.clipboard) return;
+      // Drop the "$ " prompt span, which is display-only.
+      const text = Array.from(el.childNodes)
+        .filter((n) => !(n.classList && n.classList.contains('prompt')))
+        .map((n) => n.textContent)
+        .join('')
+        .trim();
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied';
+        btn.dataset.copied = 'true';
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          delete btn.dataset.copied;
+        }, 1600);
+      }).catch(() => { /* clipboard blocked; leave the button alone */ });
+    });
+  });
 
   // Capability tab switching, with roving tabindex + arrow keys so the
   // tablist behaves the way a tablist is supposed to.
