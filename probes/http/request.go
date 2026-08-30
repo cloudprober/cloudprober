@@ -16,11 +16,13 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
@@ -33,6 +35,9 @@ import (
 )
 
 const relURLLabel = "relative_url"
+
+// redactedQuery is what a redacted query string is replaced with in logs.
+const redactedQuery = "<redacted>"
 
 func hostWithPort(host string, port int) string {
 	if port == 0 {
@@ -97,33 +102,63 @@ func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
-// redactedURL returns the URL string for logging. When redaction is enabled
-// (redact_url_query_in_logs) and the URL has a query string, the query is
-// replaced with "<redacted>" so secrets carried in query parameters (e.g.
-// passwords) don't end up in logs. The rest of the URL is left intact.
-func (p *Probe) redactedURL(u *url.URL) string {
-	if !p.redactURLQueryInLogs || u.RawQuery == "" {
-		return u.String()
-	}
-	redacted := *u
-	redacted.RawQuery = "<redacted>"
-	return redacted.String()
+// rawQuery returns everything after the first '?' in s, i.e. the query string
+// of a URL or of a relative URL. It returns "" if there is no '?'.
+func rawQuery(s string) string {
+	_, q, _ := strings.Cut(s, "?")
+	return q
 }
 
-// redactedErr returns err's message with any occurrence of the full request
-// URL replaced by its redacted form. This is needed because net/http errors (a
-// *url.Error) embed the full URL, including the query string, in their
-// text, so redacting only the logged "url" attribute would still leak the
-// query via the error message.
-func (p *Probe) redactedErr(u *url.URL, err error) string {
+// redactQuery replaces every occurrence of "?"+q in s with "?<redacted>", so
+// that secrets carried in query parameters (e.g. passwords) don't end up in
+// logs. It's a no-op if redaction is disabled or there is no query.
+//
+// We match on the query alone rather than on the full URL because the URL a
+// message carries is often not the one we started with: net/http builds its
+// errors from the last request it made, so after a redirect the host and path
+// have changed while the query is carried over.
+func (p *Probe) redactQuery(q, s string) string {
+	if !p.redactURLQueryInLogs || q == "" {
+		return s
+	}
+	s = strings.ReplaceAll(s, "?"+q, "?"+redactedQuery)
+
+	// *url.Error renders the URL with %q, so a query containing a quote or a
+	// backslash reaches us escaped and won't match the plain form above.
+	if quoted := strconv.Quote(q); quoted[1:len(quoted)-1] != q {
+		s = strings.ReplaceAll(s, "?"+quoted[1:len(quoted)-1], "?"+redactedQuery)
+	}
+
+	return s
+}
+
+// redactedURL returns the URL string for logging, with its query redacted if
+// redaction is enabled. The rest of the URL is left intact.
+func (p *Probe) redactedURL(u *url.URL) string {
+	return p.redactQuery(u.RawQuery, u.String())
+}
+
+// redactedErr returns err's message with the query redacted. This is needed
+// because net/http errors (a *url.Error) embed the full URL, including the
+// query string, in their text, so redacting only the logged "url" attribute
+// would still leak the query via the error message. q is the query to redact;
+// callers that have a parsed URL pass u.RawQuery, the rest pass
+// rawQuery(<relative url>).
+func (p *Probe) redactedErr(q string, err error) string {
 	if err == nil {
 		return ""
 	}
-	msg := err.Error()
-	if !p.redactURLQueryInLogs || u.RawQuery == "" {
-		return msg
+	return p.redactQuery(q, err.Error())
+}
+
+// redactErr is redactedErr, but it returns an error. It returns err itself
+// when redaction is disabled, so that the default configuration keeps
+// propagating the original, typed error.
+func (p *Probe) redactErr(q string, err error) error {
+	if err == nil || !p.redactURLQueryInLogs {
+		return err
 	}
-	return strings.ReplaceAll(msg, u.String(), p.redactedURL(u))
+	return errors.New(p.redactedErr(q, err))
 }
 
 func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {

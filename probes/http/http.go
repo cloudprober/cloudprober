@@ -197,10 +197,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.method = p.c.GetMethod().String()
 
 	p.url = p.c.GetRelativeUrl()
-	if len(p.url) > 0 && p.url[0] != '/' {
-		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.url)
-	}
 	p.redactURLQueryInLogs = p.c.GetRedactUrlQueryInLogs()
+	if len(p.url) > 0 && p.url[0] != '/' {
+		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.redactQuery(rawQuery(p.url), p.url))
+	}
 
 	body := p.c.GetBody()
 	if len(body) == 0 && p.c.GetBodyFile() != "" {
@@ -338,8 +338,8 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 			result.success++
 			return nil
 		}
-		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(p.redactedErr(req.URL, err))
-		return err
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(p.redactedErr(req.URL.RawQuery, err))
+		return p.redactErr(req.URL.RawQuery, err)
 	}
 
 	if p.opts.NegativeTest {
@@ -350,8 +350,8 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(p.redactedErr(req.URL, err))
-		return err
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(p.redactedErr(req.URL.RawQuery, err))
+		return p.redactErr(req.URL.RawQuery, err)
 	}
 
 	l.Debug("Response: \n" + string(respBody))
@@ -599,9 +599,10 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	if tgtState.req == nil || (p.c.GetResolveFirst() && tgtState.runCnt%p.opts.StatsExportFrequency() == 0) {
 		req, err := p.httpRequestForTarget(runReq.Target)
 		if err != nil {
-			p.l.Error("Error creating HTTP request for target: ", target.Name, ", err: ", err.Error())
+			q := rawQuery(pathForTarget(runReq.Target, p.url))
+			p.l.Error("Error creating HTTP request for target: ", target.Name, ", err: ", p.redactedErr(q, err))
 			result.total += int64(p.c.GetRequestsPerProbe())
-			runReq.LastRun.Set(false, 0, err)
+			runReq.LastRun.Set(false, 0, p.redactErr(q, err))
 			return
 		}
 		tgtState.req = req
