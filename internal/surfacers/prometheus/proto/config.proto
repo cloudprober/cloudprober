@@ -38,8 +38,9 @@ message SurfacerConf {
   // stale_metrics_expiration_sec (4h by default), so that series belonging to
   // probes and targets that have gone away don't stay around forever.
   //
-  // Setting this field to true disables both of the above; setting it to false
-  // expires all metrics after 10 minutes of staleness.
+  // Setting this field to true disables both of the above. Setting it to false
+  // is the same as leaving it unset: expiration stays on, with the two
+  // deadlines described above.
   optional bool disable_metrics_expiration = 5;
 
   // Delete metrics that haven't been updated for this long, even if we don't
@@ -57,7 +58,7 @@ message SurfacerConf {
   // probes that run less frequently than this, increase it accordingly.
   //
   // Set to 0 to keep non-timestamped metrics forever, which is what cloudprober
-  // did before this option was added.
+  // did before this option was added. Negative values are rejected.
   optional int32 stale_metrics_expiration_sec = 6 [default = 14400];
 
   // URL that prometheus scrapes metrics from.

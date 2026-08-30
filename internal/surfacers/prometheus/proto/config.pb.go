@@ -54,8 +54,9 @@ type SurfacerConf struct {
 	// stale_metrics_expiration_sec (4h by default), so that series belonging to
 	// probes and targets that have gone away don't stay around forever.
 	//
-	// Setting this field to true disables both of the above; setting it to false
-	// expires all metrics after 10 minutes of staleness.
+	// Setting this field to true disables both of the above. Setting it to false
+	// is the same as leaving it unset: expiration stays on, with the two
+	// deadlines described above.
 	DisableMetricsExpiration *bool `protobuf:"varint,5,opt,name=disable_metrics_expiration,json=disableMetricsExpiration" json:"disable_metrics_expiration,omitempty"`
 	// Delete metrics that haven't been updated for this long, even if we don't
 	// attach a timestamp to them.
@@ -72,7 +73,7 @@ type SurfacerConf struct {
 	// probes that run less frequently than this, increase it accordingly.
 	//
 	// Set to 0 to keep non-timestamped metrics forever, which is what cloudprober
-	// did before this option was added.
+	// did before this option was added. Negative values are rejected.
 	StaleMetricsExpirationSec *int32 `protobuf:"varint,6,opt,name=stale_metrics_expiration_sec,json=staleMetricsExpirationSec,def=14400" json:"stale_metrics_expiration_sec,omitempty"`
 	// URL that prometheus scrapes metrics from.
 	MetricsUrl *string `protobuf:"bytes,3,opt,name=metrics_url,json=metricsUrl,def=/metrics" json:"metrics_url,omitempty"`

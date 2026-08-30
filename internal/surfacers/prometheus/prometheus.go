@@ -220,13 +220,24 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	// is deliberately much larger than metricExpirationTime: expiring a series
 	// that a slow probe is still updating is worse -- it shows up as a gap and
 	// a counter reset -- than letting a dead one linger for a few hours.
+	if ps.c.GetStaleMetricsExpirationSec() < 0 {
+		return nil, fmt.Errorf("prometheus surfacer: stale_metrics_expiration_sec (%d) cannot be negative; use 0 to never expire", ps.c.GetStaleMetricsExpirationSec())
+	}
 	ps.staleMetricsExpiration = time.Duration(ps.c.GetStaleMetricsExpirationSec()) * time.Second
 
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
 	// one thing at a time.
+	// Sweep at least as often as the shortest deadline we have to honor,
+	// otherwise a stale_metrics_expiration_sec below metricExpirationTime would
+	// be silently rounded up to it.
+	sweepInterval := metricExpirationTime
+	if ps.staleMetricsExpiration > 0 && ps.staleMetricsExpiration < sweepInterval {
+		sweepInterval = ps.staleMetricsExpiration
+	}
+
 	go func() {
-		staleMetricDeleteTimer := time.NewTicker(metricExpirationTime)
+		staleMetricDeleteTimer := time.NewTicker(sweepInterval)
 		defer staleMetricDeleteTimer.Stop()
 
 		for {
@@ -287,16 +298,12 @@ func (ps *PromSurfacer) isTimestamped(typ string) bool {
 // expirationAge returns how long a metric of the given prometheus type is kept
 // after its last update. A zero duration means it's never expired.
 func (ps *PromSurfacer) expirationAge(typ string) time.Duration {
-	// An explicit disable_metrics_expiration overrides everything: true turns
-	// off expiration altogether, false expires all metrics at the timestamp
-	// deadline, whether they carry a timestamp or not.
-	if ps.c != nil && ps.c.DisableMetricsExpiration != nil {
-		if ps.c.GetDisableMetricsExpiration() {
-			return 0
-		}
-		return metricExpirationTime
+	if ps.c.GetDisableMetricsExpiration() {
+		return 0
 	}
 
+	// Metrics we export with a timestamp have to go once Prometheus would warn
+	// about them; the rest are kept until they're simply stale.
 	if ps.isTimestamped(typ) {
 		return metricExpirationTime
 	}
@@ -507,6 +514,7 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 // keys while serving the metrics, and deleting them based on the timer.
 func (ps *PromSurfacer) deleteExpiredMetrics() {
 	now := promTime(time.Now())
+	deleted := 0
 
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
@@ -517,32 +525,36 @@ func (ps *PromSurfacer) deleteExpiredMetrics() {
 		}
 		staleTimeThreshold := now - expirationAge.Milliseconds()
 
-		var expiredMetricsKeys []string
+		expiredMetricsKeys := make(map[string]bool)
 		for metricKey, v := range pm.data {
 			if v.timestamp < staleTimeThreshold {
-				expiredMetricsKeys = append(expiredMetricsKeys, metricKey)
+				expiredMetricsKeys[metricKey] = true
 			}
 		}
-
-		for _, expiredMetricKey := range expiredMetricsKeys {
-			delete(pm.data, expiredMetricKey)
-			pm.dataKeys = deleteFromSlice(pm.dataKeys, expiredMetricKey)
+		if len(expiredMetricsKeys) == 0 {
+			continue
 		}
-	}
-}
 
-// deleteFromSlice delete target on slice
-func deleteFromSlice(stringSlice []string, targetData string) []string {
-	targetIndex := -1
-	for i, data := range stringSlice {
-		if data == targetData {
-			targetIndex = i
-			break
+		for metricKey := range expiredMetricsKeys {
+			delete(pm.data, metricKey)
 		}
+
+		// Filter dataKeys in one pass. Deleting keys from the slice one at a
+		// time would rescan it for each key, which gets expensive when a probe
+		// or a target with many data keys goes away and they all expire in the
+		// same sweep.
+		dataKeys := pm.dataKeys[:0]
+		for _, k := range pm.dataKeys {
+			if !expiredMetricsKeys[k] {
+				dataKeys = append(dataKeys, k)
+			}
+		}
+		pm.dataKeys = dataKeys
+
+		deleted += len(expiredMetricsKeys)
 	}
 
-	if targetIndex != -1 {
-		stringSlice = append(stringSlice[:targetIndex], stringSlice[targetIndex+1:]...)
+	if deleted > 0 {
+		ps.l.Infof("prometheus surfacer: deleted %d stale metric series.", deleted)
 	}
-	return stringSlice
 }

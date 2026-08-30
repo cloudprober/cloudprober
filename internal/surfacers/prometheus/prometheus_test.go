@@ -389,6 +389,7 @@ func TestExpirationAge(t *testing.T) {
 		desc                     string
 		includeTimestamp         defaultBoolEnum
 		disableMetricsExpiration *bool
+		staleOverride            *int32
 		wantGauge                time.Duration
 		wantCounter              time.Duration
 	}{
@@ -418,22 +419,33 @@ func TestExpirationAge(t *testing.T) {
 			wantCounter:              0,
 		},
 		{
-			desc:                     "expiration explicitly enabled: everything on the timestamp deadline",
+			desc:                     "expiration explicitly enabled: same as leaving it unset",
 			includeTimestamp:         defaultBehavior,
 			disableMetricsExpiration: proto.Bool(false),
 			wantGauge:                metricExpirationTime,
-			wantCounter:              metricExpirationTime,
+			wantCounter:              stale,
+		},
+		{
+			desc:             "staleness expiration disabled, gauges still bounded by the timestamp deadline",
+			includeTimestamp: defaultBehavior,
+			staleOverride:    proto.Int32(0),
+			wantGauge:        metricExpirationTime,
+			wantCounter:      0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
+			staleExpiration := stale
+			if tt.staleOverride != nil {
+				staleExpiration = time.Duration(*tt.staleOverride)
+			}
 			ps := &PromSurfacer{
 				c: &configpb.SurfacerConf{
 					DisableMetricsExpiration: tt.disableMetricsExpiration,
 				},
 				includeTimestamp:       tt.includeTimestamp,
-				staleMetricsExpiration: stale,
+				staleMetricsExpiration: staleExpiration,
 			}
 			assert.Equal(t, tt.wantGauge, ps.expirationAge("gauge"), "gauge")
 			assert.Equal(t, tt.wantCounter, ps.expirationAge("counter"), "counter")
@@ -447,30 +459,85 @@ func TestStaleMetricsExpiration(t *testing.T) {
 		ps.writeData(&b)
 		return b.String()
 	}
+	staleEM := func() *metrics.EventMetrics {
+		return metrics.NewEventMetrics(time.Now().Add(-30*time.Minute)).
+			AddMetric("total", metrics.NewInt(20)).
+			AddLabel("probe", "stale-probe")
+	}
 
 	// Counters are not timestamped by default, so they are expired only after
 	// the staleness deadline, not the 10m timestamp deadline.
-	ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{})
-	assert.Equal(t, 4*time.Hour, ps.staleMetricsExpiration, "default from the config proto")
+	t.Run("under the default deadline", func(t *testing.T) {
+		ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{})
+		assert.Equal(t, 4*time.Hour, ps.staleMetricsExpiration, "default from the config proto")
 
-	staleEM := metrics.NewEventMetrics(time.Now().Add(-30*time.Minute)).
-		AddMetric("total", metrics.NewInt(20)).
-		AddLabel("probe", "stale-probe")
-	ps.record(staleEM)
+		ps.record(staleEM())
+		ps.deleteExpiredMetrics()
+		assert.Contains(t, scrape(ps), "stale-probe", "counter stale for 30m, but under the 4h deadline")
+	})
+
+	t.Run("past the deadline", func(t *testing.T) {
+		ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{
+			StaleMetricsExpirationSec: proto.Int32(600),
+		})
+		ps.record(staleEM())
+		ps.deleteExpiredMetrics()
+		assert.NotContains(t, scrape(ps), "stale-probe", "counter stale beyond the deadline")
+	})
+
+	t.Run("zero disables staleness expiration", func(t *testing.T) {
+		ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{
+			StaleMetricsExpirationSec: proto.Int32(0),
+		})
+		ps.record(staleEM())
+		ps.deleteExpiredMetrics()
+		assert.Contains(t, scrape(ps), "stale-probe", "staleness expiration disabled")
+	})
+}
+
+func TestDeleteExpiredMetricsKeepsKeyOrder(t *testing.T) {
+	ps := testPromSurfacerNoErr(t, &configpb.SurfacerConf{
+		StaleMetricsExpirationSec: proto.Int32(3600),
+	})
+
+	// Three series on the same metric; only the middle one is stale enough to
+	// be expired, so the surviving dataKeys must stay in insertion order.
+	for _, tc := range []struct {
+		probe string
+		age   time.Duration
+	}{
+		{"probe-a", 0},
+		{"probe-b", 2 * time.Hour},
+		{"probe-c", 0},
+	} {
+		ps.record(metrics.NewEventMetrics(time.Now().Add(-tc.age)).
+			AddMetric("total", metrics.NewInt(1)).
+			AddLabel("probe", tc.probe))
+	}
+
+	pm := ps.metrics["total"]
+	assert.Len(t, pm.dataKeys, 3, "before expiration")
 
 	ps.deleteExpiredMetrics()
-	assert.Contains(t, scrape(ps), "stale-probe", "counter stale for 30m, but under the 4h deadline")
 
-	// Now push it past the staleness deadline.
-	ps.staleMetricsExpiration = 10 * time.Minute
-	ps.deleteExpiredMetrics()
-	assert.NotContains(t, scrape(ps), "stale-probe", "counter stale beyond the deadline")
+	assert.Equal(t, []string{
+		"total{probe=\"probe-a\"}",
+		"total{probe=\"probe-c\"}",
+	}, pm.dataKeys)
+	assert.Len(t, pm.data, 2, "data map and dataKeys must stay in sync")
+}
 
-	// Zero disables staleness based expiration altogether.
-	ps.staleMetricsExpiration = 0
-	ps.record(staleEM)
-	ps.deleteExpiredMetrics()
-	assert.Contains(t, scrape(ps), "stale-probe", "staleness expiration disabled")
+func TestNegativeStaleMetricsExpiration(t *testing.T) {
+	_, err := testPromSurfacer(&configpb.SurfacerConf{
+		StaleMetricsExpirationSec: proto.Int32(-1),
+	})
+	assert.Error(t, err, "negative stale_metrics_expiration_sec should be rejected")
+
+	ps, err := testPromSurfacer(&configpb.SurfacerConf{
+		StaleMetricsExpirationSec: proto.Int32(0),
+	})
+	assert.NoError(t, err, "zero means never expire, and is valid")
+	assert.Equal(t, time.Duration(0), ps.staleMetricsExpiration)
 }
 
 func TestIncludeTimestamp(t *testing.T) {
