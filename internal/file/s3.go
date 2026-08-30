@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -30,8 +31,8 @@ import (
 
 // readFileFromS3 reads a file using an S3 Bucket URL
 // s3://bucket-name/path/to/file.txt
-func readFileFromS3(ctx context.Context, objectPath string) ([]byte, error) {
-	bucket, object, err := parseObjectURL(objectPath)
+func readFileFromS3(ctx context.Context, fname string) ([]byte, error) {
+	bucket, object, err := parseObjectURL(strings.TrimPrefix(fname, "s3://"))
 	if err != nil {
 		return nil, err
 	}
@@ -48,15 +49,15 @@ func readFileFromS3(ctx context.Context, objectPath string) ([]byte, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve file (%s): %v", objectPath, err)
+		return nil, fmt.Errorf("failed to retrieve file (%s): %v", fname, err)
 	}
 	defer result.Body.Close()
 
 	return io.ReadAll(result.Body)
 }
 
-func s3ModTime(ctx context.Context, objectPath string) (time.Time, error) {
-	bucket, object, err := parseObjectURL(objectPath)
+func s3ModTime(ctx context.Context, fname string) (time.Time, error) {
+	bucket, object, err := parseObjectURL(strings.TrimPrefix(fname, "s3://"))
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -72,7 +73,7 @@ func s3ModTime(ctx context.Context, objectPath string) (time.Time, error) {
 		Key:    aws.String(object),
 	})
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to retrieve file (%s): %v", objectPath, err)
+		return time.Time{}, fmt.Errorf("failed to retrieve file (%s): %v", fname, err)
 	}
 
 	return *result.LastModified, nil
