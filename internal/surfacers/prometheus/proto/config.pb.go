@@ -44,16 +44,36 @@ type SurfacerConf struct {
 	// Whether to disable all metrics expiration.
 	//
 	// Default behavior (recommended):
-	// By default, our goal is to expire timestamped metrics, which are more
-	// than 10 minutes old (see why below). If include_timestamp is not explicitly
-	// set to true or false, only gauge metrics will have timestamps, and only
-	// they will be expired. Similarly, if include_timestamp is explicitly set to
-	// false, no metrics will be expired, and if include_timestamp is explicitly
-	// set to true, all metrics will be expired.
+	// Metrics that we export with a timestamp are expired after 10 minutes of
+	// staleness, because Prometheus generates warnings while scraping metrics
+	// with timestamps that are more than 10m old. Which metrics carry a
+	// timestamp depends on include_timestamp above: gauges only by default, all
+	// metrics if it's explicitly true, none if it's explicitly false.
 	//
-	// Why do we expire timestamped metrics? Prometheus generates warnings while
-	// scraping metrics that have timestamps that are more than 10m old.
+	// Metrics without a timestamp are expired after
+	// stale_metrics_expiration_sec (4h by default), so that series belonging to
+	// probes and targets that have gone away don't stay around forever.
+	//
+	// Setting this field to true disables both of the above; setting it to false
+	// expires all metrics after 10 minutes of staleness.
 	DisableMetricsExpiration *bool `protobuf:"varint,5,opt,name=disable_metrics_expiration,json=disableMetricsExpiration" json:"disable_metrics_expiration,omitempty"`
+	// Delete metrics that haven't been updated for this long, even if we don't
+	// attach a timestamp to them.
+	//
+	// Timestamped metrics are expired after 10m regardless of this setting, as
+	// explained above. This option covers the rest -- most importantly counters,
+	// which don't carry a timestamp by default. Without it, a counter for a
+	// probe or a target that has gone away stays in the /metrics output forever.
+	//
+	// The default is deliberately generous (4h). Expiring too early is a
+	// correctness problem -- a series deleted in between two probe runs shows up
+	// as a gap and a counter reset for a probe that is working fine -- while
+	// expiring late only means a dead series lingers a bit longer. If you have
+	// probes that run less frequently than this, increase it accordingly.
+	//
+	// Set to 0 to keep non-timestamped metrics forever, which is what cloudprober
+	// did before this option was added.
+	StaleMetricsExpirationSec *int32 `protobuf:"varint,6,opt,name=stale_metrics_expiration_sec,json=staleMetricsExpirationSec,def=14400" json:"stale_metrics_expiration_sec,omitempty"`
 	// URL that prometheus scrapes metrics from.
 	MetricsUrl *string `protobuf:"bytes,3,opt,name=metrics_url,json=metricsUrl,def=/metrics" json:"metrics_url,omitempty"`
 	// Prefix to add to all metric names. For example setting this field to
@@ -70,8 +90,9 @@ type SurfacerConf struct {
 
 // Default values for SurfacerConf fields.
 const (
-	Default_SurfacerConf_MetricsBufferSize = int64(10000)
-	Default_SurfacerConf_MetricsUrl        = string("/metrics")
+	Default_SurfacerConf_MetricsBufferSize         = int64(10000)
+	Default_SurfacerConf_StaleMetricsExpirationSec = int32(14400)
+	Default_SurfacerConf_MetricsUrl                = string("/metrics")
 )
 
 func (x *SurfacerConf) Reset() {
@@ -125,6 +146,13 @@ func (x *SurfacerConf) GetDisableMetricsExpiration() bool {
 	return false
 }
 
+func (x *SurfacerConf) GetStaleMetricsExpirationSec() int32 {
+	if x != nil && x.StaleMetricsExpirationSec != nil {
+		return *x.StaleMetricsExpirationSec
+	}
+	return Default_SurfacerConf_StaleMetricsExpirationSec
+}
+
 func (x *SurfacerConf) GetMetricsUrl() string {
 	if x != nil && x.MetricsUrl != nil {
 		return *x.MetricsUrl
@@ -143,11 +171,12 @@ var File_github_com_cloudprober_cloudprober_internal_surfacers_prometheus_proto_
 
 const file_github_com_cloudprober_cloudprober_internal_surfacers_prometheus_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Sgithub.com/cloudprober/cloudprober/internal/surfacers/prometheus/proto/config.proto\x12\x1fcloudprober.surfacer.prometheus\"\x82\x02\n" +
+	"Sgithub.com/cloudprober/cloudprober/internal/surfacers/prometheus/proto/config.proto\x12\x1fcloudprober.surfacer.prometheus\"\xca\x02\n" +
 	"\fSurfacerConf\x125\n" +
 	"\x13metrics_buffer_size\x18\x01 \x01(\x03:\x0510000R\x11metricsBufferSize\x12+\n" +
 	"\x11include_timestamp\x18\x02 \x01(\bR\x10includeTimestamp\x12<\n" +
-	"\x1adisable_metrics_expiration\x18\x05 \x01(\bR\x18disableMetricsExpiration\x12)\n" +
+	"\x1adisable_metrics_expiration\x18\x05 \x01(\bR\x18disableMetricsExpiration\x12F\n" +
+	"\x1cstale_metrics_expiration_sec\x18\x06 \x01(\x05:\x0514400R\x19staleMetricsExpirationSec\x12)\n" +
 	"\vmetrics_url\x18\x03 \x01(\t:\b/metricsR\n" +
 	"metricsUrl\x12%\n" +
 	"\x0emetrics_prefix\x18\x04 \x01(\tR\rmetricsPrefixBHZFgithub.com/cloudprober/cloudprober/internal/surfacers/prometheus/proto"

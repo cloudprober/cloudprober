@@ -70,8 +70,8 @@ const histogram = "histogram"
 // blocking on previous queries to finish.
 const queriesQueueSize = 10
 
-// Prometheus does not take metrics that have passed 10 minutes. We delete
-// metrics that are older than this time.
+// Prometheus generates warnings while scraping samples whose timestamp is more
+// than 10 minutes old. We delete timestamped metrics once they get that stale.
 const metricExpirationTime = 10 * time.Minute
 
 var (
@@ -149,16 +149,16 @@ func shouldIncludeTimestamp(c *configpb.SurfacerConf) defaultBoolEnum {
 //
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
-	c                        *configpb.SurfacerConf // Configuration
-	opts                     *options.Options
-	includeTimestamp         defaultBoolEnum
-	disableMetricsExpiration defaultBoolEnum
-	prefix                   string                     // Metrics prefix, e.g. "cloudprober_"
-	emChan                   chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
-	metrics                  map[string]*promMetric     // Metric name to promMetric mapping
-	metricNames              []string                   // Metric names, to keep names ordered.
-	queryChan                chan *httpWriter           // Query channel
-	l                        *logger.Logger
+	c                      *configpb.SurfacerConf // Configuration
+	opts                   *options.Options
+	includeTimestamp       defaultBoolEnum
+	staleMetricsExpiration time.Duration              // For metrics without a timestamp; 0 disables.
+	prefix                 string                     // Metrics prefix, e.g. "cloudprober_"
+	emChan                 chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
+	metrics                map[string]*promMetric     // Metric name to promMetric mapping
+	metricNames            []string                   // Metric names, to keep names ordered.
+	queryChan              chan *httpWriter           // Query channel
+	l                      *logger.Logger
 
 	// A handler that takes a promMetric and a dataKey and writes the
 	// corresponding metric string to the provided io.Writer.
@@ -213,7 +213,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		}
 	}
 
-	ps.disableMetricsExpiration = ps.shouldDisableMetricsExpiration()
+	// Metrics that we export without a timestamp are not subject to the 10m
+	// limit above, but we still drop them once they've been stale for this
+	// long, so that series belonging to probes and targets that have gone away
+	// don't stay in the /metrics output forever. The default (see the proto)
+	// is deliberately much larger than metricExpirationTime: expiring a series
+	// that a slow probe is still updating is worse -- it shows up as a gap and
+	// a counter reset -- than letting a dead one linger for a few hours.
+	ps.staleMetricsExpiration = time.Duration(ps.c.GetStaleMetricsExpirationSec()) * time.Second
 
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
@@ -264,18 +271,36 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 	}
 }
 
-func (ps *PromSurfacer) shouldDisableMetricsExpiration() defaultBoolEnum {
+// isTimestamped returns whether we export metrics of the given prometheus type
+// with a timestamp. It mirrors the dataWriter selection in New().
+func (ps *PromSurfacer) isTimestamped(typ string) bool {
+	switch ps.includeTimestamp {
+	case explicitTrue:
+		return true
+	case explicitFalse:
+		return false
+	default:
+		return typ == "gauge"
+	}
+}
+
+// expirationAge returns how long a metric of the given prometheus type is kept
+// after its last update. A zero duration means it's never expired.
+func (ps *PromSurfacer) expirationAge(typ string) time.Duration {
+	// An explicit disable_metrics_expiration overrides everything: true turns
+	// off expiration altogether, false expires all metrics at the timestamp
+	// deadline, whether they carry a timestamp or not.
 	if ps.c != nil && ps.c.DisableMetricsExpiration != nil {
-		return defaultBoolMap[*ps.c.DisableMetricsExpiration]
+		if ps.c.GetDisableMetricsExpiration() {
+			return 0
+		}
+		return metricExpirationTime
 	}
 
-	// If we are never including timestamp, we disable metrics expiration
-	// and vice versa.
-	return map[defaultBoolEnum]defaultBoolEnum{
-		explicitFalse:   explicitTrue,
-		explicitTrue:    explicitFalse,
-		defaultBehavior: defaultBehavior,
-	}[ps.includeTimestamp]
+	if ps.isTimestamped(typ) {
+		return metricExpirationTime
+	}
+	return ps.staleMetricsExpiration
 }
 
 func promType(em *metrics.EventMetrics) string {
@@ -481,19 +506,16 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 // Note from manugarg: We can possibly optimize this by recording expired
 // keys while serving the metrics, and deleting them based on the timer.
 func (ps *PromSurfacer) deleteExpiredMetrics() {
-	if ps.disableMetricsExpiration == explicitTrue {
-		return
-	}
-
-	staleTimeThreshold := promTime(time.Now()) - metricExpirationTime.Milliseconds()
+	now := promTime(time.Now())
 
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
 
-		// For default behavior, we don't expire counter metrics.
-		if ps.disableMetricsExpiration == defaultBehavior && pm.typ == "counter" {
+		expirationAge := ps.expirationAge(pm.typ)
+		if expirationAge <= 0 {
 			continue
 		}
+		staleTimeThreshold := now - expirationAge.Milliseconds()
 
 		var expiredMetricsKeys []string
 		for metricKey, v := range pm.data {

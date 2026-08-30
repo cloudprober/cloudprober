@@ -28,16 +28,37 @@ message SurfacerConf {
   // Whether to disable all metrics expiration.
   //
   // Default behavior (recommended):
-  // By default, our goal is to expire timestamped metrics, which are more
-  // than 10 minutes old (see why below). If include_timestamp is not explicitly
-  // set to true or false, only gauge metrics will have timestamps, and only
-  // they will be expired. Similarly, if include_timestamp is explicitly set to
-  // false, no metrics will be expired, and if include_timestamp is explicitly
-  // set to true, all metrics will be expired.
+  // Metrics that we export with a timestamp are expired after 10 minutes of
+  // staleness, because Prometheus generates warnings while scraping metrics
+  // with timestamps that are more than 10m old. Which metrics carry a
+  // timestamp depends on include_timestamp above: gauges only by default, all
+  // metrics if it's explicitly true, none if it's explicitly false.
   //
-  // Why do we expire timestamped metrics? Prometheus generates warnings while
-  // scraping metrics that have timestamps that are more than 10m old.
+  // Metrics without a timestamp are expired after
+  // stale_metrics_expiration_sec (4h by default), so that series belonging to
+  // probes and targets that have gone away don't stay around forever.
+  //
+  // Setting this field to true disables both of the above; setting it to false
+  // expires all metrics after 10 minutes of staleness.
   optional bool disable_metrics_expiration = 5;
+
+  // Delete metrics that haven't been updated for this long, even if we don't
+  // attach a timestamp to them.
+  //
+  // Timestamped metrics are expired after 10m regardless of this setting, as
+  // explained above. This option covers the rest -- most importantly counters,
+  // which don't carry a timestamp by default. Without it, a counter for a
+  // probe or a target that has gone away stays in the /metrics output forever.
+  //
+  // The default is deliberately generous (4h). Expiring too early is a
+  // correctness problem -- a series deleted in between two probe runs shows up
+  // as a gap and a counter reset for a probe that is working fine -- while
+  // expiring late only means a dead series lingers a bit longer. If you have
+  // probes that run less frequently than this, increase it accordingly.
+  //
+  // Set to 0 to keep non-timestamped metrics forever, which is what cloudprober
+  // did before this option was added.
+  optional int32 stale_metrics_expiration_sec = 6 [default = 14400];
 
   // URL that prometheus scrapes metrics from.
   optional string metrics_url = 3 [default = "/metrics"];
