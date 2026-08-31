@@ -61,6 +61,7 @@ message K8sTargets {
     string endpoints = 4;
     string ingresses = 5;
     string pods = 6;
+    string http_routes = 7;
   }
 
   // portFilter can be used to filter resources by port name. This is useful

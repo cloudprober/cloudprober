@@ -1,0 +1,97 @@
+{
+  "kind": "HTTPRouteList",
+  "apiVersion": "gateway.networking.k8s.io/v1",
+  "metadata": {
+    "resourceVersion": "123456"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "rds-route",
+        "namespace": "default",
+        "labels": {
+          "app": "cloudprober"
+        }
+      },
+      "spec": {
+        "hostnames": [
+          "foo.bar.com"
+        ],
+        "parentRefs": [
+          {
+            "name": "my-gateway",
+            "kind": "Gateway",
+            "group": "gateway.networking.k8s.io"
+          }
+        ],
+        "rules": [
+          {
+            "matches": [
+              {
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/health"
+                }
+              },
+              {
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/rds"
+                }
+              }
+            ],
+            "backendRefs": [
+              {
+                "name": "cloudprober-rds",
+                "port": 9313,
+                "kind": "Service",
+                "group": ""
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "name": "rule-host-route",
+        "namespace": "default",
+        "labels": {
+          "app": "other"
+        }
+      },
+      "spec": {
+        "parentRefs": [
+          {
+            "name": "my-gateway",
+            "kind": "Gateway",
+            "group": "gateway.networking.k8s.io"
+          }
+        ],
+        "rules": [
+          {
+            "hostnames": [
+              "bar.baz.com"
+            ],
+            "matches": [
+              {
+                "path": {
+                  "type": "Exact",
+                  "value": "/api"
+                }
+              }
+            ],
+            "backendRefs": [
+              {
+                "name": "other-svc",
+                "port": 8080,
+                "kind": "Service",
+                "group": ""
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
