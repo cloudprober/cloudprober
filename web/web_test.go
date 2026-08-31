@@ -166,7 +166,7 @@ func TestArtifactsLinksWithManualRegistration(t *testing.T) {
 
 func verifyHeader(t *testing.T, path string, got string) {
 	t.Helper()
-	wantHeader := strings.TrimRight(resources.RenderPage(path, ""), "</body>\n</html>\n")
+	wantHeader := strings.TrimSuffix(resources.RenderPage(path, ""), "\n</body>\n</html>\n")
 	assert.Contains(t, got, wantHeader)
 }
 
