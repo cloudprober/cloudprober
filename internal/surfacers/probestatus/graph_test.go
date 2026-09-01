@@ -276,6 +276,27 @@ func TestGraphOptsFromURL(t *testing.T) {
 				res:      time.Minute,
 			},
 		},
+		{
+			// Sub-second resolution truncates to 0 seconds in graphData;
+			// fall back to the computed resolution.
+			q: map[string][]string{
+				"graph_res": {"500ms"},
+			},
+			gopts: &graphOptions{
+				duration: maxDuration,
+				res:      5 * time.Minute,
+			},
+		},
+		{
+			// Same for a negative resolution.
+			q: map[string][]string{
+				"graph_res": {"-5s"},
+			},
+			gopts: &graphOptions{
+				duration: maxDuration,
+				res:      5 * time.Minute,
+			},
+		},
 	}
 
 	for _, test := range tests {
