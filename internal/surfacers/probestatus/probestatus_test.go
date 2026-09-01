@@ -337,6 +337,11 @@ func TestSurfacerWriteData(t *testing.T) {
 			for _, keyword := range tt.wantNotContains {
 				assert.NotContains(t, got, keyword)
 			}
+
+			// The doctype only takes effect if it comes before anything
+			// else; browsers ignore a late one and fall back to quirks mode.
+			assert.True(t, strings.HasPrefix(got, "<!DOCTYPE html>"),
+				"page should start with the doctype, got: %.30q", got)
 		})
 	}
 }

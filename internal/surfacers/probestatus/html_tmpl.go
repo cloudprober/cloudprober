@@ -14,12 +14,11 @@
 
 package probestatus
 
-var htmlTmpl = `
+var htmlTmpl = `<!DOCTYPE html>
 <html>
-<!DOCTYPE html>
-<meta charset="utf-8">
 
 <head>
+<meta charset="utf-8">
 
 <script>
   var startTime = '{{.StartTime}}';
