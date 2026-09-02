@@ -62,23 +62,29 @@ import (
 )
 
 const (
-	// How often we look for zombie children.
-	scanInterval = 30 * time.Second
+	// How often we look for zombie children. A zombie has to be seen in two
+	// scans a gracePeriod apart before we touch it, so there's nothing to gain
+	// from looking more often than this.
+	scanInterval = 60 * time.Second
 
 	// How long a zombie child has to stay unclaimed before we assume it's an
 	// orphan and reap it. This is what keeps us from racing with os/exec over
-	// the processes cloudprober starts itself; it's deliberately much longer
-	// than the milliseconds it takes cmd.Wait to reap them.
-	gracePeriod = 60 * time.Second
+	// the processes cloudprober starts itself, and it's deliberately far longer
+	// than the milliseconds cmd.Wait actually takes: the two failure modes are
+	// wildly asymmetric. Leaking a zombie for a few extra minutes costs
+	// nothing -- it took months of leaking for anyone to notice -- while
+	// reaping a process somebody was about to wait on breaks that probe run
+	// right away.
+	gracePeriod = 5 * time.Minute
 
 	// PR_GET_CHILD_SUBREAPER, from linux/prctl.h.
 	prGetChildSubreaper = 37
 )
 
 // procID identifies a process by its pid and its start time. The start time is
-// what keeps us from confusing a recycled pid with the zombie we first saw a
-// minute ago: the kernel doesn't record when a process died, so all we have is
-// when we first noticed it, and that's only sound if we can tell the two
+// what keeps us from confusing a recycled pid with the zombie we first saw
+// minutes ago: the kernel doesn't record when a process died, so all we have
+// is when we first noticed it, and that's only sound if we can tell the two
 // apart.
 type procID struct {
 	pid       int
