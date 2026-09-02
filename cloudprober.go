@@ -39,6 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/internal/reaper"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
@@ -335,9 +336,21 @@ func RunOnce(ctx context.Context, names, format, indent string) error {
 }
 
 // Start starts a previously initialized Cloudprober.
+//
+// Note for embedders: if the process is init in its PID namespace (or a child
+// subreaper), Start also begins reaping orphaned child processes, since
+// nothing else will. That includes zombie children of the embedding binary
+// itself, if it leaves any unwaited-for for more than a few minutes.
 func Start(ctx context.Context) {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
+
+	// If we're init in our PID namespace (the usual case for our container
+	// images), orphaned processes -- e.g. browser processes left behind by the
+	// browser probe -- are reparented to us, and it's on us to reap them. This
+	// is a no-op if somebody else is collecting orphans, e.g. /pause with
+	// shareProcessNamespace on Kubernetes, or tini with docker's --init.
+	reaper.Start(ctx, logger.NewWithAttrs(slog.String("component", "reaper")))
 
 	// Default servers
 	srvMux := state.DefaultHTTPServeMux()
