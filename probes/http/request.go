@@ -156,9 +156,13 @@ func dynamicHeaderSubst() map[string]string {
 // excluded: req.Host is not substituted, so a token there is warned about
 // and sent verbatim.
 func (p *Probe) initDynamicHeaders() {
+	// One sample resolution for the whole pass; the values we send are
+	// resolved per-send by applyDynamicHeaders.
+	subst := dynamicHeaderSubst()
+
 	seen := map[string]bool{}
 	add := func(name, val string) {
-		if nv, _ := strtemplate.SubstituteLabels(val, dynamicHeaderSubst()); nv == val {
+		if nv, _ := strtemplate.SubstituteLabels(val, subst); nv == val {
 			return
 		}
 		if name == "Host" {
