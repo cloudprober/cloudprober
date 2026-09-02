@@ -85,6 +85,13 @@ jobs:
           ls public
           cd public && git status
 
+      - name: Clean stale assets
+        # Hugo keeps fingerprinted assets it no longer emits, so stale
+        # bundles accumulate in the branch. Drop the ones no page in the
+        # rebuilt tree references; the versioned config docs, which are not
+        # rebuilt on every run, keep the bundles they still reference.
+        run: tools/clean_stale_assets.sh docs/public
+
       - name: Deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
