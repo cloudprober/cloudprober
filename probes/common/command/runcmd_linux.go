@@ -62,16 +62,21 @@ func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Du
 	err := cmd.Wait()
 
 	// Start a goroutine to wait on the processes in the process group, to
-	// avoid zombies. We use a timer to make sure we don't create an
-	// unbounded number of goroutines in case a command hangs even on SIGKILL.
+	// avoid zombies. We give up after childProcessWaitTime to make sure we
+	// don't create an unbounded number of goroutines in case a command hangs
+	// even on SIGKILL.
 	// Note that this covers only the processes still in our process group;
 	// anything that started a group of its own (browsers, for example) and
 	// then got reparented to us is handled by internal/reaper.
 	go func() {
-		timeout := time.NewTimer(childProcessWaitTime)
-		defer timeout.Stop()
+		// The deadline bounds the loop as a whole, reaps included: a process
+		// group that keeps producing dead children shouldn't keep this
+		// goroutine -- and we start one per run -- alive indefinitely.
+		// Whatever is left when we give up is picked up by internal/reaper,
+		// if we're the process collecting orphans.
+		deadline := time.Now().Add(childProcessWaitTime)
 
-		for {
+		for time.Now().Before(deadline) {
 			// An error here (ECHILD) means there is nothing left in the
 			// process group to wait for.
 			pid, err := syscall.Wait4(-cmd.Process.Pid, nil, syscall.WNOHANG, nil)
@@ -84,11 +89,7 @@ func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Du
 			}
 			// Nothing has exited yet; check back in a bit instead of spinning
 			// on wait4 for the whole childProcessWaitTime.
-			select {
-			case <-timeout.C:
-				return
-			case <-time.After(childProcessPollInterval):
-			}
+			time.Sleep(childProcessPollInterval)
 		}
 	}()
 

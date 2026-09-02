@@ -157,9 +157,9 @@ func TestReapOrphansWaitsForGracePeriod(t *testing.T) {
 	})
 
 	var reaped []int
-	r.reap = func(pid int) error {
+	r.reap = func(pid int) (int, error) {
 		reaped = append(reaped, pid)
-		return nil
+		return pid, nil
 	}
 
 	now := time.Now()
@@ -181,7 +181,7 @@ func TestReapOrphansWaitsForGracePeriod(t *testing.T) {
 
 func TestReapOrphansForgetsGoneZombies(t *testing.T) {
 	r := testReaper(t, map[int]string{101: "Z 100"})
-	r.reap = func(pid int) error { return nil }
+	r.reap = func(pid int) (int, error) { return pid, nil }
 
 	r.reapOrphans(time.Now())
 	assert.Contains(t, r.seen, procID{101, 1010}, "zombie not recorded")
@@ -199,9 +199,9 @@ func TestReapOrphansRecycledPid(t *testing.T) {
 	r := testReaper(t, map[int]string{101: "Z 100"})
 
 	var reaped []int
-	r.reap = func(pid int) error {
+	r.reap = func(pid int) (int, error) {
 		reaped = append(reaped, pid)
-		return nil
+		return pid, nil
 	}
 
 	now := time.Now()
@@ -225,7 +225,7 @@ func TestReapOrphansRecycledPid(t *testing.T) {
 func TestReapOrphansIgnoresECHILD(t *testing.T) {
 	r := testReaper(t, map[int]string{101: "Z 100"})
 	r.grace = 0
-	r.reap = func(pid int) error { return syscall.ECHILD }
+	r.reap = func(pid int) (int, error) { return 0, syscall.ECHILD }
 
 	now := time.Now()
 	r.reapOrphans(now)
@@ -274,6 +274,27 @@ func TestReapRealZombie(t *testing.T) {
 	for _, z := range zombies {
 		assert.NotEqual(t, pid, z.pid, "zombie child was not reaped")
 	}
+}
+
+// A pid recycled to a live process between the scan and the wait4 is not
+// something we can reap, and we shouldn't claim we did.
+func TestReapOrphansLivePid(t *testing.T) {
+	r := testReaper(t, map[int]string{101: "Z 100"})
+	r.grace = 0
+
+	var reapCalls int
+	// What wait4(pid, WNOHANG) returns for a child that's alive.
+	r.reap = func(pid int) (int, error) {
+		reapCalls++
+		return 0, nil
+	}
+
+	now := time.Now()
+	r.reapOrphans(now)
+	r.reapOrphans(now.Add(time.Second))
+
+	assert.Equal(t, 1, reapCalls, "wait4 calls")
+	assert.NotContains(t, r.seen, procID{101, 1010}, "stale sighting not dropped")
 }
 
 // TestOrphanedDetachedGrandchild reproduces what the browser probe runs into:

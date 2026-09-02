@@ -100,8 +100,9 @@ type reaper struct {
 
 	// When we first saw a zombie child.
 	seen map[procID]time.Time
-	// Reaps the given pid; overridden in tests.
-	reap func(pid int) error
+	// Reaps the given pid, returning the pid actually reaped (0 if there was
+	// nothing to reap). Overridden in tests.
+	reap func(pid int) (int, error)
 }
 
 // isSubreaper returns whether we've been marked a child subreaper, which gives
@@ -141,9 +142,8 @@ func Start(ctx context.Context, l *logger.Logger) {
 	go r.run(ctx)
 }
 
-func reapPid(pid int) error {
-	_, err := syscall.Wait4(pid, nil, syscall.WNOHANG, nil)
-	return err
+func reapPid(pid int) (int, error) {
+	return syscall.Wait4(pid, nil, syscall.WNOHANG, nil)
 }
 
 func (r *reaper) run(ctx context.Context) {
@@ -185,12 +185,21 @@ func (r *reaper) reapOrphans(now time.Time) {
 		}
 
 		// syscall.ECHILD means somebody else got to it first, which is fine.
-		if err := r.reap(proc.pid); err != nil && !errors.Is(err, syscall.ECHILD) {
+		wpid, err := r.reap(proc.pid)
+		if err != nil && !errors.Is(err, syscall.ECHILD) {
 			r.l.Warningf("Error reaping orphaned child process %d: %v", proc.pid, err)
 			continue
 		}
+
+		// Either way we're done with this sighting: it's gone, or the pid was
+		// recycled between the scan and the wait4 and our record of it is
+		// stale. We only claim to have reaped it if wait4 says we did --
+		// WNOHANG returns 0 for a child that's alive, which is what a recycled
+		// pid looks like from here.
 		delete(r.seen, proc)
-		reaped = append(reaped, proc.pid)
+		if wpid > 0 {
+			reaped = append(reaped, proc.pid)
+		}
 	}
 
 	// Forget the zombies that are gone now, whether we reaped them or their

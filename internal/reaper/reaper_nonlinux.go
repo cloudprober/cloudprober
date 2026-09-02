@@ -25,4 +25,8 @@ import (
 )
 
 // Start is a no-op on non-Linux platforms.
-func Start(_ context.Context, _ *logger.Logger) {}
+func Start(_ context.Context, _ *logger.Logger) {
+	// Nothing to do here. Reaping orphans is built on procfs and wait4, and
+	// the deployments that make cloudprober init for a process tree -- our
+	// container images -- are Linux-only anyway.
+}
