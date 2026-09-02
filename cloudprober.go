@@ -39,6 +39,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	"github.com/cloudprober/cloudprober/internal/reaper"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
 	"github.com/cloudprober/cloudprober/logger"
@@ -338,6 +339,13 @@ func RunOnce(ctx context.Context, names, format, indent string) error {
 func Start(ctx context.Context) {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
+
+	// If we're init in our PID namespace (the usual case for our container
+	// images), orphaned processes -- e.g. browser processes left behind by the
+	// browser probe -- are reparented to us, and it's on us to reap them. This
+	// is a no-op if somebody else is collecting orphans, e.g. /pause with
+	// shareProcessNamespace on Kubernetes, or tini with docker's --init.
+	reaper.Start(ctx, logger.NewWithAttrs(slog.String("component", "reaper")))
 
 	// Default servers
 	srvMux := state.DefaultHTTPServeMux()

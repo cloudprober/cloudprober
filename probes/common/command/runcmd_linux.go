@@ -31,6 +31,10 @@ import (
 
 var defaultChildProcessWaitTime = 10 * time.Second
 
+// How long to wait between wait4 calls while the process group still has
+// running processes in it.
+const childProcessPollInterval = 100 * time.Millisecond
+
 func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Duration) error {
 	if childProcessWaitTime == 0 {
 		childProcessWaitTime = defaultChildProcessWaitTime
@@ -60,18 +64,31 @@ func runCommand(ctx context.Context, cmd *exec.Cmd, childProcessWaitTime time.Du
 	// Start a goroutine to wait on the processes in the process group, to
 	// avoid zombies. We use a timer to make sure we don't create an
 	// unbounded number of goroutines in case a command hangs even on SIGKILL.
+	// Note that this covers only the processes still in our process group;
+	// anything that started a group of its own (browsers, for example) and
+	// then got reparented to us is handled by internal/reaper.
 	go func() {
-		var err error
-
 		timeout := time.NewTimer(childProcessWaitTime)
 		defer timeout.Stop()
-		for err == nil {
+
+		for {
+			// An error here (ECHILD) means there is nothing left in the
+			// process group to wait for.
+			pid, err := syscall.Wait4(-cmd.Process.Pid, nil, syscall.WNOHANG, nil)
+			if err != nil {
+				return
+			}
+			// We reaped one; there may be more that are ready right now.
+			if pid > 0 {
+				continue
+			}
+			// Nothing has exited yet; check back in a bit instead of spinning
+			// on wait4 for the whole childProcessWaitTime.
 			select {
 			case <-timeout.C:
 				return
-			default:
+			case <-time.After(childProcessPollInterval):
 			}
-			_, err = syscall.Wait4(-cmd.Process.Pid, nil, syscall.WNOHANG, nil)
 		}
 	}()
 
