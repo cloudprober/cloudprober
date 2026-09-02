@@ -589,6 +589,7 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 				"X-Static":     "no-substitution-here",
 				"X-Unknown":    "@some_other_key@",
 				"X-Literal-At": "left@@right",
+				"X-Api-Key":    "aB3@dE7fG1hJ",
 			},
 			Headers:   []*configpb.ProbeConf_Header{{Name: &hostName, Value: &hostVal}},
 			UserAgent: proto.String("cloudprober/@uuid@"),
@@ -612,6 +613,7 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 			assert.Equal(t, "no-substitution-here", h.Get("X-Static"))
 			assert.Equal(t, "@some_other_key@", h.Get("X-Unknown"))
 			assert.Equal(t, "left@right", h.Get("X-Literal-At"))
+			assert.Equal(t, "aB3@dE7fG1hJ", h.Get("X-Api-Key"))
 			uuids = append(uuids, id)
 		}
 		assert.NotEqual(t, uuids[0], uuids[1], "consecutive requests reused the same @uuid@")
@@ -641,6 +643,43 @@ func TestDynamicHeaderSubstitution(t *testing.T) {
 	})
 }
 
+func TestInitDynamicHeaders(t *testing.T) {
+	tests := []struct {
+		val         string
+		wantDynamic bool
+	}{
+		{val: "no-substitution"},
+		{val: "@uuid@", wantDynamic: true},
+		{val: "trace-@uuid@-suffix", wantDynamic: true},
+		{val: "left@@right", wantDynamic: true}, // "@@" resolves to a literal '@'
+		// Stray '@'s and no token: substitution is a no-op, so the header
+		// is not dynamic and its value is never logged (issue #1449).
+		{val: "aB3@dE7fG1hJ"},
+		{val: "trailing@"},
+		{val: "@some_other_key@"},
+		{val: "user@example.com/path@v2"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.val, func(t *testing.T) {
+			p := &Probe{}
+			err := p.Init("http_test", &options.Options{
+				Targets:   targets.StaticTargets("test.com"),
+				Interval:  10 * time.Second,
+				Timeout:   time.Second,
+				ProbeConf: &configpb.ProbeConf{Header: map[string]string{"X-Test": test.val}},
+			})
+			assert.NoError(t, err)
+
+			var want []string
+			if test.wantDynamic {
+				want = []string{"X-Test"}
+			}
+			assert.Equal(t, want, p.dynamicHeaderNames)
+		})
+	}
+}
+
 func TestDynamicHeaderAttrs(t *testing.T) {
 	p := &Probe{}
 	err := p.Init("http_test", &options.Options{
@@ -651,6 +690,9 @@ func TestDynamicHeaderAttrs(t *testing.T) {
 			Header: map[string]string{
 				"X-Request-ID": "@uuid@",
 				"X-Static":     "no-substitution",
+				// Substitution is a no-op here, so it stays out of the
+				// logs (issue #1449).
+				"X-Api-Key": "aB3@dE7fG1hJ",
 			},
 		},
 	})
@@ -660,8 +702,10 @@ func TestDynamicHeaderAttrs(t *testing.T) {
 	assert.NoError(t, err)
 	req = p.prepareRequest(context.Background(), req)
 
+	assert.Equal(t, "aB3@dE7fG1hJ", req.Header.Get("X-Api-Key"), "stray '@' value must be sent verbatim")
+
 	attrs := p.dynamicHeaderAttrs(req)
-	assert.Equal(t, 1, len(attrs), "only X-Request-ID should be dynamic")
+	assert.Equal(t, 1, len(attrs), "only X-Request-ID's value should be logged")
 	if len(attrs) == 1 {
 		assert.Equal(t, "X-Request-Id", attrs[0].Key)
 		got := attrs[0].Value.String()
