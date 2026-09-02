@@ -17,6 +17,7 @@
 package reaper
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -354,4 +355,80 @@ func TestOrphanedDetachedGrandchild(t *testing.T) {
 	zombies, err := r.zombieChildren()
 	assert.NoError(t, err)
 	assert.Empty(t, zombies, "zombies left after reaping")
+}
+
+func TestRun(t *testing.T) {
+	r := testReaper(t, map[int]string{101: "Z 100"})
+	r.interval = time.Millisecond
+	r.grace = 0
+
+	reaped := make(chan int, 1)
+	r.reap = func(pid int) (int, error) {
+		select {
+		case reaped <- pid:
+		default: // Already recorded; the loop keeps running until we cancel.
+		}
+		return pid, nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		r.run(ctx)
+	}()
+
+	select {
+	case pid := <-reaped:
+		assert.Equal(t, 101, pid)
+	case <-time.After(5 * time.Second):
+		t.Fatal("run() never reaped the zombie")
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("run() didn't return after its context was cancelled")
+	}
+}
+
+func TestZombieChildrenErrors(t *testing.T) {
+	t.Run("unreadable proc root", func(t *testing.T) {
+		r := testReaper(t, nil)
+		r.procRoot = filepath.Join(r.procRoot, "does-not-exist")
+
+		_, err := r.zombieChildren()
+		assert.Error(t, err)
+	})
+
+	t.Run("skips processes we can't read or parse", func(t *testing.T) {
+		r := testReaper(t, map[int]string{101: "Z 100"})
+
+		// A process that went away between the readdir and the read.
+		require.NoError(t, os.Mkdir(filepath.Join(r.procRoot, "102"), 0755))
+		// A stat file we can't make sense of.
+		require.NoError(t, os.Mkdir(filepath.Join(r.procRoot, "103"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(r.procRoot, "103", "stat"), []byte("garbage"), 0644))
+
+		zombies, err := r.zombieChildren()
+		assert.NoError(t, err)
+		assert.Equal(t, []procID{{101, 1010}}, zombies)
+	})
+}
+
+// An unexpected wait4 error leaves the sighting in place, to be retried on the
+// next scan rather than silently forgotten.
+func TestReapOrphansUnexpectedError(t *testing.T) {
+	r := testReaper(t, map[int]string{101: "Z 100"})
+	r.grace = 0
+	r.reap = func(pid int) (int, error) { return -1, syscall.EINVAL }
+
+	now := time.Now()
+	r.reapOrphans(now)
+	r.reapOrphans(now.Add(time.Second))
+
+	assert.Contains(t, r.seen, procID{101, 1010}, "sighting dropped after a failed reap")
 }
