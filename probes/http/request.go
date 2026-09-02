@@ -136,17 +136,33 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	req.Host = hostHeader
 }
 
-// initDynamicHeaders records canonical names of headers whose values carry
-// a substitution token. Host is excluded: req.Host is not substituted, so
-// a literal '@' there is warned about and sent verbatim.
+// dynamicHeaderTokens maps a substitution token to its per-send resolver.
+var dynamicHeaderTokens = map[string]func() string{
+	"uuid": uuid.NewString,
+}
+
+func dynamicHeaderSubst() map[string]string {
+	subst := make(map[string]string, len(dynamicHeaderTokens))
+	for token, resolve := range dynamicHeaderTokens {
+		subst[token] = resolve()
+	}
+	return subst
+}
+
+// initDynamicHeaders records canonical names of headers whose values change
+// under substitution. We check that by running the substitution and seeing
+// if anything moved, so detection can't disagree with it -- a value with a
+// stray '@' but no token is not dynamic, however many '@'s it has. Host is
+// excluded: req.Host is not substituted, so a token there is warned about
+// and sent verbatim.
 func (p *Probe) initDynamicHeaders() {
 	seen := map[string]bool{}
 	add := func(name, val string) {
-		if !strings.Contains(val, "@") {
+		if nv, _ := strtemplate.SubstituteLabels(val, dynamicHeaderSubst()); nv == val {
 			return
 		}
 		if name == "Host" {
-			p.l.Warningf("http probe %q: Host header value %q contains '@' but Host substitution is not supported; value will be sent verbatim", p.name, val)
+			p.l.Warningf("http probe %q: Host header value carries a substitution token but Host substitution is not supported; value will be sent verbatim", p.name)
 			return
 		}
 		canon := http.CanonicalHeaderKey(name)
@@ -176,7 +192,7 @@ func (p *Probe) applyDynamicHeaders(req *http.Request) {
 				continue
 			}
 			if subst == nil {
-				subst = map[string]string{"uuid": uuid.NewString()}
+				subst = dynamicHeaderSubst()
 			}
 			if nv, _ := strtemplate.SubstituteLabels(v, subst); nv != v {
 				vv[i] = nv

@@ -66,7 +66,7 @@ type Probe struct {
 	targets []endpoint.Endpoint
 	method  string
 	url     string
-	// Canonical names of headers whose values carry a substitution token
+	// Canonical names of headers whose values change under substitution
 	// (e.g. @uuid@). Empty when no header is dynamic; len() also gates the
 	// per-send clone in prepareRequest.
 	dynamicHeaderNames []string
