@@ -79,7 +79,10 @@ func graphOptsFromURL(qv url.Values, maxDuration time.Duration, l *logger.Logger
 		}
 	}
 
-	if gopts.res == 0 {
+	// Graph data carries the resolution as a whole number of seconds, so a
+	// sub-second (or negative) resolution can't be represented. Fall back to
+	// the computed resolution instead of letting it truncate to zero.
+	if gopts.res < time.Second {
 		gopts.res = graphResolution(gopts.endTime, gopts.duration)
 	}
 
