@@ -75,6 +75,16 @@ const (
 	prGetChildSubreaper = 37
 )
 
+// procID identifies a process by its pid and its start time. The start time is
+// what keeps us from confusing a recycled pid with the zombie we first saw a
+// minute ago: the kernel doesn't record when a process died, so all we have is
+// when we first noticed it, and that's only sound if we can tell the two
+// apart.
+type procID struct {
+	pid       int
+	startTime uint64
+}
+
 type reaper struct {
 	procRoot string
 	pid      int
@@ -82,8 +92,8 @@ type reaper struct {
 	grace    time.Duration
 	l        *logger.Logger
 
-	// When we first saw a zombie child, keyed by pid.
-	seen map[int]time.Time
+	// When we first saw a zombie child.
+	seen map[procID]time.Time
 	// Reaps the given pid; overridden in tests.
 	reap func(pid int) error
 }
@@ -119,7 +129,7 @@ func Start(ctx context.Context, l *logger.Logger) {
 		interval: scanInterval,
 		grace:    gracePeriod,
 		l:        l,
-		seen:     make(map[int]time.Time),
+		seen:     make(map[procID]time.Time),
 		reap:     reapPid,
 	}
 	go r.run(ctx)
@@ -152,16 +162,16 @@ func (r *reaper) reapOrphans(now time.Time) {
 	}
 
 	var reaped []int
-	current := make(map[int]bool, len(zombies))
+	current := make(map[procID]bool, len(zombies))
 
-	for _, pid := range zombies {
-		current[pid] = true
+	for _, proc := range zombies {
+		current[proc] = true
 
-		firstSeen, ok := r.seen[pid]
+		firstSeen, ok := r.seen[proc]
 		if !ok {
 			// First time we're seeing this one; give its owner, if it has one,
 			// a chance to wait on it.
-			r.seen[pid] = now
+			r.seen[proc] = now
 			continue
 		}
 		if now.Sub(firstSeen) < r.grace {
@@ -169,22 +179,20 @@ func (r *reaper) reapOrphans(now time.Time) {
 		}
 
 		// syscall.ECHILD means somebody else got to it first, which is fine.
-		if err := r.reap(pid); err != nil && !errors.Is(err, syscall.ECHILD) {
-			r.l.Warningf("Error reaping orphaned child process %d: %v", pid, err)
+		if err := r.reap(proc.pid); err != nil && !errors.Is(err, syscall.ECHILD) {
+			r.l.Warningf("Error reaping orphaned child process %d: %v", proc.pid, err)
 			continue
 		}
-		reaped = append(reaped, pid)
+		delete(r.seen, proc)
+		reaped = append(reaped, proc.pid)
 	}
 
 	// Forget the zombies that are gone now, whether we reaped them or their
 	// owner did.
-	for pid := range r.seen {
-		if !current[pid] {
-			delete(r.seen, pid)
+	for proc := range r.seen {
+		if !current[proc] {
+			delete(r.seen, proc)
 		}
-	}
-	for _, pid := range reaped {
-		delete(r.seen, pid)
 	}
 
 	if len(reaped) > 0 {
@@ -192,15 +200,15 @@ func (r *reaper) reapOrphans(now time.Time) {
 	}
 }
 
-// zombieChildren returns the pids of our children that are in the zombie ("Z")
-// state, by scanning /proc.
-func (r *reaper) zombieChildren() ([]int, error) {
+// zombieChildren returns our children that are in the zombie ("Z") state, by
+// scanning /proc.
+func (r *reaper) zombieChildren() ([]procID, error) {
 	entries, err := os.ReadDir(r.procRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	var zombies []int
+	var zombies []procID
 	for _, entry := range entries {
 		pid, err := strconv.Atoi(entry.Name())
 		if err != nil {
@@ -210,38 +218,44 @@ func (r *reaper) zombieChildren() ([]int, error) {
 		if err != nil {
 			continue // Process is gone already; nothing to reap.
 		}
-		state, ppid, err := parseStat(b)
+		state, ppid, startTime, err := parseStat(b)
 		if err != nil {
 			r.l.Warningf("Error parsing stat of the process %d: %v", pid, err)
 			continue
 		}
 		if state == 'Z' && ppid == r.pid {
-			zombies = append(zombies, pid)
+			zombies = append(zombies, procID{pid: pid, startTime: startTime})
 		}
 	}
 
 	return zombies, nil
 }
 
-// parseStat returns the process state and parent pid -- the 3rd and 4th fields
-// -- from the contents of /proc/<pid>/stat. Note that the 2nd field (comm) is
-// the executable name in parentheses and can itself contain spaces and
-// parentheses, so we start parsing after the last ")".
-func parseStat(b []byte) (byte, int, error) {
+// parseStat returns the process state, parent pid, and start time -- the 3rd,
+// 4th, and 22nd fields -- from the contents of /proc/<pid>/stat. Note that the
+// 2nd field (comm) is the executable name in parentheses and can itself
+// contain spaces and parentheses, so we start parsing after the last ")".
+func parseStat(b []byte) (byte, int, uint64, error) {
 	i := bytes.LastIndexByte(b, ')')
 	if i < 0 {
-		return 0, 0, fmt.Errorf("unexpected format, no \")\" in %q", string(b))
+		return 0, 0, 0, fmt.Errorf("unexpected format, no \")\" in %q", string(b))
 	}
 
+	// After comm, fields[0] is the 3rd field, so the 22nd is fields[19].
 	fields := strings.Fields(string(b[i+1:]))
-	if len(fields) < 2 {
-		return 0, 0, fmt.Errorf("unexpected format, no state and ppid in %q", string(b))
+	if len(fields) < 20 {
+		return 0, 0, 0, fmt.Errorf("unexpected format, only %d fields after comm in %q", len(fields), string(b))
 	}
 
 	ppid, err := strconv.Atoi(fields[1])
 	if err != nil {
-		return 0, 0, fmt.Errorf("bad ppid (%s): %v", fields[1], err)
+		return 0, 0, 0, fmt.Errorf("bad ppid (%s): %v", fields[1], err)
 	}
 
-	return fields[0][0], ppid, nil
+	startTime, err := strconv.ParseUint(fields[19], 10, 64)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("bad start time (%s): %v", fields[19], err)
+	}
+
+	return fields[0][0], ppid, startTime, nil
 }

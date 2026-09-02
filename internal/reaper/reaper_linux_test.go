@@ -35,45 +35,59 @@ import (
 const prSetChildSubreaper = 36
 
 func TestParseStat(t *testing.T) {
+	// Fields 3 through 22 of /proc/<pid>/stat: state, ppid, and 17 fields we
+	// don't care about, ending in the start time.
+	statFields := func(state string, ppid int, startTime uint64) string {
+		return fmt.Sprintf("%s %d 1234 1234 0 -1 4194560 469 0 0 0 0 0 0 0 20 0 1 0 %d 16637952 1803", state, ppid, startTime)
+	}
+
 	tests := []struct {
-		desc      string
-		stat      string
-		wantState byte
-		wantPPID  int
-		wantErr   bool
+		desc          string
+		stat          string
+		wantState     byte
+		wantPPID      int
+		wantStartTime uint64
+		wantErr       bool
 	}{
 		{
-			desc:      "simple",
-			stat:      "1234 (headless_shell) Z 1 1234 1234 0 -1 4194560 0 0",
-			wantState: 'Z',
-			wantPPID:  1,
+			desc:          "simple",
+			stat:          "1234 (headless_shell) " + statFields("Z", 1, 64685302),
+			wantState:     'Z',
+			wantPPID:      1,
+			wantStartTime: 64685302,
 		},
 		{
-			desc:      "comm with spaces and parens",
-			stat:      "42 (node (js) worker) S 17 42 42 0 -1 4194304 0 0",
-			wantState: 'S',
-			wantPPID:  17,
+			desc:          "comm with spaces and parens",
+			stat:          "42 (node (js) worker) " + statFields("S", 17, 12345),
+			wantState:     'S',
+			wantPPID:      17,
+			wantStartTime: 12345,
 		},
 		{
 			desc:    "no comm",
-			stat:    "1234 Z 1 1234",
+			stat:    "1234 " + statFields("Z", 1, 64685302),
 			wantErr: true,
 		},
 		{
 			desc:    "truncated after comm",
-			stat:    "1234 (sh) Z",
+			stat:    "1234 (sh) Z 1 1234",
 			wantErr: true,
 		},
 		{
 			desc:    "bad ppid",
-			stat:    "1234 (sh) Z init 1234",
+			stat:    "1234 (sh) Z init 1234 1234 0 -1 4194560 469 0 0 0 0 0 0 0 20 0 1 0 64685302",
+			wantErr: true,
+		},
+		{
+			desc:    "bad start time",
+			stat:    "1234 (sh) Z 1 1234 1234 0 -1 4194560 469 0 0 0 0 0 0 0 20 0 1 0 boottime 16637952",
 			wantErr: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			state, ppid, err := parseStat([]byte(test.stat))
+			state, ppid, startTime, err := parseStat([]byte(test.stat))
 			if test.wantErr {
 				assert.Error(t, err)
 				return
@@ -81,21 +95,20 @@ func TestParseStat(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.wantState), string(state), "state")
 			assert.Equal(t, test.wantPPID, ppid, "ppid")
+			assert.Equal(t, test.wantStartTime, startTime, "start time")
 		})
 	}
 }
 
 // testReaper sets up a reaper over a fake /proc, with the given processes,
-// each one described as "<state> <ppid>".
+// each one described as "<state> <ppid>". Start time is derived from the pid,
+// so a pid rewritten with writeProc gets a new one.
 func testReaper(t *testing.T, procs map[int]string) *reaper {
 	t.Helper()
 
 	procRoot := t.TempDir()
 	for pid, proc := range procs {
-		dir := filepath.Join(procRoot, fmt.Sprintf("%d", pid))
-		require.NoError(t, os.Mkdir(dir, 0755))
-		stat := fmt.Sprintf("%d (headless_shell) %s 0 0 0 -1 4194560", pid, proc)
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "stat"), []byte(stat), 0644))
+		writeProc(t, procRoot, pid, proc, uint64(pid*10))
 	}
 	// Non-process entries in /proc should be ignored.
 	require.NoError(t, os.Mkdir(filepath.Join(procRoot, "sys"), 0755))
@@ -105,8 +118,21 @@ func testReaper(t *testing.T, procs map[int]string) *reaper {
 		pid:      100,
 		grace:    time.Minute,
 		l:        &logger.Logger{},
-		seen:     make(map[int]time.Time),
+		seen:     make(map[procID]time.Time),
 	}
+}
+
+// writeProc writes a fake /proc/<pid>/stat for a process described as
+// "<state> <ppid>".
+func writeProc(t *testing.T, procRoot string, pid int, proc string, startTime uint64) {
+	t.Helper()
+
+	dir := filepath.Join(procRoot, fmt.Sprintf("%d", pid))
+	if err := os.Mkdir(dir, 0755); err != nil && !os.IsExist(err) {
+		t.Fatal(err)
+	}
+	stat := fmt.Sprintf("%d (headless_shell) %s 0 0 0 -1 4194560 469 0 0 0 0 0 0 0 20 0 1 0 %d 16637952 1803", pid, proc, startTime)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "stat"), []byte(stat), 0644))
 }
 
 func TestZombieChildren(t *testing.T) {
@@ -120,8 +146,8 @@ func TestZombieChildren(t *testing.T) {
 
 	zombies, err := r.zombieChildren()
 	assert.NoError(t, err)
-	sort.Ints(zombies)
-	assert.Equal(t, []int{101, 103}, zombies)
+	sort.Slice(zombies, func(i, j int) bool { return zombies[i].pid < zombies[j].pid })
+	assert.Equal(t, []procID{{101, 1010}, {103, 1030}}, zombies)
 }
 
 func TestReapOrphansWaitsForGracePeriod(t *testing.T) {
@@ -141,7 +167,7 @@ func TestReapOrphansWaitsForGracePeriod(t *testing.T) {
 	// First sighting: we only note the zombie, its owner may still wait on it.
 	r.reapOrphans(now)
 	assert.Empty(t, reaped, "reaped on first sighting")
-	assert.Contains(t, r.seen, 101)
+	assert.Contains(t, r.seen, procID{101, 1010})
 
 	// Still within the grace period.
 	r.reapOrphans(now.Add(r.grace - time.Second))
@@ -150,7 +176,7 @@ func TestReapOrphansWaitsForGracePeriod(t *testing.T) {
 	// Unclaimed for longer than the grace period: it's an orphan.
 	r.reapOrphans(now.Add(r.grace + time.Second))
 	assert.Equal(t, []int{101}, reaped)
-	assert.NotContains(t, r.seen, 101, "reaped pid not removed from seen")
+	assert.NotContains(t, r.seen, procID{101, 1010}, "reaped pid not removed from seen")
 }
 
 func TestReapOrphansForgetsGoneZombies(t *testing.T) {
@@ -158,13 +184,42 @@ func TestReapOrphansForgetsGoneZombies(t *testing.T) {
 	r.reap = func(pid int) error { return nil }
 
 	r.reapOrphans(time.Now())
-	assert.Contains(t, r.seen, 101, "zombie not recorded")
+	assert.Contains(t, r.seen, procID{101, 1010}, "zombie not recorded")
 
 	// Zombie's owner reaped it before our grace period ran out.
 	require.NoError(t, os.RemoveAll(filepath.Join(r.procRoot, "101")))
 
 	r.reapOrphans(time.Now())
-	assert.NotContains(t, r.seen, 101, "vanished zombie not forgotten")
+	assert.NotContains(t, r.seen, procID{101, 1010}, "vanished zombie not forgotten")
+}
+
+// A pid that gets recycled inside the grace period is a different process, and
+// its own grace period starts over.
+func TestReapOrphansRecycledPid(t *testing.T) {
+	r := testReaper(t, map[int]string{101: "Z 100"})
+
+	var reaped []int
+	r.reap = func(pid int) error {
+		reaped = append(reaped, pid)
+		return nil
+	}
+
+	now := time.Now()
+	r.reapOrphans(now)
+	assert.Contains(t, r.seen, procID{101, 1010}, "zombie not recorded")
+
+	// Owner reaped 101 and the pid was handed to a new process, which is now a
+	// zombie itself.
+	writeProc(t, r.procRoot, 101, "Z 100", 9999)
+
+	r.reapOrphans(now.Add(r.grace + time.Second))
+	assert.Empty(t, reaped, "reaped a recycled pid based on the old process's first sighting")
+	assert.NotContains(t, r.seen, procID{101, 1010}, "old process not forgotten")
+	assert.Contains(t, r.seen, procID{101, 9999}, "recycled pid not recorded afresh")
+
+	// It gets reaped on its own schedule.
+	r.reapOrphans(now.Add(2*r.grace + 2*time.Second))
+	assert.Equal(t, []int{101}, reaped)
 }
 
 func TestReapOrphansIgnoresECHILD(t *testing.T) {
@@ -177,7 +232,7 @@ func TestReapOrphansIgnoresECHILD(t *testing.T) {
 	r.reapOrphans(now.Add(time.Second))
 
 	// ECHILD means somebody else got to it first; we're done with this pid.
-	assert.NotContains(t, r.seen, 101)
+	assert.NotContains(t, r.seen, procID{101, 1010})
 }
 
 // TestReapRealZombie verifies the whole thing against a real zombie child and
@@ -192,7 +247,7 @@ func TestReapRealZombie(t *testing.T) {
 		pid:      os.Getpid(),
 		grace:    0,
 		l:        &logger.Logger{},
-		seen:     make(map[int]time.Time),
+		seen:     make(map[procID]time.Time),
 		reap:     reapPid,
 	}
 
@@ -203,7 +258,7 @@ func TestReapRealZombie(t *testing.T) {
 			return false
 		}
 		for _, z := range zombies {
-			if z == pid {
+			if z.pid == pid {
 				return true
 			}
 		}
@@ -216,7 +271,9 @@ func TestReapRealZombie(t *testing.T) {
 
 	zombies, err := r.zombieChildren()
 	assert.NoError(t, err)
-	assert.NotContains(t, zombies, pid, "zombie child was not reaped")
+	for _, z := range zombies {
+		assert.NotEqual(t, pid, z.pid, "zombie child was not reaped")
+	}
 }
 
 // TestOrphanedDetachedGrandchild reproduces what the browser probe runs into:
@@ -256,7 +313,7 @@ func TestOrphanedDetachedGrandchild(t *testing.T) {
 		pid:      os.Getpid(),
 		grace:    0,
 		l:        &logger.Logger{},
-		seen:     make(map[int]time.Time),
+		seen:     make(map[procID]time.Time),
 		reap:     reapPid,
 	}
 
