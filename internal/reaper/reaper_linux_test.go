@@ -225,7 +225,8 @@ func TestReapOrphansRecycledPid(t *testing.T) {
 func TestReapOrphansIgnoresECHILD(t *testing.T) {
 	r := testReaper(t, map[int]string{101: "Z 100"})
 	r.grace = 0
-	r.reap = func(pid int) (int, error) { return 0, syscall.ECHILD }
+	// What syscall.Wait4 returns on ECHILD: the raw -1, not 0.
+	r.reap = func(pid int) (int, error) { return -1, syscall.ECHILD }
 
 	now := time.Now()
 	r.reapOrphans(now)

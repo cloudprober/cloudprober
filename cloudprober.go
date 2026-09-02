@@ -336,6 +336,11 @@ func RunOnce(ctx context.Context, names, format, indent string) error {
 }
 
 // Start starts a previously initialized Cloudprober.
+//
+// Note for embedders: if the process is init in its PID namespace (or a child
+// subreaper), Start also begins reaping orphaned child processes, since
+// nothing else will. That includes zombie children of the embedding binary
+// itself, if it leaves any unwaited-for for more than a few minutes.
 func Start(ctx context.Context) {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()

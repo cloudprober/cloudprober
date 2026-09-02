@@ -62,9 +62,10 @@ import (
 )
 
 const (
-	// How often we look for zombie children. A zombie has to be seen in two
-	// scans a gracePeriod apart before we touch it, so there's nothing to gain
-	// from looking more often than this.
+	// How often we look for zombie children. Scanning more often only shortens
+	// the wait between a zombie appearing and us first noticing it; the
+	// gracePeriod below dominates either way, so there's little to gain from
+	// reading all of /proc more frequently than this.
 	scanInterval = 60 * time.Second
 
 	// How long a zombie child has to stay unclaimed before we assume it's an
@@ -193,9 +194,15 @@ func (r *reaper) reapOrphans(now time.Time) {
 
 		// Either way we're done with this sighting: it's gone, or the pid was
 		// recycled between the scan and the wait4 and our record of it is
-		// stale. We only claim to have reaped it if wait4 says we did --
-		// WNOHANG returns 0 for a child that's alive, which is what a recycled
-		// pid looks like from here.
+		// stale. Only count it as reaped if wait4 says so -- it returns 0 for
+		// a live child (and -1 on ECHILD), so a pid recycled to a running
+		// process reaps nothing and shouldn't be logged as if it did.
+		//
+		// wait4 takes a pid, not a (pid, start time), so a pid recycled in
+		// that same window to a child that has *already* exited would be
+		// reaped out from under its owner. That needs a full pid-space
+		// wraparound between the scan and this call, and it isn't
+		// expressible through wait4 anyway.
 		delete(r.seen, proc)
 		if wpid > 0 {
 			reaped = append(reaped, proc.pid)
@@ -229,9 +236,13 @@ func (r *reaper) zombieChildren() ([]procID, error) {
 		if err != nil {
 			continue // Not a process directory.
 		}
+		// Almost always ENOENT, i.e. the process is gone and there's nothing to
+		// reap. A read that fails for any other reason drops this sighting and
+		// restarts the process's grace period on the next scan, which delays
+		// reaping rather than rushing it.
 		b, err := os.ReadFile(filepath.Join(r.procRoot, entry.Name(), "stat"))
 		if err != nil {
-			continue // Process is gone already; nothing to reap.
+			continue
 		}
 		state, ppid, startTime, err := parseStat(b)
 		if err != nil {
