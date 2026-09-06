@@ -9,6 +9,8 @@ googleAnalytics = 'G-MEASUREMENT_ID'
 
 ## Open Graph
 ogLocale = "en_US"
+# Social card used for og:image and twitter:image (1200x630).
+images = ["logo/social-card.png"]
 domainTLD = "cloudprober.org"
 titleHome = "Cloudprober"
 
@@ -24,6 +26,7 @@ schemaAuthorTwitter = "https://twitter.com/manugarg"
 schemaAuthorLinkedIn = "https://www.linkedin.com/in/manugarg/"
 schemaAuthorGitHub = "https://github.com/manugarg"
 schemaLocale = "en-US"
+schemaLogo = "logo/cloudprober-icon-512.png"
 schemaLogoWidth = 512
 schemaLogoHeight = 512
 schemaImageWidth = 1280

@@ -50,7 +50,7 @@
 
 [[main]]
   name = "🛠 Config Tester"
-  weight = 44
+  weight = 45
   identifier = "config-tester"
   parent = "config"
   url = "https://configtester.cloudprober.org/"
@@ -60,12 +60,6 @@
   weight = 60
   identifier = "how-to"
   url = "/docs/how-to/list/"
-
-[[main]]
-  name = "Surfacers"
-  weight = 70
-  identifier = "surfacers"
-  url = "/docs/surfacers/overview"
 
 [[main]]
   name = "FAQ"

@@ -135,3 +135,49 @@ samp {
   font-family: ui-monospace, "SF Mono", sfmono-regular, menlo, monaco, consolas,
     "Liberation Mono", "Courier New", monospace;
 }
+
+// ===== Brand =====
+// Replace the navbar's text wordmark with the logo lockup. The brand anchor
+// already carries aria-label="Cloudprober", so zeroing the text keeps its
+// accessible name intact. The horizontal lockup's aspect ratio is fixed at
+// 2.83:1 and it must not render narrower than 120px; 180px puts the wordmark
+// at about the size of the text it replaced.
+.navbar-brand {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0;
+  line-height: 1;
+
+  &::before {
+    content: "";
+    display: block;
+    width: 180px;
+    height: 64px;
+    background: url("/logo/cloudprober-horizontal.svg") no-repeat center center;
+    background-size: contain;
+  }
+}
+
+// Ink turns white on dark backgrounds; signal and target stay as they are.
+[data-dark-mode] .navbar-brand::before {
+  background-image: url("/logo/cloudprober-horizontal-ondark.svg");
+}
+
+// The lockup is wider than the wordmark it replaced. Take that width back
+// from the search field -- it grows to fill every spare pixel otherwise --
+// rather than from the gaps between nav items, which the items need to stay
+// legible as separate links.
+@include media-breakpoint-up(lg) {
+  // Both the nav list and the search field shrink when the row runs short,
+  // and the list wraps as soon as it loses ~20px (its item margins fall
+  // outside its measured width). Let the search absorb the squeeze instead,
+  // so the links stay on one row and keep their gaps.
+  .doks-navbar .offcanvas-body > ul.nav {
+    flex-shrink: 0;
+  }
+
+  .doks-navbar .doks-search {
+    max-width: 15rem;
+    min-width: 6rem;
+  }
+}

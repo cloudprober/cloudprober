@@ -124,15 +124,19 @@
   }
   .announce a.announce-link:hover::after { transform: translateX(2px); }
 
-  /* ===== Brand (used in footer) ===== */
+  /* ===== Brand (used in footer) =====
+     The horizontal lockup, 2.83:1 and never below 120px wide. The anchor is
+     empty and named by aria-label, so the accessible name survives. */
   .cp-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    font-weight: 700;
-    font-size: 1.05rem;
-    letter-spacing: -0.01em;
-    color: var(--text);
+    display: block;
+    width: 150px;
+    height: 53px;
+    background: url("/logo/cloudprober-horizontal.svg") no-repeat left center;
+    background-size: contain;
+  }
+  /* Ink turns white on dark; signal and target stay as they are. */
+  [data-dark-mode] .cp-brand {
+    background-image: url("/logo/cloudprober-horizontal-ondark.svg");
   }
   .cp-icon-btn {
     width: 36px;
@@ -1334,7 +1338,7 @@
     <div class="cp-footer-top">
 
       <div class="cp-footer-brand">
-        <a class="cp-brand" href="/">Cloudprober</a>
+        <a class="cp-brand" href="/" aria-label="Cloudprober"></a>
         <p class="cp-footer-tagline">
           Open-source active monitoring. Built at Google. Runs anywhere — from a Raspberry Pi to global fleets.
         </p>
