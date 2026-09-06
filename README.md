@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cloudprober/cloudprober/main/docs/static/logo/cloudprober-horizontal-ondark.svg">
+  <img width="320" alt="Cloudprober" src="https://raw.githubusercontent.com/cloudprober/cloudprober/main/docs/static/logo/cloudprober-horizontal.svg">
+</picture>
+
 [![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)](https://hub.docker.com/v2/repositories/cloudprober/cloudprober/)
 [![Go Build and Test](https://github.com/cloudprober/cloudprober/actions/workflows/go.yml/badge.svg)](https://github.com/cloudprober/cloudprober/actions/workflows/go.yml)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
