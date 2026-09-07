@@ -18,6 +18,7 @@ import (
 	"html/template"
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,7 +47,7 @@ func TestHeader(t *testing.T) {
 
 	expected := `
 <header>
-  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
+  <a href="https://cloudprober.org"><img class="logo" src="static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
 </header> 
 <hr/>
 <div style="float:left">
@@ -69,6 +70,7 @@ func TestHeader(t *testing.T) {
 
 	t.Run("with prefix", func(t *testing.T) {
 		expected = regexp.MustCompile(`href="([^".]*)"`).ReplaceAllString(expected, "href=\"../../$1\"")
+		expected = strings.ReplaceAll(expected, `src="static/`, `src="../../static/`)
 		assert.Equal(t, template.HTML(expected), Header("../../"))
 	})
 }

@@ -30,7 +30,8 @@ func tsDirTmpl(currentPath string) *template.Template {
 	return template.Must(template.New("tsDirTmpl").Parse(fmt.Sprintf(`
 <html>
 <head>
-  <link href="%sstatic/cloudprober.css" rel="stylesheet">
+  <title>Cloudprober</title>
+%s
   <style>
     ul {
 	  padding-left: 20px;
@@ -121,5 +122,5 @@ func tsDirTmpl(currentPath string) *template.Template {
 %s
 </script>
 </body>
-</html>`, linkPrefix, resources.Header(linkPrefix), artifactsJS)))
+</html>`, resources.HeadLinks(linkPrefix), resources.Header(linkPrefix), artifactsJS)))
 }

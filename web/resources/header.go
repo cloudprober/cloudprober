@@ -32,7 +32,7 @@ type headerTmplData struct {
 
 var t = template.Must(template.New("header").Parse(`
 <header>
-  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
+  <a href="https://cloudprober.org"><img class="logo" src="{{.LinksPrefix}}static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
 </header> 
 <hr/>
 <div style="float:left">
