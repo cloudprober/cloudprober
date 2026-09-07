@@ -10,6 +10,16 @@ header .logo {
   height: auto;
 }
 
+header .version {
+  font-size: 12px;
+  color: grey;
+}
+
+/* Carries the start time as a title tooltip; hint that it is hoverable. */
+.uptime {
+  cursor: help;
+}
+
 .debugging {
   font-size: 12px;
 }
