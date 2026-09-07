@@ -118,6 +118,22 @@ set actually serve live in `docs/static/`, and have their own names and layout:
 | `svg/cloudprober-{horizontal,stacked}{,-ondark}.svg`, `svg/cloudprober-mark.svg` | same names under `logo/` |
 | `png/social-card-1200x630.png` | `logo/social-card.png` |
 
+The homepage diagram is a third case. `docs/static/homepage.svg` is a draw.io export, and
+its central node is the on-dark horizontal lockup — embedded, not linked, and embedded
+twice: the rendered body inlines the lockup's paths, and the draw.io source in the root
+element's `content=` attribute carries the same file base64'd into the `image=` style of
+the `cloudprober-wordmark` cell. Neither copy is reached by the table above, so a lockup
+change has to be pushed through by hand:
+
+1. Open `docs/static/homepage.svg` in draw.io — the embedded source is the editable copy.
+2. Replace the image on the `cloudprober-wordmark` cell with the new
+   `svg/cloudprober-horizontal-ondark.svg`. It is a child of the navy box cell
+   `xQNlQs2I_ULp-5fTuDjN-4` and sized `143.01 x 50.53` inside that box's `163.75 x 75`,
+   which is the lockup plus one cap height of clear space on all four sides. Keep the box
+   cell's id and geometry — seven edges anchor to it.
+3. Re-export both `homepage.svg` (with the source embedded) and `homepage.png` at
+   1364 x 864, which is the diagram at `scale=2` with a 96-unit margin.
+
 `docs/static/site.webmanifest` is maintained separately — it carries site-absolute paths and
 the site's own theme colours, so it is not a copy of the one here.
 
