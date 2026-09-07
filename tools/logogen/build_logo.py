@@ -63,13 +63,19 @@ ICON_POST_TOP = 144
 
 MARKBOX = (41, 57, 139, 181.5)          # tight bbox of the full mark, incl. strokes
 ICONBOX = (38, 54, 140, 184)
-INK_CENTROID = (78.66, 136.46)          # measured, not eyeballed; mass is low-left
+INK_CENTROID = (78.66, 136.46)          # measured, not eyeballed: the mark's mass sits low and left
 
 # ------------------------------------------------------------------- type ---
 
 WORD  = "cloudprober"
 SPLIT = 5                               # "cloud" | "prober" for the two-tone
 TRACK = -0.010                          # em
+
+# ------------------------------------------------------------ output names ---
+
+ICON_SVG       = "cloudprober-icon.svg"
+ICON_WHITE_SVG = "cloudprober-icon-white.svg"
+PNG_MIME       = "image/png"
 
 # ---------------------------------------------------------- lockup metrics ---
 
@@ -243,10 +249,10 @@ def all_svgs(wm):
                                                 square(MARKBOX)),
         "cloudprober-mark-white.svg":          frame(recolor(mark(), WHITE, WHITE, WHITE),
                                                 square(MARKBOX)),
-        "cloudprober-icon.svg":                frame(icon(), square(ICONBOX), pad=0.03),
+        ICON_SVG:                              frame(icon(), square(ICONBOX), pad=0.03),
         "cloudprober-icon-mono.svg":           frame(recolor(icon(), None, NAVY, NAVY),
                                                 square(ICONBOX), pad=0.03),
-        "cloudprober-icon-white.svg":          frame(recolor(icon(), WHITE, WHITE, WHITE),
+        ICON_WHITE_SVG:                        frame(recolor(icon(), WHITE, WHITE, WHITE),
                                                 square(ICONBOX), pad=0.03),
         "cloudprober-icon-ondark.svg":         frame(recolor(icon(), WHITE),
                                                 square(ICONBOX), bg=NAVY, pad=0.03),
@@ -255,10 +261,10 @@ def all_svgs(wm):
 MANIFEST = {
     "name": "Cloudprober", "short_name": "Cloudprober",
     "icons": [
-        {"src": "/favicon-192.png", "sizes": "192x192", "type": "image/png"},
-        {"src": "/favicon-512.png", "sizes": "512x512", "type": "image/png"},
+        {"src": "/favicon-192.png", "sizes": "192x192", "type": PNG_MIME},
+        {"src": "/favicon-512.png", "sizes": "512x512", "type": PNG_MIME},
         {"src": "/icon-512-maskable.png", "sizes": "512x512",
-         "type": "image/png", "purpose": "maskable"},
+         "type": PNG_MIME, "purpose": "maskable"},
     ],
     "theme_color": NAVY, "background_color": WHITE, "display": "standalone",
 }
@@ -299,7 +305,7 @@ def build(out, font):
             rp(f"{base}.svg", os.path.join(pngdir, f"{base}-{w}w.png"), w)
 
     for sz in (16, 32, 48, 64, 128, 192, 256, 512):
-        rp("cloudprober-icon.svg", os.path.join(favdir, f"favicon-{sz}.png"), sz, sz)
+        rp(ICON_SVG, os.path.join(favdir, f"favicon-{sz}.png"), sz, sz)
 
     # Every ICO plane must be a true render at its own size. Passing PIL a small
     # source silently drops the larger planes -- that shipped broken once.
@@ -312,12 +318,12 @@ def build(out, font):
     navy = (15, 42, 67, 255)
     # apple-touch must be opaque: iOS composites transparency onto black.
     at = Image.new("RGBA", (180, 180), navy)
-    at.alpha_composite(ras("cloudprober-icon-white.svg", 132, 132), (24, 24))
+    at.alpha_composite(ras(ICON_WHITE_SVG, 132, 132), (24, 24))
     at.convert("RGB").save(os.path.join(favdir, "apple-touch-icon.png"))
 
     # maskable: artwork inside the inner 80% safe zone
     mk = Image.new("RGBA", (512, 512), navy)
-    mk.alpha_composite(ras("cloudprober-icon-white.svg", 307, 307), (102, 102))
+    mk.alpha_composite(ras(ICON_WHITE_SVG, 307, 307), (102, 102))
     mk.convert("RGB").save(os.path.join(favdir, "icon-512-maskable.png"))
 
     og = Image.new("RGBA", (1200, 630), navy)
@@ -333,32 +339,35 @@ def build(out, font):
 
 # ================================================================= verify ====
 
-def verify(root):
-    """Check a built tree at `root` against the invariants that are easy to break.
+STALE_POST = 'y1="141"'                 # the pre-fix icon post, see ICON_POST_TOP
+ICO_PLANES = [(16, 16), (32, 32), (48, 48), (64, 64)]
 
-    Reads only what is on disk, so it works on any tree laid out like the build
-    output -- but note that --verify rebuilds first, so it reports on the tree
-    this run just produced.
+
+def _check_svg_text(root):
+    """No SVG may carry a font dependency or the pre-fix icon post."""
+    out = []
+    for dirpath, _, names in os.walk(root):
+        for n in sorted(names):
+            if not n.endswith(".svg"):
+                continue
+            with open(os.path.join(dirpath, n), errors="ignore") as f:
+                s = f.read()
+            if STALE_POST in s:
+                out.append(f"pre-fix icon post survives in {n}")
+            if "<text" in s or "font-family" in s:
+                out.append(f"live text in {n}")
+    return out
+
+
+def _check_post_clears_dish(svgdir):
+    """Measure, rather than trust, that the mount post stays inside the dish.
+
+    Rasterises the dish and the mount separately at high resolution and walks
+    the columns: if the post's topmost lit pixel is above the dish's, the post
+    has broken out through the bowl's inner surface.
     """
     import cairosvg, numpy as np
     from PIL import Image
-    fail = []
-
-    if ICON_POST_TOP != 144:
-        fail.append(f"ICON_POST_TOP is {ICON_POST_TOP}; 144 is the value that clears "
-                    "the dish at stroke 14 -- re-measure before changing it")
-    stale = 'y1="%d"' % 141
-    for dirpath, _, names in os.walk(root):
-        for n in names:
-            if not n.endswith(".svg"):
-                continue
-            s = open(os.path.join(dirpath, n), errors="ignore").read()
-            if stale in s:
-                fail.append(f"pre-fix icon post survives in {n}")
-            if "<text" in s or "font-family" in s:
-                fail.append(f"live text in {n}")
-
-    svgdir = os.path.join(root, "svg")
 
     def ras(body):
         png = cairosvg.svg2png(
@@ -367,32 +376,64 @@ def verify(root):
             output_width=1600, background_color="white")
         return np.array(Image.open(io.BytesIO(png)).convert("L")) < 160
 
-    src = open(os.path.join(svgdir, "cloudprober-icon.svg")).read()
+    with open(os.path.join(svgdir, ICON_SVG)) as f:
+        src = f.read()
     m = re.search(r'(<g stroke="%s" stroke-width="%d".*?</g>)'
                   % (NAVY, ICON_MOUNT_SW), src, re.S)
-    d, mt = ras(_dish(ICON_DISH_SW)), ras(m.group(1))
-    prot = sum(1 for c in range(d.shape[1])
-               if len(np.where(d[:, c])[0]) and len(np.where(mt[:, c])[0])
-               and (np.where(mt[:, c])[0] < np.where(d[:, c])[0].min()).any())
-    if prot:
-        fail.append(f"icon post breaks the dish surface in {prot} columns")
+    dish, post = ras(_dish(ICON_DISH_SW)), ras(m.group(1))
 
+    prot = 0
+    for c in range(dish.shape[1]):
+        dr, pr = np.nonzero(dish[:, c])[0], np.nonzero(post[:, c])[0]
+        if len(dr) and len(pr) and (pr < dr.min()).any():
+            prot += 1
+    return [f"icon post breaks the dish surface in {prot} columns"] if prot else []
+
+
+def _check_ico(root, svgdir):
+    """Every ICO plane must be a true render at its own size, not an upsample."""
+    import cairosvg, numpy as np
+    from PIL import Image
     ico = Image.open(os.path.join(root, "favicon", "favicon.ico"))
-    if sorted(ico.ico.sizes()) != [(16, 16), (32, 32), (48, 48), (64, 64)]:
-        fail.append(f"favicon.ico planes: {sorted(ico.ico.sizes())}")
-    else:
-        for s in (16, 32, 48, 64):
-            png = cairosvg.svg2png(url=os.path.join(svgdir, "cloudprober-icon.svg"),
-                                   output_width=s, output_height=s,
-                                   background_color=None)
-            a = np.array(Image.open(io.BytesIO(png)).convert("RGBA")).astype(int)
-            b = np.array(ico.ico.getimage((s, s)).convert("RGBA")).astype(int)
-            if np.abs(a - b).mean() > 0.01:
-                fail.append(f"ICO {s}px plane is not a true render")
+    if sorted(ico.ico.sizes()) != ICO_PLANES:
+        return [f"favicon.ico planes: {sorted(ico.ico.sizes())}"]
+    out = []
+    for s, _ in ICO_PLANES:
+        png = cairosvg.svg2png(url=os.path.join(svgdir, ICON_SVG),
+                               output_width=s, output_height=s,
+                               background_color=None)
+        a = np.array(Image.open(io.BytesIO(png)).convert("RGBA")).astype(int)
+        b = np.array(ico.ico.getimage((s, s)).convert("RGBA")).astype(int)
+        if np.abs(a - b).mean() > 0.01:
+            out.append(f"ICO {s}px plane is not a true render")
+    return out
 
+
+def _check_apple_touch(root):
+    """iOS composites transparency onto black, so this one must be opaque."""
+    from PIL import Image
     at = Image.open(os.path.join(root, "favicon", "apple-touch-icon.png"))
     if at.size != (180, 180) or at.mode == "RGBA":
-        fail.append(f"apple-touch-icon is {at.size} {at.mode}, must be 180x180 opaque")
+        return [f"apple-touch-icon is {at.size} {at.mode}, must be 180x180 opaque"]
+    return []
+
+
+def verify(root):
+    """Check a built tree at `root` against the invariants that are easy to break.
+
+    Reads only what is on disk, so it works on any tree laid out like the build
+    output -- but note that --verify rebuilds first, so it reports on the tree
+    this run just produced.
+    """
+    svgdir = os.path.join(root, "svg")
+    fail = []
+    if ICON_POST_TOP != 144:
+        fail.append(f"ICON_POST_TOP is {ICON_POST_TOP}; 144 is the value that clears "
+                    "the dish at stroke 14 -- re-measure before changing it")
+    fail += _check_svg_text(root)
+    fail += _check_post_clears_dish(svgdir)
+    fail += _check_ico(root, svgdir)
+    fail += _check_apple_touch(root)
 
     print("VERIFY:", "all checks passed" if not fail else "\n  - ".join([""] + fail))
     return not fail
