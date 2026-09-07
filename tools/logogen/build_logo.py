@@ -16,7 +16,7 @@ If the instanced font is missing, pass --instance-from with the Google Fonts
 variable release (IBMPlexSans[wdth,wght].ttf) and it will be cut at weight 600.
 """
 
-import argparse, json, math, os, re, sys
+import argparse, io, json, math, os, re, sys
 
 # ---------------------------------------------------------------- palette ---
 
@@ -273,13 +273,25 @@ def build(out, font):
     wm = Wordmark(font)
     svgs = all_svgs(wm)
     for n, s in svgs.items():
-        assert "<text" not in s and "font-family" not in s, f"live text in {n}"
+        # Deliberately not an assert: this has to hold under `python -O` too.
+        if "<text" in s or "font-family" in s:
+            raise SystemExit(f"live text in {n}")
         with open(os.path.join(svgdir, n), "w") as f:
             f.write(s)
 
     def rp(src, dst, w, h=None, bg=None):
         cairosvg.svg2png(url=os.path.join(svgdir, src), write_to=dst,
                          output_width=w, output_height=h, background_color=bg)
+
+    def ras(src, w, h=None):
+        """Rasterise a built SVG straight to a PIL image.
+
+        Deliberately no scratch file: a fixed /tmp path breaks on Windows and
+        two concurrent runs would clobber each other.
+        """
+        png = cairosvg.svg2png(url=os.path.join(svgdir, src),
+                               output_width=w, output_height=h)
+        return Image.open(io.BytesIO(png)).convert("RGBA")
 
     for base in ("cloudprober-horizontal", "cloudprober-horizontal-white",
                  "cloudprober-stacked", "cloudprober-mark"):
@@ -299,20 +311,17 @@ def build(out, font):
 
     navy = (15, 42, 67, 255)
     # apple-touch must be opaque: iOS composites transparency onto black.
-    rp("cloudprober-icon-white.svg", "/tmp/_at.png", 132, 132)
     at = Image.new("RGBA", (180, 180), navy)
-    at.alpha_composite(Image.open("/tmp/_at.png").convert("RGBA"), (24, 24))
+    at.alpha_composite(ras("cloudprober-icon-white.svg", 132, 132), (24, 24))
     at.convert("RGB").save(os.path.join(favdir, "apple-touch-icon.png"))
 
     # maskable: artwork inside the inner 80% safe zone
-    rp("cloudprober-icon-white.svg", "/tmp/_mk.png", 307, 307)
     mk = Image.new("RGBA", (512, 512), navy)
-    mk.alpha_composite(Image.open("/tmp/_mk.png").convert("RGBA"), (102, 102))
+    mk.alpha_composite(ras("cloudprober-icon-white.svg", 307, 307), (102, 102))
     mk.convert("RGB").save(os.path.join(favdir, "icon-512-maskable.png"))
 
-    rp("cloudprober-horizontal-ondark.svg", "/tmp/_og.png", 760)
     og = Image.new("RGBA", (1200, 630), navy)
-    o = Image.open("/tmp/_og.png").convert("RGBA")
+    o = ras("cloudprober-horizontal-ondark.svg", 760)
     og.alpha_composite(o, ((1200 - o.width) // 2, (630 - o.height) // 2))
     og.convert("RGB").save(os.path.join(pngdir, "social-card-1200x630.png"))
 
@@ -325,7 +334,12 @@ def build(out, font):
 # ================================================================= verify ====
 
 def verify(root):
-    """Run against the built tree -- or better, against an extracted archive."""
+    """Check a built tree at `root` against the invariants that are easy to break.
+
+    Reads only what is on disk, so it works on any tree laid out like the build
+    output -- but note that --verify rebuilds first, so it reports on the tree
+    this run just produced.
+    """
     import cairosvg, numpy as np
     from PIL import Image
     fail = []
@@ -347,11 +361,11 @@ def verify(root):
     svgdir = os.path.join(root, "svg")
 
     def ras(body):
-        cairosvg.svg2png(
+        png = cairosvg.svg2png(
             bytestring=('<svg xmlns="http://www.w3.org/2000/svg" '
                         f'viewBox="30 45 120 150">{body}</svg>').encode(),
-            write_to="/tmp/_v.png", output_width=1600, background_color="white")
-        return np.array(Image.open("/tmp/_v.png").convert("L")) < 160
+            output_width=1600, background_color="white")
+        return np.array(Image.open(io.BytesIO(png)).convert("L")) < 160
 
     src = open(os.path.join(svgdir, "cloudprober-icon.svg")).read()
     m = re.search(r'(<g stroke="%s" stroke-width="%d".*?</g>)'
@@ -368,10 +382,10 @@ def verify(root):
         fail.append(f"favicon.ico planes: {sorted(ico.ico.sizes())}")
     else:
         for s in (16, 32, 48, 64):
-            cairosvg.svg2png(url=os.path.join(svgdir, "cloudprober-icon.svg"),
-                             write_to="/tmp/_t.png", output_width=s,
-                             output_height=s, background_color=None)
-            a = np.array(Image.open("/tmp/_t.png").convert("RGBA")).astype(int)
+            png = cairosvg.svg2png(url=os.path.join(svgdir, "cloudprober-icon.svg"),
+                                   output_width=s, output_height=s,
+                                   background_color=None)
+            a = np.array(Image.open(io.BytesIO(png)).convert("RGBA")).astype(int)
             b = np.array(ico.ico.getimage((s, s)).convert("RGBA")).astype(int)
             if np.abs(a - b).mean() > 0.01:
                 fail.append(f"ICO {s}px plane is not a true render")
@@ -399,6 +413,7 @@ def instance_font(var_ttf, dst, weight=600):
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
+DEFAULT_FONT = os.path.join(HERE, "IBMPlexSans-600.ttf")
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -406,13 +421,21 @@ if __name__ == "__main__":
     # `python3 tools/logogen/build_logo.py` rebuilds docs/brand in place from
     # anywhere in the tree.
     ap.add_argument("--out", default=os.path.join(REPO, "docs", "brand"))
-    ap.add_argument("--font", default=os.path.join(HERE, "IBMPlexSans-600.ttf"))
+    ap.add_argument("--font", default=DEFAULT_FONT)
     ap.add_argument("--instance-from", metavar="VARIABLE_TTF",
-                    help="cut --font from a Google Fonts variable release first")
+                    help="cut a new --font from a Google Fonts variable release; "
+                         "requires an explicit --font to write to")
     ap.add_argument("--verify", action="store_true")
     a = ap.parse_args()
 
     if a.instance_from:
+        # --font defaults to the instance committed alongside this script, so
+        # instancing into it would silently rewrite a tracked file.
+        if os.path.abspath(a.font) == os.path.abspath(DEFAULT_FONT):
+            sys.exit("--instance-from needs an explicit --font to write to; it would "
+                     f"otherwise overwrite the tracked {os.path.relpath(DEFAULT_FONT, REPO)}.\n"
+                     "Pass e.g. --font /tmp/IBMPlexSans-600.ttf, and copy it into place "
+                     "yourself once you are happy with it.")
         instance_font(a.instance_from, a.font)
     if not os.path.exists(a.font):
         sys.exit(f"font not found: {a.font}\n"
