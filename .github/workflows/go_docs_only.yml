@@ -1,0 +1,36 @@
+name: Go Build and Test (docs-only)
+
+# Branch protection requires the "Build and Test (ubuntu-latest)" context, but
+# go.yml ignores docs/**, so a docs-only pull request never produces it and sits
+# blocked forever on a check that will never report. This workflow reports that
+# one context for the changes go.yml skips.
+#
+# The paths here are the inverse of go.yml's paths-ignore and have to stay in
+# sync with it: anything added there needs adding here, or docs PRs go back to
+# hanging.
+#
+# On a PR that touches both docs and code, both workflows run and two check runs
+# share the name. That is safe in the direction that matters -- branch
+# protection reads the most recent run for a name, this one finishes in seconds
+# and the real build takes minutes, so the real result is the one that lands.
+#
+# Only ubuntu-latest is emitted, because only ubuntu-latest is required. If the
+# windows or macos contexts are ever added to branch protection, they need
+# adding here too.
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/hugo.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    # Must render exactly as the required context "Build and Test (ubuntu-latest)".
+    name: Build and Test (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Documentation-only change; go.yml has nothing to build here."
