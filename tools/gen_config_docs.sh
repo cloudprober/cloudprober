@@ -94,7 +94,21 @@ EOF
 # Call the function with BASE_PATH
 generate_config_files "${BASE_PATH}" "${MENU_HDR}"
 
-cp ${ORIGINAL_DIR}/docs/content/docs/config/_index.md ${BASE_PATH}/
+# Write a version-specific index that redirects to this version's overview
+# page. Don't copy the non-versioned _index.md here: it redirects (via a
+# relative meta-refresh) to 'guide', which only exists at /docs/config/, so
+# the copied page would redirect versioned URLs to a 404.
+INDEX_TITLE="Configuration"
+if [[ "${DOCS_VERSION}" != "latest" ]]; then
+  INDEX_TITLE="Configuration (${DOCS_VERSION})"
+fi
+cat > ${BASE_PATH}/_index.md <<EOF
+---
+title: "${INDEX_TITLE}"
+---
+
+{{% redirect dest="overview/" %}}
+EOF
 
 # Copy latest configs to non-versioned path as well to make sure
 # we don't break existing links.

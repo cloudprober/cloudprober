@@ -171,7 +171,7 @@ rds_server {
   }
 
   # Kubernetes targets are further discussed at:
-  # https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets
+  # https://cloudprober.org/docs/how-to/run-on-kubernetes/#kubernetes-targets
   provider {
     kubernetes_config {
       endpoints {}

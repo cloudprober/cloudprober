@@ -7,7 +7,7 @@ title: "Stackdriver (Google Cloud)"
 ---
 
 Cloudprober can natively export metrics to Google Cloud Monitoring (formerly,
-Stackdriver) using stackdriver [surfacer](/surfacers/overview). Adding
+Stackdriver) using stackdriver [surfacer](/docs/surfacers/overview/). Adding
 stackdriver surfacer to cloudprober is as simple as adding the following stanza
 to the config:
 
