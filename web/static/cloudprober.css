@@ -15,8 +15,11 @@ header .version {
   color: grey;
 }
 
-/* Carries the start time as a title tooltip; hint that it is hoverable. */
-.uptime {
+/* Both carry a timestamp in a title tooltip -- the start time and the build
+   time -- but the build one is only there when it was set at build time. Key
+   the affordance off the attribute so it never hints at an absent tooltip. */
+.uptime[title],
+header .version[title] {
   cursor: help;
 }
 

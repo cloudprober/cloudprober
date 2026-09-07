@@ -91,6 +91,13 @@ func TestHeaderData(t *testing.T) {
 			links: []string{},
 		},
 		{
+			// The tooltip hangs off the version tag, so a build timestamp
+			// without a version has nothing to attach to.
+			name:           "Build timestamp but no version",
+			buildTimestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:          []string{},
+		},
+		{
 			name:             "No links",
 			version:          "v1.0.0",
 			buildTimestamp:   time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
@@ -218,7 +225,7 @@ func TestHumanizeDuration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
+		t.Run(tt.d.String(), func(t *testing.T) {
 			assert.Equal(t, tt.want, humanizeDuration(tt.d))
 		})
 	}

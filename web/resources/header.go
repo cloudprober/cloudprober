@@ -53,11 +53,13 @@ func headerData(linksPrefix string) headerTmplData {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
 
-	// version and buildTimestamp are set through -ldflags, so a plain "go
-	// build" binary has neither. Drop the tag and its tooltip in that case
-	// instead of rendering an empty version or a "built at" of the zero time.
-	versionTitle := ""
-	if builtAt := state.BuildTimestamp(); !builtAt.IsZero() {
+	// version and buildTimestamp come from the same -ldflags block, so a plain
+	// "go build" binary has neither, and the old template rendered an empty
+	// version and a "built at" of the zero time. The build time hangs off the
+	// version tag as a tooltip, so it needs a tag to hang on: guard on both,
+	// rather than computing a title the template can never reach.
+	version, versionTitle := state.Version(), ""
+	if builtAt := state.BuildTimestamp(); version != "" && !builtAt.IsZero() {
 		versionTitle = "Built at " + builtAt.String()
 	}
 
@@ -78,7 +80,7 @@ func headerData(linksPrefix string) headerTmplData {
 	}
 
 	return headerTmplData{
-		Version:              state.Version(),
+		Version:              version,
 		VersionTitle:         versionTitle,
 		Uptime:               humanizeDuration(uptime),
 		UptimeTitle:          "Started " + startTime.String(),
