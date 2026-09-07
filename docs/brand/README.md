@@ -72,31 +72,54 @@ padding — it must not be transparent. `icon-512-maskable.png` respects the 80%
 
 Social card: `png/social-card-1200x630.png` for `og:image` and `twitter:image`.
 
-## Where these files come from
+## Regenerating
 
-This directory holds the artwork. The geometry that generates it lives in
-`tools/logogen/`:
+Every file in this directory is generated. The source is `tools/logogen/build_logo.py`,
+which builds the whole kit from the geometry constants at the top of that file plus
+`tools/logogen/IBMPlexSans-600.ttf` (a weight-600 instance of the Google Fonts variable
+release, SIL OFL 1.1).
 
-| file | role |
-| ---- | ---- |
-| `tools/logogen/mark.py` | the mark and icon geometry — the actual source of truth |
-| `tools/logogen/build_final.py` | lockup layout: outlines the wordmark, spaces it against the mark |
-| `tools/logogen/IBMPlexSans-600.ttf` | build input, weight-600 instance of the Google Fonts variable release |
+```sh
+pip install fonttools cairosvg pillow numpy
+python3 tools/logogen/build_logo.py --verify
+```
 
-`build_final.py` exposes `horizontal()`, `stacked()`, `frame()`, `recolor()` and `square()`,
-and reads `K` (mark-to-cap ratio), `GAPF` (gap), `TRACK` (tracking) and `OPT` (optical
-correction). Changing one of those and rebuilding keeps every variant in sync. It needs
-`fonttools`; the raster steps need `cairosvg` and `pillow`.
+That rewrites `docs/brand/` in place. Do not hand-edit anything here — change the constants
+and rebuild, and every variant stays in sync:
 
-**The driver that calls those helpers and writes the files is not in the repo yet** — the kit
-was generated elsewhere and only the helper module came across, so `build_final.py` cannot
-currently rebuild this directory on its own. Until that lands, treat the committed artwork as
-authoritative and edit `mark.py` alongside any hand-change to a shipped SVG, so the geometry
-and the artwork do not drift.
+| constant | controls |
+| -------- | -------- |
+| `K` | mark height as a multiple of cap height |
+| `GAPF` / `STACK_GAPF` | mark-to-wordmark gap, horizontal / stacked |
+| `TRACK` | wordmark tracking, in em |
+| `OPT` | optical correction toward the ink centroid |
+| `PAD` | viewBox padding, as a fraction of the long edge |
 
-Anything derived from the mark also has published copies under `docs/static/`, which are what
-the website and the favicon set actually serve. A change here is not live until those are
-updated too.
+`--verify` re-checks the invariants that are easy to break: no live text or font dependency
+in any SVG, the icon's mount post not breaking through the dish surface (rasterised and
+measured column by column, not eyeballed), all four `favicon.ico` planes being true renders
+at their own size rather than upsamples, and `apple-touch-icon.png` being 180×180 and opaque.
+
+Two files here are not generated and are safe to edit by hand: this README and
+`PREVIEW.png`.
+
+## Publishing a change
+
+Rebuilding this directory does not change the website. The copies the site and the favicon
+set actually serve live in `docs/static/`, and have their own names and layout:
+
+| `docs/brand/` | `docs/static/` |
+| ------------- | -------------- |
+| `svg/cloudprober-icon.svg` | `favicon.svg` |
+| `favicon/favicon-16.png`, `-32.png` | `favicon-16x16.png`, `favicon-32x32.png` |
+| `favicon/favicon.ico` | `favicon.ico` |
+| `favicon/apple-touch-icon.png` | `apple-touch-icon.png` |
+| `favicon/favicon-192.png`, `-512.png`, `icon-512-maskable.png` | `logo/cloudprober-icon-192.png`, `-512.png`, `-512-maskable.png` |
+| `svg/cloudprober-{horizontal,stacked}{,-ondark}.svg`, `svg/cloudprober-mark.svg` | same names under `logo/` |
+| `png/social-card-1200x630.png` | `logo/social-card.png` |
+
+`docs/static/site.webmanifest` is maintained separately — it carries site-absolute paths and
+the site's own theme colours, so it is not a copy of the one here.
 
 ## Licence
 
