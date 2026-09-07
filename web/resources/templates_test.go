@@ -74,6 +74,23 @@ func TestLinkPrefix(t *testing.T) {
 	}
 }
 
+func TestPageTitle(t *testing.T) {
+	tests := map[string]template.HTML{
+		"":                  "Cloudprober",
+		"/":                 "Cloudprober",
+		"/alerts":           "/alerts - Cloudprober",
+		"alerts":            "/alerts - Cloudprober",
+		"/artifacts/probe1": "/artifacts/probe1 - Cloudprober",
+		// The status page URL comes from config, so it is escaped.
+		"/<script>": "/&lt;script&gt; - Cloudprober",
+	}
+	for path, want := range tests {
+		t.Run(path, func(t *testing.T) {
+			assert.Equal(t, want, PageTitle(path))
+		})
+	}
+}
+
 func TestRenderPage(t *testing.T) {
 	tests := []struct {
 		name string
@@ -126,7 +143,7 @@ test body
 			want: `
 <html>
 <head>
-  <title>Cloudprober</title>
+  <title>/a/b - Cloudprober</title>
   <link href="../../static/cloudprober.css" rel="stylesheet">
   <link rel="icon" href="../../static/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../static/cloudprober-icon.svg" type="image/svg+xml">

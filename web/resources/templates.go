@@ -31,13 +31,24 @@ func HeadLinks(linkPrefix string) template.HTML {
 		linkPrefix, linkPrefix, linkPrefix))
 }
 
+// PageTitle returns the <title> for a page. The page's own path comes first,
+// so that several cloudprober tabs stay tellable apart once truncated; the root
+// page is just the product name.
+func PageTitle(path string) template.HTML {
+	title := "Cloudprober"
+	if p := strings.Trim(path, "/"); p != "" {
+		title = "/" + p + " - Cloudprober"
+	}
+	return template.HTML(template.HTMLEscapeString(title))
+}
+
 func RenderPage(path string, body template.HTML) string {
 	linkPrefix := RootLinkPrefix(path)
 	header := Header(linkPrefix)
 	return fmt.Sprintf(`
 <html>
 <head>
-  <title>Cloudprober</title>
+  <title>%s</title>
 %s
 </head>
 
@@ -47,7 +58,7 @@ func RenderPage(path string, body template.HTML) string {
 %s
 </body>
 </html>
-`, HeadLinks(linkPrefix), header, body)
+`, PageTitle(path), HeadLinks(linkPrefix), header, body)
 }
 
 type linksData struct {

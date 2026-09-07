@@ -134,6 +134,11 @@ cp docs/brand/svg/cloudprober-horizontal.svg docs/brand/svg/cloudprober-icon.svg
 cp docs/brand/favicon/favicon.ico web/static/
 ```
 
+Unlike the `docs/static/` copies, these three are checked: `TestBrandAssetsMatchBrandKit`
+in `web/static_test.go` compares them, through the embedded filesystem, against the sources
+above and fails if they drift. Forgetting the copy breaks the build rather than silently
+shipping a binary with the old logo.
+
 The header lockup and the favicon links live in `web/resources/header.go` and
 `web/resources/templates.go` respectively, and are shared by all three page shells
 (`web/resources/templates.go`, `internal/surfacers/probestatus/html_tmpl.go`,

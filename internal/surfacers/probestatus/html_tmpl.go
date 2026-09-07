@@ -21,7 +21,7 @@ var htmlTmpl = `
 
 <head>
 
-<title>Cloudprober</title>
+<title>{{.Title}}</title>
 
 <script>
   var startTime = '{{.StartTime}}';
