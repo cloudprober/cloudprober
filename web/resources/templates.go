@@ -21,22 +21,44 @@ import (
 	"strings"
 )
 
+// HeadLinks returns the stylesheet and favicon links shared by all
+// cloudprober pages. linkPrefix is the relative path to the root, as returned
+// by RootLinkPrefix or LinkPrefixFromCurrentPath.
+func HeadLinks(linkPrefix string) template.HTML {
+	return template.HTML(fmt.Sprintf(`  <link href="%sstatic/cloudprober.css" rel="stylesheet">
+  <link rel="icon" href="%sstatic/favicon.ico" sizes="32x32">
+  <link rel="icon" href="%sstatic/cloudprober-icon.svg" type="image/svg+xml">`,
+		linkPrefix, linkPrefix, linkPrefix))
+}
+
+// PageTitle returns the <title> for a page. The page's own path comes first,
+// so that several cloudprober tabs stay tellable apart once truncated; the root
+// page is just the product name.
+func PageTitle(path string) template.HTML {
+	title := "Cloudprober"
+	if p := strings.Trim(path, "/"); p != "" {
+		title = "/" + p + " - Cloudprober"
+	}
+	return template.HTML(template.HTMLEscapeString(title))
+}
+
 func RenderPage(path string, body template.HTML) string {
 	linkPrefix := RootLinkPrefix(path)
 	header := Header(linkPrefix)
 	return fmt.Sprintf(`
 <html>
 <head>
-  <link href="%sstatic/cloudprober.css" rel="stylesheet">
+  <title>%s</title>
+%s
 </head>
 
 <body>
 %s
-<br><br><br><br>
+<div style="clear: both; padding-top: 10px"></div>
 %s
 </body>
 </html>
-`, linkPrefix, header, body)
+`, PageTitle(path), HeadLinks(linkPrefix), header, body)
 }
 
 type linksData struct {

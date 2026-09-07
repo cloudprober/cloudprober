@@ -118,6 +118,36 @@ set actually serve live in `docs/static/`, and have their own names and layout:
 | `svg/cloudprober-{horizontal,stacked}{,-ondark}.svg`, `svg/cloudprober-mark.svg` | same names under `logo/` |
 | `png/social-card-1200x630.png` | `logo/social-card.png` |
 
+Cloudprober's own web interface (the status page, `/alerts`, `/logs`, `/config-*`, the
+artifacts browser) is a second, smaller case. Its assets are embedded into the binary from
+`web/static/`, so they are copied under their brand-kit names and served from
+`<root>/static/`:
+
+| `docs/brand/` | `web/static/` |
+| ------------- | ------------- |
+| `svg/cloudprober-horizontal.svg` | same name |
+| `svg/cloudprober-icon.svg` | same name |
+| `favicon/favicon.ico` | `favicon.ico` |
+
+```sh
+cp docs/brand/svg/cloudprober-horizontal.svg docs/brand/svg/cloudprober-icon.svg web/static/
+cp docs/brand/favicon/favicon.ico web/static/
+```
+
+Unlike the `docs/static/` copies, these three are checked: `TestBrandAssetsMatchBrandKit`
+in `web/static_test.go` compares them, through the embedded filesystem, against the sources
+above and fails if they drift. Forgetting the copy breaks the build rather than silently
+shipping a binary with the old logo.
+
+The header lockup and the favicon links live in `web/resources/header.go` and
+`web/resources/templates.go` respectively, and are shared by all three page shells
+(`web/resources/templates.go`, `internal/surfacers/probestatus/html_tmpl.go`,
+`probes/browser/artifacts/web/template.go`). The header is the lockup alone, at 170px wide
+— comfortably over the 120px minimum, and the SVG's own viewBox padding supplies the clear
+space — so it sits on the page background with no bar or padding of its own, and the rule
+under it does the separating. Page links belong in the block below that rule, not up beside
+the lockup.
+
 The homepage diagram is a third case. `docs/static/homepage.svg` is a draw.io export, and
 its central node is the on-dark horizontal lockup — embedded, not linked, and embedded
 twice: the rendered body inlines the lockup's paths, and the draw.io source in the root

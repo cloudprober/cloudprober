@@ -21,6 +21,8 @@ var htmlTmpl = `
 
 <head>
 
+<title>{{.Title}}</title>
+
 <script>
   var startTime = '{{.StartTime}}';
   var allProbes = [];
@@ -30,7 +32,7 @@ var htmlTmpl = `
 </script>
 
 <link href="{{.BaseURL}}/static/c3.min.css" rel="stylesheet">
-<link href="{{.LinkPrefix}}static/cloudprober.css" rel="stylesheet">
+{{.HeadLinks}}
 <script src="{{.BaseURL}}/static/jquery-3.6.0.min.js" charset="utf-8"></script>
 <script src="{{.BaseURL}}/static/d3.v5.min.js" charset="utf-8"></script>
 <script src="{{.BaseURL}}/static/c3.min.js" charset="utf-8"></script>
@@ -67,7 +69,7 @@ populateD();
     <label style="font-weight:bold" for="graph-endtime">Endtime:</label>
     <input type="datetime-local" id="graph-endtime" name="graph-endtime" style="width: 200px;">
   </div>
-  <br><br><br><br>
+  <div style="clear: both; padding-top: 10px"></div>
 
 {{$durations := .Durations}}
 {{$statusTable := .StatusTable}}

@@ -267,6 +267,18 @@ func TestEndpoints(t *testing.T) {
 			url:          "/static/cloudprober.css",
 			wantContains: []string{"background-color"},
 		},
+		{
+			// Brand assets referenced by the page header and favicon links.
+			url:          "/static/cloudprober-horizontal.svg",
+			wantContains: []string{"<svg"},
+		},
+		{
+			url:          "/static/cloudprober-icon.svg",
+			wantContains: []string{"<svg"},
+		},
+		{
+			url: "/static/favicon.ico",
+		},
 	}
 
 	for _, tt := range tests {
@@ -302,7 +314,7 @@ func TestEndpoints(t *testing.T) {
 
 			body, err := io.ReadAll(resp.Body)
 			assert.NoError(t, err)
-			if tt.url != "/static/cloudprober.css" && tt.url != "/artifacts" {
+			if !strings.HasPrefix(tt.url, "/static/") && tt.url != "/artifacts" {
 				verifyHeader(t, tt.url, string(body))
 			}
 			for _, want := range tt.wantContains {

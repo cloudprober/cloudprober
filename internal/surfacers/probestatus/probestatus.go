@@ -499,7 +499,8 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		GraphData   map[string]template.JS
 		DebugData   map[string]template.HTML
 		Header      template.HTML
-		LinkPrefix  string
+		HeadLinks   template.HTML
+		Title       template.HTML
 		StartTime   string // RFC3339, for Javascript's Date().
 	}{
 		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
@@ -510,7 +511,8 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		GraphData:   graphData,
 		DebugData:   debugData,
 		Header:      resources.Header(linkPrefix),
-		LinkPrefix:  linkPrefix,
+		HeadLinks:   resources.HeadLinks(linkPrefix),
+		Title:       resources.PageTitle(ps.c.GetUrl()),
 		StartTime:   ps.startTime.Format(time.RFC3339),
 	})
 	if err != nil {

@@ -74,6 +74,23 @@ func TestLinkPrefix(t *testing.T) {
 	}
 }
 
+func TestPageTitle(t *testing.T) {
+	tests := map[string]template.HTML{
+		"":                  "Cloudprober",
+		"/":                 "Cloudprober",
+		"/alerts":           "/alerts - Cloudprober",
+		"alerts":            "/alerts - Cloudprober",
+		"/artifacts/probe1": "/artifacts/probe1 - Cloudprober",
+		// The status page URL comes from config, so it is escaped.
+		"/<script>": "/&lt;script&gt; - Cloudprober",
+	}
+	for path, want := range tests {
+		t.Run(path, func(t *testing.T) {
+			assert.Equal(t, want, PageTitle(path))
+		})
+	}
+}
+
 func TestRenderPage(t *testing.T) {
 	tests := []struct {
 		name string
@@ -88,13 +105,16 @@ func TestRenderPage(t *testing.T) {
 			want: `
 <html>
 <head>
+  <title>Cloudprober</title>
   <link href="static/cloudprober.css" rel="stylesheet">
+  <link rel="icon" href="static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="static/cloudprober-icon.svg" type="image/svg+xml">
 </head>
 
 <body>
 
 <header>
-  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
+  <a href="https://cloudprober.org"><img class="logo" src="static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
 </header> 
 <hr/>
 <div style="float:left">
@@ -110,7 +130,7 @@ func TestRenderPage(t *testing.T) {
 	<a href="alerts">/alerts</a>
 </div>
 
-<br><br><br><br>
+<div style="clear: both; padding-top: 10px"></div>
 test body
 </body>
 </html>
@@ -123,13 +143,16 @@ test body
 			want: `
 <html>
 <head>
+  <title>/a/b - Cloudprober</title>
   <link href="../../static/cloudprober.css" rel="stylesheet">
+  <link rel="icon" href="../../static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../static/cloudprober-icon.svg" type="image/svg+xml">
 </head>
 
 <body>
 
 <header>
-  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
+  <a href="https://cloudprober.org"><img class="logo" src="../../static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
 </header> 
 <hr/>
 <div style="float:left">
@@ -145,7 +168,7 @@ test body
 	<a href="../../alerts">/alerts</a>
 </div>
 
-<br><br><br><br>
+<div style="clear: both; padding-top: 10px"></div>
 test body deep
 </body>
 </html>

@@ -4,13 +4,10 @@ body {
   line-height: 1.3;
 }
 
-header {
-  font-family: monospace;
-  font-size: larger;
-  font-weight: bolder;
-  background: #f0f0f0;
-  border-radius: 5px 5px;
-  padding: 5px 5px;
+header .logo {
+  display: block;
+  width: 170px;
+  height: auto;
 }
 
 .debugging {
