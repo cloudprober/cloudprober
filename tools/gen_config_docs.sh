@@ -107,7 +107,7 @@ cat > ${BASE_PATH}/_index.md <<EOF
 title: "${INDEX_TITLE}"
 ---
 
-{{% redirect dest="overview" %}}
+{{% redirect dest="overview/" %}}
 EOF
 
 # Copy latest configs to non-versioned path as well to make sure

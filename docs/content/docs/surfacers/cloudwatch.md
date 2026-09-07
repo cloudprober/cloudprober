@@ -7,7 +7,7 @@ title: "Cloudwatch (AWS)"
 ---
 
 Cloudprober can natively export metrics to AWS Cloudwatch using the cloudwatch
-[surfacer](/docs/surfacers/overview/). Adding the cloudwatch surfacer to cloudprover
+[surfacer](/docs/surfacers/overview/). Adding the cloudwatch surfacer to cloudprober
 is as simple as adding the following stanza to the config:
 
 ```

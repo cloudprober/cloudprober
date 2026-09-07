@@ -8,7 +8,7 @@
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 
-Quick Links: [cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/getting-started) | [Live Demo](https://browser-probe-demo.cloudprober.org/)
+Quick Links: [cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/docs/overview/getting-started/) | [Live Demo](https://browser-probe-demo.cloudprober.org/)
 
 # Cloudprober: Reliable System Monitoring, Simplified!
 

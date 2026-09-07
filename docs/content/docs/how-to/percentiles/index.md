@@ -83,7 +83,7 @@ Both prometheus and [stackdriver](/docs/surfacers/stackdriver/) support computin
 
 ### Stackdriver (Google Cloud Monitoring)
 
-Stackdriver automatically shows percentile aggregator for distribution metrics in metrics explorer ([example](/diagrams/metrics_explorer_percentile.png)). You can also use Stackdriver MQL to create percentiles (see [stackdriver documentation](/docs/surfacers/stackdriver/#accessing-the-data) for other usages of MQL for cloudprober metrics):
+Stackdriver automatically shows percentile aggregator for distribution metrics in metrics explorer. You can also use Stackdriver MQL to create percentiles (see [stackdriver documentation](/docs/surfacers/stackdriver/#accessing-the-data) for other usages of MQL for cloudprober metrics):
 
 ```shell
 fetch gce_instance
