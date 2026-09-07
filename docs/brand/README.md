@@ -131,8 +131,29 @@ change has to be pushed through by hand:
    `xQNlQs2I_ULp-5fTuDjN-4` and sized `143.01 x 50.53` inside that box's `163.75 x 75`,
    which is the lockup plus one cap height of clear space on all four sides. Keep the box
    cell's id and geometry — seven edges anchor to it.
-3. Re-export both `homepage.svg` (with the source embedded) and `homepage.png` at
-   1364 x 864, which is the diagram at `scale=2` with a 96-unit margin.
+3. Re-export `homepage.svg` with the source still embedded, then re-render
+   `homepage.png` from it at 1364 x 864 — the diagram at `scale=2` with a 96-unit
+   margin.
+
+Step 3 does not need draw.io desktop. Any browser renders the export faithfully, because
+the lockup is outlined and the rest of the diagram's text is `foreignObject` HTML:
+
+```sh
+cd docs/static
+printf '<style>body{margin:0}</style><img src="homepage.svg" \
+  style="display:block;width:1364px;height:864px">' > wrap.html
+google-chrome --headless --disable-gpu --hide-scrollbars \
+  --force-device-scale-factor=1 --default-background-color=00000000 \
+  --window-size=1364,864 --screenshot=homepage.png wrap.html && rm wrap.html
+```
+
+The wrapper is what pins the output size; screenshotting the `.svg` directly leaves it to
+the browser's default viewport. `--default-background-color=00000000` keeps the
+transparency — without it the rounded corners of the outer card pick up a white ground.
+
+Do not reach for the rasteriser `build_logo.py` uses. cairosvg has no `foreignObject`
+support, and neither does rsvg; the lockup would come through fine, since it is outlined,
+but every text label in the diagram would silently vanish.
 
 `docs/static/site.webmanifest` is maintained separately — it carries site-absolute paths and
 the site's own theme colours, so it is not a copy of the one here.
