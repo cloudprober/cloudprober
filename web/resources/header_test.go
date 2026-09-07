@@ -48,13 +48,12 @@ func TestHeader(t *testing.T) {
 	expected := `
 <header>
   <a href="https://cloudprober.org"><img class="logo" src="static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
+  <div class="version" title="Built at 2023-10-01 12:00:00 &#43;0000 UTC">v1.0.0</div>
 </header> 
 <hr/>
 <div style="float:left">
-  <b>Started</b>: 0001-01-01 00:00:00 &#43;0000 UTC -- up 2562047h47m16.854s<br/>
-  <b>Version</b>: v1.0.0<br>
-  <b>Built at</b>: 2023-10-01 12:00:00 &#43;0000 UTC<br>
-  <b>Other Links </b>(<a href="links">all</a>):
+  <div class="uptime" title="Started 0001-01-01 00:00:00 &#43;0000 UTC"><b>Uptime</b>: 106751d 23h</div>
+  <b>Links</b> (<a href="links">all</a>):
   	<a href="status">/status</a>,
 	<a href="config-running">/config</a> (<a href="config-parsed">parsed</a> | <a href="config">raw</a>),
 	<a href="logs">/logs</a>,
@@ -82,26 +81,42 @@ func TestHeaderData(t *testing.T) {
 		buildTimestamp      time.Time
 		links               []string
 		wantStatusLink      string
+		wantVersionTitle    string
 		expectMetricsLink   bool
 		expectArtifactsLink bool
 	}{
 		{
-			name:           "No links",
-			version:        "v1.0.0",
+			// No -ldflags: no version tag, and no "built at" tooltip on it.
+			name:  "Unset version and build timestamp",
+			links: []string{},
+		},
+		{
+			// The tooltip hangs off the version tag, so a build timestamp
+			// without a version has nothing to attach to.
+			name:           "Build timestamp but no version",
 			buildTimestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
 			links:          []string{},
 		},
 		{
-			name:           "Status link",
-			version:        "v1.0.0",
-			buildTimestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
-			links:          []string{"/my/probe/status"},
-			wantStatusLink: "my/probe/status",
+			name:             "No links",
+			version:          "v1.0.0",
+			buildTimestamp:   time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:            []string{},
+			wantVersionTitle: "Built at 2023-10-01 12:00:00 +0000 UTC",
+		},
+		{
+			name:             "Status link",
+			version:          "v1.0.0",
+			buildTimestamp:   time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			links:            []string{"/my/probe/status"},
+			wantStatusLink:   "my/probe/status",
+			wantVersionTitle: "Built at 2023-10-01 12:00:00 +0000 UTC",
 		},
 		{
 			name:                "Metrics link",
 			version:             "v1.0.0",
 			buildTimestamp:      time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			wantVersionTitle:    "Built at 2023-10-01 12:00:00 +0000 UTC",
 			links:               []string{"/metrics"},
 			expectMetricsLink:   true,
 			expectArtifactsLink: false,
@@ -110,6 +125,7 @@ func TestHeaderData(t *testing.T) {
 			name:                "Artifacts link",
 			version:             "v1.0.0",
 			buildTimestamp:      time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			wantVersionTitle:    "Built at 2023-10-01 12:00:00 +0000 UTC",
 			links:               []string{"/artifacts"},
 			expectMetricsLink:   false,
 			expectArtifactsLink: true,
@@ -118,6 +134,7 @@ func TestHeaderData(t *testing.T) {
 			name:                "Both links",
 			version:             "v1.0.0",
 			buildTimestamp:      time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC),
+			wantVersionTitle:    "Built at 2023-10-01 12:00:00 +0000 UTC",
 			links:               []string{"/metrics", "/artifacts"},
 			expectMetricsLink:   true,
 			expectArtifactsLink: true,
@@ -143,8 +160,10 @@ func TestHeaderData(t *testing.T) {
 				}
 			}
 
+			// sysvars.StartTime() is the zero time here, so time.Since()
+			// saturates at the max duration and the uptime is a constant.
 			wantStartTime := sysvars.StartTime().Truncate(time.Millisecond)
-			wantUptime := time.Since(wantStartTime).Truncate(time.Millisecond)
+			wantUptime := humanizeDuration(time.Since(wantStartTime).Truncate(time.Millisecond))
 			if tt.wantStatusLink == "" {
 				tt.wantStatusLink = "status"
 			}
@@ -152,9 +171,9 @@ func TestHeaderData(t *testing.T) {
 			for _, linksPrefix := range []string{"", "../"} {
 				data := headerData(linksPrefix)
 				assert.Equal(t, tt.version, data.Version)
-				assert.Equal(t, tt.buildTimestamp, data.BuiltAt)
-				assert.Equal(t, wantStartTime, data.StartTime)
+				assert.Equal(t, tt.wantVersionTitle, data.VersionTitle)
 				assert.Equal(t, wantUptime, data.Uptime)
+				assert.Equal(t, "Started "+wantStartTime.String(), data.UptimeTitle)
 				assert.Equal(t, tt.expectMetricsLink, data.IncludeMetricsLink)
 				assert.Equal(t, tt.expectArtifactsLink, data.IncludeArtifactsLink)
 				assert.Equal(t, linksPrefix, data.LinksPrefix)
@@ -178,6 +197,36 @@ func TestLinkPrefixFromCurrentPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			assert.Equal(t, tt.expected, LinkPrefixFromCurrentPath(tt.path))
+		})
+	}
+}
+
+func TestHumanizeDuration(t *testing.T) {
+	tests := []struct {
+		d    time.Duration
+		want string
+	}{
+		{d: 0, want: "0s"},
+		{d: 900 * time.Millisecond, want: "0s"},
+		{d: -5 * time.Second, want: "0s"}, // clock skew
+		{d: 45 * time.Second, want: "45s"},
+		{d: 12*time.Minute + 30*time.Second, want: "12m 30s"},
+		{d: 12 * time.Minute, want: "12m"},
+		{d: 4*time.Hour + 12*time.Minute, want: "4h 12m"},
+		{d: 4 * time.Hour, want: "4h"},
+		{d: 3*24*time.Hour + 4*time.Hour, want: "3d 4h"},
+		{d: 3 * 24 * time.Hour, want: "3d"},
+		// Sub-unit remainders are dropped, not rounded.
+		{d: 3*24*time.Hour + 59*time.Minute, want: "3d"},
+		// Days keep counting rather than rolling over into years.
+		{d: 423*24*time.Hour + 4*time.Hour, want: "423d 4h"},
+		// What time.Since() saturates to for a zero start time.
+		{d: time.Duration(1<<63 - 1), want: "106751d 23h"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.d.String(), func(t *testing.T) {
+			assert.Equal(t, tt.want, humanizeDuration(tt.d))
 		})
 	}
 }

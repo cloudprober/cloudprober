@@ -115,13 +115,12 @@ func TestRenderPage(t *testing.T) {
 
 <header>
   <a href="https://cloudprober.org"><img class="logo" src="static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
+  <div class="version">v1.0.0</div>
 </header> 
 <hr/>
 <div style="float:left">
-  <b>Started</b>: 0001-01-01 00:00:00 &#43;0000 UTC -- up 2562047h47m16.854s<br/>
-  <b>Version</b>: v1.0.0<br>
-  <b>Built at</b>: 0001-01-01 00:00:00 &#43;0000 UTC<br>
-  <b>Other Links </b>(<a href="links">all</a>):
+  <div class="uptime" title="Started 0001-01-01 00:00:00 &#43;0000 UTC"><b>Uptime</b>: 106751d 23h</div>
+  <b>Links</b> (<a href="links">all</a>):
   	<a href="status">/status</a>,
 	<a href="config-running">/config</a> (<a href="config-parsed">parsed</a> | <a href="config">raw</a>),
 	<a href="logs">/logs</a>,
@@ -153,13 +152,12 @@ test body
 
 <header>
   <a href="https://cloudprober.org"><img class="logo" src="../../static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
+  <div class="version">v1.0.0</div>
 </header> 
 <hr/>
 <div style="float:left">
-  <b>Started</b>: 0001-01-01 00:00:00 &#43;0000 UTC -- up 2562047h47m16.854s<br/>
-  <b>Version</b>: v1.0.0<br>
-  <b>Built at</b>: 0001-01-01 00:00:00 &#43;0000 UTC<br>
-  <b>Other Links </b>(<a href="../../links">all</a>):
+  <div class="uptime" title="Started 0001-01-01 00:00:00 &#43;0000 UTC"><b>Uptime</b>: 106751d 23h</div>
+  <b>Links</b> (<a href="../../links">all</a>):
   	<a href="../../status">/status</a>,
 	<a href="../../config-running">/config</a> (<a href="../../config-parsed">parsed</a> | <a href="../../config">raw</a>),
 	<a href="../../logs">/logs</a>,

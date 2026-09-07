@@ -27,19 +27,19 @@ import (
 )
 
 type headerTmplData struct {
-	Version, BuiltAt, StartTime, Uptime, StatusLink, LinksPrefix, IncludeMetricsLink, IncludeArtifactsLink, RightDiv interface{}
+	Version, VersionTitle, Uptime, UptimeTitle, StatusLink, LinksPrefix string
+	IncludeMetricsLink, IncludeArtifactsLink                            bool
 }
 
 var t = template.Must(template.New("header").Parse(`
 <header>
   <a href="https://cloudprober.org"><img class="logo" src="{{.LinksPrefix}}static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
+  {{if .Version}}<div class="version"{{if .VersionTitle}} title="{{.VersionTitle}}"{{end}}>{{.Version}}</div>{{end}}
 </header> 
 <hr/>
 <div style="float:left">
-  <b>Started</b>: {{.StartTime}} -- up {{.Uptime}}<br/>
-  <b>Version</b>: {{.Version}}<br>
-  <b>Built at</b>: {{.BuiltAt}}<br>
-  <b>Other Links </b>(<a href="{{.LinksPrefix}}links">all</a>):
+  <div class="uptime" title="{{.UptimeTitle}}"><b>Uptime</b>: {{.Uptime}}</div>
+  <b>Links</b> (<a href="{{.LinksPrefix}}links">all</a>):
   	<a href="{{.LinksPrefix}}{{.StatusLink}}">/status</a>,
 	<a href="{{.LinksPrefix}}config-running">/config</a> (<a href="{{.LinksPrefix}}config-parsed">parsed</a> | <a href="{{.LinksPrefix}}config">raw</a>),
 	<a href="{{.LinksPrefix}}logs">/logs</a>,
@@ -52,6 +52,16 @@ var t = template.Must(template.New("header").Parse(`
 func headerData(linksPrefix string) headerTmplData {
 	startTime := sysvars.StartTime().Truncate(time.Millisecond)
 	uptime := time.Since(startTime).Truncate(time.Millisecond)
+
+	// version and buildTimestamp come from the same -ldflags block, so a plain
+	// "go build" binary has neither, and the old template rendered an empty
+	// version and a "built at" of the zero time. The build time hangs off the
+	// version tag as a tooltip, so it needs a tag to hang on: guard on both,
+	// rather than computing a title the template can never reach.
+	version, versionTitle := state.Version(), ""
+	if builtAt := state.BuildTimestamp(); version != "" && !builtAt.IsZero() {
+		versionTitle = "Built at " + builtAt.String()
+	}
 
 	includeMetrics := false
 	includeArtifacts := false
@@ -70,15 +80,48 @@ func headerData(linksPrefix string) headerTmplData {
 	}
 
 	return headerTmplData{
-		Version:              state.Version(),
-		BuiltAt:              state.BuildTimestamp(),
-		StartTime:            startTime,
-		Uptime:               uptime,
+		Version:              version,
+		VersionTitle:         versionTitle,
+		Uptime:               humanizeDuration(uptime),
+		UptimeTitle:          "Started " + startTime.String(),
 		StatusLink:           statusLink,
 		LinksPrefix:          linksPrefix,
 		IncludeMetricsLink:   includeMetrics,
 		IncludeArtifactsLink: includeArtifacts,
 	}
+}
+
+// humanizeDuration formats d using its two most significant units, e.g. "3d 4h"
+// or "12m 30s", dropping the smaller one when it is zero. Go's
+// Duration.String() stops at hours, which turns a long uptime into something
+// like "2562047h47m16.854s". Days are deliberately the largest unit: a "year"
+// is 365 or 365.25 days depending on who is reading, while "423d" is
+// unambiguous and still scans.
+func humanizeDuration(d time.Duration) string {
+	if d < time.Second {
+		return "0s"
+	}
+
+	var major, minor int
+	var majorUnit, minorUnit string
+	switch {
+	case d >= 24*time.Hour:
+		major, majorUnit = int(d/(24*time.Hour)), "d"
+		minor, minorUnit = int(d/time.Hour)%24, "h"
+	case d >= time.Hour:
+		major, majorUnit = int(d/time.Hour), "h"
+		minor, minorUnit = int(d/time.Minute)%60, "m"
+	case d >= time.Minute:
+		major, majorUnit = int(d/time.Minute), "m"
+		minor, minorUnit = int(d/time.Second)%60, "s"
+	default:
+		return fmt.Sprintf("%ds", int(d/time.Second))
+	}
+
+	if minor == 0 {
+		return fmt.Sprintf("%d%s", major, majorUnit)
+	}
+	return fmt.Sprintf("%d%s %d%s", major, majorUnit, minor, minorUnit)
 }
 
 func Header(linksPrefix string) template.HTML {
