@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	neturl "net/url"
 	"testing"
 
@@ -86,6 +88,18 @@ func TestRedactErrMsg(t *testing.T) {
 			want: "error resolving target: foo?bar, no such host",
 		},
 		{"no query", `Get "http://h/a": refused`, `Get "http://h/a": refused`},
+		// Errors quote plenty of things that aren't URLs. A '?' in one of
+		// those is not a query, and rewriting it only destroys a diagnostic.
+		{
+			name: "non-URL quoted token is left alone",
+			in:   `x509: certificate is valid for "a?b", not h`,
+			want: `x509: certificate is valid for "a?b", not h`,
+		},
+		{
+			name: "quoted relative URL is redacted",
+			in:   `parse "/a?tok=secret": bad`,
+			want: `parse "/a?<redacted>": bad`,
+		},
 		{"bare trailing ?", `Get "http://h/a?": refused`, `Get "http://h/a?": refused`},
 	}
 	for _, test := range tests {
@@ -262,6 +276,42 @@ func TestRedactedErr(t *testing.T) {
 		assert.NotContains(t, got.Error(), `y"`)
 		assert.Contains(t, got.Error(), "<redacted>")
 	})
+}
+
+// net/http puts the request URL in url.Error's URL field, but a redirect whose
+// Location fails to parse goes in the *inner* error instead -- a different URL,
+// carrying a different query. Redacting only the URL field leaks it.
+func TestRedactedErrRedirectLocationInInnerError(t *testing.T) {
+	// An invalid port makes url.Parse reject the Location, which is what
+	// drives net/http down that path.
+	loc := "https://other.example.com:notaport/cb?code=supersecret"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", loc)
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	_, err := http.Get(srv.URL + "/start?mytok=mysecret")
+	if err == nil {
+		t.Fatal("expected the request to fail")
+	}
+
+	p := &Probe{redactURLQueryInLogs: true}
+	got := p.redactedErr(err).Error()
+	assert.NotContains(t, got, "code=supersecret", "redirect Location query leaked via the inner error")
+	assert.NotContains(t, got, "mytok=mysecret", "request query leaked")
+	assert.Contains(t, got, "<redacted>")
+}
+
+// Rewriting the inner error is only worth it when it actually contains a URL;
+// otherwise the error keeps its type and Unwrap chain.
+func TestRedactedErrKeepsUnwrapWhenInnerErrIsClean(t *testing.T) {
+	p := &Probe{redactURLQueryInLogs: true}
+	err := &neturl.Error{Op: "Get", URL: "http://h/a?tok=secret", Err: context.DeadlineExceeded}
+
+	got := p.redactedErr(err)
+	assert.True(t, errors.Is(got, context.DeadlineExceeded), "unwrap chain should survive")
+	assert.NotContains(t, got.Error(), "tok=secret")
 }
 
 // A malformed relative_url is rejected at Init, and that error carries the

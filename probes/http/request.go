@@ -128,18 +128,25 @@ func (p *Probe) redactURL(s string) string {
 //	                                                 ^ prose '?', not a query
 var quotedRE = regexp.MustCompile(`"(?:\\.|[^"\\])*"`)
 
-// redactErrMsg redacts the query of any quoted URL in an error message. It is
-// the fallback for errors that don't carry the URL as a field: we rewrite only
-// inside %q-quoted tokens, which is where an error puts a URL, so a '?' in the
-// surrounding prose is left alone and the message stays readable.
+// redactErrMsg redacts the query of any quoted URL in an error message. We
+// rewrite only inside %q-quoted tokens, which is where an error puts a URL, so
+// a '?' in the surrounding prose is left alone and the message stays readable.
+//
+// The token also has to look like a URL. Errors quote plenty of other things
+// -- x509 name constraints, header values -- and a '?' in those is not a
+// query; redacting one destroys a diagnostic without hiding a secret.
 func (p *Probe) redactErrMsg(s string) string {
 	return quotedRE.ReplaceAllStringFunc(s, func(tok string) string {
-		i := strings.Index(tok, "?")
-		// No query, or a bare '?' right before the closing quote.
-		if i < 0 || i == len(tok)-2 {
+		inner := tok[1 : len(tok)-1]
+		if !strings.Contains(inner, "://") && !strings.HasPrefix(inner, "/") {
 			return tok
 		}
-		return tok[:i] + "?" + redactedQuery + `"`
+		i := strings.Index(inner, "?")
+		// No query, or a bare trailing '?'.
+		if i < 0 || i == len(inner)-1 {
+			return tok
+		}
+		return `"` + inner[:i] + "?" + redactedQuery + `"`
 	})
 }
 
@@ -162,9 +169,17 @@ func (p *Probe) redactedURL(u *url.URL) string {
 // the query via the error message.
 //
 // A *url.Error holds the URL as a field, so we rebuild it with that field
-// redacted: the error keeps its type and its Unwrap chain, and errors.Is/As
-// behave the same whether or not redaction is on. Anything else falls back to
+// redacted, which keeps its type and its Unwrap chain intact. net/http puts a
+// URL in the *inner* error as well, though -- a redirect whose Location fails
+// to parse is rendered there with %q -- so that message is redacted too, and
+// only then is the inner error replaced. Everything else falls back to
 // rewriting the message.
+//
+// errors.Is/As are therefore unaffected for the common *url.Error, but the
+// fallback, and an inner error that actually had to be rewritten, do lose
+// their type and Unwrap chain. We can't wrap with %w to keep them: that
+// re-embeds the unredacted text and puts the query straight back into the
+// message.
 //
 // It returns err unchanged when redaction is disabled, so that the default
 // configuration keeps propagating the original error untouched.
@@ -172,12 +187,18 @@ func (p *Probe) redactedErr(err error) error {
 	if err == nil || !p.redactURLQueryInLogs {
 		return err
 	}
-	if ue, ok := err.(*url.Error); ok {
-		redacted := *ue
-		redacted.URL = p.redactURL(ue.URL)
-		return &redacted
+	ue, ok := err.(*url.Error)
+	if !ok {
+		return errors.New(p.redactErrMsg(err.Error()))
 	}
-	return errors.New(p.redactErrMsg(err.Error()))
+	redacted := *ue
+	redacted.URL = p.redactURL(ue.URL)
+	if ue.Err != nil {
+		if msg := p.redactErrMsg(ue.Err.Error()); msg != ue.Err.Error() {
+			redacted.Err = errors.New(msg)
+		}
+	}
+	return &redacted
 }
 
 func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
