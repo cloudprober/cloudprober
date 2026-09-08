@@ -15,6 +15,8 @@
 package http
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	neturl "net/url"
 	"testing"
@@ -34,15 +36,62 @@ func mustParseURL(t *testing.T, s string) *neturl.URL {
 	return u
 }
 
-func TestRawQuery(t *testing.T) {
-	for _, test := range []struct{ in, want string }{
-		{"", ""},
-		{"/path", ""},
-		{"/login?password=secret", "password=secret"},
-		{"/a?user=admin&password=secret", "user=admin&password=secret"},
-		{"/a?x=1?y=2", "x=1?y=2"},
-	} {
-		assert.Equal(t, test.want, rawQuery(test.in), "rawQuery(%q)", test.in)
+func TestRedactURL(t *testing.T) {
+	tests := []struct{ name, in, want string }{
+		{"no query", "/path", "/path"},
+		{"relative URL", "/login?password=secret", "/login?<redacted>"},
+		{"multiple params", "/a?user=admin&password=secret", "/a?<redacted>"},
+		{"bare trailing ?", "/a?", "/a?"},
+		// A space is legal in a query and survives url.URL.String() verbatim,
+		// so anything that stops at whitespace leaks the rest of the query.
+		{"space inside the query", "/a?msg=hello world&tok=secret", "/a?<redacted>"},
+		{"absolute URL", "http://h/a?tok=secret", "http://h/a?<redacted>"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := &Probe{redactURLQueryInLogs: true}
+			assert.Equal(t, test.want, p.redactURL(test.in))
+		})
+	}
+
+	t.Run("redaction off is a no-op", func(t *testing.T) {
+		p := &Probe{redactURLQueryInLogs: false}
+		assert.Equal(t, "/login?password=secret", p.redactURL("/login?password=secret"))
+	})
+}
+
+func TestRedactErrMsg(t *testing.T) {
+	p := &Probe{redactURLQueryInLogs: true}
+	tests := []struct{ name, in, want string }{
+		{
+			name: "quoted URL",
+			in:   `Get "http://h/a?tok=s": refused`,
+			want: `Get "http://h/a?<redacted>": refused`,
+		},
+		{
+			name: "query containing a space",
+			in:   `Get "http://h/a?msg=hello world&tok=secret": refused`,
+			want: `Get "http://h/a?<redacted>": refused`,
+		},
+		{
+			name: "two quoted URLs",
+			in:   `"http://a/x?s=1" and "http://b/y?s=2"`,
+			want: `"http://a/x?<redacted>" and "http://b/y?<redacted>"`,
+		},
+		// A '?' outside a quoted token is prose, not a query. Rewriting it
+		// would mangle the message for no security benefit.
+		{
+			name: "unquoted '?' is left alone",
+			in:   "error resolving target: foo?bar, no such host",
+			want: "error resolving target: foo?bar, no such host",
+		},
+		{"no query", `Get "http://h/a": refused`, `Get "http://h/a": refused`},
+		{"bare trailing ?", `Get "http://h/a?": refused`, `Get "http://h/a?": refused`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, p.redactErrMsg(test.in))
+		})
 	}
 }
 
@@ -102,86 +151,115 @@ func TestRedactedURL(t *testing.T) {
 
 func TestRedactedErr(t *testing.T) {
 	rawURL := "http://example.com/login?password=secret"
-	u := mustParseURL(t, rawURL)
+	// net/url.Error embeds the full URL, query included, in its message.
+	urlErr := &neturl.Error{Op: "Get", URL: rawURL, Err: fmt.Errorf("dial tcp: connection refused")}
 
-	t.Run("nil error", func(t *testing.T) {
+	t.Run("nil error stays nil", func(t *testing.T) {
 		p := &Probe{redactURLQueryInLogs: true}
-		assert.Equal(t, "", p.redactedErr(u.RawQuery, nil))
+		assert.NoError(t, p.redactedErr(nil))
 	})
 
-	t.Run("redaction off keeps secret", func(t *testing.T) {
+	// With redaction off we hand back the original error untouched, so that
+	// the default configuration keeps propagating the typed error.
+	t.Run("redaction off returns the original error", func(t *testing.T) {
 		p := &Probe{redactURLQueryInLogs: false}
-		// net/url.Error embeds the full URL in its message.
-		err := &neturl.Error{Op: "Get", URL: rawURL, Err: fmt.Errorf("dial tcp: connection refused")}
-		got := p.redactedErr(u.RawQuery, err)
-		assert.Contains(t, got, "password=secret")
+		got := p.redactedErr(urlErr)
+		assert.Same(t, urlErr, got)
+		assert.Contains(t, got.Error(), "password=secret")
 	})
 
 	t.Run("redaction on hides secret in error text", func(t *testing.T) {
 		p := &Probe{redactURLQueryInLogs: true}
-		err := &neturl.Error{Op: "Get", URL: rawURL, Err: fmt.Errorf("dial tcp: connection refused")}
-		got := p.redactedErr(u.RawQuery, err)
-		assert.NotContains(t, got, "password=secret")
-		assert.Contains(t, got, "<redacted>")
+		got := p.redactedErr(urlErr)
+		assert.NotContains(t, got.Error(), "password=secret")
+		assert.Contains(t, got.Error(), "<redacted>")
 		// The rest of the error text is preserved.
-		assert.Contains(t, got, "connection refused")
-	})
-
-	t.Run("redaction on, no query in URL is no-op", func(t *testing.T) {
-		p := &Probe{redactURLQueryInLogs: true}
-		noQueryURL := mustParseURL(t, "http://example.com/path")
-		err := fmt.Errorf("some error")
-		assert.Equal(t, "some error", p.redactedErr(noQueryURL.RawQuery, err))
+		assert.Contains(t, got.Error(), "connection refused")
+		assert.Contains(t, got.Error(), "http://example.com/login")
 	})
 
 	// net/http builds its error from the request it last made, so after a
-	// redirect the scheme, host and path are the redirect target's, while the
-	// query is carried over. Matching on the query alone still redacts it.
-	t.Run("redirected URL is still redacted", func(t *testing.T) {
+	// redirect the URL in the error is the redirect target's -- a different
+	// host, path and, crucially, a different query than the one we sent.
+	t.Run("redirect to a different query is redacted", func(t *testing.T) {
 		p := &Probe{redactURLQueryInLogs: true}
 		err := &neturl.Error{
 			Op:  "Get",
-			URL: "https://other.example.com/login?password=secret",
+			URL: "https://other.example.com/cb?code=supersecret",
 			Err: fmt.Errorf("dial tcp: connection refused"),
 		}
-		got := p.redactedErr(u.RawQuery, err)
-		assert.NotContains(t, got, "password=secret")
-		assert.Contains(t, got, "<redacted>")
+		got := p.redactedErr(err)
+		assert.NotContains(t, got.Error(), "code=supersecret")
+		assert.Contains(t, got.Error(), "<redacted>")
+	})
+
+	// The probe's own URL has no query at all, so there is nothing to match
+	// on; the redirect target's query must still be redacted.
+	t.Run("redirect adds a query where we had none", func(t *testing.T) {
+		p := &Probe{redactURLQueryInLogs: true}
+		err := &neturl.Error{
+			Op:  "Get",
+			URL: "https://other.example.com/cb?code=supersecret",
+			Err: fmt.Errorf("connection refused"),
+		}
+		got := p.redactedErr(err)
+		assert.NotContains(t, got.Error(), "supersecret")
+	})
+
+	// A redirect that carries our query over and appends to it must not leak
+	// the appended part.
+	t.Run("redirect extends our query", func(t *testing.T) {
+		p := &Probe{redactURLQueryInLogs: true}
+		err := &neturl.Error{
+			Op:  "Get",
+			URL: "https://other.example.com/cb?user=admin&token=secret",
+			Err: fmt.Errorf("connection refused"),
+		}
+		got := p.redactedErr(err)
+		assert.NotContains(t, got.Error(), "token=secret")
+		assert.NotContains(t, got.Error(), "user=admin")
+	})
+
+	// A space is legal in a query and survives url.URL.String() verbatim.
+	// Redacting the URL field rather than scanning the message means the
+	// whole query goes, not just the part before the space.
+	t.Run("query containing a space is fully redacted", func(t *testing.T) {
+		p := &Probe{redactURLQueryInLogs: true}
+		err := &neturl.Error{
+			Op:  "Get",
+			URL: "http://h/a?msg=hello world&tok=secret",
+			Err: fmt.Errorf("connection refused"),
+		}
+		got := p.redactedErr(err)
+		assert.NotContains(t, got.Error(), "tok=secret")
+		assert.NotContains(t, got.Error(), "hello world")
+		assert.Contains(t, got.Error(), "<redacted>")
+	})
+
+	// errors.Is/As must not depend on whether redaction is enabled, so the
+	// *url.Error is rebuilt rather than flattened into a bare error.
+	t.Run("error type and unwrap chain are preserved", func(t *testing.T) {
+		p := &Probe{redactURLQueryInLogs: true}
+		inner := context.DeadlineExceeded
+		err := &neturl.Error{Op: "Get", URL: "http://h/a?tok=secret", Err: inner}
+		got := p.redactedErr(err)
+
+		var ue *neturl.Error
+		assert.True(t, errors.As(got, &ue), "redacted error should still be a *url.Error")
+		assert.True(t, errors.Is(got, context.DeadlineExceeded), "unwrap chain should survive")
+		assert.Equal(t, "http://h/a?<redacted>", ue.URL)
+		assert.True(t, ue.Timeout(), "Timeout() should still report true")
 	})
 
 	// url.Error renders the URL with %q, so a quote in the query arrives
-	// escaped and doesn't match the query's plain form.
-	t.Run("quote in query is still redacted", func(t *testing.T) {
+	// escaped; the match must not stop at it and leave the tail exposed.
+	t.Run("quote in query is fully redacted", func(t *testing.T) {
 		p := &Probe{redactURLQueryInLogs: true}
 		qu := mustParseURL(t, `http://example.com/a?sig=x"y`)
 		err := &neturl.Error{Op: "Get", URL: qu.String(), Err: fmt.Errorf("connection refused")}
-		got := p.redactedErr(qu.RawQuery, err)
-		assert.NotContains(t, got, "sig=x")
-		assert.Contains(t, got, "<redacted>")
-	})
-}
-
-func TestRedactErr(t *testing.T) {
-	rawURL := "http://example.com/login?password=secret"
-	u := mustParseURL(t, rawURL)
-	urlErr := &neturl.Error{Op: "Get", URL: rawURL, Err: fmt.Errorf("connection refused")}
-
-	t.Run("nil error stays nil", func(t *testing.T) {
-		p := &Probe{redactURLQueryInLogs: true}
-		assert.NoError(t, p.redactErr(u.RawQuery, nil))
-	})
-
-	// With redaction off we must hand back the original error, unwrapped, so
-	// that the default configuration is bit-for-bit unchanged.
-	t.Run("redaction off returns the original error", func(t *testing.T) {
-		p := &Probe{redactURLQueryInLogs: false}
-		assert.Same(t, urlErr, p.redactErr(u.RawQuery, urlErr))
-	})
-
-	t.Run("redaction on hides secret", func(t *testing.T) {
-		p := &Probe{redactURLQueryInLogs: true}
-		got := p.redactErr(u.RawQuery, urlErr)
-		assert.NotContains(t, got.Error(), "password=secret")
+		got := p.redactedErr(err)
+		assert.NotContains(t, got.Error(), "sig=x")
+		assert.NotContains(t, got.Error(), `y"`)
 		assert.Contains(t, got.Error(), "<redacted>")
 	})
 }

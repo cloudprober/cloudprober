@@ -22,7 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
+	"regexp"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
@@ -102,63 +102,82 @@ func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
-// rawQuery returns everything after the first '?' in s, i.e. the query string
-// of a URL or of a relative URL. It returns "" if there is no '?'.
-func rawQuery(s string) string {
-	_, q, _ := strings.Cut(s, "?")
-	return q
-}
-
-// redactQuery replaces every occurrence of "?"+q in s with "?<redacted>", so
-// that secrets carried in query parameters (e.g. passwords) don't end up in
-// logs. It's a no-op if redaction is disabled or there is no query.
-//
-// We match on the query alone rather than on the full URL because the URL a
-// message carries is often not the one we started with: net/http builds its
-// errors from the last request it made, so after a redirect the host and path
-// have changed while the query is carried over.
-func (p *Probe) redactQuery(q, s string) string {
-	if !p.redactURLQueryInLogs || q == "" {
+// redactURL replaces the query of a raw URL string with "<redacted>". Because
+// we hold the URL itself rather than a message that contains one, we can cut
+// at the first '?' and take everything after it. That matters: a query may
+// legally contain characters -- a space among them -- that would otherwise
+// look like the end of the URL and leave the tail of the query exposed.
+func (p *Probe) redactURL(s string) string {
+	if !p.redactURLQueryInLogs {
 		return s
 	}
-	s = strings.ReplaceAll(s, "?"+q, "?"+redactedQuery)
-
-	// *url.Error renders the URL with %q, so a query containing a quote or a
-	// backslash reaches us escaped and won't match the plain form above.
-	if quoted := strconv.Quote(q); quoted[1:len(quoted)-1] != q {
-		s = strings.ReplaceAll(s, "?"+quoted[1:len(quoted)-1], "?"+redactedQuery)
+	base, query, found := strings.Cut(s, "?")
+	if !found || query == "" {
+		return s
 	}
-
-	return s
+	return base + "?" + redactedQuery
 }
 
-// redactedURL returns the URL string for logging, with its query redacted if
-// redaction is enabled. The rest of the URL is left intact.
+// quotedRE matches a %q-rendered token: a double-quoted string that may
+// contain backslash escapes. Matching the quoted token, rather than the URL
+// inside it, is what bounds the rewrite -- the closing quote ends the query no
+// matter what the query holds, and text outside the quotes is left alone:
+//
+//	in:  Get "http://h/a?msg=hello world" failed: is it up?
+//	out: Get "http://h/a?<redacted>" failed: is it up?
+//	                                                 ^ prose '?', not a query
+var quotedRE = regexp.MustCompile(`"(?:\\.|[^"\\])*"`)
+
+// redactErrMsg redacts the query of any quoted URL in an error message. It is
+// the fallback for errors that don't carry the URL as a field: we rewrite only
+// inside %q-quoted tokens, which is where an error puts a URL, so a '?' in the
+// surrounding prose is left alone and the message stays readable.
+func (p *Probe) redactErrMsg(s string) string {
+	return quotedRE.ReplaceAllStringFunc(s, func(tok string) string {
+		i := strings.Index(tok, "?")
+		// No query, or a bare '?' right before the closing quote.
+		if i < 0 || i == len(tok)-2 {
+			return tok
+		}
+		return tok[:i] + "?" + redactedQuery + `"`
+	})
+}
+
+// redactedURL returns the URL string for logging, with its query replaced by
+// "<redacted>" if redaction is enabled. Here we have the parsed URL, so we can
+// redact exactly rather than by shape, leaving the fragment and everything
+// else untouched.
 func (p *Probe) redactedURL(u *url.URL) string {
-	return p.redactQuery(u.RawQuery, u.String())
-}
-
-// redactedErr returns err's message with the query redacted. This is needed
-// because net/http errors (a *url.Error) embed the full URL, including the
-// query string, in their text, so redacting only the logged "url" attribute
-// would still leak the query via the error message. q is the query to redact;
-// callers that have a parsed URL pass u.RawQuery, the rest pass
-// rawQuery(<relative url>).
-func (p *Probe) redactedErr(q string, err error) string {
-	if err == nil {
-		return ""
+	if !p.redactURLQueryInLogs || u.RawQuery == "" {
+		return u.String()
 	}
-	return p.redactQuery(q, err.Error())
+	redacted := *u
+	redacted.RawQuery = redactedQuery
+	return redacted.String()
 }
 
-// redactErr is redactedErr, but it returns an error. It returns err itself
-// when redaction is disabled, so that the default configuration keeps
-// propagating the original, typed error.
-func (p *Probe) redactErr(q string, err error) error {
+// redactedErr returns err with the query redacted in its message. This is
+// needed because net/http errors embed the full URL, including the query, in
+// their text, so redacting only the logged "url" attribute would still leak
+// the query via the error message.
+//
+// A *url.Error holds the URL as a field, so we rebuild it with that field
+// redacted: the error keeps its type and its Unwrap chain, and errors.Is/As
+// behave the same whether or not redaction is on. Anything else falls back to
+// rewriting the message.
+//
+// It returns err unchanged when redaction is disabled, so that the default
+// configuration keeps propagating the original error untouched.
+func (p *Probe) redactedErr(err error) error {
 	if err == nil || !p.redactURLQueryInLogs {
 		return err
 	}
-	return errors.New(p.redactedErr(q, err))
+	if ue, ok := err.(*url.Error); ok {
+		redacted := *ue
+		redacted.URL = p.redactURL(ue.URL)
+		return &redacted
+	}
+	return errors.New(p.redactErrMsg(err.Error()))
 }
 
 func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
@@ -319,9 +338,9 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) (*http.Request, e
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s://%s%s", p.schemeForTarget(target), hostWithPort(urlHost, port), pathForTarget(target, p.url))
+	urlStr := fmt.Sprintf("%s://%s%s", p.schemeForTarget(target), hostWithPort(urlHost, port), pathForTarget(target, p.url))
 
-	req, err := httpreq.NewRequest(p.method, url, p.requestBody)
+	req, err := httpreq.NewRequest(p.method, urlStr, p.requestBody)
 	if err != nil {
 		return nil, err
 	}
