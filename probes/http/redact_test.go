@@ -48,6 +48,11 @@ func TestRedactURL(t *testing.T) {
 		// so anything that stops at whitespace leaks the rest of the query.
 		{"space inside the query", "/a?msg=hello world&tok=secret", "/a?<redacted>"},
 		{"absolute URL", "http://h/a?tok=secret", "http://h/a?<redacted>"},
+		// A fragment isn't part of the query, and redactedURL (which works
+		// from a parsed URL) keeps it, so this must keep it too.
+		{"fragment is kept", "http://h/a?tok=s#frag", "http://h/a?<redacted>#frag"},
+		// Here the '?' is inside the fragment, so there is no query at all.
+		{"'?' only inside the fragment", "http://h/a#x?y", "http://h/a#x?y"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -99,6 +104,11 @@ func TestRedactErrMsg(t *testing.T) {
 			name: "quoted relative URL is redacted",
 			in:   `parse "/a?tok=secret": bad`,
 			want: `parse "/a?<redacted>": bad`,
+		},
+		{
+			name: "fragment inside a quoted URL is kept",
+			in:   `Get "http://h/a?tok=s#frag": refused`,
+			want: `Get "http://h/a?<redacted>#frag": refused`,
 		},
 		{"bare trailing ?", `Get "http://h/a?": refused`, `Get "http://h/a?": refused`},
 	}

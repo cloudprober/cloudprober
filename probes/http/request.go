@@ -102,20 +102,34 @@ func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
-// redactURL replaces the query of a raw URL string with "<redacted>". Because
-// we hold the URL itself rather than a message that contains one, we can cut
-// at the first '?' and take everything after it. That matters: a query may
-// legally contain characters -- a space among them -- that would otherwise
-// look like the end of the URL and leave the tail of the query exposed.
+// redactRawURL replaces the query of a raw URL string with "<redacted>".
+//
+// The fragment is split off first, for two reasons: a '?' that appears only
+// inside a fragment is not a query and must be left alone, and the fragment
+// itself is not part of the query, so it survives -- which is what
+// redactedURL does with a parsed URL. Everything between '?' and the fragment
+// goes, whatever it holds: a query may legally contain a space, so anything
+// that stopped at whitespace would leave the tail of it exposed.
+func redactRawURL(s string) string {
+	rest, frag, hasFrag := strings.Cut(s, "#")
+	base, query, found := strings.Cut(rest, "?")
+	if !found || query == "" {
+		return s
+	}
+	redacted := base + "?" + redactedQuery
+	if hasFrag {
+		redacted += "#" + frag
+	}
+	return redacted
+}
+
+// redactURL is redactRawURL, gated on the option. It is used where we hold the
+// URL itself rather than a message that contains one.
 func (p *Probe) redactURL(s string) string {
 	if !p.redactURLQueryInLogs {
 		return s
 	}
-	base, query, found := strings.Cut(s, "?")
-	if !found || query == "" {
-		return s
-	}
-	return base + "?" + redactedQuery
+	return redactRawURL(s)
 }
 
 // quotedRE matches a %q-rendered token: a double-quoted string that may
@@ -141,12 +155,11 @@ func (p *Probe) redactErrMsg(s string) string {
 		if !strings.Contains(inner, "://") && !strings.HasPrefix(inner, "/") {
 			return tok
 		}
-		i := strings.Index(inner, "?")
-		// No query, or a bare trailing '?'.
-		if i < 0 || i == len(inner)-1 {
+		redacted := redactRawURL(inner)
+		if redacted == inner {
 			return tok
 		}
-		return `"` + inner[:i] + "?" + redactedQuery + `"`
+		return `"` + redacted + `"`
 	})
 }
 
