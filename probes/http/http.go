@@ -351,6 +351,10 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		// Close here too. Returning without it holds the connection open
+		// instead of releasing it to the idle pool, so a server that keeps
+		// truncating responses would leak one connection per probe.
+		resp.Body.Close()
 		err = p.redactedErr(err)
 		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
 		return err
