@@ -48,8 +48,7 @@ func TestRedactURL(t *testing.T) {
 		// so anything that stops at whitespace leaks the rest of the query.
 		{"space inside the query", "/a?msg=hello world&tok=secret", "/a?<redacted>"},
 		{"absolute URL", "http://h/a?tok=secret", "http://h/a?<redacted>"},
-		// A fragment isn't part of the query, and redactedURL (which works
-		// from a parsed URL) keeps it, so this must keep it too.
+		// A fragment isn't part of the query, so it survives.
 		{"fragment is kept", "http://h/a?tok=s#frag", "http://h/a?<redacted>#frag"},
 		// Here the '?' is inside the fragment, so there is no query at all.
 		{"'?' only inside the fragment", "http://h/a#x?y", "http://h/a#x?y"},
@@ -68,7 +67,6 @@ func TestRedactURL(t *testing.T) {
 }
 
 func TestRedactErrMsg(t *testing.T) {
-	p := &Probe{redactURLQueryInLogs: true}
 	tests := []struct{ name, in, want string }{
 		{
 			name: "quoted URL",
@@ -114,12 +112,13 @@ func TestRedactErrMsg(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, p.redactErrMsg(test.in))
+			assert.Equal(t, test.want, redactErrMsg(test.in))
 		})
 	}
 }
 
-func TestRedactedURL(t *testing.T) {
+// Same redaction, reached through a parsed URL as the probe does.
+func TestRedactURLFromParsedURL(t *testing.T) {
 	tests := []struct {
 		name   string
 		redact bool
@@ -167,7 +166,7 @@ func TestRedactedURL(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			p := &Probe{redactURLQueryInLogs: test.redact}
-			got := p.redactedURL(mustParseURL(t, test.url))
+			got := p.redactURL(mustParseURL(t, test.url).String())
 			assert.Equal(t, test.want, got)
 		})
 	}

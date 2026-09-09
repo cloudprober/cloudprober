@@ -311,7 +311,7 @@ func (p *Probe) requestTrace(result *probeResult) *httptrace.ClientTrace {
 
 // doHTTPRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target endpoint.Endpoint, result *probeResult, resultMu *sync.Mutex) error {
-	l := p.l.WithAttributes(slog.String("target", target.Name), slog.String("url", p.redactedURL(req.URL)))
+	l := p.l.WithAttributes(slog.String("target", target.Name), slog.String("url", p.redactURL(req.URL.String())))
 
 	start := time.Now()
 
@@ -345,7 +345,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	if p.opts.NegativeTest {
 		resp.Body.Close()
-		l.Error("Negative test, but HTTP request succeeded for: ", p.redactedURL(req.URL))
+		l.Error("Negative test, but HTTP request succeeded for: ", p.redactURL(req.URL.String()))
 		return errors.New("negative test: request succeeded unexpectedly")
 	}
 
