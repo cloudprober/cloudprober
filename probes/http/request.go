@@ -102,82 +102,78 @@ func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
-// redactURL replaces the query of a raw URL string with "<redacted>". Because
-// we hold the URL itself rather than a message that contains one, we can cut
-// at the first '?' and take everything after it. That matters: a query may
-// legally contain characters -- a space among them -- that would otherwise
-// look like the end of the URL and leave the tail of the query exposed.
+// redactRawURL replaces a URL's query with "<redacted>". The fragment is split
+// off first: a '?' inside a fragment is not a query, and the fragment itself
+// survives. Everything between '?' and the fragment goes, whatever it holds --
+// a query may legally contain a space, so stopping at whitespace would leave
+// the tail of it exposed.
+func redactRawURL(s string) string {
+	rest, frag, hasFrag := strings.Cut(s, "#")
+	base, query, found := strings.Cut(rest, "?")
+	if !found || query == "" {
+		return s
+	}
+	redacted := base + "?" + redactedQuery
+	if hasFrag {
+		redacted += "#" + frag
+	}
+	return redacted
+}
+
 func (p *Probe) redactURL(s string) string {
 	if !p.redactURLQueryInLogs {
 		return s
 	}
-	base, query, found := strings.Cut(s, "?")
-	if !found || query == "" {
-		return s
-	}
-	return base + "?" + redactedQuery
+	return redactRawURL(s)
 }
 
 // quotedRE matches a %q-rendered token: a double-quoted string that may
-// contain backslash escapes. Matching the quoted token, rather than the URL
-// inside it, is what bounds the rewrite -- the closing quote ends the query no
-// matter what the query holds, and text outside the quotes is left alone:
-//
-//	in:  Get "http://h/a?msg=hello world" failed: is it up?
-//	out: Get "http://h/a?<redacted>" failed: is it up?
-//	                                                 ^ prose '?', not a query
+// contain backslash escapes.
 var quotedRE = regexp.MustCompile(`"(?:\\.|[^"\\])*"`)
 
-// redactErrMsg redacts the query of any quoted URL in an error message. It is
-// the fallback for errors that don't carry the URL as a field: we rewrite only
-// inside %q-quoted tokens, which is where an error puts a URL, so a '?' in the
-// surrounding prose is left alone and the message stays readable.
-func (p *Probe) redactErrMsg(s string) string {
+// redactErrMsg redacts the query of any quoted URL in an error message.
+// Rewriting only inside %q-quoted tokens that look like URLs keeps a '?' in
+// the prose, or in a quoted non-URL such as an x509 name constraint, from
+// being mistaken for a query.
+func redactErrMsg(s string) string {
 	return quotedRE.ReplaceAllStringFunc(s, func(tok string) string {
-		i := strings.Index(tok, "?")
-		// No query, or a bare '?' right before the closing quote.
-		if i < 0 || i == len(tok)-2 {
+		inner := tok[1 : len(tok)-1]
+		if !strings.Contains(inner, "://") && !strings.HasPrefix(inner, "/") {
 			return tok
 		}
-		return tok[:i] + "?" + redactedQuery + `"`
+		if redacted := redactRawURL(inner); redacted != inner {
+			return `"` + redacted + `"`
+		}
+		return tok
 	})
 }
 
-// redactedURL returns the URL string for logging, with its query replaced by
-// "<redacted>" if redaction is enabled. Here we have the parsed URL, so we can
-// redact exactly rather than by shape, leaving the fragment and everything
-// else untouched.
-func (p *Probe) redactedURL(u *url.URL) string {
-	if !p.redactURLQueryInLogs || u.RawQuery == "" {
-		return u.String()
-	}
-	redacted := *u
-	redacted.RawQuery = redactedQuery
-	return redacted.String()
-}
-
-// redactedErr returns err with the query redacted in its message. This is
-// needed because net/http errors embed the full URL, including the query, in
-// their text, so redacting only the logged "url" attribute would still leak
-// the query via the error message.
+// redactedErr returns err with the query redacted: net/http errors embed the
+// URL in their text, so redacting only the logged "url" attribute would still
+// leak it.
 //
-// A *url.Error holds the URL as a field, so we rebuild it with that field
-// redacted: the error keeps its type and its Unwrap chain, and errors.Is/As
-// behave the same whether or not redaction is on. Anything else falls back to
-// rewriting the message.
-//
-// It returns err unchanged when redaction is disabled, so that the default
-// configuration keeps propagating the original error untouched.
+// net/http puts a URL in two places. A *url.Error holds one as a field, and
+// its inner error holds another when a redirect's Location fails to parse.
+// Rebuilding keeps the type and Unwrap chain, and the inner error is swapped
+// only if redaction changed it, so errors.Is/As survive the common case.
+// Wrapping with %w to preserve them everywhere is not an option: it re-embeds
+// the unredacted text.
 func (p *Probe) redactedErr(err error) error {
 	if err == nil || !p.redactURLQueryInLogs {
 		return err
 	}
-	if ue, ok := err.(*url.Error); ok {
-		redacted := *ue
-		redacted.URL = p.redactURL(ue.URL)
-		return &redacted
+	ue, ok := err.(*url.Error)
+	if !ok {
+		return errors.New(redactErrMsg(err.Error()))
 	}
-	return errors.New(p.redactErrMsg(err.Error()))
+	redacted := *ue
+	redacted.URL = p.redactURL(ue.URL)
+	if ue.Err != nil {
+		if msg := redactErrMsg(ue.Err.Error()); msg != ue.Err.Error() {
+			redacted.Err = errors.New(msg)
+		}
+	}
+	return &redacted
 }
 
 func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
