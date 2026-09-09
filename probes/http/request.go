@@ -127,21 +127,45 @@ func (p *Probe) redactURL(s string) string {
 	return redactRawURL(s)
 }
 
+// stripURLPassword replaces the password in a raw URL's userinfo with "***",
+// the way net/http does before putting a URL into an error. net/url does not:
+// url.Parse embeds the string it was handed, password and all. We work on the
+// raw string because the URL that reaches us is often one Parse rejected.
+func stripURLPassword(s string) string {
+	i := strings.Index(s, "://")
+	if i < 0 {
+		return s
+	}
+	authority := s[i+3:]
+	if end := strings.IndexAny(authority, "/?#"); end >= 0 {
+		authority = authority[:end]
+	}
+	at := strings.LastIndex(authority, "@")
+	if at < 0 {
+		return s
+	}
+	colon := strings.Index(authority[:at], ":")
+	if colon < 0 {
+		return s
+	}
+	return s[:i+3+colon+1] + "***" + s[i+3+at:]
+}
+
 // quotedRE matches a %q-rendered token: a double-quoted string that may
 // contain backslash escapes.
 var quotedRE = regexp.MustCompile(`"(?:\\.|[^"\\])*"`)
 
-// redactErrMsg redacts the query of any quoted URL in an error message.
-// Rewriting only inside %q-quoted tokens that look like URLs keeps a '?' in
-// the prose, or in a quoted non-URL such as an x509 name constraint, from
-// being mistaken for a query.
+// redactErrMsg makes the URLs in an error message safe to log: it hides the
+// password and the query of every quoted URL. Rewriting only inside %q-quoted
+// tokens that look like URLs keeps a '?' in the prose, or in a quoted non-URL
+// such as an x509 name constraint, from being mistaken for a query.
 func redactErrMsg(s string) string {
 	return quotedRE.ReplaceAllStringFunc(s, func(tok string) string {
 		inner := tok[1 : len(tok)-1]
 		if !strings.Contains(inner, "://") && !strings.HasPrefix(inner, "/") {
 			return tok
 		}
-		if redacted := redactRawURL(inner); redacted != inner {
+		if redacted := redactRawURL(stripURLPassword(inner)); redacted != inner {
 			return `"` + redacted + `"`
 		}
 		return tok

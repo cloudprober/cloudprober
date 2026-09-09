@@ -66,6 +66,23 @@ func TestRedactURL(t *testing.T) {
 	})
 }
 
+func TestStripURLPassword(t *testing.T) {
+	tests := []struct{ name, in, want string }{
+		{"password hidden", "http://user:pw@h/a", "http://user:***@h/a"},
+		{"username alone is kept", "http://user@h/a", "http://user@h/a"},
+		{"no userinfo", "http://h/a", "http://h/a"},
+		{"port is not userinfo", "http://h:8080/a", "http://h:8080/a"},
+		{"'@' in the path is not userinfo", "http://h/a@b", "http://h/a@b"},
+		{"unparseable URL still handled", "http://user:pw@h:notaport/", "http://user:***@h:notaport/"},
+		{"no scheme", "/a?x=1", "/a?x=1"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, stripURLPassword(test.in))
+		})
+	}
+}
+
 func TestRedactErrMsg(t *testing.T) {
 	tests := []struct{ name, in, want string }{
 		{
@@ -102,6 +119,11 @@ func TestRedactErrMsg(t *testing.T) {
 			name: "quoted relative URL is redacted",
 			in:   `parse "/a?tok=secret": bad`,
 			want: `parse "/a?<redacted>": bad`,
+		},
+		{
+			name: "password is hidden, reason kept",
+			in:   `parse "http://user:pw@h:notaport/": invalid port`,
+			want: `parse "http://user:***@h:notaport/": invalid port`,
 		},
 		{
 			name: "fragment inside a quoted URL is kept",
