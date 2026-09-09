@@ -115,7 +115,7 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 	if p.c.GetProxyUrl() != "" {
 		url, err := url.Parse(p.c.GetProxyUrl())
 		if err != nil {
-			return nil, fmt.Errorf("error parsing proxy URL (%s): %v", p.c.GetProxyUrl(), err)
+			return nil, errors.New(redactErrMsg(err.Error()))
 		}
 		transport.Proxy = http.ProxyURL(url)
 
