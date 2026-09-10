@@ -91,24 +91,21 @@ var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_HTTP: true,
 }
 
-var validatorProbeTypes = map[string][]configpb.ProbeDef_Type{
-	"http_validator": {configpb.ProbeDef_HTTP},
-	"dns_validator":  {configpb.ProbeDef_DNS},
-}
-
 var validatorsUnsupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_UDP:          true,
 	configpb.ProbeDef_UDP_LISTENER: true,
 }
 
-func validatorTypeName(v *validatorpb.Validator) string {
+// validatorProbeTypes returns the name of a probe-type-specific validator and
+// the probe types it supports. It returns nil types for generic validators.
+func validatorProbeTypes(v *validatorpb.Validator) (name string, types []configpb.ProbeDef_Type) {
 	switch v.GetType().(type) {
 	case *validatorpb.Validator_HttpValidator:
-		return "http_validator"
+		return "http_validator", []configpb.ProbeDef_Type{configpb.ProbeDef_HTTP}
 	case *validatorpb.Validator_DnsValidator:
-		return "dns_validator"
+		return "dns_validator", []configpb.ProbeDef_Type{configpb.ProbeDef_DNS}
 	}
-	return ""
+	return "", nil
 }
 
 func validateValidatorProbeTypes(p *configpb.ProbeDef) error {
@@ -121,9 +118,8 @@ func validateValidatorProbeTypes(p *configpb.ProbeDef) error {
 	}
 
 	for _, validator := range p.GetValidator() {
-		validatorType := validatorTypeName(validator)
-		probeTypes, ok := validatorProbeTypes[validatorType]
-		if ok && !slices.Contains(probeTypes, p.GetType()) {
+		validatorType, probeTypes := validatorProbeTypes(validator)
+		if probeTypes != nil && !slices.Contains(probeTypes, p.GetType()) {
 			return fmt.Errorf("validator %q: %s is not supported by %s probes", validator.GetName(), validatorType, p.GetType().String())
 		}
 	}
