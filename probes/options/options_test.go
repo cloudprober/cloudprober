@@ -24,6 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	alerting_configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
+	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
@@ -673,6 +674,111 @@ func TestValidateProbeConfig(t *testing.T) {
 				NegativeTest: proto.Bool(true),
 			},
 			wantErr: "negative_test is not supported",
+		},
+		{
+			name: "http_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "http",
+					Type: &validatorpb.Validator_HttpValidator{},
+				}},
+			},
+		},
+		{
+			name: "dns_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_DNS.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "dns",
+					Type: &validatorpb.Validator_DnsValidator{},
+				}},
+			},
+		},
+		{
+			name: "http_generic_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "regex",
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+		},
+		{
+			name: "dns_generic_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_DNS.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "regex",
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+		},
+		{
+			name: "http_validator_unsupported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_DNS.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "http",
+					Type: &validatorpb.Validator_HttpValidator{},
+				}},
+			},
+			wantErr: "validator \"http\": http_validator is not supported by DNS probes",
+		},
+		{
+			name: "dns_validator_unsupported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "dns",
+					Type: &validatorpb.Validator_DnsValidator{},
+				}},
+			},
+			wantErr: "validator \"dns\": dns_validator is not supported by HTTP probes",
+		},
+		{
+			name: "second_validator_unsupported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{
+					{
+						Name: "regex",
+						Type: &validatorpb.Validator_Regex{Regex: "ok"},
+					},
+					{
+						Name: "dns",
+						Type: &validatorpb.Validator_DnsValidator{},
+					},
+				},
+			},
+			wantErr: "validator \"dns\": dns_validator is not supported by HTTP probes",
+		},
+		{
+			name: "udp_without_validators_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_UDP.Enum(),
+			},
+		},
+		{
+			name: "validators_unsupported_udp",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_UDP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+			wantErr: "validators are not supported by UDP probes",
+		},
+		{
+			name: "validators_unsupported_udp_listener",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_UDP_LISTENER.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+			wantErr: "validators are not supported by UDP_LISTENER probes",
 		},
 	}
 

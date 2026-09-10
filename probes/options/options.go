@@ -28,6 +28,7 @@ import (
 	proberconfigpb "github.com/cloudprober/cloudprober/config/proto"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	"github.com/cloudprober/cloudprober/internal/validators"
+	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
@@ -88,6 +89,42 @@ var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_TCP:  true,
 	configpb.ProbeDef_PING: true,
 	configpb.ProbeDef_HTTP: true,
+}
+
+var validatorsUnsupported = map[configpb.ProbeDef_Type]bool{
+	configpb.ProbeDef_UDP:          true,
+	configpb.ProbeDef_UDP_LISTENER: true,
+}
+
+// validatorProbeTypes returns the name of a probe-type-specific validator and
+// the probe types it supports. It returns nil types for generic validators.
+func validatorProbeTypes(v *validatorpb.Validator) (name string, types []configpb.ProbeDef_Type) {
+	switch v.GetType().(type) {
+	case *validatorpb.Validator_HttpValidator:
+		return "http_validator", []configpb.ProbeDef_Type{configpb.ProbeDef_HTTP}
+	case *validatorpb.Validator_DnsValidator:
+		return "dns_validator", []configpb.ProbeDef_Type{configpb.ProbeDef_DNS}
+	}
+	return "", nil
+}
+
+func validateValidatorProbeTypes(p *configpb.ProbeDef) error {
+	if len(p.GetValidator()) == 0 {
+		return nil
+	}
+
+	if validatorsUnsupported[p.GetType()] {
+		return fmt.Errorf("validators are not supported by %s probes", p.GetType().String())
+	}
+
+	for _, validator := range p.GetValidator() {
+		validatorType, probeTypes := validatorProbeTypes(validator)
+		if probeTypes != nil && !slices.Contains(probeTypes, p.GetType()) {
+			return fmt.Errorf("validator %q: %s is not supported by %s probes", validator.GetName(), validatorType, p.GetType().String())
+		}
+	}
+
+	return nil
 }
 
 func defaultStatsExportInterval(p *configpb.ProbeDef, opts *Options) time.Duration {
@@ -198,6 +235,10 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 
 	if p.GetNegativeTest() && !negativeTestSupported[p.GetType()] {
 		return nil, fmt.Errorf("negative_test is not supported by %s probes", p.GetType().String())
+	}
+
+	if err := validateValidatorProbeTypes(p); err != nil {
+		return nil, err
 	}
 
 	opts := &Options{
