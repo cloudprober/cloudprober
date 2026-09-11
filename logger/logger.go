@@ -119,10 +119,11 @@ func asyncStderr() *asyncWriter {
 	return stderrWriter
 }
 
-// Flush waits up to timeout for queued log entries to be written to stderr.
-// Call it before exiting the program to avoid losing the last few entries.
-func Flush(timeout time.Duration) {
-	asyncStderr().Flush(timeout)
+// WaitForStderr waits up to timeout for queued log entries to be written to
+// stderr. Call it before exiting the program to avoid losing the last few
+// entries.
+func WaitForStderr(timeout time.Duration) {
+	asyncStderr().Wait(timeout)
 }
 
 var defaultLogStore atomic.Pointer[logstore.LogStore]
@@ -494,7 +495,7 @@ func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog
 
 	if level == criticalLevel {
 		// Bounded, so that a blocked stderr can't prevent the exit.
-		Flush(2 * time.Second)
+		WaitForStderr(2 * time.Second)
 		if l != nil && l.gcpLogc != nil {
 			l.gcpLogc.Close()
 		}

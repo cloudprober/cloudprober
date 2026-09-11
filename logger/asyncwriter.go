@@ -24,8 +24,8 @@ import (
 	"time"
 )
 
-// maxQueuedLogBytes is the most log data we hold in memory while waiting for
-// stderr to accept it.
+// maxQueuedLogBytes (4 MiB) is the most log data we hold in memory while
+// waiting for stderr to accept it.
 const maxQueuedLogBytes = 4 << 20
 
 // asyncWriter is an io.Writer that never blocks the caller. Writes are queued
@@ -81,6 +81,9 @@ func (aw *asyncWriter) Write(p []byte) (int, error) {
 	aw.queued += len(p)
 	aw.mu.Unlock()
 
+	// Wake up the drain goroutine without blocking. If a wake-up is already
+	// pending, the send is skipped: the drain goroutine takes the whole queue,
+	// including this entry, when it handles that wake-up.
 	select {
 	case aw.ready <- struct{}{}:
 	default:
@@ -96,6 +99,8 @@ func (aw *asyncWriter) drain() {
 		aw.mu.Unlock()
 
 		for _, b := range batch {
+			// Nowhere to report a failed write to stderr; the synchronous
+			// path ignored these errors too.
 			aw.w.Write(b)
 			aw.mu.Lock()
 			aw.queued -= len(b)
@@ -112,21 +117,22 @@ func dropNotice(n int64) []byte {
 	return buf.Bytes()
 }
 
-// Flush waits until all queued entries have been written, or until timeout
-// expires. It reports whether the queue was fully written.
-func (aw *asyncWriter) Flush(timeout time.Duration) bool {
-	deadline := time.Now().Add(timeout)
-	for {
-		aw.mu.Lock()
-		queued := aw.queued
-		aw.mu.Unlock()
+func (aw *asyncWriter) pendingBytes() int {
+	aw.mu.Lock()
+	defer aw.mu.Unlock()
+	return aw.queued
+}
 
-		if queued == 0 {
-			return true
-		}
-		if time.Now().After(deadline) {
+// Wait waits until the drain goroutine has written all queued entries, or
+// until timeout expires. It doesn't write anything itself. It reports whether
+// all entries were written.
+func (aw *asyncWriter) Wait(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for aw.pendingBytes() > 0 {
+		if !time.Now().Before(deadline) {
 			return false
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	return true
 }

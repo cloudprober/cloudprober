@@ -73,14 +73,16 @@ func TestAsyncWriterBlockedWriter(t *testing.T) {
 	}
 
 	assert.Equal(t, int64(5), aw.dropped.Load())
-	assert.False(t, aw.Flush(50*time.Millisecond), "Flush with a blocked writer")
+	assert.False(t, aw.Wait(0), "Wait(0) with a blocked writer")
+	assert.False(t, aw.Wait(50*time.Millisecond), "Wait with a blocked writer")
 
 	close(bw.unblock)
-	assert.True(t, aw.Flush(5*time.Second), "Flush after unblocking")
+	assert.True(t, aw.Wait(5*time.Second), "Wait after unblocking")
+	assert.True(t, aw.Wait(0), "Wait(0) with nothing queued")
 
 	// The next accepted entry is preceded by a notice about the drops.
 	aw.Write([]byte(entry(15)))
-	assert.True(t, aw.Flush(5*time.Second))
+	assert.True(t, aw.Wait(5*time.Second))
 
 	lines := strings.Split(strings.TrimSuffix(bw.String(), "\n"), "\n")
 	if !assert.Len(t, lines, 12) {
@@ -103,7 +105,7 @@ func TestAsyncWriterCopiesInput(t *testing.T) {
 	copy(p, entry(1)) // Caller reuses its buffer, as slog does.
 
 	close(bw.unblock)
-	assert.True(t, aw.Flush(5*time.Second))
+	assert.True(t, aw.Wait(5*time.Second))
 	assert.Equal(t, entry(0), bw.String())
 }
 
@@ -124,7 +126,7 @@ func TestAsyncWriterConcurrentWrites(t *testing.T) {
 	}
 	wg.Wait()
 
-	assert.True(t, aw.Flush(5*time.Second))
+	assert.True(t, aw.Wait(5*time.Second))
 	assert.Equal(t, 1000, strings.Count(bw.String(), "\n"))
 	assert.Equal(t, int64(0), aw.dropped.Load())
 }

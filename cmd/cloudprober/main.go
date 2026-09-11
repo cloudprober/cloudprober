@@ -97,7 +97,7 @@ func setupProfiling() {
 				l.Critical(err.Error())
 			}
 		}
-		logger.Flush(time.Second)
+		logger.WaitForStderr(time.Second)
 		os.Exit(1)
 	}(f)
 }
@@ -108,7 +108,7 @@ func main() {
 
 	// Initialize logger after parsing flags.
 	l = logger.NewWithAttrs(slog.String("component", "global"))
-	defer logger.Flush(time.Second)
+	defer logger.WaitForStderr(time.Second)
 
 	if len(flag.Args()) > 0 {
 		l.Criticalf("Unexpected non-flag arguments: %v", flag.Args())
@@ -178,7 +178,7 @@ func main() {
 			l.Warningf("Received signal \"%v\", canceling the start context and waiting for %v before closing", sig, *stopTime)
 			cancelF()
 			time.Sleep(*stopTime)
-			logger.Flush(time.Second)
+			logger.WaitForStderr(time.Second)
 			os.Exit(0)
 		}()
 	}
