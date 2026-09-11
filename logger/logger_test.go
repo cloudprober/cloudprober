@@ -197,7 +197,7 @@ func testLog(t *testing.T, funcName string, msg string, logAttr slog.Attr, strAt
 	} else {
 		defaultWritter = &buf
 		defer func() {
-			defaultWritter = os.Stderr
+			defaultWritter = nil
 		}()
 	}
 
