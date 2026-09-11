@@ -130,3 +130,39 @@ func TestAsyncWriterConcurrentWrites(t *testing.T) {
 	assert.Equal(t, 1000, strings.Count(bw.String(), "\n"))
 	assert.Equal(t, int64(0), aw.dropped.Load())
 }
+
+// Observing the stderr writer must work without one: starting it just to
+// answer a question would start its drain goroutine in processes that never
+// log to stderr.
+func TestObserversWithoutWriter(t *testing.T) {
+	assert.Zero(t, droppedEntries(nil), "droppedEntries(nil)")
+	assert.True(t, waitForStderr(nil, 0), "waitForStderr(nil)")
+}
+
+func TestObserversWithWriter(t *testing.T) {
+	bw := &blockingWriter{unblock: make(chan struct{})}
+	aw := newAsyncWriter(bw, len(entry(0))) // Room for one entry.
+
+	aw.Write([]byte(entry(0))) // Queued, and then blocked in the writer.
+	aw.Write([]byte(entry(1))) // Dropped: no room left.
+
+	assert.Equal(t, int64(1), droppedEntries(aw))
+	assert.False(t, waitForStderr(aw, 0), "waitForStderr with a blocked writer")
+
+	close(bw.unblock)
+	assert.True(t, waitForStderr(aw, 5*time.Second), "waitForStderr after unblocking")
+	assert.Equal(t, entry(0), bw.String())
+}
+
+func TestStderrWriter(t *testing.T) {
+	w := Stderr()
+	if w == nil {
+		t.Fatal("Stderr() = nil, want the async stderr writer")
+	}
+	assert.True(t, w == Stderr(), "Stderr() returned a different writer")
+
+	// The exported observers read the writer Stderr() returns, which the
+	// call above has certainly started by now.
+	assert.Equal(t, asyncStderr().dropped.Load(), DroppedEntries())
+	WaitForStderr(time.Second)
+}

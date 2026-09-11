@@ -109,27 +109,45 @@ var defaultWritter io.Writer
 
 var (
 	stderrOnce   sync.Once
-	stderrWriter *asyncWriter
+	stderrWriter atomic.Pointer[asyncWriter]
 )
 
+// asyncStderr returns the writer used for stderr logs, creating it, and its
+// drain goroutine, on first use.
 func asyncStderr() *asyncWriter {
 	stderrOnce.Do(func() {
-		stderrWriter = newAsyncWriter(os.Stderr, maxQueuedLogBytes)
+		stderrWriter.Store(newAsyncWriter(os.Stderr, maxQueuedLogBytes))
 	})
-	return stderrWriter
+	return stderrWriter.Load()
 }
 
 // WaitForStderr waits up to timeout for queued log entries to be written to
 // stderr. Call it before exiting the program to avoid losing the last few
-// entries.
+// entries. It does nothing if nothing has logged to stderr yet.
 func WaitForStderr(timeout time.Duration) {
-	asyncStderr().Wait(timeout)
+	waitForStderr(stderrWriter.Load(), timeout)
+}
+
+func waitForStderr(aw *asyncWriter, timeout time.Duration) bool {
+	if aw == nil {
+		return true
+	}
+	return aw.Wait(timeout)
 }
 
 // DroppedEntries returns the number of log entries dropped so far because
-// writes to stderr were blocked and the queue was full.
+// writes to stderr were blocked and the queue was full. Unlike Stderr, it
+// only observes the stderr writer and never starts it, so it returns 0 if
+// nothing has logged to stderr yet.
 func DroppedEntries() int64 {
-	return asyncStderr().dropped.Load()
+	return droppedEntries(stderrWriter.Load())
+}
+
+func droppedEntries(aw *asyncWriter) int64 {
+	if aw == nil {
+		return 0
+	}
+	return aw.dropped.Load()
 }
 
 // Stderr returns the writer that loggers use for stderr. Writes to it are
