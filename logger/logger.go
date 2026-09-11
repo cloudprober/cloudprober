@@ -28,6 +28,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -102,7 +103,27 @@ var basePath string
 // We trim this path from the logged source function name.
 const basePackage = "github.com/cloudprober/cloudprober/"
 
-var defaultWritter = io.Writer(os.Stderr)
+// defaultWritter overrides the writer used by loggers created without
+// WithWriter. If nil, they write to stderr through an asyncWriter.
+var defaultWritter io.Writer
+
+var (
+	stderrOnce   sync.Once
+	stderrWriter *asyncWriter
+)
+
+func asyncStderr() *asyncWriter {
+	stderrOnce.Do(func() {
+		stderrWriter = newAsyncWriter(os.Stderr, maxQueuedLogBytes)
+	})
+	return stderrWriter
+}
+
+// Flush waits up to timeout for queued log entries to be written to stderr.
+// Call it before exiting the program to avoid losing the last few entries.
+func Flush(timeout time.Duration) {
+	asyncStderr().Flush(timeout)
+}
 
 var defaultLogStore atomic.Pointer[logstore.LogStore]
 
@@ -155,6 +176,9 @@ func parseMinLogLevel() slog.Level {
 func slogHandler(w io.Writer) slog.Handler {
 	if w == nil {
 		w = defaultWritter
+	}
+	if w == nil {
+		w = asyncStderr()
 	}
 	opts := &slog.HandlerOptions{
 		AddSource:   true,
@@ -469,6 +493,8 @@ func (l *Logger) logAttrs(level slog.Level, depth int, msg string, attrs ...slog
 	}
 
 	if level == criticalLevel {
+		// Bounded, so that a blocked stderr can't prevent the exit.
+		Flush(2 * time.Second)
 		if l != nil && l.gcpLogc != nil {
 			l.gcpLogc.Close()
 		}
