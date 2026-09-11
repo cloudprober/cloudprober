@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
+	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -113,7 +114,7 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 		for {
 			if scanner.Scan() {
 				if rawStderr {
-					fmt.Fprintln(os.Stderr, scanner.Text())
+					fmt.Fprintln(logger.Stderr(), scanner.Text())
 				} else {
 					p.l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", cmd.Path))
 				}

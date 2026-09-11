@@ -122,7 +122,7 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 
 		for scanner.Scan() {
 			if c.RawStderrOutput {
-				fmt.Fprintln(os.Stderr, scanner.Text())
+				fmt.Fprintln(logger.Stderr(), scanner.Text())
 			} else {
 				l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", c.CmdLine[0]))
 			}
