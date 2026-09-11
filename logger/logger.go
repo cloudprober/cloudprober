@@ -126,6 +126,19 @@ func WaitForStderr(timeout time.Duration) {
 	asyncStderr().Wait(timeout)
 }
 
+// DroppedEntries returns the number of log entries dropped so far because
+// writes to stderr were blocked and the queue was full.
+func DroppedEntries() int64 {
+	return asyncStderr().dropped.Load()
+}
+
+// Stderr returns the writer that loggers use for stderr. Writes to it are
+// queued and never block the caller, so use it instead of os.Stderr on hot
+// paths, e.g. while relaying a probe process's stderr.
+func Stderr() io.Writer {
+	return asyncStderr()
+}
+
 var defaultLogStore atomic.Pointer[logstore.LogStore]
 
 // SetDefaultLogStore sets the default log store that all new loggers will use.
