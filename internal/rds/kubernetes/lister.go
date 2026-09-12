@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloudprober Authors.
+// Copyright 2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,6 +96,9 @@ type resourceLister[T resourceInfo] struct {
 	// only the pods that are running.
 	keep func(T) bool
 
+	// keys preserves the API server's ordering and cache has an entry for
+	// every key in it. expand() replaces the two together, so they never
+	// disagree.
 	mu    sync.RWMutex // protects keys and cache
 	keys  []resourceKey
 	cache map[resourceKey]T
@@ -126,6 +129,7 @@ func (rl *resourceLister[T]) listResources(req *pb.ListResourcesRequest) ([]*pb.
 			continue
 		}
 
+		// Always found: every key has a cache entry, see the field comment.
 		info := rl.cache[key]
 		if nsFilter != nil && !nsFilter.Match(info.metadata().Namespace, rl.l) {
 			continue
@@ -139,7 +143,8 @@ func (rl *resourceLister[T]) listResources(req *pb.ListResourcesRequest) ([]*pb.
 }
 
 // parseResourceList parses an API server list response into cache keys and the
-// objects they map to. Objects rejected by keep are left out of both.
+// objects they map to. Objects rejected by keep are left out of both, so every
+// returned key has an entry in the returned map.
 func parseResourceList[T resourceInfo](resp []byte, keep func(T) bool) ([]resourceKey, map[resourceKey]T, error) {
 	var itemList struct {
 		Items []T
