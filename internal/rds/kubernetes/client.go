@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
@@ -36,6 +37,11 @@ var (
 	LocalCACert    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	LocalTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )
+
+// apiCallTimeout is the overall timeout (connection, headers, and body) for a
+// call to the Kubernetes API server. Without it, an API server that accepts
+// the connection but never responds stalls the lister's refresh loop forever.
+const apiCallTimeout = 30 * time.Second
 
 // client encapsulates an in-cluster kubeapi client.
 type client struct {
@@ -143,6 +149,7 @@ func newClientWithoutToken(cfg *configpb.ProviderConfig, l *logger.Logger) (*cli
 
 	c.httpC = &http.Client{
 		Transport: transport,
+		Timeout:   apiCallTimeout,
 	}
 
 	if err := c.initAPIHost(); err != nil {
