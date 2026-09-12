@@ -87,7 +87,7 @@ func TestEndpointsToResources(t *testing.T) {
 		Metadata: kMetadata{
 			Name:      epName,
 			Namespace: "prod",
-			Labels:    map[string]string{"app": appLabel},
+			Labels:    map[string]string{"app": appLabel, "node": "lNode"}, // node label is kept
 		},
 		Subsets: make([]epSubset, 1),
 	}
@@ -158,10 +158,10 @@ func TestEndpointsToResources(t *testing.T) {
 	}
 
 	expectedLabels := []map[string]string{
-		{"app": "lCloudprober", "namespace": "prod", "node": "n1", "pod": "test-pod"},
-		{"app": "lCloudprober", "namespace": "prod", "node": "n2"},
-		{"app": "lCloudprober", "namespace": "prod", "node": "n1", "pod": "test-pod"},
-		{"app": "lCloudprober", "namespace": "prod", "node": "n2"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode", "pod": "test-pod"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode", "pod": "test-pod"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode"},
 	}
 	if !reflect.DeepEqual(labels, expectedLabels) {
 		t.Errorf("Cloudprober endpoints resource labels=%v, want=%v", labels, expectedLabels)

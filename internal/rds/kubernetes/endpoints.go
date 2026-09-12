@@ -84,9 +84,11 @@ func (epi *epInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.
 				for k, v := range baseLabels {
 					labels[k] = v
 				}
-				labels["node"] = addr.NodeName
-				// If adding labels, make a copy of the metadata labels.
-				if addr.TargetRef.Kind == "Pod" {
+				// As with namespace, the object's own labels take precedence.
+				if _, ok := labels["node"]; !ok {
+					labels["node"] = addr.NodeName
+				}
+				if _, ok := labels["pod"]; !ok && addr.TargetRef.Kind == "Pod" {
 					labels["pod"] = addr.TargetRef.Name
 				}
 
