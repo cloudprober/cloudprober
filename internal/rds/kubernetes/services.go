@@ -79,7 +79,8 @@ func (si *serviceInfo) matchPorts(portFilter *filter.RegexFilter, l *logger.Logg
 // b) If there are multiple ports, we create one RDS resource for each port and
 // name each resource as: <service_name>_<port_name>
 func (si *serviceInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
-	if !f.matches(si.Metadata.Name, si.Metadata.Labels, l) {
+	labels := si.Metadata.resourceLabels()
+	if !f.matches(si.Metadata.Name, labels, l) {
 		return nil
 	}
 
@@ -93,7 +94,7 @@ func (si *serviceInfo) resources(f *listFilters, l *logger.Logger) (resources []
 		res := &pb.Resource{
 			Name:   proto.String(resName),
 			Port:   proto.Int32(int32(port)),
-			Labels: si.Metadata.Labels,
+			Labels: labels,
 		}
 
 		if f.ipType == pb.IPConfig_PUBLIC {

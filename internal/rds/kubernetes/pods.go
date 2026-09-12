@@ -44,7 +44,8 @@ func runningPod(pi *podInfo) bool {
 
 // resources returns the RDS resource for a pod. Pods map one-to-one.
 func (pi *podInfo) resources(f *listFilters, l *logger.Logger) []*pb.Resource {
-	if !f.matches(pi.Metadata.Name, pi.Metadata.Labels, l) {
+	labels := pi.Metadata.resourceLabels()
+	if !f.matches(pi.Metadata.Name, labels, l) {
 		return nil
 	}
 
@@ -52,7 +53,7 @@ func (pi *podInfo) resources(f *listFilters, l *logger.Logger) []*pb.Resource {
 		{
 			Name:   proto.String(pi.Metadata.Name),
 			Ip:     proto.String(pi.Status.PodIP),
-			Labels: pi.Metadata.Labels,
+			Labels: labels,
 		},
 	}
 }

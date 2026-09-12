@@ -81,3 +81,13 @@ func Test_sanitizeRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestResourceLabels(t *testing.T) {
+	md := kMetadata{Name: "a", Namespace: "prod", Labels: map[string]string{"app": "web"}}
+	assert.Equal(t, map[string]string{"app": "web", "namespace": "prod"}, md.resourceLabels())
+	assert.Equal(t, map[string]string{"app": "web"}, md.Labels, "object labels modified")
+
+	// An object label named "namespace" is left alone.
+	md.Labels["namespace"] = "custom"
+	assert.Equal(t, map[string]string{"app": "web", "namespace": "custom"}, md.resourceLabels())
+}

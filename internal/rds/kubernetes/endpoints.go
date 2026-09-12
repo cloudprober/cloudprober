@@ -56,7 +56,8 @@ func (epi *epInfo) metadata() kMetadata {
 // addresses and 2 ports, there will be 6 resources corresponding to that
 // subset.
 func (epi *epInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
-	if !f.matches(epi.Metadata.Name, epi.Metadata.Labels, l) {
+	baseLabels := epi.Metadata.resourceLabels()
+	if !f.matches(epi.Metadata.Name, baseLabels, l) {
 		return nil
 	}
 
@@ -79,8 +80,8 @@ func (epi *epInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.
 				// We name the resource as <endpoints_name>_<IP>_<port>
 				resName := fmt.Sprintf("%s_%s_%s", epi.Metadata.Name, addr.IP, portName)
 
-				labels := make(map[string]string)
-				for k, v := range epi.Metadata.Labels {
+				labels := make(map[string]string, len(baseLabels)+2)
+				for k, v := range baseLabels {
 					labels[k] = v
 				}
 				labels["node"] = addr.NodeName

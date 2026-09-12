@@ -25,7 +25,6 @@ import (
 )
 
 func testPodInfo(name, ns, ip string, labels map[string]string) *podInfo {
-	labels["namespace"] = ns
 	pi := &podInfo{Metadata: kMetadata{Name: name, Namespace: ns, Labels: labels}}
 	pi.Status.PodIP = ip
 	return pi
@@ -78,6 +77,11 @@ func TestListResources(t *testing.T) {
 			desc:     "only namespace filter for podA and podB",
 			filters:  map[string]string{"namespace": "nsAB"},
 			wantPods: []resourceKey{{"nsAB", "podA"}, {"nsAB", "podB"}},
+		},
+		{
+			desc:     "namespace label filter for podC",
+			filters:  map[string]string{"name": "podC", "labels.namespace": "devC"},
+			wantPods: []resourceKey{{"devC", "podC"}},
 		},
 	}
 

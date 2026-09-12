@@ -100,6 +100,34 @@ You can filter k8s resources using the following options:
   }
   ```
 
+### Target Labels
+
+Discovered targets carry the Kubernetes resource's labels, plus a `namespace`
+label set to the resource's namespace (unless the resource already has a label
+with that name). Endpoints targets also get `node` and `pod` labels, and
+ingress targets get `fqdn` and `relative_url` labels.
+
+You can use these labels in
+[additional labels]({{< ref "additional-labels.md" >}}), e.g. to add the
+target's namespace to the probe metrics:
+
+```shell
+probe {
+  name: "services"
+  type: HTTP
+  targets {
+    k8s {
+      services: ".*"
+    }
+  }
+  additional_label {
+    key: "namespace"
+    value: "@target.label.namespace@"
+  }
+  http_probe {}
+}
+```
+
 ### Cluster Resources Access
 
 Note: If you've installed Cloudprober using
