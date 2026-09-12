@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	cpb "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
@@ -117,6 +118,22 @@ func TestNewClientWithTLS(t *testing.T) {
 	if tc.httpC == nil || tc.httpC.Transport.(*http.Transport).TLSClientConfig == nil {
 		t.Errorf("Client's HTTP client or TLS config are unexpectedly nil.")
 	}
+
+	assert.Equal(t, apiCallTimeout, tc.httpC.Timeout, "HTTP client timeout")
+}
+
+// TestGetURLTimeout verifies that a call to an API server that accepts the
+// connection but never responds gives up instead of blocking forever.
+func TestGetURLTimeout(t *testing.T) {
+	tc := testK8sClient(t, func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+	tc.httpC.Timeout = 100 * time.Millisecond
+
+	start := time.Now()
+	_, err := tc.getURL("api/v1/pods")
+	assert.ErrorContains(t, err, "Client.Timeout")
+	assert.Less(t, time.Since(start), 5*time.Second, "getURL should return as soon as the timeout fires")
 }
 
 func TestClientHTTPRequest(t *testing.T) {
