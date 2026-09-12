@@ -10,7 +10,9 @@ small guidelines you need to follow.
 
 * Please send a PR only if you use Cloudprober yourself and the change is a
   feature or a bug fix that affects you. Changes that come out of actually
-  running Cloudprober are the ones we can review and maintain well.
+  running Cloudprober are the ones we can review and maintain well. PRs that
+  come out of automated or AI-driven code scanning, fixing edge cases no one
+  has run into, will generally be closed.
 
 * Every PR should have an associated issue. If there isn't one already, please
   file an [issue](https://github.com/cloudprober/cloudprober/issues), or start a
