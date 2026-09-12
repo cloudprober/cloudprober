@@ -46,7 +46,7 @@ func listerFromDataFile(t *testing.T) *ingressesLister {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", ingressesListFile)
 	}
-	keys, ingresses, err := parseIngressesJSON(data)
+	keys, ingresses, err := parseResourceList[*ingressInfo](data, nil)
 
 	if err != nil {
 		t.Fatalf("Error while parsing ingresses JSON data: %v", err)

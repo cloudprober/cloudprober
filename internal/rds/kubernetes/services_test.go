@@ -181,7 +181,7 @@ func TestParseSvcResourceList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", servicesListFile)
 	}
-	_, services, err := parseServicesJSON(data)
+	_, services, err := parseResourceList[*serviceInfo](data, nil)
 
 	if err != nil {
 		t.Fatalf("Error while parsing services JSON data: %v", err)
