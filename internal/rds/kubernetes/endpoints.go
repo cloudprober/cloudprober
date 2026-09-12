@@ -103,12 +103,11 @@ func (epi *epInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.
 
 func newEndpointsLister(namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) *epLister {
 	lister := &epLister{
-		kind:       "endpoints",
-		apiPrefix:  "api/v1",
-		namespace:  namespace,
-		kClient:    kc,
-		nameInPath: true,
-		l:          l,
+		kind:      "endpoints",
+		apiPrefix: "api/v1",
+		namespace: namespace,
+		kClient:   kc,
+		l:         l,
 	}
 	lister.start(reEvalInterval)
 	return lister

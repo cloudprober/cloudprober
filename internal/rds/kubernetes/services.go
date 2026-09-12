@@ -118,12 +118,11 @@ func (si *serviceInfo) resources(f *listFilters, l *logger.Logger) (resources []
 
 func newServicesLister(namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) *servicesLister {
 	lister := &servicesLister{
-		kind:       "services",
-		apiPrefix:  "api/v1",
-		namespace:  namespace,
-		kClient:    kc,
-		nameInPath: true,
-		l:          l,
+		kind:      "services",
+		apiPrefix: "api/v1",
+		namespace: namespace,
+		kClient:   kc,
+		l:         l,
 	}
 	lister.start(reEvalInterval)
 	return lister

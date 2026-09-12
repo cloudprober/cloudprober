@@ -122,12 +122,11 @@ func (i *ingressInfo) resources(f *listFilters, l *logger.Logger) (resources []*
 
 func newIngressesLister(namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) *ingressesLister {
 	lister := &ingressesLister{
-		kind:       "ingresses",
-		apiPrefix:  "apis/networking.k8s.io/v1",
-		namespace:  namespace,
-		kClient:    kc,
-		nameInPath: true,
-		l:          l,
+		kind:      "ingresses",
+		apiPrefix: "apis/networking.k8s.io/v1",
+		namespace: namespace,
+		kClient:   kc,
+		l:         l,
 	}
 	lister.start(reEvalInterval)
 	return lister

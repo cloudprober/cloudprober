@@ -213,28 +213,35 @@ func resourceNames(resources []*pb.Resource) []string {
 	return names
 }
 
-// TestNameInPath pins the deliberate difference in how the listers treat a
-// name in the resource path: services, endpoints and ingresses select a single
-// object with it, pods ignore it and return everything. It builds the listers
-// through their real constructors so that the wiring is covered too.
+// TestNameInPath verifies that a name in the resource path selects a single
+// object, for every resource type. Pods used to ignore it and return every
+// pod; they now behave like services, endpoints and ingresses.
 func TestNameInPath(t *testing.T) {
 	pl := newPodsLister("", time.Hour, serveFixture(t, podsFixture), nil)
 	waitForCache(t, pl)
 
 	got, err := pl.listResources(listRequest("pods/pod-a"))
 	assert.NoError(t, err)
-	assert.Equal(t, []string{"pod-a", "pod-b"}, resourceNames(got), "pods ignore a name in the resource path")
+	assert.Equal(t, []string{"pod-a"}, resourceNames(got), "a name in the path selects one pod")
+
+	got, err = pl.listResources(listRequest("pods"))
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"pod-a", "pod-b"}, resourceNames(got), "no name in the path returns every pod")
 
 	sl := newServicesLister("", time.Hour, serveFixture(t, servicesFixture), nil)
 	waitForCache(t, sl)
 
 	got, err = sl.listResources(listRequest("services/svc-a"))
 	assert.NoError(t, err)
-	assert.Equal(t, []string{"svc-a"}, resourceNames(got), "services select a single object by resource path")
+	assert.Equal(t, []string{"svc-a"}, resourceNames(got), "a name in the path selects one service")
 
 	got, err = sl.listResources(listRequest("services"))
 	assert.NoError(t, err)
-	assert.Equal(t, []string{"svc-a", "svc-b"}, resourceNames(got), "no name in path returns everything")
+	assert.Equal(t, []string{"svc-a", "svc-b"}, resourceNames(got), "no name in the path returns every service")
+
+	got, err = pl.listResources(listRequest("pods/no-such-pod"))
+	assert.NoError(t, err)
+	assert.Empty(t, got, "a name that matches nothing returns nothing")
 }
 
 // TestPodsListerCachesOnlyRunningPods covers the pods lister's parse-time

@@ -43,7 +43,7 @@ type resourceInfo interface {
 
 // listFilters holds everything a lister needs from a ListResources request:
 // the filters, and the object name if the request's resource path named one
-// (e.g. "services/service-a").
+// (e.g. "services/service-a"), which selects just that object.
 type listFilters struct {
 	*filter.Filters
 	name   string
@@ -96,12 +96,6 @@ type resourceLister[T resourceInfo] struct {
 	// only the pods that are running.
 	keep func(T) bool
 
-	// nameInPath indicates that a request's resource path may name a single
-	// object, e.g. "services/service-a". It is false for pods, which have
-	// always ignored such a name and returned every pod. That is preserved
-	// for compatibility rather than because it's desirable.
-	nameInPath bool
-
 	mu    sync.RWMutex // protects keys and cache
 	keys  []resourceKey
 	cache map[resourceKey]T
@@ -128,7 +122,7 @@ func (rl *resourceLister[T]) listResources(req *pb.ListResourcesRequest) ([]*pb.
 
 	var resources []*pb.Resource
 	for _, key := range rl.keys {
-		if rl.nameInPath && f.name != "" && key.name != f.name {
+		if f.name != "" && key.name != f.name {
 			continue
 		}
 
