@@ -15,81 +15,17 @@
 package kubernetes
 
 import (
-	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strconv"
-	"strings"
-	"sync"
 	"time"
 
-	configpb "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
 	"github.com/cloudprober/cloudprober/logger"
 	"google.golang.org/protobuf/proto"
 )
 
-type servicesLister struct {
-	c         *configpb.Services
-	namespace string
-	kClient   *client
-
-	mu    sync.RWMutex // Mutex for names and cache
-	keys  []resourceKey
-	cache map[resourceKey]*serviceInfo
-	l     *logger.Logger
-}
-
-func servicesURL(ns string) string {
-	if ns == "" {
-		return "api/v1/services"
-	}
-	return fmt.Sprintf("api/v1/namespaces/%s/services", ns)
-}
-
-func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
-	var resources []*pb.Resource
-
-	var svcName string
-	tok := strings.SplitN(req.GetResourcePath(), "/", 2)
-	if len(tok) == 2 {
-		svcName = tok[1]
-	}
-
-	allFilters, err := filter.ParseFilters(req.GetFilter(), SupportedFilters.RegexFilterKeys, "")
-	if err != nil {
-		return nil, err
-	}
-
-	nameFilter, nsFilter, labelsFilter := allFilters.RegexFilters["name"], allFilters.RegexFilters["namespace"], allFilters.LabelsFilter
-
-	lister.mu.RLock()
-	defer lister.mu.RUnlock()
-
-	for _, key := range lister.keys {
-		if svcName != "" && key.name != svcName {
-			continue
-		}
-
-		if nameFilter != nil && !nameFilter.Match(key.name, lister.l) {
-			continue
-		}
-
-		svc := lister.cache[key]
-		if nsFilter != nil && !nsFilter.Match(svc.Metadata.Namespace, lister.l) {
-			continue
-		}
-		if labelsFilter != nil && !labelsFilter.Match(svc.Metadata.Labels, lister.l) {
-			continue
-		}
-
-		resources = append(resources, svc.resources(allFilters.RegexFilters["port"], req.GetIpConfig().GetIpType(), lister.l)...)
-	}
-
-	lister.l.Debugf("kubernetes.listResources: returning %d services", len(resources))
-	return resources, nil
-}
+type servicesLister = resourceLister[*serviceInfo]
 
 type loadBalancerStatus struct {
 	Ingress []struct {
@@ -110,6 +46,10 @@ type serviceInfo struct {
 	Status struct {
 		LoadBalancer loadBalancerStatus
 	}
+}
+
+func (si *serviceInfo) metadata() kMetadata {
+	return si.Metadata
 }
 
 func (si *serviceInfo) matchPorts(portFilter *filter.RegexFilter, l *logger.Logger) ([]int, map[int]string) {
@@ -138,8 +78,12 @@ func (si *serviceInfo) matchPorts(portFilter *filter.RegexFilter, l *logger.Logg
 // service name.
 // b) If there are multiple ports, we create one RDS resource for each port and
 // name each resource as: <service_name>_<port_name>
-func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IPConfig_IPType, l *logger.Logger) (resources []*pb.Resource) {
-	ports, portNameMap := si.matchPorts(portFilter, l)
+func (si *serviceInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
+	if !f.matchesObject(si.Metadata, l) {
+		return nil
+	}
+
+	ports, portNameMap := si.matchPorts(f.regex("port"), l)
 	for _, port := range ports {
 		resName := si.Metadata.Name
 		if len(ports) != 1 {
@@ -152,7 +96,7 @@ func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IP
 			Labels: si.Metadata.Labels,
 		}
 
-		if reqIPType == pb.IPConfig_PUBLIC {
+		if f.ipType == pb.IPConfig_PUBLIC {
 			// If there is no ingress IP, skip the resource.
 			if len(si.Status.LoadBalancer.Ingress) == 0 {
 				continue
@@ -172,67 +116,15 @@ func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IP
 	return
 }
 
-func parseServicesJSON(resp []byte) (keys []resourceKey, services map[resourceKey]*serviceInfo, err error) {
-	var itemList struct {
-		Items []*serviceInfo
-	}
-
-	if err = json.Unmarshal(resp, &itemList); err != nil {
-		return
-	}
-
-	keys = make([]resourceKey, len(itemList.Items))
-	services = make(map[resourceKey]*serviceInfo)
-	for i, item := range itemList.Items {
-		keys[i] = resourceKey{item.Metadata.Namespace, item.Metadata.Name}
-		services[keys[i]] = item
-	}
-
-	return
-}
-
-func (lister *servicesLister) expand() {
-	resp, err := lister.kClient.getURL(servicesURL(lister.namespace))
-	if err != nil {
-		lister.l.Warningf("servicesLister.expand(): error while getting services list from API: %v", err)
-	}
-
-	keys, services, err := parseServicesJSON(resp)
-	if err != nil {
-		lister.l.Warningf("servicesLister.expand(): error while parsing services API response (%s): %v", string(resp), err)
-	}
-
-	lister.l.Debugf("servicesLister.expand(): got %d services", len(keys))
-
-	lister.mu.Lock()
-	defer lister.mu.Unlock()
-	lister.keys = keys
-	lister.cache = services
-}
-
-func newServicesLister(c *configpb.Services, namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) (*servicesLister, error) {
+func newServicesLister(namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) *servicesLister {
 	lister := &servicesLister{
-		c:         c,
-		kClient:   kc,
-		namespace: namespace,
-		l:         l,
+		kind:       "services",
+		apiPrefix:  "api/v1",
+		namespace:  namespace,
+		kClient:    kc,
+		nameInPath: true,
+		l:          l,
 	}
-
-	go func() {
-		lister.expand()
-		// Introduce a random delay between 0-reEvalInterval before
-		// starting the refresh loop. If there are multiple cloudprober
-		// gceInstances, this will make sure that each instance calls GCE
-		// API at a different point of time.
-		rand.Seed(time.Now().UnixNano())
-		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
-		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		ticker := time.NewTicker(reEvalInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			lister.expand()
-		}
-	}()
-
-	return lister, nil
+	lister.start(reEvalInterval)
+	return lister
 }

@@ -15,81 +15,16 @@
 package kubernetes
 
 import (
-	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strings"
-	"sync"
 	"time"
 
-	configpb "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
-	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
 	"github.com/cloudprober/cloudprober/logger"
 	"google.golang.org/protobuf/proto"
 )
 
-type ingressesLister struct {
-	c         *configpb.Ingresses
-	namespace string
-	kClient   *client
-
-	mu    sync.RWMutex // Mutex for names and cache
-	keys  []resourceKey
-	cache map[resourceKey]*ingressInfo
-	l     *logger.Logger
-}
-
-func ingressesURL(ns string) string {
-	if ns == "" {
-		return "apis/networking.k8s.io/v1/ingresses"
-	}
-	return fmt.Sprintf("apis/networking.k8s.io/v1/namespaces/%s/ingresses", ns)
-}
-
-func (lister *ingressesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
-	var resources []*pb.Resource
-
-	var resName string
-	tok := strings.SplitN(req.GetResourcePath(), "/", 2)
-	if len(tok) == 2 {
-		resName = tok[1]
-	}
-
-	allFilters, err := filter.ParseFilters(req.GetFilter(), SupportedFilters.RegexFilterKeys, "")
-	if err != nil {
-		return nil, err
-	}
-
-	nameFilter, nsFilter, labelsFilter := allFilters.RegexFilters["name"], allFilters.RegexFilters["namespace"], allFilters.LabelsFilter
-
-	lister.mu.RLock()
-	defer lister.mu.RUnlock()
-
-	for _, key := range lister.keys {
-		if resName != "" && key.name != resName {
-			continue
-		}
-
-		ingress := lister.cache[key]
-		if nsFilter != nil && !nsFilter.Match(ingress.Metadata.Namespace, lister.l) {
-			continue
-		}
-
-		for _, res := range ingress.resources() {
-			if nameFilter != nil && !nameFilter.Match(res.GetName(), lister.l) {
-				continue
-			}
-			if labelsFilter != nil && !labelsFilter.Match(res.GetLabels(), lister.l) {
-				continue
-			}
-			resources = append(resources, res)
-		}
-	}
-
-	lister.l.Debugf("kubernetes.listResources: returning %d ingresses", len(resources))
-	return resources, nil
-}
+type ingressesLister = resourceLister[*ingressInfo]
 
 type ingressRule struct {
 	Host string
@@ -110,8 +45,18 @@ type ingressInfo struct {
 	}
 }
 
+func (i *ingressInfo) metadata() kMetadata {
+	return i.Metadata
+}
+
 // resources returns RDS resources corresponding to an ingress resource.
-func (i *ingressInfo) resources() (resources []*pb.Resource) {
+//
+// Unlike the other resource types, the name and labels filters are applied to
+// the expanded resources rather than to the ingress object: an ingress expands
+// into one resource per rule path, each with a derived name and its own fqdn
+// and relative_url labels, and filtering on the object would make those
+// unselectable.
+func (i *ingressInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
 	resName := i.Metadata.Name
 	baseLabels := i.Metadata.Labels
 
@@ -128,14 +73,19 @@ func (i *ingressInfo) resources() (resources []*pb.Resource) {
 		}
 	}
 
-	if len(i.Spec.Rules) == 0 {
-		return []*pb.Resource{
-			{
-				Name:   proto.String(resName),
-				Labels: baseLabels,
-				Ip:     proto.String(ip),
-			},
+	appendIfMatches := func(res *pb.Resource) {
+		if f.matchesResource(res, l) {
+			resources = append(resources, res)
 		}
+	}
+
+	if len(i.Spec.Rules) == 0 {
+		appendIfMatches(&pb.Resource{
+			Name:   proto.String(resName),
+			Labels: baseLabels,
+			Ip:     proto.String(ip),
+		})
+		return
 	}
 
 	for _, rule := range i.Spec.Rules {
@@ -159,7 +109,7 @@ func (i *ingressInfo) resources() (resources []*pb.Resource) {
 				labels["relative_url"] = p.Path
 			}
 
-			resources = append(resources, &pb.Resource{
+			appendIfMatches(&pb.Resource{
 				Name:   proto.String(nameWithPath),
 				Labels: labels,
 				Ip:     proto.String(ip),
@@ -170,67 +120,15 @@ func (i *ingressInfo) resources() (resources []*pb.Resource) {
 	return
 }
 
-func parseIngressesJSON(resp []byte) (keys []resourceKey, ingresses map[resourceKey]*ingressInfo, err error) {
-	var itemList struct {
-		Items []*ingressInfo
-	}
-
-	if err = json.Unmarshal(resp, &itemList); err != nil {
-		return
-	}
-
-	keys = make([]resourceKey, len(itemList.Items))
-	ingresses = make(map[resourceKey]*ingressInfo)
-	for i, item := range itemList.Items {
-		keys[i] = resourceKey{item.Metadata.Namespace, item.Metadata.Name}
-		ingresses[keys[i]] = item
-	}
-
-	return
-}
-
-func (lister *ingressesLister) expand() {
-	resp, err := lister.kClient.getURL(ingressesURL(lister.namespace))
-	if err != nil {
-		lister.l.Warningf("ingressesLister.expand(): error while getting ingresses list from API: %v", err)
-	}
-
-	keys, ingresses, err := parseIngressesJSON(resp)
-	if err != nil {
-		lister.l.Warningf("ingressesLister.expand(): error while parsing ingresses API response (%s): %v", string(resp), err)
-	}
-
-	lister.l.Debugf("ingressesLister.expand(): got %d ingresses", len(keys))
-
-	lister.mu.Lock()
-	defer lister.mu.Unlock()
-	lister.keys = keys
-	lister.cache = ingresses
-}
-
-func newIngressesLister(c *configpb.Ingresses, namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) (*ingressesLister, error) {
+func newIngressesLister(namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) *ingressesLister {
 	lister := &ingressesLister{
-		c:         c,
-		kClient:   kc,
-		namespace: namespace,
-		l:         l,
+		kind:       "ingresses",
+		apiPrefix:  "apis/networking.k8s.io/v1",
+		namespace:  namespace,
+		kClient:    kc,
+		nameInPath: true,
+		l:          l,
 	}
-
-	go func() {
-		lister.expand()
-		// Introduce a random delay between 0-reEvalInterval before
-		// starting the refresh loop. If there are multiple cloudprober
-		// gceInstances, this will make sure that each instance calls GCE
-		// API at a different point of time.
-		rand.Seed(time.Now().UnixNano())
-		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
-		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		ticker := time.NewTicker(reEvalInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			lister.expand()
-		}
-	}()
-
-	return lister, nil
+	lister.start(reEvalInterval)
+	return lister
 }

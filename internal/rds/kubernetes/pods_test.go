@@ -116,7 +116,7 @@ func TestParseResourceList(t *testing.T) {
 		t.Fatalf("error reading test data file: %s", podsListFile)
 	}
 
-	keys, cache, err := parsePodsJSON(data)
+	keys, cache, err := parseResourceList(data, runningPod)
 	if err != nil {
 		t.Fatalf("Error while parsing pods JSON data: %v", err)
 	}
