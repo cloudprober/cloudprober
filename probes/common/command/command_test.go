@@ -187,3 +187,33 @@ func TestProcessStderr(t *testing.T) {
 	}
 	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
 }
+
+// TestRawStderrOutput verifies that, with RawStderrOutput set, the child's
+// stderr lines are relayed through the logger's stderr writer (queued, so a
+// stalled stderr can't block the relay goroutine or the probe), and that
+// ProcessStderr still sees them. The relayed lines land on the test binary's
+// own stderr, which is why this test's output carries a stray
+// "Running test command." line.
+func TestRawStderrOutput(t *testing.T) {
+	var stderr []string
+	p := &Command{
+		CmdLine:                []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd"},
+		EnvVars:                []string{"GO_CP_TEST_PROCESS=1"},
+		ProcessStreamingOutput: func([]byte) {},
+		RawStderrOutput:        true,
+		ProcessStderr: func(line []byte) {
+			stderr = append(stderr, string(line))
+		},
+	}
+
+	_, err := p.Execute(context.Background(), nil)
+	assert.NoError(t, err)
+
+	found := false
+	for _, line := range stderr {
+		if strings.Contains(line, "Running test command.") {
+			found = true
+		}
+	}
+	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
+}
