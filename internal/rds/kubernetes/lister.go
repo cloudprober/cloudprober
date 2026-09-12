@@ -37,7 +37,7 @@ type resourceInfo interface {
 	// resources expands a Kubernetes object into the RDS resources it
 	// represents: zero or more, depending on the type. Implementations are
 	// responsible for applying the name and labels filters, as the two are
-	// intertwined with the expansion (see listFilters.matchesObject).
+	// intertwined with the expansion (see listFilters.matches).
 	resources(f *listFilters, l *logger.Logger) []*pb.Resource
 }
 
@@ -97,7 +97,9 @@ type resourceLister[T resourceInfo] struct {
 	keep func(T) bool
 
 	// nameInPath indicates that a request's resource path may name a single
-	// object, e.g. "services/service-a". Pods don't support that today.
+	// object, e.g. "services/service-a". It is false for pods, which have
+	// always ignored such a name and returned every pod. That is preserved
+	// for compatibility rather than because it's desirable.
 	nameInPath bool
 
 	mu    sync.RWMutex // protects keys and cache
@@ -201,9 +203,7 @@ func (rl *resourceLister[T]) start(reEvalInterval time.Duration) {
 		// the refresh loop. If there are multiple cloudprober instances, this
 		// makes sure that each one calls the API server at a different point
 		// of time.
-		if reEvalInterval > 0 {
-			time.Sleep(time.Duration(rand.Int63n(int64(reEvalInterval))))
-		}
+		time.Sleep(time.Duration(rand.Int63n(int64(reEvalInterval))))
 
 		ticker := time.NewTicker(reEvalInterval)
 		defer ticker.Stop()

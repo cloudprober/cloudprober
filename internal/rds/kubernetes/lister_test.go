@@ -247,3 +247,13 @@ func TestPodsListerCachesOnlyRunningPods(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"pod-a", "pod-b"}, resourceNames(got), "pods that are not running should not be cached")
 }
+
+func TestNewRejectsNonPositiveReEvalSec(t *testing.T) {
+	for _, reEvalSec := range []int32{0, -1} {
+		_, err := New(&cpb.ProviderConfig{
+			Pods:      &cpb.Pods{},
+			ReEvalSec: proto.Int32(reEvalSec),
+		}, nil)
+		assert.ErrorContains(t, err, "re_eval_sec", "re_eval_sec=%d", reEvalSec)
+	}
+}

@@ -140,6 +140,13 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 // New creates a Kubernetes (k8s) provider for RDS server, based on the
 // provided config.
 func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
+	// Guard the refresh loop's ticker, which panics on a non-positive
+	// interval. Note that an unset re_eval_sec defaults to 60, so this
+	// catches only an explicit zero or a negative value.
+	if c.GetReEvalSec() <= 0 {
+		return nil, fmt.Errorf("kubernetes: re_eval_sec (%d) must be positive", c.GetReEvalSec())
+	}
+
 	client, err := newClient(c, l)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating the kubernetes client: %v", err)
