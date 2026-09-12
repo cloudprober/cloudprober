@@ -15,73 +15,14 @@
 package kubernetes
 
 import (
-	"encoding/json"
-	"fmt"
-	"math/rand"
-	"sync"
 	"time"
 
-	configpb "github.com/cloudprober/cloudprober/internal/rds/kubernetes/proto"
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
-	"github.com/cloudprober/cloudprober/internal/rds/server/filter"
 	"github.com/cloudprober/cloudprober/logger"
 	"google.golang.org/protobuf/proto"
 )
 
-type podsLister struct {
-	c         *configpb.Pods
-	namespace string
-	kClient   *client
-
-	mu    sync.RWMutex // Mutex for names and cache
-	keys  []resourceKey
-	cache map[resourceKey]*podInfo
-	l     *logger.Logger
-}
-
-func podsURL(ns string) string {
-	if ns == "" {
-		return "api/v1/pods"
-	}
-	return fmt.Sprintf("api/v1/namespaces/%s/pods", ns)
-}
-
-func (pl *podsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
-	var resources []*pb.Resource
-
-	allFilters, err := filter.ParseFilters(req.GetFilter(), SupportedFilters.RegexFilterKeys, "")
-	if err != nil {
-		return nil, err
-	}
-
-	nameFilter, nsFilter, labelsFilter := allFilters.RegexFilters["name"], allFilters.RegexFilters["namespace"], allFilters.LabelsFilter
-
-	pl.mu.RLock()
-	defer pl.mu.RUnlock()
-
-	for _, key := range pl.keys {
-		if nameFilter != nil && !nameFilter.Match(key.name, pl.l) {
-			continue
-		}
-
-		pod := pl.cache[key]
-		if nsFilter != nil && !nsFilter.Match(pod.Metadata.Namespace, pl.l) {
-			continue
-		}
-		if labelsFilter != nil && !labelsFilter.Match(pod.Metadata.Labels, pl.l) {
-			continue
-		}
-
-		resources = append(resources, &pb.Resource{
-			Name:   proto.String(key.name),
-			Ip:     proto.String(pod.Status.PodIP),
-			Labels: pod.Metadata.Labels,
-		})
-	}
-
-	pl.l.Debugf("kubernetes.listResources: returning %d pods", len(resources))
-	return resources, nil
-}
+type podsLister = resourceLister[*podInfo]
 
 type podInfo struct {
 	Metadata kMetadata
@@ -91,71 +32,40 @@ type podInfo struct {
 	}
 }
 
-func parsePodsJSON(resp []byte) (keys []resourceKey, pods map[resourceKey]*podInfo, err error) {
-	var itemList struct {
-		Items []*podInfo
-	}
-
-	if err = json.Unmarshal(resp, &itemList); err != nil {
-		return
-	}
-
-	keys = make([]resourceKey, 0, len(itemList.Items))
-	pods = make(map[resourceKey]*podInfo)
-	for _, item := range itemList.Items {
-		if item.Status.Phase != "Running" {
-			continue
-		}
-		key := resourceKey{item.Metadata.Namespace, item.Metadata.Name}
-		keys = append(keys, key)
-		pods[key] = item
-	}
-
-	return
+func (pi *podInfo) metadata() kMetadata {
+	return pi.Metadata
 }
 
-func (pl *podsLister) expand() {
-	resp, err := pl.kClient.getURL(podsURL(pl.namespace))
-	if err != nil {
-		pl.l.Warningf("podsLister.expand(): error while getting pods list from API: %v", err)
-	}
-
-	keys, pods, err := parsePodsJSON(resp)
-	if err != nil {
-		pl.l.Warningf("podsLister.expand(): error while parsing pods API response (%s): %v", string(resp), err)
-	}
-
-	pl.l.Debugf("podsLister.expand(): got %d pods", len(keys))
-
-	pl.mu.Lock()
-	defer pl.mu.Unlock()
-	pl.keys = keys
-	pl.cache = pods
+// runningPod is the pods lister's parse-time filter: we cache only the pods
+// that are running.
+func runningPod(pi *podInfo) bool {
+	return pi.Status.Phase == "Running"
 }
 
-func newPodsLister(c *configpb.Pods, namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) (*podsLister, error) {
+// resources returns the RDS resource for a pod. Pods map one-to-one.
+func (pi *podInfo) resources(f *listFilters, l *logger.Logger) []*pb.Resource {
+	if !f.matches(pi.Metadata.Name, pi.Metadata.Labels, l) {
+		return nil
+	}
+
+	return []*pb.Resource{
+		{
+			Name:   proto.String(pi.Metadata.Name),
+			Ip:     proto.String(pi.Status.PodIP),
+			Labels: pi.Metadata.Labels,
+		},
+	}
+}
+
+func newPodsLister(namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) *podsLister {
 	pl := &podsLister{
-		c:         c,
+		kind:      "pods",
+		apiPrefix: "api/v1",
 		namespace: namespace,
 		kClient:   kc,
+		keep:      runningPod,
 		l:         l,
 	}
-
-	go func() {
-		pl.expand()
-		// Introduce a random delay between 0-reEvalInterval before
-		// starting the refresh loop. If there are multiple cloudprober
-		// gceInstances, this will make sure that each instance calls GCE
-		// API at a different point of time.
-		rand.Seed(time.Now().UnixNano())
-		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
-		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		ticker := time.NewTicker(reEvalInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			pl.expand()
-		}
-	}()
-
-	return pl, nil
+	pl.start(reEvalInterval)
+	return pl
 }

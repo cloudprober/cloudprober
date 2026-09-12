@@ -15,7 +15,7 @@ func TestParseEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", epListFile)
 	}
-	_, epByKey, err := parseEndpointsJSON(data)
+	_, epByKey, err := parseResourceList[*epInfo](data, nil)
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", epListFile)
 	}
@@ -129,7 +129,10 @@ func TestEndpointsToResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resources := epi.resources(portFilter, nil)
+	f := &listFilters{Filters: &filter.Filters{
+		RegexFilters: map[string]*filter.RegexFilter{"port": portFilter},
+	}}
+	resources := epi.resources(f, nil)
 
 	// We'll get 4 resources = 2 ports x 2 IPs
 	if len(resources) != 4 {
