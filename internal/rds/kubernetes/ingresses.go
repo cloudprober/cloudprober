@@ -58,7 +58,7 @@ func (i *ingressInfo) metadata() kMetadata {
 // unselectable.
 func (i *ingressInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
 	resName := i.Metadata.Name
-	baseLabels := i.Metadata.Labels
+	baseLabels := i.Metadata.resourceLabels()
 
 	// Note that for ingress we don't check the type of the IP in the request.
 	// That is mainly because ingresses typically have only one ingress

@@ -99,6 +99,14 @@ func TestListIngressResources(t *testing.T) {
 			wantIPs:   []string{"cloudprober.monitoring.com"},
 		},
 		{
+			desc:      "namespace label filter",
+			filters:   map[string]string{"labels.namespace": "default"},
+			wantNames: []string{"rds-ingress_foo.bar.com__health", "rds-ingress_foo.bar.com__rds", "rds-ingress_prometheus.bar.com"},
+			wantFQDNs: []string{"foo.bar.com", "foo.bar.com", "prometheus.bar.com"},
+			wantURLs:  []string{"/health", "/rds", "/"},
+			wantIPs:   []string{"241.120.51.35", "241.120.51.35", "241.120.51.35"},
+		},
+		{
 			desc:      "name filter for host regex",
 			filters:   map[string]string{"name": ".*foo.bar.com.*"},
 			wantNames: []string{"rds-ingress_foo.bar.com__health", "rds-ingress_foo.bar.com__rds"},

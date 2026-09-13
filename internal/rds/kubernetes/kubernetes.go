@@ -102,6 +102,21 @@ type kMetadata struct {
 	Labels    map[string]string
 }
 
+// resourceLabels returns the labels for the RDS resources created from this
+// object: a copy of the object's labels, plus a "namespace" label (unless the
+// object already has a label with that name). The copy lets callers add more
+// labels without modifying the cached object.
+func (md kMetadata) resourceLabels() map[string]string {
+	labels := make(map[string]string, len(md.Labels)+1)
+	for k, v := range md.Labels {
+		labels[k] = v
+	}
+	if _, ok := labels["namespace"]; !ok {
+		labels["namespace"] = md.Namespace
+	}
+	return labels
+}
+
 type resourceKey struct {
 	namespace, name string
 }
