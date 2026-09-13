@@ -113,8 +113,8 @@ You can filter k8s resources using the following options:
 
 Discovered targets carry the Kubernetes resource's labels, plus a `namespace`
 label set to the resource's namespace. Endpoints targets also get a `node`
-label, and a `pod` label if the address belongs to a pod. Ingress targets get
-`fqdn` and `relative_url` labels. If the resource already has a label with one
+label, and a `pod` label if the address belongs to a pod. Ingress and HTTPRoute
+targets get `fqdn` and `relative_url` labels. If the resource already has a label with one
 of these names, its value is kept.
 
 You can use these labels in

@@ -69,7 +69,7 @@ func (i *httpRouteInfo) metadata() kMetadata {
 // derived name and its own fqdn and relative_url labels.
 func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
 	resName := i.Metadata.Name
-	baseLabels := i.Metadata.Labels
+	baseLabels := i.Metadata.resourceLabels()
 
 	for _, rule := range i.Spec.Rules {
 		// A rule with no matches matches all paths; treat it as "/".

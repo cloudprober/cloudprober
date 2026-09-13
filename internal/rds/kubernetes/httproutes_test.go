@@ -75,6 +75,14 @@ func TestListHTTPRouteResources(t *testing.T) {
 			wantIPs:   []string{"foo.bar.com", "foo.bar.com", "bar.baz.com"},
 		},
 		{
+			desc:      "namespace label filter",
+			filters:   map[string]string{"labels.namespace": "default"},
+			wantNames: []string{"rds-route_foo.bar.com__health", "rds-route_foo.bar.com__rds", "api-route_bar.baz.com__api"},
+			wantFQDNs: []string{"foo.bar.com", "foo.bar.com", "bar.baz.com"},
+			wantURLs:  []string{"/health", "/rds", "/api"},
+			wantIPs:   []string{"foo.bar.com", "foo.bar.com", "bar.baz.com"},
+		},
+		{
 			desc:      "name filter for host regex",
 			filters:   map[string]string{"name": ".*foo.bar.com.*"},
 			wantNames: []string{"rds-route_foo.bar.com__health", "rds-route_foo.bar.com__rds"},
