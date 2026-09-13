@@ -64,12 +64,16 @@ func (i *httpRouteInfo) metadata() kMetadata {
 // hostnames (which inherit them from the Gateway listener) and wildcard
 // hostnames (e.g. "*.example.com") produce no resources.
 //
+// Rules that differ only in header or method matches expand to the same
+// (hostname, path) pair; we emit such a resource only once.
+//
 // As with ingresses, the name and labels filters apply to the expanded
 // resources rather than to the route object, because each resource carries a
 // derived name and its own fqdn and relative_url labels.
 func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
 	resName := i.Metadata.Name
 	baseLabels := i.Metadata.resourceLabels()
+	seen := make(map[string]bool)
 
 	for _, rule := range i.Spec.Rules {
 		// A rule with no matches matches all paths; treat it as "/".
@@ -93,6 +97,10 @@ func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) (resources [
 				if path != "/" {
 					nameWithPath = fmt.Sprintf("%s_%s", nameWithPath, strings.Replace(path, "/", "_", -1))
 				}
+				if seen[nameWithPath] {
+					continue
+				}
+				seen[nameWithPath] = true
 
 				// Add fqdn and url labels to the resources.
 				labels := make(map[string]string, len(baseLabels)+2)

@@ -202,3 +202,26 @@ func TestHTTPRouteUnprobeableHostnames(t *testing.T) {
 		})
 	}
 }
+
+// TestHTTPRouteDuplicatePaths checks that rules expanding to the same
+// (hostname, path) pair, e.g. rules that differ only in header matches,
+// produce a single resource.
+func TestHTTPRouteDuplicatePaths(t *testing.T) {
+	key := resourceKey{name: "dup-route", namespace: "default"}
+	route := &httpRouteInfo{Metadata: kMetadata{Name: key.name, Namespace: key.namespace}}
+	route.Spec.Hostnames = []string{"foo.example.com"}
+	route.Spec.Rules = []httpRouteRule{{}, {}}
+
+	lister := &httpRoutesLister{
+		keys:  []resourceKey{key},
+		cache: map[resourceKey]*httpRouteInfo{key: route},
+	}
+
+	resources, err := lister.listResources(&pb.ListResourcesRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 || resources[0].GetName() != "dup-route_foo.example.com" {
+		t.Errorf("expected a single resource named dup-route_foo.example.com, got: %+v", resources)
+	}
+}

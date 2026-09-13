@@ -51,7 +51,9 @@ unlike `Ingress`). The probe resolves it via DNS, and the hostname is also
 exposed as the `fqdn` label so HTTP probes set the correct Host header / SNI.
 Routes without hostnames (which inherit them from the Gateway listener) and
 wildcard hostnames (e.g. `*.example.com`) are skipped, as there is no
-specific host to probe.
+specific host to probe. HTTPRoute discovery requires the
+[Gateway API](https://gateway-api.sigs.k8s.io/) CRDs to be installed in the
+cluster.
 
 #### Filters
 
