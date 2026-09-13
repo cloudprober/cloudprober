@@ -61,23 +61,23 @@ func (i *httpRouteInfo) metadata() kMetadata {
 // target IP; the probe resolves it via DNS. The hostname is also exposed as
 // the "fqdn" label so HTTP probes can set the correct Host header / SNI.
 //
+// Since the hostname is the only thing we can probe, routes without
+// hostnames (which inherit them from the Gateway listener) and wildcard
+// hostnames (e.g. "*.example.com") produce no resources.
+//
 // As with ingresses, the name and labels filters apply to the expanded
 // resources rather than to the route object, because each resource carries a
 // derived name and its own fqdn and relative_url labels.
-func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) []*pb.Resource {
+func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
 	resName := i.Metadata.Name
 	baseLabels := i.Metadata.Labels
 	routeHosts := i.Spec.Hostnames
 
-	var expanded []*pb.Resource
 	for _, rule := range i.Spec.Rules {
 		// Rule-level hostnames override the route-level ones.
 		hosts := rule.Hostnames
 		if len(hosts) == 0 {
 			hosts = routeHosts
-		}
-		if len(hosts) == 0 {
-			continue
 		}
 
 		// A rule with no matches matches all paths; treat it as "/".
@@ -87,6 +87,10 @@ func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) []*pb.Resour
 		}
 
 		for _, host := range hosts {
+			if strings.HasPrefix(host, "*") {
+				continue
+			}
+
 			for _, m := range matches {
 				path := m.Path.Value
 				if path == "" {
@@ -110,33 +114,17 @@ func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) []*pb.Resour
 					labels["relative_url"] = path
 				}
 
-				expanded = append(expanded, &pb.Resource{
-					Name:   proto.String(nameWithPath),
-					Labels: labels,
-					Ip:     proto.String(host),
-				})
+				if f.matches(nameWithPath, labels, l) {
+					resources = append(resources, &pb.Resource{
+						Name:   proto.String(nameWithPath),
+						Labels: labels,
+						Ip:     proto.String(host),
+					})
+				}
 			}
 		}
 	}
-
-	// If no resources were generated (e.g. the route has no hostnames), emit a
-	// single resource named after the route. This is decided before filtering,
-	// so that a route whose resources are all filtered out doesn't fall back to
-	// its bare name.
-	if len(expanded) == 0 {
-		expanded = append(expanded, &pb.Resource{
-			Name:   proto.String(resName),
-			Labels: baseLabels,
-		})
-	}
-
-	var resources []*pb.Resource
-	for _, res := range expanded {
-		if f.matches(res.GetName(), res.GetLabels(), l) {
-			resources = append(resources, res)
-		}
-	}
-	return resources
+	return
 }
 
 func newHTTPRoutesLister(namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) *httpRoutesLister {

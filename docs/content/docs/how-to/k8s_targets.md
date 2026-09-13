@@ -49,6 +49,9 @@ Note: For `HTTPRoute` resources, the discovered target IP is the route's
 hostname (an `HTTPRoute` does not carry a load balancer IP in its status,
 unlike `Ingress`). The probe resolves it via DNS, and the hostname is also
 exposed as the `fqdn` label so HTTP probes set the correct Host header / SNI.
+Routes without hostnames (which inherit them from the Gateway listener) and
+wildcard hostnames (e.g. `*.example.com`) are skipped, as there is no
+specific host to probe.
 
 #### Filters
 

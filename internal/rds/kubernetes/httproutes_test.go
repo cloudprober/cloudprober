@@ -142,22 +142,55 @@ func TestListHTTPRouteResources(t *testing.T) {
 	}
 }
 
-// TestHTTPRouteNoHostnames checks that a route with no hostnames (neither
-// route-level nor rule-level) produces a single resource named after the route.
-func TestHTTPRouteNoHostnames(t *testing.T) {
-	key := resourceKey{name: "no-host-route", namespace: "default"}
-	lister := &httpRoutesLister{
-		keys: []resourceKey{key},
-		cache: map[resourceKey]*httpRouteInfo{
-			key: {Metadata: kMetadata{Name: key.name, Namespace: key.namespace}},
+// TestHTTPRouteUnprobeableHostnames checks that routes without hostnames and
+// wildcard hostnames produce no resources, since there is nothing to probe.
+func TestHTTPRouteUnprobeableHostnames(t *testing.T) {
+	route := func(name string, routeHosts, ruleHosts []string) *httpRouteInfo {
+		r := &httpRouteInfo{Metadata: kMetadata{Name: name, Namespace: "default"}}
+		r.Spec.Hostnames = routeHosts
+		r.Spec.Rules = []httpRouteRule{{Hostnames: ruleHosts}}
+		return r
+	}
+
+	tests := []struct {
+		desc      string
+		route     *httpRouteInfo
+		wantNames []string
+	}{
+		{
+			desc:  "no hostnames",
+			route: route("no-host", nil, nil),
+		},
+		{
+			desc:  "wildcard route hostname",
+			route: route("wildcard", []string{"*.example.com"}, nil),
+		},
+		{
+			desc:      "wildcard mixed with concrete hostname",
+			route:     route("mixed", nil, []string{"*.example.com", "foo.example.com"}),
+			wantNames: []string{"mixed_foo.example.com"},
 		},
 	}
 
-	resources, err := lister.listResources(&pb.ListResourcesRequest{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(resources) != 1 || resources[0].GetName() != "no-host-route" {
-		t.Errorf("expected a single resource named no-host-route, got: %+v", resources)
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			key := resourceKey{name: test.route.Metadata.Name, namespace: "default"}
+			lister := &httpRoutesLister{
+				keys:  []resourceKey{key},
+				cache: map[resourceKey]*httpRouteInfo{key: test.route},
+			}
+
+			resources, err := lister.listResources(&pb.ListResourcesRequest{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			var gotNames []string
+			for _, res := range resources {
+				gotNames = append(gotNames, res.GetName())
+			}
+			if !reflect.DeepEqual(gotNames, test.wantNames) {
+				t.Errorf("gotNames: %v, wantNames: %v", gotNames, test.wantNames)
+			}
+		})
 	}
 }
