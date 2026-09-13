@@ -50,9 +50,9 @@ func TestParseHTTPRoutesJSON(t *testing.T) {
 	}
 
 	key1 := resourceKey{"default", "rds-route"}
-	key2 := resourceKey{"default", "rule-host-route"}
+	key2 := resourceKey{"default", "api-route"}
 	if lister.cache[key1] == nil || lister.cache[key2] == nil {
-		t.Errorf("Expected routes rds-route and rule-host-route, got: %+v", lister.cache)
+		t.Errorf("Expected routes rds-route and api-route, got: %+v", lister.cache)
 	}
 }
 
@@ -69,7 +69,7 @@ func TestListHTTPRouteResources(t *testing.T) {
 	}{
 		{
 			desc:      "no filter",
-			wantNames: []string{"rds-route_foo.bar.com__health", "rds-route_foo.bar.com__rds", "rule-host-route_bar.baz.com__api"},
+			wantNames: []string{"rds-route_foo.bar.com__health", "rds-route_foo.bar.com__rds", "api-route_bar.baz.com__api"},
 			wantFQDNs: []string{"foo.bar.com", "foo.bar.com", "bar.baz.com"},
 			wantURLs:  []string{"/health", "/rds", "/api"},
 			wantIPs:   []string{"foo.bar.com", "foo.bar.com", "bar.baz.com"},
@@ -93,7 +93,7 @@ func TestListHTTPRouteResources(t *testing.T) {
 		{
 			desc:      "fqdn filter",
 			filters:   map[string]string{"labels.fqdn": "bar.baz.com"},
-			wantNames: []string{"rule-host-route_bar.baz.com__api"},
+			wantNames: []string{"api-route_bar.baz.com__api"},
 			wantFQDNs: []string{"bar.baz.com"},
 			wantURLs:  []string{"/api"},
 			wantIPs:   []string{"bar.baz.com"},
@@ -145,10 +145,10 @@ func TestListHTTPRouteResources(t *testing.T) {
 // TestHTTPRouteUnprobeableHostnames checks that routes without hostnames and
 // wildcard hostnames produce no resources, since there is nothing to probe.
 func TestHTTPRouteUnprobeableHostnames(t *testing.T) {
-	route := func(name string, routeHosts, ruleHosts []string) *httpRouteInfo {
+	route := func(name string, hosts []string) *httpRouteInfo {
 		r := &httpRouteInfo{Metadata: kMetadata{Name: name, Namespace: "default"}}
-		r.Spec.Hostnames = routeHosts
-		r.Spec.Rules = []httpRouteRule{{Hostnames: ruleHosts}}
+		r.Spec.Hostnames = hosts
+		r.Spec.Rules = []httpRouteRule{{}}
 		return r
 	}
 
@@ -159,15 +159,15 @@ func TestHTTPRouteUnprobeableHostnames(t *testing.T) {
 	}{
 		{
 			desc:  "no hostnames",
-			route: route("no-host", nil, nil),
+			route: route("no-host", nil),
 		},
 		{
-			desc:  "wildcard route hostname",
-			route: route("wildcard", []string{"*.example.com"}, nil),
+			desc:  "wildcard hostname",
+			route: route("wildcard", []string{"*.example.com"}),
 		},
 		{
 			desc:      "wildcard mixed with concrete hostname",
-			route:     route("mixed", nil, []string{"*.example.com", "foo.example.com"}),
+			route:     route("mixed", []string{"*.example.com", "foo.example.com"}),
 			wantNames: []string{"mixed_foo.example.com"},
 		},
 	}

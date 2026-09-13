@@ -34,8 +34,7 @@ type httpRouteMatch struct {
 }
 
 type httpRouteRule struct {
-	Hostnames []string
-	Matches   []httpRouteMatch
+	Matches []httpRouteMatch
 }
 
 type httpRouteInfo struct {
@@ -71,22 +70,15 @@ func (i *httpRouteInfo) metadata() kMetadata {
 func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
 	resName := i.Metadata.Name
 	baseLabels := i.Metadata.Labels
-	routeHosts := i.Spec.Hostnames
 
 	for _, rule := range i.Spec.Rules {
-		// Rule-level hostnames override the route-level ones.
-		hosts := rule.Hostnames
-		if len(hosts) == 0 {
-			hosts = routeHosts
-		}
-
 		// A rule with no matches matches all paths; treat it as "/".
 		matches := rule.Matches
 		if len(matches) == 0 {
 			matches = []httpRouteMatch{{}}
 		}
 
-		for _, host := range hosts {
+		for _, host := range i.Spec.Hostnames {
 			if strings.HasPrefix(host, "*") {
 				continue
 			}

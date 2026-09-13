@@ -54,13 +54,16 @@
     },
     {
       "metadata": {
-        "name": "rule-host-route",
+        "name": "api-route",
         "namespace": "default",
         "labels": {
           "app": "other"
         }
       },
       "spec": {
+        "hostnames": [
+          "bar.baz.com"
+        ],
         "parentRefs": [
           {
             "name": "my-gateway",
@@ -70,9 +73,6 @@
         ],
         "rules": [
           {
-            "hostnames": [
-              "bar.baz.com"
-            ],
             "matches": [
               {
                 "path": {
