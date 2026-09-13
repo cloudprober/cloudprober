@@ -61,6 +61,16 @@ func Test_parseConfig(t *testing.T) {
 			wantName: "pods",
 		},
 		{
+			cfg: `http_routes:".*"`,
+			wantPC: &k8sconfigpb.ProviderConfig{
+				Namespace:  proto.String(""),
+				HttpRoutes: &k8sconfigpb.HTTPRoutes{},
+				ReEvalSec:  proto.Int32(30),
+			},
+			wantName:  "httproutes",
+			wantValue: ".*",
+		},
+		{
 			cfg: `namespace:"dev"
 			      endpoints:".*-service"
 				  labelSelector:["k8s-app","role!=canary"]`,

@@ -78,6 +78,12 @@ func TestListerAPIPaths(t *testing.T) {
 			wantAll: "/apis/networking.k8s.io/v1/ingresses",
 			wantNS:  "/apis/networking.k8s.io/v1/namespaces/test-ns/ingresses",
 		},
+		{
+			kind:    "httproutes",
+			start:   func(ns string, kc *client) { newHTTPRoutesLister(ns, time.Hour, kc, nil) },
+			wantAll: "/apis/gateway.networking.k8s.io/v1/httproutes",
+			wantNS:  "/apis/gateway.networking.k8s.io/v1/namespaces/test-ns/httproutes",
+		},
 	}
 
 	for _, lister := range listers {

@@ -43,6 +43,19 @@ Cloudprober supports discovery for the following k8s resources:
 - **Endpoints**
 - **Pods**
 - **Ingresses**
+- **HTTPRoutes** (Gateway API)
+
+Note: For `HTTPRoute` resources, the discovered target IP is the route's
+hostname (an `HTTPRoute` does not carry a load balancer IP in its status,
+unlike `Ingress`). The probe resolves it via DNS, and the hostname is also
+exposed as the `fqdn` label so HTTP probes set the correct Host header / SNI.
+Routes without hostnames (which inherit them from the Gateway listener) and
+wildcard hostnames (e.g. `*.example.com`) are skipped, as there is no
+specific host to probe, and so are `RegularExpression` path matches. If the
+route has its own `relative_url` label, paths are not expanded and you get one
+target per hostname. HTTPRoute discovery requires the
+[Gateway API](https://gateway-api.sigs.k8s.io/) CRDs to be installed in the
+cluster.
 
 #### Filters
 
@@ -104,9 +117,9 @@ You can filter k8s resources using the following options:
 
 Discovered targets carry the Kubernetes resource's labels, plus a `namespace`
 label set to the resource's namespace. Endpoints targets also get a `node`
-label, and a `pod` label if the address belongs to a pod. Ingress targets get
-`fqdn` and `relative_url` labels. If the resource already has a label with one
-of these names, its value is kept.
+label, and a `pod` label if the address belongs to a pod. Ingress and HTTPRoute
+targets get `fqdn` and `relative_url` labels. If the resource already has a
+label with one of these names, its value is kept.
 
 You can use these labels in
 [additional labels]({{< ref "additional-labels.md" >}}), e.g. to add the
@@ -167,6 +180,11 @@ rules:
   resources:
   - ingresses
   - ingresses/status
+  verbs: ["get", "list"]
+- apiGroups:
+  - "gateway.networking.k8s.io"
+  resources:
+  - httproutes
   verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
