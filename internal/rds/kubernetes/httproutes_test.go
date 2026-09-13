@@ -225,3 +225,66 @@ func TestHTTPRouteDuplicatePaths(t *testing.T) {
 		t.Errorf("expected a single resource named dup-route_foo.example.com, got: %+v", resources)
 	}
 }
+
+// TestHTTPRoutePathMatches checks the handling of RegularExpression path
+// matches, and that a relative_url label on the route disables path expansion.
+func TestHTTPRoutePathMatches(t *testing.T) {
+	match := func(typ, value string) httpRouteMatch {
+		var m httpRouteMatch
+		m.Path.Type, m.Path.Value = typ, value
+		return m
+	}
+	rules := []httpRouteRule{
+		{Matches: []httpRouteMatch{match("RegularExpression", "/api/v[0-9]+/.*"), match("PathPrefix", "/health")}},
+		{Matches: []httpRouteMatch{match("Exact", "/status")}},
+	}
+
+	tests := []struct {
+		desc      string
+		labels    map[string]string
+		wantNames []string
+		wantURLs  []string
+	}{
+		{
+			desc:      "regex match skipped",
+			wantNames: []string{"route_foo.example.com__health", "route_foo.example.com__status"},
+			wantURLs:  []string{"/health", "/status"},
+		},
+		{
+			desc:      "relative_url label, one resource per hostname",
+			labels:    map[string]string{"relative_url": "/probe"},
+			wantNames: []string{"route_foo.example.com"},
+			wantURLs:  []string{"/probe"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			key := resourceKey{name: "route", namespace: "default"}
+			route := &httpRouteInfo{Metadata: kMetadata{Name: key.name, Namespace: key.namespace, Labels: test.labels}}
+			route.Spec.Hostnames = []string{"foo.example.com"}
+			route.Spec.Rules = rules
+
+			lister := &httpRoutesLister{
+				keys:  []resourceKey{key},
+				cache: map[resourceKey]*httpRouteInfo{key: route},
+			}
+
+			resources, err := lister.listResources(&pb.ListResourcesRequest{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			var gotNames, gotURLs []string
+			for _, res := range resources {
+				gotNames = append(gotNames, res.GetName())
+				gotURLs = append(gotURLs, res.GetLabels()["relative_url"])
+			}
+			if !reflect.DeepEqual(gotNames, test.wantNames) {
+				t.Errorf("gotNames: %v, wantNames: %v", gotNames, test.wantNames)
+			}
+			if !reflect.DeepEqual(gotURLs, test.wantURLs) {
+				t.Errorf("gotURLs: %v, wantURLs: %v", gotURLs, test.wantURLs)
+			}
+		})
+	}
+}

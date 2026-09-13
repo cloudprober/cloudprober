@@ -62,7 +62,12 @@ func (i *httpRouteInfo) metadata() kMetadata {
 //
 // Since the hostname is the only thing we can probe, routes without
 // hostnames (which inherit them from the Gateway listener) and wildcard
-// hostnames (e.g. "*.example.com") produce no resources.
+// hostnames (e.g. "*.example.com") produce no resources. Similarly,
+// RegularExpression path matches are skipped, as they don't name a specific
+// URL.
+//
+// If the route has its own relative_url label, all resources would probe
+// that URL, so we don't expand paths and emit one resource per hostname.
 //
 // Rules that differ only in header or method matches expand to the same
 // (hostname, path) pair; we emit such a resource only once.
@@ -73,13 +78,14 @@ func (i *httpRouteInfo) metadata() kMetadata {
 func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) (resources []*pb.Resource) {
 	resName := i.Metadata.Name
 	baseLabels := i.Metadata.resourceLabels()
+	_, urlOverride := baseLabels["relative_url"]
 	seen := make(map[string]bool)
 
 	for _, rule := range i.Spec.Rules {
 		// A rule with no matches matches all paths; treat it as "/".
 		matches := rule.Matches
-		if len(matches) == 0 {
-			matches = []httpRouteMatch{{}}
+		if len(matches) == 0 || urlOverride {
+			matches = []httpRouteMatch{{}} // one zero-value match, not zero matches
 		}
 
 		for _, host := range i.Spec.Hostnames {
@@ -88,6 +94,10 @@ func (i *httpRouteInfo) resources(f *listFilters, l *logger.Logger) (resources [
 			}
 
 			for _, m := range matches {
+				if m.Path.Type == "RegularExpression" {
+					continue
+				}
+
 				path := m.Path.Value
 				if path == "" {
 					path = "/"
