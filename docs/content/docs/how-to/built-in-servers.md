@@ -78,7 +78,8 @@ HTTP server configuration options.
 ## UDP
 
 UDP server can either echo packets back or completely ignore them. In echo mode,
-you can use it along with the UDP probe type.
+you can use it along with the UDP probe type. `max_payload_size` controls the
+largest UDP payload that can be received and defaults to 4098 bytes.
 
 ```shell
 server {
@@ -86,6 +87,7 @@ server {
   udp_server {
     port: 85
     type: ECHO
+    max_payload_size: 8192
   }
 }
 

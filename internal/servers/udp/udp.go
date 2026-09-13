@@ -39,19 +39,14 @@ const (
 
 	// Number of messages to batch read.
 	batchSize = 16
-
-	// Maximum packet size.
-	// TODO(manugarg): We read and echo back only 4098 bytes. We should look at raising this
-	// limit or making it configurable. Also of note, ReadFromUDP reads a single UDP datagram
-	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
-	maxPacketSize = 4098
 )
 
 // Server implements a basic UDP server.
 type Server struct {
-	c    *configpb.ServerConf
-	conn *net.UDPConn
-	l    *logger.Logger
+	c              *configpb.ServerConf
+	conn           *net.UDPConn
+	l              *logger.Logger
+	maxPayloadSize int
 
 	advancedReadWrite bool // Set to true on non-windows systems
 	p6                *ipv6.PacketConn
@@ -90,6 +85,11 @@ func (s *Server) configureAdvancedReadWrite() error {
 
 // New returns an UDP server.
 func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Server, error) {
+	maxPayloadSize := c.GetMaxPayloadSize()
+	if maxPayloadSize < 1 || maxPayloadSize > 65535 {
+		return nil, fmt.Errorf("max_payload_size must be between 1 and %d bytes, got %d", 65535, maxPayloadSize)
+	}
+
 	conn, err := Listen(&net.UDPAddr{Port: int(c.GetPort())}, l)
 	if err != nil {
 		return nil, err
@@ -100,9 +100,10 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 	}()
 
 	s := &Server{
-		c:    c,
-		conn: conn,
-		l:    l,
+		c:              c,
+		conn:           conn,
+		l:              l,
+		maxPayloadSize: int(maxPayloadSize),
 	}
 
 	return s, s.configureAdvancedReadWrite()
@@ -209,13 +210,13 @@ func (s *Server) readAndEchoSimple(buf []byte) *readWriteErr {
 
 // Start starts the UDP server. It returns only when context is canceled.
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
-	var ms []ipv6.Message              // Used for batch read-write
-	buf := make([]byte, maxPacketSize) // Used for single packet read-write (windows)
+	var ms []ipv6.Message                 // Used for batch read-write
+	buf := make([]byte, s.maxPayloadSize) // Used for single packet read-write (windows)
 
 	if s.advancedReadWrite {
 		ms = make([]ipv6.Message, batchSize)
 		for i := 0; i < batchSize; i++ {
-			ms[i].Buffers = [][]byte{make([]byte, maxPacketSize)}
+			ms[i].Buffers = [][]byte{make([]byte, s.maxPayloadSize)}
 			ms[i].OOB = ipv6.NewControlMessage(ipv6.FlagDst)
 		}
 	}
