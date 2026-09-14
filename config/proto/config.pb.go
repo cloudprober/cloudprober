@@ -11,6 +11,7 @@ import (
 	proto3 "github.com/cloudprober/cloudprober/internal/rds/server/proto"
 	proto2 "github.com/cloudprober/cloudprober/internal/servers/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/surfacers/proto"
+	proto7 "github.com/cloudprober/cloudprober/internal/tracing/proto"
 	proto6 "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	proto "github.com/cloudprober/cloudprober/probes/proto"
 	proto5 "github.com/cloudprober/cloudprober/targets/proto"
@@ -148,8 +149,13 @@ type ProberConfig struct {
 	//	  }
 	//	}
 	GlobalArtifactsOptions *proto6.ArtifactsOptions `protobuf:"bytes,103,opt,name=global_artifacts_options,json=globalArtifactsOptions" json:"global_artifacts_options,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Distributed tracing configuration. When set, Cloudprober initializes a
+	// global OpenTelemetry TracerProvider that exports spans to the configured
+	// OTLP collector, and all tracing-capable probes (HTTP today) are
+	// instrumented automatically.
+	Tracing       *proto7.TracingConfig `protobuf:"bytes,106,opt,name=tracing" json:"tracing,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 // Default values for ProberConfig fields.
@@ -295,6 +301,13 @@ func (x *ProberConfig) GetGlobalArtifactsOptions() *proto6.ArtifactsOptions {
 	return nil
 }
 
+func (x *ProberConfig) GetTracing() *proto7.TracingConfig {
+	if x != nil {
+		return x.Tracing
+	}
+	return nil
+}
+
 type SharedTargets struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          *string                `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
@@ -396,7 +409,7 @@ var File_github_com_cloudprober_cloudprober_config_proto_config_proto protorefle
 
 const file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"<github.com/cloudprober/cloudprober/config/proto/config.proto\x12\vcloudprober\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aNgithub.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto\x1a<github.com/cloudprober/cloudprober/probes/proto/config.proto\x1aIgithub.com/cloudprober/cloudprober/internal/rds/server/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/internal/servers/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/internal/surfacers/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\"\xdb\x06\n" +
+	"<github.com/cloudprober/cloudprober/config/proto/config.proto\x12\vcloudprober\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aNgithub.com/cloudprober/cloudprober/probes/browser/artifacts/proto/config.proto\x1a<github.com/cloudprober/cloudprober/probes/proto/config.proto\x1aIgithub.com/cloudprober/cloudprober/internal/rds/server/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/internal/servers/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/internal/surfacers/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/internal/tracing/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\"\x99\a\n" +
 	"\fProberConfig\x122\n" +
 	"\x05probe\x18\x01 \x03(\v2\x1c.cloudprober.probes.ProbeDefR\x05probe\x12=\n" +
 	"\bsurfacer\x18\x02 \x03(\v2!.cloudprober.surfacer.SurfacerDefR\bsurfacer\x126\n" +
@@ -413,7 +426,8 @@ const file_github_com_cloudprober_cloudprober_config_proto_config_proto_rawDesc 
 	"\x0fsysvars_env_var\x18b \x01(\t:\aSYSVARSR\rsysvarsEnvVar\x12%\n" +
 	"\rstop_time_sec\x18c \x01(\x05:\x015R\vstopTimeSec\x12_\n" +
 	"\x16global_targets_options\x18d \x01(\v2).cloudprober.targets.GlobalTargetsOptionsR\x14globalTargetsOptions\x12p\n" +
-	"\x18global_artifacts_options\x18g \x01(\v26.cloudprober.probes.browser.artifacts.ArtifactsOptionsR\x16globalArtifactsOptions\"^\n" +
+	"\x18global_artifacts_options\x18g \x01(\v26.cloudprober.probes.browser.artifacts.ArtifactsOptionsR\x16globalArtifactsOptions\x12<\n" +
+	"\atracing\x18j \x01(\v2\".cloudprober.tracing.TracingConfigR\atracing\"^\n" +
 	"\rSharedTargets\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x129\n" +
 	"\atargets\x18\x02 \x02(\v2\x1f.cloudprober.targets.TargetsDefR\atargets\"P\n" +
@@ -444,7 +458,8 @@ var file_github_com_cloudprober_cloudprober_config_proto_config_proto_goTypes = 
 	(*proto4.TLSConfig)(nil),            // 7: cloudprober.tlsconfig.TLSConfig
 	(*proto5.GlobalTargetsOptions)(nil), // 8: cloudprober.targets.GlobalTargetsOptions
 	(*proto6.ArtifactsOptions)(nil),     // 9: cloudprober.probes.browser.artifacts.ArtifactsOptions
-	(*proto5.TargetsDef)(nil),           // 10: cloudprober.targets.TargetsDef
+	(*proto7.TracingConfig)(nil),        // 10: cloudprober.tracing.TracingConfig
+	(*proto5.TargetsDef)(nil),           // 11: cloudprober.targets.TargetsDef
 }
 var file_github_com_cloudprober_cloudprober_config_proto_config_proto_depIdxs = []int32{
 	3,  // 0: cloudprober.ProberConfig.probe:type_name -> cloudprober.probes.ProbeDef
@@ -455,13 +470,14 @@ var file_github_com_cloudprober_cloudprober_config_proto_config_proto_depIdxs = 
 	7,  // 5: cloudprober.ProberConfig.grpc_tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
 	8,  // 6: cloudprober.ProberConfig.global_targets_options:type_name -> cloudprober.targets.GlobalTargetsOptions
 	9,  // 7: cloudprober.ProberConfig.global_artifacts_options:type_name -> cloudprober.probes.browser.artifacts.ArtifactsOptions
-	10, // 8: cloudprober.SharedTargets.targets:type_name -> cloudprober.targets.TargetsDef
-	4,  // 9: cloudprober.SurfacersConfig.surfacer:type_name -> cloudprober.surfacer.SurfacerDef
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	10, // 8: cloudprober.ProberConfig.tracing:type_name -> cloudprober.tracing.TracingConfig
+	11, // 9: cloudprober.SharedTargets.targets:type_name -> cloudprober.targets.TargetsDef
+	4,  // 10: cloudprober.SurfacersConfig.surfacer:type_name -> cloudprober.surfacer.SurfacerDef
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_config_proto_config_proto_init() }
