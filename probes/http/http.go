@@ -36,6 +36,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/oauth"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
+	"github.com/cloudprober/cloudprober/internal/tracing/otelsdk"
 	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -45,6 +46,12 @@ import (
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	noopmetric "go.opentelemetry.io/otel/metric/noop"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 )
 
@@ -76,6 +83,16 @@ type Probe struct {
 	responseParser *payload.Parser
 
 	requestBody *httpreq.RequestBody
+
+	// enableTracing is set when a top-level tracing config is present. When
+	// true, HTTP clients are wrapped with otelhttp to create client spans and
+	// propagate W3C trace context. Sampling is controlled globally.
+	enableTracing bool
+
+	// Test seams for otelhttp. Nil in production, where otelhttp uses the global
+	// TracerProvider and propagators initialized by internal/tracing.
+	tracerProvider trace.TracerProvider
+	propagators    propagation.TextMapPropagator
 }
 
 type latencyDetails struct {
@@ -191,6 +208,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
 			totalDuration, p.opts.Interval)
 	}
+
+	p.enableTracing = !otelsdk.SDKDisabled() &&
+		p.opts.ProberConfig.GetTracing() != nil &&
+		p.opts.ProberConfig.GetTracing().GetSamplingFraction() > 0
 
 	p.initDynamicHeaders()
 
@@ -343,18 +364,17 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		return err
 	}
 
+	// Always close the body to ensure the client span is ended and the TCP
+	// connection can be reused.
+	defer resp.Body.Close()
+
 	if p.opts.NegativeTest {
-		resp.Body.Close()
 		l.Error("Negative test, but HTTP request succeeded for: ", p.redactURL(req.URL.String()))
 		return errors.New("negative test: request succeeded unexpectedly")
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		// Close here too. Returning without it holds the connection open
-		// instead of releasing it to the idle pool, so a server that keeps
-		// truncating responses would leak one connection per probe.
-		resp.Body.Close()
 		err = p.redactedErr(err)
 		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
 		return err
@@ -362,8 +382,6 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	l.Debug("Response: \n" + string(respBody))
 
-	// Calling Body.Close() allows the TCP connection to be reused.
-	resp.Body.Close()
 	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
 
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
@@ -541,6 +559,7 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 func (p *Probe) httpClient(target endpoint.Endpoint) *http.Client {
 	// We check for http.Transport because tests use a custom
 	// RoundTripper implementation.
+	var transport http.RoundTripper = p.baseTransport
 	if ht, ok := p.baseTransport.(*http.Transport); ok {
 		t := ht.Clone()
 
@@ -555,10 +574,48 @@ func (p *Probe) httpClient(target endpoint.Endpoint) *http.Client {
 				t.TLSClientConfig.ServerName = hostForTarget(target)
 			}
 		}
-
-		return &http.Client{Transport: t, CheckRedirect: p.redirectFunc}
+		transport = t
 	}
-	return &http.Client{Transport: p.baseTransport, CheckRedirect: p.redirectFunc}
+
+	// When tracing is enabled globally, wrap the transport so each request
+	// starts a client span and propagates W3C trace context to the target.
+	// Sampling is controlled by the global TracerProvider.
+	if p.enableTracing {
+		opts := []otelhttp.Option{
+			otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+				path := r.URL.Path
+				if path == "" {
+					path = "/"
+				}
+				return r.Method + " " + path
+			}),
+			otelhttp.WithSpanOptions(trace.WithAttributes(
+				attribute.String("probe", p.name),
+				attribute.String("target", target.Name),
+			)),
+			// Add connection-level span events (DNS, connect, TLS, etc.) via
+			// httptrace. WithoutHeaders ensures no request/response header
+			// values are recorded on spans, avoiding accidental capture of
+			// sensitive headers.
+			otelhttp.WithClientTrace(func(ctx context.Context) *httptrace.ClientTrace {
+				return otelhttptrace.NewClientTrace(ctx, otelhttptrace.WithoutHeaders())
+			}),
+			// The tracing config is traces-only; otelhttp also records HTTP
+			// client metrics via the global MeterProvider by default, which
+			// would silently start emitting metrics for probe traffic if
+			// anything ever installs a real one. Keep it a noop explicitly.
+			otelhttp.WithMeterProvider(noopmetric.NewMeterProvider()),
+		}
+		if p.tracerProvider != nil {
+			opts = append(opts, otelhttp.WithTracerProvider(p.tracerProvider))
+		}
+		if p.propagators != nil {
+			opts = append(opts, otelhttp.WithPropagators(p.propagators))
+		}
+		transport = otelhttp.NewTransport(transport, opts...)
+	}
+
+	return &http.Client{Transport: transport, CheckRedirect: p.redirectFunc}
 }
 
 // Returns clients for a target. We use a different HTTP client (transport) for
