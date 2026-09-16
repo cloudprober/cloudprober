@@ -83,6 +83,9 @@ Jump in with our [Getting Started](https://cloudprober.org/docs/overview/getting
 Join our [Slack](https://cloudprober.org/goto/slack), or discuss on [Github](https://github.com/cloudprober/cloudprober/discussions). Help shape Cloudprober's future by commenting
 [here](https://github.com/cloudprober/cloudprober/discussions/121).
 
+Follow us on [LinkedIn](https://www.linkedin.com/company/cloudprober) and
+[Twitter/X](https://twitter.com/cloudprober) for release notes and updates.
+
 
 _NOTE: Cloudprober's active development moved from
 ~~[google/cloudprober](https://github.com/google/cloudprober)~~ to

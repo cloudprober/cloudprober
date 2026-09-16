@@ -297,3 +297,4 @@ See [Surfacers](/docs/surfacers/overview) for setup details on each backend.
 
 - [Example Configs on GitHub](https://github.com/cloudprober/cloudprober/tree/main/examples#cloudprober-examples)
 - [Community Slack](/goto/slack-invite/)
+- [Cloudprober on LinkedIn](/goto/linkedin/)

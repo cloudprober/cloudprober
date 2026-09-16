@@ -59,3 +59,5 @@ Join our [Slack](/goto/slack-invite/), or discuss on
 [GitHub](https://github.com/cloudprober/cloudprober/discussions). And if you're
 already running it, tell us about it in
 [How do you use Cloudprober?](https://github.com/cloudprober/cloudprober/discussions/121)
+
+Follow us on [LinkedIn](/goto/linkedin/) for release notes and updates.
