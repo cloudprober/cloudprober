@@ -25,8 +25,6 @@ type ServerConf_Type int32
 
 const (
 	// Echos the incoming packet back.
-	// Note that UDP echo server limits reads to 4098 bytes. For messages longer
-	// than 4098 bytes it won't work as expected.
 	ServerConf_ECHO ServerConf_Type = 0
 	// Discard the incoming packet. Return nothing.
 	ServerConf_DISCARD ServerConf_Type = 1
@@ -82,12 +80,19 @@ func (ServerConf_Type) EnumDescriptor() ([]byte, []int) {
 }
 
 type ServerConf struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Port          *int32                 `protobuf:"varint,1,req,name=port" json:"port,omitempty"`
-	Type          *ServerConf_Type       `protobuf:"varint,2,req,name=type,enum=cloudprober.servers.udp.ServerConf_Type" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Port  *int32                 `protobuf:"varint,1,req,name=port" json:"port,omitempty"`
+	Type  *ServerConf_Type       `protobuf:"varint,2,req,name=type,enum=cloudprober.servers.udp.ServerConf_Type" json:"type,omitempty"`
+	// Maximum UDP payload size, in bytes, that can be received. Must be between 1 and 65535.
+	MaxPayloadSize *int32 `protobuf:"varint,3,opt,name=max_payload_size,json=maxPayloadSize,def=4098" json:"max_payload_size,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
+
+// Default values for ServerConf fields.
+const (
+	Default_ServerConf_MaxPayloadSize = int32(4098)
+)
 
 func (x *ServerConf) Reset() {
 	*x = ServerConf{}
@@ -133,15 +138,23 @@ func (x *ServerConf) GetType() ServerConf_Type {
 	return ServerConf_ECHO
 }
 
+func (x *ServerConf) GetMaxPayloadSize() int32 {
+	if x != nil && x.MaxPayloadSize != nil {
+		return *x.MaxPayloadSize
+	}
+	return Default_ServerConf_MaxPayloadSize
+}
+
 var File_github_com_cloudprober_cloudprober_internal_servers_udp_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_internal_servers_udp_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Jgithub.com/cloudprober/cloudprober/internal/servers/udp/proto/config.proto\x12\x17cloudprober.servers.udp\"}\n" +
+	"Jgithub.com/cloudprober/cloudprober/internal/servers/udp/proto/config.proto\x12\x17cloudprober.servers.udp\"\xad\x01\n" +
 	"\n" +
 	"ServerConf\x12\x12\n" +
 	"\x04port\x18\x01 \x02(\x05R\x04port\x12<\n" +
-	"\x04type\x18\x02 \x02(\x0e2(.cloudprober.servers.udp.ServerConf.TypeR\x04type\"\x1d\n" +
+	"\x04type\x18\x02 \x02(\x0e2(.cloudprober.servers.udp.ServerConf.TypeR\x04type\x12.\n" +
+	"\x10max_payload_size\x18\x03 \x01(\x05:\x044098R\x0emaxPayloadSize\"\x1d\n" +
 	"\x04Type\x12\b\n" +
 	"\x04ECHO\x10\x00\x12\v\n" +
 	"\aDISCARD\x10\x01B?Z=github.com/cloudprober/cloudprober/internal/servers/udp/proto"

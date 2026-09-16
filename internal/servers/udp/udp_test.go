@@ -38,7 +38,10 @@ func isClientTimeout(err error) bool {
 }
 
 func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) {
-	size := rand.Intn(1024)
+	sendAndTestResponseSize(t, c, conn, rand.Intn(1024))
+}
+
+func sendAndTestResponseSize(t *testing.T, c *configpb.ServerConf, conn net.Conn, size int) {
 	data := make([]byte, size)
 	rand.Read(data)
 
@@ -90,6 +93,63 @@ func TestEchoServer(t *testing.T) {
 		Type: configpb.ServerConf_ECHO.Enum(),
 	}
 	testServer(t, testConfig)
+}
+
+func TestEchoServerConfiguredMaxPayloadSize(t *testing.T) {
+	const payloadSize = 8192
+
+	for _, tc := range []struct {
+		name        string
+		forceSimple bool
+	}{
+		{name: "simple", forceSimple: true},
+		{name: "batch"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testConfig := &configpb.ServerConf{
+				Port:           proto.Int32(0),
+				Type:           configpb.ServerConf_ECHO.Enum(),
+				MaxPayloadSize: proto.Int32(payloadSize),
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			server, err := New(ctx, testConfig, &logger.Logger{})
+			if err != nil {
+				t.Fatalf("Error creating a new server: %v", err)
+			}
+			if tc.forceSimple {
+				server.advancedReadWrite = false
+			} else if !server.advancedReadWrite {
+				t.Skip("batch receive is not supported")
+			}
+			if server.maxPayloadSize != payloadSize {
+				t.Fatalf("maxPayloadSize=%d, want %d", server.maxPayloadSize, payloadSize)
+			}
+			go server.Start(ctx, nil)
+
+			serverAddr := fmt.Sprintf("localhost:%d", server.conn.LocalAddr().(*net.UDPAddr).Port)
+			conn, err := net.Dial("udp", serverAddr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+
+			sendAndTestResponseSize(t, testConfig, conn, payloadSize)
+		})
+	}
+}
+
+func TestInvalidMaxPayloadSize(t *testing.T) {
+	for _, size := range []int32{-1, 0, 65536} {
+		_, err := New(context.Background(), &configpb.ServerConf{
+			Port:           proto.Int32(0),
+			Type:           configpb.ServerConf_ECHO.Enum(),
+			MaxPayloadSize: proto.Int32(size),
+		}, &logger.Logger{})
+		if err == nil {
+			t.Errorf("New() with max_payload_size %d succeeded, want error", size)
+		}
+	}
 }
 
 func TestDiscardServer(t *testing.T) {
