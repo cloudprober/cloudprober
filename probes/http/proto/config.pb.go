@@ -245,6 +245,13 @@ type ProbeConf struct {
 	// carries secrets (e.g. passwords) in query parameters. Default is false,
 	// i.e. the full URL is logged.
 	RedactUrlQueryInLogs *bool `protobuf:"varint,25,opt,name=redact_url_query_in_logs,json=redactUrlQueryInLogs" json:"redact_url_query_in_logs,omitempty"`
+	// Query parameter names to redact from the "url.full" span attribute when
+	// tracing is enabled (see the top-level tracing config). Matching
+	// parameters' values are replaced with "REDACTED" on the exported span;
+	// the actual request sent to the target is never modified. Use this when
+	// relative_url carries secrets (e.g. tokens) in query parameters and you
+	// want them traced without leaking into your tracing backend.
+	RedactQueryParamsInTraces []string `protobuf:"bytes,26,rep,name=redact_query_params_in_traces,json=redactQueryParamsInTraces" json:"redact_query_params_in_traces,omitempty"`
 	// Port for HTTP requests (Corresponding target field: port)
 	// Default is to use the scheme specific port, but if this field is not
 	// set and discovered target has a port (e.g., k8s services, ingresses),
@@ -445,6 +452,13 @@ func (x *ProbeConf) GetRedactUrlQueryInLogs() bool {
 		return *x.RedactUrlQueryInLogs
 	}
 	return false
+}
+
+func (x *ProbeConf) GetRedactQueryParamsInTraces() []string {
+	if x != nil {
+		return x.RedactQueryParamsInTraces
+	}
+	return nil
 }
 
 func (x *ProbeConf) GetPort() int32 {
@@ -680,12 +694,13 @@ var File_github_com_cloudprober_cloudprober_probes_http_proto_config_proto proto
 
 const file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xd7\x0f\n" +
+	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\x99\x10\n" +
 	"\tProbeConf\x12M\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\bprotocol\x12I\n" +
 	"\x06scheme\x18\x15 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\x06scheme\x12!\n" +
 	"\frelative_url\x18\x02 \x01(\tR\vrelativeUrl\x126\n" +
-	"\x18redact_url_query_in_logs\x18\x19 \x01(\bR\x14redactUrlQueryInLogs\x12\x12\n" +
+	"\x18redact_url_query_in_logs\x18\x19 \x01(\bR\x14redactUrlQueryInLogs\x12@\n" +
+	"\x1dredact_query_params_in_traces\x18\x1a \x03(\tR\x19redactQueryParamsInTraces\x12\x12\n" +
 	"\x04port\x18\x03 \x01(\x05R\x04port\x12#\n" +
 	"\rresolve_first\x18\x04 \x01(\bR\fresolveFirst\x12B\n" +
 	"\x1aexport_response_as_metrics\x18\x05 \x01(\b:\x05falseR\x17exportResponseAsMetrics\x12F\n" +

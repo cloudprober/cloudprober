@@ -51,6 +51,14 @@ message ProbeConf {
   // i.e. the full URL is logged.
   optional bool redact_url_query_in_logs = 25;
 
+  // Query parameter names to redact from the "url.full" span attribute when
+  // tracing is enabled (see the top-level tracing config). Matching
+  // parameters' values are replaced with "REDACTED" on the exported span;
+  // the actual request sent to the target is never modified. Use this when
+  // relative_url carries secrets (e.g. tokens) in query parameters and you
+  // want them traced without leaking into your tracing backend.
+  repeated string redact_query_params_in_traces = 26;
+
   // Port for HTTP requests (Corresponding target field: port)
   // Default is to use the scheme specific port, but if this field is not
   // set and discovered target has a port (e.g., k8s services, ingresses),
