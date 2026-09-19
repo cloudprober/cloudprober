@@ -20,8 +20,6 @@ package file
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -67,50 +65,6 @@ func parseObjectURL(objectPath string) (bucket, object string, err error) {
 	return parts[0], parts[1], nil
 }
 
-func httpLastModified(res *http.Response) (time.Time, error) {
-	t, err := time.Parse(time.RFC1123, res.Header.Get("Last-Modified"))
-	if err != nil {
-		return zeroTime, fmt.Errorf("error parsing Last-Modified header: %v", err)
-	}
-	return t, nil
-}
-
-func readFileFromHTTP(ctx context.Context, fileURL string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", fileURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("got error while retrieving HTTP object, http status: %s, status code: %d", res.Status, res.StatusCode)
-	}
-
-	defer res.Body.Close()
-	return io.ReadAll(res.Body)
-}
-
-func httpModTime(ctx context.Context, fileURL string) (time.Time, error) {
-	req, err := http.NewRequestWithContext(ctx, "HEAD", fileURL, nil)
-	if err != nil {
-		return zeroTime, err
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return zeroTime, err
-	}
-
-	if res.StatusCode != http.StatusOK {
-		return zeroTime, fmt.Errorf("got error while retrieving HTTP object, http status: %s, status code: %d", res.Status, res.StatusCode)
-	}
-
-	defer res.Body.Close()
-	return httpLastModified(res)
-}
-
 func substituteEnvVariables(content []byte) []byte {
 	return []byte(os.ExpandEnv(string(content)))
 }
@@ -149,7 +103,7 @@ func ReadFile(ctx context.Context, fname string, readOptions ...ReadOption) ([]b
 
 	for prefix, f := range prefixToReadfunc {
 		if strings.HasPrefix(fname, prefix) {
-			return processContent(f(ctx, fname[len(prefix):]))
+			return processContent(f(ctx, fname))
 		}
 	}
 	return processContent(os.ReadFile(fname))
@@ -178,7 +132,7 @@ func ReadWithCache(ctx context.Context, fname string, refreshInterval time.Durat
 func ModTime(ctx context.Context, fname string) (time.Time, error) {
 	for prefix, f := range prefixToModTimeFunc {
 		if strings.HasPrefix(fname, prefix) {
-			return f(ctx, fname[len(prefix):])
+			return f(ctx, fname)
 		}
 	}
 
