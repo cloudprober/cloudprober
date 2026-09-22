@@ -16,6 +16,7 @@ package cloudprober
 
 import (
 	"context"
+	"errors"
 	"net"
 	"os"
 	"testing"
@@ -259,4 +260,37 @@ func TestCloudproberConfig(t *testing.T) {
 			assert.Equal(t, tt.wantParsedConfig, GetParsedConfig(), "GetParsedConfig()")
 		})
 	}
+}
+
+func TestShutdown(t *testing.T) {
+	t.Run("no tracing configured", func(t *testing.T) {
+		cloudProber.tracingShutdown = nil
+		Shutdown() // Should be a no-op.
+	})
+
+	t.Run("flushes spans once", func(t *testing.T) {
+		var calls int
+		var deadline time.Time
+		cloudProber.tracingShutdown = func(ctx context.Context) error {
+			calls++
+			deadline, _ = ctx.Deadline()
+			return nil
+		}
+
+		Shutdown()
+		assert.Equal(t, 1, calls, "tracing shutdown calls")
+		assert.WithinDuration(t, time.Now().Add(tracingShutdownTimeout), deadline, time.Second, "tracing shutdown deadline")
+
+		// Shutdown is safe to call again, but doesn't shut tracing down twice.
+		Shutdown()
+		assert.Equal(t, 1, calls, "tracing shutdown calls after second Shutdown")
+	})
+
+	t.Run("logs shutdown error", func(t *testing.T) {
+		cloudProber.tracingShutdown = func(ctx context.Context) error {
+			return errors.New("collector unreachable")
+		}
+		Shutdown() // Error is logged, not returned.
+		assert.Nil(t, cloudProber.tracingShutdown, "tracingShutdown after error")
+	})
 }

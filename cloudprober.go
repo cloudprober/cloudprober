@@ -63,6 +63,11 @@ import (
 
 const (
 	sysvarsModuleName = "sysvars"
+
+	// tracingShutdownTimeout is how long we wait for buffered trace spans to
+	// be flushed on shutdown. It's kept below the default stop_time_sec (5s),
+	// so that we get to log the failure if the flush doesn't finish in time.
+	tracingShutdownTimeout = 3 * time.Second
 )
 
 // Constants defining the default server host and port.
@@ -323,7 +328,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		if err != nil {
 			return fmt.Errorf("error while initializing tracing: %v", err)
 		}
-		cleanup = append(cleanup, func() { _ = tracingShutdown(context.Background()) })
+		cleanup = append(cleanup, func() { shutdownTracing(tracingShutdown) })
 	}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
@@ -406,14 +411,7 @@ func Start(ctx context.Context) {
 			grpcSrv.Stop()
 		}
 		cloudProber.cancelInitCtx()
-		// Flush any buffered trace spans before exiting.
-		if cloudProber.tracingShutdown != nil {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			if err := cloudProber.tracingShutdown(shutdownCtx); err != nil {
-				slog.Warn("Error shutting down tracing", "err", err)
-			}
-			cancel()
-		}
+		shutdownTracing(cloudProber.tracingShutdown)
 		cloudProber.Lock()
 		defer cloudProber.Unlock()
 		cloudProber.defaultServerLn = nil
@@ -440,6 +438,38 @@ func Start(ctx context.Context) {
 	srvMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "OK")
 	})
+}
+
+// shutdownTracing flushes any buffered trace spans and shuts tracing down. The
+// flush is bounded by tracingShutdownTimeout, so that an unreachable collector,
+// which the exporter retries with a backoff, can't hold up the shutdown.
+func shutdownTracing(shutdownFunc tracing.ShutdownFunc) {
+	if shutdownFunc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), tracingShutdownTimeout)
+	defer cancel()
+	if err := shutdownFunc(ctx); err != nil {
+		slog.Warn("Error shutting down tracing", "err", err)
+	}
+}
+
+// Shutdown flushes any buffered trace spans and releases the resources that
+// need an explicit cleanup on the way out. It's a no-op if there is nothing to
+// clean up, and it's safe to call more than once.
+//
+// Callers that use Start don't need to call Shutdown: canceling the context
+// passed to Start does the same cleanup. It's meant for the paths that exit
+// without ever starting the prober, e.g. RunOnce.
+//
+// Note that tracing can't be initialized again after this, so embedders that
+// call RunOnce in a loop should call Shutdown only once, before exiting.
+func Shutdown() {
+	cloudProber.Lock()
+	defer cloudProber.Unlock()
+
+	shutdownTracing(cloudProber.tracingShutdown)
+	cloudProber.tracingShutdown = nil
 }
 
 // GetConfig returns the prober config.
