@@ -244,6 +244,10 @@ type ProbeConf struct {
 	// messages, replacing it with "?<redacted>". Use this when the relative_url
 	// carries secrets (e.g. passwords) in query parameters. Default is false,
 	// i.e. the full URL is logged.
+	//
+	// Note: this only affects log messages. When tracing is enabled (see the
+	// top-level tracing config), the full URL, including query parameters,
+	// is still recorded on spans regardless of this setting.
 	RedactUrlQueryInLogs *bool `protobuf:"varint,25,opt,name=redact_url_query_in_logs,json=redactUrlQueryInLogs" json:"redact_url_query_in_logs,omitempty"`
 	// Port for HTTP requests (Corresponding target field: port)
 	// Default is to use the scheme specific port, but if this field is not

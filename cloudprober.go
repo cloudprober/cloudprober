@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/config"
@@ -42,6 +43,7 @@ import (
 	"github.com/cloudprober/cloudprober/internal/reaper"
 	"github.com/cloudprober/cloudprober/internal/servers"
 	"github.com/cloudprober/cloudprober/internal/sysvars"
+	"github.com/cloudprober/cloudprober/internal/tracing"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
@@ -88,6 +90,7 @@ var cloudProber struct {
 	configSource    config.ConfigSource
 	config          *configpb.ProberConfig
 	cancelInitCtx   context.CancelFunc
+	tracingShutdown tracing.ShutdownFunc
 	sync.RWMutex
 }
 
@@ -154,6 +157,44 @@ func initDefaultServer(c *configpb.ProberConfig, l *logger.Logger) (net.Listener
 	}
 
 	return ln, nil
+}
+
+func initDefaultGRPCServer(c *configpb.ProberConfig) (net.Listener, error) {
+	grpcPort := getGRPCPort(c)
+	if grpcPort == NoGRPCPort {
+		return nil, nil
+	}
+	serverHost := getServerHost(c)
+
+	grpcLn, err := net.Listen("tcp", net.JoinHostPort(serverHost, grpcPort))
+	if err != nil {
+		return nil, fmt.Errorf("error while creating listener for default gRPC server: %v", err)
+	}
+
+	s := state.DefaultGRPCServer()
+	if s == nil {
+		// Create the default gRPC server now, so that other modules can register
+		// their services with it in the prober.Init() phase.
+		var serverOpts []grpc.ServerOption
+
+		if c.GetGrpcTlsConfig() != nil {
+			tlsConfig, err := tlsconfig.FromProto(c.GetGrpcTlsConfig())
+			if err != nil {
+				grpcLn.Close()
+				return nil, err
+			}
+			tlsConfig.ClientCAs = tlsConfig.RootCAs
+			serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
+		}
+
+		s = grpc.NewServer(serverOpts...)
+		state.SetDefaultGRPCServer(s)
+	}
+	reflection.Register(s)
+	// register channelz service to the default grpc server port
+	service.RegisterChannelzServiceToServer(s)
+
+	return grpcLn, nil
 }
 
 func setDebugHandlers(srvMux *http.ServeMux) {
@@ -239,53 +280,50 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 
 	globalLogger := logger.NewWithAttrs(slog.String("component", "global"))
 
+	// cleanup accumulates rollback actions for resources acquired below, run
+	// in reverse (LIFO) order if a later step fails. It's cleared just
+	// before a successful return, once ownership transfers to cloudProber.
+	var cleanup []func()
+	defer func() {
+		for i := len(cleanup) - 1; i >= 0; i-- {
+			cleanup[i]()
+		}
+	}()
+
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.
 	ln, err := initDefaultServer(cfg, globalLogger)
 	if err != nil {
 		return err
 	}
+	cleanup = append(cleanup, func() { ln.Close() })
 	srvMux := http.NewServeMux()
 	setDebugHandlers(srvMux)
 	state.SetDefaultHTTPServeMux(srvMux)
 
-	var grpcLn net.Listener
-	grpcPort := getGRPCPort(cfg)
-	if grpcPort != NoGRPCPort {
-		serverHost := getServerHost(cfg)
-
-		grpcLn, err = net.Listen("tcp", net.JoinHostPort(serverHost, grpcPort))
-		if err != nil {
-			return fmt.Errorf("error while creating listener for default gRPC server: %v", err)
-		}
-
-		s := state.DefaultGRPCServer()
-		if s == nil {
-			// Create the default gRPC server now, so that other modules can register
-			// their services with it in the prober.Init() phase.
-			var serverOpts []grpc.ServerOption
-
-			if cfg.GetGrpcTlsConfig() != nil {
-				tlsConfig, err := tlsconfig.FromProto(cfg.GetGrpcTlsConfig())
-				if err != nil {
-					return err
-				}
-				tlsConfig.ClientCAs = tlsConfig.RootCAs
-				serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
-			}
-
-			s = grpc.NewServer(serverOpts...)
-			state.SetDefaultGRPCServer(s)
-		}
-		reflection.Register(s)
-		// register channelz service to the default grpc server port
-		service.RegisterChannelzServiceToServer(s)
+	// Start default gRPC server (if configured - result may be nil).
+	grpcLn, err := initDefaultGRPCServer(cfg)
+	if err != nil {
+		return err
+	}
+	if grpcLn != nil {
+		cleanup = append(cleanup, func() { grpcLn.Close() })
 	}
 
 	// Initialize log store for in-memory log retention.
 	if *logStoreMaxMemMB > 0 {
 		ls := logstore.New(int64(*logStoreMaxMemMB)<<20, logger.ParseLogLevel(*logStoreMinLevel))
 		logger.SetDefaultLogStore(ls)
+	}
+
+	var tracingShutdown tracing.ShutdownFunc
+	if cfg.GetTracing() != nil {
+		tl := logger.NewWithAttrs(slog.String("component", "tracing"))
+		tracingShutdown, err = tracing.Init(context.Background(), cfg.GetTracing(), tl)
+		if err != nil {
+			return fmt.Errorf("error while initializing tracing: %v", err)
+		}
+		cleanup = append(cleanup, func() { _ = tracingShutdown(context.Background()) })
 	}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
@@ -295,10 +333,9 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	// close their listeners.
 	// TODO(manugarg): Plumb init context from cmd/cloudprober.
 	initCtx, cancelFunc := context.WithCancel(context.TODO())
+	cleanup = append(cleanup, cancelFunc)
 	pr, err := prober.Init(initCtx, cfg, globalLogger)
 	if err != nil {
-		cancelFunc()
-		ln.Close()
 		return err
 	}
 
@@ -308,7 +345,11 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
+	cloudProber.tracingShutdown = tracingShutdown
 
+	// Ownership of all acquired resources has transferred to cloudProber;
+	// skip the rollback.
+	cleanup = nil
 	return nil
 }
 
@@ -365,6 +406,14 @@ func Start(ctx context.Context) {
 			grpcSrv.Stop()
 		}
 		cloudProber.cancelInitCtx()
+		// Flush any buffered trace spans before exiting.
+		if cloudProber.tracingShutdown != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if err := cloudProber.tracingShutdown(shutdownCtx); err != nil {
+				slog.Warn("Error shutting down tracing", "err", err)
+			}
+			cancel()
+		}
 		cloudProber.Lock()
 		defer cloudProber.Unlock()
 		cloudProber.defaultServerLn = nil
@@ -372,6 +421,7 @@ func Start(ctx context.Context) {
 		cloudProber.config = nil
 		cloudProber.configSource = nil
 		cloudProber.prober = nil
+		cloudProber.tracingShutdown = nil
 		// prevent reuse in, for example, tests
 		state.SetDefaultGRPCServer(nil)
 		state.SetDefaultHTTPServeMux(nil)
