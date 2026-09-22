@@ -108,6 +108,11 @@ type FakeSurfacer struct {
 }
 
 func (f *FakeSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
+	// Check the context before the select below: with room left in the channel
+	// and a context that's already done, select picks between them at random.
+	if ctx.Err() != nil {
+		return
+	}
 	if em.Label("ptype") != "udp" {
 		return
 	}
