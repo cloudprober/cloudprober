@@ -63,6 +63,11 @@ import (
 
 const (
 	sysvarsModuleName = "sysvars"
+
+	// tracingShutdownTimeout is how long we wait for buffered trace spans to
+	// be flushed on shutdown. It's kept below the default stop_time_sec (5s),
+	// so that we get to log the failure if the flush doesn't finish in time.
+	tracingShutdownTimeout = 3 * time.Second
 )
 
 // Constants defining the default server host and port.
@@ -82,15 +87,26 @@ var (
 	logStoreMinLevel  = flag.String("log_store_min_level", "INFO", "Minimum log level for stored logs. Valid values: DEBUG, INFO, WARNING, ERROR")
 )
 
-// Global prober.Prober instance protected by a mutex.
-var cloudProber struct {
+// instance is everything that Init acquires, kept in one struct so that
+// Shutdown can drop all of it in one go.
+type instance struct {
 	prober          *prober.Prober
 	defaultServerLn net.Listener
 	defaultGRPCLn   net.Listener
+	httpSrv         *http.Server
 	configSource    config.ConfigSource
 	config          *configpb.ProberConfig
+	cancelStartCtx  context.CancelFunc
 	cancelInitCtx   context.CancelFunc
 	tracingShutdown tracing.ShutdownFunc
+}
+
+// Global prober.Prober instance protected by a mutex. Cloudprober is a
+// process-wide singleton: it's initialized once and, once shut down, stays
+// down -- 'done' is what makes that stick.
+var cloudProber struct {
+	instance
+	done bool
 	sync.RWMutex
 }
 
@@ -219,6 +235,9 @@ func InitFromConfig(configFile string) error {
 //
 // Optionally, one can use the 'state' package to customize cloudprober; for example,
 // by providing a custom gRPC server, before calling this func to initialize the cloudprober.
+//
+// Cloudprober is a process-wide singleton, so Init can be called only once:
+// calling it again, or after Shutdown, panics.
 func Init() error {
 	return InitWithConfigSource(config.DefaultConfigSource())
 }
@@ -235,12 +254,13 @@ func InitWithConfigSource(configSrc config.ConfigSource) error {
 }
 
 func initWithConfigSource(configSrc config.ConfigSource) error {
-	// Return immediately if prober is already initialized.
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
 
-	if cloudProber.prober != nil {
-		return nil
+	// Cloudprober is a singleton and Shutdown is one-way, so initializing
+	// again is a programming error, not something to paper over.
+	if cloudProber.prober != nil || cloudProber.done {
+		panic("cloudprober is already initialized; it cannot be initialized again")
 	}
 
 	// Initialize sysvars module
@@ -323,7 +343,7 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		if err != nil {
 			return fmt.Errorf("error while initializing tracing: %v", err)
 		}
-		cleanup = append(cleanup, func() { _ = tracingShutdown(context.Background()) })
+		cleanup = append(cleanup, func() { shutdownTracing(tracingShutdown) })
 	}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
@@ -339,13 +359,15 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 		return err
 	}
 
-	cloudProber.prober = pr
-	cloudProber.config = cfg
-	cloudProber.configSource = configSrc
-	cloudProber.defaultServerLn = ln
-	cloudProber.defaultGRPCLn = grpcLn
-	cloudProber.cancelInitCtx = cancelFunc
-	cloudProber.tracingShutdown = tracingShutdown
+	cloudProber.instance = instance{
+		prober:          pr,
+		config:          cfg,
+		configSource:    configSrc,
+		defaultServerLn: ln,
+		defaultGRPCLn:   grpcLn,
+		cancelInitCtx:   cancelFunc,
+		tracingShutdown: tracingShutdown,
+	}
 
 	// Ownership of all acquired resources has transferred to cloudProber;
 	// skip the rollback.
@@ -357,6 +379,10 @@ func initWithConfigSource(configSrc config.ConfigSource) error {
 func RunOnce(ctx context.Context, names, format, indent string) error {
 	cloudProber.RLock()
 	defer cloudProber.RUnlock()
+
+	if cloudProber.prober == nil {
+		return errors.New("cloudprober is not initialized")
+	}
 
 	var probeNames []string
 	// avoid getting '[""]' as probe names
@@ -391,40 +417,23 @@ func Start(ctx context.Context) {
 	// browser probe -- are reparented to us, and it's on us to reap them. This
 	// is a no-op if somebody else is collecting orphans, e.g. /pause with
 	// shareProcessNamespace on Kubernetes, or tini with docker's --init.
-	reaper.Start(ctx, logger.NewWithAttrs(slog.String("component", "reaper")))
+	// Probes and servers run on a context derived from the caller's, so that
+	// Shutdown() can stop them even while the caller's context is still live.
+	startCtx, cancelStartCtx := context.WithCancel(ctx)
+	cloudProber.cancelStartCtx = cancelStartCtx
+
+	reaper.Start(startCtx, logger.NewWithAttrs(slog.String("component", "reaper")))
 
 	// Default servers
 	srvMux := state.DefaultHTTPServeMux()
 	httpSrv := &http.Server{Handler: srvMux}
 	grpcSrv := state.DefaultGRPCServer()
+	cloudProber.httpSrv = httpSrv
 
 	// Set up a goroutine to cleanup if context ends.
 	go func() {
-		<-ctx.Done()
-		httpSrv.Close() // This will close the listener as well.
-		if grpcSrv != nil {
-			grpcSrv.Stop()
-		}
-		cloudProber.cancelInitCtx()
-		// Flush any buffered trace spans before exiting.
-		if cloudProber.tracingShutdown != nil {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			if err := cloudProber.tracingShutdown(shutdownCtx); err != nil {
-				slog.Warn("Error shutting down tracing", "err", err)
-			}
-			cancel()
-		}
-		cloudProber.Lock()
-		defer cloudProber.Unlock()
-		cloudProber.defaultServerLn = nil
-		cloudProber.defaultGRPCLn = nil
-		cloudProber.config = nil
-		cloudProber.configSource = nil
-		cloudProber.prober = nil
-		cloudProber.tracingShutdown = nil
-		// prevent reuse in, for example, tests
-		state.SetDefaultGRPCServer(nil)
-		state.SetDefaultHTTPServeMux(nil)
+		<-startCtx.Done()
+		Shutdown()
 	}()
 
 	go httpSrv.Serve(cloudProber.defaultServerLn)
@@ -436,10 +445,81 @@ func Start(ctx context.Context) {
 		panic("Prober is not initialized. Did you call cloudprober.InitFromConfig first?")
 	}
 
-	cloudProber.prober.Start(ctx)
+	cloudProber.prober.Start(startCtx)
 	srvMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "OK")
 	})
+}
+
+// shutdownTracing flushes any buffered trace spans and shuts tracing down. The
+// flush is bounded by tracingShutdownTimeout, so that an unreachable collector,
+// which the exporter retries with a backoff, can't hold up the shutdown.
+func shutdownTracing(shutdownFunc tracing.ShutdownFunc) {
+	if shutdownFunc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), tracingShutdownTimeout)
+	defer cancel()
+	if err := shutdownFunc(ctx); err != nil {
+		slog.Warn("Error shutting down tracing", "err", err)
+	}
+}
+
+// Shutdown stops the prober and the default servers, flushes any buffered
+// trace spans, and releases the resources acquired by Init. It's safe to call
+// more than once.
+//
+// It's one-way: cloudprober cannot be initialized again afterwards. Callers
+// that use Start don't need to call Shutdown -- canceling the context passed
+// to Start runs it for them -- it's meant for the paths that exit without ever
+// starting the prober, e.g. RunOnce, which would otherwise leave the default
+// servers' listeners open and buffered spans unexported.
+//
+// Note that probes and user-configured servers are only signaled to stop, so
+// they may still be going away when Shutdown returns. Shutdown also stops the
+// default gRPC server, including one that an embedder installed through
+// state.SetDefaultGRPCServer.
+func Shutdown() {
+	cloudProber.Lock()
+	if cloudProber.done {
+		cloudProber.Unlock()
+		return
+	}
+	cloudProber.done = true
+	inst := cloudProber.instance
+	cloudProber.instance = instance{}
+	cloudProber.Unlock()
+
+	// Nothing can hand out or replace these resources anymore, so the rest
+	// happens without the lock: stopping the gRPC server waits for its
+	// transports and flushing spans waits for the collector, and config and
+	// info readers shouldn't have to wait behind either.
+
+	// Closing the HTTP server closes the listener it's serving on, but we
+	// close the listeners directly as well, for the paths that acquired them
+	// in Init and never got to Start.
+	if inst.httpSrv != nil {
+		inst.httpSrv.Close()
+	}
+	if inst.defaultServerLn != nil {
+		inst.defaultServerLn.Close()
+	}
+	if grpcSrv := state.DefaultGRPCServer(); grpcSrv != nil {
+		grpcSrv.Stop()
+	}
+	if inst.defaultGRPCLn != nil {
+		inst.defaultGRPCLn.Close()
+	}
+
+	// Stop the probes and the user-configured servers, then the modules set up
+	// during the initialization, and flush the spans they produced last.
+	if inst.cancelStartCtx != nil {
+		inst.cancelStartCtx()
+	}
+	if inst.cancelInitCtx != nil {
+		inst.cancelInitCtx()
+	}
+	shutdownTracing(inst.tracingShutdown)
 }
 
 // GetConfig returns the prober config.

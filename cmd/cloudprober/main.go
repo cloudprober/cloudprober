@@ -185,6 +185,11 @@ func main() {
 
 	if *runOnce {
 		err := cloudprober.RunOnce(startCtx, *runOnceProbeNames, *runOnceOutFormat, *runOnceOutIndent)
+		// Unlike the regular path, nothing cancels the start context here, so
+		// we have to clean up ourselves -- most importantly, flush buffered
+		// trace spans. It's done before the error check below, as Criticalf
+		// exits without running the defers.
+		cloudprober.Shutdown()
 		if err != nil {
 			l.Criticalf("Error running run-once probe. Err: %v", err)
 		}
