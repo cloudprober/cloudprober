@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	serverspb "github.com/cloudprober/cloudprober/internal/servers/proto"
 	udpserverpb "github.com/cloudprober/cloudprober/internal/servers/udp/proto"
 	surfacerspb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
+	"github.com/cloudprober/cloudprober/internal/tracing"
 	"github.com/cloudprober/cloudprober/metrics"
 	probepb "github.com/cloudprober/cloudprober/probes/proto"
 	udpprobepb "github.com/cloudprober/cloudprober/probes/udp/proto"
@@ -266,18 +268,18 @@ func TestCloudproberConfig(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	t.Run("no tracing configured", func(t *testing.T) {
-		cloudProber.tracingShutdown = nil
+		setTracingShutdown(nil)
 		Shutdown() // Should be a no-op.
 	})
 
 	t.Run("flushes spans once", func(t *testing.T) {
 		var calls int
 		var deadline time.Time
-		cloudProber.tracingShutdown = func(ctx context.Context) error {
+		setTracingShutdown(func(ctx context.Context) error {
 			calls++
 			deadline, _ = ctx.Deadline()
 			return nil
-		}
+		})
 
 		Shutdown()
 		assert.Equal(t, 1, calls, "tracing shutdown calls")
@@ -289,12 +291,21 @@ func TestShutdown(t *testing.T) {
 	})
 
 	t.Run("logs shutdown error", func(t *testing.T) {
-		cloudProber.tracingShutdown = func(ctx context.Context) error {
+		setTracingShutdown(func(ctx context.Context) error {
 			return errors.New("collector unreachable")
-		}
+		})
 		Shutdown() // Error is logged, not returned.
+
+		cloudProber.RLock()
+		defer cloudProber.RUnlock()
 		assert.Nil(t, cloudProber.tracingShutdown, "tracingShutdown after error")
 	})
+}
+
+func setTracingShutdown(f tracing.ShutdownFunc) {
+	cloudProber.Lock()
+	defer cloudProber.Unlock()
+	cloudProber.tracingShutdown = f
 }
 
 // Verify that Shutdown releases what Init acquired, even if Start was never
@@ -420,4 +431,48 @@ func TestShutdownStopsStartedProber(t *testing.T) {
 		t.Errorf("got metrics after Shutdown: %s", em.String())
 	case <-time.After(2 * time.Second):
 	}
+}
+
+// A Shutdown() after Start() must tear down exactly once, and the cleanup
+// goroutine that Start leaves behind must keep its hands off a later instance.
+func TestShutdownAfterStart(t *testing.T) {
+	port := freePortsT(t, 1)[0]
+
+	f, err := os.CreateTemp("", "cloudprober_test")
+	if err != nil {
+		t.Fatalf("os.CreateTemp(): %v", err)
+	}
+	defer os.Remove(f.Name())
+	cfg := &configpb.ProberConfig{Port: proto.Int32(port)}
+	if err := os.WriteFile(f.Name(), []byte(prototext.Format(cfg)), 0644); err != nil {
+		t.Fatalf("os.WriteFile(): %v", err)
+	}
+	configSrc := func() config.ConfigSource { return config.ConfigSourceWithFile(f.Name()) }
+
+	if err := InitWithConfigSource(configSrc()); err != nil {
+		t.Fatalf("InitWithConfigSource(): %v", err)
+	}
+
+	var calls atomic.Int32
+	setTracingShutdown(func(ctx context.Context) error {
+		calls.Add(1)
+		// Long enough that a second, concurrent shutdown would overlap with
+		// this one instead of finding the state already cleared.
+		time.Sleep(300 * time.Millisecond)
+		return nil
+	})
+
+	// Note the background context: only Shutdown can stop this prober.
+	Start(context.Background())
+	Shutdown()
+
+	if err := InitWithConfigSource(configSrc()); err != nil {
+		t.Fatalf("InitWithConfigSource() after Shutdown: %v", err)
+	}
+	defer Shutdown()
+
+	time.Sleep(time.Second) // give the first Start's goroutine time to run
+	assert.NotNil(t, GetProber(), "prober after re-init")
+	assert.NotNil(t, state.DefaultHTTPServeMux(), "default HTTP serve mux after re-init")
+	assert.EqualValues(t, 1, calls.Load(), "tracing shutdown calls")
 }

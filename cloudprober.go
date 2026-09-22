@@ -415,10 +415,13 @@ func Start(ctx context.Context) {
 	grpcSrv := state.DefaultGRPCServer()
 	cloudProber.httpSrv = httpSrv
 
-	// Set up a goroutine to cleanup if context ends.
+	// Set up a goroutine to cleanup if context ends. It's tied to the prober
+	// we're starting here, so that it can't tear down an instance initialized
+	// after this one.
+	pr := cloudProber.prober
 	go func() {
 		<-startCtx.Done()
-		Shutdown()
+		shutdown(pr)
 	}()
 
 	go httpSrv.Serve(cloudProber.defaultServerLn)
@@ -451,53 +454,40 @@ func shutdownTracing(shutdownFunc tracing.ShutdownFunc) {
 }
 
 // Shutdown stops the prober and the default servers, flushes any buffered
-// trace spans, and releases the resources acquired by Init, leaving
-// cloudprober ready to be initialized again. It's a no-op if there is nothing
-// to clean up, and it's safe to call more than once.
+// trace spans, and releases the resources acquired by Init. It's safe to call
+// more than once.
 //
 // Callers that use Start don't need to call Shutdown: canceling the context
 // passed to Start runs it for them. It's meant for the paths that exit without
 // ever starting the prober, e.g. RunOnce, which would otherwise leave the
 // default servers' listeners open and buffered spans unexported.
+//
+// Note that probes and user-configured servers are only signaled to stop, so
+// they may still be going away when Shutdown returns, and re-initializing
+// right away can fail to bind their ports. Shutdown also stops the default
+// gRPC server, including one that an embedder installed through
+// state.SetDefaultGRPCServer.
 func Shutdown() {
-	// Take a snapshot of what needs an explicit cleanup, and do the actual
-	// teardown without holding the lock: stopping the gRPC server and flushing
-	// trace spans can block, and readers -- in-flight web handlers, say --
-	// shouldn't have to wait behind an unreachable trace collector.
-	cloudProber.RLock()
+	shutdown(nil)
+}
+
+// shutdown tears cloudprober down. If pr is not nil, it's a no-op unless pr is
+// still the running prober; that's how a cleanup goroutine left behind by an
+// earlier Start keeps its hands off a later instance.
+func shutdown(pr *prober.Prober) {
+	cloudProber.Lock()
+	if pr != nil && pr != cloudProber.prober {
+		cloudProber.Unlock()
+		return
+	}
+
 	httpSrv, serverLn, grpcLn := cloudProber.httpSrv, cloudProber.defaultServerLn, cloudProber.defaultGRPCLn
 	cancelStartCtx, cancelInitCtx := cloudProber.cancelStartCtx, cloudProber.cancelInitCtx
 	tracingShutdown := cloudProber.tracingShutdown
-	cloudProber.RUnlock()
+	grpcSrv := state.DefaultGRPCServer()
 
-	// Closing the HTTP server closes the listener it's serving on, but we
-	// close the listeners directly as well, for the paths that acquired them
-	// in Init and never got to Start.
-	if httpSrv != nil {
-		httpSrv.Close()
-	}
-	if serverLn != nil {
-		serverLn.Close()
-	}
-	if grpcSrv := state.DefaultGRPCServer(); grpcSrv != nil {
-		grpcSrv.Stop()
-	}
-	if grpcLn != nil {
-		grpcLn.Close()
-	}
-
-	// Stop the probes and the user-configured servers, then the modules set up
-	// during the initialization, and flush the spans they produced last.
-	if cancelStartCtx != nil {
-		cancelStartCtx()
-	}
-	if cancelInitCtx != nil {
-		cancelInitCtx()
-	}
-	shutdownTracing(tracingShutdown)
-
-	cloudProber.Lock()
-	defer cloudProber.Unlock()
+	// Clear the state before releasing the lock, so that a concurrent shutdown
+	// has nothing left to do and we don't tear anything down twice.
 	cloudProber.prober = nil
 	cloudProber.defaultServerLn = nil
 	cloudProber.defaultGRPCLn = nil
@@ -510,6 +500,38 @@ func Shutdown() {
 	// prevent reuse in, for example, tests
 	state.SetDefaultGRPCServer(nil)
 	state.SetDefaultHTTPServeMux(nil)
+
+	// Closing the HTTP server closes the listener it's serving on, but we
+	// close the listeners directly as well, for the paths that acquired them
+	// in Init and never got to Start. None of this blocks, so it happens
+	// before we let go of the lock: it stops new requests from arriving to see
+	// the state we just cleared.
+	if httpSrv != nil {
+		httpSrv.Close()
+	}
+	if serverLn != nil {
+		serverLn.Close()
+	}
+	if grpcLn != nil {
+		grpcLn.Close()
+	}
+	cloudProber.Unlock()
+
+	// The rest can block -- stopping the gRPC server waits for its transports,
+	// and flushing spans waits for the collector -- so it happens without the
+	// lock, to keep config and info readers responsive.
+	if grpcSrv != nil {
+		grpcSrv.Stop()
+	}
+	// Stop the probes and the user-configured servers, then the modules set up
+	// during the initialization, and flush the spans they produced last.
+	if cancelStartCtx != nil {
+		cancelStartCtx()
+	}
+	if cancelInitCtx != nil {
+		cancelInitCtx()
+	}
+	shutdownTracing(tracingShutdown)
 }
 
 // GetConfig returns the prober config.
