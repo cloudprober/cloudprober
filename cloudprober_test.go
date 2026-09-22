@@ -333,3 +333,91 @@ func TestShutdownWithoutStart(t *testing.T) {
 	}
 	ln.Close()
 }
+
+// Verify that Shutdown stops what Start started, even when the context passed
+// to Start is still live. The prober's probes and its surfacer writes run on
+// the start context (the servers' sockets, in contrast, are tied to the init
+// context), so a surfacer that goes quiet is the signal that Shutdown reached
+// it.
+func TestShutdownStopsStartedProber(t *testing.T) {
+	ports := freePortsT(t, 2)
+
+	f, err := os.CreateTemp("", "cloudprober_test")
+	if err != nil {
+		t.Fatalf("os.CreateTemp(): %v", err)
+	}
+	defer os.Remove(f.Name())
+	cfg := &configpb.ProberConfig{
+		Port: proto.Int32(ports[0]),
+		Server: []*serverspb.ServerDef{
+			{
+				Type: serverspb.ServerDef_UDP.Enum(),
+				Server: &serverspb.ServerDef_UdpServer{
+					UdpServer: &udpserverpb.ServerConf{
+						Port: proto.Int32(ports[1]),
+						Type: udpserverpb.ServerConf_ECHO.Enum(),
+					},
+				},
+			},
+		},
+		Probe: []*probepb.ProbeDef{
+			{
+				Name:                    proto.String("udp echo"),
+				Type:                    probepb.ProbeDef_UDP.Enum(),
+				TimeoutMsec:             proto.Int32(10),
+				IntervalMsec:            proto.Int32(10),
+				StatsExportIntervalMsec: proto.Int32(int32(500 * time.Millisecond / time.Millisecond)),
+				Targets: &targetspb.TargetsDef{
+					Type: &targetspb.TargetsDef_HostNames{HostNames: "localhost"},
+				},
+				Probe: &probepb.ProbeDef_UdpProbe{
+					UdpProbe: &udpprobepb.ProbeConf{
+						Port:        proto.Int32(ports[1]),
+						PayloadSize: proto.Int32(10),
+					},
+				},
+			},
+		},
+		Surfacer: []*surfacerspb.SurfacerDef{
+			{
+				Name: proto.String("custom"),
+				Type: surfacerspb.Type_USER_DEFINED.Enum(),
+			},
+		},
+	}
+	if err := os.WriteFile(f.Name(), []byte(prototext.Format(cfg)), 0644); err != nil {
+		t.Fatalf("os.WriteFile(): %v", err)
+	}
+
+	fs := &FakeSurfacer{c: make(chan *metrics.EventMetrics, 10)}
+	surfacers.Register("custom", fs)
+
+	if err := InitWithConfigSource(config.ConfigSourceWithFile(f.Name())); err != nil {
+		t.Fatalf("InitWithConfigSource(): %v", err)
+	}
+
+	// Note the background context: nothing but Shutdown can stop this prober.
+	Start(context.Background())
+
+	select {
+	case <-time.After(30 * time.Second):
+		t.Fatal("surfacer timed out before getting results")
+	case <-fs.c:
+	}
+
+	Shutdown()
+
+	// Drain what the surfacer had already queued before the shutdown.
+	time.Sleep(200 * time.Millisecond)
+	for len(fs.c) > 0 {
+		<-fs.c
+	}
+
+	// FakeSurfacer.Write drops metrics once its context is done, so anything
+	// arriving now means the prober is still running.
+	select {
+	case em := <-fs.c:
+		t.Errorf("got metrics after Shutdown: %s", em.String())
+	case <-time.After(2 * time.Second):
+	}
+}
