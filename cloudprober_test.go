@@ -17,6 +17,7 @@ package cloudprober
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -30,6 +31,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	probepb "github.com/cloudprober/cloudprober/probes/proto"
 	udpprobepb "github.com/cloudprober/cloudprober/probes/udp/proto"
+	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
@@ -293,4 +295,41 @@ func TestShutdown(t *testing.T) {
 		Shutdown() // Error is logged, not returned.
 		assert.Nil(t, cloudProber.tracingShutdown, "tracingShutdown after error")
 	})
+}
+
+// Verify that Shutdown releases what Init acquired, even if Start was never
+// called -- the RunOnce path.
+func TestShutdownWithoutStart(t *testing.T) {
+	port := freePortsT(t, 1)[0]
+
+	f, err := os.CreateTemp("", "cloudprober_test")
+	if err != nil {
+		t.Fatalf("os.CreateTemp(): %v", err)
+	}
+	defer os.Remove(f.Name())
+	cfg := &configpb.ProberConfig{Port: proto.Int32(port)}
+	os.WriteFile(f.Name(), []byte(prototext.Format(cfg)), 0644)
+
+	if err := InitWithConfigSource(config.ConfigSourceWithFile(f.Name())); err != nil {
+		t.Fatalf("InitWithConfigSource(): %v", err)
+	}
+
+	// Init opens the default HTTP server's listener, whether or not we Start.
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err == nil {
+		ln.Close()
+		t.Fatalf("port %d is free after Init, expected it to be in use", port)
+	}
+
+	Shutdown()
+
+	assert.Nil(t, GetProber(), "prober after Shutdown")
+	assert.Nil(t, state.DefaultHTTPServeMux(), "default HTTP serve mux after Shutdown")
+	assert.EqualError(t, RunOnce(context.Background(), "", "text", "  "), "cloudprober is not initialized", "RunOnce() after Shutdown")
+
+	ln, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		t.Fatalf("port %d is still in use after Shutdown: %v", port, err)
+	}
+	ln.Close()
 }

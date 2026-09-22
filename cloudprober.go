@@ -92,6 +92,7 @@ var cloudProber struct {
 	prober          *prober.Prober
 	defaultServerLn net.Listener
 	defaultGRPCLn   net.Listener
+	httpSrv         *http.Server
 	configSource    config.ConfigSource
 	config          *configpb.ProberConfig
 	cancelInitCtx   context.CancelFunc
@@ -363,6 +364,10 @@ func RunOnce(ctx context.Context, names, format, indent string) error {
 	cloudProber.RLock()
 	defer cloudProber.RUnlock()
 
+	if cloudProber.prober == nil {
+		return errors.New("cloudprober is not initialized")
+	}
+
 	var probeNames []string
 	// avoid getting '[""]' as probe names
 	if names != "" {
@@ -402,27 +407,12 @@ func Start(ctx context.Context) {
 	srvMux := state.DefaultHTTPServeMux()
 	httpSrv := &http.Server{Handler: srvMux}
 	grpcSrv := state.DefaultGRPCServer()
+	cloudProber.httpSrv = httpSrv
 
 	// Set up a goroutine to cleanup if context ends.
 	go func() {
 		<-ctx.Done()
-		httpSrv.Close() // This will close the listener as well.
-		if grpcSrv != nil {
-			grpcSrv.Stop()
-		}
-		cloudProber.cancelInitCtx()
-		shutdownTracing(cloudProber.tracingShutdown)
-		cloudProber.Lock()
-		defer cloudProber.Unlock()
-		cloudProber.defaultServerLn = nil
-		cloudProber.defaultGRPCLn = nil
-		cloudProber.config = nil
-		cloudProber.configSource = nil
-		cloudProber.prober = nil
-		cloudProber.tracingShutdown = nil
-		// prevent reuse in, for example, tests
-		state.SetDefaultGRPCServer(nil)
-		state.SetDefaultHTTPServeMux(nil)
+		Shutdown()
 	}()
 
 	go httpSrv.Serve(cloudProber.defaultServerLn)
@@ -454,22 +444,50 @@ func shutdownTracing(shutdownFunc tracing.ShutdownFunc) {
 	}
 }
 
-// Shutdown flushes any buffered trace spans and releases the resources that
-// need an explicit cleanup on the way out. It's a no-op if there is nothing to
-// clean up, and it's safe to call more than once.
+// Shutdown stops the default servers, flushes any buffered trace spans, and
+// releases the resources acquired by Init, leaving cloudprober ready to be
+// initialized again. It's a no-op if there is nothing to clean up, and it's
+// safe to call more than once.
 //
 // Callers that use Start don't need to call Shutdown: canceling the context
-// passed to Start does the same cleanup. It's meant for the paths that exit
-// without ever starting the prober, e.g. RunOnce.
-//
-// Note that tracing can't be initialized again after this, so embedders that
-// call RunOnce in a loop should call Shutdown only once, before exiting.
+// passed to Start runs it for them. It's meant for the paths that exit without
+// ever starting the prober, e.g. RunOnce, which would otherwise leave the
+// default servers' listeners open and buffered spans unexported.
 func Shutdown() {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
 
+	// Closing the HTTP server closes the listener it's serving on, but we
+	// close the listeners directly as well, for the paths that acquired them
+	// in Init and never got to Start.
+	if cloudProber.httpSrv != nil {
+		cloudProber.httpSrv.Close()
+	}
+	if cloudProber.defaultServerLn != nil {
+		cloudProber.defaultServerLn.Close()
+	}
+	if grpcSrv := state.DefaultGRPCServer(); grpcSrv != nil {
+		grpcSrv.Stop()
+	}
+	if cloudProber.defaultGRPCLn != nil {
+		cloudProber.defaultGRPCLn.Close()
+	}
+	if cloudProber.cancelInitCtx != nil {
+		cloudProber.cancelInitCtx()
+	}
 	shutdownTracing(cloudProber.tracingShutdown)
+
+	cloudProber.prober = nil
+	cloudProber.defaultServerLn = nil
+	cloudProber.defaultGRPCLn = nil
+	cloudProber.httpSrv = nil
+	cloudProber.config = nil
+	cloudProber.configSource = nil
+	cloudProber.cancelInitCtx = nil
 	cloudProber.tracingShutdown = nil
+	// prevent reuse in, for example, tests
+	state.SetDefaultGRPCServer(nil)
+	state.SetDefaultHTTPServeMux(nil)
 }
 
 // GetConfig returns the prober config.
