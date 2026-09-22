@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -131,98 +130,17 @@ func freePortsT(t *testing.T, n int) []int32 {
 	return ports
 }
 
-func TestRestart(t *testing.T) {
-	type TestCase struct {
-		Name string
-	}
-	testCases := []TestCase{
-		{
-			Name: "FirstInitAndStart",
-		},
-		{
-			Name: "SecondInitAndStart",
-		},
-	}
-
-	// We reuse ports to verify that we're cleaning up properly after each run.
-	ports := freePortsT(t, 3)
-
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer func() {
-				cancel()
-				// Wait required for the cloudprober instance to fully shut down.
-				time.Sleep(time.Second)
-			}()
-			cfg := &configpb.ProberConfig{
-				Port:     proto.Int32(ports[0]),
-				GrpcPort: proto.Int32(ports[1]),
-				Server: []*serverspb.ServerDef{
-					{
-						Type: serverspb.ServerDef_UDP.Enum(),
-						Server: &serverspb.ServerDef_UdpServer{
-							UdpServer: &udpserverpb.ServerConf{
-								Port: proto.Int32(ports[2]),
-								Type: udpserverpb.ServerConf_ECHO.Enum(),
-							},
-						},
-					},
-				},
-				Probe: []*probepb.ProbeDef{
-					{
-						Name:                    proto.String("udp echo"),
-						Type:                    probepb.ProbeDef_UDP.Enum(),
-						TimeoutMsec:             proto.Int32(10),
-						IntervalMsec:            proto.Int32(10), // 100 probe per second
-						StatsExportIntervalMsec: proto.Int32(int32(1 * time.Second / time.Millisecond)),
-						Targets: &targetspb.TargetsDef{
-							Type: &targetspb.TargetsDef_HostNames{
-								HostNames: "localhost",
-							},
-						},
-						Probe: &probepb.ProbeDef_UdpProbe{
-							UdpProbe: &udpprobepb.ProbeConf{
-								Port:        proto.Int32(ports[2]),
-								PayloadSize: proto.Int32(10),
-							},
-						},
-					},
-				},
-			}
-			surfacerName := "custom"
-			cfg.Surfacer = []*surfacerspb.SurfacerDef{
-				{
-					Name: proto.String(surfacerName),
-					Type: surfacerspb.Type_USER_DEFINED.Enum(),
-				},
-			}
-			s := &FakeSurfacer{c: make(chan *metrics.EventMetrics, 10)}
-			surfacers.Register(surfacerName, s)
-
-			tmpfile, err := os.CreateTemp("", "cloudprober_test")
-			if err != nil {
-				t.Fatalf("os.CreateTemp(): %v", err)
-			}
-			defer os.Remove(tmpfile.Name())
-			os.WriteFile(tmpfile.Name(), []byte(prototext.Format(cfg)), 0644)
-
-			err = InitWithConfigSource(config.ConfigSourceWithFile(tmpfile.Name()))
-			if err != nil {
-				t.Fatalf("Err: %v, Config: %s", err, prototext.Format(cfg))
-			}
-			Start(ctx)
-
-			// Wait for results from the surfacer, or 30s,
-			// whichever comes first. Since the export rate is 1s,
-			// we should expect results well before 30s has passed.
-			select {
-			case <-time.After(time.Second * 30):
-				t.Fatal("surfacer timed out before getting results")
-			case <-s.c:
-			}
-		})
-	}
+// Cloudprober can be initialized only once, so tests that initialize it have
+// to put the globals back by hand.
+func resetCloudProber(t *testing.T) {
+	t.Helper()
+	Shutdown()
+	cloudProber.Lock()
+	defer cloudProber.Unlock()
+	cloudProber.instance = instance{}
+	cloudProber.done = false
+	state.SetDefaultGRPCServer(nil)
+	state.SetDefaultHTTPServeMux(nil)
 }
 
 func TestCloudproberConfig(t *testing.T) {
@@ -268,11 +186,14 @@ func TestCloudproberConfig(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	t.Run("no tracing configured", func(t *testing.T) {
+		resetCloudProber(t)
 		setTracingShutdown(nil)
 		Shutdown() // Should be a no-op.
 	})
 
 	t.Run("flushes spans once", func(t *testing.T) {
+		resetCloudProber(t)
+
 		var calls int
 		var deadline time.Time
 		setTracingShutdown(func(ctx context.Context) error {
@@ -291,6 +212,7 @@ func TestShutdown(t *testing.T) {
 	})
 
 	t.Run("logs shutdown error", func(t *testing.T) {
+		resetCloudProber(t)
 		setTracingShutdown(func(ctx context.Context) error {
 			return errors.New("collector unreachable")
 		})
@@ -311,6 +233,8 @@ func setTracingShutdown(f tracing.ShutdownFunc) {
 // Verify that Shutdown releases what Init acquired, even if Start was never
 // called -- the RunOnce path.
 func TestShutdownWithoutStart(t *testing.T) {
+	resetCloudProber(t)
+
 	port := freePortsT(t, 1)[0]
 
 	f, err := os.CreateTemp("", "cloudprober_test")
@@ -335,7 +259,6 @@ func TestShutdownWithoutStart(t *testing.T) {
 	Shutdown()
 
 	assert.Nil(t, GetProber(), "prober after Shutdown")
-	assert.Nil(t, state.DefaultHTTPServeMux(), "default HTTP serve mux after Shutdown")
 	assert.EqualError(t, RunOnce(context.Background(), "", "text", "  "), "cloudprober is not initialized", "RunOnce() after Shutdown")
 
 	ln, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -351,6 +274,8 @@ func TestShutdownWithoutStart(t *testing.T) {
 // context), so a surfacer that goes quiet is the signal that Shutdown reached
 // it.
 func TestShutdownStopsStartedProber(t *testing.T) {
+	resetCloudProber(t)
+
 	ports := freePortsT(t, 2)
 
 	f, err := os.CreateTemp("", "cloudprober_test")
@@ -409,6 +334,7 @@ func TestShutdownStopsStartedProber(t *testing.T) {
 
 	// Note the background context: nothing but Shutdown can stop this prober.
 	Start(context.Background())
+	srvAddr := cloudProber.defaultServerLn.Addr().String()
 
 	select {
 	case <-time.After(30 * time.Second):
@@ -431,48 +357,34 @@ func TestShutdownStopsStartedProber(t *testing.T) {
 		t.Errorf("got metrics after Shutdown: %s", em.String())
 	case <-time.After(2 * time.Second):
 	}
+
+	// And the default server gives its port back.
+	ln, err := net.Listen("tcp", srvAddr)
+	if err != nil {
+		t.Fatalf("default server's port is still in use after Shutdown: %v", err)
+	}
+	ln.Close()
 }
 
-// A Shutdown() after Start() must tear down exactly once, and the cleanup
-// goroutine that Start leaves behind must keep its hands off a later instance.
-func TestShutdownAfterStart(t *testing.T) {
-	port := freePortsT(t, 1)[0]
+// Cloudprober can't be brought back up once it's been shut down.
+func TestInitAfterShutdownPanics(t *testing.T) {
+	resetCloudProber(t)
 
 	f, err := os.CreateTemp("", "cloudprober_test")
 	if err != nil {
 		t.Fatalf("os.CreateTemp(): %v", err)
 	}
 	defer os.Remove(f.Name())
-	cfg := &configpb.ProberConfig{Port: proto.Int32(port)}
+	cfg := &configpb.ProberConfig{Port: proto.Int32(freePortsT(t, 1)[0])}
 	if err := os.WriteFile(f.Name(), []byte(prototext.Format(cfg)), 0644); err != nil {
 		t.Fatalf("os.WriteFile(): %v", err)
 	}
-	configSrc := func() config.ConfigSource { return config.ConfigSourceWithFile(f.Name()) }
 
-	if err := InitWithConfigSource(configSrc()); err != nil {
+	if err := InitWithConfigSource(config.ConfigSourceWithFile(f.Name())); err != nil {
 		t.Fatalf("InitWithConfigSource(): %v", err)
 	}
+	assert.Panics(t, func() { InitWithConfigSource(config.ConfigSourceWithFile(f.Name())) }, "Init() while initialized")
 
-	var calls atomic.Int32
-	setTracingShutdown(func(ctx context.Context) error {
-		calls.Add(1)
-		// Long enough that a second, concurrent shutdown would overlap with
-		// this one instead of finding the state already cleared.
-		time.Sleep(300 * time.Millisecond)
-		return nil
-	})
-
-	// Note the background context: only Shutdown can stop this prober.
-	Start(context.Background())
 	Shutdown()
-
-	if err := InitWithConfigSource(configSrc()); err != nil {
-		t.Fatalf("InitWithConfigSource() after Shutdown: %v", err)
-	}
-	defer Shutdown()
-
-	time.Sleep(time.Second) // give the first Start's goroutine time to run
-	assert.NotNil(t, GetProber(), "prober after re-init")
-	assert.NotNil(t, state.DefaultHTTPServeMux(), "default HTTP serve mux after re-init")
-	assert.EqualValues(t, 1, calls.Load(), "tracing shutdown calls")
+	assert.Panics(t, func() { InitWithConfigSource(config.ConfigSourceWithFile(f.Name())) }, "Init() after Shutdown()")
 }
