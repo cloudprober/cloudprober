@@ -124,7 +124,7 @@ func TestUpdateState(t *testing.T) {
 
 func TestStatusHTML(t *testing.T) {
 	oldGlobalState := globalState
-	globalState = state{}
+	globalState = &state{}
 	defer func() { globalState = oldGlobalState }()
 
 	ah := &AlertHandler{

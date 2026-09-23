@@ -19,6 +19,7 @@ package validators
 import (
 	"fmt"
 
+	"github.com/cloudprober/cloudprober/internal/validators/dns"
 	"github.com/cloudprober/cloudprober/internal/validators/http"
 	"github.com/cloudprober/cloudprober/internal/validators/integrity"
 	"github.com/cloudprober/cloudprober/internal/validators/json"
@@ -95,6 +96,16 @@ func initValidator(validatorConf *configpb.Validator) (validator *Validator, err
 		}
 		validator.Validate = func(input *Input, l *logger.Logger) (bool, error) {
 			return v.Validate(input.ResponseBody, l)
+		}
+		return
+
+	case *configpb.Validator_DnsValidator:
+		v := &dns.Validator{}
+		if err := v.Init(validatorConf.GetDnsValidator()); err != nil {
+			return nil, err
+		}
+		validator.Validate = func(input *Input, l *logger.Logger) (bool, error) {
+			return v.Validate(input.Response, input.ResponseBody, l)
 		}
 		return
 

@@ -231,7 +231,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, result *probeRunResult, l *logge
 		}
 		respBytes := []byte(strings.Join(answers, "\n"))
 
-		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: respBytes}, result.validationFailure, l)
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{Response: resp, ResponseBody: respBytes}, result.validationFailure, l)
 		if len(failedValidations) > 0 {
 			return fmt.Errorf("failed validations: %s", strings.Join(failedValidations, ","))
 		}
@@ -247,6 +247,7 @@ func (p *Probe) doDNSRequest(ctx context.Context, target string, result *probeRu
 	msg := new(dns.Msg)
 	msg.SetQuestion(p.fqdn, p.queryType)
 	msg.Question[0].Qclass = p.queryClass
+	msg.RecursionDesired = p.c.GetRecursionDesired()
 
 	resp, latency, err := p.client.ExchangeContext(ctx, msg, target)
 

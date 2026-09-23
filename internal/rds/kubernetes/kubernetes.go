@@ -47,12 +47,13 @@ const DefaultProviderID = "k8s"
 
 // ResourceTypes declares resource types supported by the Kubernetes provider.
 var ResourceTypes = struct {
-	Pods, Endpoints, Services, Ingresses string
+	Pods, Endpoints, Services, Ingresses, HTTPRoutes string
 }{
 	"pods",
 	"endpoints",
 	"services",
 	"ingresses",
+	"httproutes",
 }
 
 /*
@@ -102,6 +103,21 @@ type kMetadata struct {
 	Labels    map[string]string
 }
 
+// resourceLabels returns the labels for the RDS resources created from this
+// object: a copy of the object's labels, plus a "namespace" label (unless the
+// object already has a label with that name). The copy lets callers add more
+// labels without modifying the cached object.
+func (md kMetadata) resourceLabels() map[string]string {
+	labels := make(map[string]string, len(md.Labels)+1)
+	for k, v := range md.Labels {
+		labels[k] = v
+	}
+	if _, ok := labels["namespace"]; !ok {
+		labels["namespace"] = md.Namespace
+	}
+	return labels
+}
+
 type resourceKey struct {
 	namespace, name string
 }
@@ -140,6 +156,13 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 // New creates a Kubernetes (k8s) provider for RDS server, based on the
 // provided config.
 func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
+	// Guard the refresh loop's ticker, which panics on a non-positive
+	// interval. Note that an unset re_eval_sec defaults to 60, so this
+	// catches only an explicit zero or a negative value.
+	if c.GetReEvalSec() <= 0 {
+		return nil, fmt.Errorf("kubernetes: re_eval_sec (%d) must be positive", c.GetReEvalSec())
+	}
+
 	client, err := newClient(c, l)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating the kubernetes client: %v", err)
@@ -151,40 +174,21 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 
 	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
 
-	// Enable Pods lister if configured.
+	// Enable a lister for each resource type that is configured.
 	if c.GetPods() != nil {
-		lr, err := newPodsLister(c.GetPods(), c.GetNamespace(), reEvalInterval, client, l)
-		if err != nil {
-			return nil, err
-		}
-		p.listers[ResourceTypes.Pods] = lr
+		p.listers[ResourceTypes.Pods] = newPodsLister(c.GetNamespace(), reEvalInterval, client, l)
 	}
-
-	// Enable Endpoints lister if configured.
 	if c.GetEndpoints() != nil {
-		lr, err := newEndpointsLister(c.GetEndpoints(), c.GetNamespace(), reEvalInterval, client, l)
-		if err != nil {
-			return nil, err
-		}
-		p.listers[ResourceTypes.Endpoints] = lr
+		p.listers[ResourceTypes.Endpoints] = newEndpointsLister(c.GetNamespace(), reEvalInterval, client, l)
 	}
-
-	// Enable Services lister if configured.
 	if c.GetServices() != nil {
-		lr, err := newServicesLister(c.GetServices(), c.GetNamespace(), reEvalInterval, client, l)
-		if err != nil {
-			return nil, err
-		}
-		p.listers[ResourceTypes.Services] = lr
+		p.listers[ResourceTypes.Services] = newServicesLister(c.GetNamespace(), reEvalInterval, client, l)
 	}
-
-	// Enable Ingresses lister if configured.
 	if c.GetIngresses() != nil {
-		lr, err := newIngressesLister(c.GetIngresses(), c.GetNamespace(), reEvalInterval, client, l)
-		if err != nil {
-			return nil, err
-		}
-		p.listers[ResourceTypes.Ingresses] = lr
+		p.listers[ResourceTypes.Ingresses] = newIngressesLister(c.GetNamespace(), reEvalInterval, client, l)
+	}
+	if c.GetHttpRoutes() != nil {
+		p.listers[ResourceTypes.HTTPRoutes] = newHTTPRoutesLister(c.GetNamespace(), reEvalInterval, client, l)
 	}
 
 	return p, nil

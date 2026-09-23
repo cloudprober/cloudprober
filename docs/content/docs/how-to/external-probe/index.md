@@ -7,6 +7,10 @@ title: "External Probe"
 date: 2022-11-01T17:24:32-07:00
 ---
 
+> Need a scripted check without the per-run subprocess overhead? See the
+> [Script Probe]({{< ref "starlark-probe" >}}) -- in-process, no external
+> binary required.
+
 External probe type allows you to run arbitrary, complex probes through
 Cloudprober. An external probe runs an independent external program for actual
 probing. Cloudprober calculates probe metrics based on program's exit status

@@ -200,7 +200,9 @@ func newForwardingRules(project string, opts *configpb.GlobalOptions, frpb *conf
 
 		go func() {
 			globalForwardingRules.expand()
-			for range time.Tick(reEvalInterval) {
+			ticker := time.NewTicker(reEvalInterval)
+			defer ticker.Stop()
+			for range ticker.C {
 				globalForwardingRules.expand()
 			}
 		}()

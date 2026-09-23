@@ -200,19 +200,19 @@ func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval ti
 	}
 	l.Info(em.String())
 
-	for ts := range time.Tick(interval) {
-		// Don't run another cycles if context is canceled already.
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case ts := <-ticker.C:
+			// Update timestamp and publish static variables.
+			em.Timestamp = ts
+			dataChan <- em.Clone()
+			l.Debug(em.String())
+
+			runtimeVars(dataChan, l)
 		}
-
-		// Update timestamp and publish static variables.
-		em.Timestamp = ts
-		dataChan <- em.Clone()
-		l.Debug(em.String())
-
-		runtimeVars(dataChan, l)
 	}
 }

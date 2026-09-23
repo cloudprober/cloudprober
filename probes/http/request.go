@@ -15,21 +15,29 @@
 package http
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
-	"strconv"
+	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/cloudprober/cloudprober/common/iputils"
+	"github.com/cloudprober/cloudprober/common/oauth"
+	"github.com/cloudprober/cloudprober/common/strtemplate"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
-	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"golang.org/x/oauth2"
+	"github.com/google/uuid"
 )
 
 const relURLLabel = "relative_url"
+
+// redactedQuery is what a redacted query string is replaced with in logs.
+const redactedQuery = "<redacted>"
 
 func hostWithPort(host string, port int) string {
 	if port == 0 {
@@ -94,6 +102,80 @@ func pathForTarget(target endpoint.Endpoint, probeURL string) string {
 	return ""
 }
 
+// redactRawURL replaces a URL's query with "<redacted>". The fragment is split
+// off first: a '?' inside a fragment is not a query, and the fragment itself
+// survives. Everything between '?' and the fragment goes, whatever it holds --
+// a query may legally contain a space, so stopping at whitespace would leave
+// the tail of it exposed.
+func redactRawURL(s string) string {
+	rest, frag, hasFrag := strings.Cut(s, "#")
+	base, query, found := strings.Cut(rest, "?")
+	if !found || query == "" {
+		return s
+	}
+	redacted := base + "?" + redactedQuery
+	if hasFrag {
+		redacted += "#" + frag
+	}
+	return redacted
+}
+
+func (p *Probe) redactURL(s string) string {
+	if !p.redactURLQueryInLogs {
+		return s
+	}
+	return redactRawURL(s)
+}
+
+// quotedRE matches a %q-rendered token: a double-quoted string that may
+// contain backslash escapes.
+var quotedRE = regexp.MustCompile(`"(?:\\.|[^"\\])*"`)
+
+// redactErrMsg redacts the query of any quoted URL in an error message.
+// Rewriting only inside %q-quoted tokens that look like URLs keeps a '?' in
+// the prose, or in a quoted non-URL such as an x509 name constraint, from
+// being mistaken for a query.
+func redactErrMsg(s string) string {
+	return quotedRE.ReplaceAllStringFunc(s, func(tok string) string {
+		inner := tok[1 : len(tok)-1]
+		if !strings.Contains(inner, "://") && !strings.HasPrefix(inner, "/") {
+			return tok
+		}
+		if redacted := redactRawURL(inner); redacted != inner {
+			return `"` + redacted + `"`
+		}
+		return tok
+	})
+}
+
+// redactedErr returns err with the query redacted: net/http errors embed the
+// URL in their text, so redacting only the logged "url" attribute would still
+// leak it.
+//
+// net/http puts a URL in two places. A *url.Error holds one as a field, and
+// its inner error holds another when a redirect's Location fails to parse.
+// Rebuilding keeps the type and Unwrap chain, and the inner error is swapped
+// only if redaction changed it, so errors.Is/As survive the common case.
+// Wrapping with %w to preserve them everywhere is not an option: it re-embeds
+// the unredacted text.
+func (p *Probe) redactedErr(err error) error {
+	if err == nil || !p.redactURLQueryInLogs {
+		return err
+	}
+	ue, ok := err.(*url.Error)
+	if !ok {
+		return errors.New(redactErrMsg(err.Error()))
+	}
+	redacted := *ue
+	redacted.URL = p.redactURL(ue.URL)
+	if ue.Err != nil {
+		if msg := redactErrMsg(ue.Err.Error()); msg != ue.Err.Error() {
+			redacted.Err = errors.New(msg)
+		}
+	}
+	return &redacted
+}
+
 func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
 	if p.c.ResolveFirst != nil {
 		return p.c.GetResolveFirst()
@@ -105,6 +187,10 @@ func (p *Probe) resolveFirst(target endpoint.Endpoint) bool {
 // differently than other setHeaders.
 //   - If host header is set in the probe, it overrides everything else.
 //   - Otherwise we use target's host (computed elsewhere) along with port.
+//
+// Header values may contain @uuid@ tokens; those are kept verbatim here and
+// resolved per-send by requestForSend so each request gets a fresh UUIDv4.
+// Use @@ to emit a literal @.
 func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 	var hostHeader string
 
@@ -128,6 +214,90 @@ func (p *Probe) setHeaders(req *http.Request, host string, port int) {
 		hostHeader = hostWithPort(host, port)
 	}
 	req.Host = hostHeader
+}
+
+// dynamicHeaderTokens maps a substitution token to its per-send resolver.
+var dynamicHeaderTokens = map[string]func() string{
+	"uuid": uuid.NewString,
+}
+
+func dynamicHeaderSubst() map[string]string {
+	subst := make(map[string]string, len(dynamicHeaderTokens))
+	for token, resolve := range dynamicHeaderTokens {
+		subst[token] = resolve()
+	}
+	return subst
+}
+
+// initDynamicHeaders records canonical names of headers whose values change
+// under substitution. We check that by running the substitution and seeing
+// if anything moved, so detection can't disagree with it -- a value with a
+// stray '@' but no token is not dynamic, however many '@'s it has. Host is
+// excluded: req.Host is not substituted, so a token there is warned about
+// and sent verbatim.
+func (p *Probe) initDynamicHeaders() {
+	// One sample resolution for the whole pass; the values we send are
+	// resolved per-send by applyDynamicHeaders.
+	subst := dynamicHeaderSubst()
+
+	seen := map[string]bool{}
+	add := func(name, val string) {
+		if nv, _ := strtemplate.SubstituteLabels(val, subst); nv == val {
+			return
+		}
+		if name == "Host" {
+			p.l.Warningf("http probe %q: Host header value carries a substitution token but Host substitution is not supported; value will be sent verbatim", p.name)
+			return
+		}
+		canon := http.CanonicalHeaderKey(name)
+		if !seen[canon] {
+			seen[canon] = true
+			p.dynamicHeaderNames = append(p.dynamicHeaderNames, canon)
+		}
+	}
+	for _, h := range p.c.GetHeaders() {
+		add(h.GetName(), h.GetValue())
+	}
+	for k, v := range p.c.GetHeader() {
+		add(k, v)
+	}
+	add("User-Agent", p.c.GetUserAgent())
+}
+
+// applyDynamicHeaders substitutes @uuid@ (and future tokens) in tracked
+// header values. All @uuid@ occurrences within a single send resolve to
+// the same UUID. req.Host is intentionally left alone.
+func (p *Probe) applyDynamicHeaders(req *http.Request) {
+	var subst map[string]string
+	for _, name := range p.dynamicHeaderNames {
+		vv := req.Header[name]
+		for i, v := range vv {
+			if !strings.Contains(v, "@") {
+				continue
+			}
+			if subst == nil {
+				subst = dynamicHeaderSubst()
+			}
+			if nv, _ := strtemplate.SubstituteLabels(v, subst); nv != v {
+				vv[i] = nv
+			}
+		}
+	}
+}
+
+// dynamicHeaderAttrs returns the resolved per-send values for tracked
+// dynamic headers, for use in error-log attributes.
+func (p *Probe) dynamicHeaderAttrs(req *http.Request) []slog.Attr {
+	if len(p.dynamicHeaderNames) == 0 {
+		return nil
+	}
+	attrs := make([]slog.Attr, 0, len(p.dynamicHeaderNames))
+	for _, name := range p.dynamicHeaderNames {
+		if v := req.Header.Get(name); v != "" {
+			attrs = append(attrs, slog.String(name, v))
+		}
+	}
+	return attrs
 }
 
 func (p *Probe) urlHostAndIPLabel(target endpoint.Endpoint, host string) (string, string, error) {
@@ -164,9 +334,9 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) (*http.Request, e
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s://%s%s", p.schemeForTarget(target), hostWithPort(urlHost, port), pathForTarget(target, p.url))
+	urlStr := fmt.Sprintf("%s://%s%s", p.schemeForTarget(target), hostWithPort(urlHost, port), pathForTarget(target, p.url))
 
-	req, err := httpreq.NewRequest(p.method, url, p.requestBody)
+	req, err := httpreq.NewRequest(p.method, urlStr, p.requestBody)
 	if err != nil {
 		return nil, err
 	}
@@ -179,40 +349,23 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) (*http.Request, e
 	return req, nil
 }
 
-func getToken(ts oauth2.TokenSource, l *logger.Logger) (string, error) {
-	tok, err := ts.Token()
-	if err != nil {
-		return "", err
+// prepareRequest derives a per-send request from the cached one. Cloning is
+// the only safe way to mutate without racing parallel sends (rpp > 1), so we
+// do it once when any of the per-send mutations apply -- dynamic header
+// substitution, OAuth Authorization header, or a fresh streaming body --
+// and skip to a cheap WithContext copy otherwise.
+func (p *Probe) prepareRequest(ctx context.Context, req *http.Request) *http.Request {
+	if len(p.dynamicHeaderNames) == 0 && p.oauthTS == nil && p.requestBody.Len() == 0 {
+		return req.WithContext(ctx)
 	}
-	l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
+	req = req.Clone(ctx)
 
-	if tok.AccessToken != "" {
-		return tok.AccessToken, nil
+	if len(p.dynamicHeaderNames) > 0 {
+		p.applyDynamicHeaders(req)
 	}
-
-	idToken, ok := tok.Extra("id_token").(string)
-	if ok {
-		return idToken, nil
-	}
-
-	return "", fmt.Errorf("got unknown token: %v", tok)
-}
-
-func (p *Probe) prepareRequest(req *http.Request) *http.Request {
-	// We clone the request for the cases where we modify the request:
-	//   -- if request has a body, each request gets its own Body
-	//      as HTTP transport reads body in a streaming fashion, and we can't
-	//      share it across multiple requests.
-	//   -- if OAuth token is used, each request gets its own Authorization
-	//      header.
-	if p.oauthTS == nil && p.requestBody.Len() == 0 {
-		return req
-	}
-
-	req = req.Clone(req.Context())
 
 	if p.oauthTS != nil {
-		tok, err := getToken(p.oauthTS, p.l)
+		tok, err := oauth.GetToken(p.oauthTS, p.l)
 		// Note: We don't terminate the request if there is an error in getting
 		// token. That is to avoid complicating the flow, and to make sure that
 		// OAuth refresh failures show in probe failures.
@@ -223,7 +376,9 @@ func (p *Probe) prepareRequest(req *http.Request) *http.Request {
 		req.Header.Set("Authorization", fmt.Sprintf(p.c.GetOauthConfig().GetTokenTypeFormat(), tok))
 	}
 
-	req.Body = p.requestBody.Reader()
+	if p.requestBody.Len() > 0 {
+		req.Body = p.requestBody.Reader()
+	}
 
 	return req
 }

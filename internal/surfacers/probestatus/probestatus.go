@@ -111,6 +111,14 @@ func (pc *pageCache) setContent(url string, content []byte) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
+	// Evict expired entries to prevent unbounded growth.
+	for k, t := range pc.cachedTime {
+		if time.Since(t) > pc.maxAge {
+			delete(pc.content, k)
+			delete(pc.cachedTime, k)
+		}
+	}
+
 	pc.content[url], pc.cachedTime[url] = content, time.Now()
 }
 
@@ -491,8 +499,9 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		GraphData   map[string]template.JS
 		DebugData   map[string]template.HTML
 		Header      template.HTML
-		LinkPrefix  string
-		StartTime   fmt.Stringer
+		HeadLinks   template.HTML
+		Title       template.HTML
+		StartTime   string // RFC3339, for Javascript's Date().
 	}{
 		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
 		Durations:   ps.dashDurationsText,
@@ -502,8 +511,9 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		GraphData:   graphData,
 		DebugData:   debugData,
 		Header:      resources.Header(linkPrefix),
-		LinkPrefix:  linkPrefix,
-		StartTime:   ps.startTime,
+		HeadLinks:   resources.HeadLinks(linkPrefix),
+		Title:       resources.PageTitle(ps.c.GetUrl()),
+		StartTime:   ps.startTime.Format(time.RFC3339),
 	})
 	if err != nil {
 		ps.l.Errorf("Error executing probe status template: %v", err)

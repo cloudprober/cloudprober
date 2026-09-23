@@ -33,7 +33,9 @@ func dashboardDurations(maxDuration time.Duration) ([]time.Duration, []string) {
 			result = append(result, td)
 		}
 	}
-	if result[len(result)-1] != maxDuration {
+	// If maxDuration is smaller than the smallest base duration, result is
+	// empty at this point; maxDuration is still the right (only) choice.
+	if len(result) == 0 || result[len(result)-1] != maxDuration {
 		result = append(result, maxDuration)
 	}
 	return result, shortDur(result)

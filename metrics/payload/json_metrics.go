@@ -17,6 +17,7 @@ package payload
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/cloudprober/cloudprober/metrics"
@@ -83,6 +84,18 @@ func jqValToMetricValue(v any) (metrics.Value, error) {
 		return metrics.NewString(v), nil
 	case float64:
 		return metrics.NewFloat(v), nil
+	// gojq returns integer literals and integer-valued results (e.g. length,
+	// add) as int, and *big.Int for values that overflow int.
+	case int:
+		return metrics.NewInt(int64(v)), nil
+	case *big.Int:
+		// metrics.Int is int64-backed; values that overflow it fall back to
+		// float, matching how large JSON numbers decode (via float64).
+		if v.IsInt64() {
+			return metrics.NewInt(v.Int64()), nil
+		}
+		f, _ := new(big.Float).SetInt(v).Float64()
+		return metrics.NewFloat(f), nil
 	case bool:
 		return metrics.NewInt(map[bool]int64{true: 1, false: 0}[v]), nil
 	default:

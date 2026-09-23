@@ -26,3 +26,10 @@ vendor/
 
 docs/_config_docs
 docs/content/docs/config
+
+.agent/
+.claude/
+# Python bytecode. The "*" + "!*.*" scheme above unignores anything with an
+# extension, so .pyc needs an explicit rule.
+__pycache__/
+*.pyc

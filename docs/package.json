@@ -3,7 +3,7 @@
   "description": "Doks child theme",
   "version": "0.5.0",
   "engines": {
-    "node": ">=16.16.0"
+    "node": ">=20"
   },
   "browserslist": [
     "defaults"
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@babel/cli": "^7.18",
-    "@babel/core": "^7.18",
+    "@babel/core": "^7.29.6",
     "@babel/preset-env": "^7.18",
     "@fullhuman/postcss-purgecss": "^4.1",
     "@hyas/doks": "^0.5",
@@ -57,7 +57,7 @@
     "lazysizes": "^5.3",
     "markdownlint-cli2": "^0.21.0",
     "netlify-plugin-submit-sitemap": "^0.4.0",
-    "postcss": "^8.4",
+    "postcss": "^8.5",
     "postcss-cli": "^10.0",
     "purgecss-whitelister": "^2.4",
     "shx": "^0.3.4",
@@ -66,7 +66,12 @@
   },
   "overrides": {
     "semver": "^7.6.0",
-    "yauzl": "^3.2.1"
+    "yauzl": "^3.2.1",
+    "lodash": "^4.18.0",
+    "js-yaml": "^4.3.2",
+    "fast-uri": "^3.1.6",
+    "markdown-it": "^14.2.0",
+    "decompress": "npm:@xhmikosr/decompress@^11.1.3"
   },
   "otherDependencies": {
     "hugo": "0.101.0"

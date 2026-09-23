@@ -23,15 +23,13 @@ package otel
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net"
-	"net/url"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	cpotel "github.com/cloudprober/cloudprober/internal/otel"
+	otelpb "github.com/cloudprober/cloudprober/internal/otel/proto"
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -61,38 +59,26 @@ type OtelSurfacer struct {
 }
 
 func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (metric.Exporter, error) {
-	if config.GetOtlpHttpExporter() != nil {
-		expConf := config.GetOtlpHttpExporter()
-
+	if expConf := config.GetOtlpHttpExporter(); expConf != nil {
 		var opts []otlpmetrichttp.Option
 
 		if expConf.GetEndpointUrl() != "" {
-			u, err := url.Parse(expConf.GetEndpointUrl())
-			if err != nil {
-				return nil, fmt.Errorf("invalid http endpoint_url: %s, err: %v", expConf.GetEndpointUrl(), err)
-			}
-
-			opts = append(opts, otlpmetrichttp.WithEndpoint(net.JoinHostPort(u.Hostname(), u.Port())))
-			if u.Scheme != "https" {
-				opts = append(opts, otlpmetrichttp.WithInsecure())
-			}
-			opts = append(opts, otlpmetrichttp.WithURLPath(u.Path))
+			opts = append(opts, otlpmetrichttp.WithEndpointURL(expConf.GetEndpointUrl()))
 		}
 
 		if expConf.GetHttpHeader() != nil {
 			opts = append(opts, otlpmetrichttp.WithHeaders(expConf.GetHttpHeader()))
 		}
 
-		if expConf.GetCompression() == configpb.Compression_GZIP {
+		if expConf.GetCompression() == otelpb.Compression_GZIP {
 			opts = append(opts, otlpmetrichttp.WithCompression(otlpmetrichttp.GzipCompression))
 		}
 
-		if expConf.GetTlsConfig() != nil {
-			tlsConfig := &tls.Config{}
-			err := tlsconfig.UpdateTLSConfig(nil, expConf.GetTlsConfig())
-			if err != nil {
-				return nil, fmt.Errorf("failed to create tls config: %v", err)
-			}
+		tlsConfig, err := cpotel.HTTPExporterTLSConfig(expConf)
+		if err != nil {
+			return nil, err
+		}
+		if tlsConfig != nil {
 			opts = append(opts, otlpmetrichttp.WithTLSClientConfig(tlsConfig))
 		}
 
@@ -103,9 +89,7 @@ func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.L
 		return exp, nil
 	}
 
-	if config.GetOtlpGrpcExporter() != nil {
-		expConf := config.GetOtlpGrpcExporter()
-
+	if expConf := config.GetOtlpGrpcExporter(); expConf != nil {
 		var opts []otlpmetricgrpc.Option
 
 		if expConf.GetEndpoint() != "" {
@@ -116,7 +100,7 @@ func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.L
 			opts = append(opts, otlpmetricgrpc.WithHeaders(expConf.GetHttpHeader()))
 		}
 
-		if expConf.GetCompression() == configpb.Compression_GZIP {
+		if expConf.GetCompression() == otelpb.Compression_GZIP {
 			opts = append(opts, otlpmetricgrpc.WithCompressor("gzip"))
 		}
 
@@ -124,12 +108,11 @@ func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.L
 			opts = append(opts, otlpmetricgrpc.WithInsecure())
 		}
 
-		if expConf.GetTlsConfig() != nil {
-			tlsConfig := &tls.Config{}
-			err := tlsconfig.UpdateTLSConfig(nil, expConf.GetTlsConfig())
-			if err != nil {
-				return nil, fmt.Errorf("failed to create tls config: %v", err)
-			}
+		tlsConfig, err := cpotel.GRPCExporterTLSConfig(expConf)
+		if err != nil {
+			return nil, err
+		}
+		if tlsConfig != nil {
 			opts = append(opts, otlpmetricgrpc.WithTLSCredentials(credentials.NewTLS(tlsConfig)))
 		}
 

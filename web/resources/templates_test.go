@@ -74,6 +74,23 @@ func TestLinkPrefix(t *testing.T) {
 	}
 }
 
+func TestPageTitle(t *testing.T) {
+	tests := map[string]template.HTML{
+		"":                  "Cloudprober",
+		"/":                 "Cloudprober",
+		"/alerts":           "/alerts - Cloudprober",
+		"alerts":            "/alerts - Cloudprober",
+		"/artifacts/probe1": "/artifacts/probe1 - Cloudprober",
+		// The status page URL comes from config, so it is escaped.
+		"/<script>": "/&lt;script&gt; - Cloudprober",
+	}
+	for path, want := range tests {
+		t.Run(path, func(t *testing.T) {
+			assert.Equal(t, want, PageTitle(path))
+		})
+	}
+}
+
 func TestRenderPage(t *testing.T) {
 	tests := []struct {
 		name string
@@ -88,28 +105,31 @@ func TestRenderPage(t *testing.T) {
 			want: `
 <html>
 <head>
+  <title>Cloudprober</title>
   <link href="static/cloudprober.css" rel="stylesheet">
+  <link rel="icon" href="static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="static/cloudprober-icon.svg" type="image/svg+xml">
 </head>
 
 <body>
 
 <header>
-  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
+  <a href="https://cloudprober.org"><img class="logo" src="static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
+  <div class="version">v1.0.0</div>
 </header> 
 <hr/>
 <div style="float:left">
-  <b>Started</b>: 0001-01-01 00:00:00 &#43;0000 UTC -- up 2562047h47m16.854s<br/>
-  <b>Version</b>: v1.0.0<br>
-  <b>Built at</b>: 0001-01-01 00:00:00 &#43;0000 UTC<br>
-  <b>Other Links </b>(<a href="links">all</a>):
+  <div class="uptime" title="Started 0001-01-01 00:00:00 &#43;0000 UTC"><b>Uptime</b>: 106751d 23h</div>
+  <b>Links</b> (<a href="links">all</a>):
   	<a href="status">/status</a>,
 	<a href="config-running">/config</a> (<a href="config-parsed">parsed</a> | <a href="config">raw</a>),
+	<a href="logs">/logs</a>,
 	
 	
 	<a href="alerts">/alerts</a>
 </div>
 
-<br><br><br><br>
+<div style="clear: both; padding-top: 10px"></div>
 test body
 </body>
 </html>
@@ -122,28 +142,31 @@ test body
 			want: `
 <html>
 <head>
+  <title>/a/b - Cloudprober</title>
   <link href="../../static/cloudprober.css" rel="stylesheet">
+  <link rel="icon" href="../../static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../static/cloudprober-icon.svg" type="image/svg+xml">
 </head>
 
 <body>
 
 <header>
-  <a href="https://cloudprober.org">Cloudprober</a> (<a href="https://github.com/cloudprober/cloudprober">Github</a>)
+  <a href="https://cloudprober.org"><img class="logo" src="../../static/cloudprober-horizontal.svg" alt="Cloudprober" width="170" height="60"></a>
+  <div class="version">v1.0.0</div>
 </header> 
 <hr/>
 <div style="float:left">
-  <b>Started</b>: 0001-01-01 00:00:00 &#43;0000 UTC -- up 2562047h47m16.854s<br/>
-  <b>Version</b>: v1.0.0<br>
-  <b>Built at</b>: 0001-01-01 00:00:00 &#43;0000 UTC<br>
-  <b>Other Links </b>(<a href="../../links">all</a>):
+  <div class="uptime" title="Started 0001-01-01 00:00:00 &#43;0000 UTC"><b>Uptime</b>: 106751d 23h</div>
+  <b>Links</b> (<a href="../../links">all</a>):
   	<a href="../../status">/status</a>,
 	<a href="../../config-running">/config</a> (<a href="../../config-parsed">parsed</a> | <a href="../../config">raw</a>),
+	<a href="../../logs">/logs</a>,
 	
 	
 	<a href="../../alerts">/alerts</a>
 </div>
 
-<br><br><br><br>
+<div style="clear: both; padding-top: 10px"></div>
 test body deep
 </body>
 </html>

@@ -24,6 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	alerting_configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
+	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	configpb "github.com/cloudprober/cloudprober/probes/proto"
@@ -567,6 +568,227 @@ func TestOptions_StatsExportFrequency(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.opts.StatsExportFrequency(); got != tt.want {
 				t.Errorf("Options.StatsExportFrequency() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateProbeConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		probe   *configpb.ProbeDef
+		wantErr string
+	}{
+		{
+			name: "valid_config",
+			probe: &configpb.ProbeDef{
+				Name:     proto.String("test"),
+				Type:     configpb.ProbeDef_HTTP.Enum(),
+				Interval: proto.String("5s"),
+				Timeout:  proto.String("1s"),
+			},
+		},
+		{
+			name: "bad_interval_no_unit",
+			probe: &configpb.ProbeDef{
+				Name:     proto.String("test"),
+				Type:     configpb.ProbeDef_HTTP.Enum(),
+				Interval: proto.String("1223"),
+			},
+			wantErr: "failed to parse interval",
+		},
+		{
+			name: "bad_timeout",
+			probe: &configpb.ProbeDef{
+				Name:    proto.String("test"),
+				Type:    configpb.ProbeDef_HTTP.Enum(),
+				Timeout: proto.String("abc"),
+			},
+			wantErr: "failed to parse timeout",
+		},
+		{
+			name: "both_interval_and_interval_msec",
+			probe: &configpb.ProbeDef{
+				Name:         proto.String("test"),
+				Type:         configpb.ProbeDef_HTTP.Enum(),
+				Interval:     proto.String("5s"),
+				IntervalMsec: proto.Int32(5000),
+			},
+			wantErr: "both interval",
+		},
+		{
+			name: "interval_less_than_timeout",
+			probe: &configpb.ProbeDef{
+				Name:     proto.String("test"),
+				Type:     configpb.ProbeDef_HTTP.Enum(),
+				Interval: proto.String("1s"),
+				Timeout:  proto.String("5s"),
+			},
+			wantErr: "interval (1s) cannot be smaller than timeout (5s)",
+		},
+		{
+			name: "bad_latency_unit",
+			probe: &configpb.ProbeDef{
+				Name:        proto.String("test"),
+				Type:        configpb.ProbeDef_HTTP.Enum(),
+				LatencyUnit: proto.String("xyz"),
+			},
+			wantErr: "failed to parse the latency unit",
+		},
+		{
+			name: "stats_export_interval_too_small",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_HTTP.Enum(),
+				Interval:                proto.String("10s"),
+				StatsExportIntervalMsec: proto.Int32(5000),
+			},
+			wantErr: "stats_export_interval",
+		},
+		{
+			name: "stats_export_interval_udp_too_small",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_UDP.Enum(),
+				Interval:                proto.String("5s"),
+				Timeout:                 proto.String("5s"),
+				StatsExportIntervalMsec: proto.Int32(8000),
+			},
+			wantErr: "stats_export_interval",
+		},
+		{
+			name: "stats_export_interval_udp_valid",
+			probe: &configpb.ProbeDef{
+				Name:                    proto.String("test"),
+				Type:                    configpb.ProbeDef_UDP.Enum(),
+				Interval:                proto.String("5s"),
+				Timeout:                 proto.String("5s"),
+				StatsExportIntervalMsec: proto.Int32(10000),
+			},
+		},
+		{
+			name: "negative_test_unsupported",
+			probe: &configpb.ProbeDef{
+				Name:         proto.String("test"),
+				Type:         configpb.ProbeDef_DNS.Enum(),
+				NegativeTest: proto.Bool(true),
+			},
+			wantErr: "negative_test is not supported",
+		},
+		{
+			name: "http_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "http",
+					Type: &validatorpb.Validator_HttpValidator{},
+				}},
+			},
+		},
+		{
+			name: "dns_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_DNS.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "dns",
+					Type: &validatorpb.Validator_DnsValidator{},
+				}},
+			},
+		},
+		{
+			name: "http_generic_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "regex",
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+		},
+		{
+			name: "dns_generic_validator_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_DNS.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "regex",
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+		},
+		{
+			name: "http_validator_unsupported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_DNS.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "http",
+					Type: &validatorpb.Validator_HttpValidator{},
+				}},
+			},
+			wantErr: "validator \"http\": http_validator is not supported by DNS probes",
+		},
+		{
+			name: "dns_validator_unsupported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "dns",
+					Type: &validatorpb.Validator_DnsValidator{},
+				}},
+			},
+			wantErr: "validator \"dns\": dns_validator is not supported by HTTP probes",
+		},
+		{
+			name: "second_validator_unsupported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{
+					{
+						Name: "regex",
+						Type: &validatorpb.Validator_Regex{Regex: "ok"},
+					},
+					{
+						Name: "dns",
+						Type: &validatorpb.Validator_DnsValidator{},
+					},
+				},
+			},
+			wantErr: "validator \"dns\": dns_validator is not supported by HTTP probes",
+		},
+		{
+			name: "udp_without_validators_supported",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_UDP.Enum(),
+			},
+		},
+		{
+			name: "validators_unsupported_udp",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_UDP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+			wantErr: "validators are not supported by UDP probes",
+		},
+		{
+			name: "validators_unsupported_udp_listener",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_UDP_LISTENER.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+			wantErr: "validators are not supported by UDP_LISTENER probes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ValidateProbeConfig(tt.probe)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

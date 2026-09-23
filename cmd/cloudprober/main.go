@@ -1,4 +1,4 @@
-// Copyright 2017 The Cloudprober Authors.
+// Copyright 2017-2026 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,15 +97,18 @@ func setupProfiling() {
 				l.Critical(err.Error())
 			}
 		}
+		logger.WaitForStderr(time.Second)
 		os.Exit(1)
 	}(f)
 }
 
 func main() {
+	logger.StripDeprecatedFlags()
 	flag.Parse()
 
 	// Initialize logger after parsing flags.
 	l = logger.NewWithAttrs(slog.String("component", "global"))
+	defer logger.WaitForStderr(time.Second)
 
 	if len(flag.Args()) > 0 {
 		l.Criticalf("Unexpected non-flag arguments: %v", flag.Args())
@@ -175,12 +178,18 @@ func main() {
 			l.Warningf("Received signal \"%v\", canceling the start context and waiting for %v before closing", sig, *stopTime)
 			cancelF()
 			time.Sleep(*stopTime)
+			logger.WaitForStderr(time.Second)
 			os.Exit(0)
 		}()
 	}
 
 	if *runOnce {
 		err := cloudprober.RunOnce(startCtx, *runOnceProbeNames, *runOnceOutFormat, *runOnceOutIndent)
+		// Unlike the regular path, nothing cancels the start context here, so
+		// we have to clean up ourselves -- most importantly, flush buffered
+		// trace spans. It's done before the error check below, as Criticalf
+		// exits without running the defers.
+		cloudprober.Shutdown()
 		if err != nil {
 			l.Criticalf("Error running run-once probe. Err: %v", err)
 		}

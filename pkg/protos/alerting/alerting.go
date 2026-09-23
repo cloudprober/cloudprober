@@ -28,5 +28,6 @@ type Opsgenie_Responder_Name = alertingpb.Opsgenie_Responder_Name
 type Opsgenie_Responder_Type = alertingpb.Opsgenie_Responder_Type
 type PagerDuty = alertingpb.PagerDuty
 type Slack = alertingpb.Slack
+type Teams = alertingpb.Teams
 
 

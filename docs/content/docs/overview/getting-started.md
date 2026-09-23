@@ -8,16 +8,25 @@ title: Getting Started
 
 ## Installation
 
-If you have Go installed, you can install cloudprober from source:
-
 ```bash
-go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest
+curl -fsSL https://cloudprober.org/install.sh | sh
 ```
+
+This downloads the latest release for your platform, verifies its SHA-256
+checksum, and installs the binary into `/usr/local/bin` (or `~/.local/bin` if
+that isn't writable). Set `VERSION` or `INSTALL_DIR` to override either
+default. Linux and macOS only.
+
+If you'd rather not pipe a script into a shell -- and it's a good habit not to
+-- read it first at
+[cloudprober.org/install.sh](https://cloudprober.org/install.sh), or use one of
+the methods below.
 
 ##### Other Installation Methods:
 
 | Method             | Instructions                                                                                                                            | Platform              |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Go                 | `go install github.com/cloudprober/cloudprober/cmd/cloudprober@latest`                                                                  | MacOS, Linux, Windows |
 | Brew               | `brew install cloudprober`                                                                                                              | MacOS, Linux          |
 | Docker Image       | `docker run ghcr.io/cloudprober/cloudprober` ([other docker versions](https://github.com/cloudprober/cloudprober/wiki/Docker-versions)) | Docker                |
 | Helm chart         | [See instructions](https://github.com/cloudprober/helm-charts)                                                                          | Kubernetes            |
@@ -41,13 +50,21 @@ On **Linux**, cloudprober automatically adds a `sys_metrics` system probe that
 exports memory, CPU load, uptime, disk, and network metrics -- no config needed.
 Open `http://localhost:9313/metrics` to see output like:
 
+```text
+system_load_1m{probe="sys_metrics",ptype="system"} 0.170 1756440000000
+system_uptime_sec{probe="sys_metrics",ptype="system"} 258162.780 1756440000000
+system_mem_available{probe="sys_metrics",ptype="system"} 56676487168.000 1756440000000
+system_net_aggregated_rx_bytes{probe="sys_metrics",ptype="system"} 1899739498.000
+system_disk_io_aggregated_read_bytes{probe="sys_metrics",ptype="system"} 49954401280.000
 ```
-system_load_1m 0.52
-system_mem_free 4.12e+09
-system_uptime_sec 123456
-system_disk_usage_free{disk="/dev/sda1"} 5.24e+10
-system_net_rx_bytes{intf="eth0"} 1.02e+08
-```
+
+Disk and network stats are aggregated across all devices by default. To get a
+separate series per mount point (`mount_point` label) or per interface (`iface`
+label), configure a `SYSTEM` probe yourself with `export_individual_stats: true`.
+
+Pass `--disable_sys_metrics` if you'd rather not have this probe added, or
+configure a `SYSTEM` probe of your own -- cloudprober skips the automatic one
+if your config already has a `SYSTEM` probe.
 
 On non-Linux platforms, system metrics aren't auto-added, but all configured
 probes still work.
@@ -61,8 +78,8 @@ Create a config file that probes cloudprober.org every 5 seconds:
 
 **Textproto** (`cloudprober.cfg`):
 
-```
-echo > /tmp/cloudprober.cfg <<EOF
+```bash
+cat > cloudprober.cfg <<EOF
 probe {
   name: "cloudprober_website"
   type: HTTP
@@ -77,20 +94,24 @@ probe {
 }
 EOF
 ```
+
 (Note: you can write the same config in YAML format too.
  See [config guide](/docs/config/guide/) to learn more.)
-
 
 Run with your config:
 
 ```bash
-cloudprober --config_file /tmp/cloudprober.cfg
+cloudprober --config_file cloudprober.cfg
 ```
 
-Or if using Docker:
+If you don't pass `--config_file`, cloudprober reads `/etc/cloudprober.cfg`,
+and starts with an empty config if that file doesn't exist either -- which is
+what happened in [Your First Run](#your-first-run) above.
+
+Or, with Docker. Note that the config is mounted at that same default path:
 
 ```bash
-docker run -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
+docker run -p 9313:9313 -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
     ghcr.io/cloudprober/cloudprober
 ```
 
@@ -103,21 +124,30 @@ Cloudprober exports metrics in two ways by default:
 
 Prometheus-format output looks like:
 
-```
-# HELP total Total probes
-total{probe="cloudprober_website",dst="cloudprober.org"} 120
-success{probe="cloudprober_website",dst="cloudprober.org"} 120
-latency{probe="cloudprober_website",dst="cloudprober.org"} 2489734
+```text
+# TYPE total counter
+total{ptype="http",probe="cloudprober_website",dst="cloudprober.org"} 120
+# TYPE success counter
+success{ptype="http",probe="cloudprober_website",dst="cloudprober.org"} 120
+# TYPE latency counter
+latency{ptype="http",probe="cloudprober_website",dst="cloudprober.org"} 639773.455
 ```
 
 **Built-in web endpoints:**
 
-| Endpoint   | Description                      |
-| ---------- | -------------------------------- |
-| `/status`  | Probe status dashboard           |
-| `/config`  | Current configuration            |
-| `/metrics` | Prometheus-format metrics        |
-| `/alerts`  | Active alerts                    |
+| Endpoint          | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `/status`         | Probe status dashboard                            |
+| `/logs`           | Recent log entries                                |
+| `/metrics`        | Prometheus-format metrics                         |
+| `/alerts`         | Active alerts                                     |
+| `/config`         | Config exactly as you provided it                 |
+| `/config-parsed`  | Config after templates and env vars are expanded  |
+| `/config-running` | Running probes, surfacers, and servers            |
+| `/links`          | Index of all of the above                         |
+
+`/artifacts` also shows up when a probe produces artifacts, such as the
+screenshots from a browser probe.
 
 You can change the default port (`9313`) with the `CLOUDPROBER_PORT` environment
 variable and the listening address with `CLOUDPROBER_HOST`.
@@ -128,7 +158,7 @@ Cloudprober supports several probe types. Here are a few common patterns:
 
 **DNS probe** -- verify a DNS resolver:
 
-```
+```protobuf
 probe {
   name: "dns_google"
   type: DNS
@@ -234,11 +264,15 @@ Other supported export backends: **OpenTelemetry**, **CloudWatch**,
 **Stackdriver**, **PostgreSQL**, **Pub/Sub**, **Datadog**, **BigQuery**.
 
 All probes export at least three counters -- `total`, `success`, and `latency`.
-Useful PromQL formulas:
+Useful PromQL queries:
 
-```
-success_ratio = rate(success[5m]) / rate(total[5m])
-avg_latency   = rate(latency[5m]) / rate(success[5m])
+```promql
+# Success ratio, over a 5m window.
+rate(success[5m]) / rate(total[5m])
+
+# Average latency. Note that latency is in microseconds unless you change
+# the probe's latency_unit.
+rate(latency[5m]) / rate(success[5m])
 ```
 
 See [Surfacers](/docs/surfacers/overview) for setup details on each backend.
@@ -262,4 +296,5 @@ See [Surfacers](/docs/surfacers/overview) for setup details on each backend.
 **Explore:**
 
 - [Example Configs on GitHub](https://github.com/cloudprober/cloudprober/tree/main/examples#cloudprober-examples)
-- [Community Slack](https://cloudprober.slack.com)
+- [Community Slack](/goto/slack-invite/)
+- [Cloudprober on LinkedIn](/goto/linkedin/)

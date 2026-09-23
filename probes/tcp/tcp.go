@@ -151,10 +151,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			return fmt.Errorf("tls_config is set, but tls_handshake is false")
 		}
 
-		p.tlsConfig = &tls.Config{}
-		if err := tlsconfig.UpdateTLSConfig(p.tlsConfig, p.c.GetTlsConfig()); err != nil {
+		tlsConfig, err := tlsconfig.FromProto(p.c.GetTlsConfig())
+		if err != nil {
 			return fmt.Errorf("tls_config error: %v", err)
 		}
+		p.tlsConfig = tlsConfig
 	}
 
 	return nil

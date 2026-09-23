@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/strtemplate"
+	"github.com/cloudprober/cloudprober/logger"
 	configpb "github.com/cloudprober/cloudprober/probes/external/proto"
 	"github.com/cloudprober/cloudprober/probes/external/serverutils"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -109,9 +110,14 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 
 	go func() {
 		scanner := bufio.NewScanner(p.cmdStderr)
+		rawStderr := p.c.GetRawStderrOutput()
 		for {
 			if scanner.Scan() {
-				p.l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", cmd.Path))
+				if rawStderr {
+					fmt.Fprintln(logger.Stderr(), scanner.Text())
+				} else {
+					p.l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", cmd.Path))
+				}
 				continue
 			}
 			if scanner.Err() == bufio.ErrTooLong {

@@ -122,6 +122,42 @@ func TestJSONMetrics(t *testing.T) {
 			},
 		},
 		{
+			name: "integer-valued jq results",
+			input: `{
+				"items": [1, 2, 3]
+			}`,
+			config: `
+				json_metric: [{
+					jq_filter: "{\"const\": 1, \"count\": (.items | length)}",
+				}]
+			`,
+			wantJM: []*jsonMetric{
+				{
+					metricsJQ: testMustJQParse("{\"const\": 1, \"count\": (.items | length)}"),
+				},
+			},
+			wantEMs: []string{
+				"labels= const=1 count=3",
+			},
+		},
+		{
+			name: "big integer jq literal",
+			config: `
+				json_metric: [{
+					jq_filter: "{\"big\": 10000000000000000000}",
+				}]
+			`,
+			input: "{}",
+			wantJM: []*jsonMetric{
+				{
+					metricsJQ: testMustJQParse("{\"big\": 10000000000000000000}"),
+				},
+			},
+			wantEMs: []string{
+				"labels= big=10000000000000000000.000",
+			},
+		},
+		{
 			name: "bad filter",
 			config: `
 			json_metric: [{

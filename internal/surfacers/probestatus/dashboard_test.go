@@ -27,6 +27,11 @@ func TestDashboardDurations(t *testing.T) {
 		168 * time.Hour: baseDurations[:8],
 		360 * time.Hour: append(append([]time.Duration{}, baseDurations[:8]...), 360*time.Hour),
 		720 * time.Hour: baseDurations,
+
+		// resolution_sec * timeseries_size can be smaller than the smallest
+		// base duration, e.g. resolution_sec: 1, timeseries_size: 30.
+		30 * time.Second: {30 * time.Second},
+		59 * time.Second: {59 * time.Second},
 	}
 
 	for maxD, wantDurations := range testData {

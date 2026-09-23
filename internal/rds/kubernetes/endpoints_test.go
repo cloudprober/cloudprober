@@ -15,7 +15,7 @@ func TestParseEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", epListFile)
 	}
-	_, epByKey, err := parseEndpointsJSON(data)
+	_, epByKey, err := parseResourceList[*epInfo](data, nil)
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", epListFile)
 	}
@@ -85,8 +85,9 @@ func TestEndpointsToResources(t *testing.T) {
 
 	epi := &epInfo{
 		Metadata: kMetadata{
-			Name:   epName,
-			Labels: map[string]string{"app": appLabel},
+			Name:      epName,
+			Namespace: "prod",
+			Labels:    map[string]string{"app": appLabel, "node": "lNode"}, // node label is kept
 		},
 		Subsets: make([]epSubset, 1),
 	}
@@ -129,7 +130,10 @@ func TestEndpointsToResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resources := epi.resources(portFilter, nil)
+	f := &listFilters{Filters: &filter.Filters{
+		RegexFilters: map[string]*filter.RegexFilter{"port": portFilter},
+	}}
+	resources := epi.resources(f, nil)
 
 	// We'll get 4 resources = 2 ports x 2 IPs
 	if len(resources) != 4 {
@@ -154,10 +158,10 @@ func TestEndpointsToResources(t *testing.T) {
 	}
 
 	expectedLabels := []map[string]string{
-		{"app": "lCloudprober", "node": "n1", "pod": "test-pod"},
-		{"app": "lCloudprober", "node": "n2"},
-		{"app": "lCloudprober", "node": "n1", "pod": "test-pod"},
-		{"app": "lCloudprober", "node": "n2"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode", "pod": "test-pod"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode", "pod": "test-pod"},
+		{"app": "lCloudprober", "namespace": "prod", "node": "lNode"},
 	}
 	if !reflect.DeepEqual(labels, expectedLabels) {
 		t.Errorf("Cloudprober endpoints resource labels=%v, want=%v", labels, expectedLabels)

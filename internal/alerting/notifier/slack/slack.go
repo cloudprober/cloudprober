@@ -1,3 +1,17 @@
+// Copyright 2023 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package slack implements slack notifications for Cloudprober alert events.
 package slack
 
@@ -16,9 +30,9 @@ import (
 )
 
 const (
-	// DEFAULT_SLACK_WEBHOOK_URL_ENV_VAR is the default environment variable
+	// DefaultSlackWebhookURLEnvVar is the default environment variable
 	// to use for the Slack webhook URL.
-	DEFAULT_SLACK_WEBHOOK_URL_ENV_VAR = "SLACK_WEBHOOK_URL"
+	DefaultSlackWebhookURLEnvVar = "SLACK_WEBHOOK_URL"
 )
 
 // Client is a Slack client.
@@ -43,7 +57,7 @@ func New(slackcfg *configpb.Slack, l *logger.Logger) (*Client, error) {
 }
 
 // lookupWebhookUrl looks up the webhook URL to use for the Slack client,
-// in order of precendence:
+// in order of precedence:
 // 1. Webhook URL in the config
 // 2. Webhook URL environment variable
 func lookupWebhookUrl(slackcfg *configpb.Slack) (string, error) {
@@ -60,13 +74,13 @@ func lookupWebhookUrl(slackcfg *configpb.Slack) (string, error) {
 	return "", fmt.Errorf("no Slack webhook URL found")
 }
 
-// webhookUrlEnvVar returns the environment variable to use for the Slack
+// webhookUrlEnvVar returns the environment variable to use for the Slack webhook URL.
 func webhookUrlEnvVar(slackcfg *configpb.Slack) string {
 	if slackcfg.GetWebhookUrlEnvVar() != "" {
 		return slackcfg.GetWebhookUrlEnvVar()
 	}
 
-	return DEFAULT_SLACK_WEBHOOK_URL_ENV_VAR
+	return DefaultSlackWebhookURLEnvVar
 }
 
 // webhookMessage is the message that is sent to the Slack webhook.
@@ -83,7 +97,7 @@ func (c *Client) Notify(ctx context.Context, alertFields map[string]string) erro
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.webhookURL, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.webhookURL, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return err
 	}

@@ -23,6 +23,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -36,6 +37,7 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/payload"
 	payload_configpb "github.com/cloudprober/cloudprober/metrics/payload/proto"
+	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts"
 	artifactsconfigpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	"github.com/cloudprober/cloudprober/probes/browser/artifacts/storage"
@@ -50,6 +52,19 @@ import (
 )
 
 const playwrightReportDir = "_playwright_report"
+
+// internalErrorRe matches process-output (stderr) signatures that indicate an
+// environment/infra problem rather than a target failure, so the run is
+// counted as an internal_error:
+//   - a missing browser binary -- Playwright's "browserType.launch: Executable
+//     doesn't exist at ..." error,
+//   - an unresolvable Playwright package -- npx's "could not determine
+//     executable to run" error, and
+//   - a browser that failed to launch -- the cloudprober reporter emits
+//     "[cloudprober-internal-error]" from onEnd when the suite hits the global
+//     timeout while the browser launch was in progress (see
+//     cloudprober-reporter.ts).
+var internalErrorRe = regexp.MustCompile(`Executable doesn't exist|could not determine executable to run|\[cloudprober-internal-error\]`)
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
@@ -90,8 +105,15 @@ var templates embed.FS
 // (see documentation with statsKeeper below). That's the reason we use metrics.Int
 // types instead of metrics.AtomicInt.
 type probeRunResult struct {
-	total             metrics.Int
-	success           metrics.Int
+	total   metrics.Int
+	success metrics.Int
+	// internalErrors counts runs that failed because of environment/infra
+	// problems (a missing browser binary, an unresolvable Playwright package, or
+	// a browser that never launched before the global timeout; see
+	// internalErrorRe) rather than the target being unhealthy. Such runs still
+	// count as failures (total moves, success doesn't); internal_errors tells
+	// "environment broken" apart from "target down".
+	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
 }
@@ -117,6 +139,7 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
+		AddMetric("internal_errors", &prr.internalErrors).
 		AddMetric(opts.LatencyMetricName, prr.latency.Clone()).
 		AddLabel("ptype", "browser")
 
@@ -304,6 +327,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("playwrightDir is not provided through config or PLAYWRIGHT_DIR env variable")
 	}
 
+	// Preflight: npx must be resolvable -- it's the command we exec, so a
+	// missing npx means the probe can never run. Fail here (fatal) with a clear
+	// message rather than silently failing every run.
+	if _, err := exec.LookPath(p.c.GetNpxPath()); err != nil {
+		return fmt.Errorf("npx not found (npx_path=%q): %v", p.c.GetNpxPath(), err)
+	}
+	// The Playwright package's location isn't guaranteed to be under
+	// playwrightDir: Node resolves it via NODE_PATH, the cwd walk-up, or a
+	// global install. So this is only a heads-up warning; if it's genuinely
+	// unresolvable at runtime, the run is counted as an internal_error (see
+	// internalErrorRe).
+	if _, err := os.Stat(filepath.Join(p.playwrightDir, "node_modules", "@playwright", "test")); err != nil {
+		p.l.Warningf("Playwright package not found under %s (node_modules/@playwright/test); relying on Node module resolution at runtime", p.playwrightDir)
+	}
+
 	p.workdir = p.c.GetWorkdir()
 	if p.c.GetWorkdir() == "" {
 		d, err := os.MkdirTemp("", "cloudprober_"+p.name)
@@ -443,10 +481,28 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 	return cmd, reportDir
 }
 
-func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result *probeRunResult, resultMu *sync.Mutex) {
+func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRequest, resultMu *sync.Mutex) {
+	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 	startTime := time.Now()
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
+
+	// We classify on stderr, not stdout: in cloudprober's setup the custom
+	// Playwright reporter (--reporter=html,cloudprober-reporter.ts) mirrors
+	// failing test errors to stderr, and npx writes its own errors there too.
+	// (Stock Playwright's default reporter prints test errors to stdout, but
+	// cloudprober replaces that reporter, so that path doesn't apply.) Verified
+	// against production logs for the missing-browser case.
+	//
+	// internalErr is set from the stderr streaming goroutine; cmd.Execute waits
+	// for stderr processing before returning, so it's safe to read afterwards.
+	var internalErr bool
+	cmd.ProcessStderr = func(line []byte) {
+		if internalErrorRe.Match(line) {
+			internalErr = true
+		}
+	}
+
 	_, err := cmd.Execute(ctx, p.l)
 
 	if err != nil {
@@ -460,17 +516,23 @@ func (p *Probe) runPWTest(ctx context.Context, target endpoint.Endpoint, result 
 	// required) even after this probe run.
 	p.artifactsHandler.Handle(p.startCtx, reportDir)
 
-	if err != nil {
-		return
-	}
+	latency := time.Since(startTime)
 
 	if resultMu != nil {
 		resultMu.Lock()
 		defer resultMu.Unlock()
 	}
 
+	runReq.LastRun.Set(err == nil, latency, err)
+	if err != nil {
+		if internalErr {
+			result.internalErrors.Inc()
+		}
+		return
+	}
+
 	result.success.Inc()
-	result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
+	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
 func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
@@ -489,7 +551,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	}
 
 	if p.c.GetRequestsPerProbe() == 1 {
-		p.runPWTest(ctx, target, result, nil)
+		p.runPWTest(ctx, runReq, nil)
 		return
 	}
 
@@ -501,12 +563,12 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	var wg sync.WaitGroup
 	for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
 		wg.Add(1)
-		go func(reqNum int, result *probeRunResult) {
+		go func(reqNum int) {
 			defer wg.Done()
 
 			time.Sleep(time.Duration(reqNum*int(p.c.GetRequestsIntervalMsec())) * time.Millisecond)
-			p.runPWTest(ctx, target, result, &resultMu)
-		}(i, result)
+			p.runPWTest(ctx, runReq, &resultMu)
+		}(i)
 	}
 	p.l.Debug("Waiting for Browser requests to finish")
 	wg.Wait()
@@ -533,4 +595,15 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		RunProbeForTarget: p.runProbe,
 	}
 	s.UpdateTargetsAndStartProbes(ctx)
+}
+
+// RunOnce runs the probe just once.
+func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
+	if p.c.GetRequestsPerProbe() > 1 {
+		p.l.Error("Run-once is not supported for requests_per_probe > 1")
+		return nil
+	}
+
+	p.l.Info("Running browser probe once.")
+	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }

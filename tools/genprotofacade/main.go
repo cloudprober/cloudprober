@@ -191,8 +191,12 @@ func outputPackageName(out string) (string, error) {
 // 1. It's a named type
 // 2. Underlying type is int32
 // 3. Has a method called Enum()
+//
+// types.Unalias is needed so that a type alias to an enum (e.g. the
+// compatibility aliases in internal/surfacers/otel/proto) is re-exported as an
+// enum rather than skipped; without it obj.Type() is a *types.Alias.
 func isEnum(obj types.Object) bool {
-	named, ok := obj.Type().(*types.Named)
+	named, ok := types.Unalias(obj.Type()).(*types.Named)
 	if !ok {
 		return false
 	}

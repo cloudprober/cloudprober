@@ -1,0 +1,53 @@
+syntax = "proto2";
+
+package cloudprober.otel;
+
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/otel/proto";
+
+// OTLP exporter configuration, shared by the OpenTelemetry metrics surfacer
+// (cloudprober.surfacer.otel.SurfacerConf) and the tracing config
+// (cloudprober.tracing.TracingConfig).
+
+enum Compression {
+  NONE = 0;
+  GZIP = 1;
+}
+
+message HTTPExporter {
+  // If no URL is provided, OpenTelemetry SDK will use the signal-specific
+  // environment variable (OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or
+  // OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) or OTEL_EXPORTER_OTLP_ENDPOINT, in
+  // that preference order.
+  optional string endpoint_url = 1;
+
+  optional tlsconfig.TLSConfig tls_config = 2;
+
+  // HTTP request headers. These can also be set using environment variables.
+  map<string, string> http_header = 3;
+
+  // Compression algorithm to use for HTTP requests.
+  optional Compression compression = 4;
+}
+
+message GRPCExporter {
+  // If no endpoint is provided, OpenTelemetry SDK will use the signal-specific
+  // environment variable (OTEL_EXPORTER_OTLP_METRICS_ENDPOINT or
+  // OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) or OTEL_EXPORTER_OTLP_ENDPOINT, in
+  // that preference order.
+  optional string endpoint = 1;
+
+  optional tlsconfig.TLSConfig tls_config = 2;
+
+  // gRPC request headers. These can also be set using environment variables.
+  // Named http_header for backward compatibility.
+  map<string, string> http_header = 3;
+
+  // Compression algorithm to use for gRPC requests.
+  optional Compression compression = 4;
+
+  // Whether to use insecure gRPC connection. Mutually exclusive with
+  // tls_config.
+  optional bool insecure = 5;
+}

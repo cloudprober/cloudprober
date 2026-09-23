@@ -62,7 +62,7 @@ can do that using the `notify` config block:
 
 ```yaml
 # This example is in YAML format. You can use the original textpb format too.
-# See https://cloudprober.org/docs/config/alerting/cloudprober_alerting_AlertConf
+# See https://cloudprober.org/docs/config/alerting/#cloudprober_alerting_AlertConf
 probe:
   ...
   alert:

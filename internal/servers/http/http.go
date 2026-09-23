@@ -43,11 +43,17 @@ var OK = "ok"
 
 // statsKeeper manages the stats and exports those stats at a regular basis.
 // Currently we only maintain the number of requests received per URL.
-func (s *Server) statsKeeper(name string) {
-	doExport := time.Tick(s.statsInterval)
+func (s *Server) statsKeeper(ctx context.Context, name string) {
+	if s.statsInterval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(s.statsInterval)
+	defer ticker.Stop()
 	for {
 		select {
-		case ts := <-doExport:
+		case <-ctx.Done():
+			return
+		case ts := <-ticker.C:
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("req", s.reqMetric).
 				AddLabel("module", name)
@@ -189,7 +195,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 	s.dataChan = dataChan
 
 	laddr := s.ln.Addr().String()
-	go s.statsKeeper(fmt.Sprintf("http-server-%s", laddr))
+	go s.statsKeeper(ctx, fmt.Sprintf("http-server-%s", laddr))
 
 	for _, dh := range s.c.GetPatternDataHandler() {
 		payload := make([]byte, int(dh.GetResponseSize()))

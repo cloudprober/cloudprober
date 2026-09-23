@@ -87,7 +87,11 @@ function populateD() {
   }
 }
 
+// Returns null if dt is an Invalid Date, e.g. from an unparseable input.
 function dateToValStr(dt) {
+  if (isNaN(dt.getTime())) {
+    return null;
+  }
   dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
   return dt.toISOString().slice(0, 16);
 }
@@ -109,12 +113,15 @@ function setupGraphEndpoint() {
 
   let params = new URLSearchParams(location.search);
   if (typeof startTime != 'undefined') {
-    $('#graph-endtime').attr('min', dateToValStr(new Date(startTime)));
+    let min = dateToValStr(new Date(startTime));
+    if (min) {
+      $('#graph-endtime').attr('min', min);
+    }
   }
   if (params.get('graph_endtime')) {
-    let dt = new Date(params.get('graph_endtime') * 1000);
-    if (dt) {
-      $('#graph-endtime').val(dateToValStr(dt));
+    let v = dateToValStr(new Date(params.get('graph_endtime') * 1000));
+    if (v) {
+      $('#graph-endtime').val(v);
     }
   }
 }

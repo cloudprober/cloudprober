@@ -1,18 +1,24 @@
 #!/bin/bash
 
+# Fail on error, on unset variables, and on any failure within a pipeline.
+# Without this the script would sail past a missing protodoc or a failed
+# download and exit 0 having generated nothing.
+set -euo pipefail
+
 # To generate config docs for a specific version, copy this script to a
 # different location and checkout cloudprober repo at the desired version.
 # Then run the script with the version as an argument. For example:
 #   cp tools/gen_config_docs.sh /tmp
 #   git checkout v0.13.7
 #   /tmp/gen_config_docs.sh v0.13.7
-DOCS_VERSION=$1
-RELEASE=$1
+# Both are optional; `set -u` requires an explicit default.
+DOCS_VERSION=${1:-}
+RELEASE=${1:-}
 
-if [ -z "${DOCS_VERSION}" ]; then
+if [[ -z "${DOCS_VERSION}" ]]; then
     DOCS_VERSION=$(git describe --exact-match --exclude tip --tags HEAD 2>/dev/null || /bin/true)
 
-    if [ -z "${DOCS_VERSION}" ]; then
+    if [[ -z "${DOCS_VERSION}" ]]; then
         DOCS_VERSION=$(git rev-parse --abbrev-ref HEAD)
     fi
 fi
@@ -21,11 +27,19 @@ DOCS_VERSION=${DOCS_VERSION//\//_}
 
 ORIGINAL_DIR=$(pwd)
 
-if [ "${RELEASE}" == "latest" ]; then
-  RELEASE=$(curl -s https://api.github.com/repos/cloudprober/cloudprober/releases/latest | grep 'tag_name' | cut -d '"' -f4)
+if [[ "${RELEASE}" == "latest" ]]; then
+  RELEASE=$(curl -s https://api.github.com/repos/cloudprober/cloudprober/releases/latest | grep 'tag_name' | cut -d '"' -f4 || true)
+  # Without this, an API hiccup leaves RELEASE empty, the tarball download
+  # below is skipped, and we'd generate "latest" from the working tree --
+  # publishing unreleased protos as the released config reference.
+  if [[ -z "${RELEASE}" ]]; then
+    echo "Could not resolve the latest release tag; refusing to generate" >&2
+    echo "'latest' config docs from the working tree." >&2
+    exit 1
+  fi
 fi
 
-if [ ! -z "${RELEASE}" ]; then
+if [[ ! -z "${RELEASE}" ]]; then
   TEMPDIR=$(mktemp -d) && cd $TEMPDIR
   wget https://github.com/cloudprober/cloudprober/archive/refs/tags/${RELEASE}.tar.gz
   tar -xzf ${RELEASE}.tar.gz
@@ -51,7 +65,7 @@ MENU_HDR="menu:
 "
 TITLE_VERSION=""
 
-if [ "${DOCS_VERSION}" != "latest" ]; then
+if [[ "${DOCS_VERSION}" != "latest" ]]; then
   MENU_HDR=""
   TITLE_VERSION=" (${DOCS_VERSION})"
 fi
@@ -61,7 +75,7 @@ generate_config_files() {
   local menu_hdr="$2"
   for dir in ${ORIGINAL_DIR}/docs/_config_docs/${DOCS_VERSION}/textpb/*; do
     baseName=$(basename $dir)
-    if [ ! -d $dir ]; then
+    if [[ ! -d $dir ]]; then
       continue
     fi
     cat > ${base_path}/${baseName}.md <<EOF
@@ -80,11 +94,25 @@ EOF
 # Call the function with BASE_PATH
 generate_config_files "${BASE_PATH}" "${MENU_HDR}"
 
-cp ${ORIGINAL_DIR}/docs/content/docs/config/_index.md ${BASE_PATH}/
+# Write a version-specific index that redirects to this version's overview
+# page. Don't copy the non-versioned _index.md here: it redirects (via a
+# relative meta-refresh) to 'guide', which only exists at /docs/config/, so
+# the copied page would redirect versioned URLs to a 404.
+INDEX_TITLE="Configuration"
+if [[ "${DOCS_VERSION}" != "latest" ]]; then
+  INDEX_TITLE="Configuration (${DOCS_VERSION})"
+fi
+cat > ${BASE_PATH}/_index.md <<EOF
+---
+title: "${INDEX_TITLE}"
+---
+
+{{% redirect dest="overview/" %}}
+EOF
 
 # Copy latest configs to non-versioned path as well to make sure
 # we don't break existing links.
-if [ "${DOCS_VERSION}" == "latest" ]; then
+if [[ "${DOCS_VERSION}" == "latest" ]]; then
   echo "Copying latest configs to non-versioned path as well."
   NON_VERSIONED_BASE_PATH=${ORIGINAL_DIR}/docs/content/docs/config
   mkdir -p ${NON_VERSIONED_BASE_PATH}

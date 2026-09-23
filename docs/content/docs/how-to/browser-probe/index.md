@@ -3,7 +3,7 @@ menu:
   docs:
     parent: "how-to"
     name: "Browser Probe"
-    weight: 14
+    weight: 15
 title: "Browser Probe: Getting Started"
 date: 2026-02-01T17:24:32-07:00
 ---

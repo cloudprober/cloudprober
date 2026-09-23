@@ -15,15 +15,19 @@ RUN rm -f cloudprober-linux-*
 
 FROM node:24-bookworm-slim
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=temp /cloudprober /cloudprober
 RUN chmod +x /cloudprober
 
 # Install playwright
 WORKDIR /playwright
 COPY probes/browser/package*.json .
-RUN npm i && rm -rf /root/.npm
+RUN npm ci --ignore-scripts && rm -rf /root/.npm
 ENV PLAYWRIGHT_BROWSERS_PATH=0
-RUN npx -y playwright install --with-deps chromium
+RUN node_modules/.bin/playwright install --with-deps chromium
 ENV PLAYWRIGHT_DIR=/playwright
 
 # Metadata params

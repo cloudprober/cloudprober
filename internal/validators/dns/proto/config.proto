@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package cloudprober.validators.dns;
+
+option go_package = "github.com/cloudprober/cloudprober/internal/validators/dns/proto";
+
+// DNS validator configuration. It is applicable only to the DNS probe. For DNS
+// validator to succeed, all the conditions specified in the validator should
+// succeed. At least one condition must be specified.
+message Validator {
+  // Response's AA (Authoritative Answer) flag should match this value:
+  //   authoritative: true   =>  AA flag should be set, i.e. the responding
+  //                             server is authoritative for the queried domain.
+  //                             This is useful while probing authoritative DNS
+  //                             servers, typically along with dns_probe's
+  //                             recursion_desired set to false.
+  //   authoritative: false  =>  AA flag should not be set, e.g. while verifying
+  //                             that a response came from a resolver's cache or
+  //                             that a server returns a referral.
+  // If unset, AA flag is not checked at all.
+  optional bool authoritative = 1;
+}

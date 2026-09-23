@@ -220,7 +220,9 @@ func newForwardingRulesLister(project, apiVersion string, baseAPIPath string, c 
 		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		for range time.Tick(reEvalInterval) {
+		ticker := time.NewTicker(reEvalInterval)
+		defer ticker.Stop()
+		for range ticker.C {
 			frl.expand(reEvalInterval)
 		}
 	}()

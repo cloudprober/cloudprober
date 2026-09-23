@@ -59,6 +59,16 @@ var prefixToModTimeFunc = map[string]modTimeFunc{
 	"https://": httpModTime,
 }
 
+// trimPrefixIfNeeded returns the path to pass to the backend function for the
+// given prefix. HTTP(S) backends need the full URL, while object store backends
+// (GCS, S3) expect the path without the scheme.
+func trimPrefixIfNeeded(prefix, fname string) string {
+	if prefix == "http://" || prefix == "https://" {
+		return fname
+	}
+	return strings.TrimPrefix(fname, prefix)
+}
+
 func parseObjectURL(objectPath string) (bucket, object string, err error) {
 	parts := strings.SplitN(objectPath, "/", 2)
 	if len(parts) != 2 {
@@ -84,12 +94,12 @@ func readFileFromHTTP(ctx context.Context, fileURL string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("got error while retrieving HTTP object, http status: %s, status code: %d", res.Status, res.StatusCode)
 	}
 
-	defer res.Body.Close()
 	return io.ReadAll(res.Body)
 }
 
@@ -102,12 +112,12 @@ func httpModTime(ctx context.Context, fileURL string) (time.Time, error) {
 	if err != nil {
 		return zeroTime, err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return zeroTime, fmt.Errorf("got error while retrieving HTTP object, http status: %s, status code: %d", res.Status, res.StatusCode)
 	}
 
-	defer res.Body.Close()
 	return httpLastModified(res)
 }
 
@@ -149,7 +159,7 @@ func ReadFile(ctx context.Context, fname string, readOptions ...ReadOption) ([]b
 
 	for prefix, f := range prefixToReadfunc {
 		if strings.HasPrefix(fname, prefix) {
-			return processContent(f(ctx, fname[len(prefix):]))
+			return processContent(f(ctx, trimPrefixIfNeeded(prefix, fname)))
 		}
 	}
 	return processContent(os.ReadFile(fname))
@@ -178,7 +188,7 @@ func ReadWithCache(ctx context.Context, fname string, refreshInterval time.Durat
 func ModTime(ctx context.Context, fname string) (time.Time, error) {
 	for prefix, f := range prefixToModTimeFunc {
 		if strings.HasPrefix(fname, prefix) {
-			return f(ctx, fname[len(prefix):])
+			return f(ctx, trimPrefixIfNeeded(prefix, fname))
 		}
 	}
 

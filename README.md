@@ -1,9 +1,14 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cloudprober/cloudprober/main/docs/static/logo/cloudprober-horizontal-ondark.svg">
+  <img width="320" alt="Cloudprober" src="https://raw.githubusercontent.com/cloudprober/cloudprober/main/docs/static/logo/cloudprober-horizontal.svg">
+</picture>
+
 [![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)](https://hub.docker.com/v2/repositories/cloudprober/cloudprober/)
 [![Go Build and Test](https://github.com/cloudprober/cloudprober/actions/workflows/go.yml/badge.svg)](https://github.com/cloudprober/cloudprober/actions/workflows/go.yml)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cloudprober_cloudprober&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cloudprober_cloudprober)
 
-[cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/getting-started)
+Quick Links: [cloudprober.org](https://cloudprober.org) | [Start Monitoring Now](https://cloudprober.org/docs/overview/getting-started/) | [Live Demo](https://browser-probe-demo.cloudprober.org/)
 
 # Cloudprober: Reliable System Monitoring, Simplified!
 
@@ -45,7 +50,7 @@ monitoring signals.
 
 ## Why Cloudprober?
 
-* Versatile Probes: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom checks via external probes.
+* Versatile Probes: Built-in HTTP, PING, TCP, DNS, gRPC, and UDP probes, plus custom in-process scripts (Starlark) and external probes.
 
 * Auto-Discover Targets: Effortlessly monitor Kubernetes, GCP, or file-based resources without constant redeployment.
 
@@ -63,7 +68,7 @@ monitoring signals.
 
 * If you're familiar with Prometheus Blackbox Exporter, see how Cloudprober stacks against it: [Prometheus Blackbox Exporter vs Cloudprober](https://medium.com/cloudprober/prometheus-blackbox-exporter-vs-cloudprober-08a1d3beeda2).
   
-* If you're not very familiar with the blackbox/synthetic monitoring paradigm, take a look at [why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e).
+* If you're not very familiar with the blackbox/synthetic monitoring paradigm, take a look at [why you need probers](https://medium.com/cloudprober/why-you-need-probers-f38400f5830e) and [what should you probe?](https://medium.com/cloudprober/what-should-you-probe-9fa070d7a635).
 
 * Cloudprober's [origin story](https://medium.com/cloudprober/story-of-cloudprober-5ac1dbc0066c).
   
@@ -75,8 +80,11 @@ Jump in with our [Getting Started](https://cloudprober.org/docs/overview/getting
 
 ## Join the Community
 
-Join our [Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE), or discuss on [Github](https://github.com/cloudprober/cloudprober/discussions). Help shape Cloudprober's future by commenting
+Join our [Slack](https://cloudprober.org/goto/slack), or discuss on [Github](https://github.com/cloudprober/cloudprober/discussions). Help shape Cloudprober's future by commenting
 [here](https://github.com/cloudprober/cloudprober/discussions/121).
+
+Follow us on [LinkedIn](https://www.linkedin.com/company/cloudprober) and
+[Twitter/X](https://twitter.com/cloudprober) for release notes and updates.
 
 
 _NOTE: Cloudprober's active development moved from

@@ -1,0 +1,81 @@
+syntax = "proto2";
+
+package cloudprober.probes.sql;
+
+import "github.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto";
+import "github.com/cloudprober/cloudprober/metrics/payload/proto/config.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/probes/sql/proto";
+
+// ProbeConf configures a SQL probe.
+//
+// Each probe run establishes a new database connection, authenticates, and
+// runs the configured query (or just pings the server if no query is set), so
+// probe latency covers the full path: connect + auth + query. Clean
+// completion is success; any error is failure.
+message ProbeConf {
+  enum Flavor {
+    FLAVOR_UNSPECIFIED = 0;
+    POSTGRES = 1;
+  }
+  // Database flavor. Required. Currently only POSTGRES is supported; more
+  // flavors may be added based on demand.
+  optional Flavor flavor = 1;
+
+  // connection_string configures the database connection -- credentials,
+  // database name, sslmode, and other libpq parameters -- in key/value form
+  // e.g. "user=u dbname=db sslmode=require" or as a URI string
+  // e.g. "postgresql://user:password@host:port/database?sslmode=require".
+  //
+  // Note that connection string URI is incompatible with probe-targets
+  // configuration and results in an error. To use probe targets, define
+  // connection string in key-value form so that cloudprober can use the
+  // configured targets. Conversely, to connect using the connection_string's
+  // own host -- e.g. a full URI from a cloud provider -- omit the probe's
+  // targets entirely.
+  //
+  // In key-value form, @target.name@, @target.port@, @target.label.<name>@,
+  // etc. are substituted into connection_string. The user, password, and
+  // database fields below, if set, override the connection_string values.
+  // To keep secrets out of the config file, use the envSecret template
+  // function, e.g. password: "{{envSecret "DB_PASSWORD"}}".
+  optional string connection_string = 2;
+  optional string user = 3;
+  optional string password = 4;
+  optional string database = 5;
+
+  // Query to run. If no query is configured, the probe only verifies that the
+  // database accepts connections and responds to a ping. Exactly one of query
+  // and query_file may be set.
+  //
+  // Query results are serialized as one line per row, with column values
+  // joined by a single space, e.g. the query
+  // "SELECT 'db_users', count(*) FROM users" may produce "db_users 42". This
+  // output is passed to the probe's validators, and to the payload metrics
+  // parser if response_metrics_options is set.
+  //
+  // Keep query results small and line-friendly:
+  //  - Results are buffered in memory each run and capped at 1MB; exceeding
+  //    the cap fails the probe. Use a LIMIT for potentially large results.
+  //  - Column values containing spaces (free text, timestamps) span multiple
+  //    space-separated tokens, and SQL NULL is rendered as "<nil>"; cast or
+  //    format values in SQL if validators or payload parsing need clean
+  //    tokens.
+  optional string query = 6;
+  optional string query_file = 7;
+
+  // TLS config for the database connection, e.g. for custom CA bundles or
+  // client certificates (mTLS). Same message other probes (http, tcp, grpc)
+  // use; see common/tlsconfig/proto/config.proto for the full field list.
+  // If set, it overrides any TLS parameters from connection_string
+  // (e.g. sslmode) or environment. If server_name is not set, it defaults to
+  // the host being connected to (the target's name, or connection_string's
+  // host with dummy_targets).
+  optional tlsconfig.TLSConfig tls_config = 8;
+
+  // Export query results as metrics. Same shape external + http probes
+  // already use; with the row serialization described above, a query like
+  // "SELECT 'queue_depth', count(*) FROM jobs" exports queue_depth as a
+  // metric with no extra configuration.
+  optional metrics.payload.OutputMetricsOptions response_metrics_options = 9;
+}

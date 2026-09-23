@@ -33,6 +33,7 @@ probe {
     host_names: "..."
   }
 
+  # Local and Intra-regional latencies
   latency_unit: "ms"
   latency_distribution {
     explicit_buckets: "0.01,0.1,0.15,0.2,0.25,0.35,0.5,0.75,1.0,1.5,2.0,3.0,4.0,5.0,10.0,15.0,20.0"
@@ -42,7 +43,7 @@ probe {
 
 ## Configuring distributions
 
-As seen in the example above, for latencies you configure distribution at the probe level by adding a field called `latency_distribution`. Without this field, cloudprober exports only cumulative latencies. To create distributions from an external probe's data, take a look at the external probe's [documentation](/how-to/external-probe/#distributions).
+As seen in the example above, for latencies you configure distribution at the probe level by adding a field called `latency_distribution`. Without this field, cloudprober exports only cumulative latencies. To create distributions from an external probe's data, take a look at the external probe's [documentation](/docs/how-to/external-probe/#distributions).
 
 Format for the distribution field is in turn defined in [dist.proto](https://github.com/cloudprober/cloudprober/blob/master/metrics/proto/dist.proto).
 
@@ -79,11 +80,11 @@ message ExponentialBuckets {
 
 Now that we've configured cloudprober to generate distributions, how do we make use of this new information. This depends on the monitoring system (prometheus, stackdriver, postgres, etc) you're exporting your data to.
 
-Both prometheus and [stackdriver](/surfacers/stackdriver/) support computing and plotting percentiles from the distributions data. Stackdriver can natively create heatmaps from distributions while for prometheus you need to use grafana to create heatmaps.
+Both prometheus and [stackdriver](/docs/surfacers/stackdriver/) support computing and plotting percentiles from the distributions data. Stackdriver can natively create heatmaps from distributions while for prometheus you need to use grafana to create heatmaps.
 
 ### Stackdriver (Google Cloud Monitoring)
 
-Stackdriver automatically shows percentile aggregator for distribution metrics in metrics explorer ([example](/diagrams/metrics_explorer_percentile.png)). You can also use Stackdriver MQL to create percentiles (see [stackdriver documentation](/surfacers/stackdriver/#accessing-the-data) for other usages of MQL for cloudprober metrics):
+Stackdriver automatically shows percentile aggregator for distribution metrics in metrics explorer. You can also use Stackdriver MQL to create percentiles (see [stackdriver documentation](/docs/surfacers/stackdriver/#accessing-the-data) for other usages of MQL for cloudprober metrics):
 
 ```shell
 fetch gce_instance

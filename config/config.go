@@ -29,6 +29,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/google/go-jsonnet"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -124,6 +125,10 @@ func handleIncludes(baseDir string, content []byte) (string, error) {
 			}
 			final = append(final, includedCfg)
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
 	}
 
 	newline := "\n"
@@ -236,8 +241,19 @@ func ConfigTest(cs ConfigSource) error {
 			},
 		}
 	}
-	_, err := cs.GetConfig()
-	return err
+	cfg, err := cs.GetConfig()
+	if err != nil {
+		return err
+	}
+
+	// Validate probe configs beyond proto unmarshalling, e.g. duration
+	// fields, field conflicts, etc.
+	for _, p := range cfg.GetProbe() {
+		if _, err := options.ValidateProbeConfig(p); err != nil {
+			return fmt.Errorf("probe %q: %v", p.GetName(), err)
+		}
+	}
+	return nil
 }
 
 func DumpConfig(outFormat string, cs ConfigSource) ([]byte, error) {

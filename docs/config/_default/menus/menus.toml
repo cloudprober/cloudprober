@@ -50,7 +50,7 @@
 
 [[main]]
   name = "🛠 Config Tester"
-  weight = 44
+  weight = 45
   identifier = "config-tester"
   parent = "config"
   url = "https://configtester.cloudprober.org/"
@@ -60,12 +60,6 @@
   weight = 60
   identifier = "how-to"
   url = "/docs/how-to/list/"
-
-[[main]]
-  name = "Surfacers"
-  weight = 70
-  identifier = "surfacers"
-  url = "/docs/surfacers/overview"
 
 [[main]]
   name = "FAQ"
@@ -101,6 +95,12 @@
   weight = 20
   parent = "connect"
   url = "https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE"
+
+[[main]]
+  name = "LinkedIn"
+  weight = 25
+  parent = "connect"
+  url = "https://www.linkedin.com/company/cloudprober"
 
 [[main]]
   name = "Twitter"

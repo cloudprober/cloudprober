@@ -92,8 +92,14 @@ func TestInit(t *testing.T) {
 						pattern_num_bytes: 8
 					}
 				`,
+				`
+					name: "authoritative"
+					dns_validator {
+						authoritative: true
+					}
+				`,
 			},
-			wantNames: []string{"http_status_200s", "found_string", "valid_json", "integrity"},
+			wantNames: []string{"http_status_200s", "found_string", "valid_json", "integrity", "authoritative"},
 		},
 		{
 			name: "missing name",

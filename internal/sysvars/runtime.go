@@ -48,6 +48,9 @@ func counterRuntimeVars(dataChan chan *metrics.EventMetrics, ts time.Time, m *ru
 	em.AddMetric("mallocs", metrics.NewInt(int64(m.Mallocs)))
 	em.AddMetric("frees", metrics.NewInt(int64(m.Frees)))
 
+	// Log entries dropped because writes to stderr were blocked.
+	em.AddMetric("dropped_log_entries", metrics.NewInt(logger.DroppedEntries()))
+
 	dataChan <- em
 	l.Debug(em.String())
 }

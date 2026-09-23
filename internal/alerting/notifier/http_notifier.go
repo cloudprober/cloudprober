@@ -57,6 +57,9 @@ func (n *Notifier) httpNotify(ctx context.Context, fields map[string]string) err
 	if err != nil {
 		return fmt.Errorf("error sending HTTP request: %v", err)
 	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
 
 	var respBody string
 	if resp.Body != nil {
@@ -65,7 +68,6 @@ func (n *Notifier) httpNotify(ctx context.Context, fields map[string]string) err
 			return fmt.Errorf("status code: %d, error reading HTTP response body: %v", resp.StatusCode, err)
 		}
 		respBody = string(b)
-		resp.Body.Close()
 	}
 
 	if resp.StatusCode > 299 {

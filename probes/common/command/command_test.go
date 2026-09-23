@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,9 +43,14 @@ func TestShellProcessSuccess(t *testing.T) {
 			exportEnvList = append(exportEnvList, env)
 		}
 	}
+	// Sort the env list to make the output independent of the order in which
+	// os.Environ() returns the variables. On Windows the environment block is
+	// sorted by the OS, while on Unix it preserves the insertion order.
+	slices.Sort(exportEnvList)
+
 	fmt.Fprintf(os.Stderr, "Running test command. Env: %s\n", strings.Join(exportEnvList, ","))
 
-	pauseTime := 10 * time.Millisecond
+	pauseTime := 50 * time.Millisecond
 	pauseSec, _ := strconv.Atoi(os.Getenv("GO_CP_TEST_PAUSE"))
 	if pauseSec != 0 {
 		pauseTime = time.Duration(pauseSec) * time.Second
@@ -81,7 +87,7 @@ func testCommandExecute(t *testing.T, disableStreaming bool) {
 	wantOutput := []string{
 		"cmd \"/test/cmd\"",
 		"args \"--address=a.com,--arg2\"",
-		"env \"GO_CP_TEST_PROCESS=1,GO_CP_TEST_PIDS_FILE=pidsFile\"",
+		"env \"GO_CP_TEST_PIDS_FILE=pidsFile,GO_CP_TEST_PROCESS=1\"",
 	}
 
 	var output []string
@@ -108,7 +114,7 @@ func testCommandExecute(t *testing.T, disableStreaming bool) {
 	})
 
 	wantOutput = append(wantOutput, wantOutput...)
-	wantOutput[len(wantOutput)-1] = "env \"GO_CP_TEST_PROCESS_FAIL=1,GO_CP_TEST_PROCESS=1,GO_CP_TEST_PIDS_FILE=pidsFile\""
+	wantOutput[len(wantOutput)-1] = "env \"GO_CP_TEST_PIDS_FILE=pidsFile,GO_CP_TEST_PROCESS=1,GO_CP_TEST_PROCESS_FAIL=1\""
 	t.Run("second-run", func(t *testing.T) {
 		os.Setenv("GO_CP_TEST_PROCESS_FAIL", "1")
 		defer os.Unsetenv("GO_CP_TEST_PROCESS_FAIL")
@@ -139,11 +145,10 @@ func testCommandExecute(t *testing.T, disableStreaming bool) {
 
 		// Windows test environment is bad with timestamps.
 		if runtime.GOOS != "windows" {
-			// Verify that difference between first two timestamps is at least 20ms
-			// (subprocess sleeps 20ms between cmd and args output).
-			assert.True(t, outputTS[1] >= outputTS[0]+10, "gap between cmd and arg not more than 20ms")
-			// Verify that difference between second two timestamps is less than 20ms
-			assert.True(t, outputTS[2] < outputTS[1]+10, "gap between arg and env not less than 20ms")
+			// Subprocess sleeps 50ms between cmd and args; use a 25ms
+			// threshold to tolerate scheduling jitter on busy CI runners.
+			assert.True(t, outputTS[1] >= outputTS[0]+25, "gap between cmd and args is less than 25ms")
+			assert.True(t, outputTS[2] < outputTS[1]+25, "gap between args and env is not less than 25ms")
 		}
 	}
 }
@@ -154,4 +159,61 @@ func TestCommand(t *testing.T) {
 			testCommandExecute(t, disableStreaming)
 		})
 	}
+}
+
+// TestProcessStderr verifies that, in streaming mode, ProcessStderr receives
+// the child's stderr lines and that Execute drains them before returning (so
+// reading the captured lines afterwards is race-free). TestShellProcessSuccess
+// writes a "Running test command." line to stderr.
+func TestProcessStderr(t *testing.T) {
+	var stderr []string
+	p := &Command{
+		CmdLine:                []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd"},
+		EnvVars:                []string{"GO_CP_TEST_PROCESS=1"},
+		ProcessStreamingOutput: func([]byte) {},
+		ProcessStderr: func(line []byte) {
+			stderr = append(stderr, string(line))
+		},
+	}
+
+	_, err := p.Execute(context.Background(), nil)
+	assert.NoError(t, err)
+
+	found := false
+	for _, line := range stderr {
+		if strings.Contains(line, "Running test command.") {
+			found = true
+		}
+	}
+	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
+}
+
+// TestRawStderrOutput verifies that, with RawStderrOutput set, the child's
+// stderr lines are relayed through the logger's stderr writer (queued, so a
+// stalled stderr can't block the relay goroutine or the probe), and that
+// ProcessStderr still sees them. The relayed lines land on the test binary's
+// own stderr, which is why this test's output carries a stray
+// "Running test command." line.
+func TestRawStderrOutput(t *testing.T) {
+	var stderr []string
+	p := &Command{
+		CmdLine:                []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd"},
+		EnvVars:                []string{"GO_CP_TEST_PROCESS=1"},
+		ProcessStreamingOutput: func([]byte) {},
+		RawStderrOutput:        true,
+		ProcessStderr: func(line []byte) {
+			stderr = append(stderr, string(line))
+		},
+	}
+
+	_, err := p.Execute(context.Background(), nil)
+	assert.NoError(t, err)
+
+	found := false
+	for _, line := range stderr {
+		if strings.Contains(line, "Running test command.") {
+			found = true
+		}
+	}
+	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
 }

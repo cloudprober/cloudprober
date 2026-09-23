@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/otel/proto"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/stretchr/testify/assert"
@@ -214,12 +215,118 @@ func TestGetExporterType(t *testing.T) {
 			},
 			wantType: &otlpmetricgrpc.Exporter{},
 		},
+		{
+			name: "otlp_http_with_tls_config",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						TlsConfig: &tlsconfigpb.TLSConfig{
+							DisableCertValidation: proto.Bool(true),
+						},
+					},
+				},
+			},
+			wantType: &otlpmetrichttp.Exporter{},
+		},
+		{
+			name: "otlp_grpc_with_tls_config",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpGrpcExporter{
+					OtlpGrpcExporter: &configpb.GRPCExporter{
+						Endpoint: proto.String("localhost:1234"),
+						TlsConfig: &tlsconfigpb.TLSConfig{
+							DisableCertValidation: proto.Bool(true),
+						},
+					},
+				},
+			},
+			wantType: &otlpmetricgrpc.Exporter{},
+		},
+		{
+			name: "otlp_http_with_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						EndpointUrl: proto.String("https://otel.example.com:4318/v1/metrics"),
+					},
+				},
+			},
+			wantType: &otlpmetrichttp.Exporter{},
+		},
+		{
+			name: "otlp_http_with_invalid_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						EndpointUrl: proto.String("http://otel.example.com:not-a-port/"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "otlp_http_with_schemeless_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						// Easy to get wrong: this is the shape
+						// otlp_grpc_exporter's endpoint takes, and it parses
+						// as scheme "otel.example.com" with an empty host.
+						EndpointUrl: proto.String("otel.example.com:4318"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "otlp_http_with_hostless_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						EndpointUrl: proto.String("https:///v1/metrics"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "otlp_grpc_insecure_and_tls_config",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpGrpcExporter{
+					OtlpGrpcExporter: &configpb.GRPCExporter{
+						Endpoint: proto.String("localhost:1234"),
+						Insecure: proto.Bool(true),
+						TlsConfig: &tlsconfigpb.TLSConfig{
+							DisableCertValidation: proto.Bool(true),
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "otlp_grpc_with_bad_tls_config",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpGrpcExporter{
+					OtlpGrpcExporter: &configpb.GRPCExporter{
+						Endpoint: proto.String("localhost:1234"),
+						TlsConfig: &tlsconfigpb.TLSConfig{
+							CaCertFile: proto.String("/non-existent-ca-cert.pem"),
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := getExporter(context.Background(), tt.config, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getExporter() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
 				return
 			}
 			assert.IsType(t, tt.wantType, got, "unexpected exporter type")

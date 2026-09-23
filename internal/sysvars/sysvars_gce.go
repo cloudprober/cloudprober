@@ -180,12 +180,12 @@ func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
 
 // addGceNicInfo adds nic information to vars.
 // The following information is added for each nic.
-// - Primary IP, if one is assigned to nic.
-//	 If no primary IP is found, assume that NIC doesn't exist.
-// - IPv6 IP, if one is assigned to nic.
-//   If nic0 has IPv6 IP, then assign ip to key: "internal_ipv6_ip"
-// - External IP, if one is assigned to nic.
-// - An IP alias, if any IP alias ranges are assigned to nic.
+//   - Primary IP, if one is assigned to nic.
+//     If no primary IP is found, assume that NIC doesn't exist.
+//   - IPv6 IP, if one is assigned to nic.
+//     If nic0 has IPv6 IP, then assign ip to key: "internal_ipv6_ip"
+//   - External IP, if one is assigned to nic.
+//   - An IP alias, if any IP alias ranges are assigned to nic.
 //
 // See the following document for more information on metadata.
 // https://cloud.google.com/compute/docs/storing-retrieving-metadata

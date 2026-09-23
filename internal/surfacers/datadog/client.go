@@ -130,6 +130,7 @@ func (c *ddClient) submitMetrics(ctx context.Context, series []ddSeries) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)

@@ -121,6 +121,13 @@ func TestListSvcResources(t *testing.T) {
 			wantIPs:      []string{"10.2.1.4"},
 			wantPorts:    []int32{3141},
 		},
+		{
+			desc:         "namespace label filter",
+			filters:      map[string]string{"labels.namespace": "nsAB"},
+			wantServices: []string{"serviceA_9313", "serviceA_9314", "serviceB"},
+			wantIPs:      []string{"10.1.1.1", "10.1.1.1", "10.1.1.2"},
+			wantPorts:    []int32{9313, 9314, 443},
+		},
 	}
 
 	for _, test := range tests {
@@ -181,7 +188,7 @@ func TestParseSvcResourceList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", servicesListFile)
 	}
-	_, services, err := parseServicesJSON(data)
+	_, services, err := parseResourceList[*serviceInfo](data, nil)
 
 	if err != nil {
 		t.Fatalf("Error while parsing services JSON data: %v", err)

@@ -46,7 +46,7 @@ func listerFromDataFile(t *testing.T) *ingressesLister {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", ingressesListFile)
 	}
-	keys, ingresses, err := parseIngressesJSON(data)
+	keys, ingresses, err := parseResourceList[*ingressInfo](data, nil)
 
 	if err != nil {
 		t.Fatalf("Error while parsing ingresses JSON data: %v", err)
@@ -97,6 +97,14 @@ func TestListIngressResources(t *testing.T) {
 			wantFQDNs: []string{""},
 			wantURLs:  []string{""},
 			wantIPs:   []string{"cloudprober.monitoring.com"},
+		},
+		{
+			desc:      "namespace label filter",
+			filters:   map[string]string{"labels.namespace": "default"},
+			wantNames: []string{"rds-ingress_foo.bar.com__health", "rds-ingress_foo.bar.com__rds", "rds-ingress_prometheus.bar.com"},
+			wantFQDNs: []string{"foo.bar.com", "foo.bar.com", "prometheus.bar.com"},
+			wantURLs:  []string{"/health", "/rds", "/"},
+			wantIPs:   []string{"241.120.51.35", "241.120.51.35", "241.120.51.35"},
 		},
 		{
 			desc:      "name filter for host regex",

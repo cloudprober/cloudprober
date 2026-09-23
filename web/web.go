@@ -182,5 +182,9 @@ func InitWithDataFuncs(fn DataFuncs) error {
 		}
 	}
 
+	if err := state.AddWebHandler("/logs", logsHandler); err != nil {
+		return err
+	}
+
 	return state.AddWebHandler("/static/", http.FileServer(http.FS(content)).ServeHTTP)
 }

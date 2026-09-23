@@ -85,6 +85,42 @@ success_status_codes and failure_stauts_codes in the config):
   with matching values, validator is considered to have failed. Leaving
   _value_regex_ empty checks only for header name.
 
+## DNS Validator
+
+DNS validator works only for the DNS probe type. It lets you verify the DNS
+response header, in addition to the answer section checks that _min_answers_
+and regex validators provide.
+
+- If _authoritative_ is set, response's AA (Authoritative Answer) flag should
+  match it. Setting it to _true_ verifies that the responding server is
+  authoritative for the queried domain - typically used along with dns_probe's
+  _recursion_desired: false_ while probing authoritative DNS servers. Setting
+  it to _false_ verifies the opposite, for example that a response came from a
+  resolver's cache, or that a server returns a referral.
+
+```shell
+probe {
+  name: "auth_dns"
+  type: DNS
+  targets {
+    host_names: "ns1.example.com"
+  }
+
+  dns_probe {
+    resolved_domain: "www.example.com."
+    query_type: A
+    recursion_desired: false
+  }
+
+  validator {
+      name: "authoritative"
+      dns_validator {
+          authoritative: true
+      }
+  }
+}
+```
+
 ## Data Integrity Validator
 
 Data integrity validator is designed to catch the packet corruption issues in

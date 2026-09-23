@@ -178,5 +178,5 @@ additional labels to cloudprober metrics.
 
 For external probes, Cloudprober also allows external programs to provide
 additional metrics. See
-[External Probe](https://cloudprober.org/how-to/external-probe) for more
+[External Probe](/docs/how-to/external-probe/) for more
 details.

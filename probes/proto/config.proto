@@ -8,8 +8,11 @@ import "github.com/cloudprober/cloudprober/probes/browser/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/dns/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/external/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/grpc/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/http/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/ping/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/sql/proto/config.proto";
+import "github.com/cloudprober/cloudprober/probes/starlark/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/udp/proto/config.proto";
 import "github.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto";
@@ -19,7 +22,7 @@ import "github.com/cloudprober/cloudprober/internal/validators/proto/config.prot
 
 option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
-// Next tag: 101
+// Next tag: 104
 message ProbeDef {
   // Probe name. It should be unique across all probes.
   required string name = 1;
@@ -35,6 +38,11 @@ message ProbeDef {
     TCP = 7;
     BROWSER = 8;
     SYSTEM = 9;
+    STARLARK = 10;
+    SQL = 11;
+    // Probe runs are delegated to an external sidecar process over gRPC.
+    // See probes/grpcext for more details.
+    EXTERNAL_GRPC = 12;
 
     // One of the extension probe types. See "extensions" below for more
     // details.
@@ -69,7 +77,8 @@ message ProbeDef {
   optional string timeout = 17;
 
   // Targets for the probe. Targets are required for all probes except
-  // for external, user_defined, and extension probe types.
+  // for external, user_defined, extension, browser, sql and system probe
+  // types.
   optional targets.TargetsDef targets = 6;
 
   // Latency distribution. If specified, latency is stored as a distribution.
@@ -183,6 +192,9 @@ message ProbeDef {
     tcp.ProbeConf tcp_probe = 27;
     browser.ProbeConf browser_probe = 28;
     system.ProbeConf system_probe = 29;
+    starlark.ProbeConf starlark_probe = 30;
+    sql.ProbeConf sql_probe = 31;
+    grpcext.ProbeConf external_grpc_probe = 32;
     // This field's contents are passed on to the user defined probe,
     // registered for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;
@@ -193,6 +205,12 @@ message ProbeDef {
   // for large deployments, where you may want to use the same prober config
   // everywhere but run this probe only on a subset of machines.
   optional string run_on = 3;
+
+  // How often to re-evaluate (discover) targets in seconds. This controls the
+  // probe scheduler's target update interval — how often new targets start
+  // being probed and removed targets stop being probed. If not set, defaults
+  // to 1 minute.
+  optional int32 targets_update_sec = 103;
 
   // Duration to wait before starting the probe.
   //
