@@ -33,13 +33,25 @@ import (
 // HTTPExporterTLSConfig validates an OTLP HTTP exporter's config and returns
 // the tls.Config to use, or nil if the exporter doesn't configure TLS.
 //
-// endpoint_url is validated here because the SDK's WithEndpointURL only logs
-// a parse failure and then falls back to the default endpoint; we'd rather
-// fail at startup than silently export somewhere else.
+// endpoint_url is validated here because the SDK's WithEndpointURL doesn't
+// reject a bad URL -- it logs a parse failure and falls back to the default
+// endpoint, and it derives the endpoint and transport security from the URL's
+// host and scheme without checking that either is usable. We'd rather fail at
+// startup than export nowhere. Note that a schemeless value like
+// "otel.example.com:4318" (the shape otlp_grpc_exporter's endpoint takes)
+// parses fine, as scheme "otel.example.com" with an empty host, so checking
+// the parse error alone is not enough.
 func HTTPExporterTLSConfig(c *configpb.HTTPExporter) (*tls.Config, error) {
-	if u := c.GetEndpointUrl(); u != "" {
-		if _, err := url.Parse(u); err != nil {
-			return nil, fmt.Errorf("otlp_http_exporter: invalid endpoint_url %q: %v", u, err)
+	if endpointURL := c.GetEndpointUrl(); endpointURL != "" {
+		u, err := url.Parse(endpointURL)
+		if err != nil {
+			return nil, fmt.Errorf("otlp_http_exporter: invalid endpoint_url %q: %v", endpointURL, err)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return nil, fmt.Errorf("otlp_http_exporter: endpoint_url %q must use the http or https scheme, got %q", endpointURL, u.Scheme)
+		}
+		if u.Host == "" {
+			return nil, fmt.Errorf("otlp_http_exporter: endpoint_url %q has no host", endpointURL)
 		}
 	}
 

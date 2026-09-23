@@ -265,6 +265,31 @@ func TestGetExporterType(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "otlp_http_with_schemeless_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						// Easy to get wrong: this is the shape
+						// otlp_grpc_exporter's endpoint takes, and it parses
+						// as scheme "otel.example.com" with an empty host.
+						EndpointUrl: proto.String("otel.example.com:4318"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "otlp_http_with_hostless_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						EndpointUrl: proto.String("https:///v1/metrics"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "otlp_grpc_insecure_and_tls_config",
 			config: &configpb.SurfacerConf{
 				Exporter: &configpb.SurfacerConf_OtlpGrpcExporter{
