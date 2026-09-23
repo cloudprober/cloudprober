@@ -108,6 +108,7 @@ type ProbestatusSurfacerConf = probestatuspb.SurfacerConf
 // Symbols from github.com/cloudprober/cloudprober/internal/surfacers/prometheus/proto
 const PrometheusDefault_SurfacerConf_MetricsBufferSize = prometheuspb.Default_SurfacerConf_MetricsBufferSize
 const PrometheusDefault_SurfacerConf_MetricsUrl = prometheuspb.Default_SurfacerConf_MetricsUrl
+const PrometheusDefault_SurfacerConf_StaleMetricsExpirationSec = prometheuspb.Default_SurfacerConf_StaleMetricsExpirationSec
 type PrometheusSurfacerConf = prometheuspb.SurfacerConf
 
 // Symbols from github.com/cloudprober/cloudprober/internal/surfacers/pubsub/proto

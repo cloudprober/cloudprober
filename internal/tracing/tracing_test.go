@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	tlsconfigpb "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
+	otelpb "github.com/cloudprober/cloudprober/internal/otel/proto"
 	"github.com/cloudprober/cloudprober/internal/tracing/otelsdk"
 	configpb "github.com/cloudprober/cloudprober/internal/tracing/proto"
 	"github.com/cloudprober/cloudprober/logger"
@@ -30,7 +31,7 @@ import (
 
 func grpcExporterConfig() *configpb.TracingConfig_OtlpGrpcExporter {
 	return &configpb.TracingConfig_OtlpGrpcExporter{
-		OtlpGrpcExporter: &configpb.GRPCExporter{
+		OtlpGrpcExporter: &otelpb.GRPCExporter{
 			Endpoint: proto.String("localhost:4317"),
 			Insecure: proto.Bool(true),
 		},
@@ -45,7 +46,7 @@ func TestGetExporterNoExporter(t *testing.T) {
 func TestGetExporterGRPCConflictingInsecureAndTLS(t *testing.T) {
 	config := &configpb.TracingConfig{
 		Exporter: &configpb.TracingConfig_OtlpGrpcExporter{
-			OtlpGrpcExporter: &configpb.GRPCExporter{
+			OtlpGrpcExporter: &otelpb.GRPCExporter{
 				Endpoint: proto.String("localhost:4317"),
 				Insecure: proto.Bool(true),
 				TlsConfig: &tlsconfigpb.TLSConfig{
@@ -56,6 +57,18 @@ func TestGetExporterGRPCConflictingInsecureAndTLS(t *testing.T) {
 	}
 	_, err := getExporter(context.Background(), config)
 	assert.Error(t, err, "expected error when insecure and tls_config are both set")
+}
+
+func TestGetExporterHTTPInvalidEndpointURL(t *testing.T) {
+	config := &configpb.TracingConfig{
+		Exporter: &configpb.TracingConfig_OtlpHttpExporter{
+			OtlpHttpExporter: &otelpb.HTTPExporter{
+				EndpointUrl: proto.String("http://otel.example.com:not-a-port/"),
+			},
+		},
+	}
+	_, err := getExporter(context.Background(), config)
+	assert.Error(t, err, "expected error for an unparseable endpoint_url")
 }
 
 func TestInitSDKDisabled(t *testing.T) {
@@ -83,7 +96,7 @@ func TestInitAndShutdown(t *testing.T) {
 	// without a live collector.
 	config := &configpb.TracingConfig{
 		Exporter: &configpb.TracingConfig_OtlpGrpcExporter{
-			OtlpGrpcExporter: &configpb.GRPCExporter{
+			OtlpGrpcExporter: &otelpb.GRPCExporter{
 				Endpoint: proto.String("localhost:4317"),
 				Insecure: proto.Bool(true),
 			},
