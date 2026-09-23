@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strings"
 	"time"
 
 	"golang.org/x/oauth2/google"
@@ -60,8 +59,8 @@ func gcsRequest(ctx context.Context, method, objectPath string) (*http.Response,
 	return res, nil
 }
 
-func readFileFromGCS(ctx context.Context, fname string) ([]byte, error) {
-	res, err := gcsRequest(ctx, "GET", strings.TrimPrefix(fname, "gs://"))
+func readFileFromGCS(ctx context.Context, objectPath string) ([]byte, error) {
+	res, err := gcsRequest(ctx, "GET", objectPath)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +69,8 @@ func readFileFromGCS(ctx context.Context, fname string) ([]byte, error) {
 	return io.ReadAll(res.Body)
 }
 
-func gcsModTime(ctx context.Context, fname string) (time.Time, error) {
-	res, err := gcsRequest(ctx, "HEAD", strings.TrimPrefix(fname, "gs://"))
+func gcsModTime(ctx context.Context, objectPath string) (time.Time, error) {
+	res, err := gcsRequest(ctx, "HEAD", objectPath)
 	if err != nil {
 		return zeroTime, err
 	}

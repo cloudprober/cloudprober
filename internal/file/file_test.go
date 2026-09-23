@@ -41,8 +41,8 @@ func createTempFile(t *testing.T, b []byte) string {
 	return tmpfile.Name()
 }
 
-func testReadFile(ctx context.Context, fname string) ([]byte, error) {
-	return []byte("content-for-" + strings.TrimPrefix(fname, "test://")), nil
+func testReadFile(ctx context.Context, path string) ([]byte, error) {
+	return []byte("content-for-" + path), nil
 }
 
 func TestReadFile(t *testing.T) {
@@ -75,22 +75,6 @@ func TestReadFile(t *testing.T) {
 				t.Errorf("ReadFile(%s) = %s, expected=%s", path, string(b), expectedContent)
 			}
 		})
-	}
-}
-
-func TestReadFileHTTP(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("http-content"))
-	}))
-	defer ts.Close()
-
-	b, err := ReadFile(context.Background(), ts.URL)
-	if err != nil {
-		t.Fatalf("ReadFile(%s) returned error: %v", ts.URL, err)
-	}
-
-	if string(b) != "http-content" {
-		t.Errorf("ReadFile(%s) = %s, expected=http-content", ts.URL, string(b))
 	}
 }
 
@@ -130,4 +114,30 @@ func TestReadWithCache(t *testing.T) {
 	// wait for cache to expire
 	time.Sleep(time.Second)
 	readAndVerify(testContent+"-updated-2", 1*time.Second)
+}
+
+func TestHTTPFile(t *testing.T) {
+	modTime := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/targets.textpb" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Last-Modified", modTime.Format(http.TimeFormat))
+		w.Write([]byte("http-content"))
+	}))
+	defer ts.Close()
+
+	fileURL := ts.URL + "/targets.textpb"
+
+	b, err := ReadFile(context.Background(), fileURL)
+	assert.NoError(t, err, "ReadFile(%s)", fileURL)
+	assert.Equal(t, "http-content", string(b))
+
+	mt, err := ModTime(context.Background(), fileURL)
+	assert.NoError(t, err, "ModTime(%s)", fileURL)
+	assert.True(t, modTime.Equal(mt), "ModTime(%s) = %v, want %v", fileURL, mt, modTime)
+
+	_, err = ReadFile(context.Background(), ts.URL+"/missing")
+	assert.Error(t, err)
 }
