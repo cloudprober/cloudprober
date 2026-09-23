@@ -7,7 +7,7 @@
 package proto
 
 import (
-	proto "github.com/cloudprober/cloudprober/common/tlsconfig/proto"
+	proto "github.com/cloudprober/cloudprober/internal/otel/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,217 +21,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-type Compression int32
-
-const (
-	Compression_NONE Compression = 0
-	Compression_GZIP Compression = 1
-)
-
-// Enum value maps for Compression.
-var (
-	Compression_name = map[int32]string{
-		0: "NONE",
-		1: "GZIP",
-	}
-	Compression_value = map[string]int32{
-		"NONE": 0,
-		"GZIP": 1,
-	}
-)
-
-func (x Compression) Enum() *Compression {
-	p := new(Compression)
-	*p = x
-	return p
-}
-
-func (x Compression) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Compression) Descriptor() protoreflect.EnumDescriptor {
-	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_enumTypes[0].Descriptor()
-}
-
-func (Compression) Type() protoreflect.EnumType {
-	return &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_enumTypes[0]
-}
-
-func (x Compression) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Do not use.
-func (x *Compression) UnmarshalJSON(b []byte) error {
-	num, err := protoimpl.X.UnmarshalJSONEnum(x.Descriptor(), b)
-	if err != nil {
-		return err
-	}
-	*x = Compression(num)
-	return nil
-}
-
-// Deprecated: Use Compression.Descriptor instead.
-func (Compression) EnumDescriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescGZIP(), []int{0}
-}
-
-type HTTPExporter struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// If no URL is provided, OpenTelemetry SDK will use the environment variable
-	// OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
-	// preference order.
-	EndpointUrl *string          `protobuf:"bytes,1,opt,name=endpoint_url,json=endpointUrl" json:"endpoint_url,omitempty"`
-	TlsConfig   *proto.TLSConfig `protobuf:"bytes,2,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
-	// HTTP request headers. These can also be set using environment variables.
-	HttpHeader map[string]string `protobuf:"bytes,3,rep,name=http_header,json=httpHeader" json:"http_header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Compression algorithm to use for HTTP requests.
-	Compression   *Compression `protobuf:"varint,4,opt,name=compression,enum=cloudprober.tracing.Compression" json:"compression,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *HTTPExporter) Reset() {
-	*x = HTTPExporter{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *HTTPExporter) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*HTTPExporter) ProtoMessage() {}
-
-func (x *HTTPExporter) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use HTTPExporter.ProtoReflect.Descriptor instead.
-func (*HTTPExporter) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *HTTPExporter) GetEndpointUrl() string {
-	if x != nil && x.EndpointUrl != nil {
-		return *x.EndpointUrl
-	}
-	return ""
-}
-
-func (x *HTTPExporter) GetTlsConfig() *proto.TLSConfig {
-	if x != nil {
-		return x.TlsConfig
-	}
-	return nil
-}
-
-func (x *HTTPExporter) GetHttpHeader() map[string]string {
-	if x != nil {
-		return x.HttpHeader
-	}
-	return nil
-}
-
-func (x *HTTPExporter) GetCompression() Compression {
-	if x != nil && x.Compression != nil {
-		return *x.Compression
-	}
-	return Compression_NONE
-}
-
-type GRPCExporter struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// If no URL is provided, OpenTelemetry SDK will use the environment variable
-	// OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT in that
-	// preference order.
-	Endpoint  *string          `protobuf:"bytes,1,opt,name=endpoint" json:"endpoint,omitempty"`
-	TlsConfig *proto.TLSConfig `protobuf:"bytes,2,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`
-	// gRPC request headers. These can also be set using environment variables.
-	HttpHeader map[string]string `protobuf:"bytes,3,rep,name=http_header,json=httpHeader" json:"http_header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Compression algorithm to use for gRPC requests.
-	Compression *Compression `protobuf:"varint,4,opt,name=compression,enum=cloudprober.tracing.Compression" json:"compression,omitempty"`
-	// Whether to use insecure gRPC connection.
-	Insecure      *bool `protobuf:"varint,5,opt,name=insecure" json:"insecure,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GRPCExporter) Reset() {
-	*x = GRPCExporter{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GRPCExporter) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GRPCExporter) ProtoMessage() {}
-
-func (x *GRPCExporter) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GRPCExporter.ProtoReflect.Descriptor instead.
-func (*GRPCExporter) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *GRPCExporter) GetEndpoint() string {
-	if x != nil && x.Endpoint != nil {
-		return *x.Endpoint
-	}
-	return ""
-}
-
-func (x *GRPCExporter) GetTlsConfig() *proto.TLSConfig {
-	if x != nil {
-		return x.TlsConfig
-	}
-	return nil
-}
-
-func (x *GRPCExporter) GetHttpHeader() map[string]string {
-	if x != nil {
-		return x.HttpHeader
-	}
-	return nil
-}
-
-func (x *GRPCExporter) GetCompression() Compression {
-	if x != nil && x.Compression != nil {
-		return *x.Compression
-	}
-	return Compression_NONE
-}
-
-func (x *GRPCExporter) GetInsecure() bool {
-	if x != nil && x.Insecure != nil {
-		return *x.Insecure
-	}
-	return false
-}
 
 // TracingConfig enables and configures distributed tracing for Cloudprober.
 // When set, Cloudprober initializes a global OpenTelemetry TracerProvider that
@@ -272,7 +61,7 @@ const (
 
 func (x *TracingConfig) Reset() {
 	*x = TracingConfig{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[2]
+	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +73,7 @@ func (x *TracingConfig) String() string {
 func (*TracingConfig) ProtoMessage() {}
 
 func (x *TracingConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[2]
+	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +86,7 @@ func (x *TracingConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TracingConfig.ProtoReflect.Descriptor instead.
 func (*TracingConfig) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescGZIP(), []int{2}
+	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *TracingConfig) GetExporter() isTracingConfig_Exporter {
@@ -307,7 +96,7 @@ func (x *TracingConfig) GetExporter() isTracingConfig_Exporter {
 	return nil
 }
 
-func (x *TracingConfig) GetOtlpHttpExporter() *HTTPExporter {
+func (x *TracingConfig) GetOtlpHttpExporter() *proto.HTTPExporter {
 	if x != nil {
 		if x, ok := x.Exporter.(*TracingConfig_OtlpHttpExporter); ok {
 			return x.OtlpHttpExporter
@@ -316,7 +105,7 @@ func (x *TracingConfig) GetOtlpHttpExporter() *HTTPExporter {
 	return nil
 }
 
-func (x *TracingConfig) GetOtlpGrpcExporter() *GRPCExporter {
+func (x *TracingConfig) GetOtlpGrpcExporter() *proto.GRPCExporter {
 	if x != nil {
 		if x, ok := x.Exporter.(*TracingConfig_OtlpGrpcExporter); ok {
 			return x.OtlpGrpcExporter
@@ -359,12 +148,12 @@ type isTracingConfig_Exporter interface {
 
 type TracingConfig_OtlpHttpExporter struct {
 	// OTLP HTTP exporter.
-	OtlpHttpExporter *HTTPExporter `protobuf:"bytes,1,opt,name=otlp_http_exporter,json=otlpHttpExporter,oneof"`
+	OtlpHttpExporter *proto.HTTPExporter `protobuf:"bytes,1,opt,name=otlp_http_exporter,json=otlpHttpExporter,oneof"`
 }
 
 type TracingConfig_OtlpGrpcExporter struct {
 	// OTLP gRPC exporter.
-	OtlpGrpcExporter *GRPCExporter `protobuf:"bytes,2,opt,name=otlp_grpc_exporter,json=otlpGrpcExporter,oneof"`
+	OtlpGrpcExporter *proto.GRPCExporter `protobuf:"bytes,2,opt,name=otlp_grpc_exporter,json=otlpGrpcExporter,oneof"`
 }
 
 func (*TracingConfig_OtlpHttpExporter) isTracingConfig_Exporter() {}
@@ -383,7 +172,7 @@ type TracingConfig_Attribute struct {
 
 func (x *TracingConfig_Attribute) Reset() {
 	*x = TracingConfig_Attribute{}
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[5]
+	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -395,7 +184,7 @@ func (x *TracingConfig_Attribute) String() string {
 func (*TracingConfig_Attribute) ProtoMessage() {}
 
 func (x *TracingConfig_Attribute) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[5]
+	mi := &file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -408,7 +197,7 @@ func (x *TracingConfig_Attribute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TracingConfig_Attribute.ProtoReflect.Descriptor instead.
 func (*TracingConfig_Attribute) Descriptor() ([]byte, []int) {
-	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescGZIP(), []int{2, 0}
+	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescGZIP(), []int{0, 0}
 }
 
 func (x *TracingConfig_Attribute) GetKey() string {
@@ -429,31 +218,10 @@ var File_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto 
 
 const file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Fgithub.com/cloudprober/cloudprober/internal/tracing/proto/config.proto\x12\x13cloudprober.tracing\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\"\xc9\x02\n" +
-	"\fHTTPExporter\x12!\n" +
-	"\fendpoint_url\x18\x01 \x01(\tR\vendpointUrl\x12?\n" +
-	"\n" +
-	"tls_config\x18\x02 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfig\x12R\n" +
-	"\vhttp_header\x18\x03 \x03(\v21.cloudprober.tracing.HTTPExporter.HttpHeaderEntryR\n" +
-	"httpHeader\x12B\n" +
-	"\vcompression\x18\x04 \x01(\x0e2 .cloudprober.tracing.CompressionR\vcompression\x1a=\n" +
-	"\x0fHttpHeaderEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x02\n" +
-	"\fGRPCExporter\x12\x1a\n" +
-	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12?\n" +
-	"\n" +
-	"tls_config\x18\x02 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfig\x12R\n" +
-	"\vhttp_header\x18\x03 \x03(\v21.cloudprober.tracing.GRPCExporter.HttpHeaderEntryR\n" +
-	"httpHeader\x12B\n" +
-	"\vcompression\x18\x04 \x01(\x0e2 .cloudprober.tracing.CompressionR\vcompression\x12\x1a\n" +
-	"\binsecure\x18\x05 \x01(\bR\binsecure\x1a=\n" +
-	"\x0fHttpHeaderEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd3\x03\n" +
-	"\rTracingConfig\x12Q\n" +
-	"\x12otlp_http_exporter\x18\x01 \x01(\v2!.cloudprober.tracing.HTTPExporterH\x00R\x10otlpHttpExporter\x12Q\n" +
-	"\x12otlp_grpc_exporter\x18\x02 \x01(\v2!.cloudprober.tracing.GRPCExporterH\x00R\x10otlpGrpcExporter\x12[\n" +
+	"Fgithub.com/cloudprober/cloudprober/internal/tracing/proto/config.proto\x12\x13cloudprober.tracing\x1aEgithub.com/cloudprober/cloudprober/internal/otel/proto/exporter.proto\"\xcd\x03\n" +
+	"\rTracingConfig\x12N\n" +
+	"\x12otlp_http_exporter\x18\x01 \x01(\v2\x1e.cloudprober.otel.HTTPExporterH\x00R\x10otlpHttpExporter\x12N\n" +
+	"\x12otlp_grpc_exporter\x18\x02 \x01(\v2\x1e.cloudprober.otel.GRPCExporterH\x00R\x10otlpGrpcExporter\x12[\n" +
 	"\x12resource_attribute\x18\x03 \x03(\v2,.cloudprober.tracing.TracingConfig.AttributeR\x11resourceAttribute\x12.\n" +
 	"\x11sampling_fraction\x18\x04 \x01(\x01:\x011R\x10samplingFraction\x12\x1e\n" +
 	"\n" +
@@ -464,10 +232,7 @@ const file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_prot
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05valueB\n" +
 	"\n" +
-	"\bexporter*!\n" +
-	"\vCompression\x12\b\n" +
-	"\x04NONE\x10\x00\x12\b\n" +
-	"\x04GZIP\x10\x01B;Z9github.com/cloudprober/cloudprober/internal/tracing/proto"
+	"\bexporterB;Z9github.com/cloudprober/cloudprober/internal/tracing/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescOnce sync.Once
@@ -481,33 +246,22 @@ func file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto
 	return file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_goTypes = []any{
-	(Compression)(0),                // 0: cloudprober.tracing.Compression
-	(*HTTPExporter)(nil),            // 1: cloudprober.tracing.HTTPExporter
-	(*GRPCExporter)(nil),            // 2: cloudprober.tracing.GRPCExporter
-	(*TracingConfig)(nil),           // 3: cloudprober.tracing.TracingConfig
-	nil,                             // 4: cloudprober.tracing.HTTPExporter.HttpHeaderEntry
-	nil,                             // 5: cloudprober.tracing.GRPCExporter.HttpHeaderEntry
-	(*TracingConfig_Attribute)(nil), // 6: cloudprober.tracing.TracingConfig.Attribute
-	(*proto.TLSConfig)(nil),         // 7: cloudprober.tlsconfig.TLSConfig
+	(*TracingConfig)(nil),           // 0: cloudprober.tracing.TracingConfig
+	(*TracingConfig_Attribute)(nil), // 1: cloudprober.tracing.TracingConfig.Attribute
+	(*proto.HTTPExporter)(nil),      // 2: cloudprober.otel.HTTPExporter
+	(*proto.GRPCExporter)(nil),      // 3: cloudprober.otel.GRPCExporter
 }
 var file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_depIdxs = []int32{
-	7, // 0: cloudprober.tracing.HTTPExporter.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
-	4, // 1: cloudprober.tracing.HTTPExporter.http_header:type_name -> cloudprober.tracing.HTTPExporter.HttpHeaderEntry
-	0, // 2: cloudprober.tracing.HTTPExporter.compression:type_name -> cloudprober.tracing.Compression
-	7, // 3: cloudprober.tracing.GRPCExporter.tls_config:type_name -> cloudprober.tlsconfig.TLSConfig
-	5, // 4: cloudprober.tracing.GRPCExporter.http_header:type_name -> cloudprober.tracing.GRPCExporter.HttpHeaderEntry
-	0, // 5: cloudprober.tracing.GRPCExporter.compression:type_name -> cloudprober.tracing.Compression
-	1, // 6: cloudprober.tracing.TracingConfig.otlp_http_exporter:type_name -> cloudprober.tracing.HTTPExporter
-	2, // 7: cloudprober.tracing.TracingConfig.otlp_grpc_exporter:type_name -> cloudprober.tracing.GRPCExporter
-	6, // 8: cloudprober.tracing.TracingConfig.resource_attribute:type_name -> cloudprober.tracing.TracingConfig.Attribute
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	2, // 0: cloudprober.tracing.TracingConfig.otlp_http_exporter:type_name -> cloudprober.otel.HTTPExporter
+	3, // 1: cloudprober.tracing.TracingConfig.otlp_grpc_exporter:type_name -> cloudprober.otel.GRPCExporter
+	1, // 2: cloudprober.tracing.TracingConfig.resource_attribute:type_name -> cloudprober.tracing.TracingConfig.Attribute
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_init() }
@@ -515,7 +269,7 @@ func file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto
 	if File_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto != nil {
 		return
 	}
-	file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[2].OneofWrappers = []any{
+	file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes[0].OneofWrappers = []any{
 		(*TracingConfig_OtlpHttpExporter)(nil),
 		(*TracingConfig_OtlpGrpcExporter)(nil),
 	}
@@ -524,14 +278,13 @@ func file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   6,
+			NumEnums:      0,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_goTypes,
 		DependencyIndexes: file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_depIdxs,
-		EnumInfos:         file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_enumTypes,
 		MessageInfos:      file_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto_msgTypes,
 	}.Build()
 	File_github_com_cloudprober_cloudprober_internal_tracing_proto_config_proto = out.File

@@ -25,10 +25,10 @@ package tracing
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 
-	"github.com/cloudprober/cloudprober/common/tlsconfig"
+	cpotel "github.com/cloudprober/cloudprober/internal/otel"
+	otelpb "github.com/cloudprober/cloudprober/internal/otel/proto"
 	"github.com/cloudprober/cloudprober/internal/tracing/otelsdk"
 	configpb "github.com/cloudprober/cloudprober/internal/tracing/proto"
 	"github.com/cloudprober/cloudprober/logger"
@@ -49,9 +49,7 @@ import (
 type ShutdownFunc func(context.Context) error
 
 func getExporter(ctx context.Context, config *configpb.TracingConfig) (sdktrace.SpanExporter, error) {
-	if config.GetOtlpHttpExporter() != nil {
-		expConf := config.GetOtlpHttpExporter()
-
+	if expConf := config.GetOtlpHttpExporter(); expConf != nil {
 		var opts []otlptracehttp.Option
 
 		if expConf.GetEndpointUrl() != "" {
@@ -62,24 +60,22 @@ func getExporter(ctx context.Context, config *configpb.TracingConfig) (sdktrace.
 			opts = append(opts, otlptracehttp.WithHeaders(expConf.GetHttpHeader()))
 		}
 
-		if expConf.GetCompression() == configpb.Compression_GZIP {
+		if expConf.GetCompression() == otelpb.Compression_GZIP {
 			opts = append(opts, otlptracehttp.WithCompression(otlptracehttp.GzipCompression))
 		}
 
-		if expConf.GetTlsConfig() != nil {
-			tlsConfig := &tls.Config{}
-			if err := tlsconfig.UpdateTLSConfig(tlsConfig, expConf.GetTlsConfig()); err != nil {
-				return nil, fmt.Errorf("failed to create tls config: %v", err)
-			}
+		tlsConfig, err := cpotel.HTTPExporterTLSConfig(expConf)
+		if err != nil {
+			return nil, err
+		}
+		if tlsConfig != nil {
 			opts = append(opts, otlptracehttp.WithTLSClientConfig(tlsConfig))
 		}
 
 		return otlptracehttp.New(ctx, opts...)
 	}
 
-	if config.GetOtlpGrpcExporter() != nil {
-		expConf := config.GetOtlpGrpcExporter()
-
+	if expConf := config.GetOtlpGrpcExporter(); expConf != nil {
 		var opts []otlptracegrpc.Option
 
 		if expConf.GetEndpoint() != "" {
@@ -90,23 +86,19 @@ func getExporter(ctx context.Context, config *configpb.TracingConfig) (sdktrace.
 			opts = append(opts, otlptracegrpc.WithHeaders(expConf.GetHttpHeader()))
 		}
 
-		if expConf.GetCompression() == configpb.Compression_GZIP {
+		if expConf.GetCompression() == otelpb.Compression_GZIP {
 			opts = append(opts, otlptracegrpc.WithCompressor("gzip"))
-		}
-
-		if expConf.GetInsecure() && expConf.GetTlsConfig() != nil {
-			return nil, fmt.Errorf("otlp_grpc_exporter: insecure and tls_config are mutually exclusive")
 		}
 
 		if expConf.GetInsecure() {
 			opts = append(opts, otlptracegrpc.WithInsecure())
 		}
 
-		if expConf.GetTlsConfig() != nil {
-			tlsConfig := &tls.Config{}
-			if err := tlsconfig.UpdateTLSConfig(tlsConfig, expConf.GetTlsConfig()); err != nil {
-				return nil, fmt.Errorf("failed to create tls config: %v", err)
-			}
+		tlsConfig, err := cpotel.GRPCExporterTLSConfig(expConf)
+		if err != nil {
+			return nil, err
+		}
+		if tlsConfig != nil {
 			opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(tlsConfig)))
 		}
 

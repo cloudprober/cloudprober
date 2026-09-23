@@ -243,6 +243,43 @@ func TestGetExporterType(t *testing.T) {
 			wantType: &otlpmetricgrpc.Exporter{},
 		},
 		{
+			name: "otlp_http_with_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						EndpointUrl: proto.String("https://otel.example.com:4318/v1/metrics"),
+					},
+				},
+			},
+			wantType: &otlpmetrichttp.Exporter{},
+		},
+		{
+			name: "otlp_http_with_invalid_endpoint_url",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpHttpExporter{
+					OtlpHttpExporter: &configpb.HTTPExporter{
+						EndpointUrl: proto.String("http://otel.example.com:not-a-port/"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "otlp_grpc_insecure_and_tls_config",
+			config: &configpb.SurfacerConf{
+				Exporter: &configpb.SurfacerConf_OtlpGrpcExporter{
+					OtlpGrpcExporter: &configpb.GRPCExporter{
+						Endpoint: proto.String("localhost:1234"),
+						Insecure: proto.Bool(true),
+						TlsConfig: &tlsconfigpb.TLSConfig{
+							DisableCertValidation: proto.Bool(true),
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "otlp_grpc_with_bad_tls_config",
 			config: &configpb.SurfacerConf{
 				Exporter: &configpb.SurfacerConf_OtlpGrpcExporter{
