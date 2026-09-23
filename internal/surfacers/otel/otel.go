@@ -89,7 +89,7 @@ func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.L
 
 		if expConf.GetTlsConfig() != nil {
 			tlsConfig := &tls.Config{}
-			err := tlsconfig.UpdateTLSConfig(nil, expConf.GetTlsConfig())
+			err := tlsconfig.UpdateTLSConfig(tlsConfig, expConf.GetTlsConfig())
 			if err != nil {
 				return nil, fmt.Errorf("failed to create tls config: %v", err)
 			}
@@ -126,7 +126,7 @@ func getExporter(ctx context.Context, config *configpb.SurfacerConf, l *logger.L
 
 		if expConf.GetTlsConfig() != nil {
 			tlsConfig := &tls.Config{}
-			err := tlsconfig.UpdateTLSConfig(nil, expConf.GetTlsConfig())
+			err := tlsconfig.UpdateTLSConfig(tlsConfig, expConf.GetTlsConfig())
 			if err != nil {
 				return nil, fmt.Errorf("failed to create tls config: %v", err)
 			}
