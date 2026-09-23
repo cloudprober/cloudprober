@@ -94,12 +94,12 @@ func readFileFromHTTP(ctx context.Context, fileURL string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("got error while retrieving HTTP object, http status: %s, status code: %d", res.Status, res.StatusCode)
 	}
 
-	defer res.Body.Close()
 	return io.ReadAll(res.Body)
 }
 
@@ -112,12 +112,12 @@ func httpModTime(ctx context.Context, fileURL string) (time.Time, error) {
 	if err != nil {
 		return zeroTime, err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return zeroTime, fmt.Errorf("got error while retrieving HTTP object, http status: %s, status code: %d", res.Status, res.StatusCode)
 	}
 
-	defer res.Body.Close()
 	return httpLastModified(res)
 }
 
