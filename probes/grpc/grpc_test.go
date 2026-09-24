@@ -422,17 +422,33 @@ func (t *testTargets) Resolve(name string, ipVer int) (net.IP, error) {
 func TestDropConnOnError(t *testing.T) {
 	tests := []struct {
 		name          string
+		method        configpb.ProbeConf_MethodType
 		serverDelay   time.Duration
 		wantSuccess   int64
 		wantConnCount int64
 	}{
 		{
 			name:          "success_reuses_conn",
+			method:        configpb.ProbeConf_ECHO,
 			wantSuccess:   2,
 			wantConnCount: 1,
 		},
 		{
 			name:          "timeout_drops_conn",
+			method:        configpb.ProbeConf_ECHO,
+			serverDelay:   200 * time.Millisecond,
+			wantSuccess:   0,
+			wantConnCount: 2,
+		},
+		{
+			name:          "generic_success_reuses_conn",
+			method:        configpb.ProbeConf_GENERIC,
+			wantSuccess:   2,
+			wantConnCount: 1,
+		},
+		{
+			name:          "generic_timeout_drops_conn",
+			method:        configpb.ProbeConf_GENERIC,
 			serverDelay:   200 * time.Millisecond,
 			wantSuccess:   0,
 			wantConnCount: 2,
@@ -448,6 +464,7 @@ func TestDropConnOnError(t *testing.T) {
 			lis := &customListener{Listener: ln}
 			grpcSrv := grpc.NewServer()
 			spb.RegisterProberServer(grpcSrv, &testServer{delay: tt.serverDelay})
+			reflection.Register(grpcSrv)
 			go grpcSrv.Serve(lis)
 			defer grpcSrv.Stop()
 
@@ -457,8 +474,15 @@ func TestDropConnOnError(t *testing.T) {
 				Targets: targets.StaticTargets(ln.Addr().String()),
 				Timeout: timeout,
 				ProbeConf: &configpb.ProbeConf{
+					Method:            tt.method.Enum(),
 					NumConns:          proto.Int32(1),
 					InsecureTransport: proto.Bool(true),
+					Request: &configpb.GenericRequest{
+						RequestType: &configpb.GenericRequest_CallServiceMethod{
+							CallServiceMethod: "cloudprober.servers.grpc.Prober.Echo",
+						},
+						Body: proto.String(`{"blob": "test"}`),
+					},
 				},
 				Logger:      &logger.Logger{},
 				LatencyUnit: time.Millisecond,
