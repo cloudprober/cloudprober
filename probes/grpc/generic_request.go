@@ -72,11 +72,11 @@ func (p *Probe) callServiceMethod(ctx context.Context, req *configpb.GenericRequ
 	h := &grpcurl.DefaultEventHandler{Out: &out, Formatter: formatter}
 
 	if err := grpcurl.InvokeRPC(ctx, descSrc, conn, req.GetCallServiceMethod(), nil, h, rf.Next); err != nil {
-		return "", fmt.Errorf("error invoking gRPC: %v", err)
+		return "", fmt.Errorf("error invoking gRPC: %w", err)
 	}
 
 	if h.Status.Code() != codes.OK {
-		return "", fmt.Errorf("gRPC call failed: %s", h.Status.Message())
+		return "", fmt.Errorf("gRPC call failed: %w", h.Status.Err())
 	}
 
 	respBytes := out.Bytes()
@@ -103,19 +103,19 @@ func (p *Probe) genericRequest(ctx context.Context, conn *grpc.ClientConn, req *
 	case *configpb.GenericRequest_ListServices:
 		services, err := grpcurl.ListServices(descSrc)
 		if err != nil {
-			return "", fmt.Errorf("error listing services: %v", err)
+			return "", fmt.Errorf("error listing services: %w", err)
 		}
 		return response(strings.Join(services, ",")), nil
 	case *configpb.GenericRequest_ListServiceMethods:
 		methods, err := grpcurl.ListMethods(descSrc, req.GetListServiceMethods())
 		if err != nil {
-			return "", fmt.Errorf("error listing service (%s) methods: %v", req.GetListServiceMethods(), err)
+			return "", fmt.Errorf("error listing service (%s) methods: %w", req.GetListServiceMethods(), err)
 		}
 		return response(strings.Join(methods, ",")), nil
 	case *configpb.GenericRequest_DescribeServiceMethod:
 		d, err := descSrc.FindSymbol(req.GetDescribeServiceMethod())
 		if err != nil {
-			return "", fmt.Errorf("error describing method(%s): %v", req.GetDescribeServiceMethod(), err)
+			return "", fmt.Errorf("error describing method(%s): %w", req.GetDescribeServiceMethod(), err)
 		}
 		return response(strings.ReplaceAll(d.AsProto().String(), "  ", " ")), nil
 	case *configpb.GenericRequest_CallServiceMethod:

@@ -54,6 +54,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/alts"
 	"google.golang.org/grpc/credentials/insecure"
@@ -61,6 +62,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	// Import grpclb module so it can be used by name for DirectPath connections.
 	_ "google.golang.org/grpc/balancer/grpclb"
@@ -305,7 +307,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 				return fmt.Errorf("error reading request body from file (%s): %v", filePath, err)
 			}
 			p.c.Request.Body = proto.String(string(b))
-			fmt.Println("--", p.c.Request.GetBody(), "--")
 		}
 	}
 
@@ -382,6 +383,18 @@ func (p *Probe) getConn(ctx context.Context, target endpoint.Endpoint, targetKey
 	l.Info("Connection established")
 	p.conns[targetKey] = conn
 	return conn, nil
+}
+
+// dropConn removes a cached connection and closes it, so that the next probe
+// run establishes a new connection.
+func (p *Probe) dropConn(targetKey string, conn *grpc.ClientConn) {
+	p.connsMu.Lock()
+	defer p.connsMu.Unlock()
+
+	if p.conns[targetKey] == conn {
+		delete(p.conns, targetKey)
+	}
+	conn.Close()
 }
 
 func (p *Probe) healthCheckProbe(ctx context.Context, conn *grpc.ClientConn, l *logger.Logger) (*grpc_health_v1.HealthCheckResponse, error) {
@@ -492,6 +505,16 @@ func (p *Probe) runProbeForTargetAndConnIndex(ctx context.Context, runReq *sched
 			peerAddr = peer.Addr.String()
 		}
 		p.l.ErrorAttrs(fmt.Sprintf("Request failed: %v. ConnState: %v", err, conn.GetState()), slog.String("peer", peerAddr))
+
+		// If backend goes away silently, gRPC won't notice until TCP gives up
+		// on retransmissions (~15 min). Drop the cached connection on
+		// transport-level errors so that the next run reconnects.
+		if !p.c.GetDisableReuseConn() {
+			if code := status.Code(err); code == codes.DeadlineExceeded || code == codes.Unavailable {
+				l.Warning("Dropping connection after error: " + code.String())
+				p.dropConn(tgtState.targetKey, conn)
+			}
+		}
 	} else {
 		success = true
 		delta = time.Since(start)
