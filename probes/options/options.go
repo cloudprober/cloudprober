@@ -63,6 +63,7 @@ type Options struct {
 	// that can be added or removed through gRPC.
 	ProberConfig       *proberconfigpb.ProberConfig
 	logMetricsOverride func(*metrics.EventMetrics)
+	aggregator         *targetsAggregator
 }
 
 // StatsExportFrequency returns how often to export metrics (in probe counts),
@@ -355,6 +356,12 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 		}
 	}
 
+	if p.GetAggregateAcrossTargets() {
+		// Keep snapshots of removed targets around for a while, to not count
+		// in-flight updates from them again.
+		opts.aggregator = newTargetsAggregator(opts.Targets.ListEndpoints, 5*opts.StatsExportInterval, opts.Logger)
+	}
+
 	if p.GetDebugOptions().GetLogMetrics() {
 		opts.logMetricsOverride = func(em *metrics.EventMetrics) {
 			opts.Logger.Info(em.String())
@@ -398,8 +405,15 @@ func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetric
 		em.AddLabel(al.KeyValueForTarget(ep))
 	}
 
-	opts.LogMetrics(em)
-	dataChan <- em
+	// Alerts are evaluated per-target, so we pass the original EventMetrics
+	// to the alert handlers below.
+	outEM := em
+	if opts.aggregator != nil {
+		outEM = opts.aggregator.record(ep, em)
+	}
+
+	opts.LogMetrics(outEM)
+	dataChan <- outEM
 
 	if em.IsForAlerting() {
 		for _, ah := range opts.AlertHandlers {

@@ -345,7 +345,7 @@ func (Schedule_ScheduleType) EnumDescriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDescGZIP(), []int{2, 1}
 }
 
-// Next tag: 104
+// Next tag: 105
 type ProbeDef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Probe name. It should be unique across all probes.
@@ -430,6 +430,24 @@ type ProbeDef struct {
 	//
 	// (More detailed example at: examples/additional_label/cloudprober.cfg)
 	AdditionalLabel []*AdditionalLabel `protobuf:"bytes,14,rep,name=additional_label,json=additionalLabel" json:"additional_label,omitempty"`
+	// (Experimental) If set, metrics are aggregated across targets: the "dst"
+	// label is dropped and cumulative metrics are summed for each remaining
+	// label set. This is useful for probing short-lived targets (e.g. pods that
+	// live for a few minutes), where you care about the service as a whole and
+	// per-target time series only add cardinality.
+	//
+	// To aggregate by a target attribute, add it as an additional_label, e.g.:
+	//
+	//	additional_label {
+	//	  key: "app"
+	//	  value: "@target.label.app@"
+	//	}
+	//
+	// Aggregated counters stay monotonic: a target's contribution is kept after
+	// the target goes away. Gauge metrics (e.g. ssl_earliest_cert_expiry_sec)
+	// are not aggregated and are exported per-target as usual. Alerts are still
+	// evaluated per-target.
+	AggregateAcrossTargets *bool `protobuf:"varint,104,opt,name=aggregate_across_targets,json=aggregateAcrossTargets" json:"aggregate_across_targets,omitempty"`
 	// (Experimental) If set, test is inversed, i.e. we count it as success if
 	// target doesn't respond. This is useful, for example, that your firewall is
 	// working as expected.
@@ -681,6 +699,13 @@ func (x *ProbeDef) GetAdditionalLabel() []*AdditionalLabel {
 		return x.AdditionalLabel
 	}
 	return nil
+}
+
+func (x *ProbeDef) GetAggregateAcrossTargets() bool {
+	if x != nil && x.AggregateAcrossTargets != nil {
+		return *x.AggregateAcrossTargets
+	}
+	return false
 }
 
 func (x *ProbeDef) GetNegativeTest() bool {
@@ -1174,7 +1199,7 @@ var File_github_com_cloudprober_cloudprober_probes_proto_config_proto protorefle
 
 const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\x8e\x13\n" +
+	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\xc8\x13\n" +
 	"\bProbeDef\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x125\n" +
 	"\x04type\x18\x02 \x02(\x0e2!.cloudprober.probes.ProbeDef.TypeR\x04type\x12#\n" +
@@ -1193,7 +1218,8 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"\n" +
 	"ip_version\x18\f \x01(\x0e2&.cloudprober.probes.ProbeDef.IPVersionR\tipVersion\x12;\n" +
 	"\x1astats_export_interval_msec\x18\r \x01(\x05R\x17statsExportIntervalMsec\x12N\n" +
-	"\x10additional_label\x18\x0e \x03(\v2#.cloudprober.probes.AdditionalLabelR\x0fadditionalLabel\x12#\n" +
+	"\x10additional_label\x18\x0e \x03(\v2#.cloudprober.probes.AdditionalLabelR\x0fadditionalLabel\x128\n" +
+	"\x18aggregate_across_targets\x18h \x01(\bR\x16aggregateAcrossTargets\x12#\n" +
 	"\rnegative_test\x18\x12 \x01(\bR\fnegativeTest\x125\n" +
 	"\x05alert\x18\x13 \x03(\v2\x1f.cloudprober.alerting.AlertConfR\x05alert\x12C\n" +
 	"\n" +
