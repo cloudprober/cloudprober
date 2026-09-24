@@ -34,6 +34,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
+	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/grpc/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets"
@@ -416,6 +417,68 @@ func (t *testTargets) ListEndpoints() []endpoint.Endpoint {
 
 func (t *testTargets) Resolve(name string, ipVer int) (net.IP, error) {
 	return t.r.Resolve(name, ipVer)
+}
+
+func TestDropConnOnError(t *testing.T) {
+	tests := []struct {
+		name          string
+		serverDelay   time.Duration
+		wantSuccess   int64
+		wantConnCount int64
+	}{
+		{
+			name:          "success_reuses_conn",
+			wantSuccess:   2,
+			wantConnCount: 1,
+		},
+		{
+			name:          "timeout_drops_conn",
+			serverDelay:   200 * time.Millisecond,
+			wantSuccess:   0,
+			wantConnCount: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ln, err := net.Listen("tcp", "localhost:0")
+			if err != nil {
+				t.Fatalf("Error creating listener: %v", err)
+			}
+			lis := &customListener{Listener: ln}
+			grpcSrv := grpc.NewServer()
+			spb.RegisterProberServer(grpcSrv, &testServer{delay: tt.serverDelay})
+			go grpcSrv.Serve(lis)
+			defer grpcSrv.Stop()
+
+			timeout := 50 * time.Millisecond
+			p := &Probe{}
+			if err := p.Init("grpc-dropconn", &options.Options{
+				Targets: targets.StaticTargets(ln.Addr().String()),
+				Timeout: timeout,
+				ProbeConf: &configpb.ProbeConf{
+					NumConns:          proto.Int32(1),
+					InsecureTransport: proto.Bool(true),
+				},
+				Logger:      &logger.Logger{},
+				LatencyUnit: time.Millisecond,
+			}); err != nil {
+				t.Fatalf("Init error: %v", err)
+			}
+
+			runReq := &sched.RunProbeForTargetRequest{Target: p.targets[0]}
+			for range 2 {
+				ctx, cancel := context.WithTimeout(context.Background(), timeout)
+				p.runProbeForTargetAndConnIndex(ctx, runReq)
+				cancel()
+			}
+
+			result := runReq.Result.(*probeRunResult)
+			assert.Equal(t, int64(2), result.total.Int64(), "total")
+			assert.Equal(t, tt.wantSuccess, result.success.Int64(), "success")
+			assert.Equal(t, tt.wantConnCount, lis.ConnCount(), "connection count")
+		})
+	}
 }
 
 func TestTargets(t *testing.T) {
