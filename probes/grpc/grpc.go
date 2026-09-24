@@ -307,7 +307,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 				return fmt.Errorf("error reading request body from file (%s): %v", filePath, err)
 			}
 			p.c.Request.Body = proto.String(string(b))
-			fmt.Println("--", p.c.Request.GetBody(), "--")
 		}
 	}
 
