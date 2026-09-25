@@ -9,17 +9,22 @@
 package proto
 
 import (
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+
 	proto "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	proto7 "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	proto1 "github.com/cloudprober/cloudprober/internal/rds/proto"
+	proto5 "github.com/cloudprober/cloudprober/targets/consul/proto"
 	proto2 "github.com/cloudprober/cloudprober/targets/endpoint/proto"
 	proto4 "github.com/cloudprober/cloudprober/targets/file/proto"
 	proto3 "github.com/cloudprober/cloudprober/targets/gce/proto"
-	proto5 "github.com/cloudprober/cloudprober/targets/lameduck/proto"
+	proto6 "github.com/cloudprober/cloudprober/targets/lameduck/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -30,7 +35,10 @@ const (
 )
 
 type RDSTargets struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
 	// RDS server options, for example:
 	//
 	//	rds_server_options {
@@ -51,16 +59,16 @@ type RDSTargets struct {
 	// Filters to filter resources by.
 	Filter []*proto1.Filter `protobuf:"bytes,3,rep,name=filter" json:"filter,omitempty"`
 	// IP config to specify the IP address to pick for a resource.
-	IpConfig      *proto1.IPConfig `protobuf:"bytes,4,opt,name=ip_config,json=ipConfig" json:"ip_config,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	IpConfig *proto1.IPConfig `protobuf:"bytes,4,opt,name=ip_config,json=ipConfig" json:"ip_config,omitempty"`
 }
 
 func (x *RDSTargets) Reset() {
 	*x = RDSTargets{}
-	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *RDSTargets) String() string {
@@ -71,7 +79,7 @@ func (*RDSTargets) ProtoMessage() {}
 
 func (x *RDSTargets) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[0]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -115,7 +123,10 @@ func (x *RDSTargets) GetIpConfig() *proto1.IPConfig {
 }
 
 type K8STargets struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
 	// Targets namespace. If this field is unset, we select resources from all
 	// namespaces.
 	Namespace *string `protobuf:"bytes,1,opt,name=namespace" json:"namespace,omitempty"`
@@ -133,7 +144,7 @@ type K8STargets struct {
 	//	services: ""             // All services.
 	//	endpoints: ".*-service"  // Endpoints ending with "service".
 	//
-	// Types that are valid to be assigned to Resources:
+	// Types that are assignable to Resources:
 	//
 	//	*K8STargets_Services
 	//	*K8STargets_Endpoints
@@ -152,15 +163,15 @@ type K8STargets struct {
 	// when (and if) we move to the watch API. Default is 30s.
 	ReEvalSec        *int32                          `protobuf:"varint,19,opt,name=re_eval_sec,json=reEvalSec" json:"re_eval_sec,omitempty"`
 	RdsServerOptions *proto.ClientConf_ServerOptions `protobuf:"bytes,20,opt,name=rds_server_options,json=rdsServerOptions" json:"rds_server_options,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
 }
 
 func (x *K8STargets) Reset() {
 	*x = K8STargets{}
-	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *K8STargets) String() string {
@@ -171,7 +182,7 @@ func (*K8STargets) ProtoMessage() {}
 
 func (x *K8STargets) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[1]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -200,45 +211,37 @@ func (x *K8STargets) GetLabelSelector() []string {
 	return nil
 }
 
-func (x *K8STargets) GetResources() isK8STargets_Resources {
-	if x != nil {
-		return x.Resources
+func (m *K8STargets) GetResources() isK8STargets_Resources {
+	if m != nil {
+		return m.Resources
 	}
 	return nil
 }
 
 func (x *K8STargets) GetServices() string {
-	if x != nil {
-		if x, ok := x.Resources.(*K8STargets_Services); ok {
-			return x.Services
-		}
+	if x, ok := x.GetResources().(*K8STargets_Services); ok {
+		return x.Services
 	}
 	return ""
 }
 
 func (x *K8STargets) GetEndpoints() string {
-	if x != nil {
-		if x, ok := x.Resources.(*K8STargets_Endpoints); ok {
-			return x.Endpoints
-		}
+	if x, ok := x.GetResources().(*K8STargets_Endpoints); ok {
+		return x.Endpoints
 	}
 	return ""
 }
 
 func (x *K8STargets) GetIngresses() string {
-	if x != nil {
-		if x, ok := x.Resources.(*K8STargets_Ingresses); ok {
-			return x.Ingresses
-		}
+	if x, ok := x.GetResources().(*K8STargets_Ingresses); ok {
+		return x.Ingresses
 	}
 	return ""
 }
 
 func (x *K8STargets) GetPods() string {
-	if x != nil {
-		if x, ok := x.Resources.(*K8STargets_Pods); ok {
-			return x.Pods
-		}
+	if x, ok := x.GetResources().(*K8STargets_Pods); ok {
+		return x.Pods
 	}
 	return ""
 }
@@ -308,7 +311,10 @@ func (*K8STargets_Pods) isK8STargets_Resources() {}
 func (*K8STargets_HttpRoutes) isK8STargets_Resources() {}
 
 type DNSOptions struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
 	// DNS server to use for DNS resolution, instead of system's default. Server
 	// can be specified in the following format: [network://]ip[:port]
 	// where network is one of udp, tcp, tcp4, tcp6, udp4, udp6, tls.
@@ -332,8 +338,6 @@ type DNSOptions struct {
 	// asynchronously, so DNS resolve time should never really affect the probe.
 	// This timeout affects how soon DNS resolution is retried, if it's hanging.
 	BackendTimeoutMsec *int32 `protobuf:"varint,4,opt,name=backend_timeout_msec,json=backendTimeoutMsec,def=5000" json:"backend_timeout_msec,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
 }
 
 // Default values for DNSOptions fields.
@@ -344,9 +348,11 @@ const (
 
 func (x *DNSOptions) Reset() {
 	*x = DNSOptions{}
-	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *DNSOptions) String() string {
@@ -357,7 +363,7 @@ func (*DNSOptions) ProtoMessage() {}
 
 func (x *DNSOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[2]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -401,8 +407,12 @@ func (x *DNSOptions) GetBackendTimeoutMsec() int32 {
 }
 
 type TargetsDef struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Type:
+	state           protoimpl.MessageState
+	sizeCache       protoimpl.SizeCache
+	unknownFields   protoimpl.UnknownFields
+	extensionFields protoimpl.ExtensionFields
+
+	// Types that are assignable to Type:
 	//
 	//	*TargetsDef_HostNames
 	//	*TargetsDef_SharedTargets
@@ -410,6 +420,7 @@ type TargetsDef struct {
 	//	*TargetsDef_RdsTargets
 	//	*TargetsDef_FileTargets
 	//	*TargetsDef_K8S
+	//	*TargetsDef_Consul
 	//	*TargetsDef_DummyTargets
 	Type isTargetsDef_Type `protobuf_oneof:"type"`
 	// Static endpoints. These endpoints are merged with the resources returned
@@ -442,10 +453,7 @@ type TargetsDef struct {
 	DnsOptions *DNSOptions `protobuf:"bytes,30,opt,name=dns_options,json=dnsOptions" json:"dns_options,omitempty"`
 	// Provide a dns resolver override instead of using the default dns resolver.
 	// Deprecated: This option is now deprecated, please use dns_options instead.
-	DnsServer       *string `protobuf:"bytes,31,opt,name=dns_server,json=dnsServer" json:"dns_server,omitempty"`
-	extensionFields protoimpl.ExtensionFields
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	DnsServer *string `protobuf:"bytes,31,opt,name=dns_server,json=dnsServer" json:"dns_server,omitempty"`
 }
 
 // Default values for TargetsDef fields.
@@ -455,9 +463,11 @@ const (
 
 func (x *TargetsDef) Reset() {
 	*x = TargetsDef{}
-	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *TargetsDef) String() string {
@@ -468,7 +478,7 @@ func (*TargetsDef) ProtoMessage() {}
 
 func (x *TargetsDef) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[3]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -483,72 +493,65 @@ func (*TargetsDef) Descriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *TargetsDef) GetType() isTargetsDef_Type {
-	if x != nil {
-		return x.Type
+func (m *TargetsDef) GetType() isTargetsDef_Type {
+	if m != nil {
+		return m.Type
 	}
 	return nil
 }
 
 func (x *TargetsDef) GetHostNames() string {
-	if x != nil {
-		if x, ok := x.Type.(*TargetsDef_HostNames); ok {
-			return x.HostNames
-		}
+	if x, ok := x.GetType().(*TargetsDef_HostNames); ok {
+		return x.HostNames
 	}
 	return ""
 }
 
 func (x *TargetsDef) GetSharedTargets() string {
-	if x != nil {
-		if x, ok := x.Type.(*TargetsDef_SharedTargets); ok {
-			return x.SharedTargets
-		}
+	if x, ok := x.GetType().(*TargetsDef_SharedTargets); ok {
+		return x.SharedTargets
 	}
 	return ""
 }
 
 func (x *TargetsDef) GetGceTargets() *proto3.TargetsConf {
-	if x != nil {
-		if x, ok := x.Type.(*TargetsDef_GceTargets); ok {
-			return x.GceTargets
-		}
+	if x, ok := x.GetType().(*TargetsDef_GceTargets); ok {
+		return x.GceTargets
 	}
 	return nil
 }
 
 func (x *TargetsDef) GetRdsTargets() *RDSTargets {
-	if x != nil {
-		if x, ok := x.Type.(*TargetsDef_RdsTargets); ok {
-			return x.RdsTargets
-		}
+	if x, ok := x.GetType().(*TargetsDef_RdsTargets); ok {
+		return x.RdsTargets
 	}
 	return nil
 }
 
 func (x *TargetsDef) GetFileTargets() *proto4.TargetsConf {
-	if x != nil {
-		if x, ok := x.Type.(*TargetsDef_FileTargets); ok {
-			return x.FileTargets
-		}
+	if x, ok := x.GetType().(*TargetsDef_FileTargets); ok {
+		return x.FileTargets
 	}
 	return nil
 }
 
 func (x *TargetsDef) GetK8S() *K8STargets {
-	if x != nil {
-		if x, ok := x.Type.(*TargetsDef_K8S); ok {
-			return x.K8S
-		}
+	if x, ok := x.GetType().(*TargetsDef_K8S); ok {
+		return x.K8S
+	}
+	return nil
+}
+
+func (x *TargetsDef) GetConsul() *proto5.TargetsConf {
+	if x, ok := x.GetType().(*TargetsDef_Consul); ok {
+		return x.Consul
 	}
 	return nil
 }
 
 func (x *TargetsDef) GetDummyTargets() *DummyTargets {
-	if x != nil {
-		if x, ok := x.Type.(*TargetsDef_DummyTargets); ok {
-			return x.DummyTargets
-		}
+	if x, ok := x.GetType().(*TargetsDef_DummyTargets); ok {
+		return x.DummyTargets
 	}
 	return nil
 }
@@ -586,6 +589,13 @@ func (x *TargetsDef) GetDnsServer() string {
 		return *x.DnsServer
 	}
 	return ""
+}
+
+func (x *TargetsDef) GetReEvalSec() int32 {
+	if x != nil && x.ReEvalSec != nil {
+		return *x.ReEvalSec
+	}
+	return 0
 }
 
 type isTargetsDef_Type interface {
@@ -666,6 +676,19 @@ type TargetsDef_K8S struct {
 	K8S *K8STargets `protobuf:"bytes,6,opt,name=k8s,oneof"`
 }
 
+type TargetsDef_Consul struct {
+	// Consul targets.
+	// Example:
+	//
+	//	consul {
+	//	  address: "localhost:8500"
+	//	  services: "web-.*"
+	//	  tags: "http"
+	//	  health_status: "passing"
+	//	}
+	Consul *proto5.TargetsConf `protobuf:"bytes,7,opt,name=consul,oneof"`
+}
+
 type TargetsDef_DummyTargets struct {
 	// Empty targets to meet the probe definition requirement where there are
 	// actually no targets, for example in case of some external probes.
@@ -684,21 +707,25 @@ func (*TargetsDef_FileTargets) isTargetsDef_Type() {}
 
 func (*TargetsDef_K8S) isTargetsDef_Type() {}
 
+func (*TargetsDef_Consul) isTargetsDef_Type() {}
+
 func (*TargetsDef_DummyTargets) isTargetsDef_Type() {}
 
 // DummyTargets represent empty targets, which are useful for external
 // probes that do not have any "proper" targets.  Such as ilbprober.
 type DummyTargets struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
+	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
 }
 
 func (x *DummyTargets) Reset() {
 	*x = DummyTargets{}
-	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *DummyTargets) String() string {
@@ -709,7 +736,7 @@ func (*DummyTargets) ProtoMessage() {}
 
 func (x *DummyTargets) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[4]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -731,12 +758,15 @@ func (*DummyTargets) Descriptor() ([]byte, []int) {
 // how often to re-evaluate the targets and whether to check for lame ducks or
 // not.
 type GlobalTargetsOptions struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
 	// RDS server address
 	// Deprecated: This option is now deprecated, please use rds_server_options
 	// instead.
 	//
-	// Deprecated: Marked as deprecated in github.com/cloudprober/cloudprober/targets/proto/targets.proto.
+	// Deprecated: Do not use.
 	RdsServerAddress *string `protobuf:"bytes,3,opt,name=rds_server_address,json=rdsServerAddress" json:"rds_server_address,omitempty"`
 	// RDS server options, for example:
 	//
@@ -751,16 +781,21 @@ type GlobalTargetsOptions struct {
 	GlobalGceTargetsOptions *proto3.GlobalOptions `protobuf:"bytes,1,opt,name=global_gce_targets_options,json=globalGceTargetsOptions" json:"global_gce_targets_options,omitempty"`
 	// Lame duck options. If provided, targets module checks for the lame duck
 	// targets and removes them from the targets list.
-	LameDuckOptions *proto5.Options `protobuf:"bytes,2,opt,name=lame_duck_options,json=lameDuckOptions" json:"lame_duck_options,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	LameDuckOptions *proto6.Options `protobuf:"bytes,2,opt,name=lame_duck_options,json=lameDuckOptions" json:"lame_duck_options,omitempty"`
+	// Consul global options. These options are shared across Consul targets.
+	// Multiple entries can be defined, each with a unique id field, to support
+	// connecting to different Consul clusters. A probe target's consul_id field
+	// selects which entry to use; if consul_id is unset the first entry is used.
+	GlobalConsulOptions []*proto7.GlobalOptions `protobuf:"bytes,5,rep,name=global_consul_options,json=globalConsulOptions" json:"global_consul_options,omitempty"`
 }
 
 func (x *GlobalTargetsOptions) Reset() {
 	*x = GlobalTargetsOptions{}
-	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *GlobalTargetsOptions) String() string {
@@ -771,7 +806,7 @@ func (*GlobalTargetsOptions) ProtoMessage() {}
 
 func (x *GlobalTargetsOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[5]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -786,7 +821,7 @@ func (*GlobalTargetsOptions) Descriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescGZIP(), []int{5}
 }
 
-// Deprecated: Marked as deprecated in github.com/cloudprober/cloudprober/targets/proto/targets.proto.
+// Deprecated: Do not use.
 func (x *GlobalTargetsOptions) GetRdsServerAddress() string {
 	if x != nil && x.RdsServerAddress != nil {
 		return *x.RdsServerAddress
@@ -808,9 +843,16 @@ func (x *GlobalTargetsOptions) GetGlobalGceTargetsOptions() *proto3.GlobalOption
 	return nil
 }
 
-func (x *GlobalTargetsOptions) GetLameDuckOptions() *proto5.Options {
+func (x *GlobalTargetsOptions) GetLameDuckOptions() *proto6.Options {
 	if x != nil {
 		return x.LameDuckOptions
+	}
+	return nil
+}
+
+func (x *GlobalTargetsOptions) GetGlobalConsulOptions() []*proto7.GlobalOptions {
+	if x != nil {
+		return x.GlobalConsulOptions
 	}
 	return nil
 }
@@ -848,7 +890,7 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x1c\n" +
 	"\attl_sec\x18\x02 \x01(\x05:\x03300R\x06ttlSec\x12)\n" +
 	"\x11max_cache_age_sec\x18\x03 \x01(\x05R\x0emaxCacheAgeSec\x126\n" +
-	"\x14backend_timeout_msec\x18\x04 \x01(\x05:\x045000R\x12backendTimeoutMsec\"\xa6\x05\n" +
+	"\x14backend_timeout_msec\x18\x04 \x01(\x05:\x045000R\x12backendTimeoutMsec\"\xc6\x05\n" +
 	"\n" +
 	"TargetsDef\x12\x1f\n" +
 	"\n" +
@@ -867,7 +909,8 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\vdns_options\x18\x1e \x01(\v2\x1f.cloudprober.targets.DNSOptionsR\n" +
 	"dnsOptions\x12\x1d\n" +
 	"\n" +
-	"dns_server\x18\x1f \x01(\tR\tdnsServer*\t\b\xc8\x01\x10\x80\x80\x80\x80\x02B\x06\n" +
+	"dns_server\x18\x1f \x01(\tR\tdnsServer\x12\x1e\n" +
+	"\vre_eval_sec\x18  \x01(\x05R\treEvalSec*\t\b\xc8\x01\x10\x80\x80\x80\x80\x02B\x06\n" +
 	"\x04type\"\x0e\n" +
 	"\fDummyTargets\"\xd9\x02\n" +
 	"\x14GlobalTargetsOptions\x120\n" +
@@ -878,18 +921,18 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 
 var (
 	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescOnce sync.Once
-	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescData []byte
+	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescData = file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc
 )
 
 func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescGZIP() []byte {
 	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescOnce.Do(func() {
-		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc)))
+		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescData = protoimpl.X.CompressGZIP(file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescData)
 	})
 	return file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescData
 }
 
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes = []any{
+var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes = []interface{}{
 	(*RDSTargets)(nil),                     // 0: cloudprober.targets.RDSTargets
 	(*K8STargets)(nil),                     // 1: cloudprober.targets.K8sTargets
 	(*DNSOptions)(nil),                     // 2: cloudprober.targets.DNSOptions
@@ -901,9 +944,11 @@ var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes 
 	(*proto1.IPConfig)(nil),                // 8: cloudprober.rds.IPConfig
 	(*proto3.TargetsConf)(nil),             // 9: cloudprober.targets.gce.TargetsConf
 	(*proto4.TargetsConf)(nil),             // 10: cloudprober.targets.file.TargetsConf
-	(*proto2.Endpoint)(nil),                // 11: cloudprober.targets.Endpoint
-	(*proto3.GlobalOptions)(nil),           // 12: cloudprober.targets.gce.GlobalOptions
-	(*proto5.Options)(nil),                 // 13: cloudprober.targets.lameduck.Options
+	(*proto5.TargetsConf)(nil),             // 11: cloudprober.targets.consul.TargetsConf
+	(*proto2.Endpoint)(nil),                // 12: cloudprober.targets.Endpoint
+	(*proto3.GlobalOptions)(nil),           // 13: cloudprober.targets.gce.GlobalOptions
+	(*proto6.Options)(nil),                 // 14: cloudprober.targets.lameduck.Options
+	(*proto7.GlobalOptions)(nil),           // 15: cloudprober.rds.consul.GlobalOptions
 }
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs = []int32{
 	6,  // 0: cloudprober.targets.RDSTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
@@ -914,17 +959,19 @@ var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs 
 	0,  // 5: cloudprober.targets.TargetsDef.rds_targets:type_name -> cloudprober.targets.RDSTargets
 	10, // 6: cloudprober.targets.TargetsDef.file_targets:type_name -> cloudprober.targets.file.TargetsConf
 	1,  // 7: cloudprober.targets.TargetsDef.k8s:type_name -> cloudprober.targets.K8sTargets
-	4,  // 8: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
-	11, // 9: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
-	2,  // 10: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
-	6,  // 11: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
-	12, // 12: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
-	13, // 13: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	11, // 8: cloudprober.targets.TargetsDef.consul:type_name -> cloudprober.targets.consul.TargetsConf
+	4,  // 9: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
+	12, // 10: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
+	2,  // 11: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
+	6,  // 12: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
+	13, // 13: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
+	14, // 14: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
+	15, // 15: cloudprober.targets.GlobalTargetsOptions.global_consul_options:type_name -> cloudprober.rds.consul.GlobalOptions
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() }
@@ -932,27 +979,104 @@ func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() 
 	if File_github_com_cloudprober_cloudprober_targets_proto_targets_proto != nil {
 		return
 	}
-	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[1].OneofWrappers = []any{
+	if !protoimpl.UnsafeEnabled {
+		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RDSTargets); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*K8STargets); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DNSOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*TargetsDef); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DummyTargets); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GlobalTargetsOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+	}
+	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[1].OneofWrappers = []interface{}{
 		(*K8STargets_Services)(nil),
 		(*K8STargets_Endpoints)(nil),
 		(*K8STargets_Ingresses)(nil),
 		(*K8STargets_Pods)(nil),
 		(*K8STargets_HttpRoutes)(nil),
 	}
-	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[3].OneofWrappers = []any{
+	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes[3].OneofWrappers = []interface{}{
 		(*TargetsDef_HostNames)(nil),
 		(*TargetsDef_SharedTargets)(nil),
 		(*TargetsDef_GceTargets)(nil),
 		(*TargetsDef_RdsTargets)(nil),
 		(*TargetsDef_FileTargets)(nil),
 		(*TargetsDef_K8S)(nil),
+		(*TargetsDef_Consul)(nil),
 		(*TargetsDef_DummyTargets)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc)),
+			RawDescriptor: file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   6,
 			NumExtensions: 0,
@@ -963,6 +1087,7 @@ func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() 
 		MessageInfos:      file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes,
 	}.Build()
 	File_github_com_cloudprober_cloudprober_targets_proto_targets_proto = out.File
+	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc = nil
 	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes = nil
 	file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs = nil
 }
