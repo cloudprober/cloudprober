@@ -90,7 +90,8 @@ func (nl *nodesLister) refresh() error {
 
 	params := url.Values{}
 
-	// Use datacenter from nodes config if specified, otherwise from provider config
+	// Use datacenter from nodes config if specified, otherwise from
+	// provider config
 	datacenter := nl.config.GetDatacenter()
 	if nl.config.Nodes != nil && nl.config.Nodes.GetDatacenter() != "" {
 		datacenter = nl.config.Nodes.GetDatacenter()

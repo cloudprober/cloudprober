@@ -274,7 +274,8 @@ func TestStartRegistersAndDeregisters(t *testing.T) {
 	}
 	mc.mu.Unlock()
 
-	// Cancel context to trigger deregistration and give the goroutine time to run.
+	// Cancel context to trigger deregistration and give the goroutine time
+	// to run.
 	cancel()
 
 	deadline := time.Now().Add(2 * time.Second)

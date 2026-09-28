@@ -364,7 +364,8 @@ func TestConsulClientConfiguration(t *testing.T) {
 				t.Fatal("Expected non-nil client")
 			}
 
-			// Client was successfully created, which means configuration was applied
+			// Client was successfully created, which means
+			// configuration was applied
 		})
 	}
 }
@@ -585,8 +586,10 @@ func TestServiceDataLabels(t *testing.T) {
 }
 
 func TestConsulMetadataLabelPropagation(t *testing.T) {
-	// Verifies Consul metadata is exposed as labels for use with @target.label.KEY@
-	// in probe additional_label configs. See examples/targets/consul/ for usage.
+	// Verifies Consul metadata is exposed as labels for use with
+	// @target.label.KEY@
+	// in probe additional_label configs. See examples/targets/consul/ for
+	// usage.
 
 	server := mockConsulServer(t)
 	defer server.Close()
@@ -705,7 +708,8 @@ func TestListResourcesWithInvalidPath(t *testing.T) {
 }
 
 func TestNodeMetadataFiltering(t *testing.T) {
-	// Test that node_meta_filter correctly includes only specified metadata keys
+	// Test that node_meta_filter correctly includes only specified metadata
+	// keys
 	server := mockConsulServer(t)
 	defer server.Close()
 
@@ -765,8 +769,10 @@ func TestNodeMetadataFiltering(t *testing.T) {
 				t.Fatal("Expected at least one resource")
 			}
 
-			// Find the node1 resource, which has full metadata in the mock server response.
-			// Map iteration is non-deterministic so we cannot rely on index 0.
+			// Find the node1 resource, which has full metadata in
+			// the mock server response.
+			// Map iteration is non-deterministic so we cannot rely
+			// on index 0.
 			var node1Labels map[string]string
 			for _, res := range resp.Resources {
 				if res.Labels["node"] == "node1" {
@@ -778,8 +784,10 @@ func TestNodeMetadataFiltering(t *testing.T) {
 				t.Fatal("Could not find resource from node1 (required for metadata label checks)")
 			}
 
-			// For wantLabels checks we use node1 which carries the richest metadata.
-			// For dontWantLabels checks we inspect all resources, since none should carry them.
+			// For wantLabels checks we use node1 which carries the
+			// richest metadata.
+			// For dontWantLabels checks we inspect all resources,
+			// since none should carry them.
 			for _, wantLabel := range tt.wantLabels {
 				if _, exists := node1Labels[wantLabel]; !exists {
 					t.Errorf("Expected label %s to exist on node1 resource", wantLabel)
@@ -798,7 +806,8 @@ func TestNodeMetadataFiltering(t *testing.T) {
 }
 
 func TestServiceAddressSelection(t *testing.T) {
-	// Verify that service address is used when available, otherwise node address
+	// Verify that service address is used when available, otherwise node
+	// address
 	server := mockConsulServer(t)
 	defer server.Close()
 
@@ -916,7 +925,8 @@ func TestMultipleResourceTypes(t *testing.T) {
 }
 
 func TestProviderWithoutServiceConfig(t *testing.T) {
-	// When no specific resource type is configured, should default to services
+	// When no specific resource type is configured, should default to
+	// services
 	config := &configpb.ProviderConfig{
 		Address: proto.String("localhost:8500"),
 	}

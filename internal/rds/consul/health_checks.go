@@ -35,7 +35,8 @@ type healthChecksLister struct {
 	l      *logger.Logger
 }
 
-// HealthCheckSupportedFilters defines the filters supported by the health checks lister.
+// HealthCheckSupportedFilters defines the filters supported by the health
+// checks lister.
 var HealthCheckSupportedFilters = struct {
 	RegexFilterKeys []string
 	LabelsFilter    bool
@@ -136,7 +137,8 @@ func (hcl *healthChecksLister) refresh() error {
 		// Create unique key for this health check
 		key := fmt.Sprintf("%s-%s-%s", check.Node, check.ServiceName, check.CheckID)
 
-		// Note: Health checks don't have IP/port directly, we use node name
+		// Note: Health checks don't have IP/port directly, we use node
+		// name
 		data := &serviceData{
 			name:        check.Name,
 			address:     check.Node, // Use node name as address
