@@ -559,13 +559,7 @@ func TestServiceDataLabels(t *testing.T) {
 		t.Fatal("Could not find web service from node1")
 	}
 
-	// Verify expected labels that can be referenced via @target.label.KEY@
-	// For example, in a probe config:
-	//   additional_label {
-	//     key: "app_version"
-	//     value: "@target.label.meta_version@"
-	//   }
-	// This would propagate the Consul service metadata "version" to the probe metric
+	// Verify labels available for @target.label.KEY@ substitution
 	expectedLabels := map[string]string{
 		"service":                 "web",
 		"node":                    "node1",
@@ -573,10 +567,10 @@ func TestServiceDataLabels(t *testing.T) {
 		"tags":                    "http,production",
 		"tag_http":                "true",
 		"tag_production":          "true",
-		"meta_version":            "1.2.3",     // Can be referenced as @target.label.meta_version@
-		"meta_environment":        "prod",      // Can be referenced as @target.label.meta_environment@
-		"node_meta_datacenter":    "us-west-2", // Can be referenced as @target.label.node_meta_datacenter@
-		"node_meta_instance_type": "t3.medium", // Can be referenced as @target.label.node_meta_instance_type@
+		"meta_version":            "1.2.3",
+		"meta_environment":        "prod",
+		"node_meta_datacenter":    "us-west-2",
+		"node_meta_instance_type": "t3.medium",
 	}
 
 	for key, expectedValue := range expectedLabels {
@@ -591,44 +585,8 @@ func TestServiceDataLabels(t *testing.T) {
 }
 
 func TestConsulMetadataLabelPropagation(t *testing.T) {
-	// This test documents how Consul metadata can be propagated to probe metrics
-	// using the standard Cloudprober additional_label feature.
-	//
-	// Example probe config that uses Consul metadata:
-	//
-	//   probe {
-	//     name: "consul_service_probe"
-	//     targets {
-	//       consul {
-	//         address: "localhost:8500"
-	//         services: "web-.*"
-	//       }
-	//     }
-	//
-	//     # Propagate Consul service metadata "version" to metric label "app_version"
-	//     additional_label {
-	//       key: "app_version"
-	//       value: "@target.label.meta_version@"
-	//     }
-	//
-	//     # Propagate Consul service metadata "environment" to metric label "env"
-	//     additional_label {
-	//       key: "env"
-	//       value: "@target.label.meta_environment@"
-	//     }
-	//
-	//     # Propagate Consul service tags
-	//     additional_label {
-	//       key: "service_tags"
-	//       value: "@target.label.tags@"
-	//     }
-	//
-	//     # Propagate node datacenter from Consul node metadata
-	//     additional_label {
-	//       key: "datacenter"
-	//       value: "@target.label.node_meta_datacenter@"
-	//     }
-	//   }
+	// Verifies Consul metadata is exposed as labels for use with @target.label.KEY@
+	// in probe additional_label configs. See examples/targets/consul/ for usage.
 
 	server := mockConsulServer(t)
 	defer server.Close()
