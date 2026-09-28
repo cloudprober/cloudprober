@@ -462,8 +462,7 @@ func TestIntegrationConsulRDSMetadataLabels(t *testing.T) {
 	// Check first resource for expected labels
 	res := resp.Resources[0]
 
-	// These labels can be propagated to probe metrics using the standard
-	// Cloudprober additional_label feature with @target.label.KEY@ syntax.
+	// Verify labels available for @target.label.KEY@ substitution
 	expectedLabels := map[string]string{
 		"service":          "test-web",
 		"health":           "passing",
@@ -475,7 +474,7 @@ func TestIntegrationConsulRDSMetadataLabels(t *testing.T) {
 
 	for key, expectedValue := range expectedLabels {
 		if gotValue, exists := res.Labels[key]; !exists {
-			t.Errorf("Missing expected label %s (would be @target.label.%s@ in probe config)", key, key)
+			t.Errorf("Missing expected label %s", key)
 		} else if gotValue != expectedValue {
 			t.Errorf("Label %s = %s, want %s", key, gotValue, expectedValue)
 		}
