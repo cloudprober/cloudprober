@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package consul implements a Consul-based resource discovery provider for Cloudprober.
+// Package consul implements a Consul-based resource discovery provider for
+// Cloudprober.
 // This file provides a plain HTTP client for the Consul REST API, with no
 // dependency on github.com/hashicorp/consul/api.
 package consul
@@ -39,7 +40,8 @@ type client struct {
 	l          *logger.Logger
 }
 
-// consulHealthEntry is the JSON structure returned by GET /v1/health/service/{service}.
+// consulHealthEntry is the JSON structure returned by GET
+// /v1/health/service/{service}.
 type consulHealthEntry struct {
 	Node    consulNode    `json:"Node"`
 	Service consulService `json:"Service"`

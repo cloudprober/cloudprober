@@ -69,7 +69,8 @@ type serviceRegistration struct {
 	Check   *healthCheck      `json:"Check,omitempty"`
 }
 
-// healthCheck is the Consul health check configuration embedded in serviceRegistration.
+// healthCheck is the Consul health check configuration embedded in
+// serviceRegistration.
 type healthCheck struct {
 	HTTP                           string `json:"HTTP"`
 	Interval                       string `json:"Interval"`

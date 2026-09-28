@@ -31,9 +31,9 @@ import (
 	"sync"
 	"time"
 
-	consulpb "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
 	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	consulpb "github.com/cloudprober/cloudprober/internal/rds/consul/proto"
 	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/state"
@@ -422,7 +422,8 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 }
 
 // findGlobalConsulOptions returns the GlobalOptions entry matching consulID.
-// If consulID is empty, it returns the first entry (backward-compatible behavior).
+// If consulID is empty, it returns the first entry (backward-compatible
+// behavior).
 // Returns nil if no entries exist.
 func findGlobalConsulOptions(opts []*consulpb.GlobalOptions, consulID string) *consulpb.GlobalOptions {
 	if len(opts) == 0 {

@@ -59,7 +59,8 @@ type agentServiceCheck struct {
 	TTL string `json:"TTL,omitempty"`
 }
 
-// agentServiceRegistration is the request body for PUT /v1/agent/service/register.
+// agentServiceRegistration is the request body for PUT
+// /v1/agent/service/register.
 type agentServiceRegistration struct {
 	ID      string             `json:"ID"`
 	Name    string             `json:"Name"`
@@ -102,7 +103,8 @@ func (tc *testHTTPClient) put(path string, body interface{}) error {
 	return nil
 }
 
-// setupTestConsul verifies that Consul is reachable and returns a testHTTPClient
+// setupTestConsul verifies that Consul is reachable and returns a
+// testHTTPClient
 // along with a cleanup function that deregisters any test services.
 func setupTestConsul(t *testing.T) (*testHTTPClient, func()) {
 	t.Helper()
@@ -123,7 +125,8 @@ func setupTestConsul(t *testing.T) (*testHTTPClient, func()) {
 	}
 
 	cleanup := func() {
-		// List all agent services and deregister those with a "test-" prefix.
+		// List all agent services and deregister those with a "test-"
+		// prefix.
 		listResp, err := tc.httpClient.Get(tc.baseURL + "/v1/agent/services")
 		if err != nil {
 			t.Logf("Failed to list services for cleanup: %v", err)
