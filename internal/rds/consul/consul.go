@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package consul implements a Consul-based resource discovery provider for Cloudprober.
-// It allows discovering services, health checks, and nodes from Consul using the
+// Package consul implements a Consul-based resource discovery provider for
+// Cloudprober.
+// It allows discovering services, health checks, and nodes from Consul using
+// the
 // Consul HTTP REST API directly.
 package consul
 
