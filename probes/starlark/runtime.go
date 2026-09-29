@@ -60,6 +60,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -97,6 +98,13 @@ type runtime struct {
 	// keyed by config name, exposed to scripts via the oauth builtin. Nil
 	// when the probe configures no oauth_configs.
 	oauth map[string]*oauthIdentity
+
+	// proxyClients holds one client per proxy_configs entry, keyed by config
+	// name, selected by the proxy kwarg on http calls. Nil when the probe
+	// configures no proxy_configs. Separate clients rather than one client
+	// with a swapped-in Proxy func per call, for the same pooling reason as
+	// tlsClients.
+	proxyClients map[string]*http.Client
 }
 
 // runtimeOpts holds everything newRuntime needs from the probe's config. Nil
@@ -116,6 +124,10 @@ type runtimeOpts struct {
 	// oauth holds the token sources for the oauth builtin, keyed by name.
 	oauth map[string]*oauthIdentity
 
+	// proxyURLs are the named proxy URLs the proxy kwarg selects from. A
+	// call that passes no proxy= connects directly.
+	proxyURLs map[string]*url.URL
+
 	l *logger.Logger
 }
 
@@ -128,12 +140,13 @@ func newRuntime(ctx context.Context, opts *runtimeOpts) (*runtime, error) {
 		ctx = context.Background()
 	}
 	rt := &runtime{
-		name:       opts.name,
-		entryPoint: opts.entryPoint,
-		l:          opts.l,
-		httpClient: newHTTPClient(nil),
-		tlsClients: newTLSClients(opts.tlsCfgs),
-		oauth:      opts.oauth,
+		name:         opts.name,
+		entryPoint:   opts.entryPoint,
+		l:            opts.l,
+		httpClient:   newHTTPClient(nil),
+		tlsClients:   newTLSClients(opts.tlsCfgs),
+		oauth:        opts.oauth,
+		proxyClients: newProxyClients(opts.proxyURLs),
 	}
 	rt.predeclared = builtins(opts.vars)
 
@@ -147,6 +160,7 @@ func newRuntime(ctx context.Context, opts *runtimeOpts) (*runtime, error) {
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 	thread.SetLocal(threadTLSClientsKey, rt.tlsClients)
 	thread.SetLocal(threadOAuthKey, rt.oauth)
+	thread.SetLocal(threadProxyClientsKey, rt.proxyClients)
 	thread.SetLocal(threadLoggerKey, newLoggerHolder(rt.l))
 	// Module-level state.{get,set} writes go into a scratch bucket that's
 	// discarded with the load thread. There's no target context at load time,
@@ -201,15 +215,39 @@ func newTLSClients(tlsCfgs map[string]*tls.Config) map[string]*http.Client {
 	return clients
 }
 
+// newProxyClient returns an *http.Client that routes every request through
+// proxyURL, cloning DefaultTransport for the same reason newHTTPClient does
+// for a tls.Config: Clone preserves the stdlib's dial/handshake/idle-conn
+// timeouts.
+func newProxyClient(proxyURL *url.URL) *http.Client {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.Proxy = http.ProxyURL(proxyURL)
+	return &http.Client{Transport: t}
+}
+
+// newProxyClients builds a client per named proxy config, for the proxy
+// kwarg on http calls. Returns nil when none are configured.
+func newProxyClients(proxyURLs map[string]*url.URL) map[string]*http.Client {
+	if len(proxyURLs) == 0 {
+		return nil
+	}
+	clients := make(map[string]*http.Client, len(proxyURLs))
+	for name, u := range proxyURLs {
+		clients[name] = newProxyClient(u)
+	}
+	return clients
+}
+
 // Thread-local keys. See top-of-file notes for the SetLocal/Local pattern.
 const (
-	threadCtxKey        = "cloudprober.ctx"
-	threadHTTPClientKey = "cloudprober.httpClient"
-	threadTLSClientsKey = "cloudprober.tlsClients"
-	threadOAuthKey      = "cloudprober.oauth"
-	threadLoggerKey     = "cloudprober.logger"
-	threadStateKey      = "cloudprober.state"
-	threadMetricEmitKey = "cloudprober.metricEmit"
+	threadCtxKey          = "cloudprober.ctx"
+	threadHTTPClientKey   = "cloudprober.httpClient"
+	threadTLSClientsKey   = "cloudprober.tlsClients"
+	threadOAuthKey        = "cloudprober.oauth"
+	threadLoggerKey       = "cloudprober.logger"
+	threadStateKey        = "cloudprober.state"
+	threadMetricEmitKey   = "cloudprober.metricEmit"
+	threadProxyClientsKey = "cloudprober.proxyClients"
 )
 
 // ctxFromThread returns the context stored on the Starlark thread.
@@ -245,6 +283,17 @@ func tlsClientsFromThread(t *starlarklib.Thread) map[string]*http.Client {
 	v := t.Local(threadTLSClientsKey)
 	if v == nil {
 		panic("tlsClientsFromThread: thread missing tlsClients local; constructed outside runtime?")
+	}
+	return v.(map[string]*http.Client)
+}
+
+// proxyClientsFromThread returns the per-runtime named proxy clients stashed
+// on the thread. Panics on a miss for the same reason tlsClientsFromThread
+// does.
+func proxyClientsFromThread(t *starlarklib.Thread) map[string]*http.Client {
+	v := t.Local(threadProxyClientsKey)
+	if v == nil {
+		panic("proxyClientsFromThread: thread missing proxyClients local; constructed outside runtime?")
 	}
 	return v.(map[string]*http.Client)
 }
@@ -367,6 +416,7 @@ func (rt *runtime) Run(ctx context.Context, ep endpoint.Endpoint, l *logger.Logg
 	thread.SetLocal(threadHTTPClientKey, rt.httpClient)
 	thread.SetLocal(threadTLSClientsKey, rt.tlsClients)
 	thread.SetLocal(threadOAuthKey, rt.oauth)
+	thread.SetLocal(threadProxyClientsKey, rt.proxyClients)
 	thread.SetLocal(threadLoggerKey, lh)
 	thread.SetLocal(threadStateKey, bucket)
 	thread.SetLocal(threadMetricEmitKey, metricEmit)

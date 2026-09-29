@@ -959,6 +959,146 @@ def probe(target):
 	})
 }
 
+// newTestProxy returns an httptest.Server acting as a forward HTTP proxy: it
+// round-trips whatever absolute-URL request the client sends it (which is
+// what happens automatically once Transport.Proxy points at this server's
+// URL), and stamps every response with a Via-Test-Proxy header so tests can
+// tell a request actually went through it rather than hitting the target
+// directly.
+func newTestProxy(t *testing.T) *httptest.Server {
+	t.Helper()
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp, err := http.DefaultTransport.RoundTrip(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		for k, vv := range resp.Header {
+			for _, v := range vv {
+				w.Header().Add(k, v)
+			}
+		}
+		w.Header().Set("Via-Test-Proxy", "1")
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(w, resp.Body)
+	}))
+	t.Cleanup(proxy.Close)
+	return proxy
+}
+
+func TestHTTP_ProxyConfigs(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+
+	proxy := newTestProxy(t)
+
+	proxyConfigs := func() map[string]*configpb.ProxyConfig {
+		return map[string]*configpb.ProxyConfig{
+			"corp": {ProxyUrl: proto.String(proxy.URL)},
+		}
+	}
+
+	t.Run("named_config_selected_by_proxy_kwarg", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s", proxy = "corp")
+    assert.http_status(r, 200)
+    if r.headers.get("Via-Test-Proxy") != "1":
+        fail("request did not go through the proxy")
+`, target.URL)
+		opts := newOpts(t, hostFromServer(t, target), source)
+		opts.ProbeConf.(*configpb.ProbeConf).ProxyConfigs = proxyConfigs()
+		p := &Probe{}
+		if err := p.Init("script-proxy-named", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+	})
+
+	// Mirrors omitted_tls_uses_system_default_not_sole_entry: a lone
+	// proxy_configs entry is not implicitly applied. Without proxy=, the call
+	// goes direct to the target and never sees the Via-Test-Proxy header.
+	t.Run("omitted_proxy_connects_directly", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    r = http.get(url = "%s")
+    assert.http_status(r, 200)
+    if r.headers.get("Via-Test-Proxy") == "1":
+        fail("request should not have gone through the proxy")
+`, target.URL)
+		opts := newOpts(t, hostFromServer(t, target), source)
+		opts.ProbeConf.(*configpb.ProbeConf).ProxyConfigs = proxyConfigs()
+		p := &Probe{}
+		if err := p.Init("script-proxy-omitted", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.True(t, results[0].Success, "probe should succeed; got error: %v", results[0].Error)
+	})
+
+	t.Run("tls_and_proxy_together_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", tls = "insecure", proxy = "corp")
+`, target.URL)
+		opts := newOpts(t, hostFromServer(t, target), source)
+		opts.ProbeConf.(*configpb.ProbeConf).TlsConfigs = map[string]*tlsconfigpb.TLSConfig{
+			"insecure": {DisableCertValidation: proto.Bool(true)},
+		}
+		opts.ProbeConf.(*configpb.ProbeConf).ProxyConfigs = proxyConfigs()
+		p := &Probe{}
+		if err := p.Init("script-proxy-tls-both", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "mutually exclusive")
+	})
+
+	t.Run("unknown_proxy_name_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", proxy = "does-not-exist")
+`, target.URL)
+		opts := newOpts(t, hostFromServer(t, target), source)
+		opts.ProbeConf.(*configpb.ProbeConf).ProxyConfigs = proxyConfigs()
+		p := &Probe{}
+		if err := p.Init("script-proxy-unknown", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), `no proxy config named "does-not-exist"`)
+		assert.Contains(t, results[0].Error.Error(), "corp")
+	})
+
+	// Mirrors empty_tls_no_configs_errors: with no proxy_configs at all, an
+	// empty proxy= still errors on "proxy is empty" and omits the "name one
+	// of ..." hint, since there's nothing to name.
+	t.Run("no_proxy_configs_errors", func(t *testing.T) {
+		source := fmt.Sprintf(`
+def probe(target):
+    http.get(url = "%s", proxy = "")
+`, target.URL)
+		opts := newOpts(t, hostFromServer(t, target), source)
+		p := &Probe{}
+		if err := p.Init("script-proxy-none-configured", opts); err != nil {
+			t.Fatalf("Init: %v", err)
+		}
+		results := p.RunOnce(context.Background())
+		assert.False(t, results[0].Success)
+		require.NotNil(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "proxy is empty")
+		assert.NotContains(t, results[0].Error.Error(), "name one of")
+	})
+}
+
 func TestLogSetAttr_FlowsToProbeFailureLog(t *testing.T) {
 	// Closed server gives us a deterministic, immediate connection refused
 	// for the failure-path subcase.
