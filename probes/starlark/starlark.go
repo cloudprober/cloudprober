@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"time"
 
@@ -130,6 +131,24 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return err
 	}
 
+	var proxyURLs map[string]*url.URL
+	if len(p.c.GetProxyConfigs()) > 0 {
+		proxyURLs = make(map[string]*url.URL, len(p.c.GetProxyConfigs()))
+		for cfgName, c := range p.c.GetProxyConfigs() {
+			// An empty name is unreachable: proxy="" is an error, and an omitted
+			// proxy connects directly without consulting this map. Reject it so
+			// a config that can never be selected fails loudly at Init.
+			if cfgName == "" {
+				return fmt.Errorf("starlark proxy_configs: empty config name; every entry must have a non-empty key")
+			}
+			u, err := url.Parse(c.GetProxyUrl())
+			if err != nil {
+				return fmt.Errorf("starlark proxy_configs[%q]: invalid proxy_url: %v", cfgName, err)
+			}
+			proxyURLs[cfgName] = u
+		}
+	}
+
 	// Timeout to compile the starlark script. This is a generous timeout
 	// to avoid accidental infinite loops in the script.
 	loadTimeout := 30 * time.Second
@@ -143,6 +162,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		vars:       p.c.GetVars(),
 		tlsCfgs:    tlsCfgs,
 		oauth:      oauthID,
+		proxyURLs:  proxyURLs,
 		l:          p.l,
 	})
 	if err != nil {

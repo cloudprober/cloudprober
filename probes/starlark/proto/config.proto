@@ -93,4 +93,39 @@ message ProbeConf {
   //   def probe(target):
   //       r = http.get(url, headers={"Authorization": oauth.header("api")})
   map<string, oauth.Config> oauth_configs = 7;
+
+  // Named proxy configs, keyed by a name the script uses to select one via
+  // the proxy kwarg on http calls:
+  //   http.get(url, proxy="corp")
+  //
+  // A named map, not a single probe-wide proxy_url: unlike the HTTP probe
+  // (always exactly one request per execution, so one proxy_url covers every
+  // call), a single Starlark probe execution can issue calls to several
+  // distinct hosts, some needing a proxy and some not, or needing different
+  // proxies. Name each one and select it explicitly, the same pattern
+  // tls_configs already uses:
+  //   proxy_configs {
+  //     key: "corp"
+  //     value { proxy_url: "http://proxy.internal:3128" }
+  //   }
+  //   def probe(target):
+  //       http.get("https://public/healthz")                # direct
+  //       http.get("https://internal/healthz", proxy="corp") # via proxy
+  //
+  // Omitting the proxy kwarg means a direct connection, never "the only entry
+  // here" — a single config must still be asked for by name. Passing an
+  // empty proxy is an error rather than direct, so a computed selector fails
+  // loudly:
+  //   http.get(url, proxy=target.labels["proxy_profile"])  # missing label: error
+  //
+  // tls and proxy are mutually exclusive on a single call: each selects from
+  // its own independently-built client set, and there is no single client
+  // that combines a named TLS config with a named proxy config.
+  map<string, ProxyConfig> proxy_configs = 8;
+}
+
+// ProxyConfig configures a single named HTTP proxy for the proxy kwarg on
+// http calls. See ProbeConf.proxy_configs.
+message ProxyConfig {
+  optional string proxy_url = 1;
 }
