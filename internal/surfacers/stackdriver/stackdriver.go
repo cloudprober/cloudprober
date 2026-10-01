@@ -61,6 +61,9 @@ type SDSurfacer struct {
 	cache        map[string]*monitoring.TimeSeries
 	knownMetrics map[string]bool
 
+	// Whether we've logged the "native buckets not supported" warning.
+	nativeDistWarned bool
+
 	// Channel for writing the data without blocking
 	writeChan chan *metrics.EventMetrics
 
@@ -476,8 +479,16 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 			ts = append(ts, recordMapValue(s, bm, val)...)
 
 		case *metrics.Distribution:
+			tv := val.StackdriverTypedValue()
+			if tv == nil {
+				if !s.nativeDistWarned {
+					s.nativeDistWarned = true
+					s.l.Warningf("Skipping metric %s: stackdriver surfacer doesn't support distributions with native buckets. This is logged only once.", name)
+				}
+				continue
+			}
 			bm.valueType = "DISTRIBUTION"
-			ts = append(ts, s.recordTimeSeries(bm, val.StackdriverTypedValue()))
+			ts = append(ts, s.recordTimeSeries(bm, tv))
 
 		default:
 			s.l.Warningf("Unsupported value type: %v", val)

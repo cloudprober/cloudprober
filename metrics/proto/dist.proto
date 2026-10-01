@@ -13,6 +13,10 @@ message Dist {
 
     // Exponentially growing buckets
     ExponentialBuckets exponential_buckets = 2;
+
+    // Prometheus-style native histogram buckets.
+    // EXPERIMENTAL: this option and its fields can change.
+    NativeBuckets native_buckets = 3;
   }
 }
 
@@ -29,4 +33,31 @@ message ExponentialBuckets {
   float scale_factor = 1; // default = 1.0
   float base = 2;         // default = 2
   uint32 num_buckets = 3; //default = 20
+}
+
+// EXPERIMENTAL: this message and its fields can change.
+//
+// NativeBuckets defines Prometheus-style native histogram buckets. Buckets
+// grow exponentially and are sparse: you don't configure bucket bounds, and
+// only the buckets that have samples are stored and exported.
+//
+// Each bucket's upper bound is growth_factor times its lower bound, where
+// growth_factor is 2^(2^-schema):
+//
+//   schema  growth_factor  buckets per power of 2
+//       -4          65536  1/16
+//       -2             16  1/4
+//        0              2  1
+//        1          1.414  2
+//        2          1.189  4
+//        3          1.091  8
+//        4          1.044  16
+//        5          1.022  32
+//        8          1.003  256
+//
+// Surfacers that don't support native histograms get these buckets as
+// explicit buckets, except for stackdriver, which skips them.
+message NativeBuckets {
+  // Bucket resolution. Valid values: -4 to 8.
+  optional int32 schema = 1; // default = 3
 }
