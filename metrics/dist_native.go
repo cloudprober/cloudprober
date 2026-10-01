@@ -64,6 +64,11 @@ func NewNativeDistribution(schema int32) (*Distribution, error) {
 // nativeBucketKey returns the index of the bucket that v, a positive number,
 // belongs to. It's adapted from prometheus/client_golang's
 // histogramCounts.observe.
+//
+// Frexp splits v into frac and exp such that v = frac * 2^exp, with frac in
+// [0.5, 1). For example, 3 = 0.75 * 2^2 and 100 = 0.78125 * 2^7. So exp tells
+// us which power of 2 range v is in, [2^(exp-1), 2^exp), and frac tells us
+// where v is within that range.
 func nativeBucketKey(schema int32, v float64) int {
 	isInf := math.IsInf(v, 1)
 	if isInf {
@@ -74,13 +79,24 @@ func nativeBucketKey(schema int32, v float64) int {
 	var key int
 	frac, exp := math.Frexp(v)
 	if schema > 0 {
+		// Each power of 2 range is split into n = len(bounds) buckets, the same
+		// way in every range, so one table of bucket upper bounds for the range
+		// [0.5, 1) works for all of them. (exp-1)*n is the number of buckets
+		// before this range, and Search gives us the bucket's position within
+		// the range (0 to n). For example, for schema 3 (n=8) and v=3, exp is 2
+		// and frac=0.75 is at position 5, so the key is 1*8 + 5 = 13.
 		bounds := nativeHistogramBounds[schema]
-		key = sort.SearchFloat64s(bounds, frac) + (exp-1)*len(bounds)
+		key = (exp-1)*len(bounds) + sort.SearchFloat64s(bounds, frac)
 	} else {
+		// For schema 0, each power of 2 range is one bucket, (2^(exp-1), 2^exp],
+		// and exp is its key. Exact powers of 2 (frac is 0.5) belong to the
+		// previous bucket, as buckets include their upper bound.
 		key = exp
 		if frac == 0.5 {
 			key--
 		}
+		// For negative schemas, each bucket covers 2^-schema of the schema 0
+		// buckets. This is ceil(key / 2^-schema).
 		offset := (1 << -schema) - 1
 		key = (key + offset) >> -schema
 	}
