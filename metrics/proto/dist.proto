@@ -15,6 +15,7 @@ message Dist {
     ExponentialBuckets exponential_buckets = 2;
 
     // Prometheus-style native histogram buckets.
+    // EXPERIMENTAL: this option and its fields can change.
     NativeBuckets native_buckets = 3;
   }
 }
@@ -34,6 +35,8 @@ message ExponentialBuckets {
   uint32 num_buckets = 3; //default = 20
 }
 
+// EXPERIMENTAL: this message and its fields can change.
+//
 // NativeBuckets defines Prometheus-style native histogram buckets. Buckets
 // grow exponentially and are sparse: you don't configure bucket bounds, and
 // only the buckets that have samples are stored and exported.

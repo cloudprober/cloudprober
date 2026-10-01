@@ -115,6 +115,7 @@ type Dist_ExponentialBuckets struct {
 
 type Dist_NativeBuckets struct {
 	// Prometheus-style native histogram buckets.
+	// EXPERIMENTAL: this option and its fields can change.
 	NativeBuckets *NativeBuckets `protobuf:"bytes,3,opt,name=native_buckets,json=nativeBuckets,proto3,oneof"`
 }
 
@@ -195,6 +196,8 @@ func (x *ExponentialBuckets) GetNumBuckets() uint32 {
 	return 0
 }
 
+// EXPERIMENTAL: this message and its fields can change.
+//
 // NativeBuckets defines Prometheus-style native histogram buckets. Buckets
 // grow exponentially and are sparse: you don't configure bucket bounds, and
 // only the buckets that have samples are stored and exported.
