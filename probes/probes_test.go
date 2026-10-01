@@ -86,3 +86,34 @@ func TestGetExtensionProbe(t *testing.T) {
 		t.Errorf("Extensions probe's Init() called %d times, should be called exactly once.", testProbeIntialized)
 	}
 }
+
+func TestProbeInfoLatencyDistLB(t *testing.T) {
+	probeDef := &configpb.ProbeDef{
+		Name: proto.String("tcp-probe"),
+		Type: configpb.ProbeDef_TCP.Enum(),
+		Targets: &targetspb.TargetsDef{
+			Type: &targetspb.TargetsDef_DummyTargets{},
+		},
+	}
+
+	nativeDist, err := metrics.NewNativeDistribution(3, 0)
+	if err != nil {
+		t.Fatalf("Error creating native distribution: %v", err)
+	}
+
+	for want, dist := range map[string]*metrics.Distribution{
+		"":                 nil,
+		"[-Inf 1 2]":       metrics.NewDistribution([]float64{1, 2}),
+		"native(schema=3)": nativeDist,
+	} {
+		opts := options.DefaultOptions()
+		opts.LatencyDist = dist
+		probeInfo, err := probes.CreateProbe(probeDef, opts)
+		if err != nil {
+			t.Fatalf("Error creating probe: %v", err)
+		}
+		if probeInfo.LatencyDistLB != want {
+			t.Errorf("LatencyDistLB=%q, want=%q", probeInfo.LatencyDistLB, want)
+		}
+	}
+}

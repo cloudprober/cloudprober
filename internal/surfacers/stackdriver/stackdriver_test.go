@@ -31,9 +31,10 @@ import (
 
 func newTestSurfacer() SDSurfacer {
 	return SDSurfacer{
-		cache:       make(map[string]*monitoring.TimeSeries),
-		onGCE:       true,
-		projectName: "test-project",
+		cache:            make(map[string]*monitoring.TimeSeries),
+		nativeDistWarned: make(map[string]bool),
+		onGCE:            true,
+		projectName:      "test-project",
 		resource: &monitoring.MonitoredResource{
 			Type: "gce_instance",
 			Labels: map[string]string{
@@ -255,6 +256,27 @@ func TestTimeSeries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRecordEventMetricsSkipsNativeDist(t *testing.T) {
+	s := newTestSurfacer()
+	s.opts = options.BuildOptionsForTest(&surfacerpb.SurfacerDef{})
+
+	latency, err := metrics.NewNativeDistribution(3, 0)
+	assert.NoError(t, err)
+	latency.AddSample(1.5)
+
+	em := metrics.NewEventMetrics(time.Now()).
+		AddMetric("success", metrics.NewInt(1)).
+		AddMetric("latency", latency)
+
+	// Native distribution is skipped every time, not just the first time.
+	for range 2 {
+		ts := s.recordEventMetrics(em)
+		assert.Len(t, ts, 1)
+		assert.Equal(t, "custom.googleapis.com/cloudprober/success", ts[0].Metric.Type)
+	}
+	assert.Equal(t, map[string]bool{"latency": true}, s.nativeDistWarned)
 }
 
 func TestNew(t *testing.T) {
