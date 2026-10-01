@@ -53,11 +53,8 @@ message ExponentialBuckets {
 //        8          1.003  256
 //
 // Surfacers that don't support native histograms get these buckets as
-// explicit buckets.
+// explicit buckets, except for stackdriver, which skips them.
 message NativeBuckets {
   // Bucket resolution. Valid values: -4 to 8.
   optional int32 schema = 1; // default = 3
-
-  // Samples in [-zero_threshold, zero_threshold] go to a separate zero bucket.
-  double zero_threshold = 2; // default = 0, i.e. only exact zeros.
 }

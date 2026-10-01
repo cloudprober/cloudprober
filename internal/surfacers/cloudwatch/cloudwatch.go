@@ -138,12 +138,13 @@ func (cw *CWSurfacer) recordEventMetrics(ctx context.Context, publishTimer *time
 			recordMapValue(ctx, cw, metricKey, value, emLabelsToDimensions(em), em, publishTimer)
 
 		case *metrics.Distribution:
-			for i, distributionBound := range value.Data().LowerBounds {
+			d := value.Data()
+			for i, distributionBound := range d.LowerBounds {
 				dimensions := append(emLabelsToDimensions(em), types.Dimension{
 					Name:  aws.String(distributionDimensionName),
 					Value: aws.String(strconv.FormatFloat(distributionBound, 'f', -1, 64)),
 				})
-				metricDatum := cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp, em.LatencyUnit)
+				metricDatum := cw.newCWMetricDatum(metricKey, float64(d.BucketCounts[i]), dimensions, em.Timestamp, em.LatencyUnit)
 				cw.addMetricAndPublish(ctx, publishTimer, metricDatum)
 			}
 		}

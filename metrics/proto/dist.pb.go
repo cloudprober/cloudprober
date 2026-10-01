@@ -214,13 +214,11 @@ func (x *ExponentialBuckets) GetNumBuckets() uint32 {
 //	     8          1.003  256
 //
 // Surfacers that don't support native histograms get these buckets as
-// explicit buckets.
+// explicit buckets, except for stackdriver, which skips them.
 type NativeBuckets struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Bucket resolution. Valid values: -4 to 8.
-	Schema *int32 `protobuf:"varint,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"` // default = 3
-	// Samples in [-zero_threshold, zero_threshold] go to a separate zero bucket.
-	ZeroThreshold float64 `protobuf:"fixed64,2,opt,name=zero_threshold,json=zeroThreshold,proto3" json:"zero_threshold,omitempty"` // default = 0, i.e. only exact zeros.
+	Schema        *int32 `protobuf:"varint,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"` // default = 3
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -262,13 +260,6 @@ func (x *NativeBuckets) GetSchema() int32 {
 	return 0
 }
 
-func (x *NativeBuckets) GetZeroThreshold() float64 {
-	if x != nil {
-		return x.ZeroThreshold
-	}
-	return 0
-}
-
 var File_github_com_cloudprober_cloudprober_metrics_proto_dist_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDesc = "" +
@@ -283,10 +274,9 @@ const file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDesc =
 	"\fscale_factor\x18\x01 \x01(\x02R\vscaleFactor\x12\x12\n" +
 	"\x04base\x18\x02 \x01(\x02R\x04base\x12\x1f\n" +
 	"\vnum_buckets\x18\x03 \x01(\rR\n" +
-	"numBuckets\"^\n" +
+	"numBuckets\"7\n" +
 	"\rNativeBuckets\x12\x1b\n" +
-	"\x06schema\x18\x01 \x01(\x05H\x00R\x06schema\x88\x01\x01\x12%\n" +
-	"\x0ezero_threshold\x18\x02 \x01(\x01R\rzeroThresholdB\t\n" +
+	"\x06schema\x18\x01 \x01(\x05H\x00R\x06schema\x88\x01\x01B\t\n" +
 	"\a_schemaB2Z0github.com/cloudprober/cloudprober/metrics/protob\x06proto3"
 
 var (

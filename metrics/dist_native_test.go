@@ -24,11 +24,11 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
-func testNativeDist(t *testing.T, schema int32, zeroThreshold float64, samples ...float64) *Distribution {
+func testNativeDist(t *testing.T, schema int32, samples ...float64) *Distribution {
 	t.Helper()
-	d, err := NewNativeDistribution(schema, zeroThreshold)
+	d, err := NewNativeDistribution(schema)
 	if err != nil {
-		t.Fatalf("NewNativeDistribution(%d, %v): %v", schema, zeroThreshold, err)
+		t.Fatalf("NewNativeDistribution(%d): %v", schema, err)
 	}
 	for _, s := range samples {
 		d.AddSample(s)
@@ -40,7 +40,6 @@ func TestNewNativeDistributionFromProto(t *testing.T) {
 	tests := []struct {
 		inputProto string
 		wantSchema int32
-		wantZT     float64
 		wantErr    bool
 	}{
 		{
@@ -48,9 +47,8 @@ func TestNewNativeDistributionFromProto(t *testing.T) {
 			wantSchema: 3,
 		},
 		{
-			inputProto: "native_buckets { schema: 0 zero_threshold: 0.001 }",
+			inputProto: "native_buckets { schema: 0 }",
 			wantSchema: 0,
-			wantZT:     0.001,
 		},
 		{
 			inputProto: "native_buckets { schema: -4 }",
@@ -62,10 +60,6 @@ func TestNewNativeDistributionFromProto(t *testing.T) {
 		},
 		{
 			inputProto: "native_buckets { schema: -5 }",
-			wantErr:    true,
-		},
-		{
-			inputProto: "native_buckets { zero_threshold: -1 }",
 			wantErr:    true,
 		},
 	}
@@ -81,8 +75,7 @@ func TestNewNativeDistributionFromProto(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, test.wantSchema, d.native.schema)
-			assert.Equal(t, test.wantZT, d.native.zeroThreshold)
+			assert.Equal(t, test.wantSchema, d.native.Schema)
 		})
 	}
 }
@@ -156,25 +149,25 @@ func TestNativeBucketBoundaries(t *testing.T) {
 }
 
 func TestNativeDistAddSample(t *testing.T) {
-	d := testNativeDist(t, 0, 0, 0, 0.75, 1, 1.5, 2, 3, 17, -3)
+	d := testNativeDist(t, 0, 0, 0.75, 1, 1.5, 2, 3, 17, -3)
 
 	assert.Equal(t, int64(8), d.count)
 	assert.Equal(t, 22.25, d.sum)
-	assert.Equal(t, int64(1), d.native.zeroCount)
-	assert.Equal(t, map[int]int64{0: 2, 1: 2, 2: 1, 5: 1}, d.native.positive)
-	assert.Equal(t, map[int]int64{2: 1}, d.native.negative)
+	assert.Equal(t, int64(1), d.native.ZeroCount)
+	assert.Equal(t, map[int]int64{0: 2, 1: 2, 2: 1, 5: 1}, d.native.Positive)
+	assert.Equal(t, map[int]int64{2: 1}, d.native.Negative)
 	assert.NoError(t, d.Verify())
 
-	// With zero threshold, small values go to the zero bucket.
-	d = testNativeDist(t, 0, 1, 0, 0.75, 1, 1.5, -1, -3)
-	assert.Equal(t, int64(4), d.native.zeroCount)
-	assert.Equal(t, map[int]int64{1: 1}, d.native.positive)
-	assert.Equal(t, map[int]int64{2: 1}, d.native.negative)
-	assert.NoError(t, d.Verify())
+	// Smallest and largest possible values are valid for all schemas.
+	for schema := int32(minNativeSchema); schema <= maxNativeSchema; schema++ {
+		d := testNativeDist(t, schema, math.SmallestNonzeroFloat64, math.MaxFloat64, math.Inf(1), math.Inf(-1))
+		assert.NoError(t, d.Verify(), "schema=%d", schema)
+		assert.Len(t, d.native.Positive, 3, "schema=%d", schema)
+	}
 }
 
 func TestNativeDistAddAndSubtract(t *testing.T) {
-	d := testNativeDist(t, 0, 0, 0, 1, 1.5, -3)
+	d := testNativeDist(t, 0, 0, 1, 1.5, -3)
 
 	d2 := d.Clone().(*Distribution)
 	assert.Equal(t, d.String(), d2.String())
@@ -182,15 +175,15 @@ func TestNativeDistAddAndSubtract(t *testing.T) {
 		d2.AddSample(s)
 	}
 	// Clone doesn't share buckets with the original.
-	assert.Equal(t, "dist:sum:-0.5|count:4|schema:0|zt:0|zc:1|pb:0=1,1=1|nb:2=1", d.String())
+	assert.Equal(t, "dist:sum:-0.5|count:4|schema:0|zc:1|pb:0=1,1=1|nb:2=1", d.String())
 	total := d2.String()
-	assert.Equal(t, "dist:sum:-85|count:9|schema:0|zt:0|zc:2|pb:0=1,1=2,5=1|nb:2=2,7=1", total)
+	assert.Equal(t, "dist:sum:-85|count:9|schema:0|zc:2|pb:0=1,1=2,5=1|nb:2=2,7=1", total)
 
 	// Subtract: buckets that become empty are removed.
 	wasReset, err := d2.SubtractCounter(d)
 	assert.NoError(t, err)
 	assert.False(t, wasReset)
-	assert.Equal(t, "dist:sum:-84.5|count:5|schema:0|zt:0|zc:1|pb:1=1,5=1|nb:2=1,7=1", d2.String())
+	assert.Equal(t, "dist:sum:-84.5|count:5|schema:0|zc:1|pb:1=1,5=1|nb:2=1,7=1", d2.String())
 	assert.NoError(t, d2.Verify())
 
 	// Add it back
@@ -200,21 +193,20 @@ func TestNativeDistAddAndSubtract(t *testing.T) {
 
 	// Reset: last value has higher count.
 	last := d2.Clone()
-	d3 := testNativeDist(t, 0, 0, 4)
+	d3 := testNativeDist(t, 0, 4)
 	wasReset, err = d3.SubtractCounter(last)
 	assert.NoError(t, err)
 	assert.True(t, wasReset)
-	assert.Equal(t, "dist:sum:4|count:1|schema:0|zt:0|zc:0|pb:2=1", d3.String())
+	assert.Equal(t, "dist:sum:4|count:1|schema:0|zc:0|pb:2=1", d3.String())
 }
 
 func TestNativeDistAddIncompatible(t *testing.T) {
-	d := testNativeDist(t, 3, 0, 1)
+	d := testNativeDist(t, 3, 1)
 
 	for name, other := range map[string]Value{
-		"regular_buckets":          NewDistribution([]float64{1, 2}),
-		"different_schema":         testNativeDist(t, 2, 0),
-		"different_zero_threshold": testNativeDist(t, 3, 0.1),
-		"not_a_distribution":       NewInt(1),
+		"regular_buckets":    NewDistribution([]float64{1, 2}),
+		"different_schema":   testNativeDist(t, 2),
+		"not_a_distribution": NewInt(1),
 	} {
 		t.Run(name, func(t *testing.T) {
 			assert.Error(t, d.Add(other))
@@ -225,7 +217,7 @@ func TestNativeDistAddIncompatible(t *testing.T) {
 			}
 		})
 	}
-	assert.Equal(t, "dist:sum:1|count:1|schema:3|zt:0|zc:0|pb:0=1", d.String())
+	assert.Equal(t, "dist:sum:1|count:1|schema:3|zc:0|pb:0=1", d.String())
 }
 
 func TestNativeDistStringAndParse(t *testing.T) {
@@ -236,18 +228,18 @@ func TestNativeDistStringAndParse(t *testing.T) {
 	}{
 		{
 			name: "empty",
-			d:    testNativeDist(t, 3, 0),
-			want: "dist:sum:0|count:0|schema:3|zt:0|zc:0",
+			d:    testNativeDist(t, 3),
+			want: "dist:sum:0|count:0|schema:3|zc:0",
 		},
 		{
 			name: "positive_only",
-			d:    testNativeDist(t, 3, 0, 1.5, 3, 3, 100),
-			want: "dist:sum:107.5|count:4|schema:3|zt:0|zc:0|pb:5=1,13=2,54=1",
+			d:    testNativeDist(t, 3, 1.5, 3, 3, 100),
+			want: "dist:sum:107.5|count:4|schema:3|zc:0|pb:5=1,13=2,54=1",
 		},
 		{
 			name: "negative_schema_and_keys",
-			d:    testNativeDist(t, -1, 0.125, 0, 0.0625, 0.25, 3, -0.25),
-			want: "dist:sum:3.0625|count:5|schema:-1|zt:0.125|zc:2|pb:-1=1,1=1|nb:-1=1",
+			d:    testNativeDist(t, -1, 0, 0.0625, 0.25, 3, -0.25),
+			want: "dist:sum:3.0625|count:5|schema:-1|zc:1|pb:-2=1,-1=1,1=1|nb:-1=1",
 		},
 	}
 
@@ -270,10 +262,10 @@ func TestNativeDistStringAndParse(t *testing.T) {
 		})
 	}
 
-	// Tokens can come in any order, and empty buckets are fine.
-	d, err := ParseDistFromString("dist:pb:1=2|nb:|zc:1|schema:0|count:3|sum:3")
+	// Tokens can come in any order.
+	d, err := ParseDistFromString("dist:pb:1=2|zc:1|schema:0|count:3|sum:3")
 	assert.NoError(t, err)
-	assert.Equal(t, "dist:sum:3|count:3|schema:0|zt:0|zc:1|pb:1=2", d.String())
+	assert.Equal(t, "dist:sum:3|count:3|schema:0|zc:1|pb:1=2", d.String())
 
 	for name, s := range map[string]string{
 		"no_schema":            "dist:sum:3|count:2|zc:0|pb:1=2",
@@ -284,8 +276,10 @@ func TestNativeDistStringAndParse(t *testing.T) {
 		"non_integer_key":      "dist:sum:3|count:2|schema:0|pb:1.5=2",
 		"non_integer_count":    "dist:sum:3|count:2|schema:0|pb:1=a",
 		"invalid_zero_count":   "dist:sum:3|count:2|schema:0|zc:a|pb:1=2",
-		"invalid_threshold":    "dist:sum:3|count:2|schema:0|zt:a|pb:1=2",
-		"negative_threshold":   "dist:sum:3|count:2|schema:0|zt:-1|pb:1=2",
+		"empty_buckets":        "dist:sum:3|count:0|schema:0|pb:",
+		"key_too_large":        "dist:sum:3|count:2|schema:0|pb:1026=2",
+		"key_too_small":        "dist:sum:3|count:2|schema:0|nb:-1075=2",
+		"keys_far_apart":       "dist:sum:3|count:2|schema:0|pb:-20000000=1,20000000=1",
 		"mixed_buckets":        "dist:sum:3|count:2|schema:0|pb:1=2|lb:-Inf,1|bc:0,2",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -303,31 +297,30 @@ func TestNativeDistData(t *testing.T) {
 	}{
 		{
 			name: "empty",
-			d:    testNativeDist(t, 3, 0),
+			d:    testNativeDist(t, 3),
 			want: &DistributionData{
 				LowerBounds:  []float64{math.Inf(-1), 0},
 				BucketCounts: []int64{0, 0},
-				Native: &NativeDistributionData{
-					Schema:          3,
-					PositiveBuckets: map[int]int64{},
-					NegativeBuckets: map[int]int64{},
+				Native: &NativeBuckets{
+					Schema:   3,
+					Positive: map[int]int64{},
+					Negative: map[int]int64{},
 				},
 			},
 		},
 		{
 			name: "no_positive_values",
-			d:    testNativeDist(t, 0, 0.5, 0, 0.25, -3),
+			d:    testNativeDist(t, 0, 0, 0, -3),
 			want: &DistributionData{
 				LowerBounds:  []float64{math.Inf(-1), 0},
 				BucketCounts: []int64{1, 2},
 				Count:        3,
-				Sum:          -2.75,
-				Native: &NativeDistributionData{
-					Schema:          0,
-					ZeroThreshold:   0.5,
-					ZeroCount:       2,
-					PositiveBuckets: map[int]int64{},
-					NegativeBuckets: map[int]int64{2: 1},
+				Sum:          -3,
+				Native: &NativeBuckets{
+					Schema:    0,
+					ZeroCount: 2,
+					Positive:  map[int]int64{},
+					Negative:  map[int]int64{2: 1},
 				},
 			},
 		},
@@ -335,17 +328,17 @@ func TestNativeDistData(t *testing.T) {
 			// Regular buckets have all the buckets between the smallest and the
 			// largest positive bucket, and an empty overflow bucket.
 			name: "positive_and_negative_values",
-			d:    testNativeDist(t, 0, 0, 0, 0.75, 1, 1.5, 2, 17, -3, -100),
+			d:    testNativeDist(t, 0, 0, 0.75, 1, 1.5, 2, 17, -3, -100),
 			want: &DistributionData{
 				LowerBounds:  []float64{math.Inf(-1), 0, 0.5, 1, 2, 4, 8, 16, 32},
 				BucketCounts: []int64{2, 1, 2, 2, 0, 0, 0, 1, 0},
 				Count:        8,
 				Sum:          -80.75,
-				Native: &NativeDistributionData{
-					Schema:          0,
-					ZeroCount:       1,
-					PositiveBuckets: map[int]int64{0: 2, 1: 2, 5: 1},
-					NegativeBuckets: map[int]int64{2: 1, 7: 1},
+				Native: &NativeBuckets{
+					Schema:    0,
+					ZeroCount: 1,
+					Positive:  map[int]int64{0: 2, 1: 2, 5: 1},
+					Negative:  map[int]int64{2: 1, 7: 1},
 				},
 			},
 		},
@@ -358,15 +351,11 @@ func TestNativeDistData(t *testing.T) {
 	}
 
 	// Data doesn't share buckets with the distribution.
-	d := testNativeDist(t, 0, 0, 1)
+	d := testNativeDist(t, 0, 1)
 	dd := d.Data()
 	d.AddSample(1)
-	assert.Equal(t, map[int]int64{0: 1}, dd.Native.PositiveBuckets)
+	assert.Equal(t, map[int]int64{0: 1}, dd.Native.Positive)
 
 	// Regular distributions have no native data.
 	assert.Nil(t, NewDistribution([]float64{1, 2}).Data().Native)
-}
-
-func TestNativeDistStackdriverTypedValue(t *testing.T) {
-	assert.Nil(t, testNativeDist(t, 3, 0, 1).StackdriverTypedValue())
 }

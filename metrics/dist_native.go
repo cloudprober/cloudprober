@@ -30,33 +30,31 @@ const (
 	defaultNativeSchema = 3
 )
 
-// nativeBuckets holds Prometheus-style native histogram buckets. Buckets are
-// sparse and their boundaries are powers of base = 2^(2^-schema). Bucket i
-// covers (base^(i-1), base^i] in positive and [-base^i, -base^(i-1)) in
-// negative. See https://prometheus.io/docs/specs/native_histograms/.
-type nativeBuckets struct {
-	schema        int32
-	zeroThreshold float64
-	zeroCount     int64 // samples in [-zeroThreshold, zeroThreshold]
-	positive      map[int]int64
-	negative      map[int]int64
+// NativeBuckets holds Prometheus-style native histogram buckets. Buckets are
+// sparse and their boundaries are powers of base = 2^(2^-Schema). Bucket i
+// covers (base^(i-1), base^i] in Positive and [-base^i, -base^(i-1)) in
+// Negative. Only the buckets with values are present. See
+// https://prometheus.io/docs/specs/native_histograms/.
+type NativeBuckets struct {
+	Schema    int32
+	ZeroCount int64 // count of zeros
+	Positive  map[int]int64
+	Negative  map[int]int64
 }
 
-func newNativeBuckets(schema int32, zeroThreshold float64) *nativeBuckets {
-	return &nativeBuckets{
-		schema:        schema,
-		zeroThreshold: zeroThreshold,
-		positive:      make(map[int]int64),
-		negative:      make(map[int]int64),
+func newNativeBuckets(schema int32) *NativeBuckets {
+	return &NativeBuckets{
+		Schema:   schema,
+		Positive: make(map[int]int64),
+		Negative: make(map[int]int64),
 	}
 }
 
 // NewNativeDistribution returns a new distribution container with
 // Prometheus-style native histogram buckets. Bucket boundaries are powers of
-// 2^(2^-schema), and samples in [-zeroThreshold, zeroThreshold] are counted in
-// a separate zero bucket.
-func NewNativeDistribution(schema int32, zeroThreshold float64) (*Distribution, error) {
-	d := &Distribution{native: newNativeBuckets(schema, zeroThreshold)}
+// 2^(2^-schema).
+func NewNativeDistribution(schema int32) (*Distribution, error) {
+	d := &Distribution{native: newNativeBuckets(schema)}
 	if err := d.Verify(); err != nil {
 		return nil, err
 	}
@@ -102,32 +100,32 @@ func nativeUpperBound(schema int32, key int) float64 {
 	return math.Ldexp(frac, (key>>schema)+1)
 }
 
-func (nb *nativeBuckets) addSample(v float64) {
+func (nb *NativeBuckets) addSample(v float64) {
 	switch {
-	case v > nb.zeroThreshold:
-		nb.positive[nativeBucketKey(nb.schema, v)]++
-	case v < -nb.zeroThreshold:
-		nb.negative[nativeBucketKey(nb.schema, -v)]++
+	case v > 0:
+		nb.Positive[nativeBucketKey(nb.Schema, v)]++
+	case v < 0:
+		nb.Negative[nativeBucketKey(nb.Schema, -v)]++
 	default:
-		nb.zeroCount++
+		nb.ZeroCount++
 	}
 }
 
 // compatible returns true if distributions with nb and other buckets can be
 // added to or subtracted from each other. Either of them can be nil.
-func (nb *nativeBuckets) compatible(other *nativeBuckets) bool {
+func (nb *NativeBuckets) compatible(other *NativeBuckets) bool {
 	if nb == nil || other == nil {
 		return nb == other
 	}
-	return nb.schema == other.schema && nb.zeroThreshold == other.zeroThreshold
+	return nb.Schema == other.Schema
 }
 
-func (nb *nativeBuckets) addOrSubtract(delta *nativeBuckets, subtract bool) {
+func (nb *NativeBuckets) addOrSubtract(delta *NativeBuckets, subtract bool) {
 	sign := int64(1)
 	if subtract {
 		sign = -1
 	}
-	nb.zeroCount += sign * delta.zeroCount
+	nb.ZeroCount += sign * delta.ZeroCount
 
 	merge := func(dst, src map[int]int64) {
 		for k, c := range src {
@@ -138,30 +136,36 @@ func (nb *nativeBuckets) addOrSubtract(delta *nativeBuckets, subtract bool) {
 			}
 		}
 	}
-	merge(nb.positive, delta.positive)
-	merge(nb.negative, delta.negative)
+	merge(nb.Positive, delta.Positive)
+	merge(nb.Negative, delta.Negative)
 }
 
-func (nb *nativeBuckets) clone() *nativeBuckets {
-	return &nativeBuckets{
-		schema:        nb.schema,
-		zeroThreshold: nb.zeroThreshold,
-		zeroCount:     nb.zeroCount,
-		positive:      maps.Clone(nb.positive),
-		negative:      maps.Clone(nb.negative),
+func (nb *NativeBuckets) clone() *NativeBuckets {
+	return &NativeBuckets{
+		Schema:    nb.Schema,
+		ZeroCount: nb.ZeroCount,
+		Positive:  maps.Clone(nb.Positive),
+		Negative:  maps.Clone(nb.Negative),
 	}
 }
 
-func (nb *nativeBuckets) verify(count int64) error {
-	if nb.schema < minNativeSchema || nb.schema > maxNativeSchema {
-		return fmt.Errorf("invalid native buckets schema (%d), valid range: %d to %d", nb.schema, minNativeSchema, maxNativeSchema)
+func (nb *NativeBuckets) verify(count int64) error {
+	if nb.Schema < minNativeSchema || nb.Schema > maxNativeSchema {
+		return fmt.Errorf("invalid native buckets schema (%d), valid range: %d to %d", nb.Schema, minNativeSchema, maxNativeSchema)
 	}
-	if !(nb.zeroThreshold >= 0) {
-		return fmt.Errorf("invalid native buckets zero threshold (%v), it can't be negative", nb.zeroThreshold)
-	}
-	countSum := nb.zeroCount
-	for _, buckets := range []map[int]int64{nb.positive, nb.negative} {
-		for _, c := range buckets {
+
+	// Bucket keys can come from outside (ParseDistFromString). Make sure they
+	// are in the range that float64 values can map to, as the regular buckets
+	// view in data() gets as big as the range of the keys.
+	minKey := nativeBucketKey(nb.Schema, math.SmallestNonzeroFloat64)
+	maxKey := nativeBucketKey(nb.Schema, math.Inf(1))
+
+	countSum := nb.ZeroCount
+	for _, buckets := range []map[int]int64{nb.Positive, nb.Negative} {
+		for k, c := range buckets {
+			if k < minKey || k > maxKey {
+				return fmt.Errorf("invalid native bucket key (%d) for schema %d, valid range: %d to %d", k, nb.Schema, minKey, maxKey)
+			}
 			countSum += c
 		}
 	}
@@ -172,15 +176,13 @@ func (nb *nativeBuckets) verify(count int64) error {
 }
 
 // writeString writes native buckets in the following format:
-// |schema:<schema>|zt:<zero threshold>|zc:<zero count>|pb:<key>=<count>,..|nb:<key>=<count>,..
+// |schema:<schema>|zc:<zero count>|pb:<key>=<count>,..|nb:<key>=<count>,..
 // pb (positive buckets) and nb (negative buckets) are skipped if empty.
-func (nb *nativeBuckets) writeString(b *strings.Builder) {
+func (nb *NativeBuckets) writeString(b *strings.Builder) {
 	b.WriteString("|schema:")
-	b.WriteString(strconv.Itoa(int(nb.schema)))
-	b.WriteString("|zt:")
-	b.WriteString(strconv.FormatFloat(nb.zeroThreshold, 'f', -1, 64))
+	b.WriteString(strconv.Itoa(int(nb.Schema)))
 	b.WriteString("|zc:")
-	b.WriteString(strconv.FormatInt(nb.zeroCount, 10))
+	b.WriteString(strconv.FormatInt(nb.ZeroCount, 10))
 
 	writeBuckets := func(name string, buckets map[int]int64) {
 		if len(buckets) == 0 {
@@ -196,16 +198,13 @@ func (nb *nativeBuckets) writeString(b *strings.Builder) {
 			b.WriteString(strconv.FormatInt(buckets[k], 10))
 		}
 	}
-	writeBuckets("|pb:", nb.positive)
-	writeBuckets("|nb:", nb.negative)
+	writeBuckets("|pb:", nb.Positive)
+	writeBuckets("|nb:", nb.Negative)
 }
 
 // parseToken parses a native buckets token, written by writeString, into nb.
-func (nb *nativeBuckets) parseToken(key, val string) (err error) {
+func (nb *NativeBuckets) parseToken(key, val string) (err error) {
 	parseBuckets := func(buckets map[int]int64) error {
-		if val == "" {
-			return nil
-		}
 		for _, kc := range strings.Split(val, ",") {
 			k, c, _ := strings.Cut(kc, "=")
 			bucketKey, err := strconv.Atoi(k)
@@ -223,71 +222,50 @@ func (nb *nativeBuckets) parseToken(key, val string) (err error) {
 	case "schema":
 		var schema int64
 		schema, err = strconv.ParseInt(val, 10, 32)
-		nb.schema = int32(schema)
-	case "zt":
-		nb.zeroThreshold, err = strconv.ParseFloat(val, 64)
+		nb.Schema = int32(schema)
 	case "zc":
-		nb.zeroCount, err = strconv.ParseInt(val, 10, 64)
+		nb.ZeroCount, err = strconv.ParseInt(val, 10, 64)
 	case "pb":
-		err = parseBuckets(nb.positive)
+		err = parseBuckets(nb.Positive)
 	case "nb":
-		err = parseBuckets(nb.negative)
+		err = parseBuckets(nb.Negative)
 	}
 	return err
-}
-
-// NativeDistributionData is the native buckets part of DistributionData.
-type NativeDistributionData struct {
-	Schema        int32
-	ZeroThreshold float64
-	ZeroCount     int64 // count of values in [-ZeroThreshold, ZeroThreshold]
-
-	// Bucket counts by bucket index. With base = 2^(2^-Schema), positive bucket
-	// i covers (base^(i-1), base^i] and negative bucket i covers
-	// [-base^i, -base^(i-1)). Only the buckets with values are present.
-	PositiveBuckets map[int]int64
-	NegativeBuckets map[int]int64
 }
 
 // data returns distribution data for the native buckets. Along with the
 // native buckets, it includes a view of the same data as regular buckets for
 // the surfacers that don't handle native buckets: (-Inf, 0) for all the
-// negative values, [0, ..) for the zero bucket, and then all the positive
-// buckets from the smallest to the largest one, including the empty ones.
+// negative values, [0, ..) for zeros, and then all the positive buckets from
+// the smallest to the largest one, including the empty ones.
 //
 // Note that native buckets include their upper bound, while regular buckets
 // include their lower bound. We ignore that in this view; it matters only for
 // the values that are exactly at a bucket boundary.
-func (nb *nativeBuckets) data(count int64, sum float64) *DistributionData {
+func (nb *NativeBuckets) data(count int64, sum float64) *DistributionData {
 	var negCount int64
-	for _, c := range nb.negative {
+	for _, c := range nb.Negative {
 		negCount += c
 	}
 	dd := &DistributionData{
 		LowerBounds:  []float64{math.Inf(-1), 0},
-		BucketCounts: []int64{negCount, nb.zeroCount},
+		BucketCounts: []int64{negCount, nb.ZeroCount},
 		Count:        count,
 		Sum:          sum,
-		Native: &NativeDistributionData{
-			Schema:          nb.schema,
-			ZeroThreshold:   nb.zeroThreshold,
-			ZeroCount:       nb.zeroCount,
-			PositiveBuckets: maps.Clone(nb.positive),
-			NegativeBuckets: maps.Clone(nb.negative),
-		},
+		Native:       nb.clone(),
 	}
 
-	if len(nb.positive) == 0 {
+	if len(nb.Positive) == 0 {
 		return dd
 	}
-	keys := slices.Sorted(maps.Keys(nb.positive))
-	minKey, maxKey := keys[0], keys[len(keys)-1]
-	for k := minKey; k <= maxKey; k++ {
-		dd.LowerBounds = append(dd.LowerBounds, nativeUpperBound(nb.schema, k-1))
-		dd.BucketCounts = append(dd.BucketCounts, nb.positive[k])
+	keys := slices.Collect(maps.Keys(nb.Positive))
+	maxKey := slices.Max(keys)
+	for k := slices.Min(keys); k <= maxKey; k++ {
+		dd.LowerBounds = append(dd.LowerBounds, nativeUpperBound(nb.Schema, k-1))
+		dd.BucketCounts = append(dd.BucketCounts, nb.Positive[k])
 	}
 	// Overflow bucket, always empty.
-	dd.LowerBounds = append(dd.LowerBounds, nativeUpperBound(nb.schema, maxKey))
+	dd.LowerBounds = append(dd.LowerBounds, nativeUpperBound(nb.Schema, maxKey))
 	dd.BucketCounts = append(dd.BucketCounts, 0)
 	return dd
 }

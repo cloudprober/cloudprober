@@ -133,10 +133,10 @@ func CreateProbe(p *configpb.ProbeDef, opts *options.Options) (*ProbeInfo, error
 	}
 
 	if opts.LatencyDist != nil {
-		dd := opts.LatencyDist.Data()
-		probeInfo.LatencyDistLB = fmt.Sprintf("%v", dd.LowerBounds)
-		if dd.Native != nil {
+		if dd := opts.LatencyDist.Data(); dd.Native != nil {
 			probeInfo.LatencyDistLB = fmt.Sprintf("native(schema=%d)", dd.Native.Schema)
+		} else {
+			probeInfo.LatencyDistLB = fmt.Sprintf("%v", dd.LowerBounds)
 		}
 	}
 	if opts.SourceIP != nil {

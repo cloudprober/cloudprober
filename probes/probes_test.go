@@ -96,7 +96,7 @@ func TestProbeInfoLatencyDistLB(t *testing.T) {
 		},
 	}
 
-	nativeDist, err := metrics.NewNativeDistribution(3, 0)
+	nativeDist, err := metrics.NewNativeDistribution(3)
 	if err != nil {
 		t.Fatalf("Error creating native distribution: %v", err)
 	}

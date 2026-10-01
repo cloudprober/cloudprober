@@ -61,9 +61,8 @@ type SDSurfacer struct {
 	cache        map[string]*monitoring.TimeSeries
 	knownMetrics map[string]bool
 
-	// Metrics that we've already logged the "native buckets not supported"
-	// warning for.
-	nativeDistWarned map[string]bool
+	// Whether we've logged the "native buckets not supported" warning.
+	nativeDistWarned bool
 
 	// Channel for writing the data without blocking
 	writeChan chan *metrics.EventMetrics
@@ -93,15 +92,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
-		cache:            make(map[string]*monitoring.TimeSeries),
-		knownMetrics:     make(map[string]bool),
-		nativeDistWarned: make(map[string]bool),
-		writeChan:        make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
-		c:                config,
-		opts:             opts,
-		projectName:      config.GetProject(),
-		startTime:        time.Now(),
-		l:                l,
+		cache:        make(map[string]*monitoring.TimeSeries),
+		knownMetrics: make(map[string]bool),
+		writeChan:    make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
+		c:            config,
+		opts:         opts,
+		projectName:  config.GetProject(),
+		startTime:    time.Now(),
+		l:            l,
 	}
 
 	if s.c.GetAllowedMetricsRegex() != "" {
@@ -483,9 +481,9 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 		case *metrics.Distribution:
 			tv := val.StackdriverTypedValue()
 			if tv == nil {
-				if !s.nativeDistWarned[name] {
-					s.nativeDistWarned[name] = true
-					s.l.Warningf("Skipping metric %s: distributions with native buckets are not supported by the stackdriver surfacer", name)
+				if !s.nativeDistWarned {
+					s.nativeDistWarned = true
+					s.l.Warningf("Skipping metric %s: stackdriver surfacer doesn't support distributions with native buckets. This is logged only once.", name)
 				}
 				continue
 			}
