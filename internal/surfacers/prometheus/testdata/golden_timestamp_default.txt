@@ -1,0 +1,45 @@
+# TYPE total counter
+total{ptype="http",probe="p1",dst="a.com"} 4
+total{ptype="http",probe="p1",dst="b.com"} 3
+total{} 9
+# TYPE latency histogram
+latency_sum{ptype="http",probe="p1",dst="a.com"} 9.5
+latency_count{ptype="http",probe="p1",dst="a.com"} 4
+latency_bucket{ptype="http",probe="p1",dst="a.com",le="1"} 2
+latency_bucket{ptype="http",probe="p1",dst="a.com",le="4"} 2
+latency_bucket{ptype="http",probe="p1",dst="a.com",le="16"} 4
+latency_bucket{ptype="http",probe="p1",dst="a.com",le="+Inf"} 4
+latency_sum{ptype="http",probe="p1",dst="b.com"} 105
+latency_count{ptype="http",probe="p1",dst="b.com"} 3
+latency_bucket{ptype="http",probe="p1",dst="b.com",le="1"} 0
+latency_bucket{ptype="http",probe="p1",dst="b.com",le="4"} 2
+latency_bucket{ptype="http",probe="p1",dst="b.com",le="16"} 2
+latency_bucket{ptype="http",probe="p1",dst="b.com",le="+Inf"} 3
+latency_sum{} 1
+latency_count{} 1
+latency_bucket{le="1"} 0
+latency_bucket{le="4"} 1
+latency_bucket{le="16"} 1
+latency_bucket{le="+Inf"} 1
+# TYPE resp_code counter
+resp_code{ptype="http",probe="p1",dst="a.com",code="200"} 3
+resp_code{ptype="http",probe="p1",dst="b.com",code="200"} 2
+resp_code{ptype="http",probe="p1",dst="b.com",code="503"} 1
+resp_code{ptype="http",probe="p1",dst="a.com",code="503"} 1
+# TYPE avg_latency counter
+avg_latency{ptype="http",probe="p1",dst="a.com"} 0.571
+avg_latency{ptype="http",probe="p1",dst="b.com"} 0.429
+# TYPE goroutines gauge
+goroutines{probe="sysvars"} 22 1790000000000
+# TYPE version gauge
+version{probe="sysvars",val="v0.14.2"} 1 1790000000000
+# TYPE load gauge
+load{probe="sysvars",period="1m"} 0.250 1790000000000
+load{probe="sysvars",period="5m"} 1.500 1790000000000
+# TYPE fd_dist histogram
+fd_dist_sum{probe="sysvars"} 22
+fd_dist_count{probe="sysvars"} 2
+fd_dist_bucket{probe="sysvars",le="1"} 0
+fd_dist_bucket{probe="sysvars",le="4"} 1
+fd_dist_bucket{probe="sysvars",le="16"} 1
+fd_dist_bucket{probe="sysvars",le="+Inf"} 2

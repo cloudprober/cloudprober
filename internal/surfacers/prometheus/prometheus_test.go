@@ -696,3 +696,75 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+
+// goldenTestEMs returns EventMetrics that cover all the metric types, more
+// than one series per metric, and updates to already recorded series.
+func goldenTestEMs(ts time.Time) []*metrics.EventMetrics {
+	latency := func(samples ...float64) *metrics.Distribution {
+		d := metrics.NewDistribution([]float64{1, 4, 16})
+		for _, s := range samples {
+			d.AddSample(s)
+		}
+		return d
+	}
+	probeEM := func(ts time.Time, dst string, total int64, respCodes map[string]int64, samples ...float64) *metrics.EventMetrics {
+		respCode := metrics.NewMap("code")
+		for _, code := range []string{"200", "503"} {
+			if respCodes[code] != 0 {
+				respCode.IncKeyBy(code, respCodes[code])
+			}
+		}
+		return metrics.NewEventMetrics(ts).
+			AddMetric("total", metrics.NewInt(total)).
+			AddMetric("latency", latency(samples...)).
+			AddMetric("resp-code", respCode).
+			AddMetric("avg_latency", metrics.NewFloat(float64(total)/7)).
+			AddLabel("ptype", "http").
+			AddLabel("probe", "p1").
+			AddLabel("dst", dst)
+	}
+
+	sysEM := metrics.NewEventMetrics(ts).
+		AddMetric("goroutines", metrics.NewInt(22)).
+		AddMetric("version", metrics.NewString("v0.14.2")).
+		AddMetric("load", metrics.NewMapFloat("period").IncKeyBy("1m", 0.25).IncKeyBy("5m", 1.5)).
+		AddMetric("fd_dist", latency(2, 20)).
+		AddLabel("probe", "sysvars")
+	sysEM.Kind = metrics.GAUGE
+
+	return []*metrics.EventMetrics{
+		probeEM(ts, "a.com", 2, map[string]int64{"200": 2}, 0.5, 5),
+		probeEM(ts, "b.com", 3, map[string]int64{"200": 2, "503": 1}, 2, 3, 100),
+		sysEM,
+		// No labels.
+		metrics.NewEventMetrics(ts).AddMetric("total", metrics.NewInt(9)).AddMetric("latency", latency(1)),
+		// Update for a.com, with a new resp-code key.
+		probeEM(ts.Add(10*time.Second), "a.com", 4, map[string]int64{"200": 3, "503": 1}, 0.5, 5, 5, -1),
+	}
+}
+
+// TestWriteDataGolden verifies the complete /metrics output, including the
+// order of the lines, against the files in testdata.
+func TestWriteDataGolden(t *testing.T) {
+	ts := time.UnixMilli(1790000000000)
+
+	for _, mode := range []string{"default", "true", "false"} {
+		t.Run("include_timestamp_"+mode, func(t *testing.T) {
+			conf := &configpb.SurfacerConf{}
+			if mode != "default" {
+				conf.IncludeTimestamp = proto.Bool(mode == "true")
+			}
+			ps := testPromSurfacerNoErr(t, conf)
+			for _, em := range goldenTestEMs(ts) {
+				ps.record(em)
+			}
+
+			var b bytes.Buffer
+			ps.writeData(&b)
+
+			want, err := os.ReadFile("testdata/golden_timestamp_" + mode + ".txt")
+			assert.NoError(t, err)
+			assert.Equal(t, string(want), b.String())
+		})
+	}
+}

@@ -39,6 +39,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -95,6 +96,12 @@ type promMetric struct {
 type dataPoint struct {
 	value     string
 	timestamp int64
+
+	// Set only for distributions (histograms). We keep the distribution as is,
+	// and expand it into _sum, _count and _bucket series while writing. We need
+	// labels to build the keys for those series.
+	dist   *metrics.DistributionData
+	labels []string
 }
 
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
@@ -145,7 +152,7 @@ func shouldIncludeTimestamp(c *configpb.SurfacerConf) defaultBoolEnum {
 //  1. Metric name -> PromMetric data structure dict.
 //  2. A PromMetric organizes data associated with a metric in a
 //     Data key -> Data point map, where data point consists of a value
-//     and timestamp.
+//     (or a distribution, for histograms) and timestamp.
 //
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
@@ -159,10 +166,6 @@ type PromSurfacer struct {
 	metricNames            []string                   // Metric names, to keep names ordered.
 	queryChan              chan *httpWriter           // Query channel
 	l                      *logger.Logger
-
-	// A handler that takes a promMetric and a dataKey and writes the
-	// corresponding metric string to the provided io.Writer.
-	dataWriter func(w io.Writer, pm *promMetric, dataKey string)
 
 	// Regexes for metric and label names.
 	metricNameRe *regexp.Regexp
@@ -192,25 +195,6 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 	if ps.c.MetricsPrefix != nil {
 		ps.prefix = ps.c.GetMetricsPrefix()
-	}
-
-	switch ps.includeTimestamp {
-	case explicitTrue:
-		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
-			fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
-		}
-	case explicitFalse:
-		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
-			fmt.Fprintf(w, "%s %s\n", k, pm.data[k].value)
-		}
-	default:
-		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
-			if pm.typ == "gauge" {
-				fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
-				return
-			}
-			fmt.Fprintf(w, "%s %s\n", k, pm.data[k].value)
-		}
 	}
 
 	// Metrics that we export without a timestamp are not subject to the 10m
@@ -283,7 +267,7 @@ func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 }
 
 // isTimestamped returns whether we export metrics of the given prometheus type
-// with a timestamp. It mirrors the dataWriter selection in New().
+// with a timestamp.
 func (ps *PromSurfacer) isTimestamped(typ string) bool {
 	switch ps.includeTimestamp {
 	case explicitTrue:
@@ -326,37 +310,27 @@ func promTime(t time.Time) int64 {
 	return t.UnixNano() / (1000 * 1000)
 }
 
-func (ps *PromSurfacer) recordMetric(metricName, key, value string, em *metrics.EventMetrics, typ string) {
-	// Recognized metric
-	if pm := ps.metrics[metricName]; pm != nil {
-		// Recognized metric name and labels combination.
-		if pm.data[key] != nil {
-			pm.data[key].value = value
-			pm.data[key].timestamp = promTime(em.Timestamp)
-			return
-		}
-		pm.data[key] = &dataPoint{
-			value:     value,
-			timestamp: promTime(em.Timestamp),
-		}
-		pm.dataKeys = append(pm.dataKeys, key)
-	} else {
+func (ps *PromSurfacer) recordMetric(metricName, key string, dp dataPoint, em *metrics.EventMetrics, typ string) {
+	dp.timestamp = promTime(em.Timestamp)
+
+	pm := ps.metrics[metricName]
+	if pm == nil {
 		// Newly discovered metric name.
 		if typ == "" {
 			typ = promType(em)
 		}
-		ps.metrics[metricName] = &promMetric{
-			typ: typ,
-			data: map[string]*dataPoint{
-				key: {
-					value:     value,
-					timestamp: promTime(em.Timestamp),
-				},
-			},
-			dataKeys: []string{key},
-		}
+		pm = &promMetric{typ: typ, data: make(map[string]*dataPoint)}
+		ps.metrics[metricName] = pm
 		ps.metricNames = append(ps.metricNames, metricName)
 	}
+
+	// Recognized metric name and labels combination.
+	if pm.data[key] != nil {
+		*pm.data[key] = dp
+		return
+	}
+	pm.data[key] = &dp
+	pm.dataKeys = append(pm.dataKeys, key)
 }
 
 // checkLabelName finds a prometheus label name for an incoming label. If label
@@ -424,7 +398,7 @@ func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metri
 	}
 	for _, k := range m.Keys() {
 		key := dataKey(pMetricName, append(labels, labelName+"=\""+k+"\""))
-		ps.recordMetric(pMetricName, key, metrics.MapValueToString(m.GetKey(k)), em, "")
+		ps.recordMetric(pMetricName, key, dataPoint{value: metrics.MapValueToString(m.GetKey(k))}, em, "")
 	}
 }
 
@@ -470,31 +444,36 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 			recordMap(ps, v, em, pMetricName, labels)
 		case *metrics.Map[float64]:
 			recordMap(ps, v, em, pMetricName, labels)
-		// Distribution values get expanded into metrics with extra label "le".
 		case *metrics.Distribution:
-			d := v.Data()
-			var val int64
-			ps.recordMetric(pMetricName, dataKey(pMetricName+"_sum", labels), strconv.FormatFloat(d.Sum, 'f', -1, 64), em, histogram)
-			ps.recordMetric(pMetricName, dataKey(pMetricName+"_count", labels), strconv.FormatInt(d.Count, 10), em, histogram)
-			for i := range d.LowerBounds {
-				val += d.BucketCounts[i]
-				var lb string
-				if i == len(d.LowerBounds)-1 {
-					lb = "+Inf"
-				} else {
-					lb = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
-				}
-				labelsWithBucket := append(labels, "le=\""+lb+"\"")
-				ps.recordMetric(pMetricName, dataKey(pMetricName+"_bucket", labelsWithBucket), strconv.FormatInt(val, 10), em, histogram)
-			}
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: labels}, em, histogram)
 		case metrics.String:
 			newLabels := append(labels, "val="+val.String())
-			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), "1", em, "")
+			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), dataPoint{value: "1"}, em, "")
 
 		// All other value types, mostly numerical types.
 		default:
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), val.String(), em, "")
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{value: val.String()}, em, "")
 		}
+	}
+}
+
+// writeHistogram writes a distribution as _sum, _count and _bucket series.
+// Bucket series have cumulative counts and an extra label, "le", for the
+// bucket's upper bound.
+func writeHistogram(name string, dp *dataPoint, writeLine func(key, value string)) {
+	d := dp.dist
+	writeLine(dataKey(name+"_sum", dp.labels), strconv.FormatFloat(d.Sum, 'f', -1, 64))
+	writeLine(dataKey(name+"_count", dp.labels), strconv.FormatInt(d.Count, 10))
+
+	var val int64
+	for i := range d.LowerBounds {
+		val += d.BucketCounts[i]
+		le := "+Inf"
+		if i < len(d.LowerBounds)-1 {
+			le = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
+		}
+		labelsWithBucket := append(slices.Clip(dp.labels), "le=\""+le+"\"")
+		writeLine(dataKey(name+"_bucket", labelsWithBucket), strconv.FormatInt(val, 10))
 	}
 }
 
@@ -503,8 +482,23 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
 		fmt.Fprintf(w, "# TYPE %s %s\n", name, pm.typ)
+
+		withTimestamp := ps.isTimestamped(pm.typ)
 		for _, k := range pm.dataKeys {
-			ps.dataWriter(w, pm, k)
+			dp := pm.data[k]
+			writeLine := func(key, value string) {
+				if withTimestamp {
+					fmt.Fprintf(w, "%s %s %d\n", key, value, dp.timestamp)
+					return
+				}
+				fmt.Fprintf(w, "%s %s\n", key, value)
+			}
+
+			if dp.dist != nil {
+				writeHistogram(name, dp, writeLine)
+				continue
+			}
+			writeLine(k, dp.value)
 		}
 	}
 }
