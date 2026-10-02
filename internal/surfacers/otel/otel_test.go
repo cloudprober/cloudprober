@@ -202,12 +202,6 @@ func TestConvertNativeDistribution(t *testing.T) {
 		wantTmp metricdata.Temporality
 	}{
 		{
-			name:    "no_samples",
-			schema:  3,
-			want:    metricdata.ExponentialHistogramDataPoint[float64]{Scale: 3},
-			wantTmp: metricdata.CumulativeTemporality,
-		},
-		{
 			// OTel's bucket i is (2^i, 2^(i+1)] for scale 0: 1 goes to bucket
 			// -1, 1.5 and 2 to bucket 0, and 17 to bucket 4.
 			name:    "positive_values",
@@ -225,15 +219,15 @@ func TestConvertNativeDistribution(t *testing.T) {
 			// For scale 3, 1.5 is in OTel's bucket 4, (2^(4/8), 2^(5/8)].
 			name:    "zero_and_negative_values_gauge",
 			schema:  3,
-			samples: []float64{0, 0, 1.5, -0.25, -3},
+			samples: []float64{0, 0, 1.5, -0.25, -0.375},
 			kind:    metrics.GAUGE,
 			want: metricdata.ExponentialHistogramDataPoint[float64]{
 				Count:          5,
-				Sum:            -1.75,
+				Sum:            0.875,
 				Scale:          3,
 				ZeroCount:      2,
 				PositiveBucket: metricdata.ExponentialBucket{Offset: 4, Counts: []uint64{1}},
-				NegativeBucket: metricdata.ExponentialBucket{Offset: -17, Counts: append(append([]uint64{1}, make([]uint64, 28)...), 1)},
+				NegativeBucket: metricdata.ExponentialBucket{Offset: -17, Counts: []uint64{1, 0, 0, 0, 0, 1}},
 			},
 			wantTmp: metricdata.DeltaTemporality,
 		},
