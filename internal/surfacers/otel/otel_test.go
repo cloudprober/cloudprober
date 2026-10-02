@@ -188,6 +188,71 @@ func TestOtelSurfacerWrite(t *testing.T) {
 	assert.Empty(t, producedMetrics)
 }
 
+func TestConvertNativeDistribution(t *testing.T) {
+	startTime := time.Now()
+	ts := startTime.Add(time.Second)
+	attrs := attribute.NewSet(attribute.String("probe", "p1"))
+
+	tests := []struct {
+		name    string
+		schema  int32
+		samples []float64
+		kind    metrics.Kind
+		want    metricdata.ExponentialHistogramDataPoint[float64]
+		wantTmp metricdata.Temporality
+	}{
+		{
+			// OTel's bucket i is (2^i, 2^(i+1)] for scale 0: 1 goes to bucket
+			// -1, 1.5 and 2 to bucket 0, and 17 to bucket 4.
+			name:    "positive_values",
+			schema:  0,
+			samples: []float64{1, 1.5, 2, 17},
+			want: metricdata.ExponentialHistogramDataPoint[float64]{
+				Count:          4,
+				Sum:            21.5,
+				Scale:          0,
+				PositiveBucket: metricdata.ExponentialBucket{Offset: -1, Counts: []uint64{1, 2, 0, 0, 0, 1}},
+			},
+			wantTmp: metricdata.CumulativeTemporality,
+		},
+		{
+			// For scale 3, 1.5 is in OTel's bucket 4, (2^(4/8), 2^(5/8)].
+			name:    "zero_and_negative_values_gauge",
+			schema:  3,
+			samples: []float64{0, 0, 1.5, -0.25, -0.375},
+			kind:    metrics.GAUGE,
+			want: metricdata.ExponentialHistogramDataPoint[float64]{
+				Count:          5,
+				Sum:            0.875,
+				Scale:          3,
+				ZeroCount:      2,
+				PositiveBucket: metricdata.ExponentialBucket{Offset: 4, Counts: []uint64{1}},
+				NegativeBucket: metricdata.ExponentialBucket{Offset: -17, Counts: []uint64{1, 0, 0, 0, 0, 1}},
+			},
+			wantTmp: metricdata.DeltaTemporality,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := metrics.NewNativeDistribution(tt.schema)
+			assert.NoError(t, err)
+			for _, s := range tt.samples {
+				d.AddSample(s)
+			}
+
+			tt.want.Attributes = attrs
+			tt.want.StartTime = startTime
+			tt.want.Time = ts
+			want := metricdata.ExponentialHistogram[float64]{
+				DataPoints:  []metricdata.ExponentialHistogramDataPoint[float64]{tt.want},
+				Temporality: tt.wantTmp,
+			}
+			assert.Equal(t, want, convertDistribution(d, tt.kind, attrs, startTime, ts))
+		})
+	}
+}
+
 func TestGetExporterType(t *testing.T) {
 	tests := []struct {
 		name     string
