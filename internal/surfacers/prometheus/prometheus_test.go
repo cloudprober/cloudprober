@@ -772,7 +772,7 @@ func TestWriteDataGolden(t *testing.T) {
 
 // benchSurfacer returns a surfacer with metrics for 100 targets: 1,700 series,
 // 400 of them histograms. If native is true, it has only histograms, 400 of
-// them, with native buckets, about 30 buckets each.
+// them, with native buckets: 50 buckets in 9 spans each.
 func benchSurfacer(b *testing.B, native bool) *PromSurfacer {
 	ps, err := testPromSurfacer(nil)
 	if err != nil {
@@ -828,8 +828,9 @@ func TestProtobufMixedTypes(t *testing.T) {
 	ps := testPromSurfacerNoErr(t, nil)
 	dist := func() *metrics.Distribution { return metrics.NewDistribution([]float64{1}) }
 
-	// Same metric name used for a number and a distribution. Metric's type is
-	// the type of the first value we see.
+	// Same metric name used for numbers and distributions, e.g. latency when
+	// only some of the probes have latency_distribution. Metric's type is the
+	// type of the first value we see.
 	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("num_first", metrics.NewInt(1)).AddLabel("a", "1"))
 	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("num_first", dist()).AddLabel("a", "2"))
 	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("dist_first", dist()).AddLabel("a", "1"))
@@ -837,16 +838,20 @@ func TestProtobufMixedTypes(t *testing.T) {
 
 	var b bytes.Buffer
 	ps.writeProtobuf(&b)
-	mfs := readProtobuf(t, &b)
 
-	// Only the data points that match the metric's type are written.
-	assert.Len(t, mfs, 2)
-	for _, mf := range mfs {
+	// Histograms and numbers go in separate metric families.
+	var got []string
+	for _, mf := range readProtobuf(t, &b) {
 		assert.Len(t, mf.Metric, 1, mf.GetName())
-		assert.Equal(t, "1", mf.Metric[0].Label[0].GetValue(), mf.GetName())
+		m := mf.Metric[0]
+		got = append(got, fmt.Sprintf("%s %s a=%s histogram=%v", mf.GetName(), mf.GetType(), m.Label[0].GetValue(), m.Histogram != nil))
 	}
-	assert.NotNil(t, mfs[0].Metric[0].Counter)
-	assert.NotNil(t, mfs[1].Metric[0].Histogram)
+	assert.Equal(t, []string{
+		"num_first HISTOGRAM a=2 histogram=true",
+		"num_first COUNTER a=1 histogram=false",
+		"dist_first HISTOGRAM a=1 histogram=true",
+		"dist_first UNTYPED a=2 histogram=false",
+	}, got)
 }
 
 func TestAcceptsProtobuf(t *testing.T) {
@@ -857,9 +862,10 @@ func TestAcceptsProtobuf(t *testing.T) {
 	}{
 		"empty":     {"", false},
 		"text_only": {"text/plain;version=0.0.4;q=0.5,*/*;q=0.1", false},
-		// Prometheus 3 when scrape_native_histograms is true.
-		"prometheus_protobuf_first": {pb + ";q=0.6,application/openmetrics-text;version=1.0.0;q=0.5,text/plain;version=0.0.4;q=0.4,*/*;q=0.1", true},
-		"protobuf_lower_q":          {"text/plain;version=0.0.4;q=0.6," + pb + ";q=0.5", false},
+		// Prometheus 3.15 when scrape_native_histograms is true, and by default.
+		"prometheus_native_histograms": {pb + ";q=0.7,application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.6,application/openmetrics-text;version=0.0.1;q=0.5,text/plain;version=1.0.0;escaping=allow-utf-8;q=0.4,text/plain;version=0.0.4;q=0.3,*/*;q=0.2", true},
+		"prometheus_default":           {"application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.6,application/openmetrics-text;version=0.0.1;q=0.5,text/plain;version=1.0.0;escaping=allow-utf-8;q=0.4,text/plain;version=0.0.4;q=0.3,*/*;q=0.2", false},
+		"protobuf_lower_q":             {"text/plain;version=0.0.4;q=0.6," + pb + ";q=0.5", false},
 		// We can't serve OpenMetrics, so it's between protobuf and text.
 		"openmetrics_first":      {"application/openmetrics-text;version=1.0.0;q=0.7," + pb + ";q=0.6,text/plain;version=0.0.4;q=0.5", true},
 		"any_over_protobuf":      {"*/*;q=0.7," + pb + ";q=0.6", false},
@@ -1020,7 +1026,7 @@ func TestWriteProtobuf(t *testing.T) {
 			{Label: lp("probe", "sysvars", "period", "5m"), Gauge: &dto.Gauge{Value: proto.Float64(1.5)}, TimestampMs: proto.Int64(1790000000000)},
 		},
 		"fd_dist": {
-			{Label: lp("probe", "sysvars"), TimestampMs: nil, Histogram: &dto.Histogram{
+			{Label: lp("probe", "sysvars"), Histogram: &dto.Histogram{
 				SampleCount: proto.Uint64(2),
 				SampleSum:   proto.Float64(22),
 				Bucket:      []*dto.Bucket{bucket(0, 1), bucket(1, 4), bucket(1, 16)},

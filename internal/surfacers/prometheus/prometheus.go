@@ -699,11 +699,9 @@ func nativeSpansAndDeltas(buckets map[int]int64) ([]*dto.BucketSpan, []int64) {
 	return spanPtrs, deltas
 }
 
-// protobufLabels builds label pairs for the protobuf format, from data
-// points' labels. We build them while writing, so that we don't pay for them
-// if nobody scrapes the protobuf format. It allocates
-// memory for all the label pairs of a metric in one go, instead of allocating
-// for each label separately.
+// protobufLabels builds label pairs for the protobuf format from data points'
+// labels, at scrape time, so that we don't pay for them if nobody scrapes the
+// protobuf format. It allocates for all the label pairs of a metric in one go.
 type protobufLabels struct {
 	pairs []dto.LabelPair
 	ptrs  []*dto.LabelPair
@@ -711,14 +709,7 @@ type protobufLabels struct {
 	used  int
 }
 
-func newProtobufLabels(pm *promMetric) *protobufLabels {
-	var n int
-	for _, dp := range pm.data {
-		n += len(dp.labels)
-		if dp.extraLabel.name != "" {
-			n++
-		}
-	}
+func newProtobufLabels(n int) *protobufLabels {
 	return &protobufLabels{
 		pairs: make([]dto.LabelPair, n),
 		ptrs:  make([]*dto.LabelPair, n),
@@ -789,98 +780,128 @@ func protobufHistogram(d *metrics.DistributionData) *dto.Histogram {
 	return h
 }
 
-var protobufMetricType = map[string]dto.MetricType{
-	"counter": dto.MetricType_COUNTER,
-	"gauge":   dto.MetricType_GAUGE,
-	histogram: dto.MetricType_HISTOGRAM,
+// protobufNumbers builds counter, gauge and untyped messages for the protobuf
+// format. It allocates for all the numbers of a metric in one go.
+type protobufNumbers struct {
+	typ      dto.MetricType
+	values   []float64
+	counters []dto.Counter
+	gauges   []dto.Gauge
+	untyped  []dto.Untyped
+	used     int
 }
 
-// writeProtobuf writes metrics data on w io.Writer in the protobuf format: a
-// length-delimited MetricFamily message for each metric.
+func newProtobufNumbers(typ dto.MetricType, n int) *protobufNumbers {
+	pn := &protobufNumbers{typ: typ, values: make([]float64, n)}
+	switch typ {
+	case dto.MetricType_COUNTER:
+		pn.counters = make([]dto.Counter, n)
+	case dto.MetricType_GAUGE:
+		pn.gauges = make([]dto.Gauge, n)
+	default:
+		pn.untyped = make([]dto.Untyped, n)
+	}
+	return pn
+}
+
+// set sets the given value in the metric message.
+func (pn *protobufNumbers) set(m *dto.Metric, v float64) {
+	i := pn.used
+	pn.used++
+
+	pn.values[i] = v
+	switch pn.typ {
+	case dto.MetricType_COUNTER:
+		pn.counters[i].Value = &pn.values[i]
+		m.Counter = &pn.counters[i]
+	case dto.MetricType_GAUGE:
+		pn.gauges[i].Value = &pn.values[i]
+		m.Gauge = &pn.gauges[i]
+	default:
+		pn.untyped[i].Value = &pn.values[i]
+		m.Untyped = &pn.untyped[i]
+	}
+}
+
+// protobufMetricFamilies returns the metric families for a metric: one for
+// its distributions (histograms), and one for its numbers. Most metrics have
+// only one of them, but a metric name can have both. For example, all probes
+// export latency, and it's a distribution only for the probes that have
+// latency_distribution configured.
 //
 // To keep the number of allocations small, we allocate messages and values for
 // all the data points of a metric in one go, instead of one by one. For
 // comparison, client_golang allocates them for each series, on each scrape.
+func (ps *PromSurfacer) protobufMetricFamilies(name string, pm *promMetric) (histograms, numbers *dto.MetricFamily) {
+	var numLabels, numHistograms int
+	for _, dp := range pm.data {
+		numLabels += len(dp.labels)
+		if dp.extraLabel.name != "" {
+			numLabels++
+		}
+		if dp.dist != nil {
+			numHistograms++
+		}
+	}
+	n := len(pm.dataKeys)
+
+	// If metric's type is histogram, we don't know the type of its numbers.
+	numbersType := dto.MetricType_UNTYPED
+	switch pm.typ {
+	case "counter":
+		numbersType = dto.MetricType_COUNTER
+	case "gauge":
+		numbersType = dto.MetricType_GAUGE
+	}
+
+	histograms = &dto.MetricFamily{Name: &name, Type: dto.MetricType_HISTOGRAM.Enum(), Metric: make([]*dto.Metric, 0, numHistograms)}
+	numbers = &dto.MetricFamily{Name: &name, Type: &numbersType, Metric: make([]*dto.Metric, 0, n-numHistograms)}
+
+	labels := newProtobufLabels(numLabels)
+	values := newProtobufNumbers(numbersType, n-numHistograms)
+	metricMsgs := make([]dto.Metric, n)
+	withTimestamp := ps.isTimestamped(pm.typ)
+
+	for i, k := range pm.dataKeys {
+		dp := pm.data[k]
+		m := &metricMsgs[i]
+		m.Label = labels.labelPairs(dp)
+		if withTimestamp {
+			m.TimestampMs = &dp.timestamp
+		}
+
+		if dp.dist != nil {
+			m.Histogram = protobufHistogram(dp.dist)
+			histograms.Metric = append(histograms.Metric, m)
+			continue
+		}
+
+		// Parse the value we write in the text format, so that both formats
+		// report the same value.
+		v, err := strconv.ParseFloat(dp.value, 64)
+		if err != nil {
+			ps.l.Warningf("prometheus surfacer: skipping %s, invalid value: %s", k, dp.value)
+			continue
+		}
+		values.set(m, v)
+		numbers.Metric = append(numbers.Metric, m)
+	}
+	return histograms, numbers
+}
+
+// writeProtobuf writes metrics data on w io.Writer in the protobuf format:
+// length-delimited MetricFamily messages.
 func (ps *PromSurfacer) writeProtobuf(w io.Writer) {
 	for _, name := range ps.metricNames {
-		pm := ps.metrics[name]
-		n := len(pm.dataKeys)
-		if n == 0 {
-			continue
-		}
-
-		typ, ok := protobufMetricType[pm.typ]
-		if !ok {
-			typ = dto.MetricType_UNTYPED
-		}
-		mf := &dto.MetricFamily{Name: &name, Type: &typ, Metric: make([]*dto.Metric, 0, n)}
-
-		labels := newProtobufLabels(pm)
-		metricMsgs := make([]dto.Metric, n)
-		var values []float64
-		var counters []dto.Counter
-		var gauges []dto.Gauge
-		var untyped []dto.Untyped
-		switch typ {
-		case dto.MetricType_COUNTER:
-			values, counters = make([]float64, n), make([]dto.Counter, n)
-		case dto.MetricType_GAUGE:
-			values, gauges = make([]float64, n), make([]dto.Gauge, n)
-		case dto.MetricType_UNTYPED:
-			values, untyped = make([]float64, n), make([]dto.Untyped, n)
-		}
-
-		withTimestamp := ps.isTimestamped(pm.typ)
-		for i, k := range pm.dataKeys {
-			dp := pm.data[k]
-			m := &metricMsgs[i]
-			m.Label = labels.labelPairs(dp)
-			if withTimestamp {
-				m.TimestampMs = &dp.timestamp
-			}
-
-			// We skip the data points that don't match the metric's type. That
-			// happens only if the same metric name has been used for a
-			// distribution and a number.
-			if dp.dist != nil {
-				if typ == dto.MetricType_HISTOGRAM {
-					m.Histogram = protobufHistogram(dp.dist)
-					mf.Metric = append(mf.Metric, m)
-				}
+		histograms, numbers := ps.protobufMetricFamilies(name, ps.metrics[name])
+		for _, mf := range [...]*dto.MetricFamily{histograms, numbers} {
+			if len(mf.Metric) == 0 {
 				continue
 			}
-			if typ == dto.MetricType_HISTOGRAM {
-				continue
+			if _, err := protodelim.MarshalTo(w, mf); err != nil {
+				ps.l.Warningf("prometheus surfacer: error writing metrics: %v", err)
+				return
 			}
-
-			// Parse the value we write in the text format, so that both formats
-			// report the same value.
-			v, err := strconv.ParseFloat(dp.value, 64)
-			if err != nil {
-				ps.l.Warningf("prometheus surfacer: skipping %s, invalid value: %s", k, dp.value)
-				continue
-			}
-			values[i] = v
-			switch typ {
-			case dto.MetricType_COUNTER:
-				counters[i].Value = &values[i]
-				m.Counter = &counters[i]
-			case dto.MetricType_GAUGE:
-				gauges[i].Value = &values[i]
-				m.Gauge = &gauges[i]
-			default:
-				untyped[i].Value = &values[i]
-				m.Untyped = &untyped[i]
-			}
-			mf.Metric = append(mf.Metric, m)
-		}
-
-		if len(mf.Metric) == 0 {
-			continue
-		}
-		if _, err := protodelim.MarshalTo(w, mf); err != nil {
-			ps.l.Warningf("prometheus surfacer: error writing metrics: %v", err)
-			return
 		}
 	}
 }
