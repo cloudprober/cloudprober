@@ -770,17 +770,36 @@ func TestWriteDataGolden(t *testing.T) {
 	}
 }
 
-func BenchmarkWriteData(b *testing.B) {
+// benchSurfacer returns a surfacer with metrics for 100 targets: 1,700 series,
+// 400 of them histograms. If native is true, it has only histograms, 400 of
+// them, with native buckets, about 30 buckets each.
+func benchSurfacer(b *testing.B, native bool) *PromSurfacer {
 	ps, err := testPromSurfacer(nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 	ts := time.Now()
 	for i := range 100 {
-		for _, em := range goldenTestEMs(ts) {
-			ps.record(em.AddLabel("target", strconv.Itoa(i)))
+		if !native {
+			for _, em := range goldenTestEMs(ts) {
+				ps.record(em.AddLabel("target", strconv.Itoa(i)))
+			}
+			continue
+		}
+		for _, dst := range []string{"a.com", "b.com", "c.com", "d.com"} {
+			d, _ := metrics.NewNativeDistribution(3)
+			for j := range 300 {
+				d.AddSample(1 + float64(j%60)*float64(j%7))
+			}
+			ps.record(metrics.NewEventMetrics(ts).AddMetric("latency", d).
+				AddLabel("ptype", "http").AddLabel("probe", "p1").AddLabel("dst", dst).AddLabel("target", strconv.Itoa(i)))
 		}
 	}
+	return ps
+}
+
+func BenchmarkWriteData(b *testing.B) {
+	ps := benchSurfacer(b, false)
 
 	var buf bytes.Buffer
 	b.ReportAllocs()
@@ -788,6 +807,46 @@ func BenchmarkWriteData(b *testing.B) {
 		buf.Reset()
 		ps.writeData(&buf)
 	}
+}
+
+func BenchmarkWriteProtobuf(b *testing.B) {
+	for name, native := range map[string]bool{"classic": false, "native": true} {
+		b.Run(name, func(b *testing.B) {
+			ps := benchSurfacer(b, native)
+
+			var buf bytes.Buffer
+			b.ReportAllocs()
+			for b.Loop() {
+				buf.Reset()
+				ps.writeProtobuf(&buf)
+			}
+		})
+	}
+}
+
+func TestProtobufMixedTypes(t *testing.T) {
+	ps := testPromSurfacerNoErr(t, nil)
+	dist := func() *metrics.Distribution { return metrics.NewDistribution([]float64{1}) }
+
+	// Same metric name used for a number and a distribution. Metric's type is
+	// the type of the first value we see.
+	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("num_first", metrics.NewInt(1)).AddLabel("a", "1"))
+	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("num_first", dist()).AddLabel("a", "2"))
+	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("dist_first", dist()).AddLabel("a", "1"))
+	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("dist_first", metrics.NewInt(1)).AddLabel("a", "2"))
+
+	var b bytes.Buffer
+	ps.writeProtobuf(&b)
+	mfs := readProtobuf(t, &b)
+
+	// Only the data points that match the metric's type are written.
+	assert.Len(t, mfs, 2)
+	for _, mf := range mfs {
+		assert.Len(t, mf.Metric, 1, mf.GetName())
+		assert.Equal(t, "1", mf.Metric[0].Label[0].GetValue(), mf.GetName())
+	}
+	assert.NotNil(t, mfs[0].Metric[0].Counter)
+	assert.NotNil(t, mfs[1].Metric[0].Histogram)
 }
 
 func TestAcceptsProtobuf(t *testing.T) {
@@ -801,12 +860,15 @@ func TestAcceptsProtobuf(t *testing.T) {
 		// Prometheus 3 when scrape_native_histograms is true.
 		"prometheus_protobuf_first": {pb + ";q=0.6,application/openmetrics-text;version=1.0.0;q=0.5,text/plain;version=0.0.4;q=0.4,*/*;q=0.1", true},
 		"protobuf_lower_q":          {"text/plain;version=0.0.4;q=0.6," + pb + ";q=0.5", false},
-		"protobuf_no_q":             {pb, true},
-		"protobuf_same_q_later":     {"text/plain," + pb, false},
-		"protobuf_no_encoding":      {"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily", true},
-		"protobuf_text_encoding":    {"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=text", false},
-		"protobuf_other_proto":      {"application/vnd.google.protobuf;proto=foo.Bar", false},
-		"malformed":                 {";;;," + pb + ";q=x", false},
+		// We can't serve OpenMetrics, so it's between protobuf and text.
+		"openmetrics_first":      {"application/openmetrics-text;version=1.0.0;q=0.7," + pb + ";q=0.6,text/plain;version=0.0.4;q=0.5", true},
+		"any_over_protobuf":      {"*/*;q=0.7," + pb + ";q=0.6", false},
+		"protobuf_no_q":          {pb, true},
+		"protobuf_same_q_later":  {"text/plain," + pb, false},
+		"protobuf_no_encoding":   {"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily", true},
+		"protobuf_text_encoding": {"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=text", false},
+		"protobuf_other_proto":   {"application/vnd.google.protobuf;proto=foo.Bar", false},
+		"malformed":              {";;;," + pb + ";q=x", false},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -839,7 +901,9 @@ func TestNativeSpansAndDeltas(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			spans, deltas := nativeSpansAndDeltas(tt.buckets)
-			assert.Equal(t, len(tt.wantSpans), len(spans))
+			if !assert.Len(t, spans, len(tt.wantSpans)) {
+				return
+			}
 			for i := range tt.wantSpans {
 				assert.True(t, proto.Equal(tt.wantSpans[i], spans[i]), "span %d: got %v, want %v", i, spans[i], tt.wantSpans[i])
 			}

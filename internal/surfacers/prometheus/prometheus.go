@@ -589,7 +589,8 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 
 // acceptsProtobuf returns true if the Accept header prefers the protobuf format
 // over the text format. Prometheus asks for the protobuf format when it's
-// configured to scrape native histograms.
+// configured to scrape native histograms. We ignore the media types that we
+// can't serve, e.g. OpenMetrics.
 func acceptsProtobuf(accept string) bool {
 	var bestQ float64
 	var protobuf bool
@@ -604,14 +605,16 @@ func acceptsProtobuf(accept string) bool {
 				continue
 			}
 		}
-		// Media types with the same q value are preferred in the given order.
-		if q <= bestQ {
-			continue
-		}
-		bestQ = q
-		protobuf = mediaType == "application/vnd.google.protobuf" &&
+		isProtobuf := mediaType == "application/vnd.google.protobuf" &&
 			params["proto"] == "io.prometheus.client.MetricFamily" &&
 			(params["encoding"] == "" || params["encoding"] == "delimited")
+		if !isProtobuf && mediaType != "text/plain" && mediaType != "*/*" {
+			continue
+		}
+		// Media types with the same q value are preferred in the given order.
+		if q > bestQ {
+			bestQ, protobuf = q, isProtobuf
+		}
 	}
 	return protobuf
 }
@@ -620,25 +623,45 @@ func acceptsProtobuf(accept string) bool {
 // format: spans of consecutive buckets, and the count of each bucket as the
 // delta from the previous one.
 func nativeSpansAndDeltas(buckets map[int]int64) ([]*dto.BucketSpan, []int64) {
-	var spans []*dto.BucketSpan
-	var deltas []int64
-	var prevKey int
+	if len(buckets) == 0 {
+		return nil, nil
+	}
+	keys := slices.AppendSeq(make([]int, 0, len(buckets)), maps.Keys(buckets))
+	slices.Sort(keys)
+
+	numSpans := 1
+	for i := 1; i < len(keys); i++ {
+		if keys[i] != keys[i-1]+1 {
+			numSpans++
+		}
+	}
+
+	// Allocate for all the spans in one go.
+	spans := make([]dto.BucketSpan, numSpans)
+	spanPtrs := make([]*dto.BucketSpan, numSpans)
+	offsets := make([]int32, numSpans)
+	lengths := make([]uint32, numSpans)
+	deltas := make([]int64, len(keys))
+
+	si := -1 // Current span's index.
 	var prevCount int64
-	for i, k := range slices.Sorted(maps.Keys(buckets)) {
-		if i == 0 || k != prevKey+1 {
+	for i, k := range keys {
+		if i == 0 || k != keys[i-1]+1 {
+			si++
 			// First span's offset is the bucket index, others' is the gap from
 			// the previous span.
-			offset := k
+			offsets[si] = int32(k)
 			if i != 0 {
-				offset = k - prevKey - 1
+				offsets[si] = int32(k - keys[i-1] - 1)
 			}
-			spans = append(spans, &dto.BucketSpan{Offset: proto.Int32(int32(offset)), Length: proto.Uint32(0)})
+			spans[si].Offset, spans[si].Length = &offsets[si], &lengths[si]
+			spanPtrs[si] = &spans[si]
 		}
-		*spans[len(spans)-1].Length++
-		deltas = append(deltas, buckets[k]-prevCount)
-		prevKey, prevCount = k, buckets[k]
+		lengths[si]++
+		deltas[i] = buckets[k] - prevCount
+		prevCount = buckets[k]
 	}
-	return spans, deltas
+	return spanPtrs, deltas
 }
 
 // protobufLabels builds label pairs for the protobuf format, from data
@@ -691,6 +714,10 @@ func (pl *protobufLabels) labelPairs(dp *dataPoint) []*dto.LabelPair {
 	return pl.ptrs[start:pl.used:pl.used]
 }
 
+// We don't support zero threshold for native histograms: zero bucket has only
+// the zeros.
+var nativeZeroThreshold float64
+
 func protobufHistogram(d *metrics.DistributionData) *dto.Histogram {
 	h := &dto.Histogram{
 		SampleCount: proto.Uint64(uint64(d.Count)),
@@ -715,8 +742,8 @@ func protobufHistogram(d *metrics.DistributionData) *dto.Histogram {
 		return h
 	}
 
-	h.Schema = proto.Int32(d.Native.Schema)
-	h.ZeroThreshold = proto.Float64(0)
+	h.Schema = &d.Native.Schema
+	h.ZeroThreshold = &nativeZeroThreshold
 	h.ZeroCount = proto.Uint64(uint64(d.Native.ZeroCount))
 	h.PositiveSpan, h.PositiveDelta = nativeSpansAndDeltas(d.Native.Positive)
 	h.NegativeSpan, h.NegativeDelta = nativeSpansAndDeltas(d.Native.Negative)
@@ -757,17 +784,17 @@ func (ps *PromSurfacer) writeProtobuf(w io.Writer) {
 
 		labels := newProtobufLabels(pm)
 		metricMsgs := make([]dto.Metric, n)
-		values := make([]float64, n)
+		var values []float64
 		var counters []dto.Counter
 		var gauges []dto.Gauge
 		var untyped []dto.Untyped
 		switch typ {
 		case dto.MetricType_COUNTER:
-			counters = make([]dto.Counter, n)
+			values, counters = make([]float64, n), make([]dto.Counter, n)
 		case dto.MetricType_GAUGE:
-			gauges = make([]dto.Gauge, n)
+			values, gauges = make([]float64, n), make([]dto.Gauge, n)
 		case dto.MetricType_UNTYPED:
-			untyped = make([]dto.Untyped, n)
+			values, untyped = make([]float64, n), make([]dto.Untyped, n)
 		}
 
 		withTimestamp := ps.isTimestamped(pm.typ)
@@ -779,9 +806,17 @@ func (ps *PromSurfacer) writeProtobuf(w io.Writer) {
 				m.TimestampMs = &dp.timestamp
 			}
 
+			// We skip the data points that don't match the metric's type. That
+			// happens only if the same metric name has been used for a
+			// distribution and a number.
 			if dp.dist != nil {
-				m.Histogram = protobufHistogram(dp.dist)
-				mf.Metric = append(mf.Metric, m)
+				if typ == dto.MetricType_HISTOGRAM {
+					m.Histogram = protobufHistogram(dp.dist)
+					mf.Metric = append(mf.Metric, m)
+				}
+				continue
+			}
+			if typ == dto.MetricType_HISTOGRAM {
 				continue
 			}
 
@@ -800,13 +835,9 @@ func (ps *PromSurfacer) writeProtobuf(w io.Writer) {
 			case dto.MetricType_GAUGE:
 				gauges[i].Value = &values[i]
 				m.Gauge = &gauges[i]
-			case dto.MetricType_UNTYPED:
+			default:
 				untyped[i].Value = &values[i]
 				m.Untyped = &untyped[i]
-			default:
-				// A number in a histogram metric: the same metric name has
-				// been used for a distribution and a number.
-				continue
 			}
 			mf.Metric = append(mf.Metric, m)
 		}
