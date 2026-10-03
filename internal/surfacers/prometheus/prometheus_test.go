@@ -765,7 +765,8 @@ func TestWriteDataGolden(t *testing.T) {
 
 			want, err := os.ReadFile("testdata/golden_timestamp_" + mode + ".txt")
 			assert.NoError(t, err)
-			assert.Equal(t, string(want), b.String())
+			// Git may check out the golden files with CRLF line endings on Windows.
+			assert.Equal(t, strings.ReplaceAll(string(want), "\r\n", "\n"), b.String())
 		})
 	}
 }
