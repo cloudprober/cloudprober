@@ -444,6 +444,9 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 		case *metrics.Map[float64]:
 			recordMap(ps, v, em, pMetricName, labels)
 		case *metrics.Distribution:
+			// We keep the distribution data until scrape time, so the
+			// distribution must not change after it has been written to the
+			// surfacers. Probes write a clone of their distributions.
 			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: strings.Join(labels, ",")}, em, histogram)
 		case metrics.String:
 			newLabels := append(labels, "val="+val.String())
@@ -513,7 +516,7 @@ func appendHistogram(buf []byte, name string, dp *dataPoint, withTimestamp bool)
 // writeData writes metrics data on w io.Writer. We build the output in a
 // buffer, instead of using fmt.Fprintf, to avoid allocations for each line.
 func (ps *PromSurfacer) writeData(w io.Writer) {
-	var buf []byte
+	buf := make([]byte, 0, 64*1024)
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
 		buf = append(buf, "# TYPE "...)

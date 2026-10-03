@@ -708,13 +708,7 @@ func goldenTestEMs(ts time.Time) []*metrics.EventMetrics {
 		}
 		return d
 	}
-	probeEM := func(ts time.Time, dst string, total int64, respCodes map[string]int64, samples ...float64) *metrics.EventMetrics {
-		respCode := metrics.NewMap("code")
-		for _, code := range []string{"200", "503"} {
-			if respCodes[code] != 0 {
-				respCode.IncKeyBy(code, respCodes[code])
-			}
-		}
+	probeEM := func(ts time.Time, dst string, total int64, respCode *metrics.Map[int64], samples ...float64) *metrics.EventMetrics {
 		return metrics.NewEventMetrics(ts).
 			AddMetric("total", metrics.NewInt(total)).
 			AddMetric("latency", latency(samples...)).
@@ -734,13 +728,13 @@ func goldenTestEMs(ts time.Time) []*metrics.EventMetrics {
 	sysEM.Kind = metrics.GAUGE
 
 	return []*metrics.EventMetrics{
-		probeEM(ts, "a.com", 2, map[string]int64{"200": 2}, 0.5, 5),
-		probeEM(ts, "b.com", 3, map[string]int64{"200": 2, "503": 1}, 2, 3, 100),
+		probeEM(ts, "a.com", 2, metrics.NewMap("code").IncKeyBy("200", 2), 0.5, 5),
+		probeEM(ts, "b.com", 3, metrics.NewMap("code").IncKeyBy("200", 2).IncKeyBy("503", 1), 2, 3, 100),
 		sysEM,
 		// No labels.
 		metrics.NewEventMetrics(ts).AddMetric("total", metrics.NewInt(9)).AddMetric("latency", latency(1)),
 		// Update for a.com, with a new resp-code key.
-		probeEM(ts.Add(10*time.Second), "a.com", 4, map[string]int64{"200": 3, "503": 1}, 0.5, 5, 5, -1),
+		probeEM(ts.Add(10*time.Second), "a.com", 4, metrics.NewMap("code").IncKeyBy("200", 3).IncKeyBy("503", 1), 0.5, 5, 5, -1),
 	}
 }
 
