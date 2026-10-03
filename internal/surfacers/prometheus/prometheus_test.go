@@ -15,12 +15,15 @@
 package prometheus
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"strings"
@@ -31,7 +34,9 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/options"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -782,5 +787,236 @@ func BenchmarkWriteData(b *testing.B) {
 	for b.Loop() {
 		buf.Reset()
 		ps.writeData(&buf)
+	}
+}
+
+func TestAcceptsProtobuf(t *testing.T) {
+	const pb = "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited"
+	tests := map[string]struct {
+		accept string
+		want   bool
+	}{
+		"empty":     {"", false},
+		"text_only": {"text/plain;version=0.0.4;q=0.5,*/*;q=0.1", false},
+		// Prometheus 3 when scrape_native_histograms is true.
+		"prometheus_protobuf_first": {pb + ";q=0.6,application/openmetrics-text;version=1.0.0;q=0.5,text/plain;version=0.0.4;q=0.4,*/*;q=0.1", true},
+		"protobuf_lower_q":          {"text/plain;version=0.0.4;q=0.6," + pb + ";q=0.5", false},
+		"protobuf_no_q":             {pb, true},
+		"protobuf_same_q_later":     {"text/plain," + pb, false},
+		"protobuf_no_encoding":      {"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily", true},
+		"protobuf_text_encoding":    {"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=text", false},
+		"protobuf_other_proto":      {"application/vnd.google.protobuf;proto=foo.Bar", false},
+		"malformed":                 {";;;," + pb + ";q=x", false},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.want, acceptsProtobuf(tt.accept))
+		})
+	}
+}
+
+func TestNativeSpansAndDeltas(t *testing.T) {
+	span := func(offset int32, length uint32) *dto.BucketSpan {
+		return &dto.BucketSpan{Offset: proto.Int32(offset), Length: proto.Uint32(length)}
+	}
+	tests := map[string]struct {
+		buckets    map[int]int64
+		wantSpans  []*dto.BucketSpan
+		wantDeltas []int64
+	}{
+		"empty": {},
+		"one_span": {
+			buckets:    map[int]int64{-2: 3, -1: 5, 0: 1},
+			wantSpans:  []*dto.BucketSpan{span(-2, 3)},
+			wantDeltas: []int64{3, 2, -4},
+		},
+		"gaps": {
+			buckets:    map[int]int64{1: 2, 2: 2, 5: 1, 9: 4},
+			wantSpans:  []*dto.BucketSpan{span(1, 2), span(2, 1), span(3, 1)},
+			wantDeltas: []int64{2, 0, -1, 3},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			spans, deltas := nativeSpansAndDeltas(tt.buckets)
+			assert.Equal(t, len(tt.wantSpans), len(spans))
+			for i := range tt.wantSpans {
+				assert.True(t, proto.Equal(tt.wantSpans[i], spans[i]), "span %d: got %v, want %v", i, spans[i], tt.wantSpans[i])
+			}
+			assert.Equal(t, tt.wantDeltas, deltas)
+		})
+	}
+}
+
+func nativeTestEM(ts time.Time, probe string, samples ...float64) *metrics.EventMetrics {
+	d, _ := metrics.NewNativeDistribution(0)
+	for _, s := range samples {
+		d.AddSample(s)
+	}
+	return metrics.NewEventMetrics(ts).AddMetric("native_latency", d).AddLabel("probe", probe)
+}
+
+func TestNativeHistogramText(t *testing.T) {
+	ps := testPromSurfacerNoErr(t, nil)
+	ps.record(nativeTestEM(time.Now(), "p2", 0.75, 1.5, 3, 3))
+
+	var b bytes.Buffer
+	ps.writeData(&b)
+	assert.Equal(t, strings.Join([]string{
+		"# TYPE native_latency histogram",
+		`native_latency_sum{probe="p2"} 8.25`,
+		`native_latency_count{probe="p2"} 4`,
+		`native_latency_bucket{probe="p2",le="+Inf"} 4`,
+	}, "\n")+"\n", b.String())
+}
+
+func readProtobuf(t *testing.T, r io.Reader) []*dto.MetricFamily {
+	t.Helper()
+	var mfs []*dto.MetricFamily
+	br := bufio.NewReader(r)
+	for {
+		mf := &dto.MetricFamily{}
+		if err := protodelim.UnmarshalFrom(br, mf); err != nil {
+			if err != io.EOF {
+				t.Fatalf("Error reading protobuf output: %v", err)
+			}
+			return mfs
+		}
+		mfs = append(mfs, mf)
+	}
+}
+
+func TestWriteProtobuf(t *testing.T) {
+	ts := time.UnixMilli(1790000000000)
+	ps := testPromSurfacerNoErr(t, nil)
+	for _, em := range goldenTestEMs(ts) {
+		ps.record(em)
+	}
+	ps.record(nativeTestEM(ts, "p2", 0, 0.75, 1, 3, 3, 40, -2))
+	ps.record(nativeTestEM(ts, "p3", 0, 0.75, 1, 3, 3, 40, -2))
+	// No samples.
+	ps.record(nativeTestEM(ts, "p4"))
+
+	var b bytes.Buffer
+	ps.writeProtobuf(&b)
+	mfs := readProtobuf(t, &b)
+
+	// Same metric families, in the same order, as the text format.
+	var names []string
+	for _, mf := range mfs {
+		names = append(names, mf.GetName()+" "+strings.ToLower(mf.GetType().String()))
+	}
+	assert.Equal(t, []string{
+		"total counter", "latency histogram", "resp_code counter", "avg_latency counter",
+		"goroutines gauge", "version gauge", "load gauge", "fd_dist histogram", "native_latency histogram",
+	}, names)
+
+	lp := func(kv ...string) []*dto.LabelPair {
+		var pairs []*dto.LabelPair
+		for i := 0; i < len(kv); i += 2 {
+			pairs = append(pairs, labelPair(kv[i], kv[i+1]))
+		}
+		return pairs
+	}
+	span := func(offset int32, length uint32) *dto.BucketSpan {
+		return &dto.BucketSpan{Offset: proto.Int32(offset), Length: proto.Uint32(length)}
+	}
+	bucket := func(count uint64, upperBound float64) *dto.Bucket {
+		return &dto.Bucket{CumulativeCount: proto.Uint64(count), UpperBound: proto.Float64(upperBound)}
+	}
+	nativeHist := &dto.Histogram{
+		SampleCount:   proto.Uint64(7),
+		SampleSum:     proto.Float64(45.75),
+		Schema:        proto.Int32(0),
+		ZeroThreshold: proto.Float64(0),
+		ZeroCount:     proto.Uint64(1),
+		// 0.75, 1 -> 0; 3, 3 -> 2; 40 -> 6.
+		PositiveSpan:  []*dto.BucketSpan{span(0, 1), span(1, 1), span(3, 1)},
+		PositiveDelta: []int64{2, 0, -1},
+		NegativeSpan:  []*dto.BucketSpan{span(1, 1)},
+		NegativeDelta: []int64{1},
+	}
+
+	wantMetrics := map[string][]*dto.Metric{
+		"total": {
+			{Label: lp("ptype", "http", "probe", "p1", "dst", "a.com"), Counter: &dto.Counter{Value: proto.Float64(4)}},
+			{Label: lp("ptype", "http", "probe", "p1", "dst", "b.com"), Counter: &dto.Counter{Value: proto.Float64(3)}},
+			{Counter: &dto.Counter{Value: proto.Float64(9)}},
+		},
+		"avg_latency": {
+			{Label: lp("ptype", "http", "probe", "p1", "dst", "a.com"), Counter: &dto.Counter{Value: proto.Float64(0.571)}},
+			{Label: lp("ptype", "http", "probe", "p1", "dst", "b.com"), Counter: &dto.Counter{Value: proto.Float64(0.429)}},
+		},
+		// Gauges have timestamps by default.
+		"version": {
+			{Label: lp("probe", "sysvars", "val", "v0.14.2"), Gauge: &dto.Gauge{Value: proto.Float64(1)}, TimestampMs: proto.Int64(1790000000000)},
+		},
+		"load": {
+			{Label: lp("probe", "sysvars", "period", "1m"), Gauge: &dto.Gauge{Value: proto.Float64(0.25)}, TimestampMs: proto.Int64(1790000000000)},
+			{Label: lp("probe", "sysvars", "period", "5m"), Gauge: &dto.Gauge{Value: proto.Float64(1.5)}, TimestampMs: proto.Int64(1790000000000)},
+		},
+		"fd_dist": {
+			{Label: lp("probe", "sysvars"), TimestampMs: nil, Histogram: &dto.Histogram{
+				SampleCount: proto.Uint64(2),
+				SampleSum:   proto.Float64(22),
+				Bucket:      []*dto.Bucket{bucket(0, 1), bucket(1, 4), bucket(1, 16)},
+			}},
+		},
+		"native_latency": {
+			{Label: lp("probe", "p2"), Histogram: nativeHist},
+			{Label: lp("probe", "p3"), Histogram: nativeHist},
+			{Label: lp("probe", "p4"), Histogram: &dto.Histogram{
+				SampleCount:   proto.Uint64(0),
+				SampleSum:     proto.Float64(0),
+				Schema:        proto.Int32(0),
+				ZeroThreshold: proto.Float64(0),
+				ZeroCount:     proto.Uint64(0),
+				PositiveSpan:  []*dto.BucketSpan{span(0, 0)},
+			}},
+		},
+	}
+
+	for _, mf := range mfs {
+		want, ok := wantMetrics[mf.GetName()]
+		if !ok {
+			continue
+		}
+		t.Run(mf.GetName(), func(t *testing.T) {
+			if !assert.Equal(t, len(want), len(mf.Metric)) {
+				return
+			}
+			for i := range want {
+				assert.True(t, proto.Equal(want[i], mf.Metric[i]), "metric %d:\n got: %v\nwant: %v", i, mf.Metric[i], want[i])
+			}
+		})
+	}
+}
+
+func TestProtobufScrape(t *testing.T) {
+	ps := testPromSurfacerNoErr(t, nil)
+	ps.record(nativeTestEM(time.Now(), "p2", 1.5))
+
+	for _, tt := range []struct {
+		accept          string
+		wantContentType string
+	}{
+		{"text/plain;version=0.0.4", ""},
+		{"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.6,text/plain;version=0.0.4;q=0.5", protobufContentType},
+	} {
+		t.Run(tt.accept, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, ps.c.GetMetricsUrl(), nil)
+			req.Header.Set("Accept", tt.accept)
+			rec := httptest.NewRecorder()
+			state.DefaultHTTPServeMux().ServeHTTP(rec, req)
+
+			if tt.wantContentType == "" {
+				assert.Contains(t, rec.Body.String(), `native_latency_bucket{probe="p2",le="+Inf"} 1`)
+				return
+			}
+			assert.Equal(t, tt.wantContentType, rec.Header().Get("Content-Type"))
+			mfs := readProtobuf(t, rec.Body)
+			assert.Len(t, mfs, 1)
+			assert.Equal(t, int32(1), mfs[0].Metric[0].Histogram.GetPositiveSpan()[0].GetOffset())
+		})
 	}
 }

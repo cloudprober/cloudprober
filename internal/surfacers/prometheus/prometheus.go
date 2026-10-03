@@ -37,8 +37,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
+	"math"
+	"mime"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -48,6 +52,9 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/options"
+	dto "github.com/prometheus/client_model/go"
+	"google.golang.org/protobuf/encoding/protodelim"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -65,6 +72,10 @@ const (
 )
 
 const histogram = "histogram"
+
+// Content type of the protobuf format. Prometheus needs it to scrape native
+// histograms.
+const protobufContentType = "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited"
 
 // queriesQueueSize defines how many queries can we queue before we start
 // blocking on previous queries to finish.
@@ -93,8 +104,9 @@ type promMetric struct {
 }
 
 type dataPoint struct {
-	value     string
-	timestamp int64
+	value      string
+	timestamp  int64
+	labelPairs []*dto.LabelPair // For the protobuf format.
 
 	// Set only for distributions (histograms). We keep the distribution as is,
 	// and expand it into _sum, _count and _bucket series while writing. We need
@@ -107,6 +119,7 @@ type dataPoint struct {
 // to signal the completion of the writing of the response.
 type httpWriter struct {
 	w        http.ResponseWriter
+	protobuf bool // Write metrics in the protobuf format.
 	doneChan chan struct{}
 }
 
@@ -231,7 +244,12 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			case em := <-ps.emChan:
 				ps.record(em)
 			case hw := <-ps.queryChan:
-				ps.writeData(hw.w)
+				if hw.protobuf {
+					hw.w.Header().Set("Content-Type", protobufContentType)
+					ps.writeProtobuf(hw.w)
+				} else {
+					ps.writeData(hw.w)
+				}
 				close(hw.doneChan)
 			case <-staleMetricDeleteTimer.C:
 				ps.deleteExpiredMetrics()
@@ -243,7 +261,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		// doneChan is used to track the completion of the response writing. This is
 		// required as response is written in a different goroutine.
 		doneChan := make(chan struct{}, 1)
-		ps.queryChan <- &httpWriter{w, doneChan}
+		ps.queryChan <- &httpWriter{w: w, protobuf: acceptsProtobuf(r.Header.Get("Accept")), doneChan: doneChan}
 		<-doneChan
 	})
 	if err != nil {
@@ -390,14 +408,21 @@ func dataKey(metricName string, labels []string) string {
 	return metricName + "{" + strings.Join(labels, ",") + "}"
 }
 
-func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []string) {
+func labelPair(name, value string) *dto.LabelPair {
+	return &dto.LabelPair{Name: proto.String(name), Value: proto.String(value)}
+}
+
+func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []string, labelPairs []*dto.LabelPair) {
 	labelName := ps.checkLabelName(m.MapName)
 	if labelName == "" {
 		return
 	}
 	for _, k := range m.Keys() {
 		key := dataKey(pMetricName, append(labels, labelName+"=\""+k+"\""))
-		ps.recordMetric(pMetricName, key, dataPoint{value: metrics.MapValueToString(m.GetKey(k))}, em, "")
+		ps.recordMetric(pMetricName, key, dataPoint{
+			value:      metrics.MapValueToString(m.GetKey(k)),
+			labelPairs: append(slices.Clip(labelPairs), labelPair(labelName, k)),
+		}, em, "")
 	}
 }
 
@@ -421,9 +446,11 @@ func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metri
 //	version{val=cloudprober-20170608-RC00} 1
 func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 	var labels []string
+	var labelPairs []*dto.LabelPair
 	for _, k := range em.LabelsKeys() {
 		if labelName := ps.checkLabelName(k); labelName != "" {
 			labels = append(labels, labelName+"=\""+em.Label(k)+"\"")
+			labelPairs = append(labelPairs, labelPair(labelName, em.Label(k)))
 		}
 	}
 
@@ -440,21 +467,24 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 		switch v := val.(type) {
 		case *metrics.Map[int64]:
-			recordMap(ps, v, em, pMetricName, labels)
+			recordMap(ps, v, em, pMetricName, labels, labelPairs)
 		case *metrics.Map[float64]:
-			recordMap(ps, v, em, pMetricName, labels)
+			recordMap(ps, v, em, pMetricName, labels, labelPairs)
 		case *metrics.Distribution:
 			// We keep the distribution data until scrape time, so the
 			// distribution must not change after it has been written to the
 			// surfacers. Probes write a clone of their distributions.
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: strings.Join(labels, ",")}, em, histogram)
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: strings.Join(labels, ","), labelPairs: labelPairs}, em, histogram)
 		case metrics.String:
 			newLabels := append(labels, "val="+val.String())
-			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), dataPoint{value: "1"}, em, "")
+			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), dataPoint{
+				value:      "1",
+				labelPairs: append(slices.Clip(labelPairs), labelPair("val", strings.Trim(val.String(), "\""))),
+			}, em, "")
 
 		// All other value types, mostly numerical types.
 		default:
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{value: val.String()}, em, "")
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{value: val.String(), labelPairs: labelPairs}, em, "")
 		}
 	}
 }
@@ -493,22 +523,34 @@ func appendHistogram(buf []byte, name string, dp *dataPoint, withTimestamp bool)
 	buf = strconv.AppendInt(buf, d.Count, 10)
 	buf = appendLineEnd(buf, withTimestamp, dp.timestamp)
 
-	var count int64
-	for i := range d.LowerBounds {
-		count += d.BucketCounts[i]
+	appendBucket := func(le float64, count int64) {
 		appendKeyStart("_bucket")
 		if dp.labels != "" {
 			buf = append(buf, ',')
 		}
 		buf = append(buf, "le=\""...)
-		if i < len(d.LowerBounds)-1 {
-			buf = strconv.AppendFloat(buf, d.LowerBounds[i+1], 'f', -1, 64)
-		} else {
-			buf = append(buf, "+Inf"...)
-		}
+		buf = strconv.AppendFloat(buf, le, 'f', -1, 64)
 		buf = append(buf, "\"} "...)
 		buf = strconv.AppendInt(buf, count, 10)
 		buf = appendLineEnd(buf, withTimestamp, dp.timestamp)
+	}
+
+	// Native histograms can have hundreds of buckets, and they are exported
+	// fully only in the protobuf format. In the text format, we write only the
+	// +Inf bucket for them.
+	if d.Native != nil {
+		appendBucket(math.Inf(1), d.Count)
+		return buf
+	}
+
+	var count int64
+	for i := range d.LowerBounds {
+		count += d.BucketCounts[i]
+		le := math.Inf(1)
+		if i < len(d.LowerBounds)-1 {
+			le = d.LowerBounds[i+1]
+		}
+		appendBucket(le, count)
 	}
 	return buf
 }
@@ -545,6 +587,150 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 		}
 	}
 	w.Write(buf)
+}
+
+// acceptsProtobuf returns true if the Accept header prefers the protobuf format
+// over the text format. Prometheus asks for the protobuf format when it's
+// configured to scrape native histograms.
+func acceptsProtobuf(accept string) bool {
+	var bestQ float64
+	var protobuf bool
+	for _, part := range strings.Split(accept, ",") {
+		mediaType, params, err := mime.ParseMediaType(part)
+		if err != nil {
+			continue
+		}
+		q := 1.0
+		if params["q"] != "" {
+			if q, err = strconv.ParseFloat(params["q"], 64); err != nil {
+				continue
+			}
+		}
+		// Media types with the same q value are preferred in the given order.
+		if q <= bestQ {
+			continue
+		}
+		bestQ = q
+		protobuf = mediaType == "application/vnd.google.protobuf" &&
+			params["proto"] == "io.prometheus.client.MetricFamily" &&
+			(params["encoding"] == "" || params["encoding"] == "delimited")
+	}
+	return protobuf
+}
+
+// nativeSpansAndDeltas converts native histogram buckets to the protobuf
+// format: spans of consecutive buckets, and the count of each bucket as the
+// delta from the previous one.
+func nativeSpansAndDeltas(buckets map[int]int64) ([]*dto.BucketSpan, []int64) {
+	var spans []*dto.BucketSpan
+	var deltas []int64
+	var prevKey int
+	var prevCount int64
+	for i, k := range slices.Sorted(maps.Keys(buckets)) {
+		if i == 0 || k != prevKey+1 {
+			// First span's offset is the bucket index, others' is the gap from
+			// the previous span.
+			offset := k
+			if i != 0 {
+				offset = k - prevKey - 1
+			}
+			spans = append(spans, &dto.BucketSpan{Offset: proto.Int32(int32(offset)), Length: proto.Uint32(0)})
+		}
+		*spans[len(spans)-1].Length++
+		deltas = append(deltas, buckets[k]-prevCount)
+		prevKey, prevCount = k, buckets[k]
+	}
+	return spans, deltas
+}
+
+func protobufHistogram(d *metrics.DistributionData) *dto.Histogram {
+	h := &dto.Histogram{
+		SampleCount: proto.Uint64(uint64(d.Count)),
+		SampleSum:   proto.Float64(d.Sum),
+	}
+
+	if d.Native == nil {
+		var count int64
+		// The last (+Inf) bucket is implied.
+		for i := range len(d.LowerBounds) - 1 {
+			count += d.BucketCounts[i]
+			h.Bucket = append(h.Bucket, &dto.Bucket{
+				CumulativeCount: proto.Uint64(uint64(count)),
+				UpperBound:      proto.Float64(d.LowerBounds[i+1]),
+			})
+		}
+		return h
+	}
+
+	h.Schema = proto.Int32(d.Native.Schema)
+	h.ZeroThreshold = proto.Float64(0)
+	h.ZeroCount = proto.Uint64(uint64(d.Native.ZeroCount))
+	h.PositiveSpan, h.PositiveDelta = nativeSpansAndDeltas(d.Native.Positive)
+	h.NegativeSpan, h.NegativeDelta = nativeSpansAndDeltas(d.Native.Negative)
+	// Prometheus takes a histogram with no spans, zero count and zero
+	// threshold for a classic histogram. Add an empty span to mark it native,
+	// the same as client_golang.
+	if len(h.PositiveSpan) == 0 && len(h.NegativeSpan) == 0 && d.Native.ZeroCount == 0 {
+		h.PositiveSpan = []*dto.BucketSpan{{Offset: proto.Int32(0), Length: proto.Uint32(0)}}
+	}
+	return h
+}
+
+var protobufMetricType = map[string]dto.MetricType{
+	"counter": dto.MetricType_COUNTER,
+	"gauge":   dto.MetricType_GAUGE,
+	histogram: dto.MetricType_HISTOGRAM,
+}
+
+// writeProtobuf writes metrics data on w io.Writer in the protobuf format: a
+// length-delimited MetricFamily message for each metric.
+func (ps *PromSurfacer) writeProtobuf(w io.Writer) {
+	for _, name := range ps.metricNames {
+		pm := ps.metrics[name]
+		typ, ok := protobufMetricType[pm.typ]
+		if !ok {
+			typ = dto.MetricType_UNTYPED
+		}
+		mf := &dto.MetricFamily{Name: proto.String(name), Type: typ.Enum()}
+
+		withTimestamp := ps.isTimestamped(pm.typ)
+		for _, k := range pm.dataKeys {
+			dp := pm.data[k]
+			m := &dto.Metric{Label: dp.labelPairs}
+			if withTimestamp {
+				m.TimestampMs = proto.Int64(dp.timestamp)
+			}
+
+			if dp.dist != nil {
+				m.Histogram = protobufHistogram(dp.dist)
+			} else {
+				// Parse the value we write in the text format, so that both
+				// formats report the same value.
+				v, err := strconv.ParseFloat(dp.value, 64)
+				if err != nil {
+					ps.l.Warningf("prometheus surfacer: skipping %s, invalid value: %s", k, dp.value)
+					continue
+				}
+				switch typ {
+				case dto.MetricType_COUNTER:
+					m.Counter = &dto.Counter{Value: proto.Float64(v)}
+				case dto.MetricType_GAUGE:
+					m.Gauge = &dto.Gauge{Value: proto.Float64(v)}
+				default:
+					m.Untyped = &dto.Untyped{Value: proto.Float64(v)}
+				}
+			}
+			mf.Metric = append(mf.Metric, m)
+		}
+
+		if len(mf.Metric) == 0 {
+			continue
+		}
+		if _, err := protodelim.MarshalTo(w, mf); err != nil {
+			ps.l.Warningf("prometheus surfacer: error writing metrics: %v", err)
+			return
+		}
+	}
 }
 
 // deleteExpiredMetrics clears the metric expired in PromSurfacer.
