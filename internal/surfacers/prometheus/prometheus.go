@@ -641,40 +641,76 @@ func nativeSpansAndDeltas(buckets map[int]int64) ([]*dto.BucketSpan, []int64) {
 	return spans, deltas
 }
 
-// protobufLabels returns data point's labels for the protobuf format. We build
-// them from the `name="value"` strings while writing, so that we don't pay
-// for them if nobody scrapes the protobuf format.
-func protobufLabels(dp *dataPoint) []*dto.LabelPair {
-	var pairs []*dto.LabelPair
-	add := func(label string) {
-		name, value, _ := strings.Cut(label, "=")
-		// Remove the quotes around the value.
-		pairs = append(pairs, &dto.LabelPair{Name: proto.String(name), Value: proto.String(value[1 : len(value)-1])})
+// protobufLabels builds label pairs for the protobuf format, from data
+// points' `name="value"` label strings. We build them while writing, so that
+// we don't pay for them if nobody scrapes the protobuf format. It allocates
+// memory for all the label pairs of a metric in one go, instead of allocating
+// for each label separately.
+type protobufLabels struct {
+	pairs []dto.LabelPair
+	ptrs  []*dto.LabelPair
+	strs  []string // Name and value of each label pair.
+	used  int
+}
+
+func newProtobufLabels(pm *promMetric) *protobufLabels {
+	var n int
+	for _, dp := range pm.data {
+		n += len(dp.labels)
+		if dp.extraLabel != "" {
+			n++
+		}
 	}
+	return &protobufLabels{
+		pairs: make([]dto.LabelPair, n),
+		ptrs:  make([]*dto.LabelPair, n),
+		strs:  make([]string, 2*n),
+	}
+}
+
+func (pl *protobufLabels) add(label string) {
+	i := pl.used
+	pl.used++
+
+	name, value, _ := strings.Cut(label, "=")
+	// Remove the quotes around the value.
+	pl.strs[2*i], pl.strs[2*i+1] = name, value[1:len(value)-1]
+	pl.pairs[i].Name, pl.pairs[i].Value = &pl.strs[2*i], &pl.strs[2*i+1]
+	pl.ptrs[i] = &pl.pairs[i]
+}
+
+// labelPairs returns label pairs for the given data point.
+func (pl *protobufLabels) labelPairs(dp *dataPoint) []*dto.LabelPair {
+	start := pl.used
 	for _, l := range dp.labels {
-		add(l)
+		pl.add(l)
 	}
 	if dp.extraLabel != "" {
-		add(dp.extraLabel)
+		pl.add(dp.extraLabel)
 	}
-	return pairs
+	return pl.ptrs[start:pl.used:pl.used]
 }
 
 func protobufHistogram(d *metrics.DistributionData) *dto.Histogram {
 	h := &dto.Histogram{
 		SampleCount: proto.Uint64(uint64(d.Count)),
-		SampleSum:   proto.Float64(d.Sum),
+		SampleSum:   &d.Sum,
 	}
 
 	if d.Native == nil {
-		var count int64
 		// The last (+Inf) bucket is implied.
-		for i := range len(d.LowerBounds) - 1 {
+		n := len(d.LowerBounds) - 1
+		// Allocate for all the buckets in one go.
+		buckets := make([]dto.Bucket, n)
+		counts := make([]uint64, n)
+		h.Bucket = make([]*dto.Bucket, n)
+		var count int64
+		for i := range n {
 			count += d.BucketCounts[i]
-			h.Bucket = append(h.Bucket, &dto.Bucket{
-				CumulativeCount: proto.Uint64(uint64(count)),
-				UpperBound:      proto.Float64(d.LowerBounds[i+1]),
-			})
+			counts[i] = uint64(count)
+			buckets[i].CumulativeCount = &counts[i]
+			buckets[i].UpperBound = &d.LowerBounds[i+1]
+			h.Bucket[i] = &buckets[i]
 		}
 		return h
 	}
@@ -701,41 +737,76 @@ var protobufMetricType = map[string]dto.MetricType{
 
 // writeProtobuf writes metrics data on w io.Writer in the protobuf format: a
 // length-delimited MetricFamily message for each metric.
+//
+// To keep the number of allocations small, we allocate messages and values for
+// all the data points of a metric in one go, instead of one by one. For
+// comparison, client_golang allocates them for each series, on each scrape.
 func (ps *PromSurfacer) writeProtobuf(w io.Writer) {
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
+		n := len(pm.dataKeys)
+		if n == 0 {
+			continue
+		}
+
 		typ, ok := protobufMetricType[pm.typ]
 		if !ok {
 			typ = dto.MetricType_UNTYPED
 		}
-		mf := &dto.MetricFamily{Name: proto.String(name), Type: typ.Enum()}
+		mf := &dto.MetricFamily{Name: &name, Type: &typ, Metric: make([]*dto.Metric, 0, n)}
+
+		labels := newProtobufLabels(pm)
+		metricMsgs := make([]dto.Metric, n)
+		values := make([]float64, n)
+		var counters []dto.Counter
+		var gauges []dto.Gauge
+		var untyped []dto.Untyped
+		switch typ {
+		case dto.MetricType_COUNTER:
+			counters = make([]dto.Counter, n)
+		case dto.MetricType_GAUGE:
+			gauges = make([]dto.Gauge, n)
+		case dto.MetricType_UNTYPED:
+			untyped = make([]dto.Untyped, n)
+		}
 
 		withTimestamp := ps.isTimestamped(pm.typ)
-		for _, k := range pm.dataKeys {
+		for i, k := range pm.dataKeys {
 			dp := pm.data[k]
-			m := &dto.Metric{Label: protobufLabels(dp)}
+			m := &metricMsgs[i]
+			m.Label = labels.labelPairs(dp)
 			if withTimestamp {
-				m.TimestampMs = proto.Int64(dp.timestamp)
+				m.TimestampMs = &dp.timestamp
 			}
 
 			if dp.dist != nil {
 				m.Histogram = protobufHistogram(dp.dist)
-			} else {
-				// Parse the value we write in the text format, so that both
-				// formats report the same value.
-				v, err := strconv.ParseFloat(dp.value, 64)
-				if err != nil {
-					ps.l.Warningf("prometheus surfacer: skipping %s, invalid value: %s", k, dp.value)
-					continue
-				}
-				switch typ {
-				case dto.MetricType_COUNTER:
-					m.Counter = &dto.Counter{Value: proto.Float64(v)}
-				case dto.MetricType_GAUGE:
-					m.Gauge = &dto.Gauge{Value: proto.Float64(v)}
-				default:
-					m.Untyped = &dto.Untyped{Value: proto.Float64(v)}
-				}
+				mf.Metric = append(mf.Metric, m)
+				continue
+			}
+
+			// Parse the value we write in the text format, so that both formats
+			// report the same value.
+			v, err := strconv.ParseFloat(dp.value, 64)
+			if err != nil {
+				ps.l.Warningf("prometheus surfacer: skipping %s, invalid value: %s", k, dp.value)
+				continue
+			}
+			values[i] = v
+			switch typ {
+			case dto.MetricType_COUNTER:
+				counters[i].Value = &values[i]
+				m.Counter = &counters[i]
+			case dto.MetricType_GAUGE:
+				gauges[i].Value = &values[i]
+				m.Gauge = &gauges[i]
+			case dto.MetricType_UNTYPED:
+				untyped[i].Value = &values[i]
+				m.Untyped = &untyped[i]
+			default:
+				// A number in a histogram metric: the same metric name has
+				// been used for a distribution and a number.
+				continue
 			}
 			mf.Metric = append(mf.Metric, m)
 		}
