@@ -104,15 +104,20 @@ type promMetric struct {
 }
 
 type dataPoint struct {
-	value      string
-	timestamp  int64
-	labelPairs []*dto.LabelPair // For the protobuf format.
+	value     string
+	timestamp int64
+
+	// Labels as `name="value"` strings. labels are the EventMetrics labels;
+	// all the data points from an EventMetrics share them. extraLabel is the
+	// label that's specific to this data point, if any: map key for maps, and
+	// value for strings. Text format gets the labels from the data key; these
+	// are for the protobuf format.
+	labels     []string
+	extraLabel string
 
 	// Set only for distributions (histograms). We keep the distribution as is,
-	// and expand it into _sum, _count and _bucket series while writing. We need
-	// labels (comma-separated) to build the keys for those series.
-	dist   *metrics.DistributionData
-	labels string
+	// and expand it into _sum, _count and _bucket series while writing.
+	dist *metrics.DistributionData
 }
 
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
@@ -346,7 +351,10 @@ func (ps *PromSurfacer) recordMetric(metricName, key string, dp dataPoint, em *m
 		*pm.data[key] = dp
 		return
 	}
-	pm.data[key] = &dp
+	// Store a copy, so that dp itself doesn't get allocated on the heap for
+	// each update.
+	newDP := dp
+	pm.data[key] = &newDP
 	pm.dataKeys = append(pm.dataKeys, key)
 }
 
@@ -408,21 +416,15 @@ func dataKey(metricName string, labels []string) string {
 	return metricName + "{" + strings.Join(labels, ",") + "}"
 }
 
-func labelPair(name, value string) *dto.LabelPair {
-	return &dto.LabelPair{Name: proto.String(name), Value: proto.String(value)}
-}
-
-func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []string, labelPairs []*dto.LabelPair) {
+func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []string) {
 	labelName := ps.checkLabelName(m.MapName)
 	if labelName == "" {
 		return
 	}
 	for _, k := range m.Keys() {
-		key := dataKey(pMetricName, append(labels, labelName+"=\""+k+"\""))
-		ps.recordMetric(pMetricName, key, dataPoint{
-			value:      metrics.MapValueToString(m.GetKey(k)),
-			labelPairs: append(slices.Clip(labelPairs), labelPair(labelName, k)),
-		}, em, "")
+		mapLabel := labelName + "=\"" + k + "\""
+		key := dataKey(pMetricName, append(labels, mapLabel))
+		ps.recordMetric(pMetricName, key, dataPoint{value: metrics.MapValueToString(m.GetKey(k)), labels: labels, extraLabel: mapLabel}, em, "")
 	}
 }
 
@@ -446,11 +448,9 @@ func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metri
 //	version{val=cloudprober-20170608-RC00} 1
 func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 	var labels []string
-	var labelPairs []*dto.LabelPair
 	for _, k := range em.LabelsKeys() {
 		if labelName := ps.checkLabelName(k); labelName != "" {
 			labels = append(labels, labelName+"=\""+em.Label(k)+"\"")
-			labelPairs = append(labelPairs, labelPair(labelName, em.Label(k)))
 		}
 	}
 
@@ -467,24 +467,21 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 		switch v := val.(type) {
 		case *metrics.Map[int64]:
-			recordMap(ps, v, em, pMetricName, labels, labelPairs)
+			recordMap(ps, v, em, pMetricName, labels)
 		case *metrics.Map[float64]:
-			recordMap(ps, v, em, pMetricName, labels, labelPairs)
+			recordMap(ps, v, em, pMetricName, labels)
 		case *metrics.Distribution:
 			// We keep the distribution data until scrape time, so the
 			// distribution must not change after it has been written to the
 			// surfacers. Probes write a clone of their distributions.
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: strings.Join(labels, ","), labelPairs: labelPairs}, em, histogram)
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: labels}, em, histogram)
 		case metrics.String:
-			newLabels := append(labels, "val="+val.String())
-			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), dataPoint{
-				value:      "1",
-				labelPairs: append(slices.Clip(labelPairs), labelPair("val", strings.Trim(val.String(), "\""))),
-			}, em, "")
+			valLabel := "val=" + val.String()
+			ps.recordMetric(pMetricName, dataKey(pMetricName, append(labels, valLabel)), dataPoint{value: "1", labels: labels, extraLabel: valLabel}, em, "")
 
 		// All other value types, mostly numerical types.
 		default:
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{value: val.String(), labelPairs: labelPairs}, em, "")
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{value: val.String(), labels: labels}, em, "")
 		}
 	}
 }
@@ -501,7 +498,7 @@ func appendLineEnd(buf []byte, withTimestamp bool, ts int64) []byte {
 // appendHistogram appends a distribution as _sum, _count and _bucket lines to
 // buf. Bucket lines have cumulative counts and an extra label, "le", for the
 // bucket's upper bound.
-func appendHistogram(buf []byte, name string, dp *dataPoint, withTimestamp bool) []byte {
+func appendHistogram(buf []byte, name, labels string, dp *dataPoint, withTimestamp bool) []byte {
 	d := dp.dist
 
 	// Appends "<name><suffix>{<labels>", leaving the label set open so that
@@ -510,7 +507,7 @@ func appendHistogram(buf []byte, name string, dp *dataPoint, withTimestamp bool)
 		buf = append(buf, name...)
 		buf = append(buf, suffix...)
 		buf = append(buf, '{')
-		buf = append(buf, dp.labels...)
+		buf = append(buf, labels...)
 	}
 
 	appendKeyStart("_sum")
@@ -525,7 +522,7 @@ func appendHistogram(buf []byte, name string, dp *dataPoint, withTimestamp bool)
 
 	appendBucket := func(le float64, count int64) {
 		appendKeyStart("_bucket")
-		if dp.labels != "" {
+		if labels != "" {
 			buf = append(buf, ',')
 		}
 		buf = append(buf, "le=\""...)
@@ -571,7 +568,8 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 		for _, k := range pm.dataKeys {
 			dp := pm.data[k]
 			if dp.dist != nil {
-				buf = appendHistogram(buf, name, dp, withTimestamp)
+				// Data key is "<name>{<labels>}".
+				buf = appendHistogram(buf, name, k[len(name)+1:len(k)-1], dp, withTimestamp)
 			} else {
 				buf = append(buf, k...)
 				buf = append(buf, ' ')
@@ -643,6 +641,25 @@ func nativeSpansAndDeltas(buckets map[int]int64) ([]*dto.BucketSpan, []int64) {
 	return spans, deltas
 }
 
+// protobufLabels returns data point's labels for the protobuf format. We build
+// them from the `name="value"` strings while writing, so that we don't pay
+// for them if nobody scrapes the protobuf format.
+func protobufLabels(dp *dataPoint) []*dto.LabelPair {
+	var pairs []*dto.LabelPair
+	add := func(label string) {
+		name, value, _ := strings.Cut(label, "=")
+		// Remove the quotes around the value.
+		pairs = append(pairs, &dto.LabelPair{Name: proto.String(name), Value: proto.String(value[1 : len(value)-1])})
+	}
+	for _, l := range dp.labels {
+		add(l)
+	}
+	if dp.extraLabel != "" {
+		add(dp.extraLabel)
+	}
+	return pairs
+}
+
 func protobufHistogram(d *metrics.DistributionData) *dto.Histogram {
 	h := &dto.Histogram{
 		SampleCount: proto.Uint64(uint64(d.Count)),
@@ -696,7 +713,7 @@ func (ps *PromSurfacer) writeProtobuf(w io.Writer) {
 		withTimestamp := ps.isTimestamped(pm.typ)
 		for _, k := range pm.dataKeys {
 			dp := pm.data[k]
-			m := &dto.Metric{Label: dp.labelPairs}
+			m := &dto.Metric{Label: protobufLabels(dp)}
 			if withTimestamp {
 				m.TimestampMs = proto.Int64(dp.timestamp)
 			}

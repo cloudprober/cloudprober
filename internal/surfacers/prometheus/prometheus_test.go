@@ -914,7 +914,7 @@ func TestWriteProtobuf(t *testing.T) {
 	lp := func(kv ...string) []*dto.LabelPair {
 		var pairs []*dto.LabelPair
 		for i := 0; i < len(kv); i += 2 {
-			pairs = append(pairs, labelPair(kv[i], kv[i+1]))
+			pairs = append(pairs, &dto.LabelPair{Name: proto.String(kv[i]), Value: proto.String(kv[i+1])})
 		}
 		return pairs
 	}
