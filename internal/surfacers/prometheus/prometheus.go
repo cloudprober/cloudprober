@@ -103,17 +103,20 @@ type promMetric struct {
 	dataKeys []string // To keep data keys ordered
 }
 
+type label struct {
+	name, value string
+}
+
 type dataPoint struct {
 	value     string
 	timestamp int64
 
-	// Labels as `name="value"` strings. labels are the EventMetrics labels;
-	// all the data points from an EventMetrics share them. extraLabel is the
-	// label that's specific to this data point, if any: map key for maps, and
-	// value for strings. Text format gets the labels from the data key; these
-	// are for the protobuf format.
-	labels     []string
-	extraLabel string
+	// labels are the EventMetrics labels; all the data points from an
+	// EventMetrics share them. extraLabel is the label that's specific to this
+	// data point, if any: map key for maps, and value for strings. Text format
+	// gets the labels from the data key; these are for the protobuf format.
+	labels     []label
+	extraLabel label
 
 	// Set only for distributions (histograms). We keep the distribution as is,
 	// and expand it into _sum, _count and _bucket series while writing.
@@ -412,19 +415,47 @@ func (ps *PromSurfacer) promMetricName(k string) string {
 	return metricName
 }
 
-func dataKey(metricName string, labels []string) string {
-	return metricName + "{" + strings.Join(labels, ",") + "}"
+// textLabels returns labels in the text format: name1="value1",name2="value2"
+func textLabels(labels []label) string {
+	var n int
+	for _, l := range labels {
+		n += len(l.name) + len(l.value) + 4
+	}
+	var b strings.Builder
+	b.Grow(n)
+	for i, l := range labels {
+		if i != 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(l.name)
+		b.WriteString("=\"")
+		b.WriteString(l.value)
+		b.WriteByte('"')
+	}
+	return b.String()
 }
 
-func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []string) {
+// dataKey returns the data key, <metricName>{<labels>}, for the given metric
+// name, labels in the text format, and the optional extra label.
+func dataKey(metricName, labels string, extraLabel label) string {
+	if extraLabel.name == "" {
+		return metricName + "{" + labels + "}"
+	}
+	sep := ""
+	if labels != "" {
+		sep = ","
+	}
+	return metricName + "{" + labels + sep + extraLabel.name + "=\"" + extraLabel.value + "\"}"
+}
+
+func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metrics.EventMetrics, pMetricName string, labels []label, labelsStr string) {
 	labelName := ps.checkLabelName(m.MapName)
 	if labelName == "" {
 		return
 	}
 	for _, k := range m.Keys() {
-		mapLabel := labelName + "=\"" + k + "\""
-		key := dataKey(pMetricName, append(labels, mapLabel))
-		ps.recordMetric(pMetricName, key, dataPoint{value: metrics.MapValueToString(m.GetKey(k)), labels: labels, extraLabel: mapLabel}, em, "")
+		mapLabel := label{labelName, k}
+		ps.recordMetric(pMetricName, dataKey(pMetricName, labelsStr, mapLabel), dataPoint{value: metrics.MapValueToString(m.GetKey(k)), labels: labels, extraLabel: mapLabel}, em, "")
 	}
 }
 
@@ -447,12 +478,14 @@ func recordMap[T int64 | float64](ps *PromSurfacer, m *metrics.Map[T], em *metri
 //
 //	version{val=cloudprober-20170608-RC00} 1
 func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
-	var labels []string
+	var labels []label
 	for _, k := range em.LabelsKeys() {
 		if labelName := ps.checkLabelName(k); labelName != "" {
-			labels = append(labels, labelName+"=\""+em.Label(k)+"\"")
+			labels = append(labels, label{labelName, em.Label(k)})
 		}
 	}
+	// All the data keys from an EventMetrics have these labels.
+	labelsStr := textLabels(labels)
 
 	for _, metricName := range em.MetricsKeys() {
 		if !ps.opts.AllowMetric(metricName) {
@@ -467,21 +500,23 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 		switch v := val.(type) {
 		case *metrics.Map[int64]:
-			recordMap(ps, v, em, pMetricName, labels)
+			recordMap(ps, v, em, pMetricName, labels, labelsStr)
 		case *metrics.Map[float64]:
-			recordMap(ps, v, em, pMetricName, labels)
+			recordMap(ps, v, em, pMetricName, labels, labelsStr)
 		case *metrics.Distribution:
 			// We keep the distribution data until scrape time, so the
 			// distribution must not change after it has been written to the
 			// surfacers. Probes write a clone of their distributions.
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: labels}, em, histogram)
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labelsStr, label{}), dataPoint{dist: v.Data(), labels: labels}, em, histogram)
 		case metrics.String:
-			valLabel := "val=" + val.String()
-			ps.recordMetric(pMetricName, dataKey(pMetricName, append(labels, valLabel)), dataPoint{value: "1", labels: labels, extraLabel: valLabel}, em, "")
+			// String() returns the value in quotes.
+			s := val.String()
+			valLabel := label{"val", s[1 : len(s)-1]}
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labelsStr, valLabel), dataPoint{value: "1", labels: labels, extraLabel: valLabel}, em, "")
 
 		// All other value types, mostly numerical types.
 		default:
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{value: val.String(), labels: labels}, em, "")
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labelsStr, label{}), dataPoint{value: val.String(), labels: labels}, em, "")
 		}
 	}
 }
@@ -665,8 +700,8 @@ func nativeSpansAndDeltas(buckets map[int]int64) ([]*dto.BucketSpan, []int64) {
 }
 
 // protobufLabels builds label pairs for the protobuf format, from data
-// points' `name="value"` label strings. We build them while writing, so that
-// we don't pay for them if nobody scrapes the protobuf format. It allocates
+// points' labels. We build them while writing, so that we don't pay for them
+// if nobody scrapes the protobuf format. It allocates
 // memory for all the label pairs of a metric in one go, instead of allocating
 // for each label separately.
 type protobufLabels struct {
@@ -680,7 +715,7 @@ func newProtobufLabels(pm *promMetric) *protobufLabels {
 	var n int
 	for _, dp := range pm.data {
 		n += len(dp.labels)
-		if dp.extraLabel != "" {
+		if dp.extraLabel.name != "" {
 			n++
 		}
 	}
@@ -691,13 +726,11 @@ func newProtobufLabels(pm *promMetric) *protobufLabels {
 	}
 }
 
-func (pl *protobufLabels) add(label string) {
+func (pl *protobufLabels) add(l label) {
 	i := pl.used
 	pl.used++
 
-	name, value, _ := strings.Cut(label, "=")
-	// Remove the quotes around the value.
-	pl.strs[2*i], pl.strs[2*i+1] = name, value[1:len(value)-1]
+	pl.strs[2*i], pl.strs[2*i+1] = l.name, l.value
 	pl.pairs[i].Name, pl.pairs[i].Value = &pl.strs[2*i], &pl.strs[2*i+1]
 	pl.ptrs[i] = &pl.pairs[i]
 }
@@ -708,7 +741,7 @@ func (pl *protobufLabels) labelPairs(dp *dataPoint) []*dto.LabelPair {
 	for _, l := range dp.labels {
 		pl.add(l)
 	}
-	if dp.extraLabel != "" {
+	if dp.extraLabel.name != "" {
 		pl.add(dp.extraLabel)
 	}
 	return pl.ptrs[start:pl.used:pl.used]
