@@ -39,7 +39,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -99,9 +98,9 @@ type dataPoint struct {
 
 	// Set only for distributions (histograms). We keep the distribution as is,
 	// and expand it into _sum, _count and _bucket series while writing. We need
-	// labels to build the keys for those series.
+	// labels (comma-separated) to build the keys for those series.
 	dist   *metrics.DistributionData
-	labels []string
+	labels string
 }
 
 // httpWriter is a wrapper for http.ResponseWriter that includes a channel
@@ -445,7 +444,7 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 		case *metrics.Map[float64]:
 			recordMap(ps, v, em, pMetricName, labels)
 		case *metrics.Distribution:
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: labels}, em, histogram)
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labels), dataPoint{dist: v.Data(), labels: strings.Join(labels, ",")}, em, histogram)
 		case metrics.String:
 			newLabels := append(labels, "val="+val.String())
 			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), dataPoint{value: "1"}, em, "")
@@ -457,50 +456,92 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 	}
 }
 
-// writeHistogram writes a distribution as _sum, _count and _bucket series.
-// Bucket series have cumulative counts and an extra label, "le", for the
-// bucket's upper bound.
-func writeHistogram(name string, dp *dataPoint, writeLine func(key, value string)) {
-	d := dp.dist
-	writeLine(dataKey(name+"_sum", dp.labels), strconv.FormatFloat(d.Sum, 'f', -1, 64))
-	writeLine(dataKey(name+"_count", dp.labels), strconv.FormatInt(d.Count, 10))
-
-	var val int64
-	for i := range d.LowerBounds {
-		val += d.BucketCounts[i]
-		le := "+Inf"
-		if i < len(d.LowerBounds)-1 {
-			le = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
-		}
-		labelsWithBucket := append(slices.Clip(dp.labels), "le=\""+le+"\"")
-		writeLine(dataKey(name+"_bucket", labelsWithBucket), strconv.FormatInt(val, 10))
+// appendLineEnd appends the timestamp, if needed, and a newline to buf.
+func appendLineEnd(buf []byte, withTimestamp bool, ts int64) []byte {
+	if withTimestamp {
+		buf = append(buf, ' ')
+		buf = strconv.AppendInt(buf, ts, 10)
 	}
+	return append(buf, '\n')
 }
 
-// writeData writes metrics data on w io.Writer
+// appendHistogram appends a distribution as _sum, _count and _bucket lines to
+// buf. Bucket lines have cumulative counts and an extra label, "le", for the
+// bucket's upper bound.
+func appendHistogram(buf []byte, name string, dp *dataPoint, withTimestamp bool) []byte {
+	d := dp.dist
+
+	// Appends "<name><suffix>{<labels>", leaving the label set open so that
+	// _bucket lines can add "le".
+	appendKeyStart := func(suffix string) {
+		buf = append(buf, name...)
+		buf = append(buf, suffix...)
+		buf = append(buf, '{')
+		buf = append(buf, dp.labels...)
+	}
+
+	appendKeyStart("_sum")
+	buf = append(buf, "} "...)
+	buf = strconv.AppendFloat(buf, d.Sum, 'f', -1, 64)
+	buf = appendLineEnd(buf, withTimestamp, dp.timestamp)
+
+	appendKeyStart("_count")
+	buf = append(buf, "} "...)
+	buf = strconv.AppendInt(buf, d.Count, 10)
+	buf = appendLineEnd(buf, withTimestamp, dp.timestamp)
+
+	var count int64
+	for i := range d.LowerBounds {
+		count += d.BucketCounts[i]
+		appendKeyStart("_bucket")
+		if dp.labels != "" {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, "le=\""...)
+		if i < len(d.LowerBounds)-1 {
+			buf = strconv.AppendFloat(buf, d.LowerBounds[i+1], 'f', -1, 64)
+		} else {
+			buf = append(buf, "+Inf"...)
+		}
+		buf = append(buf, "\"} "...)
+		buf = strconv.AppendInt(buf, count, 10)
+		buf = appendLineEnd(buf, withTimestamp, dp.timestamp)
+	}
+	return buf
+}
+
+// writeData writes metrics data on w io.Writer. We build the output in a
+// buffer, instead of using fmt.Fprintf, to avoid allocations for each line.
 func (ps *PromSurfacer) writeData(w io.Writer) {
+	var buf []byte
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
-		fmt.Fprintf(w, "# TYPE %s %s\n", name, pm.typ)
+		buf = append(buf, "# TYPE "...)
+		buf = append(buf, name...)
+		buf = append(buf, ' ')
+		buf = append(buf, pm.typ...)
+		buf = append(buf, '\n')
 
 		withTimestamp := ps.isTimestamped(pm.typ)
 		for _, k := range pm.dataKeys {
 			dp := pm.data[k]
-			writeLine := func(key, value string) {
-				if withTimestamp {
-					fmt.Fprintf(w, "%s %s %d\n", key, value, dp.timestamp)
-					return
-				}
-				fmt.Fprintf(w, "%s %s\n", key, value)
+			if dp.dist != nil {
+				buf = appendHistogram(buf, name, dp, withTimestamp)
+			} else {
+				buf = append(buf, k...)
+				buf = append(buf, ' ')
+				buf = append(buf, dp.value...)
+				buf = appendLineEnd(buf, withTimestamp, dp.timestamp)
 			}
 
-			if dp.dist != nil {
-				writeHistogram(name, dp, writeLine)
-				continue
+			// Keep the buffer small.
+			if len(buf) > 32*1024 {
+				w.Write(buf)
+				buf = buf[:0]
 			}
-			writeLine(k, dp.value)
 		}
 	}
+	w.Write(buf)
 }
 
 // deleteExpiredMetrics clears the metric expired in PromSurfacer.

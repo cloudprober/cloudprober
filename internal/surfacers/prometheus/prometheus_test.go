@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -766,5 +767,25 @@ func TestWriteDataGolden(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, string(want), b.String())
 		})
+	}
+}
+
+func BenchmarkWriteData(b *testing.B) {
+	ps, err := testPromSurfacer(nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	ts := time.Now()
+	for i := range 100 {
+		for _, em := range goldenTestEMs(ts) {
+			ps.record(em.AddLabel("target", strconv.Itoa(i)))
+		}
+	}
+
+	var buf bytes.Buffer
+	b.ReportAllocs()
+	for b.Loop() {
+		buf.Reset()
+		ps.writeData(&buf)
 	}
 }
