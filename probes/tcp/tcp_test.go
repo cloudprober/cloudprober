@@ -236,6 +236,7 @@ func TestNewResultAndMetrics(t *testing.T) {
 	tests := []struct {
 		desc                    string
 		enableTlsHandshake      bool
+		latencyMetricName       string
 		wantMetrics             map[string]int64
 		wantConnLatency         float64
 		wantTLSHandshakeLatency float64
@@ -259,6 +260,17 @@ func TestNewResultAndMetrics(t *testing.T) {
 			wantConnLatency:         0.1,
 			wantTLSHandshakeLatency: 0.2,
 		},
+		{
+			desc:               "custom-latency-metric-name",
+			enableTlsHandshake: true,
+			latencyMetricName:  "latency_dist",
+			wantMetrics: map[string]int64{
+				"total":   total,
+				"success": success,
+			},
+			wantConnLatency:         0.1,
+			wantTLSHandshakeLatency: 0.2,
+		},
 	}
 
 	for _, test := range tests {
@@ -267,6 +279,11 @@ func TestNewResultAndMetrics(t *testing.T) {
 
 			p := &Probe{
 				opts: options.DefaultOptions(),
+			}
+			latencyMetricName := "latency"
+			if test.latencyMetricName != "" {
+				latencyMetricName = test.latencyMetricName
+				p.opts.LatencyMetricName = latencyMetricName
 			}
 			p.c = &configpb.ProbeConf{}
 			if test.enableTlsHandshake {
@@ -284,7 +301,7 @@ func TestNewResultAndMetrics(t *testing.T) {
 				result.tlsHandshakeLatency = tlsHandshakeLatency
 			}
 
-			emList := result.Metrics(ts, 0, &options.Options{})
+			emList := result.Metrics(ts, 0, p.opts)
 			if len(emList) != 1 {
 				t.Fatalf("Expected 1 EventMetrics, got %d", len(emList))
 			}
@@ -301,15 +318,15 @@ func TestNewResultAndMetrics(t *testing.T) {
 
 			// Verify conn_latency and tls_handshake_latency if applicable
 			if test.wantConnLatency == -1 {
-				assert.Nil(t, em.Metric("connect_latency"))
+				assert.Nil(t, em.Metric("connect_"+latencyMetricName))
 			} else {
-				assert.Equal(t, test.wantConnLatency, em.Metric("connect_latency").(*metrics.Float).Float64())
+				assert.Equal(t, test.wantConnLatency, em.Metric("connect_"+latencyMetricName).(*metrics.Float).Float64())
 			}
 
 			if test.wantTLSHandshakeLatency == -1 {
-				assert.Nil(t, em.Metric("tls_handshake_latency"))
+				assert.Nil(t, em.Metric("tls_handshake_"+latencyMetricName))
 			} else {
-				assert.Equal(t, test.wantTLSHandshakeLatency, em.Metric("tls_handshake_latency").(*metrics.Float).Float64())
+				assert.Equal(t, test.wantTLSHandshakeLatency, em.Metric("tls_handshake_"+latencyMetricName).(*metrics.Float).Float64())
 			}
 		})
 	}

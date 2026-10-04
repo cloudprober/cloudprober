@@ -82,6 +82,7 @@ func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.Ad
 	if err := pr.addProbe(p); err != nil {
 		return &pb.AddProbeResponse{}, err
 	}
+	pr.warnLatencyTypeClash(p.GetName())
 
 	// Start probe using the prober's start context.
 	if pr.startCtx == nil {

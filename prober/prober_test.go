@@ -15,9 +15,11 @@
 package prober
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +33,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/ping"
 	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
 	testdatapb "github.com/cloudprober/cloudprober/probes/testdata"
+	"github.com/cloudprober/cloudprober/surfacers"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	targetspb "github.com/cloudprober/cloudprober/targets/proto"
 	"github.com/stretchr/testify/assert"
@@ -309,5 +312,110 @@ func TestStartProbe_CancelDuringDelay(t *testing.T) {
 		t.Error("Probe started despite cancellation")
 	case <-time.After(300 * time.Millisecond):
 		// Good
+	}
+}
+
+func TestWarnLatencyTypeClash(t *testing.T) {
+	probeInfo := func(metricName string, dist bool) *probes.ProbeInfo {
+		opts := &options.Options{LatencyMetricName: metricName}
+		if dist {
+			opts.LatencyDist = metrics.NewDistribution([]float64{1, 10})
+		}
+		return &probes.ProbeInfo{Options: opts}
+	}
+	mixedProbes := map[string]*probes.ProbeInfo{
+		"p1":        probeInfo("latency", false),
+		"p2":        probeInfo("latency", true),
+		"p3":        probeInfo("latency", false),
+		"p4":        probeInfo("latency_dist", true),
+		"no-option": {},
+		"sys_metrics": {
+			Options:  &options.Options{LatencyMetricName: "latency"},
+			ProbeDef: &probes_configpb.ProbeDef{Type: probes_configpb.ProbeDef_SYSTEM.Enum()},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		probes    map[string]*probes.ProbeInfo
+		surfacers []string
+		probeName string
+		wantWarn  bool
+	}{
+		{
+			name:      "clash",
+			probes:    mixedProbes,
+			surfacers: []string{"FILE", "PROMETHEUS"},
+			wantWarn:  true,
+		},
+		{
+			name:      "clash_otel",
+			probes:    mixedProbes,
+			surfacers: []string{"OTEL"},
+			wantWarn:  true,
+		},
+		{
+			name:      "clash_involving_probe",
+			probes:    mixedProbes,
+			surfacers: []string{"PROMETHEUS"},
+			probeName: "p2",
+			wantWarn:  true,
+		},
+		{
+			name:      "clash_not_involving_probe",
+			probes:    mixedProbes,
+			surfacers: []string{"PROMETHEUS"},
+			probeName: "p4",
+		},
+		{
+			name:      "probe_not_added",
+			probes:    mixedProbes,
+			surfacers: []string{"PROMETHEUS"},
+			probeName: "p5",
+		},
+		{
+			name:      "other_surfacers",
+			probes:    mixedProbes,
+			surfacers: []string{"FILE", "PROBESTATUS"},
+		},
+		{
+			name: "different_names",
+			probes: map[string]*probes.ProbeInfo{
+				"p1": probeInfo("latency", false),
+				"p2": probeInfo("latency_dist", true),
+			},
+			surfacers: []string{"PROMETHEUS"},
+		},
+		{
+			name: "all_distributions",
+			probes: map[string]*probes.ProbeInfo{
+				"p1": probeInfo("latency", true),
+				"p2": probeInfo("latency", true),
+			},
+			surfacers: []string{"PROMETHEUS"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			pr := &Prober{
+				Probes: tt.probes,
+				l:      logger.New(logger.WithWriter(&buf)),
+			}
+			for _, sType := range tt.surfacers {
+				pr.Surfacers = append(pr.Surfacers, &surfacers.SurfacerInfo{Type: sType})
+			}
+
+			pr.warnLatencyTypeClash(tt.probeName)
+
+			if !tt.wantWarn {
+				assert.Empty(t, buf.String())
+				return
+			}
+			assert.Equal(t, 1, strings.Count(buf.String(), "\n"), "want exactly one warning")
+			assert.Contains(t, buf.String(), `\"latency\" is exported as a distribution by some probes (p2) and as a number by others (p1, p3)`)
+			assert.Contains(t, buf.String(), `latency_dist`)
+		})
 	}
 }
