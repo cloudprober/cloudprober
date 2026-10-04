@@ -121,7 +121,9 @@ func TestConfigTest(t *testing.T) {
 		configFile     string
 		cs             ConfigSource
 		withBaseVars   map[string]any
+		surfacersFlag  string
 		wantErr        string
+		wantWarning    string
 	}{
 		{
 			name:    "no_config_error",
@@ -174,8 +176,14 @@ func TestConfigTest(t *testing.T) {
 		},
 		{
 			// Only a warning for now.
-			name:       "latency_type_clash",
-			configFile: "testdata/cloudprober_latency_clash.cfg",
+			name:           "latency_type_clash",
+			configFileFlag: "testdata/cloudprober_latency_clash.cfg",
+			wantWarning:    `Metric "latency" is exported as a distribution by some probes (dist) and as a number by others (plain)`,
+		},
+		{
+			name:           "latency_type_clash_no_prometheus_in_surfacers_file",
+			configFileFlag: "testdata/cloudprober_latency_clash.cfg",
+			surfacersFlag:  "testdata/surfacers_config/cloudprober_only_surfacers.cfg",
 		},
 		{
 			name:       "large_single_line",
@@ -190,11 +198,21 @@ func TestConfigTest(t *testing.T) {
 				tt.cs = ConfigSourceWithFile(tt.configFile, WithBaseVars(tt.withBaseVars))
 			}
 			*configFile = tt.configFileFlag
-			err := ConfigTest(tt.cs)
+			*surfacersConfigFile = tt.surfacersFlag
+			defer func() { *surfacersConfigFile = "" }()
+
+			warnings, err := configTest(tt.cs)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
+			}
+			if tt.wantWarning == "" {
+				assert.Empty(t, warnings)
+				return
+			}
+			if assert.Len(t, warnings, 1) {
+				assert.Contains(t, warnings[0], tt.wantWarning)
 			}
 		})
 	}

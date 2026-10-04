@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package options
 
 import (
 	"fmt"
@@ -20,13 +20,13 @@ import (
 
 	surfacerpb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	distpb "github.com/cloudprober/cloudprober/metrics/proto"
-	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
-func testProbeDef(name, metricName string, dist bool) *probes_configpb.ProbeDef {
-	p := &probes_configpb.ProbeDef{Name: proto.String(name)}
+func testProbeDef(name, metricName string, dist bool) *configpb.ProbeDef {
+	p := &configpb.ProbeDef{Name: proto.String(name)}
 	if metricName != "" {
 		p.LatencyMetricName = proto.String(metricName)
 	}
@@ -37,14 +37,14 @@ func testProbeDef(name, metricName string, dist bool) *probes_configpb.ProbeDef 
 }
 
 func TestLatencyTypeClashes(t *testing.T) {
-	mixedProbes := []*probes_configpb.ProbeDef{
+	mixedProbes := []*configpb.ProbeDef{
 		testProbeDef("p3", "", false),
 		testProbeDef("p2", "", true),
 		testProbeDef("p1", "latency", false),
 		testProbeDef("p4", "latency_dist", true),
 		{
 			Name: proto.String("sys_metrics"),
-			Type: probes_configpb.ProbeDef_SYSTEM.Enum(),
+			Type: configpb.ProbeDef_SYSTEM.Enum(),
 		},
 	}
 	latencyClash := []*LatencyTypeClash{{
@@ -55,7 +55,7 @@ func TestLatencyTypeClashes(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		probes    []*probes_configpb.ProbeDef
+		probes    []*configpb.ProbeDef
 		surfacers []*surfacerpb.SurfacerDef
 		want      []*LatencyTypeClash
 	}{
@@ -96,7 +96,7 @@ func TestLatencyTypeClashes(t *testing.T) {
 		},
 		{
 			name: "two_clashes_sorted_by_name",
-			probes: []*probes_configpb.ProbeDef{
+			probes: []*configpb.ProbeDef{
 				testProbeDef("p1", "rtt", true),
 				testProbeDef("p2", "rtt", false),
 				testProbeDef("p3", "", true),
@@ -109,14 +109,14 @@ func TestLatencyTypeClashes(t *testing.T) {
 		},
 		{
 			name: "different_names",
-			probes: []*probes_configpb.ProbeDef{
+			probes: []*configpb.ProbeDef{
 				testProbeDef("p1", "", false),
 				testProbeDef("p2", "latency_dist", true),
 			},
 		},
 		{
 			name: "all_distributions",
-			probes: []*probes_configpb.ProbeDef{
+			probes: []*configpb.ProbeDef{
 				testProbeDef("p1", "", true),
 				testProbeDef("p2", "", true),
 			},

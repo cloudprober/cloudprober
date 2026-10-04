@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package options
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	surfacerpb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
-	probes_configpb "github.com/cloudprober/cloudprober/probes/proto"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
 )
 
 // LatencyTypeClash is a latency metric name that is exported as a
@@ -73,7 +73,7 @@ func hasPrometheusOrOTel(surfacers []*surfacerpb.SurfacerDef) bool {
 // distribution by some probes and as a number by others, sorted by metric
 // name. Prometheus and OTel don't handle one metric name with two types
 // well, so we look for clashes only if one of those surfacers is configured.
-func LatencyTypeClashes(probes []*probes_configpb.ProbeDef, surfacers []*surfacerpb.SurfacerDef) []*LatencyTypeClash {
+func LatencyTypeClashes(probes []*configpb.ProbeDef, surfacers []*surfacerpb.SurfacerDef) []*LatencyTypeClash {
 	if !hasPrometheusOrOTel(surfacers) {
 		return nil
 	}
@@ -81,7 +81,7 @@ func LatencyTypeClashes(probes []*probes_configpb.ProbeDef, surfacers []*surface
 	byName := make(map[string]*LatencyTypeClash)
 	for _, p := range probes {
 		// System and UDP listener probes don't export latency.
-		if t := p.GetType(); t == probes_configpb.ProbeDef_SYSTEM || t == probes_configpb.ProbeDef_UDP_LISTENER {
+		if t := p.GetType(); t == configpb.ProbeDef_SYSTEM || t == configpb.ProbeDef_UDP_LISTENER {
 			continue
 		}
 		mn := p.GetLatencyMetricName()

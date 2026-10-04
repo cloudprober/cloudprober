@@ -32,7 +32,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
@@ -145,7 +144,7 @@ func (pr *Prober) warnLatencyTypeClash(probeName string) {
 		}
 	}
 
-	for _, c := range config.LatencyTypeClashes(probeDefs, pr.c.GetSurfacer()) {
+	for _, c := range options.LatencyTypeClashes(probeDefs, pr.c.GetSurfacer()) {
 		if probeName != "" && !slices.Contains(c.DistProbes, probeName) && !slices.Contains(c.NumberProbes, probeName) {
 			continue
 		}
