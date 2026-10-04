@@ -127,7 +127,7 @@ type dataPoint struct {
 // to signal the completion of the writing of the response.
 type httpWriter struct {
 	w        http.ResponseWriter
-	protobuf bool // Write metrics in the protobuf format.
+	protobuf bool // Scraper prefers the protobuf format.
 	doneChan chan struct{}
 }
 
@@ -190,6 +190,11 @@ type PromSurfacer struct {
 	// Regexes for metric and label names.
 	metricNameRe *regexp.Regexp
 	labelNameRe  *regexp.Regexp
+
+	// Whether we've seen a distribution with native buckets. We serve the
+	// protobuf format only if we have, as only native histograms need it. Text
+	// format is cheaper for us to write, and it's what we've always served.
+	nativeHistograms bool
 }
 
 // New returns a prometheus surfacer based on the config provided. It sets up a
@@ -252,7 +257,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			case em := <-ps.emChan:
 				ps.record(em)
 			case hw := <-ps.queryChan:
-				if hw.protobuf {
+				if hw.protobuf && ps.nativeHistograms {
 					hw.w.Header().Set("Content-Type", protobufContentType)
 					ps.writeProtobuf(hw.w)
 				} else {
@@ -507,7 +512,12 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 			// We keep the distribution data until scrape time, so the
 			// distribution must not change after it has been written to the
 			// surfacers. Probes write a clone of their distributions.
-			ps.recordMetric(pMetricName, dataKey(pMetricName, labelsStr, label{}), dataPoint{dist: v.Data(), labels: labels}, em, histogram)
+			d := v.Data()
+			if d.Native != nil && !ps.nativeHistograms {
+				ps.nativeHistograms = true
+				ps.l.Infof("prometheus surfacer: found a native histogram (%s), will serve the protobuf format to the scrapers that prefer it.", pMetricName)
+			}
+			ps.recordMetric(pMetricName, dataKey(pMetricName, labelsStr, label{}), dataPoint{dist: d, labels: labels}, em, histogram)
 		case metrics.String:
 			// String() returns the value in quotes.
 			s := val.String()

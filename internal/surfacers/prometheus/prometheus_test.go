@@ -1063,30 +1063,37 @@ func TestWriteProtobuf(t *testing.T) {
 }
 
 func TestProtobufScrape(t *testing.T) {
+	const acceptProtobuf = "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.6,text/plain;version=0.0.4;q=0.5"
+
+	scrape := func(ps *PromSurfacer, accept string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, ps.c.GetMetricsUrl(), nil)
+		req.Header.Set("Accept", accept)
+		rec := httptest.NewRecorder()
+		state.DefaultHTTPServeMux().ServeHTTP(rec, req)
+		return rec
+	}
+
 	ps := testPromSurfacerNoErr(t, nil)
+	ps.record(metrics.NewEventMetrics(time.Now()).AddMetric("latency", metrics.NewDistribution([]float64{1})).AddLabel("probe", "p1"))
+
+	// No native histograms yet: we serve the text format, even if the scraper
+	// prefers protobuf.
+	rec := scrape(ps, acceptProtobuf)
+	assert.NotEqual(t, protobufContentType, rec.Header().Get("Content-Type"))
+	assert.Contains(t, rec.Body.String(), "latency_bucket{probe=\"p1\",le=\"+Inf\"} 0\n")
+
+	// With a native histogram, we serve protobuf to the scrapers that prefer
+	// it, and text to the others.
 	ps.record(nativeTestEM(time.Now(), "p2", 1.5))
 
-	for _, tt := range []struct {
-		accept          string
-		wantContentType string
-	}{
-		{"text/plain;version=0.0.4", ""},
-		{"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.6,text/plain;version=0.0.4;q=0.5", protobufContentType},
-	} {
-		t.Run(tt.accept, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, ps.c.GetMetricsUrl(), nil)
-			req.Header.Set("Accept", tt.accept)
-			rec := httptest.NewRecorder()
-			state.DefaultHTTPServeMux().ServeHTTP(rec, req)
+	rec = scrape(ps, "text/plain;version=0.0.4")
+	assert.NotEqual(t, protobufContentType, rec.Header().Get("Content-Type"))
+	assert.Contains(t, rec.Body.String(), "native_latency_bucket{probe=\"p2\",le=\"+Inf\"} 1\n")
 
-			if tt.wantContentType == "" {
-				assert.Contains(t, rec.Body.String(), `native_latency_bucket{probe="p2",le="+Inf"} 1`)
-				return
-			}
-			assert.Equal(t, tt.wantContentType, rec.Header().Get("Content-Type"))
-			mfs := readProtobuf(t, rec.Body)
-			assert.Len(t, mfs, 1)
-			assert.Equal(t, int32(1), mfs[0].Metric[0].Histogram.GetPositiveSpan()[0].GetOffset())
-		})
-	}
+	rec = scrape(ps, acceptProtobuf)
+	assert.Equal(t, protobufContentType, rec.Header().Get("Content-Type"))
+	mfs := readProtobuf(t, rec.Body)
+	assert.Len(t, mfs, 2)
+	assert.Equal(t, "native_latency", mfs[1].GetName())
+	assert.Equal(t, int32(1), mfs[1].Metric[0].Histogram.GetPositiveSpan()[0].GetOffset())
 }
