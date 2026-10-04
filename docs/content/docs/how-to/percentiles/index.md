@@ -74,15 +74,15 @@ message Dist {
 //   bucket[num_buckets+1] covers [scale_factor*base^(num_buckets−1), +Inf)
 // NB: Base must be at least 1.01.
 message ExponentialBuckets {
-  float scale_factor = 1; // default = 1.0
-  float base = 2;         // default = 2
-  uint32 num_buckets = 3; // default = 20
+  optional float scale_factor = 1 [default = 1.0];
+  optional float base = 2 [default = 2];
+  optional uint32 num_buckets = 3 [default = 20];
 }
 
 // NativeBuckets defines Prometheus-style native histogram buckets.
 message NativeBuckets {
   // Bucket resolution. Valid values: -4 to 8.
-  optional int32 schema = 1; // default = 3
+  optional int32 schema = 1 [default = 3];
 }
 ```
 
