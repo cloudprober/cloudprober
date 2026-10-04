@@ -198,9 +198,13 @@ func TestStartProbesWithJitter(t *testing.T) {
 	if delay < 0 {
 		delay = -delay
 	}
+	// The gap between the probes is 1s (2s interval, 2 probes), but each
+	// probe records its start time in its own goroutine, so the difference
+	// can come out a little under 1s. Allow for that.
+	//
 	// Windows test environment is bad with timestamps.
 	if runtime.GOOS != "windows" {
-		assert.GreaterOrEqual(t, delay, time.Second)
+		assert.GreaterOrEqual(t, delay, 900*time.Millisecond)
 	}
 }
 
