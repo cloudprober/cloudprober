@@ -12,6 +12,7 @@ This directory contains various examples demonstrating different features and us
 | gRPC | Examples of gRPC probes and servers | `grpc/` |
 | Include Files | Splitting configuration into multiple files | `include/` |
 | OAuth | Authentication examples using OAuth | `oauth/` |
+| Percentiles | Latency distributions (histograms), including native histograms | `percentiles/` |
 | Scheduling | Run probes at specific times of the day | `schedule/` |
 | Surfacers | Different ways to export metrics | `surfacers/` |
 | Targets | Various target configurations | `targets/` |
