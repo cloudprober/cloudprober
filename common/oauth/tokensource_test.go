@@ -30,38 +30,38 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Call counters are per config, i.e. per token source. A token source's
+// refresh goroutine never stops, so a shared counter would be bumped by the
+// token sources of earlier subtests.
 var global struct {
-	callCounter int
+	callCounter map[*configpb.Config]int
 	mu          sync.RWMutex
 }
 
-func resetCallCounter() {
+func incCallCounter(c *configpb.Config) {
 	global.mu.Lock()
 	defer global.mu.Unlock()
-	global.callCounter = 0
+	if global.callCounter == nil {
+		global.callCounter = make(map[*configpb.Config]int)
+	}
+	global.callCounter[c]++
 }
 
-func incCallCounter() {
-	global.mu.Lock()
-	defer global.mu.Unlock()
-	global.callCounter++
-}
-
-func callCounter() int {
+func callCounter(c *configpb.Config) int {
 	global.mu.RLock()
 	defer global.mu.RUnlock()
-	return global.callCounter
+	return global.callCounter[c]
 }
 
 func testTokenFromFile(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
-	if callCounter() > 0 {
+	if callCounter(c) > 0 {
 		if strings.HasSuffix(c.GetFile(), "fail") {
 			return nil, errors.New("failed_reading_token")
 		}
 		suffix = "_new"
 	}
-	incCallCounter()
+	incCallCounter(c)
 	exp := time.Time{}
 	if strings.HasSuffix(c.GetFile(), "json") {
 		exp = time.Now().Add(time.Hour)
@@ -72,10 +72,10 @@ func testTokenFromFile(c *configpb.Config) (*oauth2.Token, error) {
 
 func testTokenFromCmd(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
-	if callCounter() > 0 {
+	if callCounter(c) > 0 {
 		suffix = "_new"
 	}
-	incCallCounter()
+	incCallCounter(c)
 	exp := time.Now().Add(time.Hour)
 	if strings.Contains(c.GetCmd(), "_exp_") {
 		a := strings.Split(c.GetCmd(), "_")
@@ -87,19 +87,19 @@ func testTokenFromCmd(c *configpb.Config) (*oauth2.Token, error) {
 
 func testTokenFromGCEMetadata(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
-	if callCounter() > 0 {
+	if callCounter(c) > 0 {
 		suffix = "_new"
 	}
-	incCallCounter()
+	incCallCounter(c)
 	return &oauth2.Token{AccessToken: c.GetGceServiceAccount() + "_gce_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
 func testK8SToken(c *configpb.Config) (*oauth2.Token, error) {
 	suffix := ""
-	if callCounter() > 0 {
+	if callCounter(c) > 0 {
 		suffix = "_new"
 	}
-	incCallCounter()
+	incCallCounter(c)
 	return &oauth2.Token{AccessToken: "k8s_token" + suffix, Expiry: time.Now().Add(time.Hour)}, nil
 }
 
@@ -167,12 +167,8 @@ func testNewTokenSource(t *testing.T, useDeprecatedBearerTokenInterface bool) {
 
 	for _, test := range tests {
 		t.Run(test.name+":"+test.config, func(t *testing.T) {
-			resetCallCounter()
-
 			testRefreshExpiryBuffer := 10 * time.Second
 
-			// Call counter should always increase during token source creation.
-			expectedC := callCounter() + 1
 			var cts oauth2.TokenSource
 			var err error
 			if useDeprecatedBearerTokenInterface {
@@ -195,13 +191,13 @@ func testNewTokenSource(t *testing.T, useDeprecatedBearerTokenInterface bool) {
 			tc := cts.(*genericTokenSource).cache
 			assert.Equal(t, testRefreshExpiryBuffer, tc.refreshExpiryBuffer, "token cache refresh expiry buffer")
 
-			assert.Equal(t, expectedC, callCounter(), "unexpected call counter (1st call)")
+			// Token source creation should fetch the token exactly once.
+			assert.Equal(t, 1, callCounter(cts.(*genericTokenSource).c), "unexpected call counter (1st call)")
 
 			// Get token again
 			if test.wantNewToken {
 				time.Sleep(test.wait) // Wait for refresh
 				test.wantToken += "_new"
-				expectedC++
 			}
 			tok, err := cts.Token()
 			assert.NoError(t, err, "error getting token")
