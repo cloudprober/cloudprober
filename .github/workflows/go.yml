@@ -98,7 +98,17 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           go install gotest.tools/gotestsum@v1.13.0
-          gotestsum --jsonfile=report.json --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -covermode=atomic -coverprofile=cover.out
+          # Coverage goes to a directory instead of -coverprofile: a rerun of
+          # a failed test would overwrite the profile with that one test's
+          # coverage, while a directory accumulates across runs.
+          mkdir -p "$RUNNER_TEMP/covdata"
+          gotestsum --jsonfile=report.json --rerun-fails --packages=./... -- ${{ env.EXTRA_TEST_FLAGS }} -race -cover -covermode=atomic -args -test.gocoverdir="$RUNNER_TEMP/covdata"
+
+      - name: Convert coverage data
+        # Run even when the tests failed, so that a failing run still gets
+        # analyzed.
+        if: always() && matrix.os == 'ubuntu-latest'
+        run: go tool covdata textfmt -i="$RUNNER_TEMP/covdata" -o cover.out
 
       - name: Test on non-ubuntu
         if: matrix.os != 'ubuntu-latest'
@@ -120,8 +130,8 @@ jobs:
 
       - name: Upload test and coverage reports
         # Upload even when an earlier step failed, so that a failing run still
-        # gets analyzed. gotestsum and -coverprofile write these files whether
-        # or not the tests pass.
+        # gets analyzed. These files get written whether or not the tests
+        # pass.
         if: always() && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
