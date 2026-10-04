@@ -173,6 +173,11 @@ func TestConfigTest(t *testing.T) {
 			wantErr:    "failed to parse the latency unit",
 		},
 		{
+			// Only a warning for now.
+			name:       "latency_type_clash",
+			configFile: "testdata/cloudprober_latency_clash.cfg",
+		},
+		{
 			name:       "large_single_line",
 			configFile: "testdata/cloudprober_large_line.cfg",
 			wantErr:    "token too long",

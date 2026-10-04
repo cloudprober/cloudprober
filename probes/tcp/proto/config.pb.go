@@ -30,7 +30,8 @@ type ProbeConf struct {
 	Port *int32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
 	// Whether to perform a TLS handshake after TCP connection is established.
 	// When TLS handshake is enabled, we export two additional metrics:
-	// - connect_latency and tls_handshake_latency.
+	// - connect_latency and tls_handshake_latency. If latency_metric_name is
+	//   set for the probe, it replaces "latency" in these names.
 	TlsHandshake *bool `protobuf:"varint,2,opt,name=tls_handshake,json=tlsHandshake,def=0" json:"tls_handshake,omitempty"`
 	// TLS configuration for TLS handshake.
 	TlsConfig *proto.TLSConfig `protobuf:"bytes,3,opt,name=tls_config,json=tlsConfig" json:"tls_config,omitempty"`

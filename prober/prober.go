@@ -29,10 +29,10 @@ import (
 	"math/rand"
 	"regexp"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/cloudprober/cloudprober/config"
 	configpb "github.com/cloudprober/cloudprober/config/proto"
 	rdsserver "github.com/cloudprober/cloudprober/internal/rds/server"
 	"github.com/cloudprober/cloudprober/internal/servers"
@@ -132,51 +132,24 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 }
 
 // warnLatencyTypeClash logs a warning for each latency metric name that is
-// exported as a distribution by some probes and as a number by others.
-// Prometheus and OTel don't handle one metric name with two types well. If
+// exported as a distribution by some probes and as a number by others. If
 // probeName is non-empty, only the clash involving that probe is reported.
 func (pr *Prober) warnLatencyTypeClash(probeName string) {
-	if !slices.ContainsFunc(pr.Surfacers, func(si *surfacers.SurfacerInfo) bool {
-		return si.Type == "PROMETHEUS" || si.Type == "OTEL"
-	}) {
-		return
-	}
-
 	pr.mu.RLock()
 	defer pr.mu.RUnlock()
 
-	// Probe names by latency metric name: [0] number, [1] distribution.
-	byName := make(map[string]*[2][]string)
-	for name, p := range pr.Probes {
-		// System and UDP listener probes don't export latency.
-		pType := p.ProbeDef.GetType()
-		if p.Options == nil || pType == probes_configpb.ProbeDef_SYSTEM || pType == probes_configpb.ProbeDef_UDP_LISTENER {
-			continue
+	var probeDefs []*probes_configpb.ProbeDef
+	for _, p := range pr.Probes {
+		if p.ProbeDef != nil {
+			probeDefs = append(probeDefs, p.ProbeDef)
 		}
-		mn := p.Options.LatencyMetricName
-		if byName[mn] == nil {
-			byName[mn] = &[2][]string{}
-		}
-		i := 0
-		if p.Options.LatencyDist != nil {
-			i = 1
-		}
-		byName[mn][i] = append(byName[mn][i], name)
 	}
 
-	for mn, names := range byName {
-		if len(names[0]) == 0 || len(names[1]) == 0 {
+	for _, c := range config.LatencyTypeClashes(probeDefs, pr.c.GetSurfacer()) {
+		if probeName != "" && !slices.Contains(c.DistProbes, probeName) && !slices.Contains(c.NumberProbes, probeName) {
 			continue
 		}
-		slices.Sort(names[0])
-		slices.Sort(names[1])
-		if probeName != "" && !slices.Contains(names[0], probeName) && !slices.Contains(names[1], probeName) {
-			continue
-		}
-		pr.l.Warningf("Metric %q is exported as a distribution by some probes (%s) and as a number by others (%s). "+
-			"This doesn't work well with Prometheus and OpenTelemetry and will become an error in a future release. "+
-			"To fix this, set latency_metric_name to a different name (e.g. %q) for the probes with latency_distribution.",
-			mn, strings.Join(names[1], ", "), strings.Join(names[0], ", "), mn+"_dist")
+		pr.l.Warning(c.String())
 	}
 }
 

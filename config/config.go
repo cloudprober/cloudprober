@@ -253,6 +253,12 @@ func ConfigTest(cs ConfigSource) error {
 			return fmt.Errorf("probe %q: %v", p.GetName(), err)
 		}
 	}
+
+	// This is only a warning for now, it will become an error in a future
+	// release.
+	for _, c := range LatencyTypeClashes(cfg.GetProbe(), cfg.GetSurfacer()) {
+		logger.New().Warning(c.String())
+	}
 	return nil
 }
 
