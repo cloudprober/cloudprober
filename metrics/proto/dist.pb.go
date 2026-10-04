@@ -105,18 +105,18 @@ type isDist_Buckets interface {
 type Dist_ExplicitBuckets struct {
 	// Comma-separated list of lower bounds, where each lower bound is a float
 	// value. Example: 0.5,1,2,4,8.
-	ExplicitBuckets string `protobuf:"bytes,1,opt,name=explicit_buckets,json=explicitBuckets,proto3,oneof"`
+	ExplicitBuckets string `protobuf:"bytes,1,opt,name=explicit_buckets,json=explicitBuckets,oneof"`
 }
 
 type Dist_ExponentialBuckets struct {
 	// Exponentially growing buckets
-	ExponentialBuckets *ExponentialBuckets `protobuf:"bytes,2,opt,name=exponential_buckets,json=exponentialBuckets,proto3,oneof"`
+	ExponentialBuckets *ExponentialBuckets `protobuf:"bytes,2,opt,name=exponential_buckets,json=exponentialBuckets,oneof"`
 }
 
 type Dist_NativeBuckets struct {
 	// Prometheus-style native histogram buckets.
 	// EXPERIMENTAL: this option and its fields can change.
-	NativeBuckets *NativeBuckets `protobuf:"bytes,3,opt,name=native_buckets,json=nativeBuckets,proto3,oneof"`
+	NativeBuckets *NativeBuckets `protobuf:"bytes,3,opt,name=native_buckets,json=nativeBuckets,oneof"`
 }
 
 func (*Dist_ExplicitBuckets) isDist_Buckets() {}
@@ -138,12 +138,19 @@ func (*Dist_NativeBuckets) isDist_Buckets() {}
 // NB: Base must be at least 1.01.
 type ExponentialBuckets struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ScaleFactor   float32                `protobuf:"fixed32,1,opt,name=scale_factor,json=scaleFactor,proto3" json:"scale_factor,omitempty"` // default = 1.0
-	Base          float32                `protobuf:"fixed32,2,opt,name=base,proto3" json:"base,omitempty"`                                  // default = 2
-	NumBuckets    uint32                 `protobuf:"varint,3,opt,name=num_buckets,json=numBuckets,proto3" json:"num_buckets,omitempty"`     //default = 20
+	ScaleFactor   *float32               `protobuf:"fixed32,1,opt,name=scale_factor,json=scaleFactor,def=1" json:"scale_factor,omitempty"`
+	Base          *float32               `protobuf:"fixed32,2,opt,name=base,def=2" json:"base,omitempty"`
+	NumBuckets    *uint32                `protobuf:"varint,3,opt,name=num_buckets,json=numBuckets,def=20" json:"num_buckets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
+
+// Default values for ExponentialBuckets fields.
+const (
+	Default_ExponentialBuckets_ScaleFactor = float32(1)
+	Default_ExponentialBuckets_Base        = float32(2)
+	Default_ExponentialBuckets_NumBuckets  = uint32(20)
+)
 
 func (x *ExponentialBuckets) Reset() {
 	*x = ExponentialBuckets{}
@@ -176,24 +183,24 @@ func (*ExponentialBuckets) Descriptor() ([]byte, []int) {
 }
 
 func (x *ExponentialBuckets) GetScaleFactor() float32 {
-	if x != nil {
-		return x.ScaleFactor
+	if x != nil && x.ScaleFactor != nil {
+		return *x.ScaleFactor
 	}
-	return 0
+	return Default_ExponentialBuckets_ScaleFactor
 }
 
 func (x *ExponentialBuckets) GetBase() float32 {
-	if x != nil {
-		return x.Base
+	if x != nil && x.Base != nil {
+		return *x.Base
 	}
-	return 0
+	return Default_ExponentialBuckets_Base
 }
 
 func (x *ExponentialBuckets) GetNumBuckets() uint32 {
-	if x != nil {
-		return x.NumBuckets
+	if x != nil && x.NumBuckets != nil {
+		return *x.NumBuckets
 	}
-	return 0
+	return Default_ExponentialBuckets_NumBuckets
 }
 
 // EXPERIMENTAL: this message and its fields can change.
@@ -221,10 +228,15 @@ func (x *ExponentialBuckets) GetNumBuckets() uint32 {
 type NativeBuckets struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Bucket resolution. Valid values: -4 to 8.
-	Schema        *int32 `protobuf:"varint,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"` // default = 3
+	Schema        *int32 `protobuf:"varint,1,opt,name=schema,def=3" json:"schema,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
+
+// Default values for NativeBuckets fields.
+const (
+	Default_NativeBuckets_Schema = int32(3)
+)
 
 func (x *NativeBuckets) Reset() {
 	*x = NativeBuckets{}
@@ -260,7 +272,7 @@ func (x *NativeBuckets) GetSchema() int32 {
 	if x != nil && x.Schema != nil {
 		return *x.Schema
 	}
-	return 0
+	return Default_NativeBuckets_Schema
 }
 
 var File_github_com_cloudprober_cloudprober_metrics_proto_dist_proto protoreflect.FileDescriptor
@@ -272,15 +284,14 @@ const file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDesc =
 	"\x10explicit_buckets\x18\x01 \x01(\tH\x00R\x0fexplicitBuckets\x12Z\n" +
 	"\x13exponential_buckets\x18\x02 \x01(\v2'.cloudprober.metrics.ExponentialBucketsH\x00R\x12exponentialBuckets\x12K\n" +
 	"\x0enative_buckets\x18\x03 \x01(\v2\".cloudprober.metrics.NativeBucketsH\x00R\rnativeBucketsB\t\n" +
-	"\abuckets\"l\n" +
-	"\x12ExponentialBuckets\x12!\n" +
-	"\fscale_factor\x18\x01 \x01(\x02R\vscaleFactor\x12\x12\n" +
-	"\x04base\x18\x02 \x01(\x02R\x04base\x12\x1f\n" +
-	"\vnum_buckets\x18\x03 \x01(\rR\n" +
-	"numBuckets\"7\n" +
-	"\rNativeBuckets\x12\x1b\n" +
-	"\x06schema\x18\x01 \x01(\x05H\x00R\x06schema\x88\x01\x01B\t\n" +
-	"\a_schemaB2Z0github.com/cloudprober/cloudprober/metrics/protob\x06proto3"
+	"\abuckets\"v\n" +
+	"\x12ExponentialBuckets\x12$\n" +
+	"\fscale_factor\x18\x01 \x01(\x02:\x011R\vscaleFactor\x12\x15\n" +
+	"\x04base\x18\x02 \x01(\x02:\x012R\x04base\x12#\n" +
+	"\vnum_buckets\x18\x03 \x01(\r:\x0220R\n" +
+	"numBuckets\"*\n" +
+	"\rNativeBuckets\x12\x19\n" +
+	"\x06schema\x18\x01 \x01(\x05:\x013R\x06schemaB2Z0github.com/cloudprober/cloudprober/metrics/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDescOnce sync.Once
@@ -320,7 +331,6 @@ func file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_init() {
 		(*Dist_ExponentialBuckets)(nil),
 		(*Dist_NativeBuckets)(nil),
 	}
-	file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

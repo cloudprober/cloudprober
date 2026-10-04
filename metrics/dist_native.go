@@ -25,9 +25,8 @@ import (
 )
 
 const (
-	minNativeSchema     = -4
-	maxNativeSchema     = 8
-	defaultNativeSchema = 3
+	minNativeSchema = -4
+	maxNativeSchema = 8
 )
 
 // NativeBuckets holds Prometheus-style native histogram buckets. Buckets are
