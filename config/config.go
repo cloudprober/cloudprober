@@ -228,14 +228,25 @@ func substEnvVars(configStr string, l *logger.Logger) string {
 }
 
 func ConfigTest(cs ConfigSource) error {
+	warnings, err := configTest(cs)
+	for _, w := range warnings {
+		logger.New().Warning(w)
+	}
+	return err
+}
+
+// configTest tests the config and returns the warnings, and the error if
+// config is not valid.
+func configTest(cs ConfigSource) (warnings []string, err error) {
 	// cs is provided only for testing.
 	if cs == nil {
 		if *configFile == "" {
-			return errors.New("config_file is required for testing")
+			return nil, errors.New("config_file is required for testing")
 		}
 		cs = &defaultConfigSource{
-			fileName: *configFile,
-			baseVars: configTestVars,
+			fileName:                *configFile,
+			surfacersConfigFileName: *surfacersConfigFile,
+			baseVars:                configTestVars,
 			getGCECustomMetadata: func(v string) (string, error) {
 				return v + "-test-value", nil
 			},
@@ -243,17 +254,23 @@ func ConfigTest(cs ConfigSource) error {
 	}
 	cfg, err := cs.GetConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Validate probe configs beyond proto unmarshalling, e.g. duration
 	// fields, field conflicts, etc.
 	for _, p := range cfg.GetProbe() {
 		if _, err := options.ValidateProbeConfig(p); err != nil {
-			return fmt.Errorf("probe %q: %v", p.GetName(), err)
+			return nil, fmt.Errorf("probe %q: %v", p.GetName(), err)
 		}
 	}
-	return nil
+
+	// This is only a warning for now, it will become an error in a future
+	// release.
+	for _, c := range options.LatencyTypeClashes(cfg.GetProbe(), cfg.GetSurfacer()) {
+		warnings = append(warnings, c.String())
+	}
+	return warnings, nil
 }
 
 func DumpConfig(outFormat string, cs ConfigSource) ([]byte, error) {

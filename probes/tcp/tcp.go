@@ -92,8 +92,8 @@ func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options)
 
 	// If TLS handshake is enabled, add conn and tls_handshake latency metrics.
 	if result.tlsHandshakeLatency != nil {
-		em.AddMetric("connect_latency", result.connLatency.Clone())
-		em.AddMetric("tls_handshake_latency", result.tlsHandshakeLatency.Clone())
+		em.AddMetric("connect_"+opts.LatencyMetricName, result.connLatency.Clone())
+		em.AddMetric("tls_handshake_"+opts.LatencyMetricName, result.tlsHandshakeLatency.Clone())
 	}
 
 	if result.validationFailure != nil {
