@@ -95,27 +95,10 @@ func NewDistributionFromProto(distProto *distpb.Dist) (*Distribution, error) {
 
 	case *distpb.Dist_ExponentialBuckets:
 		expb := distProto.GetExponentialBuckets()
-		if expb.Base == 0 {
-			expb.Base = 2
-		}
-		if expb.Base < 1.01 {
-			return nil, fmt.Errorf("exponential distribution's base (%f) should be at least 1.01", expb.Base)
-		}
-		if expb.ScaleFactor == 0 {
-			expb.ScaleFactor = 1
-		}
-		if expb.NumBuckets == 0 {
-			expb.NumBuckets = 20
-		}
 		return NewExponentialDistribution(float64(expb.GetBase()), float64(expb.GetScaleFactor()), int(expb.GetNumBuckets()))
 
 	case *distpb.Dist_NativeBuckets:
-		nb := distProto.GetNativeBuckets()
-		schema := int32(defaultNativeSchema)
-		if nb.Schema != nil {
-			schema = nb.GetSchema()
-		}
-		return NewNativeDistribution(schema)
+		return NewNativeDistribution(distProto.GetNativeBuckets().GetSchema())
 	}
 
 	return nil, fmt.Errorf("unknown buckets type: %v", distProto.Buckets)
