@@ -24,6 +24,7 @@ import (
 	"github.com/cloudprober/cloudprober/common/iputils"
 	"github.com/cloudprober/cloudprober/internal/alerting"
 	alerting_configpb "github.com/cloudprober/cloudprober/internal/alerting/proto"
+	dnsvalidatorpb "github.com/cloudprober/cloudprober/internal/validators/dns/proto"
 	validatorpb "github.com/cloudprober/cloudprober/internal/validators/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -575,9 +576,10 @@ func TestOptions_StatsExportFrequency(t *testing.T) {
 
 func TestValidateProbeConfig(t *testing.T) {
 	tests := []struct {
-		name    string
-		probe   *configpb.ProbeDef
-		wantErr string
+		name      string
+		probe     *configpb.ProbeDef
+		noTargets bool
+		wantErr   string
 	}{
 		{
 			name: "valid_config",
@@ -691,7 +693,9 @@ func TestValidateProbeConfig(t *testing.T) {
 				Type: configpb.ProbeDef_DNS.Enum(),
 				Validator: []*validatorpb.Validator{{
 					Name: "dns",
-					Type: &validatorpb.Validator_DnsValidator{},
+					Type: &validatorpb.Validator_DnsValidator{
+						DnsValidator: &dnsvalidatorpb.Validator{Authoritative: proto.Bool(true)},
+					},
 				}},
 			},
 		},
@@ -732,7 +736,9 @@ func TestValidateProbeConfig(t *testing.T) {
 				Type: configpb.ProbeDef_HTTP.Enum(),
 				Validator: []*validatorpb.Validator{{
 					Name: "dns",
-					Type: &validatorpb.Validator_DnsValidator{},
+					Type: &validatorpb.Validator_DnsValidator{
+						DnsValidator: &dnsvalidatorpb.Validator{Authoritative: proto.Bool(true)},
+					},
 				}},
 			},
 			wantErr: "validator \"dns\": dns_validator is not supported by HTTP probes",
@@ -780,10 +786,64 @@ func TestValidateProbeConfig(t *testing.T) {
 			},
 			wantErr: "validators are not supported by UDP_LISTENER probes",
 		},
+		{
+			name:      "targets_required",
+			probe:     &configpb.ProbeDef{Type: configpb.ProbeDef_HTTP.Enum()},
+			noTargets: true,
+			wantErr:   "targets requied for probe type: HTTP",
+		},
+		{
+			name:      "targets_not_required",
+			probe:     &configpb.ProbeDef{Type: configpb.ProbeDef_EXTERNAL.Enum()},
+			noTargets: true,
+		},
+		{
+			name: "bad_run_on",
+			probe: &configpb.ProbeDef{
+				Type:  configpb.ProbeDef_HTTP.Enum(),
+				RunOn: proto.String("("),
+			},
+			wantErr: "invalid run_on regex",
+		},
+		{
+			name: "bad_schedule",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Schedule: []*configpb.Schedule{{
+					Type:      configpb.Schedule_DISABLE.Enum(),
+					StartTime: proto.String("abc"),
+				}},
+			},
+			wantErr: "error parsing start time",
+		},
+		{
+			name: "validator_without_name",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Type: &validatorpb.Validator_Regex{Regex: "ok"},
+				}},
+			},
+			wantErr: "validator name is required",
+		},
+		{
+			name: "validator_bad_regex",
+			probe: &configpb.ProbeDef{
+				Type: configpb.ProbeDef_HTTP.Enum(),
+				Validator: []*validatorpb.Validator{{
+					Name: "v",
+					Type: &validatorpb.Validator_Regex{Regex: "("},
+				}},
+			},
+			wantErr: "error compiling the given regex",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if !tt.noTargets {
+				tt.probe.Targets = testTargets
+			}
 			_, err := ValidateProbeConfig(tt.probe)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"regexp"
 	"slices"
 	"time"
 
@@ -94,6 +95,15 @@ var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
 var validatorsUnsupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_UDP:          true,
 	configpb.ProbeDef_UDP_LISTENER: true,
+}
+
+var targetsNotRequired = map[configpb.ProbeDef_Type]bool{
+	configpb.ProbeDef_USER_DEFINED: true,
+	configpb.ProbeDef_EXTERNAL:     true,
+	configpb.ProbeDef_EXTENSION:    true,
+	configpb.ProbeDef_BROWSER:      true,
+	configpb.ProbeDef_SQL:          true,
+	configpb.ProbeDef_SYSTEM:       true,
 }
 
 // validatorProbeTypes returns the name of a probe-type-specific validator and
@@ -241,6 +251,22 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 		return nil, err
 	}
 
+	if p.GetTargets() == nil && !targetsNotRequired[p.GetType()] {
+		return nil, fmt.Errorf("targets requied for probe type: %s", p.GetType().String())
+	}
+
+	if _, err := regexp.Compile(p.GetRunOn()); err != nil {
+		return nil, fmt.Errorf("invalid run_on regex (%s): %v", p.GetRunOn(), err)
+	}
+
+	// Schedule itself is created in BuildProbeOptions, as it needs the
+	// probe's logger.
+	for _, sched := range p.GetSchedule() {
+		if _, err := parsePeriod(sched, nil); err != nil {
+			return nil, fmt.Errorf("error creating schedule for the probe (%s): %v", p.GetName(), err)
+		}
+	}
+
 	opts := &Options{
 		Name:                  p.GetName(),
 		Interval:              intervalDuration,
@@ -250,6 +276,12 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 		NegativeTest:          p.GetNegativeTest(),
 		AdditionalLabels:      parseAdditionalLabels(p),
 		TargetsUpdateInterval: time.Duration(p.GetTargetsUpdateSec()) * time.Second,
+	}
+
+	if len(p.GetValidator()) > 0 {
+		if opts.Validators, err = validators.Init(p.GetValidator()); err != nil {
+			return nil, fmt.Errorf("failed to initialize validators: %v", err)
+		}
 	}
 
 	// Validate and parse latency_unit.
@@ -301,32 +333,13 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 	opts.Logger = logger.NewWithAttrs(slog.String("probe", p.GetName()))
 
 	if p.GetTargets() == nil {
-		targetsNotRequired := []configpb.ProbeDef_Type{
-			configpb.ProbeDef_USER_DEFINED,
-			configpb.ProbeDef_EXTERNAL,
-			configpb.ProbeDef_EXTENSION,
-			configpb.ProbeDef_BROWSER,
-			configpb.ProbeDef_SQL,
-			configpb.ProbeDef_SYSTEM,
-		}
-		if !slices.Contains(targetsNotRequired, p.GetType()) {
-			return nil, fmt.Errorf("targets requied for probe type: %s", p.GetType().String())
-		} else {
-			p.Targets = &targetspb.TargetsDef{
-				Type: &targetspb.TargetsDef_DummyTargets{},
-			}
+		p.Targets = &targetspb.TargetsDef{
+			Type: &targetspb.TargetsDef_DummyTargets{},
 		}
 	}
 
 	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, proberConfig.GetGlobalTargetsOptions(), l, opts.Logger); err != nil {
 		return nil, err
-	}
-
-	if len(p.GetValidator()) > 0 {
-		opts.Validators, err = validators.Init(p.GetValidator())
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize validators: %v", err)
-		}
 	}
 
 	if p.GetSourceIpConfig() != nil {

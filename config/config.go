@@ -31,6 +31,7 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/state"
+	surfaceroptions "github.com/cloudprober/cloudprober/surfacers/options"
 	"github.com/google/go-jsonnet"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -259,9 +260,26 @@ func configTest(cs ConfigSource) (warnings []string, err error) {
 
 	// Validate probe configs beyond proto unmarshalling, e.g. duration
 	// fields, field conflicts, etc.
+	probeNames := make(map[string]bool)
 	for _, p := range cfg.GetProbe() {
 		if _, err := options.ValidateProbeConfig(p); err != nil {
 			return nil, fmt.Errorf("probe %q: %v", p.GetName(), err)
+		}
+
+		// Probes with run_on can share a name, as long as they don't end up
+		// on the same host, which we can't tell here.
+		if p.GetRunOn() != "" {
+			continue
+		}
+		if probeNames[p.GetName()] {
+			return nil, fmt.Errorf("probe %q is defined more than once", p.GetName())
+		}
+		probeNames[p.GetName()] = true
+	}
+
+	for _, s := range cfg.GetSurfacer() {
+		if _, err := surfaceroptions.BuildOptionsFromConfig(s, nil); err != nil {
+			return nil, fmt.Errorf("surfacer %q: %v", s.GetName(), err)
 		}
 	}
 

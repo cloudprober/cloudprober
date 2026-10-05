@@ -175,6 +175,25 @@ func TestConfigTest(t *testing.T) {
 			wantErr:    "failed to parse the latency unit",
 		},
 		{
+			name:       "bad_validator",
+			configFile: "testdata/cloudprober_bad_validator.cfg",
+			wantErr:    "error compiling the given regex",
+		},
+		{
+			name:       "duplicate_probe",
+			configFile: "testdata/cloudprober_dup_probe.cfg",
+			wantErr:    `probe "test_probe" is defined more than once`,
+		},
+		{
+			name:       "duplicate_probe_with_run_on",
+			configFile: "testdata/cloudprober_dup_probe_run_on.cfg",
+		},
+		{
+			name:       "bad_surfacer",
+			configFile: "testdata/cloudprober_bad_surfacer.cfg",
+			wantErr:    "invalid latency_metric_pattern",
+		},
+		{
 			// Only a warning for now.
 			name:           "latency_type_clash",
 			configFileFlag: "testdata/cloudprober_latency_clash.cfg",
