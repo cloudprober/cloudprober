@@ -398,6 +398,27 @@ func TestValidate(t *testing.T) {
 			wantErr: "mutually exclusive",
 		},
 		{
+			name: "max_cache_age_smaller_than_ttl",
+			def: &targetspb.TargetsDef{
+				Type: &targetspb.TargetsDef_HostNames{HostNames: "host1"},
+				DnsOptions: &targetspb.DNSOptions{
+					TtlSec:         proto.Int32(300),
+					MaxCacheAgeSec: proto.Int32(60),
+				},
+			},
+			wantErr: "max_cache_age (60) must be >= ttl_sec (300)",
+		},
+		{
+			name: "max_cache_age_bigger_than_ttl",
+			def: &targetspb.TargetsDef{
+				Type: &targetspb.TargetsDef_HostNames{HostNames: "host1"},
+				DnsOptions: &targetspb.DNSOptions{
+					TtlSec:         proto.Int32(60),
+					MaxCacheAgeSec: proto.Int32(300),
+				},
+			},
+		},
+		{
 			name: "bad_dns_server",
 			def: &targetspb.TargetsDef{
 				Type: &targetspb.TargetsDef_HostNames{HostNames: "host1"},
