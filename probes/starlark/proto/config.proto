@@ -94,38 +94,29 @@ message ProbeConf {
   //       r = http.get(url, headers={"Authorization": oauth.header("api")})
   map<string, oauth.Config> oauth_configs = 7;
 
-  // Named proxy configs, keyed by a name the script uses to select one via
-  // the proxy kwarg on http calls:
-  //   http.get(url, proxy="corp")
+  // Proxy URL, e.g. http://myproxy:3128. Same field as the HTTP probe's
+  // proxy_url, and applied the same way: to every client the probe builds,
+  // the default client and every named tls_configs entry alike. No
+  // script-side selector -- unlike tls_configs, a probe realistically has
+  // one egress proxy, not several to choose between per call. Applying it to
+  // every client also means tls= and the proxy compose automatically: an
+  // internal host with a private CA behind the corporate proxy just needs
+  // tls="internal", nothing proxy-specific.
   //
-  // A named map, not a single probe-wide proxy_url: unlike the HTTP probe
-  // (always exactly one request per execution, so one proxy_url covers every
-  // call), a single Starlark probe execution can issue calls to several
-  // distinct hosts, some needing a proxy and some not, or needing different
-  // proxies. Name each one and select it explicitly, the same pattern
-  // tls_configs already uses:
-  //   proxy_configs {
-  //     key: "corp"
-  //     value { proxy_url: "http://proxy.internal:3128" }
-  //   }
-  //   def probe(target):
-  //       http.get("https://public/healthz")                # direct
-  //       http.get("https://internal/healthz", proxy="corp") # via proxy
-  //
-  // Omitting the proxy kwarg means a direct connection, never "the only entry
-  // here" — a single config must still be asked for by name. Passing an
-  // empty proxy is an error rather than direct, so a computed selector fails
-  // loudly:
-  //   http.get(url, proxy=target.labels["proxy_profile"])  # missing label: error
-  //
-  // tls and proxy are mutually exclusive on a single call: each selects from
-  // its own independently-built client set, and there is no single client
-  // that combines a named TLS config with a named proxy config.
-  map<string, ProxyConfig> proxy_configs = 8;
+  // If unset, behavior is unchanged from today: Go's ProxyFromEnvironment
+  // (HTTPS_PROXY/HTTP_PROXY/NO_PROXY env vars), implicit and process-wide.
+  optional string proxy_url = 8;
+
+  // Proxy CONNECT headers, e.g. for proxy auth. Same shape as the HTTP
+  // probe's proxy_connect_header. Only meaningful alongside proxy_url.
+  map<string, string> proxy_connect_header = 9;
+
+  // Hosts to connect to directly, bypassing proxy_url, in standard NO_PROXY
+  // syntax (comma-separated hostnames, ".suffix" domains, or CIDRs; see
+  // golang.org/x/net/http/httpproxy). Needed here where the HTTP probe has
+  // no equivalent: the HTTP probe only ever has one target, but a single
+  // Starlark script routinely talks to several hosts in one run, some
+  // internal (skip the proxy) and some not.
+  optional string no_proxy = 10;
 }
 
-// ProxyConfig configures a single named HTTP proxy for the proxy kwarg on
-// http calls. See ProbeConf.proxy_configs.
-message ProxyConfig {
-  optional string proxy_url = 1;
-}

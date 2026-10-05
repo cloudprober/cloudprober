@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -35,6 +36,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
+	"golang.org/x/net/http/httpproxy"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -131,21 +133,33 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return err
 	}
 
-	var proxyURLs map[string]*url.URL
-	if len(p.c.GetProxyConfigs()) > 0 {
-		proxyURLs = make(map[string]*url.URL, len(p.c.GetProxyConfigs()))
-		for cfgName, c := range p.c.GetProxyConfigs() {
-			// An empty name is unreachable: proxy="" is an error, and an omitted
-			// proxy connects directly without consulting this map. Reject it so
-			// a config that can never be selected fails loudly at Init.
-			if cfgName == "" {
-				return fmt.Errorf("starlark proxy_configs: empty config name; every entry must have a non-empty key")
+	// A probe-level proxy, applied to every client the runtime builds (the
+	// default client and every tls_configs entry) rather than a script-side
+	// selector — see ProbeConf.proxy_url. Unset means today's unchanged
+	// behavior: Go's ProxyFromEnvironment.
+	var proxyFunc func(*http.Request) (*url.URL, error)
+	var proxyConnectHeader http.Header
+	if proxyURL := p.c.GetProxyUrl(); proxyURL != "" {
+		parsedProxyURL, err := url.Parse(proxyURL)
+		if err != nil {
+			return fmt.Errorf("starlark proxy_url: %v", err)
+		}
+		if (parsedProxyURL.Scheme != "http" && parsedProxyURL.Scheme != "https") || parsedProxyURL.Host == "" {
+			return fmt.Errorf("starlark proxy_url: must be an absolute URL with an http or https scheme and a host")
+		}
+		proxyCfg := &httpproxy.Config{
+			HTTPProxy:  proxyURL,
+			HTTPSProxy: proxyURL,
+			NoProxy:    p.c.GetNoProxy(),
+		}
+		fn := proxyCfg.ProxyFunc()
+		proxyFunc = func(req *http.Request) (*url.URL, error) { return fn(req.URL) }
+
+		if len(p.c.GetProxyConnectHeader()) > 0 {
+			proxyConnectHeader = make(http.Header, len(p.c.GetProxyConnectHeader()))
+			for k, v := range p.c.GetProxyConnectHeader() {
+				proxyConnectHeader.Add(k, v)
 			}
-			u, err := url.Parse(c.GetProxyUrl())
-			if err != nil {
-				return fmt.Errorf("starlark proxy_configs[%q]: invalid proxy_url: %v", cfgName, err)
-			}
-			proxyURLs[cfgName] = u
 		}
 	}
 
@@ -156,14 +170,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	defer cancel()
 
 	rt, err := newRuntime(loadCtx, &runtimeOpts{
-		name:       name,
-		source:     source,
-		entryPoint: entryPoint,
-		vars:       p.c.GetVars(),
-		tlsCfgs:    tlsCfgs,
-		oauth:      oauthID,
-		proxyURLs:  proxyURLs,
-		l:          p.l,
+		name:               name,
+		source:             source,
+		entryPoint:         entryPoint,
+		vars:               p.c.GetVars(),
+		tlsCfgs:            tlsCfgs,
+		oauth:              oauthID,
+		proxyFunc:          proxyFunc,
+		proxyConnectHeader: proxyConnectHeader,
+		l:                  p.l,
 	})
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
