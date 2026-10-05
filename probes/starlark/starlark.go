@@ -23,6 +23,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -34,6 +36,7 @@ import (
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
+	"golang.org/x/net/http/httpproxy"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -130,6 +133,36 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return err
 	}
 
+	// A probe-level proxy, applied to every client the runtime builds (the
+	// default client and every tls_configs entry) rather than a script-side
+	// selector — see ProbeConf.proxy_url. Unset means today's unchanged
+	// behavior: Go's ProxyFromEnvironment.
+	var proxyFunc func(*http.Request) (*url.URL, error)
+	var proxyConnectHeader http.Header
+	if proxyURL := p.c.GetProxyUrl(); proxyURL != "" {
+		parsedProxyURL, err := url.Parse(proxyURL)
+		if err != nil {
+			return fmt.Errorf("starlark proxy_url: %v", err)
+		}
+		if (parsedProxyURL.Scheme != "http" && parsedProxyURL.Scheme != "https") || parsedProxyURL.Host == "" {
+			return fmt.Errorf("starlark proxy_url: must be an absolute URL with an http or https scheme and a host")
+		}
+		proxyCfg := &httpproxy.Config{
+			HTTPProxy:  proxyURL,
+			HTTPSProxy: proxyURL,
+			NoProxy:    p.c.GetNoProxy(),
+		}
+		fn := proxyCfg.ProxyFunc()
+		proxyFunc = func(req *http.Request) (*url.URL, error) { return fn(req.URL) }
+
+		if len(p.c.GetProxyConnectHeader()) > 0 {
+			proxyConnectHeader = make(http.Header, len(p.c.GetProxyConnectHeader()))
+			for k, v := range p.c.GetProxyConnectHeader() {
+				proxyConnectHeader.Add(k, v)
+			}
+		}
+	}
+
 	// Timeout to compile the starlark script. This is a generous timeout
 	// to avoid accidental infinite loops in the script.
 	loadTimeout := 30 * time.Second
@@ -137,13 +170,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	defer cancel()
 
 	rt, err := newRuntime(loadCtx, &runtimeOpts{
-		name:       name,
-		source:     source,
-		entryPoint: entryPoint,
-		vars:       p.c.GetVars(),
-		tlsCfgs:    tlsCfgs,
-		oauth:      oauthID,
-		l:          p.l,
+		name:               name,
+		source:             source,
+		entryPoint:         entryPoint,
+		vars:               p.c.GetVars(),
+		tlsCfgs:            tlsCfgs,
+		oauth:              oauthID,
+		proxyFunc:          proxyFunc,
+		proxyConnectHeader: proxyConnectHeader,
+		l:                  p.l,
 	})
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)

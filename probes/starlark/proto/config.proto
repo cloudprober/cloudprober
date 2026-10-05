@@ -93,4 +93,30 @@ message ProbeConf {
   //   def probe(target):
   //       r = http.get(url, headers={"Authorization": oauth.header("api")})
   map<string, oauth.Config> oauth_configs = 7;
+
+  // Proxy URL, e.g. http://myproxy:3128. Same field as the HTTP probe's
+  // proxy_url, and applied the same way: to every client the probe builds,
+  // the default client and every named tls_configs entry alike. No
+  // script-side selector -- unlike tls_configs, a probe realistically has
+  // one egress proxy, not several to choose between per call. Applying it to
+  // every client also means tls= and the proxy compose automatically: an
+  // internal host with a private CA behind the corporate proxy just needs
+  // tls="internal", nothing proxy-specific.
+  //
+  // If unset, behavior is unchanged from today: Go's ProxyFromEnvironment
+  // (HTTPS_PROXY/HTTP_PROXY/NO_PROXY env vars), implicit and process-wide.
+  optional string proxy_url = 8;
+
+  // Proxy CONNECT headers, e.g. for proxy auth. Same shape as the HTTP
+  // probe's proxy_connect_header. Only meaningful alongside proxy_url.
+  map<string, string> proxy_connect_header = 9;
+
+  // Hosts to connect to directly, bypassing proxy_url, in standard NO_PROXY
+  // syntax (comma-separated hostnames, ".suffix" domains, or CIDRs; see
+  // golang.org/x/net/http/httpproxy). Needed here where the HTTP probe has
+  // no equivalent: the HTTP probe only ever has one target, but a single
+  // Starlark script routinely talks to several hosts in one run, some
+  // internal (skip the proxy) and some not.
+  optional string no_proxy = 10;
 }
+

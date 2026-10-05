@@ -60,6 +60,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
@@ -116,6 +117,17 @@ type runtimeOpts struct {
 	// oauth holds the token sources for the oauth builtin, keyed by name.
 	oauth map[string]*oauthIdentity
 
+	// proxyFunc is applied to the default client and to every tls_configs
+	// client, so tls= and the proxy compose without a second selector. Nil
+	// (proxy_url unset) leaves clients built with a nil Transport for the
+	// plain case, or Transport.Proxy untouched for tls_configs clients --
+	// either way, ProxyFromEnvironment, unchanged from today.
+	proxyFunc func(*http.Request) (*url.URL, error)
+
+	// proxyConnectHeader is set on Transport.ProxyConnectHeader alongside
+	// proxyFunc. Nil when proxy_connect_header is unset.
+	proxyConnectHeader http.Header
+
 	l *logger.Logger
 }
 
@@ -131,8 +143,8 @@ func newRuntime(ctx context.Context, opts *runtimeOpts) (*runtime, error) {
 		name:       opts.name,
 		entryPoint: opts.entryPoint,
 		l:          opts.l,
-		httpClient: newHTTPClient(nil),
-		tlsClients: newTLSClients(opts.tlsCfgs),
+		httpClient: newHTTPClient(nil, opts.proxyFunc, opts.proxyConnectHeader),
+		tlsClients: newTLSClients(opts.tlsCfgs, opts.proxyFunc, opts.proxyConnectHeader),
 		oauth:      opts.oauth,
 	}
 	rt.predeclared = builtins(opts.vars)
@@ -179,24 +191,36 @@ func newRuntime(ctx context.Context, opts *runtimeOpts) (*runtime, error) {
 // than starting from a zero-value Transport — Clone preserves the stdlib's
 // dial/handshake/idle-conn timeouts, which a bare &http.Transport{} drops.
 // Mutating DefaultTransport directly would leak into unrelated probes.
-func newHTTPClient(tlsCfg *tls.Config) *http.Client {
-	if tlsCfg == nil {
+//
+// proxyFunc and connectHeader, when non-nil, are applied to this client's
+// Transport too — every client the probe builds shares the same probe-level
+// proxy, tls_configs clients included.
+func newHTTPClient(tlsCfg *tls.Config, proxyFunc func(*http.Request) (*url.URL, error), connectHeader http.Header) *http.Client {
+	if tlsCfg == nil && proxyFunc == nil {
 		return &http.Client{}
 	}
 	t := http.DefaultTransport.(*http.Transport).Clone()
-	t.TLSClientConfig = tlsCfg
+	if tlsCfg != nil {
+		t.TLSClientConfig = tlsCfg
+	}
+	if proxyFunc != nil {
+		t.Proxy = proxyFunc
+		t.ProxyConnectHeader = connectHeader
+	}
 	return &http.Client{Transport: t}
 }
 
 // newTLSClients builds a client per named TLS config, for the tls kwarg on
-// http calls. Returns nil when none are configured.
-func newTLSClients(tlsCfgs map[string]*tls.Config) map[string]*http.Client {
+// http calls. Returns nil when none are configured. proxyFunc/connectHeader
+// are threaded through to every client so tls= and the probe-level proxy
+// compose automatically.
+func newTLSClients(tlsCfgs map[string]*tls.Config, proxyFunc func(*http.Request) (*url.URL, error), connectHeader http.Header) map[string]*http.Client {
 	if len(tlsCfgs) == 0 {
 		return nil
 	}
 	clients := make(map[string]*http.Client, len(tlsCfgs))
 	for name, cfg := range tlsCfgs {
-		clients[name] = newHTTPClient(cfg)
+		clients[name] = newHTTPClient(cfg, proxyFunc, connectHeader)
 	}
 	return clients
 }
