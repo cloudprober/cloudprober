@@ -295,7 +295,11 @@ func configTest(cs ConfigSource) (warnings []string, err error) {
 
 	for _, s := range cfg.GetSurfacer() {
 		if _, err := surfaceroptions.BuildOptionsFromConfig(s, nil); err != nil {
-			return nil, fmt.Errorf("surfacer %q: %v", s.GetName(), err)
+			name := s.GetName()
+			if name == "" {
+				name = strings.ToLower(s.GetType().String())
+			}
+			return nil, fmt.Errorf("surfacer %q: %v", name, err)
 		}
 	}
 

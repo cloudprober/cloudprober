@@ -201,7 +201,7 @@ func TestConfigTest(t *testing.T) {
 		{
 			name:       "bad_surfacer",
 			configFile: "testdata/cloudprober_bad_surfacer.cfg",
-			wantErr:    "invalid latency_metric_pattern",
+			wantErr:    `surfacer "prometheus": invalid latency_metric_pattern`,
 		},
 		{
 			// Only a warning for now.
