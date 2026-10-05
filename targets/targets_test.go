@@ -348,3 +348,96 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+
+func TestValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		def     *targetspb.TargetsDef
+		wantErr string
+	}{
+		{
+			name: "nil",
+		},
+		{
+			name: "valid",
+			def: &targetspb.TargetsDef{
+				Type:  &targetspb.TargetsDef_HostNames{HostNames: "host1,host2"},
+				Regex: proto.String("host.*"),
+				DnsOptions: &targetspb.DNSOptions{
+					Server: proto.String("tcp://1.1.1.1"),
+				},
+			},
+		},
+		{
+			name: "bad_regex",
+			def: &targetspb.TargetsDef{
+				Type:  &targetspb.TargetsDef_HostNames{HostNames: "host1"},
+				Regex: proto.String("("),
+			},
+			wantErr: "invalid targets regex",
+		},
+		{
+			name: "duplicate_endpoints",
+			def: &targetspb.TargetsDef{
+				Endpoint: []*eppb.Endpoint{
+					{Name: proto.String("host1")},
+					{Name: proto.String("host1")},
+				},
+			},
+			wantErr: "duplicate endpoint",
+		},
+		{
+			name: "dns_server_and_dns_options_server",
+			def: &targetspb.TargetsDef{
+				Type:      &targetspb.TargetsDef_HostNames{HostNames: "host1"},
+				DnsServer: proto.String("1.1.1.1"),
+				DnsOptions: &targetspb.DNSOptions{
+					Server: proto.String("8.8.8.8"),
+				},
+			},
+			wantErr: "mutually exclusive",
+		},
+		{
+			name: "max_cache_age_smaller_than_ttl",
+			def: &targetspb.TargetsDef{
+				Type: &targetspb.TargetsDef_HostNames{HostNames: "host1"},
+				DnsOptions: &targetspb.DNSOptions{
+					TtlSec:         proto.Int32(300),
+					MaxCacheAgeSec: proto.Int32(60),
+				},
+			},
+			wantErr: "max_cache_age (60) must be >= ttl_sec (300)",
+		},
+		{
+			name: "max_cache_age_bigger_than_ttl",
+			def: &targetspb.TargetsDef{
+				Type: &targetspb.TargetsDef_HostNames{HostNames: "host1"},
+				DnsOptions: &targetspb.DNSOptions{
+					TtlSec:         proto.Int32(60),
+					MaxCacheAgeSec: proto.Int32(300),
+				},
+			},
+		},
+		{
+			name: "bad_dns_server",
+			def: &targetspb.TargetsDef{
+				Type: &targetspb.TargetsDef_HostNames{HostNames: "host1"},
+				DnsOptions: &targetspb.DNSOptions{
+					Server: proto.String("ftp://1.1.1.1"),
+				},
+			},
+			wantErr: "invalid network",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Validate(tt.def)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}

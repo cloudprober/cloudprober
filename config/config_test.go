@@ -175,6 +175,35 @@ func TestConfigTest(t *testing.T) {
 			wantErr:    "failed to parse the latency unit",
 		},
 		{
+			name:       "bad_validator",
+			configFile: "testdata/cloudprober_bad_validator.cfg",
+			wantErr:    "error compiling the given regex",
+		},
+		{
+			name:       "duplicate_probe",
+			configFile: "testdata/cloudprober_dup_probe.cfg",
+			wantErr:    `probe "test_probe" is defined more than once`,
+		},
+		{
+			name:       "duplicate_probe_with_run_on",
+			configFile: "testdata/cloudprober_dup_probe_run_on.cfg",
+		},
+		{
+			name:       "bad_targets",
+			configFile: "testdata/cloudprober_bad_targets.cfg",
+			wantErr:    "max_cache_age (60) must be >= ttl_sec (300)",
+		},
+		{
+			name:       "undefined_shared_targets",
+			configFile: "testdata/cloudprober_bad_shared_targets.cfg",
+			wantErr:    `shared targets "my_targetz" are not defined`,
+		},
+		{
+			name:       "bad_surfacer",
+			configFile: "testdata/cloudprober_bad_surfacer.cfg",
+			wantErr:    `surfacer "prometheus": invalid latency_metric_pattern`,
+		},
+		{
 			// Only a warning for now.
 			name:           "latency_type_clash",
 			configFileFlag: "testdata/cloudprober_latency_clash.cfg",
