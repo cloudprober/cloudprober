@@ -39,15 +39,19 @@ type ProbeConf struct {
 	// Name of the entry-point function. It must accept a single argument: the
 	// target. The target is a struct-like value mirroring fields from
 	// cloudprober's targets/endpoint.Endpoint:
-	//   target.name    (string)        — Endpoint.Name (host or IP)
-	//   target.port    (int)           — Endpoint.Port (0 if none)
-	//   target.ip      (string)        — Endpoint.IP, stringified ("" if nil)
-	//   target.labels  (dict[str,str]) — Endpoint.Labels, frozen
+	//
+	//	target.name    (string)        — Endpoint.Name (host or IP)
+	//	target.port    (int)           — Endpoint.Port (0 if none)
+	//	target.ip      (string)        — Endpoint.IP, stringified ("" if nil)
+	//	target.labels  (dict[str,str]) — Endpoint.Labels, frozen
+	//
 	// Example:
-	//   def probe(target):
-	//       url = "http://%s:%d/healthz" % (target.name, target.port)
-	//       env = target.labels.get("env", "unknown")
-	//       ...
+	//
+	//	def probe(target):
+	//	    url = "http://%s:%d/healthz" % (target.name, target.port)
+	//	    env = target.labels.get("env", "unknown")
+	//	    ...
+	//
 	// Defaults to "probe".
 	EntryPoint *string `protobuf:"bytes,3,opt,name=entry_point,json=entryPoint,def=probe" json:"entry_point,omitempty"`
 	// Variables exposed to the script via vars.get(name, default=None).
@@ -64,7 +68,8 @@ type ProbeConf struct {
 	OutputMetricsOptions *proto.OutputMetricsOptions `protobuf:"bytes,5,opt,name=output_metrics_options,json=outputMetricsOptions" json:"output_metrics_options,omitempty"`
 	// TLS configs, keyed by a name the script uses to select one via the tls
 	// kwarg on http calls:
-	//   http.get(url, tls="internal")
+	//
+	//	http.get(url, tls="internal")
 	//
 	// TLS is deliberately per-call, with no probe-wide default: a script
 	// routinely hits several hosts in one run, and TLS settings are per-host in
@@ -73,19 +78,21 @@ type ProbeConf struct {
 	// touches), server_name is an SNI override for one host by definition, and
 	// disable_cert_validation is rarely meant for every host. Name each config
 	// here and select it explicitly:
-	//   tls_configs {
-	//     key: "legacy"
-	//     value { disable_cert_validation: true }
-	//   }
-	//   def probe(target):
-	//       http.get("https://public/healthz")                  # system roots
-	//       http.get("https://legacy/healthz", tls="legacy")    # named config
+	//
+	//	tls_configs {
+	//	  key: "legacy"
+	//	  value { disable_cert_validation: true }
+	//	}
+	//	def probe(target):
+	//	    http.get("https://public/healthz")                  # system roots
+	//	    http.get("https://legacy/healthz", tls="legacy")    # named config
 	//
 	// Omitting the tls kwarg means Go's TLS defaults (system CA pool, normal
 	// validation), never "the only entry here" — a single config must still be
 	// asked for by name. Passing an empty tls is an error rather than the
 	// default, so a computed selector fails loudly:
-	//   http.get(url, tls=target.labels["tls_profile"])  # missing label: error
+	//
+	//	http.get(url, tls=target.labels["tls_profile"])  # missing label: error
 	TlsConfigs map[string]*proto1.TLSConfig `protobuf:"bytes,6,rep,name=tls_configs,json=tlsConfigs" json:"tls_configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// OAuth token sources, keyed by a name the script uses to select one. Same
 	// oauth.Config message the HTTP probe uses, so every source (file, command,
@@ -95,15 +102,18 @@ type ProbeConf struct {
 	// Unlike the HTTP probe, tokens are NOT auto-injected: a Starlark script
 	// routinely hits several hosts in one run, so it must ask for the token
 	// explicitly and decide where it goes, via the oauth builtin:
-	//   oauth.token(name="")  -- raw access token ("eyJ...")
-	//   oauth.header(name="") -- formatted Authorization value ("Bearer eyJ...")
+	//
+	//	oauth.token(name="")  -- raw access token ("eyJ...")
+	//	oauth.header(name="") -- formatted Authorization value ("Bearer eyJ...")
+	//
 	// name may be omitted when exactly one config is present. Example:
-	//   oauth_configs {
-	//     key: "api"
-	//     value { http_request { token_url: "https://issuer/token" ... } }
-	//   }
-	//   def probe(target):
-	//       r = http.get(url, headers={"Authorization": oauth.header("api")})
+	//
+	//	oauth_configs {
+	//	  key: "api"
+	//	  value { http_request { token_url: "https://issuer/token" ... } }
+	//	}
+	//	def probe(target):
+	//	    r = http.get(url, headers={"Authorization": oauth.header("api")})
 	OauthConfigs map[string]*proto2.Config `protobuf:"bytes,7,rep,name=oauth_configs,json=oauthConfigs" json:"oauth_configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Proxy URL, e.g. http://myproxy:3128. Same field as the HTTP probe's
 	// proxy_url, and applied the same way: to every client the probe builds,
