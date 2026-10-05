@@ -56,9 +56,6 @@ type reqOpts struct {
 	// string is kept and rejected by resolveHTTPClient. So a non-nil value is
 	// always a string the script explicitly passed.
 	tlsName *string
-	// proxyName is tlsName's counterpart for proxy=. Mutually exclusive with
-	// tlsName; resolveHTTPClient rejects a call that sets both.
-	proxyName *string
 }
 
 // optionalInt converts a Value bound by UnpackArgs (with "??" suffix) into a
@@ -101,7 +98,7 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 	return func(thread *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var url string
 		var opts reqOpts
-		var maxRedirectsArg, tlsArg, proxyArg starlarklib.Value
+		var maxRedirectsArg, tlsArg starlarklib.Value
 		spec := []interface{}{
 			"url", &url,
 			"headers?", &opts.headers,
@@ -114,7 +111,7 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 		// returns for a missing label -- must fail, not silently pick the
 		// default client. With "?" the None flows through and optionalString
 		// rejects it.
-		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls?", &tlsArg, "proxy?", &proxyArg)
+		spec = append(spec, "max_redirects??", &maxRedirectsArg, "keep_alive??", &opts.keepAlive, "tls?", &tlsArg)
 		if err := starlarklib.UnpackArgs(name, args, kwargs, spec...); err != nil {
 			return nil, err
 		}
@@ -128,78 +125,39 @@ func httpVerb(method string, withBody bool) func(*starlarklib.Thread, *starlarkl
 			return nil, err
 		}
 		opts.tlsName = tlsName
-		proxyName, err := optionalString(proxyArg, name+": proxy")
-		if err != nil {
-			return nil, err
-		}
-		opts.proxyName = proxyName
 		return doHTTP(thread, name, method, url, opts)
 	}
 }
 
-// resolveHTTPClient picks the client for a call based on the tls= and proxy=
-// kwargs, which select from two independent client sets (tls_configs and
-// proxy_configs) and cannot be combined:
+// resolveHTTPClient picks the client for a call: the probe's plain client
+// (system CA pool, normal validation) when tls= is omitted, otherwise the one
+// built from the named tls_configs entry. Unlike oauth.token's name, a single
+// tls_configs entry is not implicitly selected — omitting tls= always means
+// the plain client, so that adding a config can't silently retarget calls that
+// don't mention it.
 //
-//   - Neither set: the probe's plain client (system CA pool, normal
-//     validation, direct connection).
-//   - tls= only: the named tls_configs entry, direct connection.
-//   - proxy= only: the named proxy_configs entry, system-default TLS.
-//   - Both set: an error. Each selector's client set is built and named
-//     independently, so there's no single client that combines a named TLS
-//     config with a named proxy config — requesting both is a configuration
-//     mistake to report, not a case to silently resolve one way or the other.
-//
-// Unlike oauth.token's name, a single tls_configs or proxy_configs entry is
-// not implicitly selected — omitting the kwarg always means the plain client,
-// so that adding a config can't silently retarget calls that don't mention it.
-//
-// An explicitly passed empty name (for either kwarg) is an error rather than
-// the plain client, so a computed selector (tls = target.labels.get("tls_profile", ""))
-// fails loudly on a target that's missing the label instead of quietly
-// probing with the wrong settings.
-func resolveHTTPClient(thread *starlarklib.Thread, fname string, tlsName, proxyName *string) (*http.Client, error) {
-	if tlsName != nil && proxyName != nil {
-		return nil, fmt.Errorf("%s: tls and proxy are mutually exclusive; set only one", fname)
-	}
-
-	if tlsName == nil && proxyName == nil {
+// An explicitly passed empty name is an error rather than the plain client, so
+// a computed selector (tls = target.labels.get("tls_profile", "")) fails
+// loudly on a target that's missing the label instead of quietly probing with
+// the wrong TLS settings.
+func resolveHTTPClient(thread *starlarklib.Thread, fname string, tlsName *string) (*http.Client, error) {
+	if tlsName == nil {
 		return httpClientFromThread(thread), nil
 	}
-
-	if tlsName != nil {
-		clients := tlsClientsFromThread(thread)
-		if *tlsName == "" {
-			hint := "omit tls for system-default TLS"
-			if len(clients) > 0 {
-				hint += fmt.Sprintf(", or name one of the tls_configs (%s)", strings.Join(sortedNames(clients), ", "))
-			}
-			return nil, fmt.Errorf("%s: tls is empty; %s", fname, hint)
-		}
-		if len(clients) == 0 {
-			return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, *tlsName)
-		}
-		c, ok := clients[*tlsName]
-		if !ok {
-			return nil, fmt.Errorf("%s: no tls config named %q (configured: %s)", fname, *tlsName, strings.Join(sortedNames(clients), ", "))
-		}
-		return c, nil
-	}
-
-	clients := proxyClientsFromThread(thread)
-	if *proxyName == "" {
-		hint := "omit proxy for a direct connection"
+	clients := tlsClientsFromThread(thread)
+	if *tlsName == "" {
+		hint := "omit tls for system-default TLS"
 		if len(clients) > 0 {
-			hint += fmt.Sprintf(", or name one of the proxy_configs (%s)", strings.Join(sortedNames(clients), ", "))
+			hint += fmt.Sprintf(", or name one of the tls_configs (%s)", strings.Join(sortedNames(clients), ", "))
 		}
-		return nil, fmt.Errorf("%s: proxy is empty; %s", fname, hint)
+		return nil, fmt.Errorf("%s: tls is empty; %s", fname, hint)
 	}
 	if len(clients) == 0 {
-		return nil, fmt.Errorf("%s: proxy=%q, but probe has no proxy_configs configured", fname, *proxyName)
+		return nil, fmt.Errorf("%s: tls=%q, but probe has no tls_configs configured", fname, *tlsName)
 	}
-	c, ok := clients[*proxyName]
+	c, ok := clients[*tlsName]
 	if !ok {
-		return nil, fmt.Errorf("%s: no proxy config named %q (configured: %s)", fname, *proxyName, strings.Join(sortedNames(clients), ", "))
+		return nil, fmt.Errorf("%s: no tls config named %q (configured: %s)", fname, *tlsName, strings.Join(sortedNames(clients), ", "))
 	}
 	return c, nil
 }
@@ -255,7 +213,7 @@ func doHTTP(thread *starlarklib.Thread, fname, method, url string, opts reqOpts)
 		}
 	}
 
-	client, err := resolveHTTPClient(thread, fname, opts.tlsName, opts.proxyName)
+	client, err := resolveHTTPClient(thread, fname, opts.tlsName)
 	if err != nil {
 		return nil, err
 	}
