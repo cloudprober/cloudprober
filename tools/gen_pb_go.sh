@@ -17,6 +17,8 @@
 # This script generates Go code for the config protobufs.
 
 PROTOC_VERSION="33.5"
+PROTOC_GEN_GO_VERSION="v1.36.12"
+PROTOC_GEN_GO_GRPC_VERSION="v1.6.2"
 
 GOPATH=$(go env GOPATH)
 
@@ -78,9 +80,12 @@ function cleanup {
 }
 trap cleanup EXIT
 
-# Get go plugin for protoc
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+# Get go plugin for protoc. We build plugins with the Go version in go.mod, as
+# generated code (comment formatting) depends on the Go version that the
+# plugin is built with.
+plugin_toolchain="go$(cd "${PROJECTROOT}" && go list -m -f '{{.GoVersion}}')"
+GOTOOLCHAIN=${plugin_toolchain} go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}
+GOTOOLCHAIN=${plugin_toolchain} go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}
 
 echo "Generating Go code for protobufs.."
 echo "======================================================================"
