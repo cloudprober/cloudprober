@@ -284,6 +284,14 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 		}
 	}
 
+	// source_interface is resolved in BuildProbeOptions, as it depends on the
+	// host we are running on.
+	if _, ok := p.GetSourceIpConfig().(*configpb.ProbeDef_SourceIp); ok {
+		if opts.SourceIP, err = getSourceIPFromConfig(p); err != nil {
+			return nil, fmt.Errorf("failed to get source address for the probe: %v", err)
+		}
+	}
+
 	// Validate and parse latency_unit.
 	if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
 		return nil, fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
@@ -342,15 +350,15 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 		return nil, err
 	}
 
-	if p.GetSourceIpConfig() != nil {
+	if opts.SourceIP == nil && p.GetSourceIpConfig() != nil {
 		opts.SourceIP, err = getSourceIPFromConfig(p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get source address for the probe: %v", err)
 		}
-		// Set IPVersion from SourceIP if not already set.
-		if opts.IPVersion == 0 {
-			opts.IPVersion = iputils.IPVersion(opts.SourceIP)
-		}
+	}
+	// Set IPVersion from SourceIP if not already set.
+	if opts.SourceIP != nil && opts.IPVersion == 0 {
+		opts.IPVersion = iputils.IPVersion(opts.SourceIP)
 	}
 
 	for _, alertConf := range p.GetAlert() {

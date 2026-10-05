@@ -806,6 +806,23 @@ func TestValidateProbeConfig(t *testing.T) {
 			wantErr: "invalid run_on regex",
 		},
 		{
+			name: "bad_source_ip",
+			probe: &configpb.ProbeDef{
+				Type:           configpb.ProbeDef_HTTP.Enum(),
+				SourceIpConfig: &configpb.ProbeDef_SourceIp{SourceIp: "1.2.3"},
+			},
+			wantErr: "invalid source IP",
+		},
+		{
+			name: "source_ip_version_mismatch",
+			probe: &configpb.ProbeDef{
+				Type:           configpb.ProbeDef_HTTP.Enum(),
+				IpVersion:      configpb.ProbeDef_IPV6.Enum(),
+				SourceIpConfig: &configpb.ProbeDef_SourceIp{SourceIp: "1.2.3.4"},
+			},
+			wantErr: "doesn't match the ip_version",
+		},
+		{
 			name: "bad_schedule",
 			probe: &configpb.ProbeDef{
 				Type: configpb.ProbeDef_HTTP.Enum(),

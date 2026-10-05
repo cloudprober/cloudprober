@@ -189,6 +189,16 @@ func TestConfigTest(t *testing.T) {
 			configFile: "testdata/cloudprober_dup_probe_run_on.cfg",
 		},
 		{
+			name:       "bad_targets",
+			configFile: "testdata/cloudprober_bad_targets.cfg",
+			wantErr:    "max_cache_age (60) must be >= ttl_sec (300)",
+		},
+		{
+			name:       "undefined_shared_targets",
+			configFile: "testdata/cloudprober_bad_shared_targets.cfg",
+			wantErr:    `shared targets "my_targetz" are not defined`,
+		},
+		{
 			name:       "bad_surfacer",
 			configFile: "testdata/cloudprober_bad_surfacer.cfg",
 			wantErr:    "invalid latency_metric_pattern",
