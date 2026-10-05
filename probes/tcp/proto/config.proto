@@ -14,7 +14,8 @@ message ProbeConf {
 
   // Whether to perform a TLS handshake after TCP connection is established.
   // When TLS handshake is enabled, we export two additional metrics:
-  // - connect_latency and tls_handshake_latency.
+  // - connect_latency and tls_handshake_latency. If latency_metric_name is
+  //   set for the probe, it replaces "latency" in these names.
   optional bool tls_handshake = 2 [default = false];
   
   // TLS configuration for TLS handshake.

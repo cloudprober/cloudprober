@@ -108,8 +108,6 @@ func parsePeriod(sched *configpb.Schedule, l *logger.Logger) (*period, error) {
 		p.endTime = p.endTime.Add(7 * 24 * time.Hour)
 	}
 
-	l.Infof("Schedule: %s", p.String())
-
 	return p, nil
 }
 
@@ -185,6 +183,7 @@ func NewSchedule(scheds []*configpb.Schedule, l *logger.Logger) (*Schedule, erro
 		if err != nil {
 			return nil, err
 		}
+		l.Infof("Schedule: %s", p.String())
 
 		switch sched.GetType() {
 		case configpb.Schedule_ENABLE:

@@ -15,15 +15,19 @@
 package prober
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/config/proto"
+	surfacerpb "github.com/cloudprober/cloudprober/internal/surfacers/proto"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
+	distpb "github.com/cloudprober/cloudprober/metrics/proto"
 	"github.com/cloudprober/cloudprober/metrics/singlerun"
 	pb "github.com/cloudprober/cloudprober/prober/proto"
 	"github.com/cloudprober/cloudprober/probes"
@@ -194,9 +198,13 @@ func TestStartProbesWithJitter(t *testing.T) {
 	if delay < 0 {
 		delay = -delay
 	}
+	// The gap between the probes is 1s (2s interval, 2 probes), but each
+	// probe records its start time in its own goroutine, so the difference
+	// can come out a little under 1s. Allow for that.
+	//
 	// Windows test environment is bad with timestamps.
 	if runtime.GOOS != "windows" {
-		assert.GreaterOrEqual(t, delay, time.Second)
+		assert.GreaterOrEqual(t, delay, 900*time.Millisecond)
 	}
 }
 
@@ -309,5 +317,73 @@ func TestStartProbe_CancelDuringDelay(t *testing.T) {
 		t.Error("Probe started despite cancellation")
 	case <-time.After(300 * time.Millisecond):
 		// Good
+	}
+}
+
+func TestWarnLatencyTypeClash(t *testing.T) {
+	probeInfo := func(name, metricName string, dist bool) *probes.ProbeInfo {
+		def := &probes_configpb.ProbeDef{
+			Name:              proto.String(name),
+			LatencyMetricName: proto.String(metricName),
+		}
+		if dist {
+			def.LatencyDistribution = &distpb.Dist{}
+		}
+		return &probes.ProbeInfo{ProbeDef: def}
+	}
+	testProbes := map[string]*probes.ProbeInfo{
+		"p1":     probeInfo("p1", "latency", false),
+		"p2":     probeInfo("p2", "latency", true),
+		"p3":     probeInfo("p3", "latency_dist", true),
+		"no-def": {},
+	}
+
+	tests := []struct {
+		name      string
+		surfacers []*surfacerpb.SurfacerDef
+		probeName string
+		wantWarn  bool
+	}{
+		{
+			name:     "all_probes",
+			wantWarn: true,
+		},
+		{
+			name:      "probe_in_clash",
+			probeName: "p2",
+			wantWarn:  true,
+		},
+		{
+			name:      "probe_not_in_clash",
+			probeName: "p3",
+		},
+		{
+			name:      "probe_not_added",
+			probeName: "p4",
+		},
+		{
+			name:      "no_prometheus_or_otel",
+			surfacers: []*surfacerpb.SurfacerDef{{Type: surfacerpb.Type_FILE.Enum()}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			pr := &Prober{
+				Probes: testProbes,
+				c:      &configpb.ProberConfig{Surfacer: tt.surfacers},
+				l:      logger.New(logger.WithWriter(&buf)),
+			}
+
+			pr.warnLatencyTypeClash(tt.probeName)
+
+			if !tt.wantWarn {
+				assert.Empty(t, buf.String())
+				return
+			}
+			assert.Equal(t, 1, strings.Count(buf.String(), "\n"), "want exactly one warning")
+			assert.Contains(t, buf.String(), `\"latency\" is exported as a distribution by some probes (p2) and as a number by others (p1)`)
+		})
 	}
 }

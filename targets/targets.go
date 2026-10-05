@@ -251,6 +251,25 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 	return tgts, nil
 }
 
+// Validate validates the parts of the targets config that can be verified
+// without creating the targets: static endpoints, regex, and DNS options. It's
+// used by the config test.
+func Validate(targetsDef *targetspb.TargetsDef) error {
+	if _, err := endpoint.FromProtoMessage(targetsDef.GetEndpoint()); err != nil {
+		return fmt.Errorf("error creating static endpoints from proto: %v", err)
+	}
+
+	if _, err := regexp.Compile(targetsDef.GetRegex()); err != nil {
+		return fmt.Errorf("invalid targets regex: %s. Err: %v", targetsDef.GetRegex(), err)
+	}
+
+	if _, err := dnsRes.GetResolverOptions(targetsDef, nil); err != nil {
+		return fmt.Errorf("error creating resolver: %v", err)
+	}
+
+	return nil
+}
+
 // StaticTargets returns a basic "targets" object (implementing the Targets
 // interface) from a comma-separated list of hosts. This function panics if
 // "hosts" string is not valid. It is mainly used by tests to quickly get a

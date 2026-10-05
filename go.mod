@@ -23,6 +23,7 @@ require (
 	github.com/jhump/protoreflect v1.17.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/miekg/dns v1.1.62
+	github.com/prometheus/client_model v0.6.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
 	go.opentelemetry.io/contrib/propagators/autoprop v0.69.0

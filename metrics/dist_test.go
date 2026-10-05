@@ -63,6 +63,11 @@ func TestNewDistributionFromProto(t *testing.T) {
 			}`,
 			wantError: true,
 		},
+		{
+			// An explicit zero is not the same as an unset field.
+			inputProto: "exponential_buckets { base: 0 }",
+			wantError:  true,
+		},
 	}
 
 	for _, test := range tests {

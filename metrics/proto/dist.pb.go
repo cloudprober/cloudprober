@@ -28,6 +28,7 @@ type Dist struct {
 	//
 	//	*Dist_ExplicitBuckets
 	//	*Dist_ExponentialBuckets
+	//	*Dist_NativeBuckets
 	Buckets       isDist_Buckets `protobuf_oneof:"buckets"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -88,6 +89,15 @@ func (x *Dist) GetExponentialBuckets() *ExponentialBuckets {
 	return nil
 }
 
+func (x *Dist) GetNativeBuckets() *NativeBuckets {
+	if x != nil {
+		if x, ok := x.Buckets.(*Dist_NativeBuckets); ok {
+			return x.NativeBuckets
+		}
+	}
+	return nil
+}
+
 type isDist_Buckets interface {
 	isDist_Buckets()
 }
@@ -95,17 +105,25 @@ type isDist_Buckets interface {
 type Dist_ExplicitBuckets struct {
 	// Comma-separated list of lower bounds, where each lower bound is a float
 	// value. Example: 0.5,1,2,4,8.
-	ExplicitBuckets string `protobuf:"bytes,1,opt,name=explicit_buckets,json=explicitBuckets,proto3,oneof"`
+	ExplicitBuckets string `protobuf:"bytes,1,opt,name=explicit_buckets,json=explicitBuckets,oneof"`
 }
 
 type Dist_ExponentialBuckets struct {
 	// Exponentially growing buckets
-	ExponentialBuckets *ExponentialBuckets `protobuf:"bytes,2,opt,name=exponential_buckets,json=exponentialBuckets,proto3,oneof"`
+	ExponentialBuckets *ExponentialBuckets `protobuf:"bytes,2,opt,name=exponential_buckets,json=exponentialBuckets,oneof"`
+}
+
+type Dist_NativeBuckets struct {
+	// Prometheus-style native histogram buckets.
+	// EXPERIMENTAL: this option and its fields can change.
+	NativeBuckets *NativeBuckets `protobuf:"bytes,3,opt,name=native_buckets,json=nativeBuckets,oneof"`
 }
 
 func (*Dist_ExplicitBuckets) isDist_Buckets() {}
 
 func (*Dist_ExponentialBuckets) isDist_Buckets() {}
+
+func (*Dist_NativeBuckets) isDist_Buckets() {}
 
 // ExponentialBucket defines a set of num_buckets+2 buckets:
 //
@@ -120,12 +138,19 @@ func (*Dist_ExponentialBuckets) isDist_Buckets() {}
 // NB: Base must be at least 1.01.
 type ExponentialBuckets struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ScaleFactor   float32                `protobuf:"fixed32,1,opt,name=scale_factor,json=scaleFactor,proto3" json:"scale_factor,omitempty"` // default = 1.0
-	Base          float32                `protobuf:"fixed32,2,opt,name=base,proto3" json:"base,omitempty"`                                  // default = 2
-	NumBuckets    uint32                 `protobuf:"varint,3,opt,name=num_buckets,json=numBuckets,proto3" json:"num_buckets,omitempty"`     //default = 20
+	ScaleFactor   *float32               `protobuf:"fixed32,1,opt,name=scale_factor,json=scaleFactor,def=1" json:"scale_factor,omitempty"`
+	Base          *float32               `protobuf:"fixed32,2,opt,name=base,def=2" json:"base,omitempty"`
+	NumBuckets    *uint32                `protobuf:"varint,3,opt,name=num_buckets,json=numBuckets,def=20" json:"num_buckets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
+
+// Default values for ExponentialBuckets fields.
+const (
+	Default_ExponentialBuckets_ScaleFactor = float32(1)
+	Default_ExponentialBuckets_Base        = float32(2)
+	Default_ExponentialBuckets_NumBuckets  = uint32(20)
+)
 
 func (x *ExponentialBuckets) Reset() {
 	*x = ExponentialBuckets{}
@@ -158,40 +183,115 @@ func (*ExponentialBuckets) Descriptor() ([]byte, []int) {
 }
 
 func (x *ExponentialBuckets) GetScaleFactor() float32 {
-	if x != nil {
-		return x.ScaleFactor
+	if x != nil && x.ScaleFactor != nil {
+		return *x.ScaleFactor
 	}
-	return 0
+	return Default_ExponentialBuckets_ScaleFactor
 }
 
 func (x *ExponentialBuckets) GetBase() float32 {
-	if x != nil {
-		return x.Base
+	if x != nil && x.Base != nil {
+		return *x.Base
 	}
-	return 0
+	return Default_ExponentialBuckets_Base
 }
 
 func (x *ExponentialBuckets) GetNumBuckets() uint32 {
-	if x != nil {
-		return x.NumBuckets
+	if x != nil && x.NumBuckets != nil {
+		return *x.NumBuckets
 	}
-	return 0
+	return Default_ExponentialBuckets_NumBuckets
+}
+
+// EXPERIMENTAL: this message and its fields can change.
+//
+// NativeBuckets defines Prometheus-style native histogram buckets. Buckets
+// grow exponentially and are sparse: you don't configure bucket bounds, and
+// only the buckets that have samples are stored and exported.
+//
+// Each bucket's upper bound is growth_factor times its lower bound, where
+// growth_factor is 2^(2^-schema):
+//
+//	schema  growth_factor  buckets per power of 2
+//	    -4          65536  1/16
+//	    -2             16  1/4
+//	     0              2  1
+//	     1          1.414  2
+//	     2          1.189  4
+//	     3          1.091  8
+//	     4          1.044  16
+//	     5          1.022  32
+//	     8          1.003  256
+//
+// Surfacers that don't support native histograms get these buckets as
+// explicit buckets, except for stackdriver, which skips them.
+type NativeBuckets struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bucket resolution. Valid values: -4 to 8.
+	Schema        *int32 `protobuf:"varint,1,opt,name=schema,def=3" json:"schema,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+// Default values for NativeBuckets fields.
+const (
+	Default_NativeBuckets_Schema = int32(3)
+)
+
+func (x *NativeBuckets) Reset() {
+	*x = NativeBuckets{}
+	mi := &file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NativeBuckets) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NativeBuckets) ProtoMessage() {}
+
+func (x *NativeBuckets) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NativeBuckets.ProtoReflect.Descriptor instead.
+func (*NativeBuckets) Descriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *NativeBuckets) GetSchema() int32 {
+	if x != nil && x.Schema != nil {
+		return *x.Schema
+	}
+	return Default_NativeBuckets_Schema
 }
 
 var File_github_com_cloudprober_cloudprober_metrics_proto_dist_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDesc = "" +
 	"\n" +
-	";github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x12\x13cloudprober.metrics\"\x9a\x01\n" +
+	";github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x12\x13cloudprober.metrics\"\xe7\x01\n" +
 	"\x04Dist\x12+\n" +
 	"\x10explicit_buckets\x18\x01 \x01(\tH\x00R\x0fexplicitBuckets\x12Z\n" +
-	"\x13exponential_buckets\x18\x02 \x01(\v2'.cloudprober.metrics.ExponentialBucketsH\x00R\x12exponentialBucketsB\t\n" +
-	"\abuckets\"l\n" +
-	"\x12ExponentialBuckets\x12!\n" +
-	"\fscale_factor\x18\x01 \x01(\x02R\vscaleFactor\x12\x12\n" +
-	"\x04base\x18\x02 \x01(\x02R\x04base\x12\x1f\n" +
-	"\vnum_buckets\x18\x03 \x01(\rR\n" +
-	"numBucketsB2Z0github.com/cloudprober/cloudprober/metrics/protob\x06proto3"
+	"\x13exponential_buckets\x18\x02 \x01(\v2'.cloudprober.metrics.ExponentialBucketsH\x00R\x12exponentialBuckets\x12K\n" +
+	"\x0enative_buckets\x18\x03 \x01(\v2\".cloudprober.metrics.NativeBucketsH\x00R\rnativeBucketsB\t\n" +
+	"\abuckets\"v\n" +
+	"\x12ExponentialBuckets\x12$\n" +
+	"\fscale_factor\x18\x01 \x01(\x02:\x011R\vscaleFactor\x12\x15\n" +
+	"\x04base\x18\x02 \x01(\x02:\x012R\x04base\x12#\n" +
+	"\vnum_buckets\x18\x03 \x01(\r:\x0220R\n" +
+	"numBuckets\"*\n" +
+	"\rNativeBuckets\x12\x19\n" +
+	"\x06schema\x18\x01 \x01(\x05:\x013R\x06schemaB2Z0github.com/cloudprober/cloudprober/metrics/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDescOnce sync.Once
@@ -205,18 +305,20 @@ func file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDescGZI
 	return file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_goTypes = []any{
 	(*Dist)(nil),               // 0: cloudprober.metrics.Dist
 	(*ExponentialBuckets)(nil), // 1: cloudprober.metrics.ExponentialBuckets
+	(*NativeBuckets)(nil),      // 2: cloudprober.metrics.NativeBuckets
 }
 var file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_depIdxs = []int32{
 	1, // 0: cloudprober.metrics.Dist.exponential_buckets:type_name -> cloudprober.metrics.ExponentialBuckets
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: cloudprober.metrics.Dist.native_buckets:type_name -> cloudprober.metrics.NativeBuckets
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_init() }
@@ -227,6 +329,7 @@ func file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_init() {
 	file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_msgTypes[0].OneofWrappers = []any{
 		(*Dist_ExplicitBuckets)(nil),
 		(*Dist_ExponentialBuckets)(nil),
+		(*Dist_NativeBuckets)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -234,7 +337,7 @@ func file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_metrics_proto_dist_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

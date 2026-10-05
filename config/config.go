@@ -31,6 +31,8 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/state"
+	surfaceroptions "github.com/cloudprober/cloudprober/surfacers/options"
+	"github.com/cloudprober/cloudprober/targets"
 	"github.com/google/go-jsonnet"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -228,14 +230,25 @@ func substEnvVars(configStr string, l *logger.Logger) string {
 }
 
 func ConfigTest(cs ConfigSource) error {
+	warnings, err := configTest(cs)
+	for _, w := range warnings {
+		logger.New().Warning(w)
+	}
+	return err
+}
+
+// configTest tests the config and returns the warnings, and the error if
+// config is not valid.
+func configTest(cs ConfigSource) (warnings []string, err error) {
 	// cs is provided only for testing.
 	if cs == nil {
 		if *configFile == "" {
-			return errors.New("config_file is required for testing")
+			return nil, errors.New("config_file is required for testing")
 		}
 		cs = &defaultConfigSource{
-			fileName: *configFile,
-			baseVars: configTestVars,
+			fileName:                *configFile,
+			surfacersConfigFileName: *surfacersConfigFile,
+			baseVars:                configTestVars,
 			getGCECustomMetadata: func(v string) (string, error) {
 				return v + "-test-value", nil
 			},
@@ -243,17 +256,59 @@ func ConfigTest(cs ConfigSource) error {
 	}
 	cfg, err := cs.GetConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Validate probe configs beyond proto unmarshalling, e.g. duration
 	// fields, field conflicts, etc.
+	sharedTargets := make(map[string]bool)
+	for _, st := range cfg.GetSharedTargets() {
+		if err := targets.Validate(st.GetTargets()); err != nil {
+			return nil, fmt.Errorf("shared_targets %q: %v", st.GetName(), err)
+		}
+		sharedTargets[st.GetName()] = true
+	}
+
+	probeNames := make(map[string]bool)
 	for _, p := range cfg.GetProbe() {
 		if _, err := options.ValidateProbeConfig(p); err != nil {
-			return fmt.Errorf("probe %q: %v", p.GetName(), err)
+			return nil, fmt.Errorf("probe %q: %v", p.GetName(), err)
+		}
+
+		if err := targets.Validate(p.GetTargets()); err != nil {
+			return nil, fmt.Errorf("probe %q: targets: %v", p.GetName(), err)
+		}
+		if st := p.GetTargets().GetSharedTargets(); st != "" && !sharedTargets[st] {
+			return nil, fmt.Errorf("probe %q: shared targets %q are not defined", p.GetName(), st)
+		}
+
+		// Probes with run_on can share a name, as long as they don't end up
+		// on the same host, which we can't tell here.
+		if p.GetRunOn() != "" {
+			continue
+		}
+		if probeNames[p.GetName()] {
+			return nil, fmt.Errorf("probe %q is defined more than once", p.GetName())
+		}
+		probeNames[p.GetName()] = true
+	}
+
+	for _, s := range cfg.GetSurfacer() {
+		if _, err := surfaceroptions.BuildOptionsFromConfig(s, nil); err != nil {
+			name := s.GetName()
+			if name == "" {
+				name = strings.ToLower(s.GetType().String())
+			}
+			return nil, fmt.Errorf("surfacer %q: %v", name, err)
 		}
 	}
-	return nil
+
+	// This is only a warning for now, it will become an error in a future
+	// release.
+	for _, c := range options.LatencyTypeClashes(cfg.GetProbe(), cfg.GetSurfacer()) {
+		warnings = append(warnings, c.String())
+	}
+	return warnings, nil
 }
 
 func DumpConfig(outFormat string, cs ConfigSource) ([]byte, error) {

@@ -21,7 +21,7 @@ Following diagram shows distribution of latencies into 9 equal sized histogram b
 
 ## Histograms in Cloudprober (Distributions)
 
-Cloudprober uses a metric type called 'distribution' to create and export histograms. Cloudprober supports creating distributions for probe latencies, and for metrics generated from external probe payloads. To create distributions, you have to specify how the data should be bucketed -- you can either explicitly specify all bucket bounds, or use exponential buckets type which generates bucket bounds from only a few variables.
+Cloudprober uses a metric type called 'distribution' to create and export histograms. Cloudprober supports creating distributions for probe latencies, and for metrics generated from external probe payloads. To create distributions, you have to specify how the data should be bucketed -- you can either explicitly specify all bucket bounds, use exponential buckets type which generates bucket bounds from only a few variables, or use [native buckets](#native-histograms), where you don't specify any bucket bounds at all.
 
 Here is an example of using explicit buckets for latencies:
 
@@ -57,6 +57,10 @@ message Dist {
 
     // Exponentially growing buckets
     ExponentialBuckets exponential_buckets = 2;
+
+    // Prometheus-style native histogram buckets.
+    // EXPERIMENTAL: this option and its fields can change.
+    NativeBuckets native_buckets = 3;
   }
 }
 
@@ -68,13 +72,91 @@ message Dist {
 //   bucket[i] covers [scale_factor*base^(i−2), scale_factor*base^(i−1))
 //   ...
 //   bucket[num_buckets+1] covers [scale_factor*base^(num_buckets−1), +Inf)
-// Note: Base must be at least 1.01.
+// NB: Base must be at least 1.01.
 message ExponentialBuckets {
   optional float scale_factor = 1 [default = 1.0];
   optional float base = 2 [default = 2];
   optional uint32 num_buckets = 3 [default = 20];
 }
+
+// NativeBuckets defines Prometheus-style native histogram buckets.
+message NativeBuckets {
+  // Bucket resolution. Valid values: -4 to 8.
+  optional int32 schema = 1 [default = 3];
+}
 ```
+
+## Native histograms
+
+_Native histograms are experimental: the `native_buckets` option and its
+fields can change._
+
+With explicit and exponential buckets, you have to know the range of your data
+up front. Buckets that are too wide give you poor percentiles, and adding
+buckets later changes your time series. Native buckets, modeled after
+[Prometheus native histograms](https://prometheus.io/docs/specs/native_histograms/),
+don't have this problem:
+
+- **You don't configure bucket bounds.** Bucket boundaries are fixed: each
+  bucket's upper bound is a constant factor times its lower bound, at every
+  scale. A 2ms sample and a 20s sample both land in a bucket that's about 9%
+  wide (with the default schema).
+- **Buckets are sparse.** Only the buckets that have samples are stored and
+  exported. A typical latency distribution uses 20 to 30 buckets.
+- **A histogram is a single time series** in Prometheus, instead of one series
+  for each bucket.
+
+To use them, set `native_buckets` in the distribution:
+
+```
+probe {
+  name: "..."
+  type: HTTP
+  targets {
+    host_names: "..."
+  }
+
+  latency_unit: "ms"
+  latency_distribution {
+    native_buckets {}
+  }
+}
+```
+
+### Resolution (schema)
+
+`schema` sets how wide the buckets are. Each bucket's upper bound is
+`2^(2^-schema)` times its lower bound. In other words, for schema 0 and above,
+each power of 2 (1 to 2, 2 to 4, and so on) is split into `2^schema` buckets:
+
+| schema      | bucket width | buckets for each power of 2 |
+| ----------- | ------------ | --------------------------- |
+| -4          | 65536x       | 1/16                        |
+| -2          | 16x          | 1/4                         |
+| 0           | 2x           | 1                           |
+| 1           | 41%          | 2                           |
+| 2           | 19%          | 4                           |
+| 3 (default) | 9%           | 8                           |
+| 4           | 4.4%         | 16                          |
+| 5           | 2.2%         | 32                          |
+| 8           | 0.3%         | 256                         |
+
+A higher schema gives you more accurate percentiles and more buckets. The
+default is good for most cases; use 4 or 5 if you need tighter percentiles.
+
+### How native histograms are exported
+
+| Surfacer   | What you get                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| Prometheus | Native histograms, if Prometheus scrapes them (see below).                                  |
+| OTel       | [Exponential histograms](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exponentialhistogram), which use the same buckets. |
+| Stackdriver | Not supported. These distributions are skipped, with a warning in the logs.                |
+| Postgres, BigQuery, CloudWatch, Datadog | Regular buckets: one for each bucket between the smallest and the largest one with samples. |
+
+If only some of your probes use `latency_distribution`, give the latency
+metric a different name for those probes using `latency_metric_name` (for
+example, `latency_dist`). Otherwise the same metric name is a histogram for
+some probes and a number for others, and queries on it mix the two.
 
 ## Percentiles and Heatmap
 
@@ -118,6 +200,64 @@ Fortunately there is already a plenty of good documentation on how to make use o
 
 - [Grafana blog](https://grafana.com/blog/2020/06/23/how-to-visualize-prometheus-histograms-in-grafana/) on how to visualize prometheus histograms in grafana.
 - Prometheus documentation on [histrograms](https://prometheus.io/docs/practices/histograms/).
+
+#### Native histograms in Prometheus
+
+There are two ways to get cloudprober's [native histograms](#native-histograms)
+into Prometheus.
+
+**Scraping.** Prometheus gets native histograms only in the protobuf format,
+and it asks for that format when `scrape_native_histograms` is set (Prometheus
+3.8 or later; older versions need `--enable-feature=native-histograms`
+instead):
+
+```yaml
+scrape_configs:
+  - job_name: cloudprober
+    scrape_native_histograms: true
+    static_configs:
+      - targets: ["cloudprober:9313"]
+```
+
+Cloudprober serves the protobuf format only if it has a native histogram to
+export and the scraper asks for it. In all other cases, it serves the text
+format, as it always has. In the text format, a native histogram has only the
+`_sum`, `_count` and `+Inf` bucket series, so you can't compute percentiles
+from a text scrape.
+
+**OTLP.** Prometheus can also receive metrics over OTLP
+(`--web.enable-otlp-receiver`), and it stores OTel exponential histograms as
+native histograms. Point the OTel surfacer at Prometheus:
+
+```
+surfacer {
+  type: OTEL
+  otel_surfacer {
+    otlp_http_exporter {
+      endpoint_url: "http://prometheus:9090/api/v1/otlp/v1/metrics"
+    }
+  }
+}
+```
+
+Metric names get the `cloudprober_` prefix and the unit as a suffix this way,
+for example `cloudprober_latency_milliseconds`.
+
+A native histogram is one series, named after the metric. There are no
+`_bucket`, `_sum` and `_count` series, and no `le` label:
+
+```
+# 95th percentile latency for each probe and target
+histogram_quantile(0.95, sum by (probe, dst) (rate(latency[5m])))
+
+# Average latency
+histogram_sum(rate(latency[5m])) / histogram_count(rate(latency[5m]))
+```
+
+If all you want is fewer time series and you're happy with the buckets you
+have, Prometheus can also convert regular histograms into native histograms
+with custom buckets while scraping. Set `convert_classic_histograms_to_nhcb:
+true` in the scrape config; no change is needed in cloudprober.
 
 ## More Resources
 

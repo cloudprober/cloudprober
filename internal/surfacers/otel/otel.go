@@ -24,6 +24,8 @@ package otel
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -209,8 +211,47 @@ func mapDataPoints[T int64 | float64](baseAttrs attribute.Set, m *metrics.Map[T]
 	return dataPoints
 }
 
-func convertDistribution(dist *metrics.Distribution, kind metrics.Kind, baseAttrs attribute.Set, startTime, ts time.Time) metricdata.Histogram[float64] {
+// exponentialBucket converts native buckets to an OTel exponential bucket.
+// OTel uses the same bucket boundaries, but numbers the buckets differently:
+// OTel's bucket i covers (base^i, base^(i+1)], while native bucket i covers
+// (base^(i-1), base^i]. So native bucket i is OTel's bucket i-1.
+func exponentialBucket(buckets map[int]int64) metricdata.ExponentialBucket {
+	if len(buckets) == 0 {
+		return metricdata.ExponentialBucket{}
+	}
+	keys := slices.Collect(maps.Keys(buckets))
+	minKey := slices.Min(keys)
+	counts := make([]uint64, slices.Max(keys)-minKey+1)
+	for k, c := range buckets {
+		counts[k-minKey] = uint64(c)
+	}
+	return metricdata.ExponentialBucket{Offset: int32(minKey - 1), Counts: counts}
+}
+
+func convertDistribution(dist *metrics.Distribution, kind metrics.Kind, baseAttrs attribute.Set, startTime, ts time.Time) metricdata.Aggregation {
 	d := dist.Data()
+
+	temporality := metricdata.CumulativeTemporality
+	if kind == metrics.GAUGE {
+		temporality = metricdata.DeltaTemporality
+	}
+
+	if d.Native != nil {
+		return metricdata.ExponentialHistogram[float64]{
+			DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{{
+				Attributes:     baseAttrs,
+				StartTime:      startTime,
+				Time:           ts,
+				Count:          uint64(d.Count),
+				Sum:            d.Sum,
+				Scale:          d.Native.Schema,
+				ZeroCount:      uint64(d.Native.ZeroCount),
+				PositiveBucket: exponentialBucket(d.Native.Positive),
+				NegativeBucket: exponentialBucket(d.Native.Negative),
+			}},
+			Temporality: temporality,
+		}
+	}
 
 	hdp := metricdata.HistogramDataPoint[float64]{
 		Attributes:   baseAttrs,
@@ -226,17 +267,10 @@ func convertDistribution(dist *metrics.Distribution, kind metrics.Kind, baseAttr
 		hdp.BucketCounts[i] = uint64(d.BucketCounts[i])
 	}
 
-	hist := metricdata.Histogram[float64]{
-		DataPoints: []metricdata.HistogramDataPoint[float64]{hdp},
+	return metricdata.Histogram[float64]{
+		DataPoints:  []metricdata.HistogramDataPoint[float64]{hdp},
+		Temporality: temporality,
 	}
-
-	if kind == metrics.GAUGE {
-		hist.Temporality = metricdata.DeltaTemporality
-	} else {
-		hist.Temporality = metricdata.CumulativeTemporality
-	}
-
-	return hist
 }
 
 func otelAttributes(em *metrics.EventMetrics) attribute.Set {

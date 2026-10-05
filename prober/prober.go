@@ -130,6 +130,28 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 	return nil
 }
 
+// warnLatencyTypeClash logs a warning for each latency metric name that is
+// exported as a distribution by some probes and as a number by others. If
+// probeName is non-empty, only the clash involving that probe is reported.
+func (pr *Prober) warnLatencyTypeClash(probeName string) {
+	pr.mu.RLock()
+	defer pr.mu.RUnlock()
+
+	var probeDefs []*probes_configpb.ProbeDef
+	for _, p := range pr.Probes {
+		if p.ProbeDef != nil {
+			probeDefs = append(probeDefs, p.ProbeDef)
+		}
+	}
+
+	for _, c := range options.LatencyTypeClashes(probeDefs, pr.c.GetSurfacer()) {
+		if probeName != "" && !slices.Contains(c.DistProbes, probeName) && !slices.Contains(c.NumberProbes, probeName) {
+			continue
+		}
+		pr.l.Warning(c.String())
+	}
+}
+
 // startProbe starts the probe with the given name.
 // startProbe is protected and can be called concurrently. It's called
 // from Start() at the very beginning, and then every time a new probe is
@@ -403,6 +425,8 @@ func Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) (*P
 			break
 		}
 	}
+
+	pr.warnLatencyTypeClash("")
 
 	return pr, nil
 }

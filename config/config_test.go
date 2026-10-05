@@ -121,7 +121,9 @@ func TestConfigTest(t *testing.T) {
 		configFile     string
 		cs             ConfigSource
 		withBaseVars   map[string]any
+		surfacersFlag  string
 		wantErr        string
+		wantWarning    string
 	}{
 		{
 			name:    "no_config_error",
@@ -173,6 +175,46 @@ func TestConfigTest(t *testing.T) {
 			wantErr:    "failed to parse the latency unit",
 		},
 		{
+			name:       "bad_validator",
+			configFile: "testdata/cloudprober_bad_validator.cfg",
+			wantErr:    "error compiling the given regex",
+		},
+		{
+			name:       "duplicate_probe",
+			configFile: "testdata/cloudprober_dup_probe.cfg",
+			wantErr:    `probe "test_probe" is defined more than once`,
+		},
+		{
+			name:       "duplicate_probe_with_run_on",
+			configFile: "testdata/cloudprober_dup_probe_run_on.cfg",
+		},
+		{
+			name:       "bad_targets",
+			configFile: "testdata/cloudprober_bad_targets.cfg",
+			wantErr:    "max_cache_age (60) must be >= ttl_sec (300)",
+		},
+		{
+			name:       "undefined_shared_targets",
+			configFile: "testdata/cloudprober_bad_shared_targets.cfg",
+			wantErr:    `shared targets "my_targetz" are not defined`,
+		},
+		{
+			name:       "bad_surfacer",
+			configFile: "testdata/cloudprober_bad_surfacer.cfg",
+			wantErr:    `surfacer "prometheus": invalid latency_metric_pattern`,
+		},
+		{
+			// Only a warning for now.
+			name:           "latency_type_clash",
+			configFileFlag: "testdata/cloudprober_latency_clash.cfg",
+			wantWarning:    `Metric "latency" is exported as a distribution by some probes (dist) and as a number by others (plain)`,
+		},
+		{
+			name:           "latency_type_clash_no_prometheus_in_surfacers_file",
+			configFileFlag: "testdata/cloudprober_latency_clash.cfg",
+			surfacersFlag:  "testdata/surfacers_config/cloudprober_only_surfacers.cfg",
+		},
+		{
 			name:       "large_single_line",
 			configFile: "testdata/cloudprober_large_line.cfg",
 			wantErr:    "token too long",
@@ -185,11 +227,21 @@ func TestConfigTest(t *testing.T) {
 				tt.cs = ConfigSourceWithFile(tt.configFile, WithBaseVars(tt.withBaseVars))
 			}
 			*configFile = tt.configFileFlag
-			err := ConfigTest(tt.cs)
+			*surfacersConfigFile = tt.surfacersFlag
+			defer func() { *surfacersConfigFile = "" }()
+
+			warnings, err := configTest(tt.cs)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
+			}
+			if tt.wantWarning == "" {
+				assert.Empty(t, warnings)
+				return
+			}
+			if assert.Len(t, warnings, 1) {
+				assert.Contains(t, warnings[0], tt.wantWarning)
 			}
 		})
 	}
