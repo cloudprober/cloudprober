@@ -22,7 +22,7 @@ import "github.com/cloudprober/cloudprober/internal/validators/proto/config.prot
 
 option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
-// Next tag: 104
+// Next tag: 105
 message ProbeDef {
   // Probe name. It should be unique across all probes.
   required string name = 1;
@@ -211,6 +211,25 @@ message ProbeDef {
   // being probed and removed targets stop being probed. If not set, defaults
   // to 1 minute.
   optional int32 targets_update_sec = 103;
+
+  // If true, also export one cumulative series for total, success, and
+  // failure summed across every target. Per-target series are still exported.
+  //
+  // The extra series has no dst label and no target-derived additional
+  // labels, so it stays one timeseries for the life of the process.
+  // Prometheus increase() on it stays accurate when targets churn faster
+  // than the scrape interval. Static additional labels are kept. The series
+  // is labeled aggregate=true so it can be selected on its own. Failure is
+  // total minus success, added by the surfacer the same way as on per-target
+  // series.
+  //
+  // A sum over every series for the probe counts probes twice while this is
+  // on. Use aggregate="true" for the combined ratio, and dst for per-target
+  // series.
+  //
+  // Honored by probes that use the shared scheduler (HTTP, DNS, TCP, gRPC,
+  // external gRPC, SQL, Starlark, browser). Default false.
+  optional bool emit_aggregate_metrics = 104;
 
   // Duration to wait before starting the probe.
   //

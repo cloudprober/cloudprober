@@ -110,6 +110,10 @@ type Scheduler struct {
 	targets               []endpoint.Endpoint
 	waitGroup             sync.WaitGroup
 	cancelFuncs           map[string]context.CancelFunc
+
+	aggregateMu   sync.Mutex
+	aggregateEM   *metrics.EventMetrics
+	lastTargetEMs map[string]*metrics.EventMetrics
 }
 
 func (s *Scheduler) init() {
@@ -189,17 +193,108 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		// target is deleted after a target refresh. We don't want to export
 		// metrics in such cases.
 		if (runCnt%s.Opts.StatsExportFrequency()) == 0 && !CtxDone(ctx) {
-			for _, em := range runReq.Result.Metrics(ts, runCnt, s.Opts) {
-				// Returning nil is a way to skip this target. Used by grpc probe.
-				if em == nil {
-					continue
-				}
-				em.AddLabel("probe", s.ProbeName).
-					AddLabel("dst", target.Dst())
-				s.Opts.RecordMetrics(target, em, s.DataChan)
+			s.exportResults(target, runReq.Result.Metrics(ts, runCnt, s.Opts))
+		}
+	}
+}
+
+// aggregateMetricNames are the counters folded into the target-independent
+// series. Failure is usually added later by the surfacer from total-success;
+// include it when a probe emits it directly.
+var aggregateMetricNames = []string{"total", "success", "failure"}
+
+// exportResults publishes per-target metrics and, when enabled, one additional
+// series that sums total/success/failure across targets.
+func (s *Scheduler) exportResults(target endpoint.Endpoint, ems []*metrics.EventMetrics) {
+	for _, em := range ems {
+		// Returning nil is a way to skip this target. Used by grpc probe.
+		if em == nil {
+			continue
+		}
+		em.AddLabel("probe", s.ProbeName)
+		if s.Opts.EmitAggregateMetrics {
+			if out := s.addToAggregate(target, em); out != nil {
+				s.Opts.RecordAggregatedMetrics(out, s.DataChan)
+			}
+		}
+		em.AddLabel("dst", target.Dst())
+		s.Opts.RecordMetrics(target, em, s.DataChan)
+	}
+}
+
+// addToAggregate folds this target's cumulative total/success/failure into one
+// probe-level series. The returned EventMetrics has no dst label.
+func (s *Scheduler) addToAggregate(target endpoint.Endpoint, em *metrics.EventMetrics) *metrics.EventMetrics {
+	current := countersForAggregate(em)
+	if current == nil {
+		return nil
+	}
+
+	s.aggregateMu.Lock()
+	defer s.aggregateMu.Unlock()
+
+	if s.lastTargetEMs == nil {
+		s.lastTargetEMs = make(map[string]*metrics.EventMetrics)
+	}
+
+	key := target.Key()
+	delta := current
+	if last := s.lastTargetEMs[key]; last != nil {
+		var err error
+		delta, err = current.SubtractLast(last)
+		if err != nil {
+			if s.Opts.Logger != nil {
+				s.Opts.Logger.Warningf("Probe(%s) aggregate subtract for %s: %v", s.ProbeName, key, err)
+			}
+			return nil
+		}
+	}
+	s.lastTargetEMs[key] = current
+
+	if s.aggregateEM == nil {
+		s.aggregateEM = delta.Clone()
+		s.aggregateEM.Kind = metrics.CUMULATIVE
+	} else {
+		for _, name := range delta.MetricsKeys() {
+			dv := delta.Metric(name)
+			if av := s.aggregateEM.Metric(name); av == nil {
+				s.aggregateEM.AddMetric(name, dv.Clone())
+			} else if err := av.Add(dv); err != nil && s.Opts.Logger != nil {
+				s.Opts.Logger.Warningf("Probe(%s) aggregate add %s: %v", s.ProbeName, name, err)
 			}
 		}
 	}
+
+	out := s.aggregateEM.Clone()
+	out.Timestamp = em.Timestamp
+	out.AddLabel("aggregate", "true")
+	out.SetNotForAlerting()
+	return out
+}
+
+// countersForAggregate copies total, success, and failure onto a new
+// cumulative EventMetrics. Labels already on em are kept, except dst.
+// Returns nil when none of those counters are present.
+func countersForAggregate(em *metrics.EventMetrics) *metrics.EventMetrics {
+	out := metrics.NewEventMetrics(em.Timestamp)
+	out.Kind = metrics.CUMULATIVE
+	n := 0
+	for _, name := range aggregateMetricNames {
+		if v := em.Metric(name); v != nil {
+			out.AddMetric(name, v.Clone())
+			n++
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	for _, k := range em.LabelsKeys() {
+		if k == "dst" {
+			continue
+		}
+		out.AddLabel(k, em.Label(k))
+	}
+	return out
 }
 
 func (s *Scheduler) Wait() {
@@ -244,6 +339,9 @@ func (s *Scheduler) refreshTargets(ctx context.Context) {
 		cancelF()
 		updatedTargets[targetKey] = "DELETE"
 		delete(s.cancelFuncs, targetKey)
+		s.aggregateMu.Lock()
+		delete(s.lastTargetEMs, targetKey)
+		s.aggregateMu.Unlock()
 	}
 
 	gapBetweenTargets := s.gapBetweenTargets()

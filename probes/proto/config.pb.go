@@ -345,7 +345,7 @@ func (Schedule_ScheduleType) EnumDescriptor() ([]byte, []int) {
 	return file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDescGZIP(), []int{2, 1}
 }
 
-// Next tag: 104
+// Next tag: 105
 type ProbeDef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Probe name. It should be unique across all probes.
@@ -480,6 +480,24 @@ type ProbeDef struct {
 	// being probed and removed targets stop being probed. If not set, defaults
 	// to 1 minute.
 	TargetsUpdateSec *int32 `protobuf:"varint,103,opt,name=targets_update_sec,json=targetsUpdateSec" json:"targets_update_sec,omitempty"`
+	// If true, also export one cumulative series for total, success, and
+	// failure summed across every target. Per-target series are still exported.
+	//
+	// The extra series has no dst label and no target-derived additional
+	// labels, so it stays one timeseries for the life of the process.
+	// Prometheus increase() on it stays accurate when targets churn faster
+	// than the scrape interval. Static additional labels are kept. The series
+	// is labeled aggregate=true so it can be selected on its own. Failure is
+	// total minus success, added by the surfacer the same way as on per-target
+	// series.
+	//
+	// A sum over every series for the probe counts probes twice while this is
+	// on. Use aggregate="true" for the combined ratio, and dst for per-target
+	// series.
+	//
+	// Honored by probes that use the shared scheduler (HTTP, DNS, TCP, gRPC,
+	// external gRPC, SQL, Starlark, browser). Default false.
+	EmitAggregateMetrics *bool `protobuf:"varint,104,opt,name=emit_aggregate_metrics,json=emitAggregateMetrics" json:"emit_aggregate_metrics,omitempty"`
 	// Duration to wait before starting the probe.
 	//
 	// This delay is applied only once, at the very beginning of the probe execution
@@ -844,6 +862,13 @@ func (x *ProbeDef) GetTargetsUpdateSec() int32 {
 	return 0
 }
 
+func (x *ProbeDef) GetEmitAggregateMetrics() bool {
+	if x != nil && x.EmitAggregateMetrics != nil {
+		return *x.EmitAggregateMetrics
+	}
+	return false
+}
+
 func (x *ProbeDef) GetStartupDelayMsec() uint32 {
 	if x != nil && x.StartupDelayMsec != nil {
 		return *x.StartupDelayMsec
@@ -1174,7 +1199,7 @@ var File_github_com_cloudprober_cloudprober_probes_proto_config_proto protorefle
 
 const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\x8e\x13\n" +
+	"<github.com/cloudprober/cloudprober/probes/proto/config.proto\x12\x12cloudprober.probes\x1a;github.com/cloudprober/cloudprober/metrics/proto/dist.proto\x1aGgithub.com/cloudprober/cloudprober/internal/alerting/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/browser/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/dns/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/external/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/grpc/proto/config.proto\x1aDgithub.com/cloudprober/cloudprober/probes/grpcext/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x1aAgithub.com/cloudprober/cloudprober/probes/ping/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/tcp/proto/config.proto\x1a@github.com/cloudprober/cloudprober/probes/udp/proto/config.proto\x1aHgithub.com/cloudprober/cloudprober/probes/udplistener/proto/config.proto\x1aCgithub.com/cloudprober/cloudprober/probes/system/proto/config.proto\x1a>github.com/cloudprober/cloudprober/targets/proto/targets.proto\x1aIgithub.com/cloudprober/cloudprober/internal/validators/proto/config.proto\"\xc4\x13\n" +
 	"\bProbeDef\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x125\n" +
 	"\x04type\x18\x02 \x02(\x0e2!.cloudprober.probes.ProbeDef.TypeR\x04type\x12#\n" +
@@ -1214,7 +1239,8 @@ const file_github_com_cloudprober_cloudprober_probes_proto_config_proto_rawDesc 
 	"\x13external_grpc_probe\x18  \x01(\v2%.cloudprober.probes.grpcext.ProbeConfH\x01R\x11externalGrpcProbe\x12.\n" +
 	"\x12user_defined_probe\x18c \x01(\tH\x01R\x10userDefinedProbe\x12\x15\n" +
 	"\x06run_on\x18\x03 \x01(\tR\x05runOn\x12,\n" +
-	"\x12targets_update_sec\x18g \x01(\x05R\x10targetsUpdateSec\x12,\n" +
+	"\x12targets_update_sec\x18g \x01(\x05R\x10targetsUpdateSec\x124\n" +
+	"\x16emit_aggregate_metrics\x18h \x01(\bR\x14emitAggregateMetrics\x12,\n" +
 	"\x12startup_delay_msec\x18f \x01(\rR\x10startupDelayMsec\x128\n" +
 	"\bschedule\x18e \x03(\v2\x1c.cloudprober.probes.ScheduleR\bschedule\x12E\n" +
 	"\rdebug_options\x18d \x01(\v2 .cloudprober.probes.DebugOptionsR\fdebugOptions\"\xc3\x01\n" +

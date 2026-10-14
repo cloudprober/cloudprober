@@ -59,6 +59,10 @@ type Options struct {
 	// TargetsUpdateInterval overrides the default scheduler target update
 	// interval (1 minute). Set from probe's targets_update_sec if configured.
 	TargetsUpdateInterval time.Duration
+	// EmitAggregateMetrics exports one additional cumulative series for
+	// total, success, and failure, summed across targets and labeled
+	// aggregate=true with no dst. Per-target series are unchanged.
+	EmitAggregateMetrics bool
 	// Prober config at the prober initialization time. This config is not
 	// reliable for things that may change after initialization, e.g. probes
 	// that can be added or removed through gRPC.
@@ -95,6 +99,16 @@ var negativeTestSupported = map[configpb.ProbeDef_Type]bool{
 var validatorsUnsupported = map[configpb.ProbeDef_Type]bool{
 	configpb.ProbeDef_UDP:          true,
 	configpb.ProbeDef_UDP_LISTENER: true,
+}
+
+// These probe types do not use the shared scheduler, which is where
+// emit_aggregate_metrics is applied.
+var emitAggregateMetricsUnsupported = map[configpb.ProbeDef_Type]bool{
+	configpb.ProbeDef_PING:         true,
+	configpb.ProbeDef_UDP:          true,
+	configpb.ProbeDef_UDP_LISTENER: true,
+	configpb.ProbeDef_EXTERNAL:     true,
+	configpb.ProbeDef_SYSTEM:       true,
 }
 
 var targetsNotRequired = map[configpb.ProbeDef_Type]bool{
@@ -276,6 +290,7 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 		NegativeTest:          p.GetNegativeTest(),
 		AdditionalLabels:      parseAdditionalLabels(p),
 		TargetsUpdateInterval: time.Duration(p.GetTargetsUpdateSec()) * time.Second,
+		EmitAggregateMetrics:  p.GetEmitAggregateMetrics(),
 	}
 
 	if len(p.GetValidator()) > 0 {
@@ -339,6 +354,9 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, proberCon
 
 	opts.ProberConfig = proberConfig
 	opts.Logger = logger.NewWithAttrs(slog.String("probe", p.GetName()))
+	if opts.EmitAggregateMetrics && emitAggregateMetricsUnsupported[p.GetType()] {
+		opts.Logger.Warningf("emit_aggregate_metrics is not supported by %s probes; only per-target metrics will be exported", p.GetType())
+	}
 
 	if p.GetTargets() == nil {
 		p.Targets = &targetspb.TargetsDef{
@@ -427,4 +445,20 @@ func (opts *Options) RecordMetrics(ep endpoint.Endpoint, em *metrics.EventMetric
 			ah.Record(ep, em)
 		}
 	}
+}
+
+// RecordAggregatedMetrics exports a probe-level series. Only static additional
+// labels are attached, and alert handlers are not called. Per-target alerting
+// still happens through RecordMetrics.
+func (opts *Options) RecordAggregatedMetrics(em *metrics.EventMetrics, dataChan chan<- *metrics.EventMetrics) {
+	em.LatencyUnit = opts.LatencyUnit
+	for _, al := range opts.AdditionalLabels {
+		if !al.IsStatic() {
+			continue
+		}
+		em.AddLabel(al.KeyValueForTarget(endpoint.Endpoint{}))
+	}
+
+	opts.LogMetrics(em)
+	dataChan <- em
 }
