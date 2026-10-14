@@ -19,7 +19,6 @@ import (
 	"context"
 	"math/rand"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -112,12 +111,11 @@ type Scheduler struct {
 	waitGroup             sync.WaitGroup
 	cancelFuncs           map[string]context.CancelFunc
 
-	// Aggregate state for EmitAggregateMetrics. Both maps are keyed by the
-	// series key (labels without dst, plus metric names); lastTargetEMs is
-	// additionally keyed by target key.
-	aggregateMu   sync.Mutex
-	aggregateEMs  map[string]*metrics.EventMetrics
-	lastTargetEMs map[string]map[string]*metrics.EventMetrics
+	// For EmitAggregateMetrics. Keyed by EventMetrics key (without dst);
+	// lastEMs is keyed by target key first.
+	aggMu   sync.Mutex
+	aggEMs  map[string]*metrics.EventMetrics
+	lastEMs map[string]map[string]*metrics.EventMetrics
 }
 
 func (s *Scheduler) init() {
@@ -197,114 +195,72 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 		// target is deleted after a target refresh. We don't want to export
 		// metrics in such cases.
 		if (runCnt%s.Opts.StatsExportFrequency()) == 0 && !CtxDone(ctx) {
-			s.exportResults(target, runReq.Result.Metrics(ts, runCnt, s.Opts))
-		}
-	}
-}
-
-// exportResults publishes per-target metrics and, when enabled, an additional
-// copy of each cumulative EventMetrics summed across targets.
-func (s *Scheduler) exportResults(target endpoint.Endpoint, ems []*metrics.EventMetrics) {
-	for _, em := range ems {
-		// Returning nil is a way to skip this target. Used by grpc probe.
-		if em == nil {
-			continue
-		}
-		em.AddLabel("probe", s.ProbeName)
-		if s.Opts.EmitAggregateMetrics {
-			if out := s.addToAggregate(target, em); out != nil {
-				s.Opts.RecordAggregatedMetrics(out, s.DataChan)
+			for _, em := range runReq.Result.Metrics(ts, runCnt, s.Opts) {
+				// Returning nil is a way to skip this target. Used by grpc probe.
+				if em == nil {
+					continue
+				}
+				em.AddLabel("probe", s.ProbeName)
+				if s.Opts.EmitAggregateMetrics && em.Kind == metrics.CUMULATIVE {
+					s.recordAggregate(target, em.Clone())
+				}
+				em.AddLabel("dst", target.Dst())
+				s.Opts.RecordMetrics(target, em, s.DataChan)
 			}
 		}
-		em.AddLabel("dst", target.Dst())
-		s.Opts.RecordMetrics(target, em, s.DataChan)
 	}
 }
 
-// addToAggregate folds this target's cumulative metrics into the probe-level
-// series with the same labels (minus dst) and metric names, and returns a copy
-// of that series. It returns nil for GAUGE metrics, which can't be summed
-// across targets.
-func (s *Scheduler) addToAggregate(target endpoint.Endpoint, em *metrics.EventMetrics) *metrics.EventMetrics {
-	current, seriesKey := aggregatable(em)
-	if current == nil {
-		return nil
-	}
+// recordAggregate adds the target's increase since its last export to a
+// series that has the same labels and metrics but no dst, and exports that
+// series with aggregate=true and only the static additional labels.
+func (s *Scheduler) recordAggregate(target endpoint.Endpoint, em *metrics.EventMetrics) {
+	emKey, targetKey := em.Key(), target.Key()
 
-	s.aggregateMu.Lock()
-	defer s.aggregateMu.Unlock()
-
-	if s.aggregateEMs == nil {
-		s.aggregateEMs = make(map[string]*metrics.EventMetrics)
-		s.lastTargetEMs = make(map[string]map[string]*metrics.EventMetrics)
+	s.aggMu.Lock()
+	if s.aggEMs == nil {
+		s.aggEMs = make(map[string]*metrics.EventMetrics)
+		s.lastEMs = make(map[string]map[string]*metrics.EventMetrics)
 	}
-	targetKey := target.Key()
-	if s.lastTargetEMs[targetKey] == nil {
-		s.lastTargetEMs[targetKey] = make(map[string]*metrics.EventMetrics)
+	if s.lastEMs[targetKey] == nil {
+		s.lastEMs[targetKey] = make(map[string]*metrics.EventMetrics)
 	}
-
-	delta := current
-	if last := s.lastTargetEMs[targetKey][seriesKey]; last != nil {
+	delta := em
+	if last := s.lastEMs[targetKey][emKey]; last != nil {
 		var err error
-		if delta, err = current.SubtractLast(last); err != nil {
-			s.Opts.Logger.Warningf("Probe(%s) aggregate subtract for %s: %v", s.ProbeName, targetKey, err)
-			return nil
+		if delta, err = em.SubtractLast(last); err != nil {
+			s.aggMu.Unlock()
+			s.Opts.Logger.Warningf("Probe(%s) aggregate: %v", s.ProbeName, err)
+			return
 		}
 	}
-	s.lastTargetEMs[targetKey][seriesKey] = current.Clone()
-
-	agg := s.aggregateEMs[seriesKey]
+	s.lastEMs[targetKey][emKey] = em
+	agg := s.aggEMs[emKey]
 	if agg == nil {
 		agg = delta.Clone()
 		agg.Kind = metrics.CUMULATIVE
-		s.aggregateEMs[seriesKey] = agg
+		s.aggEMs[emKey] = agg
 	} else {
 		for _, name := range delta.MetricsKeys() {
-			dv := delta.Metric(name)
-			if av := agg.Metric(name); av == nil {
-				agg.AddMetric(name, dv.Clone())
-			} else if err := av.Add(dv); err != nil {
-				s.Opts.Logger.Warningf("Probe(%s) aggregate add %s: %v", s.ProbeName, name, err)
+			if err := agg.Metric(name).Add(delta.Metric(name)); err != nil {
+				s.Opts.Logger.Warningf("Probe(%s) aggregate %s: %v", s.ProbeName, name, err)
 			}
 		}
 	}
-
 	out := agg.Clone()
+	s.aggMu.Unlock()
+
 	out.Timestamp = em.Timestamp
+	out.LatencyUnit = s.Opts.LatencyUnit
 	out.AddLabel("aggregate", "true")
-	out.SetNotForAlerting()
-	return out
-}
-
-// aggregatable returns a copy of em without the dst label and without
-// metrics that can't be summed (strings), plus the key of the series it
-// belongs to. It returns nil if em is not CUMULATIVE or has nothing to sum.
-func aggregatable(em *metrics.EventMetrics) (*metrics.EventMetrics, string) {
-	if em.Kind != metrics.CUMULATIVE {
-		return nil, ""
-	}
-
-	out := metrics.NewEventMetrics(em.Timestamp)
-	var key []string
-	for _, name := range em.MetricsKeys() {
-		v := em.Metric(name)
-		if _, ok := v.(metrics.String); ok {
-			continue
+	for _, al := range s.Opts.AdditionalLabels {
+		// Target-derived labels have no value for an empty endpoint.
+		if k, v := al.KeyValueForTarget(endpoint.Endpoint{}); v != "" {
+			out.AddLabel(k, v)
 		}
-		out.AddMetric(name, v.Clone())
-		key = append(key, name)
 	}
-	if len(key) == 0 {
-		return nil, ""
-	}
-	for _, k := range em.LabelsKeys() {
-		if k == "dst" {
-			continue
-		}
-		out.AddLabel(k, em.Label(k))
-		key = append(key, k+"="+em.Label(k))
-	}
-	return out, strings.Join(key, ",")
+	s.Opts.LogMetrics(out)
+	s.DataChan <- out
 }
 
 func (s *Scheduler) Wait() {
@@ -349,9 +305,9 @@ func (s *Scheduler) refreshTargets(ctx context.Context) {
 		cancelF()
 		updatedTargets[targetKey] = "DELETE"
 		delete(s.cancelFuncs, targetKey)
-		s.aggregateMu.Lock()
-		delete(s.lastTargetEMs, targetKey)
-		s.aggregateMu.Unlock()
+		s.aggMu.Lock()
+		delete(s.lastEMs, targetKey)
+		s.aggMu.Unlock()
 	}
 
 	gapBetweenTargets := s.gapBetweenTargets()

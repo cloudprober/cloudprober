@@ -67,15 +67,6 @@ any probe. Individual probe types may export additional metrics (e.g., HTTP
 probes export response code counts). See
 [distributions](/docs/how-to/percentiles/) for latency percentiles.
 
-Set `emit_aggregate_metrics: true` on a probe to also export each of its
-cumulative metrics summed across every target. The summed series keep the same
-metric names, have no `dst` label, and are marked `aggregate=true`. The
-per-target series are exported unchanged. Use the aggregate series when targets
-change faster than your scrape interval, which makes `increase()` on per-target
-counters unreliable. Because the names are shared, filter on `aggregate` when
-summing across a probe's series. Probes that use the shared scheduler honor
-this option (HTTP, DNS, TCP, gRPC, SQL, Starlark, and browser).
-
 ## Probe Types
 
 Cloudprober has built-in support for the following probe types. Pick the one

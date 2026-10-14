@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -442,240 +441,114 @@ func TestSchedulerGapBetweenTargets(t *testing.T) {
 	}
 }
 
-func metricInt(t *testing.T, em *metrics.EventMetrics, name string) int64 {
-	t.Helper()
-	v := em.Metric(name)
-	if v == nil {
-		t.Fatalf("metric %q missing from %s", name, em.String())
-	}
-	nv, ok := v.(metrics.NumValue)
-	if !ok {
-		t.Fatalf("metric %q is not numeric", name)
-	}
-	return nv.Int64()
+type aggTestResult struct {
+	total, success int64
+	latency        float64
 }
 
-func drainMetrics(ch <-chan *metrics.EventMetrics) []*metrics.EventMetrics {
-	var ems []*metrics.EventMetrics
-	for {
-		select {
-		case em := <-ch:
-			ems = append(ems, em)
-		default:
-			return ems
-		}
-	}
+func (r *aggTestResult) Metrics(ts time.Time, _ int64, _ *options.Options) []*metrics.EventMetrics {
+	return []*metrics.EventMetrics{metrics.NewEventMetrics(ts).
+		AddMetric("total", metrics.NewInt(r.total)).
+		AddMetric("success", metrics.NewInt(r.success)).
+		AddMetric("latency", metrics.NewFloat(r.latency)).
+		AddLabel("ptype", "test")}
 }
 
-func splitByTarget(ems []*metrics.EventMetrics) (perTarget, aggregate []*metrics.EventMetrics) {
-	for _, em := range ems {
-		if em.Label("dst") == "" {
-			aggregate = append(aggregate, em)
-			continue
-		}
-		perTarget = append(perTarget, em)
-	}
-	return perTarget, aggregate
+func intMetric(em *metrics.EventMetrics, name string) int64 {
+	return em.Metric(name).(metrics.NumValue).Int64()
 }
 
-func probeEM(ts time.Time, total, success, latency int64) *metrics.EventMetrics {
-	return metrics.NewEventMetrics(ts).
-		AddMetric("total", metrics.NewInt(total)).
-		AddMetric("success", metrics.NewInt(success)).
-		AddMetric("latency", metrics.NewInt(latency)).
-		AddLabel("ptype", "tcp")
-}
-
-func TestExportResultsAggregateIsAdditional(t *testing.T) {
-	s, ch := newExportScheduler(t, false)
-	target := endpoint.Endpoint{Name: "vm-1"}
-
-	s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(10, 0), 4, 3, 15)})
-
-	ems := drainMetrics(ch)
-	perTarget, aggregate := splitByTarget(ems)
-	require.Len(t, perTarget, 1)
-	assert.Empty(t, aggregate, "aggregate series is off unless emit_aggregate_metrics is set")
-	assert.Equal(t, "vm-1", perTarget[0].Label("dst"))
-	assert.Equal(t, int64(4), metricInt(t, perTarget[0], "total"))
-	assert.Equal(t, int64(15), metricInt(t, perTarget[0], "latency"))
-}
-
-func TestExportResultsAggregateOneSeriesAcrossTargets(t *testing.T) {
-	s, ch := newExportScheduler(t, true)
-	ts := time.Unix(20, 0)
-	t1 := endpoint.Endpoint{Name: "vm-1", IP: []byte{10, 0, 0, 1}}
-	t2 := endpoint.Endpoint{Name: "vm-2", IP: []byte{10, 0, 0, 2}}
-
-	em1 := probeEM(ts, 4, 3, 15).AddMetric("resp-code", metrics.NewMap("code").IncKeyBy("200", 3).IncKeyBy("500", 1))
-	em2 := probeEM(ts, 6, 2, 40).AddMetric("resp-code", metrics.NewMap("code").IncKeyBy("500", 6))
-	s.exportResults(t1, []*metrics.EventMetrics{em1})
-	s.exportResults(t2, []*metrics.EventMetrics{em2})
-
-	perTarget, aggregate := splitByTarget(drainMetrics(ch))
-	require.Len(t, perTarget, 2, "per-target series stay")
-	assert.Equal(t, int64(4), metricInt(t, perTarget[0], "total"), "per-target values are not changed by aggregation")
-	assert.Equal(t, int64(15), metricInt(t, perTarget[0], "latency"))
-	assert.Equal(t, "map:code,200:3,500:1", perTarget[0].Metric("resp-code").String())
-	assert.Empty(t, perTarget[0].Label("aggregate"))
-	require.Len(t, aggregate, 2, "one aggregate sample per export")
-
-	got := aggregate[len(aggregate)-1]
-	assert.Equal(t, "sansshell", got.Label("probe"))
-	assert.Equal(t, "tcp", got.Label("ptype"))
-	assert.Equal(t, "true", got.Label("aggregate"))
-	assert.Empty(t, got.Label("dst"))
-	assert.Empty(t, got.Label("ip"), "target-derived labels are not part of the aggregate series")
-	assert.Equal(t, "va", got.Label("deployment"), "static labels are kept")
-	assert.Equal(t, int64(10), metricInt(t, got, "total"))
-	assert.Equal(t, int64(5), metricInt(t, got, "success"))
-	assert.Equal(t, int64(55), metricInt(t, got, "latency"))
-	assert.Equal(t, "map:code,200:3,500:7", got.Metric("resp-code").String())
-	assert.False(t, got.IsForAlerting(), "per-target alerting is unchanged; the aggregate series is export-only")
-
-	byDst := map[string]*metrics.EventMetrics{}
-	for _, em := range perTarget {
-		byDst[em.Label("dst")] = em
-		assert.Equal(t, "va", em.Label("deployment"))
-		assert.NotNil(t, em.Metric("latency"))
-	}
-	require.Contains(t, byDst, "vm-1")
-	require.Contains(t, byDst, "vm-2")
-	assert.Equal(t, "10.0.0.1", byDst["vm-1"].Label("ip"))
-	assert.Equal(t, "10.0.0.2", byDst["vm-2"].Label("ip"))
-}
-
-func TestExportResultsAggregateUsesDeltasAndReset(t *testing.T) {
-	s, ch := newExportScheduler(t, true)
-	target := endpoint.Endpoint{Name: "vm-1"}
-
-	s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(1, 0), 4, 3, 1)})
-	s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(2, 0), 7, 5, 2)})
-
-	_, aggregate := splitByTarget(drainMetrics(ch))
-	require.Len(t, aggregate, 2)
-	assert.Equal(t, int64(7), metricInt(t, aggregate[1], "total"), "second sample adds the delta, not the cumulative value again")
-	assert.Equal(t, int64(5), metricInt(t, aggregate[1], "success"))
-	assert.Equal(t, int64(2), metricInt(t, aggregate[1], "latency"))
-
-	// Target goroutine restarted; counters reset. Previous probes still count.
-	s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(3, 0), 1, 1, 3)})
-	_, aggregate = splitByTarget(drainMetrics(ch))
-	require.Len(t, aggregate, 1)
-	assert.Equal(t, int64(8), metricInt(t, aggregate[0], "total"))
-	assert.Equal(t, int64(6), metricInt(t, aggregate[0], "success"))
-}
-
-func TestExportResultsAggregateSkipsGauges(t *testing.T) {
-	s, ch := newExportScheduler(t, true)
-	gauge := metrics.NewEventMetrics(time.Unix(1, 0)).
-		AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(100)).
-		AddLabel("ptype", "tcp")
-	gauge.Kind = metrics.GAUGE
-
-	s.exportResults(endpoint.Endpoint{Name: "vm-1"}, []*metrics.EventMetrics{
-		probeEM(time.Unix(1, 0), 2, 2, 1),
-		gauge,
-	})
-
-	perTarget, aggregate := splitByTarget(drainMetrics(ch))
-	require.Len(t, perTarget, 2, "gauges are still exported per target")
-	require.Len(t, aggregate, 1, "gauges are not summed across targets")
-	assert.Equal(t, int64(2), metricInt(t, aggregate[0], "total"))
-	assert.Nil(t, aggregate[0].Metric("ssl_earliest_cert_expiry_sec"))
-}
-
-func TestExportResultsAggregateKeepsLabelSetsApart(t *testing.T) {
-	s, ch := newExportScheduler(t, true)
-	payload := func(ts time.Time, op string, n int64) *metrics.EventMetrics {
-		return metrics.NewEventMetrics(ts).AddMetric("op_total", metrics.NewInt(n)).AddLabel("op", op)
-	}
-
-	for i, target := range []endpoint.Endpoint{{Name: "vm-1"}, {Name: "vm-2"}} {
-		s.exportResults(target, []*metrics.EventMetrics{
-			payload(time.Unix(1, 0), "read", int64(i+1)),
-			payload(time.Unix(1, 0), "write", int64(10*(i+1))),
-		})
-	}
-
-	_, aggregate := splitByTarget(drainMetrics(ch))
-	last := map[string]int64{}
-	for _, em := range aggregate {
-		last[em.Label("op")] = metricInt(t, em, "op_total")
-	}
-	assert.Equal(t, map[string]int64{"read": 3, "write": 30}, last)
-}
-
-func TestExportResultsAggregateConcurrentTargets(t *testing.T) {
-	s, _ := newExportScheduler(t, true)
-	ch := make(chan *metrics.EventMetrics, 64)
-	s.DataChan = ch
-
-	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			target := endpoint.Endpoint{Name: fmt.Sprintf("vm-%d", i)}
-			s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(1, 0), 2, 1, 1)})
-			s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(2, 0), 5, 4, 1)})
-		}(i)
-	}
-	wg.Wait()
-
-	_, aggregate := splitByTarget(drainMetrics(ch))
-	require.NotEmpty(t, aggregate)
-	var maxTotal, maxSuccess int64
-	for _, em := range aggregate {
-		assert.Empty(t, em.Label("dst"))
-		if total := metricInt(t, em, "total"); total > maxTotal {
-			maxTotal = total
-		}
-		if success := metricInt(t, em, "success"); success > maxSuccess {
-			maxSuccess = success
-		}
-	}
-	assert.Equal(t, int64(40), maxTotal)
-	assert.Equal(t, int64(32), maxSuccess)
-}
-
-func TestExportResultsDropsAggregateStateForRemovedTarget(t *testing.T) {
-	s, _ := newExportScheduler(t, true)
-	target := endpoint.Endpoint{Name: "vm-1"}
-	s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(1, 0), 4, 3, 1)})
-	require.Contains(t, s.lastTargetEMs, target.Key())
-
-	s.cancelFuncs = map[string]context.CancelFunc{target.Key(): func() {}}
-	s.Opts.Targets = targets.StaticTargets("")
-	s.refreshTargets(context.Background())
-
-	assert.NotContains(t, s.lastTargetEMs, target.Key())
-}
-
-func newExportScheduler(t *testing.T, emitAggregate bool) (*Scheduler, chan *metrics.EventMetrics) {
-	t.Helper()
-	ch := make(chan *metrics.EventMetrics, 8)
-	s := &Scheduler{
-		ProbeName: "sansshell",
-		DataChan:  ch,
-		Opts: &options.Options{
-			Logger:               &logger.Logger{},
-			EmitAggregateMetrics: emitAggregate,
-			AdditionalLabels: []*options.AdditionalLabel{
-				options.ParseAdditionalLabel(&configpb.AdditionalLabel{
-					Key:   proto.String("deployment"),
-					Value: proto.String("va"),
-				}),
-				options.ParseAdditionalLabel(&configpb.AdditionalLabel{
-					Key:   proto.String("ip"),
-					Value: proto.String("@target.ip@"),
-				}),
-			},
+func aggTestOpts(emit bool, tgts string) *options.Options {
+	return &options.Options{
+		Targets:              targets.StaticTargets(tgts),
+		Interval:             5 * time.Millisecond,
+		Logger:               &logger.Logger{},
+		EmitAggregateMetrics: emit,
+		AdditionalLabels: []*options.AdditionalLabel{
+			options.ParseAdditionalLabel(&configpb.AdditionalLabel{Key: proto.String("deployment"), Value: proto.String("va")}),
+			options.ParseAdditionalLabel(&configpb.AdditionalLabel{Key: proto.String("vm"), Value: proto.String("@target.name@")}),
 		},
 	}
-	for _, al := range s.Opts.AdditionalLabels {
-		al.UpdateForTarget(endpoint.Endpoint{Name: "vm-1", IP: []byte{10, 0, 0, 1}}, "10.0.0.1", 0)
-		al.UpdateForTarget(endpoint.Endpoint{Name: "vm-2", IP: []byte{10, 0, 0, 2}}, "10.0.0.2", 0)
+}
+
+func TestEmitAggregateMetrics(t *testing.T) {
+	for _, emit := range []bool{false, true} {
+		t.Run(fmt.Sprintf("emit=%v", emit), func(t *testing.T) {
+			opts := aggTestOpts(emit, "t1,t2")
+			for _, ep := range opts.Targets.ListEndpoints() {
+				for _, al := range opts.AdditionalLabels {
+					al.UpdateForTarget(ep, "", 0)
+				}
+			}
+			s := &Scheduler{
+				ProbeName: "p",
+				Opts:      opts,
+				DataChan:  make(chan *metrics.EventMetrics, 1000),
+				NewResult: func(_ *endpoint.Endpoint) ProbeResult { return &aggTestResult{} },
+				RunProbeForTarget: func(_ context.Context, req *RunProbeForTargetRequest) {
+					r := req.Result.(*aggTestResult)
+					r.total++
+					if req.Target.Name == "t1" {
+						r.success++
+					}
+					r.latency += 2
+				},
+			}
+			s.init()
+			ctx, cancel := context.WithCancel(context.Background())
+			s.refreshTargets(ctx)
+			time.Sleep(100 * time.Millisecond)
+			cancel()
+			s.Wait()
+			close(s.DataChan)
+
+			lastPerTarget := map[string]*metrics.EventMetrics{}
+			var aggs []*metrics.EventMetrics
+			for em := range s.DataChan {
+				if dst := em.Label("dst"); dst != "" {
+					assert.Empty(t, em.Label("aggregate"))
+					assert.Equal(t, dst, em.Label("vm"), "per-target labels are unchanged")
+					lastPerTarget[dst] = em
+					continue
+				}
+				aggs = append(aggs, em)
+			}
+			require.Len(t, lastPerTarget, 2)
+			if !emit {
+				assert.Empty(t, aggs)
+				return
+			}
+
+			require.NotEmpty(t, aggs)
+			last := aggs[len(aggs)-1]
+			assert.Equal(t, []string{"ptype", "probe", "aggregate", "deployment"}, last.LabelsKeys())
+			assert.Equal(t, "true", last.Label("aggregate"))
+			assert.Equal(t, "va", last.Label("deployment"))
+
+			t1, t2 := lastPerTarget["t1"], lastPerTarget["t2"]
+			assert.Equal(t, intMetric(t1, "total")+intMetric(t2, "total"), intMetric(last, "total"))
+			assert.Equal(t, intMetric(t1, "success"), intMetric(last, "success"))
+			assert.Equal(t, 2*float64(intMetric(last, "total")), last.Metric("latency").(metrics.NumValue).Float64())
+		})
 	}
-	return s, ch
+}
+
+func TestRecordAggregateDeltaAndReset(t *testing.T) {
+	s := &Scheduler{ProbeName: "p", Opts: aggTestOpts(true, "t1"), DataChan: make(chan *metrics.EventMetrics, 10)}
+	t1, t2 := endpoint.Endpoint{Name: "t1"}, endpoint.Endpoint{Name: "t2"}
+	record := func(ep endpoint.Endpoint, total int64) int64 {
+		s.recordAggregate(ep, (&aggTestResult{total: total}).Metrics(time.Now(), 0, nil)[0])
+		return intMetric(<-s.DataChan, "total")
+	}
+
+	assert.Equal(t, int64(4), record(t1, 4))
+	assert.Equal(t, int64(10), record(t2, 6))
+	assert.Equal(t, int64(13), record(t1, 7), "adds only the increase since the target's last export")
+	assert.Equal(t, int64(15), record(t1, 2), "a reset target counter adds its new value, aggregate never goes down")
+
+	s.cancelFuncs = map[string]context.CancelFunc{t1.Key(): func() {}, t2.Key(): func() {}}
+	s.Opts.Targets = targets.StaticTargets("t2")
+	s.refreshTargets(context.Background())
+	assert.NotContains(t, s.lastEMs, t1.Key(), "state for removed targets is dropped")
+	assert.Equal(t, int64(18), record(t1, 3), "a re-added target starts from zero")
 }

@@ -102,11 +102,6 @@ func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint, ipAddr string, 
 	al.valueForTarget[ep.Key()] = strings.Join(parts, "")
 }
 
-// IsStatic reports whether this label's value is independent of the target.
-func (al *AdditionalLabel) IsStatic() bool {
-	return al.staticValue != ""
-}
-
 // KeyValueForTarget returns key, value pair for the given target.
 func (al *AdditionalLabel) KeyValueForTarget(ep endpoint.Endpoint) (key, val string) {
 	al.mu.RLock()
