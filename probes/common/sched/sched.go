@@ -19,6 +19,7 @@ import (
 	"context"
 	"math/rand"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -111,9 +112,12 @@ type Scheduler struct {
 	waitGroup             sync.WaitGroup
 	cancelFuncs           map[string]context.CancelFunc
 
+	// Aggregate state for EmitAggregateMetrics. Both maps are keyed by the
+	// series key (labels without dst, plus metric names); lastTargetEMs is
+	// additionally keyed by target key.
 	aggregateMu   sync.Mutex
-	aggregateEM   *metrics.EventMetrics
-	lastTargetEMs map[string]*metrics.EventMetrics
+	aggregateEMs  map[string]*metrics.EventMetrics
+	lastTargetEMs map[string]map[string]*metrics.EventMetrics
 }
 
 func (s *Scheduler) init() {
@@ -198,13 +202,8 @@ func (s *Scheduler) startForTarget(ctx context.Context, target endpoint.Endpoint
 	}
 }
 
-// aggregateMetricNames are the counters folded into the target-independent
-// series. Failure is usually added later by the surfacer from total-success;
-// include it when a probe emits it directly.
-var aggregateMetricNames = []string{"total", "success", "failure"}
-
-// exportResults publishes per-target metrics and, when enabled, one additional
-// series that sums total/success/failure across targets.
+// exportResults publishes per-target metrics and, when enabled, an additional
+// copy of each cumulative EventMetrics summed across targets.
 func (s *Scheduler) exportResults(target endpoint.Endpoint, ems []*metrics.EventMetrics) {
 	for _, em := range ems {
 		// Returning nil is a way to skip this target. Used by grpc probe.
@@ -222,10 +221,12 @@ func (s *Scheduler) exportResults(target endpoint.Endpoint, ems []*metrics.Event
 	}
 }
 
-// addToAggregate folds this target's cumulative total/success/failure into one
-// probe-level series. The returned EventMetrics has no dst label.
+// addToAggregate folds this target's cumulative metrics into the probe-level
+// series with the same labels (minus dst) and metric names, and returns a copy
+// of that series. It returns nil for GAUGE metrics, which can't be summed
+// across targets.
 func (s *Scheduler) addToAggregate(target endpoint.Endpoint, em *metrics.EventMetrics) *metrics.EventMetrics {
-	current := countersForAggregate(em)
+	current, seriesKey := aggregatable(em)
 	if current == nil {
 		return nil
 	}
@@ -233,68 +234,77 @@ func (s *Scheduler) addToAggregate(target endpoint.Endpoint, em *metrics.EventMe
 	s.aggregateMu.Lock()
 	defer s.aggregateMu.Unlock()
 
-	if s.lastTargetEMs == nil {
-		s.lastTargetEMs = make(map[string]*metrics.EventMetrics)
+	if s.aggregateEMs == nil {
+		s.aggregateEMs = make(map[string]*metrics.EventMetrics)
+		s.lastTargetEMs = make(map[string]map[string]*metrics.EventMetrics)
+	}
+	targetKey := target.Key()
+	if s.lastTargetEMs[targetKey] == nil {
+		s.lastTargetEMs[targetKey] = make(map[string]*metrics.EventMetrics)
 	}
 
-	key := target.Key()
 	delta := current
-	if last := s.lastTargetEMs[key]; last != nil {
+	if last := s.lastTargetEMs[targetKey][seriesKey]; last != nil {
 		var err error
-		delta, err = current.SubtractLast(last)
-		if err != nil {
-			if s.Opts.Logger != nil {
-				s.Opts.Logger.Warningf("Probe(%s) aggregate subtract for %s: %v", s.ProbeName, key, err)
-			}
+		if delta, err = current.SubtractLast(last); err != nil {
+			s.Opts.Logger.Warningf("Probe(%s) aggregate subtract for %s: %v", s.ProbeName, targetKey, err)
 			return nil
 		}
 	}
-	s.lastTargetEMs[key] = current
+	s.lastTargetEMs[targetKey][seriesKey] = current.Clone()
 
-	if s.aggregateEM == nil {
-		s.aggregateEM = delta.Clone()
-		s.aggregateEM.Kind = metrics.CUMULATIVE
+	agg := s.aggregateEMs[seriesKey]
+	if agg == nil {
+		agg = delta.Clone()
+		agg.Kind = metrics.CUMULATIVE
+		s.aggregateEMs[seriesKey] = agg
 	} else {
 		for _, name := range delta.MetricsKeys() {
 			dv := delta.Metric(name)
-			if av := s.aggregateEM.Metric(name); av == nil {
-				s.aggregateEM.AddMetric(name, dv.Clone())
-			} else if err := av.Add(dv); err != nil && s.Opts.Logger != nil {
+			if av := agg.Metric(name); av == nil {
+				agg.AddMetric(name, dv.Clone())
+			} else if err := av.Add(dv); err != nil {
 				s.Opts.Logger.Warningf("Probe(%s) aggregate add %s: %v", s.ProbeName, name, err)
 			}
 		}
 	}
 
-	out := s.aggregateEM.Clone()
+	out := agg.Clone()
 	out.Timestamp = em.Timestamp
 	out.AddLabel("aggregate", "true")
 	out.SetNotForAlerting()
 	return out
 }
 
-// countersForAggregate copies total, success, and failure onto a new
-// cumulative EventMetrics. Labels already on em are kept, except dst.
-// Returns nil when none of those counters are present.
-func countersForAggregate(em *metrics.EventMetrics) *metrics.EventMetrics {
-	out := metrics.NewEventMetrics(em.Timestamp)
-	out.Kind = metrics.CUMULATIVE
-	n := 0
-	for _, name := range aggregateMetricNames {
-		if v := em.Metric(name); v != nil {
-			out.AddMetric(name, v.Clone())
-			n++
-		}
+// aggregatable returns a copy of em without the dst label and without
+// metrics that can't be summed (strings), plus the key of the series it
+// belongs to. It returns nil if em is not CUMULATIVE or has nothing to sum.
+func aggregatable(em *metrics.EventMetrics) (*metrics.EventMetrics, string) {
+	if em.Kind != metrics.CUMULATIVE {
+		return nil, ""
 	}
-	if n == 0 {
-		return nil
+
+	out := metrics.NewEventMetrics(em.Timestamp)
+	var key []string
+	for _, name := range em.MetricsKeys() {
+		v := em.Metric(name)
+		if _, ok := v.(metrics.String); ok {
+			continue
+		}
+		out.AddMetric(name, v.Clone())
+		key = append(key, name)
+	}
+	if len(key) == 0 {
+		return nil, ""
 	}
 	for _, k := range em.LabelsKeys() {
 		if k == "dst" {
 			continue
 		}
 		out.AddLabel(k, em.Label(k))
+		key = append(key, k+"="+em.Label(k))
 	}
-	return out
+	return out, strings.Join(key, ",")
 }
 
 func (s *Scheduler) Wait() {

@@ -59,9 +59,9 @@ type Options struct {
 	// TargetsUpdateInterval overrides the default scheduler target update
 	// interval (1 minute). Set from probe's targets_update_sec if configured.
 	TargetsUpdateInterval time.Duration
-	// EmitAggregateMetrics exports one additional cumulative series for
-	// total, success, and failure, summed across targets and labeled
-	// aggregate=true with no dst. Per-target series are unchanged.
+	// EmitAggregateMetrics additionally exports every cumulative metric
+	// summed across targets, labeled aggregate=true with no dst. Per-target
+	// series are unchanged.
 	EmitAggregateMetrics bool
 	// Prober config at the prober initialization time. This config is not
 	// reliable for things that may change after initialization, e.g. probes

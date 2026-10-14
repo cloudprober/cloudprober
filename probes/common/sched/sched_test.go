@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudprober/cloudprober/internal/surfacers/common/transform"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
@@ -508,11 +507,17 @@ func TestExportResultsAggregateOneSeriesAcrossTargets(t *testing.T) {
 	t1 := endpoint.Endpoint{Name: "vm-1", IP: []byte{10, 0, 0, 1}}
 	t2 := endpoint.Endpoint{Name: "vm-2", IP: []byte{10, 0, 0, 2}}
 
-	s.exportResults(t1, []*metrics.EventMetrics{probeEM(ts, 4, 3, 15)})
-	s.exportResults(t2, []*metrics.EventMetrics{probeEM(ts, 6, 2, 40)})
+	em1 := probeEM(ts, 4, 3, 15).AddMetric("resp-code", metrics.NewMap("code").IncKeyBy("200", 3).IncKeyBy("500", 1))
+	em2 := probeEM(ts, 6, 2, 40).AddMetric("resp-code", metrics.NewMap("code").IncKeyBy("500", 6))
+	s.exportResults(t1, []*metrics.EventMetrics{em1})
+	s.exportResults(t2, []*metrics.EventMetrics{em2})
 
 	perTarget, aggregate := splitByTarget(drainMetrics(ch))
 	require.Len(t, perTarget, 2, "per-target series stay")
+	assert.Equal(t, int64(4), metricInt(t, perTarget[0], "total"), "per-target values are not changed by aggregation")
+	assert.Equal(t, int64(15), metricInt(t, perTarget[0], "latency"))
+	assert.Equal(t, "map:code,200:3,500:1", perTarget[0].Metric("resp-code").String())
+	assert.Empty(t, perTarget[0].Label("aggregate"))
 	require.Len(t, aggregate, 2, "one aggregate sample per export")
 
 	got := aggregate[len(aggregate)-1]
@@ -524,11 +529,9 @@ func TestExportResultsAggregateOneSeriesAcrossTargets(t *testing.T) {
 	assert.Equal(t, "va", got.Label("deployment"), "static labels are kept")
 	assert.Equal(t, int64(10), metricInt(t, got, "total"))
 	assert.Equal(t, int64(5), metricInt(t, got, "success"))
-	assert.Nil(t, got.Metric("latency"), "only total/success/failure are aggregated")
+	assert.Equal(t, int64(55), metricInt(t, got, "latency"))
+	assert.Equal(t, "map:code,200:3,500:7", got.Metric("resp-code").String())
 	assert.False(t, got.IsForAlerting(), "per-target alerting is unchanged; the aggregate series is export-only")
-
-	require.NoError(t, transform.AddFailureMetric(got))
-	assert.Equal(t, int64(5), metricInt(t, got, "failure"))
 
 	byDst := map[string]*metrics.EventMetrics{}
 	for _, em := range perTarget {
@@ -553,6 +556,7 @@ func TestExportResultsAggregateUsesDeltasAndReset(t *testing.T) {
 	require.Len(t, aggregate, 2)
 	assert.Equal(t, int64(7), metricInt(t, aggregate[1], "total"), "second sample adds the delta, not the cumulative value again")
 	assert.Equal(t, int64(5), metricInt(t, aggregate[1], "success"))
+	assert.Equal(t, int64(2), metricInt(t, aggregate[1], "latency"))
 
 	// Target goroutine restarted; counters reset. Previous probes still count.
 	s.exportResults(target, []*metrics.EventMetrics{probeEM(time.Unix(3, 0), 1, 1, 3)})
@@ -562,7 +566,7 @@ func TestExportResultsAggregateUsesDeltasAndReset(t *testing.T) {
 	assert.Equal(t, int64(6), metricInt(t, aggregate[0], "success"))
 }
 
-func TestExportResultsAggregateSkipsEventsWithoutCounters(t *testing.T) {
+func TestExportResultsAggregateSkipsGauges(t *testing.T) {
 	s, ch := newExportScheduler(t, true)
 	gauge := metrics.NewEventMetrics(time.Unix(1, 0)).
 		AddMetric("ssl_earliest_cert_expiry_sec", metrics.NewInt(100)).
@@ -575,10 +579,31 @@ func TestExportResultsAggregateSkipsEventsWithoutCounters(t *testing.T) {
 	})
 
 	perTarget, aggregate := splitByTarget(drainMetrics(ch))
-	require.Len(t, perTarget, 2, "events without total/success are still exported per target")
-	require.Len(t, aggregate, 1)
+	require.Len(t, perTarget, 2, "gauges are still exported per target")
+	require.Len(t, aggregate, 1, "gauges are not summed across targets")
 	assert.Equal(t, int64(2), metricInt(t, aggregate[0], "total"))
 	assert.Nil(t, aggregate[0].Metric("ssl_earliest_cert_expiry_sec"))
+}
+
+func TestExportResultsAggregateKeepsLabelSetsApart(t *testing.T) {
+	s, ch := newExportScheduler(t, true)
+	payload := func(ts time.Time, op string, n int64) *metrics.EventMetrics {
+		return metrics.NewEventMetrics(ts).AddMetric("op_total", metrics.NewInt(n)).AddLabel("op", op)
+	}
+
+	for i, target := range []endpoint.Endpoint{{Name: "vm-1"}, {Name: "vm-2"}} {
+		s.exportResults(target, []*metrics.EventMetrics{
+			payload(time.Unix(1, 0), "read", int64(i+1)),
+			payload(time.Unix(1, 0), "write", int64(10*(i+1))),
+		})
+	}
+
+	_, aggregate := splitByTarget(drainMetrics(ch))
+	last := map[string]int64{}
+	for _, em := range aggregate {
+		last[em.Label("op")] = metricInt(t, em, "op_total")
+	}
+	assert.Equal(t, map[string]int64{"read": 3, "write": 30}, last)
 }
 
 func TestExportResultsAggregateConcurrentTargets(t *testing.T) {

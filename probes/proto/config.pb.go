@@ -480,20 +480,21 @@ type ProbeDef struct {
 	// being probed and removed targets stop being probed. If not set, defaults
 	// to 1 minute.
 	TargetsUpdateSec *int32 `protobuf:"varint,103,opt,name=targets_update_sec,json=targetsUpdateSec" json:"targets_update_sec,omitempty"`
-	// If true, also export one cumulative series for total, success, and
-	// failure summed across every target. Per-target series are still exported.
+	// If true, every cumulative metric the probe exports (total, success,
+	// latency, resp-code, ...) is also exported summed across all targets.
+	// Per-target series are exported unchanged.
 	//
-	// The extra series has no dst label and no target-derived additional
-	// labels, so it stays one timeseries for the life of the process.
-	// Prometheus increase() on it stays accurate when targets churn faster
-	// than the scrape interval. Static additional labels are kept. The series
-	// is labeled aggregate=true so it can be selected on its own. Failure is
-	// total minus success, added by the surfacer the same way as on per-target
-	// series.
+	// The summed series use the same metric names, without the dst label and
+	// target-derived additional labels, and with the label aggregate=true.
+	// Static additional labels are kept. Since they don't depend on targets,
+	// they stay one timeseries per metric for the life of the process, and
+	// Prometheus increase() on them stays accurate when targets churn faster
+	// than the scrape interval. Gauge metrics are not summed.
 	//
-	// A sum over every series for the probe counts probes twice while this is
-	// on. Use aggregate="true" for the combined ratio, and dst for per-target
-	// series.
+	// Because the names are shared, a query that sums a metric over all series
+	// of the probe includes both the per-target series and the aggregate. Use
+	// aggregate="true" to select the aggregate, and aggregate="" for the
+	// per-target series.
 	//
 	// Honored by probes that use the shared scheduler (HTTP, DNS, TCP, gRPC,
 	// external gRPC, SQL, Starlark, browser). Default false.
