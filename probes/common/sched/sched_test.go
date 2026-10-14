@@ -27,10 +27,12 @@ import (
 	dnsconfigpb "github.com/cloudprober/cloudprober/probes/dns/proto"
 	httpconfigpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	"github.com/cloudprober/cloudprober/probes/options"
+	configpb "github.com/cloudprober/cloudprober/probes/proto"
 	tcpconfigpb "github.com/cloudprober/cloudprober/probes/tcp/proto"
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -437,4 +439,116 @@ func TestSchedulerGapBetweenTargets(t *testing.T) {
 			}
 		})
 	}
+}
+
+type aggTestResult struct {
+	total, success int64
+	latency        float64
+}
+
+func (r *aggTestResult) Metrics(ts time.Time, _ int64, _ *options.Options) []*metrics.EventMetrics {
+	return []*metrics.EventMetrics{metrics.NewEventMetrics(ts).
+		AddMetric("total", metrics.NewInt(r.total)).
+		AddMetric("success", metrics.NewInt(r.success)).
+		AddMetric("latency", metrics.NewFloat(r.latency)).
+		AddLabel("ptype", "test")}
+}
+
+func intMetric(em *metrics.EventMetrics, name string) int64 {
+	return em.Metric(name).(metrics.NumValue).Int64()
+}
+
+func aggTestOpts(emit bool, tgts string) *options.Options {
+	return &options.Options{
+		Targets:              targets.StaticTargets(tgts),
+		Interval:             5 * time.Millisecond,
+		Logger:               &logger.Logger{},
+		EmitAggregateMetrics: emit,
+		AdditionalLabels: []*options.AdditionalLabel{
+			options.ParseAdditionalLabel(&configpb.AdditionalLabel{Key: proto.String("deployment"), Value: proto.String("va")}),
+			options.ParseAdditionalLabel(&configpb.AdditionalLabel{Key: proto.String("vm"), Value: proto.String("@target.name@")}),
+		},
+	}
+}
+
+func TestEmitAggregateMetrics(t *testing.T) {
+	for _, emit := range []bool{false, true} {
+		t.Run(fmt.Sprintf("emit=%v", emit), func(t *testing.T) {
+			opts := aggTestOpts(emit, "t1,t2")
+			for _, ep := range opts.Targets.ListEndpoints() {
+				for _, al := range opts.AdditionalLabels {
+					al.UpdateForTarget(ep, "", 0)
+				}
+			}
+			s := &Scheduler{
+				ProbeName: "p",
+				Opts:      opts,
+				DataChan:  make(chan *metrics.EventMetrics, 1000),
+				NewResult: func(_ *endpoint.Endpoint) ProbeResult { return &aggTestResult{} },
+				RunProbeForTarget: func(_ context.Context, req *RunProbeForTargetRequest) {
+					r := req.Result.(*aggTestResult)
+					r.total++
+					if req.Target.Name == "t1" {
+						r.success++
+					}
+					r.latency += 2
+				},
+			}
+			s.init()
+			ctx, cancel := context.WithCancel(context.Background())
+			s.refreshTargets(ctx)
+			time.Sleep(100 * time.Millisecond)
+			cancel()
+			s.Wait()
+			close(s.DataChan)
+
+			lastPerTarget := map[string]*metrics.EventMetrics{}
+			var aggs []*metrics.EventMetrics
+			for em := range s.DataChan {
+				if dst := em.Label("dst"); dst != "" {
+					assert.Empty(t, em.Label("aggregate"))
+					assert.Equal(t, dst, em.Label("vm"), "per-target labels are unchanged")
+					lastPerTarget[dst] = em
+					continue
+				}
+				aggs = append(aggs, em)
+			}
+			require.Len(t, lastPerTarget, 2)
+			if !emit {
+				assert.Empty(t, aggs)
+				return
+			}
+
+			require.NotEmpty(t, aggs)
+			last := aggs[len(aggs)-1]
+			assert.Equal(t, []string{"ptype", "probe", "aggregate", "deployment"}, last.LabelsKeys())
+			assert.Equal(t, "true", last.Label("aggregate"))
+			assert.Equal(t, "va", last.Label("deployment"))
+
+			t1, t2 := lastPerTarget["t1"], lastPerTarget["t2"]
+			assert.Equal(t, intMetric(t1, "total")+intMetric(t2, "total"), intMetric(last, "total"))
+			assert.Equal(t, intMetric(t1, "success"), intMetric(last, "success"))
+			assert.Equal(t, 2*float64(intMetric(last, "total")), last.Metric("latency").(metrics.NumValue).Float64())
+		})
+	}
+}
+
+func TestRecordAggregateDeltaAndReset(t *testing.T) {
+	s := &Scheduler{ProbeName: "p", Opts: aggTestOpts(true, "t1"), DataChan: make(chan *metrics.EventMetrics, 10)}
+	t1, t2 := endpoint.Endpoint{Name: "t1"}, endpoint.Endpoint{Name: "t2"}
+	record := func(ep endpoint.Endpoint, total int64) int64 {
+		s.recordAggregate(ep, (&aggTestResult{total: total}).Metrics(time.Now(), 0, nil)[0])
+		return intMetric(<-s.DataChan, "total")
+	}
+
+	assert.Equal(t, int64(4), record(t1, 4))
+	assert.Equal(t, int64(10), record(t2, 6))
+	assert.Equal(t, int64(13), record(t1, 7), "adds only the increase since the target's last export")
+	assert.Equal(t, int64(15), record(t1, 2), "a reset target counter adds its new value, aggregate never goes down")
+
+	s.cancelFuncs = map[string]context.CancelFunc{t1.Key(): func() {}, t2.Key(): func() {}}
+	s.Opts.Targets = targets.StaticTargets("t2")
+	s.refreshTargets(context.Background())
+	assert.NotContains(t, s.lastEMs, t1.Key(), "state for removed targets is dropped")
+	assert.Equal(t, int64(18), record(t1, 3), "a re-added target starts from zero")
 }

@@ -870,3 +870,20 @@ func TestValidateProbeConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestEmitAggregateMetricsFromConfig(t *testing.T) {
+	probe := &configpb.ProbeDef{
+		Name:                 proto.String("sansshell"),
+		Type:                 configpb.ProbeDef_TCP.Enum(),
+		Targets:              testTargets,
+		EmitAggregateMetrics: proto.Bool(true),
+	}
+	opts, err := ValidateProbeConfig(probe)
+	assert.NoError(t, err)
+	assert.True(t, opts.EmitAggregateMetrics)
+
+	probe.EmitAggregateMetrics = nil
+	opts, err = ValidateProbeConfig(probe)
+	assert.NoError(t, err)
+	assert.False(t, opts.EmitAggregateMetrics)
+}

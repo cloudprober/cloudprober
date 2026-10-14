@@ -22,7 +22,7 @@ import "github.com/cloudprober/cloudprober/internal/validators/proto/config.prot
 
 option go_package = "github.com/cloudprober/cloudprober/probes/proto";
 
-// Next tag: 104
+// Next tag: 105
 message ProbeDef {
   // Probe name. It should be unique across all probes.
   required string name = 1;
@@ -211,6 +211,26 @@ message ProbeDef {
   // being probed and removed targets stop being probed. If not set, defaults
   // to 1 minute.
   optional int32 targets_update_sec = 103;
+
+  // If true, every cumulative metric the probe exports (total, success,
+  // latency, resp-code, ...) is also exported summed across all targets.
+  // Per-target series are exported unchanged.
+  //
+  // The summed series use the same metric names, without the dst label and
+  // target-derived additional labels, and with the label aggregate=true.
+  // Static additional labels are kept. Since they don't depend on targets,
+  // they stay one timeseries per metric for the life of the process, and
+  // Prometheus increase() on them stays accurate when targets churn faster
+  // than the scrape interval. Gauge metrics are not summed.
+  //
+  // Because the names are shared, a query that sums a metric over all series
+  // of the probe includes both the per-target series and the aggregate. Use
+  // aggregate="true" to select the aggregate, and aggregate="" for the
+  // per-target series.
+  //
+  // Honored by probes that use the shared scheduler (HTTP, DNS, TCP, gRPC,
+  // external gRPC, SQL, Starlark, browser). Default false.
+  optional bool emit_aggregate_metrics = 104;
 
   // Duration to wait before starting the probe.
   //
