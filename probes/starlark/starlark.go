@@ -23,11 +23,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"net/url"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httpclient"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -36,7 +36,6 @@ import (
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
 	configpb "github.com/cloudprober/cloudprober/probes/starlark/proto"
-	"golang.org/x/net/http/httpproxy"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -137,30 +136,23 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// default client and every tls_configs entry) rather than a script-side
 	// selector — see ProbeConf.proxy_url. Unset means today's unchanged
 	// behavior: Go's ProxyFromEnvironment.
-	var proxyFunc func(*http.Request) (*url.URL, error)
-	var proxyConnectHeader http.Header
-	if proxyURL := p.c.GetProxyUrl(); proxyURL != "" {
-		parsedProxyURL, err := url.Parse(proxyURL)
-		if err != nil {
-			return fmt.Errorf("starlark proxy_url: %v", err)
-		}
-		if (parsedProxyURL.Scheme != "http" && parsedProxyURL.Scheme != "https") || parsedProxyURL.Host == "" {
-			return fmt.Errorf("starlark proxy_url: must be an absolute URL with an http or https scheme and a host")
-		}
-		proxyCfg := &httpproxy.Config{
-			HTTPProxy:  proxyURL,
-			HTTPSProxy: proxyURL,
-			NoProxy:    p.c.GetNoProxy(),
-		}
-		fn := proxyCfg.ProxyFunc()
-		proxyFunc = func(req *http.Request) (*url.URL, error) { return fn(req.URL) }
+	// 
+	// Built via the same helper the http probe uses, so
+	// proxy_url/no_proxy/proxy_connect_header behave identically across probe
+	// types.
+	proxyURL := p.c.GetProxyUrl()
+	proxyFunc, proxyConnectHeader, err := httpclient.BuildProxy(proxyURL, p.c.GetNoProxy(), p.c.GetProxyConnectHeader())
+	if err != nil {
+		return fmt.Errorf("starlark: %v", err)
+	}
 
-		if len(p.c.GetProxyConnectHeader()) > 0 {
-			proxyConnectHeader = make(http.Header, len(p.c.GetProxyConnectHeader()))
-			for k, v := range p.c.GetProxyConnectHeader() {
-				proxyConnectHeader.Add(k, v)
-			}
-		}
+	// An https:// proxy also uses tls_configs' TLSClientConfig for its own TLS
+	// handshake (see newHTTPClient's shared Transport), not just for the
+	// final target -- so a tls_configs entry's private CA or client cert
+	// would get presented to the proxy too. Reject rather than silently
+	// misapply it; revisit if the proxy TLS dial is ever split out on its own.
+	if len(tlsCfgs) > 0 && strings.HasPrefix(proxyURL, "https://") {
+		return fmt.Errorf("starlark: tls_configs is not supported together with an https:// proxy_url")
 	}
 
 	// Timeout to compile the starlark script. This is a generous timeout

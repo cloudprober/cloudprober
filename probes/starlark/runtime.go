@@ -83,7 +83,9 @@ type runtime struct {
 	// than reusing http.DefaultClient) only so a per-call CheckRedirect clone
 	// never mutates a shared client. It has a nil Transport, so its connection
 	// pool is the process-wide http.DefaultTransport's; nothing probe-specific
-	// rides on it, so that sharing is fine.
+	// rides on it, so that sharing is fine -- unless proxy_url is set, in
+	// which case newHTTPClient gives it its own cloned Transport so the
+	// prove-level proxy settings don't leak into unrelated probes.
 	httpClient *http.Client
 
 	// tlsClients holds one client per tls_configs entry, keyed by config
@@ -195,6 +197,11 @@ func newRuntime(ctx context.Context, opts *runtimeOpts) (*runtime, error) {
 // proxyFunc and connectHeader, when non-nil, are applied to this client's
 // Transport too — every client the probe builds shares the same probe-level
 // proxy, tls_configs clients included.
+//
+// tlsCfg and proxyFunc share one Transport, so TLSClientConfig also governs
+// the TLS handshake to an https:// proxy, not just to the final target --
+// Init rejects tls_configs combined with an https:// proxy_url for exactly
+// this reason, so callers here should never see both non-nil at once.
 func newHTTPClient(tlsCfg *tls.Config, proxyFunc func(*http.Request) (*url.URL, error), connectHeader http.Header) *http.Client {
 	if tlsCfg == nil && proxyFunc == nil {
 		return &http.Client{}
