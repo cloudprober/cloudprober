@@ -129,19 +129,20 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 	transport.MaxIdleConns = int(p.c.GetMaxIdleConns())
 	transport.TLSHandshakeTimeout = p.opts.Timeout
 
-	if p.c.GetProxyUrl() != "" {
-		url, err := url.Parse(p.c.GetProxyUrl())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing proxy URL (%s): %v", p.c.GetProxyUrl(), err)
-		}
-		transport.Proxy = http.ProxyURL(url)
+	// Build proxyFunc and proxyConnectHeader from config.
+	proxyFunc, proxyConnectHeader, err := httpclient.BuildProxy(p.c.GetProxyUrl(), "", p.c.GetProxyConnectHeader())
+	if err != nil {
+		return nil, fmt.Errorf("http probe: %v", err)
+	}
 
-		if len(p.c.GetProxyConnectHeader()) > 0 && transport.ProxyConnectHeader == nil {
-			transport.ProxyConnectHeader = make(http.Header)
-		}
-		for k, v := range p.c.GetProxyConnectHeader() {
-			transport.ProxyConnectHeader.Add(k, v)
-		}
+	// If proxyFunc is non-nil, set it and the proxyConnectHeader on the
+	// transport.
+	//
+	// If both are nil, leave the transport's Proxy and ProxyConnectHeader as-is
+	// (defaulting to http.ProxyFromEnvironment).
+	if proxyFunc != nil {
+		transport.Proxy = proxyFunc
+		transport.ProxyConnectHeader = proxyConnectHeader
 	}
 
 	if p.c.GetDisableCertValidation() || p.c.GetTlsConfig() != nil {

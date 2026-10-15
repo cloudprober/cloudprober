@@ -782,7 +782,12 @@ func TestGetTransport(t *testing.T) {
 			}
 
 			if test.proxy != "" {
-				proxy, _ := transport.Proxy(nil)
+				// Unlike the old http.ProxyURL(url), the proxy func built on
+				// httpproxy.Config reads req.URL to evaluate no_proxy, so it
+				// needs a real request, not nil.
+				req, reqErr := http.NewRequest(http.MethodGet, "http://example.com", nil)
+				assert.NoError(t, reqErr)
+				proxy, _ := transport.Proxy(req)
 				assert.Equal(t, test.proxy, proxy.String())
 			}
 
