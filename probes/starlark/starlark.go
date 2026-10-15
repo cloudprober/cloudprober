@@ -136,7 +136,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// default client and every tls_configs entry) rather than a script-side
 	// selector — see ProbeConf.proxy_url. Unset means today's unchanged
 	// behavior: Go's ProxyFromEnvironment.
-	// 
+	//
 	// Built via the same helper the http probe uses, so
 	// proxy_url/no_proxy/proxy_connect_header behave identically across probe
 	// types.

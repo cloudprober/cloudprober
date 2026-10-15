@@ -85,7 +85,7 @@ type runtime struct {
 	// pool is the process-wide http.DefaultTransport's; nothing probe-specific
 	// rides on it, so that sharing is fine -- unless proxy_url is set, in
 	// which case newHTTPClient gives it its own cloned Transport so the
-	// prove-level proxy settings don't leak into unrelated probes.
+	// probe-level proxy settings don't leak into unrelated probes.
 	httpClient *http.Client
 
 	// tlsClients holds one client per tls_configs entry, keyed by config
