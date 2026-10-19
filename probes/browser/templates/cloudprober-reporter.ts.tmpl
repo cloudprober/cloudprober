@@ -66,14 +66,15 @@ class CloudproberReporter implements Reporter {
       this.browserReady = true;
     }
     if (step.category === 'test.step') {
-      if (result.status !== "passed" && result.status !== "skipped") {
+      if (step.error) {
         warning(`Test step "${step.title}" of test "${test.title}" failed with error: ${JSON.stringify(step.error)}`);
       }
       {{- if .EnableStepMetrics }}
       var stepTitle = step.title.replace(/ /g,"_");
+      var stepStatus = step.error ? "failed" : "passed";
 
-      print(`test_step_status{step="${stepTitle}",${testLabels(test)},status="${result.status}"} 1`);
-      print(`test_step_latency{step="${stepTitle}",${testLabels(test)},status="${result.status}"} ${step.duration*1000}`);
+      print(`test_step_status{step="${stepTitle}",${testLabels(test)},status="${stepStatus}"} 1`);
+      print(`test_step_latency{step="${stepTitle}",${testLabels(test)},status="${stepStatus}"} ${step.duration*1000}`);
       {{- end }}
     }
   }

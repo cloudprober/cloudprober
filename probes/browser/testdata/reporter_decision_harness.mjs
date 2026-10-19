@@ -1,16 +1,21 @@
 // reporter_decision_harness.mjs drives the rendered cloudprober Playwright
 // reporter through synthetic reporter-event streams and checks, for each
-// scenario, whether it emits the internal-error sentinel. It exercises the
-// browserReady/onEnd decision without a real browser (which the CI/sandbox
-// can't install), covering the launch-hang vs target-hang distinction that a
-// Go-side regex test can't.
+// scenario, whether it emits the internal-error sentinel (stderr) and/or the
+// expected stdout metric line. It exercises the browserReady/onEnd decision
+// and the per-step metric labels without a real browser (which the
+// CI/sandbox can't install) -- the launch-hang vs target-hang distinction and
+// the step status label, neither of which a Go-side regex test can check.
 //
 // Usage: node --experimental-strip-types reporter_decision_harness.mjs <reporter.ts>
 // Exits 0 if every scenario matches its expected outcome, 1 otherwise.
 //
 // The event sequences mirror what real Playwright emits (confirmed against a
 // real browser): the first Playwright API call is the browser launch, so a
-// "pw:api" step that ends without error means the browser came up.
+// "pw:api" step that ends without error means the browser came up. Likewise,
+// during onStepEnd the TestResult passed in is the test's own result, still
+// at its unfinalized default status ("skipped") -- it's only finalized later,
+// in onTestEnd. A "test.step" step has no status of its own in the Playwright
+// API; only step.error says whether it failed.
 
 import { pathToFileURL } from "node:url";
 
@@ -35,6 +40,20 @@ const apiErr = { t: "stepEnd", category: "pw:api", error: { message: "boom" } };
 const hookBegin = { t: "stepBegin", category: "hook" };
 const end = (status) => ({ t: "end", status });
 
+// A "test.step" step, as reported during onStepEnd: test/result are the real
+// (still in-progress) objects testLabels() and the status label read from,
+// not the placeholder {} used by the pw:api scenarios above.
+const stepTest = { title: "example test", parent: { title: "" }, tags: [] };
+const stepResult = { status: "skipped" };
+const appStepOk = {
+  t: "stepEnd", category: "test.step", error: undefined,
+  test: stepTest, result: stepResult, title: "ok_step",
+};
+const appStepErr = {
+  t: "stepEnd", category: "test.step", error: { message: "boom" },
+  test: stepTest, result: stepResult, title: "err_step",
+};
+
 const scenarios = [
   // Launch hang: launch started (pw:api begins) but never completed before the
   // global timeout. Internal error.
@@ -54,35 +73,54 @@ const scenarios = [
   { name: "passed", events: [apiBegin, apiOk, end("passed")], wantSentinel: false },
   { name: "failed_not_timedout", events: [apiBegin, apiOk, end("failed")], wantSentinel: false },
   { name: "interrupted", events: [end("interrupted")], wantSentinel: false },
+  // test_step_status/test_step_latency must reflect the step's own error, not
+  // the enclosing test's still-unfinalized ("skipped") result.status.
+  {
+    name: "step_without_error_reports_passed", events: [appStepOk],
+    wantSentinel: false, wantStdout: 'test_step_status{step="ok_step",test="example_test",status="passed"}',
+  },
+  {
+    name: "step_with_error_reports_failed", events: [appStepErr],
+    wantSentinel: false, wantStdout: 'test_step_status{step="err_step",test="example_test",status="failed"}',
+  },
 ];
 
 function runScenario(s) {
   const r = new Reporter();
-  const origWrite = process.stderr.write.bind(process.stderr);
-  let captured = "";
-  process.stderr.write = (chunk) => { captured += chunk; return true; };
+  const origErrWrite = process.stderr.write.bind(process.stderr);
+  const origOutWrite = process.stdout.write.bind(process.stdout);
+  let capturedErr = "";
+  let capturedOut = "";
+  process.stderr.write = (chunk) => { capturedErr += chunk; return true; };
+  process.stdout.write = (chunk) => { capturedOut += chunk; return true; };
   try {
     for (const e of s.events) {
-      const step = { category: e.category, error: e.error, title: "", duration: 0 };
+      const step = { category: e.category, error: e.error, title: e.title ?? "", duration: 0 };
+      const test = e.test ?? {};
+      const result = e.result ?? {};
       if (e.t === "stepBegin") {
-        r.onStepBegin({}, {}, step);
+        r.onStepBegin(test, result, step);
       } else if (e.t === "stepEnd") {
-        r.onStepEnd({}, {}, step);
+        r.onStepEnd(test, result, step);
       } else if (e.t === "end") {
         r.onEnd({ status: e.status });
       }
     }
   } finally {
-    process.stderr.write = origWrite;
+    process.stderr.write = origErrWrite;
+    process.stdout.write = origOutWrite;
   }
-  return captured.includes(SENTINEL);
+  return { sentinel: capturedErr.includes(SENTINEL), stdout: capturedOut };
 }
 
 let failures = 0;
 for (const s of scenarios) {
   const got = runScenario(s);
-  const ok = got === s.wantSentinel;
+  let ok = got.sentinel === s.wantSentinel;
+  if (ok && s.wantStdout !== undefined) {
+    ok = got.stdout.includes(s.wantStdout);
+  }
   if (!ok) failures++;
-  console.log(`${ok ? "PASS" : "FAIL"}  ${s.name}: sentinel got=${got} want=${s.wantSentinel}`);
+  console.log(`${ok ? "PASS" : "FAIL"}  ${s.name}: sentinel got=${got.sentinel} want=${s.wantSentinel}`);
 }
 process.exit(failures === 0 ? 0 : 1);

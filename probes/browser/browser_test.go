@@ -312,16 +312,19 @@ func nodeSupportsStripTypes(t *testing.T) string {
 }
 
 // TestReporterDecision renders the cloudprober Playwright reporter and drives
-// it through synthetic reporter-event streams (testdata harness), asserting the
-// launch-timeout internal-error sentinel fires only when the browser never
-// launched. This covers the reporter's browserReady/onEnd logic -- the novel
-// part of the launch-timeout detection -- which the Go-side regex test cannot.
+// it through synthetic reporter-event streams (testdata harness), asserting
+// the launch-timeout internal-error sentinel fires only when the browser
+// never launched, and that per-step metrics are labeled with the step's own
+// status. This covers the reporter's browserReady/onEnd logic and its
+// onStepEnd status labeling -- neither of which the Go-side regex test can
+// check.
 func TestReporterDecision(t *testing.T) {
 	node := nodeSupportsStripTypes(t)
 
-	// Render the reporter template to a temp .ts file. Only EnableStepMetrics
-	// and DisableTestMetrics are referenced by this template; the harness only
-	// sends pw:api steps and onEnd, so their values don't affect the outcome.
+	// Render the reporter template to a temp .ts file. EnableStepMetrics must
+	// be true so the harness's test.step scenarios can see test_step_status/
+	// test_step_latency; DisableTestMetrics doesn't affect anything the
+	// harness sends.
 	tmpl := template.Must(template.ParseFiles(filepath.Join("templates", "cloudprober-reporter.ts.tmpl")))
 	tmpDir := t.TempDir()
 	// node < 22.7 doesn't detect module syntax on its own, and picks the format
@@ -335,7 +338,7 @@ func TestReporterDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tmpl.Execute(f, struct{ EnableStepMetrics, DisableTestMetrics bool }{}); err != nil {
+	if err := tmpl.Execute(f, struct{ EnableStepMetrics, DisableTestMetrics bool }{EnableStepMetrics: true}); err != nil {
 		t.Fatal(err)
 	}
 	f.Close()
