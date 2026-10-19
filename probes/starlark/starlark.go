@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cloudprober/cloudprober/common/httpclient"
@@ -140,18 +139,19 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// Built via the same helper the http probe uses, so
 	// proxy_url/no_proxy/proxy_connect_header behave identically across probe
 	// types.
-	proxyURL := p.c.GetProxyUrl()
-	proxyFunc, proxyConnectHeader, err := httpclient.BuildProxy(proxyURL, p.c.GetNoProxy(), p.c.GetProxyConnectHeader())
+	proxyFunc, proxyConnectHeader, proxyScheme, err := httpclient.BuildProxy(p.c.GetProxyUrl(), p.c.GetNoProxy(), p.c.GetProxyConnectHeader())
 	if err != nil {
 		return fmt.Errorf("starlark: %v", err)
 	}
 
-	// An https:// proxy also uses tls_configs' TLSClientConfig for its own TLS
+	// An https proxy also uses tls_configs' TLSClientConfig for its own TLS
 	// handshake (see newHTTPClient's shared Transport), not just for the
 	// final target -- so a tls_configs entry's private CA or client cert
 	// would get presented to the proxy too. Reject rather than silently
-	// misapply it; revisit if the proxy TLS dial is ever split out on its own.
-	if len(tlsCfgs) > 0 && strings.HasPrefix(proxyURL, "https://") {
+	// misapply it; revisit if the proxy TLS dial is ever split out on its
+	// own. proxyScheme comes from BuildProxy's url.Parse, which lowercases
+	// it, so this also catches an "HTTPS://" proxy_url.
+	if len(tlsCfgs) > 0 && proxyScheme == "https" {
 		return fmt.Errorf("starlark: tls_configs is not supported together with an https:// proxy_url")
 	}
 

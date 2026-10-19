@@ -37,27 +37,31 @@ func CheckRedirectFunc(n int) func(*http.Request, []*http.Request) error {
 	}
 }
 
-// BuildProxy parses proxyURL and returns the Transport.Proxy func and
-// ProxyConnectHeader for it, shared by every probe that exposes a proxy_url
-// config field, so the same config means the same behavior regardless of
-// probe type.
+// BuildProxy parses proxyURL and returns the Transport.Proxy func, the
+// ProxyConnectHeader for it, and the proxy's scheme (lowercased by
+// url.Parse), shared by every probe that exposes a proxy_url config field,
+// so the same config means the same behavior regardless of probe type.
 //
-// Built on httpproxy.Config rather than http.ProxyURL: it adds no_proxy
-// support, but it also means loopback/localhost targets are never proxied
-// -- that bypass is hardcoded in httpproxy.Config.ProxyFunc with no way to
-// override it via no_proxy. Probes moving onto this helper from a bare
-// http.ProxyURL should expect that behavior change.
+// When noProxy is empty, the returned func is exactly http.ProxyURL(parsed):
+// every request is proxied, including loopback/localhost targets. This is
+// each probe's pre-existing behavior from before this helper existed, and
+// is preserved as the default.
 //
-// An empty proxyURL returns a nil func, nil header, nil error; the caller
-// keeps whatever default it had (e.g. http.ProxyFromEnvironment). noProxy or
-// connectHeader set without proxyURL is an error, since there is nothing
-// for them to attach to.
-func BuildProxy(proxyURL, noProxy string, connectHeader map[string]string) (func(*http.Request) (*url.URL, error), http.Header, error) {
+// Setting no_proxy switches to a func built on httpproxy.Config instead: it
+// adds no_proxy matching, but it also means loopback/localhost targets are
+// never proxied regardless of no_proxy's contents -- that bypass is
+// hardcoded in httpproxy.Config.ProxyFunc with no way to override it.
+//
+// An empty proxyURL returns a nil func, nil header, empty scheme, nil error;
+// the caller keeps whatever default it had (e.g. http.ProxyFromEnvironment).
+// noProxy or connectHeader set without proxyURL is an error, since there is
+// nothing for them to attach to.
+func BuildProxy(proxyURL, noProxy string, connectHeader map[string]string) (func(*http.Request) (*url.URL, error), http.Header, string, error) {
 	if proxyURL == "" {
 		if noProxy != "" || len(connectHeader) > 0 {
-			return nil, nil, errors.New("no_proxy/proxy_connect_header require proxy_url to be set")
+			return nil, nil, "", errors.New("no_proxy/proxy_connect_header require proxy_url to be set")
 		}
-		return nil, nil, nil
+		return nil, nil, "", nil
 	}
 
 	// Parse the proxy URL to validate it and extract the scheme and host. We
@@ -70,7 +74,7 @@ func BuildProxy(proxyURL, noProxy string, connectHeader map[string]string) (func
 		if uerr, ok := errors.AsType[*url.Error](err); ok {
 			err = uerr.Err
 		}
-		return nil, nil, fmt.Errorf("proxy_url: %v", err)
+		return nil, nil, "", fmt.Errorf("proxy_url: %v", err)
 	}
 
 	// Validate the scheme and host. httpproxy.Config.ProxyFunc will accept
@@ -79,10 +83,22 @@ func BuildProxy(proxyURL, noProxy string, connectHeader map[string]string) (func
 	switch parsed.Scheme {
 	case "http", "https", "socks5":
 	default:
-		return nil, nil, errors.New("proxy_url: must be an absolute URL with an http, https, or socks5 scheme and a host")
+		return nil, nil, "", errors.New("proxy_url: must be an absolute URL with an http, https, or socks5 scheme and a host")
 	}
 	if parsed.Host == "" {
-		return nil, nil, errors.New("proxy_url: must be an absolute URL with a host")
+		return nil, nil, "", errors.New("proxy_url: must be an absolute URL with a host")
+	}
+
+	var header http.Header
+	if len(connectHeader) > 0 {
+		header = make(http.Header, len(connectHeader))
+		for k, v := range connectHeader {
+			header.Add(k, v)
+		}
+	}
+
+	if noProxy == "" {
+		return http.ProxyURL(parsed), header, parsed.Scheme, nil
 	}
 
 	cfg := &httpproxy.Config{
@@ -92,13 +108,5 @@ func BuildProxy(proxyURL, noProxy string, connectHeader map[string]string) (func
 	}
 	fn := cfg.ProxyFunc()
 	proxyFunc := func(req *http.Request) (*url.URL, error) { return fn(req.URL) }
-
-	var header http.Header
-	if len(connectHeader) > 0 {
-		header = make(http.Header, len(connectHeader))
-		for k, v := range connectHeader {
-			header.Add(k, v)
-		}
-	}
-	return proxyFunc, header, nil
+	return proxyFunc, header, parsed.Scheme, nil
 }
