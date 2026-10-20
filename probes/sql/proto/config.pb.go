@@ -28,6 +28,7 @@ type ProbeConf_Flavor int32
 const (
 	ProbeConf_FLAVOR_UNSPECIFIED ProbeConf_Flavor = 0
 	ProbeConf_POSTGRES           ProbeConf_Flavor = 1
+	ProbeConf_MSSQL              ProbeConf_Flavor = 2
 )
 
 // Enum value maps for ProbeConf_Flavor.
@@ -35,10 +36,12 @@ var (
 	ProbeConf_Flavor_name = map[int32]string{
 		0: "FLAVOR_UNSPECIFIED",
 		1: "POSTGRES",
+		2: "MSSQL",
 	}
 	ProbeConf_Flavor_value = map[string]int32{
 		"FLAVOR_UNSPECIFIED": 0,
 		"POSTGRES":           1,
+		"MSSQL":              2,
 	}
 )
 
@@ -87,7 +90,7 @@ func (ProbeConf_Flavor) EnumDescriptor() ([]byte, []int) {
 // completion is success; any error is failure.
 type ProbeConf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Database flavor. Required. Currently only POSTGRES is supported; more
+	// Database flavor. Required. POSTGRES and MSSQL are supported; more
 	// flavors may be added based on demand.
 	Flavor *ProbeConf_Flavor `protobuf:"varint,1,opt,name=flavor,enum=cloudprober.probes.sql.ProbeConf_Flavor" json:"flavor,omitempty"`
 	// connection_string configures the database connection -- credentials,
@@ -244,7 +247,7 @@ var File_github_com_cloudprober_cloudprober_probes_sql_proto_config_proto protor
 
 const file_github_com_cloudprober_cloudprober_probes_sql_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x12\x16cloudprober.probes.sql\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xd9\x03\n" +
+	"@github.com/cloudprober/cloudprober/probes/sql/proto/config.proto\x12\x16cloudprober.probes.sql\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xe4\x03\n" +
 	"\tProbeConf\x12@\n" +
 	"\x06flavor\x18\x01 \x01(\x0e2(.cloudprober.probes.sql.ProbeConf.FlavorR\x06flavor\x12+\n" +
 	"\x11connection_string\x18\x02 \x01(\tR\x10connectionString\x12\x12\n" +
@@ -256,10 +259,11 @@ const file_github_com_cloudprober_cloudprober_probes_sql_proto_config_proto_rawD
 	"query_file\x18\a \x01(\tR\tqueryFile\x12?\n" +
 	"\n" +
 	"tls_config\x18\b \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\ttlsConfig\x12k\n" +
-	"\x18response_metrics_options\x18\t \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x16responseMetricsOptions\".\n" +
+	"\x18response_metrics_options\x18\t \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x16responseMetricsOptions\"9\n" +
 	"\x06Flavor\x12\x16\n" +
 	"\x12FLAVOR_UNSPECIFIED\x10\x00\x12\f\n" +
-	"\bPOSTGRES\x10\x01B5Z3github.com/cloudprober/cloudprober/probes/sql/proto"
+	"\bPOSTGRES\x10\x01\x12\t\n" +
+	"\x05MSSQL\x10\x02B5Z3github.com/cloudprober/cloudprober/probes/sql/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_sql_proto_config_proto_rawDescOnce sync.Once

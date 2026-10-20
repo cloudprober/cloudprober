@@ -17,8 +17,9 @@ message ProbeConf {
   enum Flavor {
     FLAVOR_UNSPECIFIED = 0;
     POSTGRES = 1;
+    MSSQL = 2;
   }
-  // Database flavor. Required. Currently only POSTGRES is supported; more
+  // Database flavor. Required. POSTGRES and MSSQL are supported; more
   // flavors may be added based on demand.
   optional Flavor flavor = 1;
 
