@@ -1,6 +1,6 @@
 module github.com/cloudprober/cloudprober
 
-go 1.26.6
+go 1.26.10
 
 require (
 	cloud.google.com/go/bigquery v1.72.0
