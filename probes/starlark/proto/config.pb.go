@@ -114,7 +114,29 @@ type ProbeConf struct {
 	//	}
 	//	def probe(target):
 	//	    r = http.get(url, headers={"Authorization": oauth.header("api")})
-	OauthConfigs  map[string]*proto2.Config `protobuf:"bytes,7,rep,name=oauth_configs,json=oauthConfigs" json:"oauth_configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	OauthConfigs map[string]*proto2.Config `protobuf:"bytes,7,rep,name=oauth_configs,json=oauthConfigs" json:"oauth_configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Proxy URL, e.g. http://myproxy:3128. Same field as the HTTP probe's
+	// proxy_url, and applied the same way: to every client the probe builds,
+	// the default client and every named tls_configs entry alike. No
+	// script-side selector -- unlike tls_configs, a probe realistically has
+	// one egress proxy, not several to choose between per call. Applying it to
+	// every client also means tls= and the proxy compose automatically: an
+	// internal host with a private CA behind the corporate proxy just needs
+	// tls="internal", nothing proxy-specific.
+	//
+	// If unset, behavior is unchanged from today: Go's ProxyFromEnvironment
+	// (HTTPS_PROXY/HTTP_PROXY/NO_PROXY env vars), implicit and process-wide.
+	ProxyUrl *string `protobuf:"bytes,8,opt,name=proxy_url,json=proxyUrl" json:"proxy_url,omitempty"`
+	// Proxy CONNECT headers, e.g. for proxy auth. Same shape as the HTTP
+	// probe's proxy_connect_header. Only meaningful alongside proxy_url.
+	ProxyConnectHeader map[string]string `protobuf:"bytes,9,rep,name=proxy_connect_header,json=proxyConnectHeader" json:"proxy_connect_header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Hosts to connect to directly, bypassing proxy_url, in standard NO_PROXY
+	// syntax (comma-separated hostnames, ".suffix" domains, or CIDRs; see
+	// golang.org/x/net/http/httpproxy). Needed here where the HTTP probe has
+	// no equivalent: the HTTP probe only ever has one target, but a single
+	// Starlark script routinely talks to several hosts in one run, some
+	// internal (skip the proxy) and some not.
+	NoProxy       *string `protobuf:"bytes,10,opt,name=no_proxy,json=noProxy" json:"no_proxy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -203,11 +225,32 @@ func (x *ProbeConf) GetOauthConfigs() map[string]*proto2.Config {
 	return nil
 }
 
+func (x *ProbeConf) GetProxyUrl() string {
+	if x != nil && x.ProxyUrl != nil {
+		return *x.ProxyUrl
+	}
+	return ""
+}
+
+func (x *ProbeConf) GetProxyConnectHeader() map[string]string {
+	if x != nil {
+		return x.ProxyConnectHeader
+	}
+	return nil
+}
+
+func (x *ProbeConf) GetNoProxy() string {
+	if x != nil && x.NoProxy != nil {
+		return *x.NoProxy
+	}
+	return ""
+}
+
 var File_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto protoreflect.FileDescriptor
 
 const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xc9\x05\n" +
+	"Egithub.com/cloudprober/cloudprober/probes/starlark/proto/config.proto\x12\x1bcloudprober.probes.starlark\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xba\a\n" +
 	"\tProbeConf\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
@@ -218,7 +261,11 @@ const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto
 	"\x16output_metrics_options\x18\x05 \x01(\v21.cloudprober.metrics.payload.OutputMetricsOptionsR\x14outputMetricsOptions\x12W\n" +
 	"\vtls_configs\x18\x06 \x03(\v26.cloudprober.probes.starlark.ProbeConf.TlsConfigsEntryR\n" +
 	"tlsConfigs\x12]\n" +
-	"\roauth_configs\x18\a \x03(\v28.cloudprober.probes.starlark.ProbeConf.OauthConfigsEntryR\foauthConfigs\x1a7\n" +
+	"\roauth_configs\x18\a \x03(\v28.cloudprober.probes.starlark.ProbeConf.OauthConfigsEntryR\foauthConfigs\x12\x1b\n" +
+	"\tproxy_url\x18\b \x01(\tR\bproxyUrl\x12p\n" +
+	"\x14proxy_connect_header\x18\t \x03(\v2>.cloudprober.probes.starlark.ProbeConf.ProxyConnectHeaderEntryR\x12proxyConnectHeader\x12\x19\n" +
+	"\bno_proxy\x18\n" +
+	" \x01(\tR\anoProxy\x1a7\n" +
 	"\tVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a_\n" +
@@ -227,7 +274,10 @@ const file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto
 	"\x05value\x18\x02 \x01(\v2 .cloudprober.tlsconfig.TLSConfigR\x05value:\x028\x01\x1aZ\n" +
 	"\x11OauthConfigsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12/\n" +
-	"\x05value\x18\x02 \x01(\v2\x19.cloudprober.oauth.ConfigR\x05value:\x028\x01B:Z8github.com/cloudprober/cloudprober/probes/starlark/proto"
+	"\x05value\x18\x02 \x01(\v2\x19.cloudprober.oauth.ConfigR\x05value:\x028\x01\x1aE\n" +
+	"\x17ProxyConnectHeaderEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B:Z8github.com/cloudprober/cloudprober/probes/starlark/proto"
 
 var (
 	file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescOnce sync.Once
@@ -241,28 +291,30 @@ func file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_
 	return file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDescData
 }
 
-var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_goTypes = []any{
 	(*ProbeConf)(nil),                  // 0: cloudprober.probes.starlark.ProbeConf
 	nil,                                // 1: cloudprober.probes.starlark.ProbeConf.VarsEntry
 	nil,                                // 2: cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry
 	nil,                                // 3: cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry
-	(*proto.OutputMetricsOptions)(nil), // 4: cloudprober.metrics.payload.OutputMetricsOptions
-	(*proto1.TLSConfig)(nil),           // 5: cloudprober.tlsconfig.TLSConfig
-	(*proto2.Config)(nil),              // 6: cloudprober.oauth.Config
+	nil,                                // 4: cloudprober.probes.starlark.ProbeConf.ProxyConnectHeaderEntry
+	(*proto.OutputMetricsOptions)(nil), // 5: cloudprober.metrics.payload.OutputMetricsOptions
+	(*proto1.TLSConfig)(nil),           // 6: cloudprober.tlsconfig.TLSConfig
+	(*proto2.Config)(nil),              // 7: cloudprober.oauth.Config
 }
 var file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_depIdxs = []int32{
 	1, // 0: cloudprober.probes.starlark.ProbeConf.vars:type_name -> cloudprober.probes.starlark.ProbeConf.VarsEntry
-	4, // 1: cloudprober.probes.starlark.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
+	5, // 1: cloudprober.probes.starlark.ProbeConf.output_metrics_options:type_name -> cloudprober.metrics.payload.OutputMetricsOptions
 	2, // 2: cloudprober.probes.starlark.ProbeConf.tls_configs:type_name -> cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry
 	3, // 3: cloudprober.probes.starlark.ProbeConf.oauth_configs:type_name -> cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry
-	5, // 4: cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry.value:type_name -> cloudprober.tlsconfig.TLSConfig
-	6, // 5: cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry.value:type_name -> cloudprober.oauth.Config
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	4, // 4: cloudprober.probes.starlark.ProbeConf.proxy_connect_header:type_name -> cloudprober.probes.starlark.ProbeConf.ProxyConnectHeaderEntry
+	6, // 5: cloudprober.probes.starlark.ProbeConf.TlsConfigsEntry.value:type_name -> cloudprober.tlsconfig.TLSConfig
+	7, // 6: cloudprober.probes.starlark.ProbeConf.OauthConfigsEntry.value:type_name -> cloudprober.oauth.Config
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_init() }
@@ -276,7 +328,7 @@ func file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_probes_starlark_proto_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

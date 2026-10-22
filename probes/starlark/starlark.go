@@ -26,6 +26,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cloudprober/cloudprober/common/httpclient"
 	"github.com/cloudprober/cloudprober/common/tlsconfig"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
@@ -130,6 +131,30 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return err
 	}
 
+	// A probe-level proxy, applied to every client the runtime builds (the
+	// default client and every tls_configs entry) rather than a script-side
+	// selector — see ProbeConf.proxy_url. Unset means today's unchanged
+	// behavior: Go's ProxyFromEnvironment.
+	//
+	// Built via the same helper the http probe uses, so
+	// proxy_url/no_proxy/proxy_connect_header behave identically across probe
+	// types.
+	proxyFunc, proxyConnectHeader, proxyScheme, err := httpclient.BuildProxy(p.c.GetProxyUrl(), p.c.GetNoProxy(), p.c.GetProxyConnectHeader())
+	if err != nil {
+		return fmt.Errorf("starlark: %v", err)
+	}
+
+	// An https proxy also uses tls_configs' TLSClientConfig for its own TLS
+	// handshake (see newHTTPClient's shared Transport), not just for the
+	// final target -- so a tls_configs entry's private CA or client cert
+	// would get presented to the proxy too. Reject rather than silently
+	// misapply it; revisit if the proxy TLS dial is ever split out on its
+	// own. proxyScheme comes from BuildProxy's url.Parse, which lowercases
+	// it, so this also catches an "HTTPS://" proxy_url.
+	if len(tlsCfgs) > 0 && proxyScheme == "https" {
+		return fmt.Errorf("starlark: tls_configs is not supported together with an https:// proxy_url")
+	}
+
 	// Timeout to compile the starlark script. This is a generous timeout
 	// to avoid accidental infinite loops in the script.
 	loadTimeout := 30 * time.Second
@@ -137,13 +162,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	defer cancel()
 
 	rt, err := newRuntime(loadCtx, &runtimeOpts{
-		name:       name,
-		source:     source,
-		entryPoint: entryPoint,
-		vars:       p.c.GetVars(),
-		tlsCfgs:    tlsCfgs,
-		oauth:      oauthID,
-		l:          p.l,
+		name:               name,
+		source:             source,
+		entryPoint:         entryPoint,
+		vars:               p.c.GetVars(),
+		tlsCfgs:            tlsCfgs,
+		oauth:              oauthID,
+		proxyFunc:          proxyFunc,
+		proxyConnectHeader: proxyConnectHeader,
+		l:                  p.l,
 	})
 	if err != nil {
 		return fmt.Errorf("starlark compile error: %v", err)
