@@ -782,6 +782,9 @@ func TestGetTransport(t *testing.T) {
 			}
 
 			if test.proxy != "" {
+				// The http probe always calls BuildProxy with an empty
+				// no_proxy, so transport.Proxy is a plain
+				// http.ProxyURL(parsed), which ignores its *Request.
 				proxy, _ := transport.Proxy(nil)
 				assert.Equal(t, test.proxy, proxy.String())
 			}
