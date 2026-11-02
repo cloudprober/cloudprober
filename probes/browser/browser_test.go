@@ -341,9 +341,8 @@ func nodeSupportsStripTypes(t *testing.T) string {
 func TestReporterDecision(t *testing.T) {
 	node := nodeSupportsStripTypes(t)
 
-	// Render the reporter template to a temp .ts file. Only EnableStepMetrics
-	// and DisableTestMetrics are referenced by this template; the harness only
-	// sends pw:api steps and onEnd, so their values don't affect the outcome.
+	// Render the reporter template to a temp .ts file, with step metrics
+	// enabled as the harness checks them.
 	tmpl := template.Must(template.ParseFiles(filepath.Join("templates", "cloudprober-reporter.ts.tmpl")))
 	tmpDir := t.TempDir()
 	// node < 22.7 doesn't detect module syntax on its own, and picks the format
@@ -357,7 +356,7 @@ func TestReporterDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tmpl.Execute(f, struct{ EnableStepMetrics, DisableTestMetrics bool }{}); err != nil {
+	if err := tmpl.Execute(f, struct{ EnableStepMetrics, DisableTestMetrics bool }{EnableStepMetrics: true}); err != nil {
 		t.Fatal(err)
 	}
 	f.Close()
