@@ -16,6 +16,7 @@ package browser
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -283,6 +284,27 @@ func TestInternalErrorRe(t *testing.T) {
 	assert.True(t, internalErrorRe.MatchString(playwrightMissing))
 	assert.True(t, internalErrorRe.MatchString(launchTimeout))
 	assert.False(t, internalErrorRe.MatchString("Error: expect(received).toBe(expected)"))
+}
+
+func TestStderrLogLevel(t *testing.T) {
+	tests := []struct {
+		line      string
+		wantLevel slog.Level
+		wantLine  string
+	}{
+		{line: "DEBUG [t1]   pw:api => page.goto started", wantLevel: slog.LevelDebug, wantLine: "[t1]   pw:api => page.goto started"},
+		{line: `INFO Starting test "t1"`, wantLevel: slog.LevelInfo, wantLine: `Starting test "t1"`},
+		{line: `WARNING Test "t1" failed`, wantLevel: slog.LevelWarn, wantLine: `Test "t1" failed`},
+		{line: "npm error could not determine executable to run", wantLevel: slog.LevelWarn, wantLine: "npm error could not determine executable to run"},
+		{line: "INFORMATION", wantLevel: slog.LevelWarn, wantLine: "INFORMATION"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.line, func(t *testing.T) {
+			level, line := stderrLogLevel(tt.line)
+			assert.Equal(t, tt.wantLevel, level)
+			assert.Equal(t, tt.wantLine, line)
+		})
+	}
 }
 
 // nodeSupportsStripTypes reports whether the node on PATH can run a TypeScript

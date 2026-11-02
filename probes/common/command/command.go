@@ -62,7 +62,13 @@ type Command struct {
 	// passed slice's backing array is reused on the next scan (same as
 	// ProcessStreamingOutput / bufio.Scanner), so callers must not retain it
 	// without copying.
-	ProcessStderr   func([]byte)
+	ProcessStderr func([]byte)
+
+	// StderrLogLevel, if set, decides the log level for each stderr line, and
+	// returns the line to log (e.g. with a level prefix stripped). If not
+	// set, stderr lines are logged at the Warning level. Not used if
+	// RawStderrOutput is set.
+	StderrLogLevel  func(line string) (slog.Level, string)
 	RawStderrOutput bool
 
 	// We create a goroutine to wait for child processes to finish. This field
@@ -124,7 +130,7 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 			if c.RawStderrOutput {
 				fmt.Fprintln(logger.Stderr(), scanner.Text())
 			} else {
-				l.WarningAttrs("process stderr", slog.String("process_stderr", scanner.Text()), slog.String("process_path", c.CmdLine[0]))
+				c.logStderr(l, scanner.Text())
 			}
 			if c.ProcessStderr != nil {
 				c.ProcessStderr(scanner.Bytes())
@@ -142,6 +148,25 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 	}()
 
 	return wg.Wait, nil
+}
+
+func (c *Command) logStderr(l *logger.Logger, line string) {
+	level := slog.LevelWarn
+	if c.StderrLogLevel != nil {
+		level, line = c.StderrLogLevel(line)
+	}
+
+	attrs := []slog.Attr{slog.String("process_stderr", line), slog.String("process_path", c.CmdLine[0])}
+	switch level {
+	case slog.LevelDebug:
+		l.DebugAttrs("process stderr", attrs...)
+	case slog.LevelInfo:
+		l.InfoAttrs("process stderr", attrs...)
+	case slog.LevelError:
+		l.ErrorAttrs("process stderr", attrs...)
+	default:
+		l.WarningAttrs("process stderr", attrs...)
+	}
 }
 
 func (c *Command) Execute(ctx context.Context, l *logger.Logger) (string, error) {

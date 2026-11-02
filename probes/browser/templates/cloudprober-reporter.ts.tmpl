@@ -1,11 +1,32 @@
 import type {
-  Reporter, FullConfig, FullResult, Suite, TestCase, TestStep, TestResult
+  Reporter, FullConfig, FullResult, Suite, TestCase, TestError, TestStep, TestResult
 } from '@playwright/test/reporter';
 
+// Log lines go to stderr with a level prefix, which cloudprober maps to the
+// log level (see stderrLogLevel in browser.go).
+const debug = (string: string) => process.stderr.write("DEBUG "+string+'\n');
 const info = (string: string) => process.stderr.write("INFO "+string+'\n');
 const warning = (string: string) => process.stderr.write("WARNING "+string+'\n');
 
 const print = (string: string) => process.stdout.write(string+'\n');
+
+const ansiRe = /\x1b\[[0-9;]*m/g;
+// Playwright's own debug logs (enabled through DEBUG=pw:api,pw:browser, etc).
+const pwDebugRe = /^\s*(\S+Z\s+)?pw:\S+ /;
+
+// relay logs each line of a chunk of worker output. Playwright captures the
+// test workers' stdout/stderr (console.log, DEBUG=pw:* output, etc) and hands
+// it only to the reporters, so without this it's lost.
+const relay = (log: (string: string) => void, chunk: string|Buffer, test: void|TestCase) => {
+  const prefix = test ? `[${test.title}] ` : "";
+  for (let line of chunk.toString().split('\n')) {
+    line = line.replace(ansiRe, "");
+    if (line.trim() === "") {
+      continue;
+    }
+    (pwDebugRe.test(line) ? debug : log)(prefix+line);
+  }
+}
 
 const testLabels= (test: TestCase) => {
     var titleLabel = `test="${test.title.replace(/ /g,"_")}"`;
@@ -47,6 +68,10 @@ class CloudproberReporter implements Reporter {
   private launchStarted = false;
   private browserReady = false;
 
+  // test.step()s in progress, so that we can tell which steps were running if
+  // the suite times out (there is no onStepEnd for them in that case).
+  private runningSteps = new Map<TestStep, TestCase>();
+
   onBegin(config: FullConfig, suite: Suite) {
     info(`Starting the suite "${suite.title}" with ${suite.allTests().length} tests`);
   }
@@ -59,6 +84,10 @@ class CloudproberReporter implements Reporter {
     if (step.category === 'pw:api') {
       this.launchStarted = true;
     }
+    if (step.category === 'test.step') {
+      this.runningSteps.set(step, test);
+      debug(`Starting step "${step.title}" of test "${test.title}"`);
+    }
   }
 
   onStepEnd(test: TestCase, result: TestResult, step: TestStep) {
@@ -66,8 +95,11 @@ class CloudproberReporter implements Reporter {
       this.browserReady = true;
     }
     if (step.category === 'test.step') {
+      this.runningSteps.delete(step);
       if (step.error) {
         warning(`Test step "${step.title}" of test "${test.title}" failed with error: ${JSON.stringify(step.error)}`);
+      } else {
+        debug(`Test step "${step.title}" of test "${test.title}" passed in ${step.duration}ms`);
       }
       {{- if .EnableStepMetrics }}
       var stepTitle = step.title.replace(/ /g,"_");
@@ -81,6 +113,19 @@ class CloudproberReporter implements Reporter {
     }
   }
   
+  onStdOut(chunk: string|Buffer, test: void|TestCase, result: void|TestResult) {
+    relay(info, chunk, test);
+  }
+
+  onStdErr(chunk: string|Buffer, test: void|TestCase, result: void|TestResult) {
+    relay(warning, chunk, test);
+  }
+
+  // Errors outside of tests, e.g. a spec file that fails to load.
+  onError(error: TestError) {
+    warning(`Error: ${JSON.stringify((error.message ?? "").replace(ansiRe, ""))}`);
+  }
+
   onTestEnd(test: TestCase, result: TestResult) {
     if (result.status !== "passed" && result.status !== "skipped") {
       warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
@@ -92,6 +137,12 @@ class CloudproberReporter implements Reporter {
   }
 
   onEnd(result: FullResult) {
+    if (result.status === "timedout") {
+      for (const [step, test] of this.runningSteps) {
+        warning(`Test step "${step.title}" of test "${test.title}" was still running when the test suite timed out`);
+      }
+    }
+
     // A global timeout (cloudprober's globalTimeout) where the browser launch
     // was started but never completed means the run stalled bringing the
     // browser up -- e.g. a launch failure under resource pressure. Emit a

@@ -15,8 +15,10 @@
 package command
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"slices"
@@ -26,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -216,4 +219,48 @@ func TestRawStderrOutput(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
+}
+
+func TestLogStderr(t *testing.T) {
+	stripPrefix := func(line string) (slog.Level, string) {
+		level, rest, _ := strings.Cut(line, " ")
+		switch level {
+		case "DEBUG":
+			return slog.LevelDebug, rest
+		case "INFO":
+			return slog.LevelInfo, rest
+		case "ERROR":
+			return slog.LevelError, rest
+		}
+		return slog.LevelWarn, line
+	}
+
+	tests := []struct {
+		name           string
+		stderrLogLevel func(string) (slog.Level, string)
+		line           string
+		wantLevel      string
+		wantLine       string
+	}{
+		{name: "default", line: "INFO hello world", wantLevel: "WARN", wantLine: "INFO hello world"},
+		{name: "info", stderrLogLevel: stripPrefix, line: "INFO hello world", wantLevel: "INFO", wantLine: "hello world"},
+		{name: "error", stderrLogLevel: stripPrefix, line: "ERROR hello world", wantLevel: "ERROR", wantLine: "hello world"},
+		{name: "unknown", stderrLogLevel: stripPrefix, line: "hello there", wantLevel: "WARN", wantLine: "hello there"},
+		// Debug logs are not enabled for this logger.
+		{name: "debug", stderrLogLevel: stripPrefix, line: "DEBUG hello"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			c := &Command{CmdLine: []string{"/test/cmd"}, StderrLogLevel: tt.stderrLogLevel}
+			c.logStderr(logger.New(logger.WithWriter(&buf)), tt.line)
+
+			if tt.wantLevel == "" {
+				assert.Empty(t, buf.String())
+				return
+			}
+			assert.Contains(t, buf.String(), "level="+tt.wantLevel+" ")
+			assert.Contains(t, buf.String(), fmt.Sprintf("process_stderr=%q", tt.wantLine))
+		})
+	}
 }
