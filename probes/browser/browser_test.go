@@ -16,6 +16,7 @@ package browser
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -285,6 +286,27 @@ func TestInternalErrorRe(t *testing.T) {
 	assert.False(t, internalErrorRe.MatchString("Error: expect(received).toBe(expected)"))
 }
 
+func TestStderrLogLevel(t *testing.T) {
+	tests := []struct {
+		line      string
+		wantLevel slog.Level
+		wantLine  string
+	}{
+		{line: "DEBUG [t1]   pw:api => page.goto started", wantLevel: slog.LevelDebug, wantLine: "[t1]   pw:api => page.goto started"},
+		{line: `INFO Starting test "t1"`, wantLevel: slog.LevelInfo, wantLine: `Starting test "t1"`},
+		{line: `WARNING Test "t1" failed`, wantLevel: slog.LevelWarn, wantLine: `Test "t1" failed`},
+		{line: "npm error could not determine executable to run", wantLevel: slog.LevelWarn, wantLine: "npm error could not determine executable to run"},
+		{line: "INFORMATION", wantLevel: slog.LevelWarn, wantLine: "INFORMATION"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.line, func(t *testing.T) {
+			level, line := stderrLogLevel(tt.line)
+			assert.Equal(t, tt.wantLevel, level)
+			assert.Equal(t, tt.wantLine, line)
+		})
+	}
+}
+
 // nodeSupportsStripTypes reports whether the node on PATH can run a TypeScript
 // file directly (import()/strip-types, node >= 22.6). Returns the node path.
 func nodeSupportsStripTypes(t *testing.T) string {
@@ -319,9 +341,8 @@ func nodeSupportsStripTypes(t *testing.T) string {
 func TestReporterDecision(t *testing.T) {
 	node := nodeSupportsStripTypes(t)
 
-	// Render the reporter template to a temp .ts file. Only EnableStepMetrics
-	// and DisableTestMetrics are referenced by this template; the harness only
-	// sends pw:api steps and onEnd, so their values don't affect the outcome.
+	// Render the reporter template to a temp .ts file, with step metrics
+	// enabled as the harness checks them.
 	tmpl := template.Must(template.ParseFiles(filepath.Join("templates", "cloudprober-reporter.ts.tmpl")))
 	tmpDir := t.TempDir()
 	// node < 22.7 doesn't detect module syntax on its own, and picks the format
@@ -335,7 +356,7 @@ func TestReporterDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tmpl.Execute(f, struct{ EnableStepMetrics, DisableTestMetrics bool }{}); err != nil {
+	if err := tmpl.Execute(f, struct{ EnableStepMetrics, DisableTestMetrics bool }{EnableStepMetrics: true}); err != nil {
 		t.Fatal(err)
 	}
 	f.Close()

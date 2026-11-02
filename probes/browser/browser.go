@@ -22,6 +22,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,6 +66,29 @@ const playwrightReportDir = "_playwright_report"
 //     timeout while the browser launch was in progress (see
 //     cloudprober-reporter.ts).
 var internalErrorRe = regexp.MustCompile(`Executable doesn't exist|could not determine executable to run|\[cloudprober-internal-error\]`)
+
+// stderrLevelPrefixes maps the level prefixes that the cloudprober reporter
+// puts on its log lines (see cloudprober-reporter.ts) to log levels.
+var stderrLevelPrefixes = []struct {
+	prefix string
+	level  slog.Level
+}{
+	{"DEBUG ", slog.LevelDebug},
+	{"INFO ", slog.LevelInfo},
+	{"WARNING ", slog.LevelWarn},
+}
+
+// stderrLogLevel returns the log level for a line of playwright's stderr, and
+// the line with the level prefix stripped. Lines without a prefix, e.g. npx's
+// own errors, are logged at the Warning level.
+func stderrLogLevel(line string) (slog.Level, string) {
+	for _, p := range stderrLevelPrefixes {
+		if rest, ok := strings.CutPrefix(line, p.prefix); ok {
+			return p.level, rest
+		}
+	}
+	return slog.LevelWarn, line
+}
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
@@ -464,6 +488,7 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		WorkDir:              p.playwrightDir,
 		EnvVars:              envVars,
 		ChildProcessWaitTime: p.opts.Interval / 2,
+		StderrLogLevel:       stderrLogLevel,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
 		if p.payloadParser == nil {
