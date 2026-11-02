@@ -140,6 +140,9 @@ type probeRunResult struct {
 	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
+
+	// waitForArtifacts blocks until artifacts of the last run have been stored.
+	waitForArtifacts func()
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
@@ -418,6 +421,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.artifactsHandler = ah
 
+	// Start replaces this, but it's never called for run-once probes, and may
+	// not have been called yet when a probe is run through the RunProbe RPC.
+	p.startCtx = context.Background()
+
 	return nil
 }
 
@@ -539,7 +546,7 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 
 	// We use startCtx here to make sure artifactsHandler keeps running (if
 	// required) even after this probe run.
-	p.artifactsHandler.Handle(p.startCtx, reportDir)
+	waitForArtifacts := p.artifactsHandler.Handle(p.startCtx, reportDir)
 
 	latency := time.Since(startTime)
 
@@ -548,6 +555,7 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 		defer resultMu.Unlock()
 	}
 
+	result.waitForArtifacts = waitForArtifacts
 	runReq.LastRun.Set(err == nil, latency, err)
 	if err != nil {
 		if internalErr {
@@ -630,5 +638,9 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 	}
 
 	p.l.Info("Running browser probe once.")
-	return sched.RunOnce(ctx, p.opts, p.runProbe)
+	return sched.RunOnce(ctx, p.opts, func(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
+		p.runProbe(ctx, runReq)
+		// Process may exit right after RunOnce, taking in-progress uploads with it.
+		runReq.Result.(*probeRunResult).waitForArtifacts()
+	})
 }

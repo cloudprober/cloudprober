@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	artifactsconfigpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -270,6 +271,57 @@ exit 1
 	assert.Equal(t, int64(1), result.internalErrors.Int64(), "internal_errors")
 	assert.False(t, runReq.LastRun.Success, "LastRun.Success")
 	assert.Error(t, runReq.LastRun.Error, "LastRun.Error")
+}
+
+// TestRunOnceSavesArtifacts verifies that a run-once probe, for which Start is
+// never called, saves artifacts, and that they are in place by the time RunOnce
+// returns: the process exits soon after that in the CLI case.
+func TestRunOnceSavesArtifacts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("stub npx is a /bin/sh script; skip on Windows")
+	}
+
+	dir, artifactsDir := t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	npx := filepath.Join(dir, "npx")
+	script := `#!/bin/sh
+mkdir -p "$PLAYWRIGHT_HTML_REPORT"
+echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
+`
+	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		NpxPath:       proto.String(npx),
+		PlaywrightDir: proto.String(dir),
+		ArtifactsOptions: &artifactsconfigpb.ArtifactsOptions{
+			Storage: []*artifactsconfigpb.Storage{
+				{
+					Storage: &artifactsconfigpb.Storage_LocalStorage{
+						LocalStorage: &artifactsconfigpb.LocalStorage{Dir: proto.String(artifactsDir)},
+					},
+				},
+			},
+		},
+	}
+	p := &Probe{}
+	if err := p.Init("test_browser", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	prrs := p.RunOnce(context.Background())
+	if assert.Len(t, prrs, 1) {
+		assert.NoError(t, prrs[0].Error)
+		assert.True(t, prrs[0].Success)
+	}
+
+	saved, err := filepath.Glob(filepath.Join(artifactsDir, "*", "*", "index.html"))
+	assert.NoError(t, err)
+	assert.Len(t, saved, 1, "saved artifacts")
 }
 
 func TestInternalErrorRe(t *testing.T) {

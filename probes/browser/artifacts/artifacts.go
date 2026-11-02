@@ -187,38 +187,44 @@ func InitArtifactsHandler(ctx context.Context, opts *configpb.ArtifactsOptions, 
 	return ah, nil
 }
 
-func (ah *ArtifactsHandler) Handle(ctx context.Context, path string) {
+// Handle stores artifacts at the given path in the background. The returned
+// function blocks until they have been stored.
+func (ah *ArtifactsHandler) Handle(ctx context.Context, path string) (wait func()) {
+	var wg sync.WaitGroup
+
 	for _, s3 := range ah.s3Storage {
-		go func(s3 *storage.S3) {
+		wg.Go(func() {
 			if err := s3.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error uploading artifacts to S3: %v", err)
 			}
-		}(s3)
+		})
 	}
 
 	for _, gcs := range ah.gcsStorage {
-		go func(gcs *storage.GCS) {
+		wg.Go(func() {
 			if err := gcs.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error uploading artifacts to GCS: %v", err)
 			}
-		}(gcs)
+		})
 	}
 
 	for _, abs := range ah.absStorage {
-		go func(abs *storage.ABS) {
+		wg.Go(func() {
 			if err := abs.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error uploading artifacts to ABS: %v", err)
 			}
-		}(abs)
+		})
 	}
 
 	for _, lStorage := range ah.localStorage {
-		go func(lStorage *storage.Local) {
+		wg.Go(func() {
 			if err := lStorage.Store(ctx, path, ah.destPathFn); err != nil {
 				ah.l.Errorf("error saving artifacts locally: %v", err)
 			}
-		}(lStorage)
+		})
 	}
+
+	return wg.Wait
 }
 
 func (ah *ArtifactsHandler) StartCleanup(ctx context.Context) {
