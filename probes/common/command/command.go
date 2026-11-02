@@ -156,17 +156,16 @@ func (c *Command) logStderr(l *logger.Logger, line string) {
 		level, line = c.StderrLogLevel(line)
 	}
 
-	attrs := []slog.Attr{slog.String("process_stderr", line), slog.String("process_path", c.CmdLine[0])}
+	logFn := l.WarningAttrs
 	switch level {
 	case slog.LevelDebug:
-		l.DebugAttrs("process stderr", attrs...)
+		logFn = l.DebugAttrs
 	case slog.LevelInfo:
-		l.InfoAttrs("process stderr", attrs...)
+		logFn = l.InfoAttrs
 	case slog.LevelError:
-		l.ErrorAttrs("process stderr", attrs...)
-	default:
-		l.WarningAttrs("process stderr", attrs...)
+		logFn = l.ErrorAttrs
 	}
+	logFn("process stderr", slog.String("process_stderr", line), slog.String("process_path", c.CmdLine[0]))
 }
 
 func (c *Command) Execute(ctx context.Context, l *logger.Logger) (string, error) {
