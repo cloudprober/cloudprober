@@ -328,7 +328,8 @@ func newLogger(opts ...Option) *Logger {
 		l.minLogLevel = slog.LevelDebug
 	}
 
-	if metadata.OnGCE() && !l.disableCloudLogging && !isEnvSet(EnvVars.DisableCloudLogging) {
+	// Check OnGCE() last: it contacts the metadata server.
+	if !l.disableCloudLogging && !isEnvSet(EnvVars.DisableCloudLogging) && metadata.OnGCE() {
 		l.EnableStackdriverLogging()
 	}
 	return l
