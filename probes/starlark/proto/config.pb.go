@@ -132,10 +132,10 @@ type ProbeConf struct {
 	ProxyConnectHeader map[string]string `protobuf:"bytes,9,rep,name=proxy_connect_header,json=proxyConnectHeader" json:"proxy_connect_header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Hosts to connect to directly, bypassing proxy_url, in standard NO_PROXY
 	// syntax (comma-separated hostnames, ".suffix" domains, or CIDRs; see
-	// golang.org/x/net/http/httpproxy). Needed here where the HTTP probe has
-	// no equivalent: the HTTP probe only ever has one target, but a single
-	// Starlark script routinely talks to several hosts in one run, some
-	// internal (skip the proxy) and some not.
+	// golang.org/x/net/http/httpproxy). A single Starlark script often talks
+	// to several hosts in one run, some internal (skip the proxy) and some
+	// not. Note that with no_proxy set, localhost and loopback addresses are
+	// never proxied, whatever no_proxy contains.
 	NoProxy       *string `protobuf:"bytes,10,opt,name=no_proxy,json=noProxy" json:"no_proxy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

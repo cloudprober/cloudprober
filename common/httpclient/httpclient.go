@@ -78,12 +78,12 @@ func BuildProxy(proxyURL, noProxy string, connectHeader map[string]string) (func
 	}
 
 	// Validate the scheme and host. httpproxy.Config.ProxyFunc will accept
-	// any scheme, but we only support http, https, and socks5. The host is
-	// required for a proxy URL.
+	// any scheme, but we only support the ones net/http's Transport does:
+	// http, https, socks5, and socks5h. The host is required for a proxy URL.
 	switch parsed.Scheme {
-	case "http", "https", "socks5":
+	case "http", "https", "socks5", "socks5h":
 	default:
-		return nil, nil, "", errors.New("proxy_url: must be an absolute URL with an http, https, or socks5 scheme and a host")
+		return nil, nil, "", errors.New("proxy_url: must be an absolute URL with an http, https, socks5, or socks5h scheme and a host")
 	}
 	if parsed.Host == "" {
 		return nil, nil, "", errors.New("proxy_url: must be an absolute URL with a host")

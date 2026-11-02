@@ -135,12 +135,14 @@ func TestBuildProxy_SchemeLowercased(t *testing.T) {
 		"HTTP mixed case":  "HTTP://proxy.example.com",
 		"https lowercase":  "https://proxy.example.com",
 		"HTTPS mixed case": "HTTPS://proxy.example.com",
+		"socks5h":          "socks5h://proxy.example.com:1080",
 	}
 	want := map[string]string{
 		"http lowercase":   "http",
 		"HTTP mixed case":  "http",
 		"https lowercase":  "https",
 		"HTTPS mixed case": "https",
+		"socks5h":          "socks5h",
 	}
 	for desc, proxyURL := range tests {
 		t.Run(desc, func(t *testing.T) {

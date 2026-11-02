@@ -965,16 +965,13 @@ def probe(target):
 // with a Via-Test-Proxy header so tests can tell a request actually went
 // through it.
 //
-// The rewrite exists because golang.org/x/net/http/httpproxy.Config.ProxyFunc
-// -- what Init uses to decide whether a call is proxied -- has a hardcoded,
-// non-configurable special case: a request whose Host is "localhost" or any
-// loopback address is *never* proxied, regardless of proxy_url or no_proxy.
-// httptest.NewServer always binds to a loopback address, so a script can't
-// use one directly as "the thing being proxied" -- the decision to proxy is
-// never even reached. Routing scripts through a placeholder non-loopback
-// hostname (e.g. "proxy-only.invalid") gets a real decision out of
-// ProxyFunc, and this rewrite is what makes that placeholder still resolve
-// to a real server once the request reaches the proxy.
+// The rewrite lets scripts use a placeholder non-loopback hostname (e.g.
+// "proxy-only.invalid") that still resolves to a real server once the
+// request reaches the proxy. That's needed for the no_proxy tests: with
+// no_proxy set, Init uses golang.org/x/net/http/httpproxy.Config.ProxyFunc,
+// which never proxies "localhost" or loopback addresses, and
+// httptest.NewServer always binds to loopback. (Without no_proxy, Init uses
+// http.ProxyURL, which proxies loopback too.)
 func newTestProxy(t *testing.T, realAddr string) *httptest.Server {
 	t.Helper()
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1010,7 +1007,12 @@ func newTestConnectProxy(t *testing.T, realAddr string, gotHeader chan<- string)
 			http.Error(w, "expected CONNECT", http.StatusMethodNotAllowed)
 			return
 		}
-		gotHeader <- r.Header.Get("Proxy-Authorization")
+		// Non-blocking: a second CONNECT must not wedge the handler (and
+		// proxy.Close in Cleanup) on a full channel.
+		select {
+		case gotHeader <- r.Header.Get("Proxy-Authorization"):
+		default:
+		}
 		clientConn, clientRW, err := w.(http.Hijacker).Hijack()
 		if err != nil {
 			return
