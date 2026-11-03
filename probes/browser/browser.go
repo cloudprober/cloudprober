@@ -54,6 +54,10 @@ import (
 
 const playwrightReportDir = "_playwright_report"
 
+// artifactsUploadTimeout limits how long a run-once probe waits for its
+// artifacts to be stored.
+const artifactsUploadTimeout = time.Minute
+
 // internalErrorRe matches process-output (stderr) signatures that indicate an
 // environment/infra problem rather than a target failure, so the run is
 // counted as an internal_error:
@@ -140,9 +144,6 @@ type probeRunResult struct {
 	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
-
-	// waitForArtifacts blocks until artifacts of the last run have been stored.
-	waitForArtifacts func()
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
@@ -421,10 +422,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.artifactsHandler = ah
 
-	// Start replaces this, but it's never called for run-once probes, and may
-	// not have been called yet when a probe is run through the RunProbe RPC.
-	p.startCtx = context.Background()
-
 	return nil
 }
 
@@ -544,18 +541,27 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 		}
 	}
 
-	// We use startCtx here to make sure artifactsHandler keeps running (if
-	// required) even after this probe run.
-	waitForArtifacts := p.artifactsHandler.Handle(p.startCtx, reportDir)
-
 	latency := time.Since(startTime)
+
+	if runReq.LastRun != nil {
+		// This is a run-once request: Start may not have been called yet, so we
+		// can't use startCtx, and the process may exit right after the run, so
+		// we wait for the artifacts. We don't inherit ctx's cancellation, as
+		// artifacts of a timed out run are often the most useful ones.
+		uploadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), artifactsUploadTimeout)
+		defer cancel()
+		p.artifactsHandler.Handle(uploadCtx, reportDir)()
+	} else {
+		// We use startCtx here to make sure artifactsHandler keeps running (if
+		// required) even after this probe run.
+		p.artifactsHandler.Handle(p.startCtx, reportDir)
+	}
 
 	if resultMu != nil {
 		resultMu.Lock()
 		defer resultMu.Unlock()
 	}
 
-	result.waitForArtifacts = waitForArtifacts
 	runReq.LastRun.Set(err == nil, latency, err)
 	if err != nil {
 		if internalErr {
@@ -638,9 +644,5 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 	}
 
 	p.l.Info("Running browser probe once.")
-	return sched.RunOnce(ctx, p.opts, func(ctx context.Context, runReq *sched.RunProbeForTargetRequest) {
-		p.runProbe(ctx, runReq)
-		// Process may exit right after RunOnce, taking in-progress uploads with it.
-		runReq.Result.(*probeRunResult).waitForArtifacts()
-	})
+	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }

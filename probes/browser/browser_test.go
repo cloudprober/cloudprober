@@ -256,7 +256,6 @@ exit 1
 	if err := p.Init("test_browser", opts); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	p.startCtx = context.Background()
 	p.dataChan = make(chan *metrics.EventMetrics, 10)
 
 	runReq := &sched.RunProbeForTargetRequest{
@@ -281,47 +280,82 @@ func TestRunOnceSavesArtifacts(t *testing.T) {
 		t.Skip("stub npx is a /bin/sh script; skip on Windows")
 	}
 
-	dir, artifactsDir := t.TempDir(), t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name        string
+		lastCmd     string
+		wantSuccess bool
+	}{
+		{name: "success", lastCmd: "true", wantSuccess: true},
+		{name: "run_times_out", lastCmd: "exec sleep 30", wantSuccess: false},
 	}
-	npx := filepath.Join(dir, "npx")
-	script := `#!/bin/sh
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir, artifactsDir := t.TempDir(), t.TempDir()
+			if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			npx := filepath.Join(dir, "npx")
+			script := `#!/bin/sh
 mkdir -p "$PLAYWRIGHT_HTML_REPORT"
 echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
-`
-	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+` + tt.lastCmd + "\n"
+			if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			opts := options.DefaultOptions()
+			opts.Timeout = time.Second
+			opts.ProbeConf = &configpb.ProbeConf{
+				NpxPath:       proto.String(npx),
+				PlaywrightDir: proto.String(dir),
+				ArtifactsOptions: &artifactsconfigpb.ArtifactsOptions{
+					Storage: []*artifactsconfigpb.Storage{
+						{
+							Storage: &artifactsconfigpb.Storage_LocalStorage{
+								LocalStorage: &artifactsconfigpb.LocalStorage{Dir: proto.String(artifactsDir)},
+							},
+						},
+					},
+				},
+			}
+			p := &Probe{}
+			if err := p.Init("test_browser", opts); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+
+			prrs := p.RunOnce(context.Background())
+			if assert.Len(t, prrs, 1) {
+				assert.Equal(t, tt.wantSuccess, prrs[0].Success, "success")
+			}
+
+			saved, err := filepath.Glob(filepath.Join(artifactsDir, "*", "*", "index.html"))
+			assert.NoError(t, err)
+			assert.Len(t, saved, 1, "saved artifacts")
+		})
+	}
+}
+
+// TestRunOnceZeroRequestsPerProbe verifies that a config that never gets to
+// run a test doesn't crash.
+func TestRunOnceZeroRequestsPerProbe(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
 		t.Fatal(err)
 	}
 
 	opts := options.DefaultOptions()
 	opts.ProbeConf = &configpb.ProbeConf{
-		NpxPath:       proto.String(npx),
-		PlaywrightDir: proto.String(dir),
-		ArtifactsOptions: &artifactsconfigpb.ArtifactsOptions{
-			Storage: []*artifactsconfigpb.Storage{
-				{
-					Storage: &artifactsconfigpb.Storage_LocalStorage{
-						LocalStorage: &artifactsconfigpb.LocalStorage{Dir: proto.String(artifactsDir)},
-					},
-				},
-			},
-		},
+		NpxPath:          proto.String(os.Args[0]),
+		PlaywrightDir:    proto.String(dir),
+		RequestsPerProbe: proto.Int32(0),
 	}
 	p := &Probe{}
 	if err := p.Init("test_browser", opts); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 
-	prrs := p.RunOnce(context.Background())
-	if assert.Len(t, prrs, 1) {
-		assert.NoError(t, prrs[0].Error)
-		assert.True(t, prrs[0].Success)
-	}
-
-	saved, err := filepath.Glob(filepath.Join(artifactsDir, "*", "*", "index.html"))
-	assert.NoError(t, err)
-	assert.Len(t, saved, 1, "saved artifacts")
+	assert.Len(t, p.RunOnce(context.Background()), 1)
 }
 
 func TestInternalErrorRe(t *testing.T) {
