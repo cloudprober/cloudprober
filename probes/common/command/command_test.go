@@ -59,6 +59,13 @@ func TestShellProcessSuccess(t *testing.T) {
 		pauseTime = time.Duration(pauseSec) * time.Second
 	}
 
+	if n, _ := strconv.Atoi(os.Getenv("GO_CP_TEST_NUM_LINES")); n > 0 {
+		for i := range n {
+			fmt.Printf("line %d\n", i)
+		}
+		os.Exit(0)
+	}
+
 	if len(os.Args) > 4 {
 		fmt.Printf("cmd \"%s\"\n", os.Args[3])
 		time.Sleep(pauseTime)
@@ -191,24 +198,33 @@ func TestProcessStderr(t *testing.T) {
 	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
 }
 
-// TestWaitForStdout verifies that, with WaitForStdout set, Execute returns only
-// after ProcessStreamingOutput has processed stdout, so reading the captured
-// lines afterwards is race-free.
-func TestWaitForStdout(t *testing.T) {
-	var stdout []string
+// TestStreamingOutputLinesAreCopies verifies that ProcessStreamingOutput gets
+// its own copy of each line: the scanner reuses its buffer while the consumer
+// runs concurrently.
+func TestStreamingOutputLinesAreCopies(t *testing.T) {
+	var mu sync.Mutex
+	var lines [][]byte
 	p := &Command{
-		CmdLine:       []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd", "arg"},
-		EnvVars:       []string{"GO_CP_TEST_PROCESS=1"},
-		WaitForStdout: true,
+		CmdLine: []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd"},
+		EnvVars: []string{"GO_CP_TEST_PROCESS=1", "GO_CP_TEST_NUM_LINES=10000"},
 		ProcessStreamingOutput: func(line []byte) {
-			time.Sleep(300 * time.Millisecond) // Longer than the process runs for.
-			stdout = append(stdout, string(line))
+			mu.Lock()
+			defer mu.Unlock()
+			lines = append(lines, line)
 		},
 	}
 
 	_, err := p.Execute(context.Background(), nil)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, stdout)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.NotEmpty(t, lines)
+	for i, line := range lines {
+		if want := fmt.Sprintf("line %d", i); string(line) != want {
+			t.Fatalf("line %d: got %q, want %q", i, line, want)
+		}
+	}
 }
 
 // TestRawStderrOutput verifies that, with RawStderrOutput set, the child's

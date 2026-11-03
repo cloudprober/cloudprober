@@ -139,9 +139,7 @@ func TestProbePrepareCommand(t *testing.T) {
 			}
 
 			ts := time.Now()
-			cmd, _ := p.prepareCommand(tt.target, ts, p.payloadParser, func(em *metrics.EventMetrics) {
-				p.opts.RecordMetrics(tt.target, em, p.dataChan)
-			})
+			cmd, _ := p.prepareCommand(tt.target, ts, p.payloadParser)
 
 			outputDir := p.outputDirPath(tt.target, ts)
 			for i, arg := range tt.wantCmdLine {
@@ -417,10 +415,10 @@ echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
 	}
 }
 
-// TestRunOnceTestMetrics verifies that a run-once probe, for which Start is
-// never called, returns test metrics in its result, that output after a metric
-// line doesn't stall the run, and that counts don't carry over between runs.
-func TestRunOnceTestMetrics(t *testing.T) {
+// TestRunOnceSkipsTestMetrics verifies that a run-once probe, for which Start is
+// never called, skips test metrics, and that output after a metric line
+// doesn't stall the run.
+func TestRunOnceSkipsTestMetrics(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("stub npx is a /bin/sh script; skip on Windows")
 	}
@@ -429,14 +427,11 @@ func TestRunOnceTestMetrics(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	// 200KB of stdout after the metric line is more than a pipe buffer. The
-	// sleep keeps the process around until its output has been read, as the
-	// html reporter does for a real run.
+	// 200KB of stdout after the metric line is more than a pipe buffer.
 	npx := filepath.Join(dir, "npx")
 	script := `#!/bin/sh
 echo 'test_status{status="passed"} 1'
 yes xxxxxxxxxxxxxxxxxxx | head -n 10000
-sleep 0.2
 `
 	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
 		t.Fatal(err)
@@ -453,24 +448,13 @@ sleep 0.2
 		t.Fatalf("Init: %v", err)
 	}
 
-	for range 2 {
-		prrs := p.RunOnce(context.Background())
-		if !assert.Len(t, prrs, 1) {
-			return
-		}
-		assert.True(t, prrs[0].Success, "success")
-
-		var testStatus []*metrics.EventMetrics
-		for _, em := range prrs[0].Metrics {
-			if em.Metric("test_status") != nil {
-				testStatus = append(testStatus, em)
-			}
-		}
-		if assert.Len(t, testStatus, 1) {
-			assert.Equal(t, "1.000", testStatus[0].Metric("test_status").String())
-			assert.Equal(t, "browser", testStatus[0].Label("ptype"))
-			assert.Equal(t, "passed", testStatus[0].Label("status"))
-		}
+	prrs := p.RunOnce(context.Background())
+	if !assert.Len(t, prrs, 1) {
+		return
+	}
+	assert.True(t, prrs[0].Success, "success")
+	for _, em := range prrs[0].Metrics {
+		assert.Nil(t, em.Metric("test_status"), "test metrics in result")
 	}
 }
 

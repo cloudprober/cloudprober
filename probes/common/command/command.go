@@ -70,11 +70,6 @@ type Command struct {
 	StderrLogLevel  func(line string) (slog.Level, string)
 	RawStderrOutput bool
 
-	// WaitForStdout makes Execute wait for ProcessStreamingOutput to process
-	// all stdout lines before returning. Only set it if ProcessStreamingOutput
-	// can't block. Only used in streaming mode.
-	WaitForStdout bool
-
 	// We create a goroutine to wait for child processes to finish. This field
 	// dictates how long will that goroutine wait for child processes to finish
 	// before giving up. This is to avoid unbounded number of goroutines in case
@@ -89,9 +84,8 @@ type Command struct {
 // stderr processing is bounded (logging + a caller-supplied matcher), whereas
 // the stdout consumer runs ProcessStreamingOutput, which for our probes writes
 // to a metrics channel and could block on back-pressure -- we don't want
-// Execute's return gated on that, unless the caller opts in by setting
-// WaitForStdout. The pipe reads themselves can't hang: cmd.Wait closes the pipe
-// read ends on process exit, unblocking the scanners.
+// Execute's return gated on that. The pipe reads themselves can't hang: cmd.Wait
+// closes the pipe read ends on process exit, unblocking the scanners.
 func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error) {
 	stdout := make(chan []byte)
 	stdoutR, err := cmd.StdoutPipe()
@@ -147,20 +141,13 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 		}
 	}()
 
-	stdoutDone := make(chan struct{})
 	go func() {
-		defer close(stdoutDone)
 		for line := range stdout {
 			c.ProcessStreamingOutput(line)
 		}
 	}()
 
-	return func() {
-		wg.Wait()
-		if c.WaitForStdout {
-			<-stdoutDone
-		}
-	}, nil
+	return wg.Wait, nil
 }
 
 func (c *Command) logStderr(l *logger.Logger, line string) {
