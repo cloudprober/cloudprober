@@ -55,8 +55,8 @@ import (
 const playwrightReportDir = "_playwright_report"
 
 // artifactsUploadTimeout limits how long a run-once probe waits for its
-// artifacts to be stored.
-const artifactsUploadTimeout = time.Minute
+// artifacts to be stored. It's a variable for testing.
+var artifactsUploadTimeout = time.Minute
 
 // internalErrorRe matches process-output (stderr) signatures that indicate an
 // environment/infra problem rather than a target failure, so the run is

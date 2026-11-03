@@ -18,6 +18,8 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -333,6 +335,84 @@ echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
 			assert.NoError(t, err)
 			assert.Len(t, saved, 1, "saved artifacts")
 		})
+	}
+}
+
+// TestRunOnceUploadTimeout verifies that a stuck upload doesn't hang RunOnce.
+func TestRunOnceUploadTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("stub npx is a /bin/sh script; skip on Windows")
+	}
+
+	origTimeout := artifactsUploadTimeout
+	artifactsUploadTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { artifactsUploadTimeout = origTimeout })
+
+	uploadStarted := make(chan struct{}, 1)
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case uploadStarted <- struct{}{}:
+		default:
+		}
+		<-release
+	}))
+	t.Cleanup(ts.Close)
+	t.Cleanup(func() { close(release) })
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	npx := filepath.Join(dir, "npx")
+	script := `#!/bin/sh
+mkdir -p "$PLAYWRIGHT_HTML_REPORT"
+echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
+`
+	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		NpxPath:       proto.String(npx),
+		PlaywrightDir: proto.String(dir),
+		ArtifactsOptions: &artifactsconfigpb.ArtifactsOptions{
+			Storage: []*artifactsconfigpb.Storage{
+				{
+					Storage: &artifactsconfigpb.Storage_Abs{
+						Abs: &artifactsconfigpb.ABS{
+							Container:   proto.String("test"),
+							AccountName: proto.String("test"),
+							AccountKey:  proto.String("a2V5"),
+							Endpoint:    proto.String(ts.URL),
+						},
+					},
+				},
+			},
+		},
+	}
+	p := &Probe{}
+	if err := p.Init("test_browser", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		p.RunOnce(context.Background())
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("RunOnce didn't return after the upload timeout")
+	}
+
+	select {
+	case <-uploadStarted:
+	default:
+		t.Error("upload never started")
 	}
 }
 
