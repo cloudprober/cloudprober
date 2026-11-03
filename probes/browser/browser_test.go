@@ -258,7 +258,6 @@ exit 1
 	if err := p.Init("test_browser", opts); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	p.dataChan = make(chan *metrics.EventMetrics, 10)
 
 	runReq := &sched.RunProbeForTargetRequest{
 		Target:  endpoint.Endpoint{Name: "t"},
@@ -413,6 +412,45 @@ echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
 	case <-uploadStarted:
 	default:
 		t.Error("upload never started")
+	}
+}
+
+// TestRunOnceSkipsTestMetrics verifies that a run-once probe, for which Start is
+// never called, skips test metrics: sending them to the nil dataChan blocked
+// reading stdout, so output after a metric line stalled the run until timeout.
+func TestRunOnceSkipsTestMetrics(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("stub npx is a /bin/sh script; skip on Windows")
+	}
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// 200KB of stdout after the metric line is more than a pipe buffer.
+	npx := filepath.Join(dir, "npx")
+	script := `#!/bin/sh
+echo 'test_status{status="passed"} 1'
+yes xxxxxxxxxxxxxxxxxxx | head -n 10000
+`
+	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.Interval, opts.Timeout = 10*time.Second, 5*time.Second
+	opts.ProbeConf = &configpb.ProbeConf{
+		NpxPath:       proto.String(npx),
+		PlaywrightDir: proto.String(dir),
+	}
+	p := &Probe{}
+	if err := p.Init("test_browser", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	prrs := p.RunOnce(context.Background())
+	if assert.Len(t, prrs, 1) {
+		assert.True(t, prrs[0].Success, "success")
 	}
 }
 

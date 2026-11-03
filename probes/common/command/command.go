@@ -83,18 +83,17 @@ type Command struct {
 // it after the process exits so that ProcessStderr is guaranteed to have seen
 // every line (e.g. to classify failure signatures). We only wait on stderr:
 // stderr processing is bounded (logging + a caller-supplied matcher), whereas
-// the stdout consumer runs ProcessStreamingOutput, which for our probes writes
-// to a metrics channel and could block on back-pressure -- we don't want
-// Execute's return gated on that. The pipe reads themselves can't hang: cmd.Wait
-// closes the pipe read ends on process exit, unblocking the scanners.
+// the stdout reader runs ProcessStreamingOutput, which for our probes writes to
+// a metrics channel and could block on back-pressure -- we don't want Execute's
+// return gated on that. The pipe reads themselves can't hang: cmd.Wait closes
+// the pipe read ends on process exit, unblocking the scanners. Stdout lines not
+// read by then are lost.
 func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error) {
-	stdout := make(chan []byte)
 	stdoutR, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
 	}
 	go func() {
-		defer close(stdout)
 		defer stdoutR.Close()
 		scanner := bufio.NewScanner(stdoutR)
 
@@ -102,7 +101,7 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 		scanner.Buffer(buf, maxScannerTokenSize)
 
 		for scanner.Scan() {
-			stdout <- scanner.Bytes()
+			c.ProcessStreamingOutput(scanner.Bytes())
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			l.Errorf("Error reading from stdout: %v", err)
@@ -138,12 +137,6 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			l.ErrorAttrs(fmt.Sprintf("Error reading from stderr: %v", err), slog.String("process_path", c.CmdLine[0]))
-		}
-	}()
-
-	go func() {
-		for line := range stdout {
-			c.ProcessStreamingOutput(line)
 		}
 	}()
 

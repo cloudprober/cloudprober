@@ -515,6 +515,13 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 	startTime := time.Now()
 
 	cmd, reportDir := p.prepareCommand(target, startTime)
+	if runReq.LastRun != nil {
+		// We skip test metrics for run-once requests: they're exported through
+		// dataChan, which only Start sets, and Start may not have been called.
+		// We don't set it to nil, as that disables streaming, which stderr
+		// processing needs.
+		cmd.ProcessStreamingOutput = func([]byte) {}
+	}
 
 	// We classify on stderr, not stdout: in cloudprober's setup the custom
 	// Playwright reporter (--reporter=html,cloudprober-reporter.ts) mirrors
@@ -643,6 +650,6 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 		return nil
 	}
 
-	p.l.Info("Running browser probe once.")
+	p.l.Info("Running browser probe once. Test metrics are not reported in run-once mode.")
 	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }

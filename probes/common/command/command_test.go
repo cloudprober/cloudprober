@@ -59,6 +59,13 @@ func TestShellProcessSuccess(t *testing.T) {
 		pauseTime = time.Duration(pauseSec) * time.Second
 	}
 
+	if n, _ := strconv.Atoi(os.Getenv("GO_CP_TEST_NUM_LINES")); n > 0 {
+		for i := range n {
+			fmt.Printf("line %d\n", i)
+		}
+		os.Exit(0)
+	}
+
 	if len(os.Args) > 4 {
 		fmt.Printf("cmd \"%s\"\n", os.Args[3])
 		time.Sleep(pauseTime)
@@ -189,6 +196,34 @@ func TestProcessStderr(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
+}
+
+// TestStreamingOutputLines verifies that ProcessStreamingOutput gets stdout
+// lines intact and in order.
+func TestStreamingOutputLines(t *testing.T) {
+	var mu sync.Mutex
+	var lines []string
+	p := &Command{
+		CmdLine: []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd"},
+		EnvVars: []string{"GO_CP_TEST_PROCESS=1", "GO_CP_TEST_NUM_LINES=10000"},
+		ProcessStreamingOutput: func(line []byte) {
+			mu.Lock()
+			defer mu.Unlock()
+			lines = append(lines, string(line))
+		},
+	}
+
+	_, err := p.Execute(context.Background(), nil)
+	assert.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.NotEmpty(t, lines)
+	for i, line := range lines {
+		if want := fmt.Sprintf("line %d", i); line != want {
+			t.Fatalf("line %d: got %q, want %q", i, line, want)
+		}
+	}
 }
 
 // TestRawStderrOutput verifies that, with RawStderrOutput set, the child's
