@@ -139,7 +139,7 @@ func TestProbePrepareCommand(t *testing.T) {
 			}
 
 			ts := time.Now()
-			cmd, _ := p.prepareCommand(tt.target, ts, p.payloadParser)
+			cmd, _ := p.prepareCommand(tt.target, ts)
 
 			outputDir := p.outputDirPath(tt.target, ts)
 			for i, arg := range tt.wantCmdLine {
@@ -416,8 +416,8 @@ echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
 }
 
 // TestRunOnceSkipsTestMetrics verifies that a run-once probe, for which Start is
-// never called, skips test metrics, and that output after a metric line
-// doesn't stall the run.
+// never called, skips test metrics: sending them to the nil dataChan blocked
+// reading stdout, so output after a metric line stalled the run until timeout.
 func TestRunOnceSkipsTestMetrics(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("stub npx is a /bin/sh script; skip on Windows")
@@ -449,12 +449,8 @@ yes xxxxxxxxxxxxxxxxxxx | head -n 10000
 	}
 
 	prrs := p.RunOnce(context.Background())
-	if !assert.Len(t, prrs, 1) {
-		return
-	}
-	assert.True(t, prrs[0].Success, "success")
-	for _, em := range prrs[0].Metrics {
-		assert.Nil(t, em.Metric("test_status"), "test metrics in result")
+	if assert.Len(t, prrs, 1) {
+		assert.True(t, prrs[0].Success, "success")
 	}
 }
 

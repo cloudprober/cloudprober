@@ -59,8 +59,9 @@ type Command struct {
 	// ProcessStderr, if set, is called for each stderr line (in addition to
 	// the usual logging). It lets callers inspect stderr while streaming, e.g.
 	// to classify known failure signatures. Only used in streaming mode. The
-	// passed slice's backing array is reused on the next scan, so callers must
-	// not retain it without copying.
+	// passed slice's backing array is reused on the next scan (same as
+	// ProcessStreamingOutput / bufio.Scanner), so callers must not retain it
+	// without copying.
 	ProcessStderr func([]byte)
 
 	// StderrLogLevel, if set, decides the log level for each stderr line, and
@@ -87,13 +88,11 @@ type Command struct {
 // Execute's return gated on that. The pipe reads themselves can't hang: cmd.Wait
 // closes the pipe read ends on process exit, unblocking the scanners.
 func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error) {
-	stdout := make(chan []byte)
 	stdoutR, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
 	}
 	go func() {
-		defer close(stdout)
 		defer stdoutR.Close()
 		scanner := bufio.NewScanner(stdoutR)
 
@@ -101,8 +100,7 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 		scanner.Buffer(buf, maxScannerTokenSize)
 
 		for scanner.Scan() {
-			// Scan reuses the buffer, while the consumer runs concurrently.
-			stdout <- bytes.Clone(scanner.Bytes())
+			c.ProcessStreamingOutput(scanner.Bytes())
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			l.Errorf("Error reading from stdout: %v", err)
@@ -138,12 +136,6 @@ func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error
 		}
 		if err := scanner.Err(); err != nil && !isPipeOrFileClosedError(err) {
 			l.ErrorAttrs(fmt.Sprintf("Error reading from stderr: %v", err), slog.String("process_path", c.CmdLine[0]))
-		}
-	}()
-
-	go func() {
-		for line := range stdout {
-			c.ProcessStreamingOutput(line)
 		}
 	}()
 

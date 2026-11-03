@@ -457,7 +457,7 @@ func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
 	return filepath.Join(outputDirPath...)
 }
 
-func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time, parser *payload.Parser) (*command.Command, string) {
+func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command.Command, string) {
 	runID := p.generateRunID(target)
 
 	outputDir := p.outputDirPath(target, ts)
@@ -495,10 +495,10 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time, parser *p
 		StderrLogLevel:       stderrLogLevel,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
-		if parser == nil {
+		if p.payloadParser == nil {
 			return
 		}
-		for _, em := range parser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
+		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
 			em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
 				em.AddLabel("run_id", fmt.Sprintf("%d", runID))
@@ -514,13 +514,14 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 	startTime := time.Now()
 
-	// We skip test metrics for run-once requests: they're exported through
-	// dataChan, which only Start sets, and Start may not have been called.
-	parser := p.payloadParser
+	cmd, reportDir := p.prepareCommand(target, startTime)
 	if runReq.LastRun != nil {
-		parser = nil
+		// We skip test metrics for run-once requests: they're exported through
+		// dataChan, which only Start sets, and Start may not have been called.
+		// We don't set it to nil, as that disables streaming, which stderr
+		// processing needs.
+		cmd.ProcessStreamingOutput = func([]byte) {}
 	}
-	cmd, reportDir := p.prepareCommand(target, startTime, parser)
 
 	// We classify on stderr, not stdout: in cloudprober's setup the custom
 	// Playwright reporter (--reporter=html,cloudprober-reporter.ts) mirrors
@@ -649,6 +650,6 @@ func (p *Probe) RunOnce(ctx context.Context) []*singlerun.ProbeRunResult {
 		return nil
 	}
 
-	p.l.Info("Running browser probe once.")
+	p.l.Info("Running browser probe once. Test metrics are not reported in run-once mode.")
 	return sched.RunOnce(ctx, p.opts, p.runProbe)
 }

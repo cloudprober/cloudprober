@@ -198,19 +198,18 @@ func TestProcessStderr(t *testing.T) {
 	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
 }
 
-// TestStreamingOutputLinesAreCopies verifies that ProcessStreamingOutput gets
-// its own copy of each line: the scanner reuses its buffer while the consumer
-// runs concurrently.
-func TestStreamingOutputLinesAreCopies(t *testing.T) {
+// TestStreamingOutputLines verifies that ProcessStreamingOutput gets stdout
+// lines intact and in order.
+func TestStreamingOutputLines(t *testing.T) {
 	var mu sync.Mutex
-	var lines [][]byte
+	var lines []string
 	p := &Command{
 		CmdLine: []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd"},
 		EnvVars: []string{"GO_CP_TEST_PROCESS=1", "GO_CP_TEST_NUM_LINES=10000"},
 		ProcessStreamingOutput: func(line []byte) {
 			mu.Lock()
 			defer mu.Unlock()
-			lines = append(lines, line)
+			lines = append(lines, string(line))
 		},
 	}
 
@@ -221,7 +220,7 @@ func TestStreamingOutputLinesAreCopies(t *testing.T) {
 	defer mu.Unlock()
 	assert.NotEmpty(t, lines)
 	for i, line := range lines {
-		if want := fmt.Sprintf("line %d", i); string(line) != want {
+		if want := fmt.Sprintf("line %d", i); line != want {
 			t.Fatalf("line %d: got %q, want %q", i, line, want)
 		}
 	}
