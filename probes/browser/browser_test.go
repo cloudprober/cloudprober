@@ -18,6 +18,8 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,6 +31,7 @@ import (
 	"time"
 
 	"github.com/cloudprober/cloudprober/metrics"
+	artifactsconfigpb "github.com/cloudprober/cloudprober/probes/browser/artifacts/proto"
 	configpb "github.com/cloudprober/cloudprober/probes/browser/proto"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	"github.com/cloudprober/cloudprober/probes/options"
@@ -255,7 +258,6 @@ exit 1
 	if err := p.Init("test_browser", opts); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	p.startCtx = context.Background()
 	p.dataChan = make(chan *metrics.EventMetrics, 10)
 
 	runReq := &sched.RunProbeForTargetRequest{
@@ -270,6 +272,170 @@ exit 1
 	assert.Equal(t, int64(1), result.internalErrors.Int64(), "internal_errors")
 	assert.False(t, runReq.LastRun.Success, "LastRun.Success")
 	assert.Error(t, runReq.LastRun.Error, "LastRun.Error")
+}
+
+// TestRunOnceSavesArtifacts verifies that a run-once probe, for which Start is
+// never called, saves artifacts, and that they are in place by the time RunOnce
+// returns: the process exits soon after that in the CLI case.
+func TestRunOnceSavesArtifacts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("stub npx is a /bin/sh script; skip on Windows")
+	}
+
+	tests := []struct {
+		name        string
+		lastCmd     string
+		wantSuccess bool
+	}{
+		{name: "success", lastCmd: "true", wantSuccess: true},
+		{name: "run_times_out", lastCmd: "exec sleep 30", wantSuccess: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir, artifactsDir := t.TempDir(), t.TempDir()
+			if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			npx := filepath.Join(dir, "npx")
+			script := `#!/bin/sh
+mkdir -p "$PLAYWRIGHT_HTML_REPORT"
+echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
+` + tt.lastCmd + "\n"
+			if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			opts := options.DefaultOptions()
+			opts.Timeout = time.Second
+			opts.ProbeConf = &configpb.ProbeConf{
+				NpxPath:       proto.String(npx),
+				PlaywrightDir: proto.String(dir),
+				ArtifactsOptions: &artifactsconfigpb.ArtifactsOptions{
+					Storage: []*artifactsconfigpb.Storage{
+						{
+							Storage: &artifactsconfigpb.Storage_LocalStorage{
+								LocalStorage: &artifactsconfigpb.LocalStorage{Dir: proto.String(artifactsDir)},
+							},
+						},
+					},
+				},
+			}
+			p := &Probe{}
+			if err := p.Init("test_browser", opts); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+
+			prrs := p.RunOnce(context.Background())
+			if assert.Len(t, prrs, 1) {
+				assert.Equal(t, tt.wantSuccess, prrs[0].Success, "success")
+			}
+
+			saved, err := filepath.Glob(filepath.Join(artifactsDir, "*", "*", "index.html"))
+			assert.NoError(t, err)
+			assert.Len(t, saved, 1, "saved artifacts")
+		})
+	}
+}
+
+// TestRunOnceUploadTimeout verifies that a stuck upload doesn't hang RunOnce.
+func TestRunOnceUploadTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("stub npx is a /bin/sh script; skip on Windows")
+	}
+
+	origTimeout := artifactsUploadTimeout
+	artifactsUploadTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { artifactsUploadTimeout = origTimeout })
+
+	uploadStarted := make(chan struct{}, 1)
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case uploadStarted <- struct{}{}:
+		default:
+		}
+		<-release
+	}))
+	t.Cleanup(ts.Close)
+	t.Cleanup(func() { close(release) })
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	npx := filepath.Join(dir, "npx")
+	script := `#!/bin/sh
+mkdir -p "$PLAYWRIGHT_HTML_REPORT"
+echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
+`
+	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		NpxPath:       proto.String(npx),
+		PlaywrightDir: proto.String(dir),
+		ArtifactsOptions: &artifactsconfigpb.ArtifactsOptions{
+			Storage: []*artifactsconfigpb.Storage{
+				{
+					Storage: &artifactsconfigpb.Storage_Abs{
+						Abs: &artifactsconfigpb.ABS{
+							Container:   proto.String("test"),
+							AccountName: proto.String("test"),
+							AccountKey:  proto.String("a2V5"),
+							Endpoint:    proto.String(ts.URL),
+						},
+					},
+				},
+			},
+		},
+	}
+	p := &Probe{}
+	if err := p.Init("test_browser", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		p.RunOnce(context.Background())
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("RunOnce didn't return after the upload timeout")
+	}
+
+	select {
+	case <-uploadStarted:
+	default:
+		t.Error("upload never started")
+	}
+}
+
+// TestRunOnceZeroRequestsPerProbe verifies that a config that never gets to
+// run a test doesn't crash.
+func TestRunOnceZeroRequestsPerProbe(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.ProbeConf = &configpb.ProbeConf{
+		NpxPath:          proto.String(os.Args[0]),
+		PlaywrightDir:    proto.String(dir),
+		RequestsPerProbe: proto.Int32(0),
+	}
+	p := &Probe{}
+	if err := p.Init("test_browser", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	assert.Len(t, p.RunOnce(context.Background()), 1)
 }
 
 func TestInternalErrorRe(t *testing.T) {

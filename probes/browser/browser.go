@@ -54,6 +54,10 @@ import (
 
 const playwrightReportDir = "_playwright_report"
 
+// artifactsUploadTimeout limits how long a run-once probe waits for its
+// artifacts to be stored. It's a variable for testing.
+var artifactsUploadTimeout = time.Minute
+
 // internalErrorRe matches process-output (stderr) signatures that indicate an
 // environment/infra problem rather than a target failure, so the run is
 // counted as an internal_error:
@@ -537,11 +541,21 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 		}
 	}
 
-	// We use startCtx here to make sure artifactsHandler keeps running (if
-	// required) even after this probe run.
-	p.artifactsHandler.Handle(p.startCtx, reportDir)
-
 	latency := time.Since(startTime)
+
+	if runReq.LastRun != nil {
+		// This is a run-once request: Start may not have been called yet, so we
+		// can't use startCtx, and the process may exit right after the run, so
+		// we wait for the artifacts. We don't inherit ctx's cancellation, as
+		// artifacts of a timed out run are often the most useful ones.
+		uploadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), artifactsUploadTimeout)
+		defer cancel()
+		p.artifactsHandler.Handle(uploadCtx, reportDir)()
+	} else {
+		// We use startCtx here to make sure artifactsHandler keeps running (if
+		// required) even after this probe run.
+		p.artifactsHandler.Handle(p.startCtx, reportDir)
+	}
 
 	if resultMu != nil {
 		resultMu.Lock()
