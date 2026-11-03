@@ -83,10 +83,11 @@ type Command struct {
 // it after the process exits so that ProcessStderr is guaranteed to have seen
 // every line (e.g. to classify failure signatures). We only wait on stderr:
 // stderr processing is bounded (logging + a caller-supplied matcher), whereas
-// the stdout consumer runs ProcessStreamingOutput, which for our probes writes
-// to a metrics channel and could block on back-pressure -- we don't want
-// Execute's return gated on that. The pipe reads themselves can't hang: cmd.Wait
-// closes the pipe read ends on process exit, unblocking the scanners.
+// the stdout reader runs ProcessStreamingOutput, which for our probes writes to
+// a metrics channel and could block on back-pressure -- we don't want Execute's
+// return gated on that. The pipe reads themselves can't hang: cmd.Wait closes
+// the pipe read ends on process exit, unblocking the scanners. Stdout lines not
+// read by then are lost.
 func (c *Command) setupStreaming(cmd *exec.Cmd, l *logger.Logger) (func(), error) {
 	stdoutR, err := cmd.StdoutPipe()
 	if err != nil {
