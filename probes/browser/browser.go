@@ -144,6 +144,10 @@ type probeRunResult struct {
 	internalErrors    metrics.Int
 	latency           metrics.LatencyValue
 	validationFailure *metrics.Map[int64]
+
+	// testMetrics holds test metrics for run-once requests. Scheduled runs
+	// export them as they come, through dataChan.
+	testMetrics []*metrics.EventMetrics
 }
 
 func (p *Probe) newResult() sched.ProbeResult {
@@ -175,7 +179,7 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 		em.AddMetric("validation_failure", prr.validationFailure)
 	}
 
-	return []*metrics.EventMetrics{em}
+	return append([]*metrics.EventMetrics{em}, prr.testMetrics...)
 }
 
 func (p *Probe) playwrightGlobalTimeoutMsec() int64 {
@@ -380,21 +384,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.outputDir = filepath.Join(p.workdir, "output")
 
-	if !p.c.GetTestMetricsOptions().GetDisableTestMetrics() {
-		omo := &payload_configpb.OutputMetricsOptions{
-			// All our metrics start with "test_".
-			LineAcceptRegex: proto.String(`^test_.+`),
-		}
-		if !p.c.GetTestMetricsOptions().GetDisableAggregation() {
-			omo.MetricsKind = payload_configpb.OutputMetricsOptions_CUMULATIVE.Enum()
-			omo.AggregateInCloudprober = proto.Bool(true)
-		}
-		payloadParser, err := payload.NewParser(omo, p.l)
-		if err != nil {
-			return fmt.Errorf("failed to create payload parser: %v", err)
-		}
-		p.payloadParser = payloadParser
+	payloadParser, err := p.newPayloadParser()
+	if err != nil {
+		return fmt.Errorf("failed to create payload parser: %v", err)
 	}
+	p.payloadParser = payloadParser
 
 	if err := p.initTemplates(); err != nil {
 		return fmt.Errorf("failed to initialize templates: %v", err)
@@ -423,6 +417,23 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.artifactsHandler = ah
 
 	return nil
+}
+
+// newPayloadParser returns a parser for test metrics. It returns nil if test
+// metrics are disabled.
+func (p *Probe) newPayloadParser() (*payload.Parser, error) {
+	if p.c.GetTestMetricsOptions().GetDisableTestMetrics() {
+		return nil, nil
+	}
+	omo := &payload_configpb.OutputMetricsOptions{
+		// All our metrics start with "test_".
+		LineAcceptRegex: proto.String(`^test_.+`),
+	}
+	if !p.c.GetTestMetricsOptions().GetDisableAggregation() {
+		omo.MetricsKind = payload_configpb.OutputMetricsOptions_CUMULATIVE.Enum()
+		omo.AggregateInCloudprober = proto.Bool(true)
+	}
+	return payload.NewParser(omo, p.l)
 }
 
 func (p *Probe) generateRunID(target endpoint.Endpoint) int64 {
@@ -457,7 +468,7 @@ func (p *Probe) outputDirPath(target endpoint.Endpoint, ts time.Time) string {
 	return filepath.Join(outputDirPath...)
 }
 
-func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command.Command, string) {
+func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time, parser *payload.Parser, recordEM func(*metrics.EventMetrics)) (*command.Command, string) {
 	runID := p.generateRunID(target)
 
 	outputDir := p.outputDirPath(target, ts)
@@ -495,15 +506,15 @@ func (p *Probe) prepareCommand(target endpoint.Endpoint, ts time.Time) (*command
 		StderrLogLevel:       stderrLogLevel,
 	}
 	cmd.ProcessStreamingOutput = func(line []byte) {
-		if p.payloadParser == nil {
+		if parser == nil {
 			return
 		}
-		for _, em := range p.payloadParser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
+		for _, em := range parser.PayloadMetrics(&payload.Input{Text: line}, target.Dst()) {
 			em.AddLabel("ptype", "browser").AddLabel("probe", p.name).AddLabel("dst", target.Dst())
 			if p.c.GetTestMetricsOptions().GetDisableAggregation() {
 				em.AddLabel("run_id", fmt.Sprintf("%d", runID))
 			}
-			p.opts.RecordMetrics(target, em, p.dataChan)
+			recordEM(em)
 		}
 	}
 
@@ -514,7 +525,24 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 	target, result := runReq.Target, runReq.Result.(*probeRunResult)
 	startTime := time.Now()
 
-	cmd, reportDir := p.prepareCommand(target, startTime)
+	parser := p.payloadParser
+	recordEM := func(em *metrics.EventMetrics) { p.opts.RecordMetrics(target, em, p.dataChan) }
+
+	var testMetrics []*metrics.EventMetrics
+	if runReq.LastRun != nil {
+		// This is a run-once request: Start may not have been called yet, so
+		// there may be no dataChan, and test metrics belong in the run's result
+		// anyway. We use a new parser to keep this run's counts separate from
+		// the aggregated counts of scheduled runs.
+		var err error
+		if parser, err = p.newPayloadParser(); err != nil {
+			p.l.Errorf("error creating payload parser: %v", err)
+		}
+		recordEM = func(em *metrics.EventMetrics) { testMetrics = append(testMetrics, em) }
+	}
+
+	cmd, reportDir := p.prepareCommand(target, startTime, parser, recordEM)
+	cmd.WaitForStdout = runReq.LastRun != nil
 
 	// We classify on stderr, not stdout: in cloudprober's setup the custom
 	// Playwright reporter (--reporter=html,cloudprober-reporter.ts) mirrors
@@ -562,6 +590,7 @@ func (p *Probe) runPWTest(ctx context.Context, runReq *sched.RunProbeForTargetRe
 		defer resultMu.Unlock()
 	}
 
+	result.testMetrics = testMetrics
 	runReq.LastRun.Set(err == nil, latency, err)
 	if err != nil {
 		if internalErr {

@@ -191,6 +191,26 @@ func TestProcessStderr(t *testing.T) {
 	assert.True(t, found, "ProcessStderr did not receive the expected stderr line, got: %v", stderr)
 }
 
+// TestWaitForStdout verifies that, with WaitForStdout set, Execute returns only
+// after ProcessStreamingOutput has processed stdout, so reading the captured
+// lines afterwards is race-free.
+func TestWaitForStdout(t *testing.T) {
+	var stdout []string
+	p := &Command{
+		CmdLine:       []string{os.Args[0], "-test.run=TestShellProcessSuccess", "--", "/test/cmd", "arg"},
+		EnvVars:       []string{"GO_CP_TEST_PROCESS=1"},
+		WaitForStdout: true,
+		ProcessStreamingOutput: func(line []byte) {
+			time.Sleep(300 * time.Millisecond) // Longer than the process runs for.
+			stdout = append(stdout, string(line))
+		},
+	}
+
+	_, err := p.Execute(context.Background(), nil)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, stdout)
+}
+
 // TestRawStderrOutput verifies that, with RawStderrOutput set, the child's
 // stderr lines are relayed through the logger's stderr writer (queued, so a
 // stalled stderr can't block the relay goroutine or the probe), and that

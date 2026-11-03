@@ -139,7 +139,9 @@ func TestProbePrepareCommand(t *testing.T) {
 			}
 
 			ts := time.Now()
-			cmd, _ := p.prepareCommand(tt.target, ts)
+			cmd, _ := p.prepareCommand(tt.target, ts, p.payloadParser, func(em *metrics.EventMetrics) {
+				p.opts.RecordMetrics(tt.target, em, p.dataChan)
+			})
 
 			outputDir := p.outputDirPath(tt.target, ts)
 			for i, arg := range tt.wantCmdLine {
@@ -258,7 +260,6 @@ exit 1
 	if err := p.Init("test_browser", opts); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	p.dataChan = make(chan *metrics.EventMetrics, 10)
 
 	runReq := &sched.RunProbeForTargetRequest{
 		Target:  endpoint.Endpoint{Name: "t"},
@@ -413,6 +414,63 @@ echo report > "$PLAYWRIGHT_HTML_REPORT/index.html"
 	case <-uploadStarted:
 	default:
 		t.Error("upload never started")
+	}
+}
+
+// TestRunOnceTestMetrics verifies that a run-once probe, for which Start is
+// never called, returns test metrics in its result, that output after a metric
+// line doesn't stall the run, and that counts don't carry over between runs.
+func TestRunOnceTestMetrics(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("stub npx is a /bin/sh script; skip on Windows")
+	}
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// 200KB of stdout after the metric line is more than a pipe buffer. The
+	// sleep keeps the process around until its output has been read, as the
+	// html reporter does for a real run.
+	npx := filepath.Join(dir, "npx")
+	script := `#!/bin/sh
+echo 'test_status{status="passed"} 1'
+yes xxxxxxxxxxxxxxxxxxx | head -n 10000
+sleep 0.2
+`
+	if err := os.WriteFile(npx, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := options.DefaultOptions()
+	opts.Interval, opts.Timeout = 10*time.Second, 5*time.Second
+	opts.ProbeConf = &configpb.ProbeConf{
+		NpxPath:       proto.String(npx),
+		PlaywrightDir: proto.String(dir),
+	}
+	p := &Probe{}
+	if err := p.Init("test_browser", opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	for range 2 {
+		prrs := p.RunOnce(context.Background())
+		if !assert.Len(t, prrs, 1) {
+			return
+		}
+		assert.True(t, prrs[0].Success, "success")
+
+		var testStatus []*metrics.EventMetrics
+		for _, em := range prrs[0].Metrics {
+			if em.Metric("test_status") != nil {
+				testStatus = append(testStatus, em)
+			}
+		}
+		if assert.Len(t, testStatus, 1) {
+			assert.Equal(t, "1.000", testStatus[0].Metric("test_status").String())
+			assert.Equal(t, "browser", testStatus[0].Label("ptype"))
+			assert.Equal(t, "passed", testStatus[0].Label("status"))
+		}
 	}
 }
 
