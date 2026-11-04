@@ -636,3 +636,40 @@ func TestSkipLog(t *testing.T) {
 		})
 	}
 }
+
+func TestBasePackageFromFunc(t *testing.T) {
+	def := "github.com/cloudprober/cloudprober/"
+	tests := []struct {
+		name string
+		fn   string
+		want string
+	}{
+		{
+			name: "default",
+			fn:   "github.com/cloudprober/cloudprober/logger.init.0",
+			want: "github.com/cloudprober/cloudprober/",
+		},
+		{
+			name: "vendored",
+			fn:   "github.com/foo/bar/vendor/github.com/cloudprober/cloudprober/logger.init.0",
+			want: "github.com/foo/bar/vendor/github.com/cloudprober/cloudprober/",
+		},
+		{
+			name: "unexpected",
+			fn:   "main.main",
+			want: def,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, basePackageFromFunc(tt.fn, def))
+		})
+	}
+
+	// Verify that basePackage is set correctly at init time, and that it's
+	// trimmed from the logged function names.
+	assert.Equal(t, def, basePackage)
+	src := &slog.Source{Function: basePackage + "probes/browser.(*Probe).prepareCommand"}
+	replaceAttrs(nil, slog.Any(slog.SourceKey, src))
+	assert.Equal(t, "probes/browser.(*Probe).prepareCommand", src.Function)
+}
