@@ -100,8 +100,12 @@ const (
 // logged source file names. We set this in the init() function.
 var basePath string
 
-// We trim this path from the logged source function name.
-const basePackage = "github.com/cloudprober/cloudprober/"
+// basePackage is the cloudprober module's import path prefix, as it appears in
+// function names, e.g. "github.com/cloudprober/cloudprober/". We trim it from
+// the logged source function names. We set it in the init() function, so that
+// it's correct even when cloudprober is vendored into another module, e.g.
+// "github.com/foo/bar/vendor/github.com/cloudprober/cloudprober/".
+var basePackage = "github.com/cloudprober/cloudprober/"
 
 // defaultWritter overrides the writer used by loggers created without
 // WithWriter. If nil, they write to stderr through an asyncWriter.
@@ -626,7 +630,7 @@ func (l *Logger) Criticalf(format string, args ...interface{}) {
 	l.logAttrs(criticalLevel, 2, fmt.Sprintf(format, args...))
 }
 
-// init initializes basePath. We generally avoid init() but initializing
+// init initializes basePath and basePackage. We generally avoid init() but initializing
 // basePath here, instead of newLogger, makes sense as we support 'nil' logger
 // as well and newLogger will not be called in that case.
 func init() {
@@ -634,4 +638,16 @@ func init() {
 	runtime.Callers(1, pcs[:])
 	frame, _ := runtime.CallersFrames(pcs[:]).Next()
 	basePath = strings.TrimSuffix(frame.File, "logger/logger.go")
+	basePackage = basePackageFromFunc(frame.Function, basePackage)
+}
+
+// basePackageFromFunc returns the import path prefix of the cloudprober
+// module, given the name of a function in this package, e.g.
+// "github.com/foo/bar/vendor/github.com/cloudprober/cloudprober/logger.init.0".
+// It returns def if the prefix can't be determined.
+func basePackageFromFunc(fn, def string) string {
+	if i := strings.LastIndex(fn, "logger.init"); i > 0 {
+		return fn[:i]
+	}
+	return def
 }
