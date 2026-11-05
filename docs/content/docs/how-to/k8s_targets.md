@@ -130,6 +130,10 @@ targets {
 }
 ```
 
+If the load balancer address is a hostname (e.g. on AWS), set
+`resolve_first: true` in HTTP probes. Otherwise they send the request to the
+service name instead of the load balancer.
+
 `address_type` is supported only for services; setting it to `LOAD_BALANCER`
 for other resource types is a config error.
 

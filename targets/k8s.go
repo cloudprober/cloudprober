@@ -145,11 +145,11 @@ func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, 
 		ReEvalSec: proto.Int32(0),
 	}
 
-	ipConfig, err := ipConfig(pb.GetAddressType(), resources)
+	ipc, err := ipConfig(pb.GetAddressType(), resources)
 	if err != nil {
 		return nil, err
 	}
-	conf.Request.IpConfig = ipConfig
+	conf.Request.IpConfig = ipc
 
 	if pb.GetRdsServerOptions() != nil {
 		conf.ServerOptions = pb.GetRdsServerOptions()
