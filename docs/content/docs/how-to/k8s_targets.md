@@ -113,6 +113,26 @@ You can filter k8s resources using the following options:
   }
   ```
 
+### Target Address
+
+By default, services targets use the service's ClusterIP. To probe a service
+the way external clients reach it, set `address_type: LOAD_BALANCER`. Targets
+then use the service's external load balancer address (the first entry of
+`status.loadBalancer.ingress`: its IP, or its hostname if there is no IP).
+Services without a load balancer address are skipped.
+
+```shell
+targets {
+  k8s {
+    services: "frontend"
+    address_type: LOAD_BALANCER
+  }
+}
+```
+
+`address_type` is supported only for services; setting it to `LOAD_BALANCER`
+for other resource types is a config error.
+
 ### Target Labels
 
 Discovered targets carry the Kubernetes resource's labels, plus a `namespace`

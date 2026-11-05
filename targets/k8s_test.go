@@ -141,3 +141,40 @@ func TestRDSRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestIPConfig(t *testing.T) {
+	tests := []struct {
+		addrType  targetspb.K8STargets_AddressType
+		resources string
+		want      *rdspb.IPConfig
+		wantErr   bool
+	}{
+		{addrType: targetspb.K8STargets_DEFAULT, resources: "services"},
+		{addrType: targetspb.K8STargets_DEFAULT, resources: "pods"},
+		{
+			addrType:  targetspb.K8STargets_LOAD_BALANCER,
+			resources: "services",
+			want:      &rdspb.IPConfig{IpType: rdspb.IPConfig_PUBLIC.Enum()},
+		},
+		{addrType: targetspb.K8STargets_LOAD_BALANCER, resources: "pods", wantErr: true},
+		{addrType: targetspb.K8STargets_LOAD_BALANCER, resources: "ingresses", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s,%s", tt.addrType, tt.resources), func(t *testing.T) {
+			got, err := ipConfig(tt.addrType, tt.resources)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestK8sTargetsAddressTypeError(t *testing.T) {
+	pb := &targetspb.K8STargets{}
+	assert.NoError(t, prototext.Unmarshal([]byte(`pods:"" address_type: LOAD_BALANCER`), pb))
+	_, err := k8sTargets(pb, nil)
+	assert.ErrorContains(t, err, "address_type LOAD_BALANCER")
+}
