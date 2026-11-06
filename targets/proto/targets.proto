@@ -72,6 +72,24 @@ message K8sTargets {
   // Example: ".*-dns", "metrics", ".*-service", etc.
   optional string portFilter = 10;
 
+  enum AddressType {
+    // Resource's default address, e.g. ClusterIP for services.
+    DEFAULT = 0;
+
+    // Resource's external load balancer address, i.e. the first entry of
+    // status.loadBalancer.ingress (IP, or hostname if there is no IP).
+    // Resources without a load balancer address are skipped. Supported only
+    // for services. If the address is a hostname (e.g. on AWS), set
+    // resolve_first: true in HTTP, TCP and DNS probes; gRPC probes don't
+    // support load balancer hostnames yet.
+    LOAD_BALANCER = 1;
+  }
+  // Which address of the resource to use as the target address.
+  // Example:
+  //   services: "frontend"
+  //   address_type: LOAD_BALANCER
+  optional AddressType address_type = 11;
+
   // How often to re-check k8s API servers. Note this field will be irrelevant
   // when (and if) we move to the watch API. Default is 30s.
   optional int32 re_eval_sec = 19;

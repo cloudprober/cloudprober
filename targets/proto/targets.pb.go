@@ -29,6 +29,69 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type K8STargets_AddressType int32
+
+const (
+	// Resource's default address, e.g. ClusterIP for services.
+	K8STargets_DEFAULT K8STargets_AddressType = 0
+	// Resource's external load balancer address, i.e. the first entry of
+	// status.loadBalancer.ingress (IP, or hostname if there is no IP).
+	// Resources without a load balancer address are skipped. Supported only
+	// for services. If the address is a hostname (e.g. on AWS), set
+	// resolve_first: true in HTTP, TCP and DNS probes; gRPC probes don't
+	// support load balancer hostnames yet.
+	K8STargets_LOAD_BALANCER K8STargets_AddressType = 1
+)
+
+// Enum value maps for K8STargets_AddressType.
+var (
+	K8STargets_AddressType_name = map[int32]string{
+		0: "DEFAULT",
+		1: "LOAD_BALANCER",
+	}
+	K8STargets_AddressType_value = map[string]int32{
+		"DEFAULT":       0,
+		"LOAD_BALANCER": 1,
+	}
+)
+
+func (x K8STargets_AddressType) Enum() *K8STargets_AddressType {
+	p := new(K8STargets_AddressType)
+	*p = x
+	return p
+}
+
+func (x K8STargets_AddressType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (K8STargets_AddressType) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_enumTypes[0].Descriptor()
+}
+
+func (K8STargets_AddressType) Type() protoreflect.EnumType {
+	return &file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_enumTypes[0]
+}
+
+func (x K8STargets_AddressType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Do not use.
+func (x *K8STargets_AddressType) UnmarshalJSON(b []byte) error {
+	num, err := protoimpl.X.UnmarshalJSONEnum(x.Descriptor(), b)
+	if err != nil {
+		return err
+	}
+	*x = K8STargets_AddressType(num)
+	return nil
+}
+
+// Deprecated: Use K8STargets_AddressType.Descriptor instead.
+func (K8STargets_AddressType) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescGZIP(), []int{1, 0}
+}
+
 type RDSTargets struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// RDS server options, for example:
@@ -148,6 +211,12 @@ type K8STargets struct {
 	// otherwise we apply it port numbers.
 	// Example: ".*-dns", "metrics", ".*-service", etc.
 	PortFilter *string `protobuf:"bytes,10,opt,name=portFilter" json:"portFilter,omitempty"`
+	// Which address of the resource to use as the target address.
+	// Example:
+	//
+	//	services: "frontend"
+	//	address_type: LOAD_BALANCER
+	AddressType *K8STargets_AddressType `protobuf:"varint,11,opt,name=address_type,json=addressType,enum=cloudprober.targets.K8STargets_AddressType" json:"address_type,omitempty"`
 	// How often to re-check k8s API servers. Note this field will be irrelevant
 	// when (and if) we move to the watch API. Default is 30s.
 	ReEvalSec        *int32                          `protobuf:"varint,19,opt,name=re_eval_sec,json=reEvalSec" json:"re_eval_sec,omitempty"`
@@ -257,6 +326,13 @@ func (x *K8STargets) GetPortFilter() string {
 		return *x.PortFilter
 	}
 	return ""
+}
+
+func (x *K8STargets) GetAddressType() K8STargets_AddressType {
+	if x != nil && x.AddressType != nil {
+		return *x.AddressType
+	}
+	return K8STargets_DEFAULT
 }
 
 func (x *K8STargets) GetReEvalSec() int32 {
@@ -825,7 +901,7 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\x12rds_server_options\x18\x01 \x01(\v2).cloudprober.rds.ClientConf.ServerOptionsR\x10rdsServerOptions\x12#\n" +
 	"\rresource_path\x18\x02 \x01(\tR\fresourcePath\x12/\n" +
 	"\x06filter\x18\x03 \x03(\v2\x17.cloudprober.rds.FilterR\x06filter\x126\n" +
-	"\tip_config\x18\x04 \x01(\v2\x19.cloudprober.rds.IPConfigR\bipConfig\"\x8d\x03\n" +
+	"\tip_config\x18\x04 \x01(\v2\x19.cloudprober.rds.IPConfigR\bipConfig\"\x8c\x04\n" +
 	"\n" +
 	"K8sTargets\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12$\n" +
@@ -839,9 +915,13 @@ const file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDes
 	"\n" +
 	"portFilter\x18\n" +
 	" \x01(\tR\n" +
-	"portFilter\x12\x1e\n" +
+	"portFilter\x12N\n" +
+	"\faddress_type\x18\v \x01(\x0e2+.cloudprober.targets.K8sTargets.AddressTypeR\vaddressType\x12\x1e\n" +
 	"\vre_eval_sec\x18\x13 \x01(\x05R\treEvalSec\x12W\n" +
-	"\x12rds_server_options\x18\x14 \x01(\v2).cloudprober.rds.ClientConf.ServerOptionsR\x10rdsServerOptionsB\v\n" +
+	"\x12rds_server_options\x18\x14 \x01(\v2).cloudprober.rds.ClientConf.ServerOptionsR\x10rdsServerOptions\"-\n" +
+	"\vAddressType\x12\v\n" +
+	"\aDEFAULT\x10\x00\x12\x11\n" +
+	"\rLOAD_BALANCER\x10\x01B\v\n" +
 	"\tresources\"\xa5\x01\n" +
 	"\n" +
 	"DNSOptions\x12\x16\n" +
@@ -888,43 +968,46 @@ func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc
 	return file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDescData
 }
 
+var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes = []any{
-	(*RDSTargets)(nil),                     // 0: cloudprober.targets.RDSTargets
-	(*K8STargets)(nil),                     // 1: cloudprober.targets.K8sTargets
-	(*DNSOptions)(nil),                     // 2: cloudprober.targets.DNSOptions
-	(*TargetsDef)(nil),                     // 3: cloudprober.targets.TargetsDef
-	(*DummyTargets)(nil),                   // 4: cloudprober.targets.DummyTargets
-	(*GlobalTargetsOptions)(nil),           // 5: cloudprober.targets.GlobalTargetsOptions
-	(*proto.ClientConf_ServerOptions)(nil), // 6: cloudprober.rds.ClientConf.ServerOptions
-	(*proto1.Filter)(nil),                  // 7: cloudprober.rds.Filter
-	(*proto1.IPConfig)(nil),                // 8: cloudprober.rds.IPConfig
-	(*proto3.TargetsConf)(nil),             // 9: cloudprober.targets.gce.TargetsConf
-	(*proto4.TargetsConf)(nil),             // 10: cloudprober.targets.file.TargetsConf
-	(*proto2.Endpoint)(nil),                // 11: cloudprober.targets.Endpoint
-	(*proto3.GlobalOptions)(nil),           // 12: cloudprober.targets.gce.GlobalOptions
-	(*proto5.Options)(nil),                 // 13: cloudprober.targets.lameduck.Options
+	(K8STargets_AddressType)(0),            // 0: cloudprober.targets.K8sTargets.AddressType
+	(*RDSTargets)(nil),                     // 1: cloudprober.targets.RDSTargets
+	(*K8STargets)(nil),                     // 2: cloudprober.targets.K8sTargets
+	(*DNSOptions)(nil),                     // 3: cloudprober.targets.DNSOptions
+	(*TargetsDef)(nil),                     // 4: cloudprober.targets.TargetsDef
+	(*DummyTargets)(nil),                   // 5: cloudprober.targets.DummyTargets
+	(*GlobalTargetsOptions)(nil),           // 6: cloudprober.targets.GlobalTargetsOptions
+	(*proto.ClientConf_ServerOptions)(nil), // 7: cloudprober.rds.ClientConf.ServerOptions
+	(*proto1.Filter)(nil),                  // 8: cloudprober.rds.Filter
+	(*proto1.IPConfig)(nil),                // 9: cloudprober.rds.IPConfig
+	(*proto3.TargetsConf)(nil),             // 10: cloudprober.targets.gce.TargetsConf
+	(*proto4.TargetsConf)(nil),             // 11: cloudprober.targets.file.TargetsConf
+	(*proto2.Endpoint)(nil),                // 12: cloudprober.targets.Endpoint
+	(*proto3.GlobalOptions)(nil),           // 13: cloudprober.targets.gce.GlobalOptions
+	(*proto5.Options)(nil),                 // 14: cloudprober.targets.lameduck.Options
 }
 var file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs = []int32{
-	6,  // 0: cloudprober.targets.RDSTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
-	7,  // 1: cloudprober.targets.RDSTargets.filter:type_name -> cloudprober.rds.Filter
-	8,  // 2: cloudprober.targets.RDSTargets.ip_config:type_name -> cloudprober.rds.IPConfig
-	6,  // 3: cloudprober.targets.K8sTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
-	9,  // 4: cloudprober.targets.TargetsDef.gce_targets:type_name -> cloudprober.targets.gce.TargetsConf
-	0,  // 5: cloudprober.targets.TargetsDef.rds_targets:type_name -> cloudprober.targets.RDSTargets
-	10, // 6: cloudprober.targets.TargetsDef.file_targets:type_name -> cloudprober.targets.file.TargetsConf
-	1,  // 7: cloudprober.targets.TargetsDef.k8s:type_name -> cloudprober.targets.K8sTargets
-	4,  // 8: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
-	11, // 9: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
-	2,  // 10: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
-	6,  // 11: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
-	12, // 12: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
-	13, // 13: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	7,  // 0: cloudprober.targets.RDSTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
+	8,  // 1: cloudprober.targets.RDSTargets.filter:type_name -> cloudprober.rds.Filter
+	9,  // 2: cloudprober.targets.RDSTargets.ip_config:type_name -> cloudprober.rds.IPConfig
+	0,  // 3: cloudprober.targets.K8sTargets.address_type:type_name -> cloudprober.targets.K8sTargets.AddressType
+	7,  // 4: cloudprober.targets.K8sTargets.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
+	10, // 5: cloudprober.targets.TargetsDef.gce_targets:type_name -> cloudprober.targets.gce.TargetsConf
+	1,  // 6: cloudprober.targets.TargetsDef.rds_targets:type_name -> cloudprober.targets.RDSTargets
+	11, // 7: cloudprober.targets.TargetsDef.file_targets:type_name -> cloudprober.targets.file.TargetsConf
+	2,  // 8: cloudprober.targets.TargetsDef.k8s:type_name -> cloudprober.targets.K8sTargets
+	5,  // 9: cloudprober.targets.TargetsDef.dummy_targets:type_name -> cloudprober.targets.DummyTargets
+	12, // 10: cloudprober.targets.TargetsDef.endpoint:type_name -> cloudprober.targets.Endpoint
+	3,  // 11: cloudprober.targets.TargetsDef.dns_options:type_name -> cloudprober.targets.DNSOptions
+	7,  // 12: cloudprober.targets.GlobalTargetsOptions.rds_server_options:type_name -> cloudprober.rds.ClientConf.ServerOptions
+	13, // 13: cloudprober.targets.GlobalTargetsOptions.global_gce_targets_options:type_name -> cloudprober.targets.gce.GlobalOptions
+	14, // 14: cloudprober.targets.GlobalTargetsOptions.lame_duck_options:type_name -> cloudprober.targets.lameduck.Options
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() }
@@ -953,13 +1036,14 @@ func file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_init() 
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc), len(file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_goTypes,
 		DependencyIndexes: file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_depIdxs,
+		EnumInfos:         file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_enumTypes,
 		MessageInfos:      file_github_com_cloudprober_cloudprober_targets_proto_targets_proto_msgTypes,
 	}.Build()
 	File_github_com_cloudprober_cloudprober_targets_proto_targets_proto = out.File

@@ -121,6 +121,18 @@ func rdsRequest(resources, nameF, portFilter string) *rdspb.ListResourcesRequest
 	return req
 }
 
+// ipConfig maps address_type to the RDS request's IP config. The services
+// resolver returns the load balancer address for IP type PUBLIC.
+func ipConfig(addrType targetspb.K8STargets_AddressType, resources string) (*rdspb.IPConfig, error) {
+	if addrType != targetspb.K8STargets_LOAD_BALANCER {
+		return nil, nil
+	}
+	if resources != "services" {
+		return nil, fmt.Errorf("targets.k8s: address_type LOAD_BALANCER is supported only for services, not %s", resources)
+	}
+	return &rdspb.IPConfig{IpType: rdspb.IPConfig_PUBLIC.Enum()}, nil
+}
+
 func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, error) {
 	pc, resources, nameF := parseConfig(pb)
 	if resources == "" {
@@ -132,6 +144,12 @@ func k8sTargets(pb *targetspb.K8STargets, l *logger.Logger) (*rdsclient.Client, 
 		// No caching in RDS client, but server already caches.
 		ReEvalSec: proto.Int32(0),
 	}
+
+	ipc, err := ipConfig(pb.GetAddressType(), resources)
+	if err != nil {
+		return nil, err
+	}
+	conf.Request.IpConfig = ipc
 
 	if pb.GetRdsServerOptions() != nil {
 		conf.ServerOptions = pb.GetRdsServerOptions()
