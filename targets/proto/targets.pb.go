@@ -38,7 +38,8 @@ const (
 	// status.loadBalancer.ingress (IP, or hostname if there is no IP).
 	// Resources without a load balancer address are skipped. Supported only
 	// for services. If the address is a hostname (e.g. on AWS), set
-	// resolve_first: true in HTTP probes.
+	// resolve_first: true in HTTP, TCP and DNS probes; gRPC probes don't
+	// support load balancer hostnames yet.
 	K8STargets_LOAD_BALANCER K8STargets_AddressType = 1
 )
 
