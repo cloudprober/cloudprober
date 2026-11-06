@@ -343,6 +343,11 @@ func TestEndpointResolve(t *testing.T) {
 			wantIP: "10.10.3.4",
 		},
 		{
+			name:   "use_host_label",
+			ep:     Endpoint{Name: "host0", Labels: map[string]string{HostLabel: "host1"}},
+			wantIP: "10.10.3.4",
+		},
+		{
 			name:      "name_override",
 			ep:        Endpoint{Name: "host0"},
 			opts:      []ResolverOption{WithNameOverride("host2")},

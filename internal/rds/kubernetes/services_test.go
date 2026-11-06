@@ -265,6 +265,7 @@ func TestSvcHostLabel(t *testing.T) {
 	for _, svc := range []*serviceInfo{
 		testServiceInfo("svcIP", "ns", "10.1.1.1", "192.16.16.199", "", map[string]string{"app": "a"}, []int{80}),
 		testServiceInfo("svcHost", "ns", "10.1.1.2", "", "lb.test.com", map[string]string{"app": "b"}, []int{80, 443}),
+		testServiceInfo("svcHost1", "ns", "10.1.1.3", "", "lb1.test.com", map[string]string{"app": "c"}, []int{80}),
 	} {
 		rkey := resourceKey{svc.Metadata.Namespace, svc.Metadata.Name}
 		sl.keys = append(sl.keys, rkey)
@@ -283,6 +284,7 @@ func TestSvcHostLabel(t *testing.T) {
 		"svcIP":       {"app": "a", "namespace": "ns"},
 		"svcHost_80":  {"app": "b", "namespace": "ns", "__cp_host__": "lb.test.com"},
 		"svcHost_443": {"app": "b", "namespace": "ns", "__cp_host__": "lb.test.com"},
+		"svcHost1":    {"app": "c", "namespace": "ns", "__cp_host__": "lb1.test.com"},
 	}, got)
 
 	// Shared object labels are not modified.

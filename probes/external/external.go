@@ -187,9 +187,9 @@ func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
 	}
 
 	if p.labelKeys["address"] {
-		addr, err := p.opts.Targets.Resolve(ep.Name, p.opts.IPVersion)
+		addr, err := ep.Resolve(p.opts.IPVersion, p.opts.Targets)
 		if err != nil {
-			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", ep.Name, p.opts.IPVersion, err)
+			p.l.Warningf("Resolving target %v (ip_version: %v) failed: %v ", ep.Name, p.opts.IPVersion, err)
 		} else if !addr.IsUnspecified() {
 			labels["address"] = addr.String()
 		}

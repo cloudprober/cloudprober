@@ -237,7 +237,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	start := time.Now()
-	err := p.connectAndHandshake(ctx, addr, target.Name, result)
+	err := p.connectAndHandshake(ctx, addr, target.Host(), result)
 	latency := time.Since(start)
 
 	if p.opts.NegativeTest {
