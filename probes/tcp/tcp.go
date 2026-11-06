@@ -207,7 +207,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	result.total++
 
-	host := target.Name
+	host := target.Host()
 	ipLabel := ""
 
 	resolveFirst := false

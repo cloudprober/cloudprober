@@ -76,13 +76,10 @@ func (p *Probe) schemeForTarget(target endpoint.Endpoint) string {
 }
 
 func hostForTarget(target endpoint.Endpoint) string {
-	for _, label := range []string{"fqdn", "__cp_host__"} {
-		if target.Labels[label] != "" {
-			return handleIPv6(target.Labels[label])
-		}
+	if fqdn := target.Labels["fqdn"]; fqdn != "" {
+		return handleIPv6(fqdn)
 	}
-
-	return handleIPv6(target.Name)
+	return handleIPv6(target.Host())
 }
 
 func pathForTarget(target endpoint.Endpoint, probeURL string) string {

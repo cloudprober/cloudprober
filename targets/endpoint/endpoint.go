@@ -112,6 +112,21 @@ func EndpointsFromNames(names []string) []Endpoint {
 	return result
 }
 
+// HostLabel is the label that, if set, specifies the host to connect to for
+// the endpoint, instead of its name. It's set for targets specified as URLs,
+// and for discovered resources whose address is a hostname rather than an IP.
+const HostLabel = "__cp_host__"
+
+// Host returns the host to connect to for the endpoint if it doesn't have an
+// IP address (or isn't being resolved first): the value of HostLabel if set,
+// otherwise the endpoint name.
+func (ep *Endpoint) Host() string {
+	if h := ep.Labels[HostLabel]; h != "" {
+		return h
+	}
+	return ep.Name
+}
+
 // Dst return the "dst" label for the endpoint
 func (ep *Endpoint) Dst() string {
 	if ep.Port == 0 {
@@ -206,7 +221,7 @@ func FromProtoMessage(endpointspb []*endpointpb.Endpoint) ([]Endpoint, error) {
 				ep.Labels = make(map[string]string)
 			}
 			ep.Labels["__cp_scheme__"] = scheme
-			ep.Labels["__cp_host__"] = host
+			ep.Labels[HostLabel] = host
 			ep.Labels["__cp_path__"] = path
 
 			if ep.Port == 0 {

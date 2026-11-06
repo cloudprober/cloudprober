@@ -414,3 +414,21 @@ func TestOnDemandRefresh(t *testing.T) {
 	runCount++
 	tp.verifyRequestResponse(t, runCount, 0, 0)
 }
+
+func TestResolveNonResourceName(t *testing.T) {
+	client := &Client{
+		cache: map[string]*cacheRecord{"testR1": {ipStr: ""}},
+		resolver: dnsRes.New(dnsRes.WithResolveFunc(func(_ context.Context, network, name string) ([]net.IP, error) {
+			return testNameToIP[name+network], nil
+		})),
+	}
+
+	// A name that is not a resource is resolved using DNS.
+	ip, err := client.Resolve("testR3.test.com", 4)
+	assert.NoError(t, err)
+	assert.Equal(t, "10.1.1.2", ip.String())
+
+	// A resource without an IP is still an error.
+	_, err = client.Resolve("testR1", 0)
+	assert.ErrorContains(t, err, "no IP address for the resource")
+}

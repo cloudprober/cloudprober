@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	pb "github.com/cloudprober/cloudprober/internal/rds/proto"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -256,5 +257,41 @@ func TestParseSvcResourceList(t *testing.T) {
 		if !reflect.DeepEqual(gotPorts, svc.ports) {
 			t.Errorf("%s service ports: got=%v, want=%v", name, gotPorts, svc.ports)
 		}
+	}
+}
+
+func TestSvcHostLabel(t *testing.T) {
+	sl := &servicesLister{cache: make(map[resourceKey]*serviceInfo)}
+	for _, svc := range []*serviceInfo{
+		testServiceInfo("svcIP", "ns", "10.1.1.1", "192.16.16.199", "", map[string]string{"app": "a"}, []int{80}),
+		testServiceInfo("svcHost", "ns", "10.1.1.2", "", "lb.test.com", map[string]string{"app": "b"}, []int{80, 443}),
+	} {
+		rkey := resourceKey{svc.Metadata.Namespace, svc.Metadata.Name}
+		sl.keys = append(sl.keys, rkey)
+		sl.cache[rkey] = svc
+	}
+
+	req := &pb.ListResourcesRequest{IpConfig: &pb.IPConfig{IpType: pb.IPConfig_PUBLIC.Enum()}}
+	results, err := sl.listResources(req)
+	assert.NoError(t, err)
+
+	got := map[string]map[string]string{}
+	for _, res := range results {
+		got[res.GetName()] = res.GetLabels()
+	}
+	assert.Equal(t, map[string]map[string]string{
+		"svcIP":       {"app": "a", "namespace": "ns"},
+		"svcHost_80":  {"app": "b", "namespace": "ns", "__cp_host__": "lb.test.com"},
+		"svcHost_443": {"app": "b", "namespace": "ns", "__cp_host__": "lb.test.com"},
+	}, got)
+
+	// Shared object labels are not modified.
+	assert.NotContains(t, sl.cache[resourceKey{"ns", "svcHost"}].Metadata.Labels, "__cp_host__")
+
+	// With the default IP type, there is no host label.
+	results, err = sl.listResources(&pb.ListResourcesRequest{})
+	assert.NoError(t, err)
+	for _, res := range results {
+		assert.NotContains(t, res.GetLabels(), "__cp_host__", res.GetName())
 	}
 }

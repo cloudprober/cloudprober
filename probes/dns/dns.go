@@ -291,7 +291,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	result.total.IncBy(int64(p.c.GetRequestsPerProbe()))
 
 	ipLabel := ""
-	fullTarget := net.JoinHostPort(target.Name, strconv.Itoa(port))
+	fullTarget := net.JoinHostPort(target.Host(), strconv.Itoa(port))
 
 	resolveFirst := false
 	if p.c.ResolveFirst != nil {

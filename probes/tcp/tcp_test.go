@@ -51,7 +51,7 @@ func testDialContext(ds *dialState) func(ctx context.Context, network, addr stri
 
 func TestRunProbe(t *testing.T) {
 	tests := []struct {
-		desc, addr             string
+		desc, addr, hostLabel  string
 		ipVersion              int
 		wantNetwork, wantAddr  string
 		wantSuccess, wantTotal int64
@@ -70,6 +70,15 @@ func TestRunProbe(t *testing.T) {
 			ipVersion:   4,
 			wantNetwork: "tcp4",
 			wantAddr:    "test.com:81",
+			wantSuccess: 1,
+			wantTotal:   1,
+		},
+		{
+			desc:        "host-label",
+			addr:        "frontend:80",
+			hostLabel:   "lb.test.com",
+			wantNetwork: "tcp",
+			wantAddr:    "lb.test.com:80",
 			wantSuccess: 1,
 			wantTotal:   1,
 		},
@@ -100,7 +109,11 @@ func TestRunProbe(t *testing.T) {
 			ds := &dialState{}
 			p.dialContext = testDialContext(ds)
 
-			runReq := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: host, Port: port}}
+			ep := endpoint.Endpoint{Name: host, Port: port}
+			if test.hostLabel != "" {
+				ep.Labels = map[string]string{endpoint.HostLabel: test.hostLabel}
+			}
+			runReq := &sched.RunProbeForTargetRequest{Target: ep}
 			p.runProbe(context.Background(), runReq)
 
 			if ds.network != test.wantNetwork {

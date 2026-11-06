@@ -100,6 +100,12 @@ func TestKey(t *testing.T) {
 	}
 }
 
+func TestEndpointHost(t *testing.T) {
+	assert.Equal(t, "ep-1", (&Endpoint{Name: "ep-1"}).Host())
+	assert.Equal(t, "ep-1", (&Endpoint{Name: "ep-1", Labels: map[string]string{HostLabel: ""}}).Host())
+	assert.Equal(t, "lb.example.com", (&Endpoint{Name: "ep-1", Labels: map[string]string{HostLabel: "lb.example.com"}}).Host())
+}
+
 func TestEndpointDst(t *testing.T) {
 	tests := []struct {
 		ep   Endpoint
