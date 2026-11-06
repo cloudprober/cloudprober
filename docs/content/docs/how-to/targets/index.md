@@ -162,7 +162,7 @@ TODO: Add more details on GCP targets.
 | `port`                          | Port aware probes (HTTP, DNS, TCP, UDP, etc) | If a target has an associated port, for example, a Kubernetes endpoint, it will automatically be used for probing unless a port has been explicitly configured in the probe. |
 | `__cp_path__` or `relative_url` | HTTP                                         | If an explicit relative URL is not set in the config, HTTP probe will use target's `__cp_path__` and `realtive_url` labels if set.                                           |
 | `__cp_host__` or `fqdn`         | HTTP                                         | HTTP probe will use target's `__cp_host__` and `fqdn` labels as URL-host and Host header if set and if Host header has not been configured explicitly.                       |
-| `__cp_host__`                   | TCP, DNS, gRPC, ping, UDP                    | If the target has no IP address, these probes connect to (or resolve) the target's `__cp_host__` label instead of its name.                                                  |
+| `__cp_host__`                   | TCP, DNS, gRPC, ping, UDP, SQL (PostgreSQL)  | If the target has no IP address, these probes connect to (or resolve) the target's `__cp_host__` label instead of its name.                                                  |
 | `__cp_scheme__`                 | HTTP                                         | HTTP probe will use target's `__cp_scheme__` label as HTTP URL scheme (http or https) header if available and if scheme has not been configured explicitly.                  |
 
 ## Metrics

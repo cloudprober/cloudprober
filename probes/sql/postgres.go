@@ -89,7 +89,7 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 			return nil, fmt.Errorf("connection_string must be in key/value form and must not specify a host when the probe has a target; remove the host or use dummy_targets")
 		}
 
-		host := target.Name
+		host := target.Host()
 		// Dial the target's IP if the targets provider supplies one (e.g. k8s,
 		// rds). Such target names are often not resolvable over DNS.
 		if target.IP != nil {
@@ -135,8 +135,8 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		// handshake, so default it to the host we verify against.
 		tlsCfg := p.tlsConfig.Clone()
 		if tlsCfg.ServerName == "" {
-			if target.Name != "" {
-				tlsCfg.ServerName = target.Name
+			if target.Host() != "" {
+				tlsCfg.ServerName = target.Host()
 			} else {
 				tlsCfg.ServerName = cfg.Host
 			}
@@ -147,9 +147,9 @@ func (p *Probe) pgConnConfig(target endpoint.Endpoint) (*pgx.ConnConfig, error) 
 		// We dialed the target's IP above, so pgx derived TLS ServerName from
 		// the IP too; certificate verification must run against the target's
 		// name instead.
-		setServerName(cfg.TLSConfig, target.Name)
+		setServerName(cfg.TLSConfig, target.Host())
 		for _, fb := range cfg.Fallbacks {
-			setServerName(fb.TLSConfig, target.Name)
+			setServerName(fb.TLSConfig, target.Host())
 		}
 	}
 

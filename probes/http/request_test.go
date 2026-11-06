@@ -784,10 +784,12 @@ func TestResolveFirst(t *testing.T) {
 func TestResolveFirstHostLabelRDS(t *testing.T) {
 	lr := func(context.Context, *rdspb.ListResourcesRequest) (*rdspb.ListResourcesResponse, error) {
 		return &rdspb.ListResourcesResponse{Resources: []*rdspb.Resource{{
-			Name:   proto.String("frontend"),
-			Ip:     proto.String("localhost"),
+			Name: proto.String("frontend"),
+			// A hostname, so the target has no IP. The label is an IP
+			// literal to avoid depending on real DNS.
+			Ip:     proto.String("lb.example.com"),
 			Port:   proto.Int32(80),
-			Labels: map[string]string{endpoint.HostLabel: "localhost"},
+			Labels: map[string]string{endpoint.HostLabel: "127.0.0.1"},
 		}}}, nil
 	}
 	client, err := rdsclient.New(&rdsclientpb.ClientConf{Request: &rdspb.ListResourcesRequest{}, ReEvalSec: proto.Int32(0)}, lr, nil)
@@ -805,5 +807,5 @@ func TestResolveFirstHostLabelRDS(t *testing.T) {
 	req, err := p.httpRequestForTarget(eps[0])
 	assert.NoError(t, err)
 	assert.Equal(t, "http://127.0.0.1:80", req.URL.String())
-	assert.Equal(t, "localhost:80", req.Host)
+	assert.Equal(t, "127.0.0.1:80", req.Host)
 }

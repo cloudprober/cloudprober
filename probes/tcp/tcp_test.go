@@ -344,3 +344,38 @@ func TestNewResultAndMetrics(t *testing.T) {
 		})
 	}
 }
+
+// TestTLSServerNamePerTarget verifies that each target gets its own TLS
+// server name, and that the probe's shared TLS config is not modified.
+func TestTLSServerNamePerTarget(t *testing.T) {
+	sharedCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	p := &Probe{
+		c:         &configpb.ProbeConf{TlsHandshake: proto.Bool(true)},
+		opts:      options.DefaultOptions(),
+		network:   "tcp",
+		tlsConfig: sharedCfg,
+	}
+	p.dialContext = func(context.Context, string, string) (net.Conn, error) {
+		return &net.TCPConn{}, nil
+	}
+	var gotNames []string
+	p.handshakeContext = func(_ context.Context, _ net.Conn, cfg *tls.Config) error {
+		assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion, "shared config not used")
+		gotNames = append(gotNames, cfg.ServerName)
+		return nil
+	}
+
+	for _, host := range []string{"a.example.com", "b.example.com"} {
+		result := &probeResult{connLatency: metrics.NewFloat(0), tlsHandshakeLatency: metrics.NewFloat(0)}
+		assert.NoError(t, p.connectAndHandshake(context.Background(), host+":443", host, result))
+	}
+	assert.Equal(t, []string{"a.example.com", "b.example.com"}, gotNames)
+	assert.Empty(t, sharedCfg.ServerName, "shared config modified")
+
+	// An explicitly configured server name is used for all targets.
+	sharedCfg.ServerName = "configured.example.com"
+	gotNames = nil
+	result := &probeResult{connLatency: metrics.NewFloat(0), tlsHandshakeLatency: metrics.NewFloat(0)}
+	assert.NoError(t, p.connectAndHandshake(context.Background(), "a.example.com:443", "a.example.com", result))
+	assert.Equal(t, []string{"configured.example.com"}, gotNames)
+}
