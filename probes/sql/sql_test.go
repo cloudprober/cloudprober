@@ -150,6 +150,12 @@ func TestInit(t *testing.T) {
 			},
 			wantQuery: "SELECT 1",
 		},
+		{
+			name: "mssql flavor",
+			conf: &configpb.ProbeConf{
+				Flavor: configpb.ProbeConf_MSSQL.Enum(),
+			},
+		},
 	}
 
 	for _, tt := range tests {

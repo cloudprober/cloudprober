@@ -116,8 +116,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	switch p.c.GetFlavor() {
 	case configpb.ProbeConf_POSTGRES:
 		p.openDB = p.pgOpenDB
+	case configpb.ProbeConf_MSSQL:
+		p.openDB = p.msOpenDB
 	default:
-		return fmt.Errorf("flavor is required; supported flavors: POSTGRES")
+		return fmt.Errorf("flavor is required; supported flavors: POSTGRES, MSSQL")
 	}
 
 	if p.c.GetQuery() != "" && p.c.GetQueryFile() != "" {

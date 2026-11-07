@@ -22,6 +22,7 @@ require (
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jhump/protoreflect v1.17.0
 	github.com/kylelemons/godebug v1.1.0
+	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_model v0.6.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.69.0
@@ -84,6 +85,8 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
+	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
