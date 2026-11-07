@@ -21,6 +21,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -51,7 +52,7 @@ func testDialContext(ds *dialState) func(ctx context.Context, network, addr stri
 
 func TestRunProbe(t *testing.T) {
 	tests := []struct {
-		desc, addr             string
+		desc, addr, hostLabel  string
 		ipVersion              int
 		wantNetwork, wantAddr  string
 		wantSuccess, wantTotal int64
@@ -70,6 +71,15 @@ func TestRunProbe(t *testing.T) {
 			ipVersion:   4,
 			wantNetwork: "tcp4",
 			wantAddr:    "test.com:81",
+			wantSuccess: 1,
+			wantTotal:   1,
+		},
+		{
+			desc:        "host-label",
+			addr:        "frontend:80",
+			hostLabel:   "lb.test.com",
+			wantNetwork: "tcp",
+			wantAddr:    "lb.test.com:80",
 			wantSuccess: 1,
 			wantTotal:   1,
 		},
@@ -100,7 +110,11 @@ func TestRunProbe(t *testing.T) {
 			ds := &dialState{}
 			p.dialContext = testDialContext(ds)
 
-			runReq := &sched.RunProbeForTargetRequest{Target: endpoint.Endpoint{Name: host, Port: port}}
+			ep := endpoint.Endpoint{Name: host, Port: port}
+			if test.hostLabel != "" {
+				ep.Labels = map[string]string{endpoint.HostLabel: test.hostLabel}
+			}
+			runReq := &sched.RunProbeForTargetRequest{Target: ep}
 			p.runProbe(context.Background(), runReq)
 
 			if ds.network != test.wantNetwork {
@@ -330,4 +344,50 @@ func TestNewResultAndMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTLSServerNamePerTarget verifies that each target gets its own TLS
+// server name, and that the probe's shared TLS config is not modified.
+// Targets are probed concurrently, as in a real probe run, so that -race
+// catches writes to shared state.
+func TestTLSServerNamePerTarget(t *testing.T) {
+	sharedCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	p := &Probe{
+		c:         &configpb.ProbeConf{TlsHandshake: proto.Bool(true)},
+		opts:      options.DefaultOptions(),
+		network:   "tcp",
+		tlsConfig: sharedCfg,
+	}
+	p.dialContext = func(context.Context, string, string) (net.Conn, error) {
+		return &net.TCPConn{}, nil
+	}
+	var mu sync.Mutex
+	var gotNames []string
+	p.handshakeContext = func(_ context.Context, _ net.Conn, cfg *tls.Config) error {
+		assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion, "shared config not used")
+		mu.Lock()
+		gotNames = append(gotNames, cfg.ServerName)
+		mu.Unlock()
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	for _, host := range []string{"a.example.com", "b.example.com"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := &probeResult{connLatency: metrics.NewFloat(0), tlsHandshakeLatency: metrics.NewFloat(0)}
+			assert.NoError(t, p.connectAndHandshake(context.Background(), host+":443", host, result))
+		}()
+	}
+	wg.Wait()
+	assert.ElementsMatch(t, []string{"a.example.com", "b.example.com"}, gotNames)
+	assert.Empty(t, sharedCfg.ServerName, "shared config modified")
+
+	// An explicitly configured server name is used for all targets.
+	sharedCfg.ServerName = "configured.example.com"
+	gotNames = nil
+	result := &probeResult{connLatency: metrics.NewFloat(0), tlsHandshakeLatency: metrics.NewFloat(0)}
+	assert.NoError(t, p.connectAndHandshake(context.Background(), "a.example.com:443", "a.example.com", result))
+	assert.Equal(t, []string{"configured.example.com"}, gotNames)
 }

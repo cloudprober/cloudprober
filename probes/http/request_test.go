@@ -28,6 +28,9 @@ import (
 
 	oauthpb "github.com/cloudprober/cloudprober/common/oauth/proto"
 	"github.com/cloudprober/cloudprober/internal/httpreq"
+	rdsclient "github.com/cloudprober/cloudprober/internal/rds/client"
+	rdsclientpb "github.com/cloudprober/cloudprober/internal/rds/client/proto"
+	rdspb "github.com/cloudprober/cloudprober/internal/rds/proto"
 	"github.com/cloudprober/cloudprober/probes/common/sched"
 	configpb "github.com/cloudprober/cloudprober/probes/http/proto"
 	probesconfigpb "github.com/cloudprober/cloudprober/probes/proto"
@@ -773,4 +776,36 @@ func TestResolveFirst(t *testing.T) {
 			assert.Equal(t, tt.want, p.resolveFirst(tt.target), "resolveFirst is not as expected")
 		})
 	}
+}
+
+// TestResolveFirstHostLabelRDS verifies that with resolve_first, an RDS
+// target without an IP, e.g. a k8s service whose load balancer has only a
+// hostname, is resolved using its host label.
+func TestResolveFirstHostLabelRDS(t *testing.T) {
+	lr := func(context.Context, *rdspb.ListResourcesRequest) (*rdspb.ListResourcesResponse, error) {
+		return &rdspb.ListResourcesResponse{Resources: []*rdspb.Resource{{
+			Name: proto.String("frontend"),
+			// A hostname, so the target has no IP. The label is an IP
+			// literal to avoid depending on real DNS.
+			Ip:     proto.String("lb.example.com"),
+			Port:   proto.Int32(80),
+			Labels: map[string]string{endpoint.HostLabel: "127.0.0.1"},
+		}}}, nil
+	}
+	client, err := rdsclient.New(&rdsclientpb.ClientConf{Request: &rdspb.ListResourcesRequest{}, ReEvalSec: proto.Int32(0)}, lr, nil)
+	assert.NoError(t, err)
+
+	opts := options.DefaultOptions()
+	opts.IPVersion = 4
+	opts.Targets = client
+	opts.ProbeConf = &configpb.ProbeConf{ResolveFirst: proto.Bool(true)}
+	p := &Probe{}
+	assert.NoError(t, p.Init("test", opts))
+
+	eps := client.ListEndpoints()
+	assert.Len(t, eps, 1)
+	req, err := p.httpRequestForTarget(eps[0])
+	assert.NoError(t, err)
+	assert.Equal(t, "http://127.0.0.1:80", req.URL.String())
+	assert.Equal(t, "127.0.0.1:80", req.Host)
 }

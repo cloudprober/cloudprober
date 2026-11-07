@@ -685,3 +685,26 @@ func TestSerializeRowsSingleCellSizeCap(t *testing.T) {
 	_, err = serializeRows(rows)
 	assert.ErrorContains(t, err, "query result exceeded")
 }
+
+func TestPgConnConfigHostLabel(t *testing.T) {
+	neutralizePGEnv(t)
+
+	// A target without an IP but with a host label (e.g. a k8s service whose
+	// load balancer has only a hostname) connects to, and verifies TLS
+	// against, the label's host.
+	target := endpoint.Endpoint{
+		Name:   "frontend",
+		Port:   5432,
+		Labels: map[string]string{endpoint.HostLabel: "lb.example.com"},
+	}
+	p := testProbe(t, &configpb.ProbeConf{
+		ConnectionString: proto.String("user=u"),
+	}, nil)
+	p.tlsConfig = &tls.Config{}
+	cfg, err := p.pgConnConfig(target)
+	if err != nil {
+		t.Fatalf("pgConnConfig: %v", err)
+	}
+	assert.Equal(t, "lb.example.com", cfg.Host)
+	assert.Equal(t, "lb.example.com", cfg.TLSConfig.ServerName)
+}

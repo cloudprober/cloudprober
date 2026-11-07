@@ -318,7 +318,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 }
 
 func (p *Probe) connectionString(target endpoint.Endpoint) string {
-	addr := target.Name
+	addr := target.Host()
 
 	if target.IP != nil {
 		if p.opts.IPVersion == 0 || iputils.IPVersion(target.IP) == p.opts.IPVersion {

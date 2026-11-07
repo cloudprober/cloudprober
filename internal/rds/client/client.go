@@ -163,16 +163,22 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 }
 
 // Resolve returns the IP address for the given resource. If no IP address is
-// associated with the resource, an error is returned.
+// associated with the resource, an error is returned. Names that are not
+// resources, e.g. a target's host label, are resolved using DNS.
 func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 	var ip net.IP
 	var ipStr string
 
 	client.mu.RLock()
-	if cr, ok := client.cache[name]; ok {
+	cr, ok := client.cache[name]
+	if ok {
 		ip, ipStr = cr.ip, cr.ipStr
 	}
 	client.mu.RUnlock()
+
+	if !ok {
+		return client.resolver.Resolve(name, ipVer)
+	}
 
 	if ipStr == "" {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)

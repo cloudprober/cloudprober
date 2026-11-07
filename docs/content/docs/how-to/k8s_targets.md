@@ -130,11 +130,9 @@ targets {
 }
 ```
 
-If the load balancer address is a hostname (e.g. on AWS), set
-`resolve_first: true` in HTTP, TCP and DNS probes. Otherwise they connect to
-the service name instead of the load balancer, which inside the cluster may
-silently reach the ClusterIP. gRPC probes don't support load balancer
-hostnames yet.
+If the load balancer address is a hostname (e.g. on AWS), targets also get a
+`__cp_host__` label set to it, and probes connect to that hostname instead of
+the service name.
 
 `address_type` is supported only for services; setting it to `LOAD_BALANCER`
 for other resource types is a config error.

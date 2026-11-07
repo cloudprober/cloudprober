@@ -176,12 +176,13 @@ func TestRun(t *testing.T) {
 }
 
 type testTargets struct {
-	Name string
-	IP   net.IP
+	Name   string
+	IP     net.IP
+	Labels map[string]string
 }
 
 func (tt *testTargets) ListEndpoints() []endpoint.Endpoint {
-	return []endpoint.Endpoint{{Name: tt.Name, IP: tt.IP}}
+	return []endpoint.Endpoint{{Name: tt.Name, IP: tt.IP, Labels: tt.Labels}}
 }
 
 func (tt *testTargets) Resolve(string, int) (net.IP, error) {
@@ -206,6 +207,28 @@ func TestResolveFirst(t *testing.T) {
 	tt.IP = nil
 	t.Run("error", func(t *testing.T) {
 		runProbeAndVerify(t, "resolve_first_error", p, 1, 0)
+	})
+}
+
+func TestHostLabel(t *testing.T) {
+	p := &Probe{}
+	opts := options.DefaultOptions()
+
+	// Mock client only answers queries to 8.8.8.8:53.
+	tt := &testTargets{Name: "foo"}
+	opts.Targets = tt
+	opts.ProbeConf = &configpb.ProbeConf{}
+	if err := p.Init("dns_test_host_label", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+
+	t.Run("no_label", func(t *testing.T) {
+		runProbeAndVerify(t, "host_label_none", p, 1, 0)
+	})
+
+	tt.Labels = map[string]string{endpoint.HostLabel: "8.8.8.8"}
+	t.Run("label", func(t *testing.T) {
+		runProbeAndVerify(t, "host_label", p, 1, 1)
 	})
 }
 

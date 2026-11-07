@@ -776,6 +776,18 @@ func TestConnectionString(t *testing.T) {
 			want: "dns:///192.0.2.1:443",
 		},
 		{
+			name: "host_label",
+			probe: &Probe{
+				c:    &configpb.ProbeConf{},
+				opts: &options.Options{},
+			},
+			target: endpoint.Endpoint{
+				Name:   "frontend",
+				Labels: map[string]string{endpoint.HostLabel: "lb.example.com"},
+			},
+			want: "dns:///lb.example.com:443",
+		},
+		{
 			name: "ip_address_with_version_mismatch",
 			probe: &Probe{
 				c: &configpb.ProbeConf{},

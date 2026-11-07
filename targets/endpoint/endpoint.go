@@ -112,6 +112,21 @@ func EndpointsFromNames(names []string) []Endpoint {
 	return result
 }
 
+// HostLabel is the label that, if set, specifies the host to connect to for
+// the endpoint, instead of its name. It's set for targets specified as URLs,
+// and for discovered resources whose address is a hostname rather than an IP.
+const HostLabel = "__cp_host__"
+
+// Host returns the host to connect to, or to resolve, for the endpoint if it
+// doesn't have an IP address: the value of HostLabel if set, otherwise the
+// endpoint name.
+func (ep *Endpoint) Host() string {
+	if h := ep.Labels[HostLabel]; h != "" {
+		return h
+	}
+	return ep.Name
+}
+
 // Dst return the "dst" label for the endpoint
 func (ep *Endpoint) Dst() string {
 	if ep.Port == 0 {
@@ -133,7 +148,8 @@ func WithNameOverride(nameOverride string) ResolverOption {
 }
 
 // Resolve resolves endpoint to an IP address. If endpoint has an embedded IP
-// address it uses that, otherwise a global reolver is used.
+// address it uses that, otherwise it resolves ep.Host() using the given
+// resolver.
 func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver, opts ...ResolverOption) (net.IP, error) {
 	ro := &resolverOptions{}
 	for _, opt := range opts {
@@ -148,7 +164,7 @@ func (ep *Endpoint) Resolve(ipVersion int, resolver Resolver, opts ...ResolverOp
 		return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s, you may need to set probe's ip_version field to match your targets", ipVersion, ep.IP.String(), ep.Name)
 	}
 
-	name := ep.Name
+	name := ep.Host()
 	if ro.nameOverride != "" {
 		name = ro.nameOverride
 	}
@@ -206,7 +222,7 @@ func FromProtoMessage(endpointspb []*endpointpb.Endpoint) ([]Endpoint, error) {
 				ep.Labels = make(map[string]string)
 			}
 			ep.Labels["__cp_scheme__"] = scheme
-			ep.Labels["__cp_host__"] = host
+			ep.Labels[HostLabel] = host
 			ep.Labels["__cp_path__"] = path
 
 			if ep.Port == 0 {

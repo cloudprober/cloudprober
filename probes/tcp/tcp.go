@@ -161,7 +161,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-func (p *Probe) connectAndHandshake(ctx context.Context, addr, targetName string, result *probeResult) error {
+func (p *Probe) connectAndHandshake(ctx context.Context, addr, hostName string, result *probeResult) error {
 	start := time.Now()
 	conn, err := p.dialContext(ctx, p.network, addr)
 	if err != nil {
@@ -172,20 +172,27 @@ func (p *Probe) connectAndHandshake(ctx context.Context, addr, targetName string
 		result.connLatency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
 		start = time.Now()
 
-		// ServerName is required for TLS handshake
-		if p.tlsConfig == nil {
-			p.tlsConfig = &tls.Config{}
+		// ServerName is required for TLS handshake. Use a per-connection copy
+		// of the config, as the server name differs between targets, and
+		// targets are probed concurrently.
+		tlsConfig := &tls.Config{}
+		if p.tlsConfig != nil {
+			tlsConfig = p.tlsConfig.Clone()
 		}
-		if p.tlsConfig.ServerName == "" {
-			p.tlsConfig.ServerName = targetName
+		if tlsConfig.ServerName == "" {
+			tlsConfig.ServerName = hostName
 		}
 
-		if p.handshakeContext == nil {
-			p.handshakeContext = func(ctx context.Context, nc net.Conn, tlsConfig *tls.Config) error {
+		handshake := p.handshakeContext
+		if handshake == nil {
+			handshake = func(ctx context.Context, nc net.Conn, tlsConfig *tls.Config) error {
 				return tls.Client(nc, tlsConfig).HandshakeContext(ctx)
 			}
 		}
-		if err := p.handshakeContext(ctx, conn, p.tlsConfig); err != nil {
+		if err := handshake(ctx, conn, tlsConfig); err != nil {
+			if conn != nil {
+				conn.Close()
+			}
 			return err
 		}
 		result.tlsHandshakeLatency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())
@@ -207,7 +214,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 
 	result.total++
 
-	host := target.Name
+	host := target.Host()
 	ipLabel := ""
 
 	resolveFirst := false
@@ -237,7 +244,7 @@ func (p *Probe) runProbe(ctx context.Context, runReq *sched.RunProbeForTargetReq
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	start := time.Now()
-	err := p.connectAndHandshake(ctx, addr, target.Name, result)
+	err := p.connectAndHandshake(ctx, addr, target.Host(), result)
 	latency := time.Since(start)
 
 	if p.opts.NegativeTest {
