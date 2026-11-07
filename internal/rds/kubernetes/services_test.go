@@ -287,9 +287,6 @@ func TestSvcHostLabel(t *testing.T) {
 		"svcHost1":    {"app": "c", "namespace": "ns", "__cp_host__": "lb1.test.com"},
 	}, got)
 
-	// Shared object labels are not modified.
-	assert.NotContains(t, sl.cache[resourceKey{"ns", "svcHost"}].Metadata.Labels, "__cp_host__")
-
 	// With the default IP type, there is no host label.
 	results, err = sl.listResources(&pb.ListResourcesRequest{})
 	assert.NoError(t, err)

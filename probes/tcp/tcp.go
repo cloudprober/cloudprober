@@ -190,6 +190,9 @@ func (p *Probe) connectAndHandshake(ctx context.Context, addr, hostName string, 
 			}
 		}
 		if err := handshake(ctx, conn, tlsConfig); err != nil {
+			if conn != nil {
+				conn.Close()
+			}
 			return err
 		}
 		result.tlsHandshakeLatency.AddFloat64(time.Since(start).Seconds() / p.opts.LatencyUnit.Seconds())

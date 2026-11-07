@@ -21,6 +21,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -347,6 +348,8 @@ func TestNewResultAndMetrics(t *testing.T) {
 
 // TestTLSServerNamePerTarget verifies that each target gets its own TLS
 // server name, and that the probe's shared TLS config is not modified.
+// Targets are probed concurrently, as in a real probe run, so that -race
+// catches writes to shared state.
 func TestTLSServerNamePerTarget(t *testing.T) {
 	sharedCfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	p := &Probe{
@@ -358,18 +361,27 @@ func TestTLSServerNamePerTarget(t *testing.T) {
 	p.dialContext = func(context.Context, string, string) (net.Conn, error) {
 		return &net.TCPConn{}, nil
 	}
+	var mu sync.Mutex
 	var gotNames []string
 	p.handshakeContext = func(_ context.Context, _ net.Conn, cfg *tls.Config) error {
 		assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion, "shared config not used")
+		mu.Lock()
 		gotNames = append(gotNames, cfg.ServerName)
+		mu.Unlock()
 		return nil
 	}
 
+	var wg sync.WaitGroup
 	for _, host := range []string{"a.example.com", "b.example.com"} {
-		result := &probeResult{connLatency: metrics.NewFloat(0), tlsHandshakeLatency: metrics.NewFloat(0)}
-		assert.NoError(t, p.connectAndHandshake(context.Background(), host+":443", host, result))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := &probeResult{connLatency: metrics.NewFloat(0), tlsHandshakeLatency: metrics.NewFloat(0)}
+			assert.NoError(t, p.connectAndHandshake(context.Background(), host+":443", host, result))
+		}()
 	}
-	assert.Equal(t, []string{"a.example.com", "b.example.com"}, gotNames)
+	wg.Wait()
+	assert.ElementsMatch(t, []string{"a.example.com", "b.example.com"}, gotNames)
 	assert.Empty(t, sharedCfg.ServerName, "shared config modified")
 
 	// An explicitly configured server name is used for all targets.

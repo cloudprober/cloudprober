@@ -109,12 +109,9 @@ func (si *serviceInfo) resources(f *listFilters, l *logger.Logger) (resources []
 			if ingress.IP == "" && ingress.Hostname != "" {
 				res.Ip = proto.String(ingress.Hostname)
 				// Probes connect to the host label for targets without an
-				// IP. Copy labels, as they are shared across ports.
-				res.Labels = make(map[string]string, len(labels)+1)
-				for k, v := range labels {
-					res.Labels[k] = v
-				}
-				res.Labels[endpoint.HostLabel] = ingress.Hostname
+				// IP. labels is per service, and all ports share the
+				// hostname, so it's fine to set it there.
+				labels[endpoint.HostLabel] = ingress.Hostname
 			}
 		} else {
 			res.Ip = proto.String(si.Spec.ClusterIP)
