@@ -136,7 +136,13 @@ class CloudproberReporter implements Reporter {
 
   onTestEnd(test: TestCase, result: TestResult) {
     if (result.status !== "passed" && result.status !== "skipped") {
-      warning(`Test "${test.title}" failed with errors: ${JSON.stringify(result.errors)}`);
+      // Only the error messages (and where they happened): the full errors
+      // also carry the stack and a code snippet, all with ANSI color codes.
+      const errors = result.errors.map((e) => {
+        const msg = (e.message ?? e.value ?? "").replace(ansiRe, "").trimEnd();
+        return e.location ? `${msg} (at ${e.location.file}:${e.location.line})` : msg;
+      });
+      warning(`Test "${test.title}" failed with errors: ${JSON.stringify(errors)}`);
     }
     {{ if not .DisableTestMetrics }}
     print(`test_status{${testLabels(test)},status="${result.status}"} 1`);

@@ -236,12 +236,13 @@ func TestRunProbeInternalError(t *testing.T) {
 	// Stub npx: ignore args, emit Playwright's missing-browser error to stderr,
 	// exit non-zero. The stderr line mirrors the real shape observed in
 	// production -- the cloudprober reporter's onTestEnd writes
-	// `WARNING Test "..." failed with errors: <JSON>` to stderr, and
-	// JSON.stringify collapses the error's newlines to \n so it's a single line.
+	// `WARNING Test "..." failed with errors: <JSON array of messages>` to
+	// stderr, and JSON.stringify collapses the newlines to \n so it's a single
+	// line.
 	npx := filepath.Join(dir, "npx")
 	script := `#!/bin/sh
 cat >&2 <<'EOF'
-WARNING Test "[Smoke] example homepage loads" failed with errors: [{"message":"Error: browserType.launch: Executable doesn't exist at /playwright/.browsers/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell\n Please run the following command to download new browsers:\n npx playwright install"}]
+WARNING Test "[Smoke] example homepage loads" failed with errors: ["Error: browserType.launch: Executable doesn't exist at /playwright/.browsers/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell\n Please run the following command to download new browsers:\n npx playwright install"]
 EOF
 exit 1
 `

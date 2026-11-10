@@ -35,6 +35,7 @@ const apiOk = { t: "stepEnd", category: "pw:api", error: undefined };
 const apiErr = { t: "stepEnd", category: "pw:api", error: { message: "boom" } };
 const hookBegin = { t: "stepBegin", category: "hook" };
 const end = (status) => ({ t: "end", status });
+const testEnd = (status, errors) => ({ t: "testEnd", status, errors });
 
 // test.step events. The same step object must be passed to its begin and end
 // events (as Playwright does), so these take the step object.
@@ -88,6 +89,21 @@ const scenarios = [
     wantSentinel: false,
     wantOutput: ['WARNING Test step "hung step" of test "t1" was still running when the test run ended'],
   },
+  // A failed test logs only its error messages, without ANSI codes, the
+  // stack or the code snippet.
+  {
+    name: "test_failed_errors",
+    events: [testEnd("failed", [{
+      message: "\x1b[31mError: page.goto: net::ERR_NAME_NOT_RESOLVED\x1b[39m\nCall log:\n  - navigating to \"https://example.internal/\"",
+      stack: "Error: page.goto: ...\n    at /tests/a.spec.ts:5:14",
+      snippet: "\x1b[31m> 5 |\x1b[39m await page.goto(url);",
+      location: { file: "/tests/a.spec.ts", line: 5, column: 14 },
+    }, { value: "thrown string" }])],
+    wantSentinel: false,
+    wantOutput: [
+      'WARNING Test "t1" failed with errors: ["Error: page.goto: net::ERR_NAME_NOT_RESOLVED\\nCall log:\\n  - navigating to \\"https://example.internal/\\" (at /tests/a.spec.ts:5)","thrown string"]\n',
+    ],
+  },
   // Worker output: playwright debug logs at DEBUG, the rest at the stream's
   // level, and long lines truncated.
   {
@@ -127,6 +143,8 @@ function runScenario(s) {
         r.onStdOut(e.chunk, test, {});
       } else if (e.t === "stderr") {
         r.onStdErr(e.chunk, test, {});
+      } else if (e.t === "testEnd") {
+        r.onTestEnd(test, { status: e.status, errors: e.errors, duration: 0 });
       } else if (e.t === "end") {
         r.onEnd({ status: e.status });
       }
