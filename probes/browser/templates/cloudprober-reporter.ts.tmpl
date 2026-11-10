@@ -49,6 +49,13 @@ const testLabels= (test: TestCase) => {
     return `${titleLabel}${suiteLabel}${tagsLabel}`;
 }
 
+// errorMessage returns an error's message, without ANSI codes, followed by its
+// causes: e.g. "fetch failed" is caused by "connect ECONNREFUSED ...".
+const errorMessage = (e: TestError): string => {
+  const msg = (e.message ?? e.value ?? "").replace(ansiRe, "").trimEnd();
+  return e.cause ? `${msg}\nCause: ${errorMessage(e.cause)}` : msg;
+}
+
 class CloudproberReporter implements Reporter {
   // launchStarted / browserReady track how far the browser got before a global
   // timeout, so onEnd can tell a browser-launch failure (an internal error)
@@ -138,7 +145,7 @@ class CloudproberReporter implements Reporter {
       // Only the error messages (and where they happened): the full errors
       // also carry the stack and a code snippet, all with ANSI color codes.
       const errors = result.errors.map((e) => {
-        const msg = (e.message ?? e.value ?? "").replace(ansiRe, "").trimEnd();
+        const msg = errorMessage(e);
         return e.location ? `${msg} (at ${e.location.file}:${e.location.line})` : msg;
       });
       warning(truncate(`Test "${test.title}" failed with errors: ${JSON.stringify(errors)}`));

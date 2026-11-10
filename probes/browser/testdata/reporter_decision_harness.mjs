@@ -89,8 +89,8 @@ const scenarios = [
     wantSentinel: false,
     wantOutput: ['WARNING Test step "hung step" of test "t1" was still running when the test run ended'],
   },
-  // A failed test logs only its error messages, without ANSI codes, the
-  // stack or the code snippet.
+  // A failed test logs only its error messages (and their causes), without
+  // ANSI codes, the stack or the code snippet.
   {
     name: "test_failed_errors",
     events: [testEnd("failed", [{
@@ -98,10 +98,13 @@ const scenarios = [
       stack: "Error: page.goto: ...\n    at /tests/a.spec.ts:5:14",
       snippet: "\x1b[31m> 5 |\x1b[39m await page.goto(url);",
       location: { file: "/tests/a.spec.ts", line: 5, column: 14 },
-    }, { value: "thrown string" }])],
+    }, { value: "thrown string" }, {
+      message: "TypeError: fetch failed",
+      cause: { message: "Error: connect ECONNREFUSED 127.0.0.1:1" },
+    }])],
     wantSentinel: false,
     wantOutput: [
-      'WARNING Test "t1" failed with errors: ["Error: page.goto: net::ERR_NAME_NOT_RESOLVED\\nCall log:\\n  - navigating to \\"https://example.internal/\\" (at /tests/a.spec.ts:5)","thrown string"]\n',
+      'WARNING Test "t1" failed with errors: ["Error: page.goto: net::ERR_NAME_NOT_RESOLVED\\nCall log:\\n  - navigating to \\"https://example.internal/\\" (at /tests/a.spec.ts:5)","thrown string","TypeError: fetch failed\\nCause: Error: connect ECONNREFUSED 127.0.0.1:1"]\n',
     ],
   },
   // A huge error message is truncated.
