@@ -12,8 +12,10 @@ const print = (string: string) => process.stdout.write(string+'\n');
 
 const ansiRe = /\x1b\[[0-9;]*m/g;
 // Cloudprober stops reading stderr on a line longer than 256KB, so we cap
-// relayed lines well below that.
-const maxRelayLineLen = 8192;
+// relayed and error lines well below that.
+const maxLineLen = 8192;
+const truncate = (line: string) =>
+  line.length > maxLineLen ? line.slice(0, maxLineLen) + "... (truncated)" : line;
 // Playwright's own debug logs (enabled through DEBUG=pw:api,pw:browser, etc).
 const pwDebugRe = /^\s*(\S+Z\s+)?pw:\S+ /;
 
@@ -27,10 +29,7 @@ const relay = (log: (string: string) => void, chunk: string|Buffer, test: void|T
     if (line.trim() === "") {
       continue;
     }
-    if (line.length > maxRelayLineLen) {
-      line = line.slice(0, maxRelayLineLen) + "... (truncated)";
-    }
-    (pwDebugRe.test(line) ? debug : log)(prefix+line);
+    (pwDebugRe.test(line) ? debug : log)(prefix+truncate(line));
   }
 }
 
@@ -142,7 +141,7 @@ class CloudproberReporter implements Reporter {
         const msg = (e.message ?? e.value ?? "").replace(ansiRe, "").trimEnd();
         return e.location ? `${msg} (at ${e.location.file}:${e.location.line})` : msg;
       });
-      warning(`Test "${test.title}" failed with errors: ${JSON.stringify(errors)}`);
+      warning(truncate(`Test "${test.title}" failed with errors: ${JSON.stringify(errors)}`));
     }
     {{ if not .DisableTestMetrics }}
     print(`test_status{${testLabels(test)},status="${result.status}"} 1`);

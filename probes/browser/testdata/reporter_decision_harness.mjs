@@ -104,6 +104,13 @@ const scenarios = [
       'WARNING Test "t1" failed with errors: ["Error: page.goto: net::ERR_NAME_NOT_RESOLVED\\nCall log:\\n  - navigating to \\"https://example.internal/\\" (at /tests/a.spec.ts:5)","thrown string"]\n',
     ],
   },
+  // A huge error message is truncated.
+  {
+    name: "test_failed_long_error",
+    events: [testEnd("failed", [{ message: "y".repeat(300000) }])],
+    wantSentinel: false,
+    wantOutput: ['WARNING Test "t1" failed with errors: ["' + "y".repeat(8192 - 'Test "t1" failed with errors: ["'.length) + '... (truncated)\n'],
+  },
   // Worker output: playwright debug logs at DEBUG, the rest at the stream's
   // level, and long lines truncated.
   {
