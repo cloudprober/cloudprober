@@ -17,6 +17,7 @@ package probestatus
 import (
 	"context"
 	"html"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -25,6 +26,8 @@ import (
 	"time"
 
 	configpb "github.com/cloudprober/cloudprober/internal/surfacers/probestatus/proto"
+	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/logger/logstore"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/state"
 	"github.com/cloudprober/cloudprober/surfacers/options"
@@ -469,4 +472,32 @@ func TestStatusPageMaxDuration(t *testing.T) {
 	}
 	ps.writeData(hw)
 	assert.Regexp(t, `var maxDurationSec = +6000 *;`, hw.w.(*httptest.ResponseRecorder).Body.String())
+}
+
+func TestStatusPageLogsLinks(t *testing.T) {
+	defer logger.SetDefaultLogStore(logger.DefaultLogStore())
+
+	render := func() string {
+		ps := newTestSurfacer()
+		recordRatio(t, ps, "p 1&2", "t1", 10, 10)
+		ps.probeNames = []string{"p 1&2"}
+		hw := &httpWriter{
+			w: httptest.NewRecorder(),
+			r: httptest.NewRequest("", "/", nil),
+		}
+		ps.writeData(hw)
+		return hw.w.(*httptest.ResponseRecorder).Body.String()
+	}
+
+	t.Run("log_store_enabled", func(t *testing.T) {
+		logger.SetDefaultLogStore(logstore.New(1<<20, slog.LevelInfo))
+		got := render()
+		// One link on the summary line and one by the probe's table.
+		assert.Equal(t, 2, strings.Count(got, `<a class="logs-link" href="logs?source=p%201%262">logs</a>`), got)
+	})
+
+	t.Run("log_store_disabled", func(t *testing.T) {
+		logger.SetDefaultLogStore(nil)
+		assert.NotContains(t, render(), "logs-link")
+	})
 }
