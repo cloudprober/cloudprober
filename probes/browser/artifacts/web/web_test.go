@@ -223,7 +223,7 @@ func TestServeArtifacts(t *testing.T) {
 				"/artifacts/{$}",               // global root
 			},
 			expectedBody:      []string{"test", "-", "test", "-", "-"},
-			expectedArtifacts: []string{"/artifacts/", "/artifacts/probe1"},
+			expectedArtifacts: []string{"/artifacts/", "/artifacts/probe1/"},
 			expectError:       false,
 		},
 		{
@@ -239,7 +239,7 @@ func TestServeArtifacts(t *testing.T) {
 			url:               []string{"/artifacts2/probe1/tree/test.txt", "/artifacts2/probe1/"},
 			expectedPattern:   []string{"/artifacts2/probe1/tree/", "/artifacts2/probe1/{$}"},
 			expectedBody:      []string{"test", "-"},
-			expectedArtifacts: []string{"/artifacts2/probe1"},
+			expectedArtifacts: []string{"/artifacts2/probe1/"},
 			expectError:       false,
 		},
 		{
@@ -261,7 +261,7 @@ func TestServeArtifacts(t *testing.T) {
 				"/z/a/{probeName}/{$}",   // handled by global
 			},
 			expectedBody:      []string{"test", "-", "test", "-", "-"},
-			expectedArtifacts: []string{"/x/y/probe1", "/z/a/"},
+			expectedArtifacts: []string{"/x/y/probe1/", "/z/a/"},
 
 			expectError: false,
 		},
@@ -297,6 +297,16 @@ func TestServeArtifacts(t *testing.T) {
 			// Check if the file is served correctly
 			for i, u := range tt.url {
 				verifyWebServerResponse(t, mux, u, http.StatusOK, tt.expectedBody[i])
+			}
+
+			// Artifacts links must serve their page directly: a redirect from
+			// the mux is to an absolute path, which loses any prefix that a
+			// reverse proxy serves cloudprober under.
+			for _, link := range tt.expectedArtifacts {
+				assert.Contains(t, state.ArtifactsURLs(), link)
+				rr := httptest.NewRecorder()
+				mux.ServeHTTP(rr, httptest.NewRequest("GET", link, nil))
+				assert.Equal(t, http.StatusOK, rr.Code, "GET %s, Location: %q", link, rr.Header().Get("Location"))
 			}
 
 			// For global paths, verify the root handler returns styled probe list
