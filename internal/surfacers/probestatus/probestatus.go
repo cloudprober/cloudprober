@@ -497,7 +497,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		probes = v
 	}
 	maxDuration := time.Duration(ps.c.GetTimeseriesSize()) * ps.resolution
-	summaryWin := min(summaryWindow, maxDuration)
+	summaryWin := summaryWindowFor(ps.resolution, maxDuration)
 	graphOpts := graphOptsFromURL(hw.r.URL.Query(), maxDuration, ps.l)
 
 	for _, probeName := range probes {

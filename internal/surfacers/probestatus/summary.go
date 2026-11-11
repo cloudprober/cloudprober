@@ -24,6 +24,18 @@ import (
 // fixed.
 const summaryWindow = 5 * time.Minute
 
+// summaryWindowFor returns the summary window for a timeseries resolution and
+// how far back the timeseries goes. The window is rounded up to whole
+// resolution steps, as computeDelta rounds it down: to nothing at all if the
+// resolution is larger than the window.
+func summaryWindowFor(res, maxDuration time.Duration) time.Duration {
+	win := summaryWindow
+	if res > 0 && win%res != 0 {
+		win += res - win%res
+	}
+	return min(win, maxDuration)
+}
+
 // maxFailingInSummary is how many failing targets a summary line names before
 // it switches to "+N more".
 const maxFailingInSummary = 3
@@ -32,7 +44,9 @@ const maxFailingInSummary = 3
 // status table cells.
 type health int
 
-// Declared from best to worst, so that the worst of several is the max.
+// Ordered so that the worst of several levels is their max, and so that
+// sorting by descending level puts what needs attention first, and what has
+// no data last.
 const (
 	healthNoData health = iota
 	healthOK
@@ -62,7 +76,7 @@ func ratioHealth(total, success int64) health {
 // probeSummary is one probe's line in the status page summary.
 type probeSummary struct {
 	Name        string
-	Health      string
+	Health      health
 	OK, Total   int // Targets that are OK, out of those with data.
 	Failing     []string
 	MoreFailing int
@@ -72,11 +86,7 @@ type probeSummary struct {
 // attention first. Within a health level, probes keep their order. Must be
 // called from the event loop goroutine.
 func (ps *Surfacer) summary(probeNames []string, window time.Duration) []*probeSummary {
-	type entry struct {
-		h health
-		s *probeSummary
-	}
-	var entries []entry
+	var out []*probeSummary
 
 	for _, probeName := range probeNames {
 		probeTS := ps.metrics[probeName]
@@ -84,7 +94,7 @@ func (ps *Surfacer) summary(probeNames []string, window time.Duration) []*probeS
 			continue
 		}
 
-		s, worst := &probeSummary{Name: probeName}, healthNoData
+		s := &probeSummary{Name: probeName}
 		for _, targetName := range ps.probeTargets[probeName] {
 			ts := probeTS[targetName]
 			if ts == nil {
@@ -96,7 +106,7 @@ func (ps *Surfacer) summary(probeNames []string, window time.Duration) []*probeS
 			}
 
 			s.Total++
-			worst = max(worst, h)
+			s.Health = max(s.Health, h)
 			if h == healthOK {
 				s.OK++
 				continue
@@ -107,19 +117,11 @@ func (ps *Surfacer) summary(probeNames []string, window time.Duration) []*probeS
 				s.MoreFailing++
 			}
 		}
-		s.Health = worst.String()
-		entries = append(entries, entry{worst, s})
+		out = append(out, s)
 	}
 
-	// Bad, then warn, then OK, then no data.
-	rank := map[health]int{healthBad: 0, healthWarn: 1, healthOK: 2, healthNoData: 3}
-	sort.SliceStable(entries, func(i, j int) bool {
-		return rank[entries[i].h] < rank[entries[j].h]
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].Health > out[j].Health
 	})
-
-	out := make([]*probeSummary, len(entries))
-	for i, e := range entries {
-		out[i] = e.s
-	}
 	return out
 }
