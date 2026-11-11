@@ -72,6 +72,54 @@ table.status-list td.ratio-bad {
   color: #842029;
 }
 
+/* Status page summary: one line per probe, in a box of its own so that it
+   stands apart from the success ratio tables below it. */
+.summary-card {
+  display: inline-block;
+  min-width: 360px;
+  padding: 4px 16px 10px;
+  margin: 4px 0 24px;
+  background: #f7f9fa;
+  border: 1px solid #dde3e6;
+  border-radius: 6px;
+}
+
+.summary-card h3 {
+  margin: 8px 0;
+}
+
+table.probe-summary {
+  border-collapse: collapse;
+}
+
+table.probe-summary td {
+  padding: 2px 12px 2px 0;
+}
+
+.health-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.health-ok {
+  background: #2e7d32;
+}
+
+.health-warn {
+  background: #f0ad00;
+}
+
+.health-bad {
+  background: #c62828;
+}
+
+.health-nodata {
+  background: #b0b0b0;
+}
+
 .greyed {
   color: grey;
 }
