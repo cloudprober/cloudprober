@@ -15,7 +15,6 @@
 package probestatus
 
 import (
-	"sort"
 	"time"
 )
 
@@ -44,9 +43,7 @@ const maxFailingInSummary = 3
 // status table cells.
 type health int
 
-// Ordered so that the worst of several levels is their max, and so that
-// sorting by descending level puts what needs attention first, and what has
-// no data last.
+// Ordered so that the worst of several levels is their max.
 const (
 	healthNoData health = iota
 	healthOK
@@ -82,9 +79,8 @@ type probeSummary struct {
 	MoreFailing int
 }
 
-// summary returns the summary lines for probeNames, with probes that need
-// attention first. Within a health level, probes keep their order. Must be
-// called from the event loop goroutine.
+// summary returns the summary lines for probeNames, in the same order as the
+// probes' tables below it. Must be called from the event loop goroutine.
 func (ps *Surfacer) summary(probeNames []string, window time.Duration) []*probeSummary {
 	var out []*probeSummary
 
@@ -119,9 +115,5 @@ func (ps *Surfacer) summary(probeNames []string, window time.Duration) []*probeS
 		}
 		out = append(out, s)
 	}
-
-	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].Health > out[j].Health
-	})
 	return out
 }
