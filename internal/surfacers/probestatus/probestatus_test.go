@@ -416,27 +416,27 @@ func TestRatioCell(t *testing.T) {
 		{
 			name:  "all_succeeded",
 			total: 12, success: 12,
-			want: `<td title="12 of 12 succeeded">1.0000</td>`,
+			want: `<td title="12 of 12 succeeded">1.000</td>`,
 		},
 		{
 			name:  "never_rounds_up_to_1",
 			total: 100000, success: 99999,
-			want: `<td class=ratio-warn title="99999 of 100000 succeeded">0.9999</td>`,
+			want: `<td class=ratio-warn title="99999 of 100000 succeeded">0.999</td>`,
 		},
 		{
 			name:  "at_warn_threshold",
 			total: 100, success: 99,
-			want: `<td class=ratio-warn title="99 of 100 succeeded">0.9900</td>`,
+			want: `<td class=ratio-warn title="99 of 100 succeeded">0.990</td>`,
 		},
 		{
 			name:  "below_warn_threshold",
 			total: 12, success: 11,
-			want: `<td class=ratio-bad title="11 of 12 succeeded">0.9166</td>`,
+			want: `<td class=ratio-bad title="11 of 12 succeeded">0.916</td>`,
 		},
 		{
 			name:  "all_failed",
 			total: 12, success: 0,
-			want: `<td class=ratio-bad title="0 of 12 succeeded">0.0000</td>`,
+			want: `<td class=ratio-bad title="0 of 12 succeeded">0.000</td>`,
 		},
 		{
 			name:  "no_probes",
@@ -446,7 +446,7 @@ func TestRatioCell(t *testing.T) {
 		{
 			name:  "stale",
 			total: 12, success: 6, stale: true,
-			want: `<td class="tooltip greyed">0.5000<span class=tooltiptext>Stale value</span></td>`,
+			want: `<td class="tooltip greyed">0.500<span class=tooltiptext>Stale value</span></td>`,
 		},
 	}
 	for _, tt := range tests {
