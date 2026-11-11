@@ -72,6 +72,40 @@ table.status-list td.ratio-bad {
   color: #842029;
 }
 
+/* Status page summary: one line per probe. */
+table.probe-summary {
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+
+table.probe-summary td {
+  padding: 2px 12px 2px 0;
+}
+
+.health-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.health-ok {
+  background: #2e7d32;
+}
+
+.health-warn {
+  background: #f0ad00;
+}
+
+.health-bad {
+  background: #c62828;
+}
+
+.health-nodata {
+  background: #b0b0b0;
+}
+
 .greyed {
   color: grey;
 }

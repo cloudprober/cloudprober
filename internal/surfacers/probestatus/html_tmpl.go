@@ -73,12 +73,26 @@ populateD();
 {{$statusTable := .StatusTable}}
 {{$debugData := .DebugData}}
 
+{{with .Summary}}
+<h3>Summary (last {{$.SummaryWindow}})</h3>
+<table class="probe-summary">
+  {{range .}}
+  <tr>
+    <td><span class="health-dot health-{{.Health}}" title="{{.Health}}"></span></td>
+    <td><a href="#probe-{{.Name}}">{{.Name}}</a></td>
+    <td>{{if .Total}}{{.OK}}/{{.Total}} targets OK{{else}}<span class="greyed">No recent data</span>{{end}}</td>
+    <td>{{range $i, $t := .Failing}}{{if $i}}, {{end}}{{$t}}{{end}}{{if .MoreFailing}} +{{.MoreFailing}} more{{end}}</td>
+  </tr>
+  {{end}}
+</table>
+{{end}}
+
 <h3> Success Ratio </h3>
 <div id="probe-selector" style="background: #E1F6FF; padding: 5px 5px; border-radius: 2px 2px"></div>
 
 {{range $probeName := .ProbeNames}}
 <p>
-  <b>Probe: {{$probeName}}</b><br>
+  <b id="probe-{{$probeName}}">Probe: {{$probeName}}</b><br>
 
   <table class="status-list">
     <tr><td></td>

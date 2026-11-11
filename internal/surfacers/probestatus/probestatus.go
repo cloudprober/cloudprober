@@ -449,12 +449,8 @@ func ratioCell(total, success int64, stale bool) string {
 	}
 
 	class := ""
-	switch {
-	case success == total:
-	case thousandths >= 990:
-		class = " class=ratio-warn"
-	default:
-		class = " class=ratio-bad"
+	if h := ratioHealth(total, success); h == healthWarn || h == healthBad {
+		class = " class=ratio-" + h.String()
 	}
 	return fmt.Sprintf("<td%s title=\"%d of %d succeeded\">%s</td>", class, success, total, text)
 }
@@ -501,6 +497,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		probes = v
 	}
 	maxDuration := time.Duration(ps.c.GetTimeseriesSize()) * ps.resolution
+	summaryWin := min(summaryWindow, maxDuration)
 	graphOpts := graphOptsFromURL(hw.r.URL.Query(), maxDuration, ps.l)
 
 	for _, probeName := range probes {
@@ -530,6 +527,9 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		HeadLinks   template.HTML
 		Title       template.HTML
 		StartTime   string // RFC3339, for Javascript's Date().
+
+		Summary       []*probeSummary
+		SummaryWindow string
 	}{
 		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
 		Durations:   ps.dashDurationsText,
@@ -542,6 +542,9 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		HeadLinks:   resources.HeadLinks(linkPrefix),
 		Title:       resources.PageTitle(ps.c.GetUrl()),
 		StartTime:   ps.startTime.Format(time.RFC3339),
+
+		Summary:       ps.summary(probes, summaryWin),
+		SummaryWindow: shortDur([]time.Duration{summaryWin})[0],
 	})
 	if err != nil {
 		ps.l.Errorf("Error executing probe status template: %v", err)
