@@ -74,6 +74,7 @@ populateD();
 {{$debugData := .DebugData}}
 
 {{with .Summary}}
+<div class="summary-card">
 <h3>Summary (last {{$.SummaryWindow}})</h3>
 <table class="probe-summary">
   {{range .}}
@@ -85,6 +86,7 @@ populateD();
   </tr>
   {{end}}
 </table>
+</div>
 {{end}}
 
 <h3> Success Ratio </h3>
