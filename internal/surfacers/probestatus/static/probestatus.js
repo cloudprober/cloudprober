@@ -167,7 +167,8 @@ function currentRange() {
   const params = new URLSearchParams(location.search);
   let durSec = maxDurationSec;
   if (params.get('graph_duration')) {
-    durSec = parseDuration(params.get('graph_duration')) || maxDurationSec;
+    // The server draws at most maxDurationSec, whatever the URL asks for.
+    durSec = Math.min(parseDuration(params.get('graph_duration')) || maxDurationSec, maxDurationSec);
   }
   let endSec = null;
   const e = parseInt(params.get('graph_endtime'), 10);
@@ -214,6 +215,11 @@ function rangeLabel(r) {
 
 function setupTimePicker() {
   const r = currentRange();
+
+  // The earliest time with data: the process start, or as far back as the
+  // status page keeps data, whichever is later.
+  const nowSec = Date.now() / 1000;
+  const dataStartSec = Math.max(new Date(startTime).getTime() / 1000, nowSec - maxDurationSec);
   const params = new URLSearchParams(location.search);
   const toggle = document.getElementById('tp-toggle');
   const panel = document.getElementById('tp-panel');
@@ -231,8 +237,9 @@ function setupTimePicker() {
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' && !panel.hidden) {
       openPanel(false);
+      toggle.focus();
     }
   });
 
@@ -265,10 +272,7 @@ function setupTimePicker() {
   if (r.endSec !== null) {
     endInput.value = dateToValStr(new Date(r.endSec * 1000)) || '';
   }
-  const min = dateToValStr(new Date(startTime));
-  if (min) {
-    endInput.min = min;
-  }
+  endInput.min = dateToValStr(new Date(dataStartSec * 1000));
   endInput.max = dateToValStr(new Date());
 
   document.getElementById('tp-custom').addEventListener('submit', (e) => {
@@ -281,12 +285,7 @@ function setupTimePicker() {
     }
     let endSec = null;
     if (endInput.value !== '') {
-      const d = new Date(endInput.value);
-      if (isNaN(d.getTime())) {
-        errDiv.textContent = 'Invalid end time.';
-        return;
-      }
-      endSec = d.getTime() / 1000;
+      endSec = new Date(endInput.value).getTime() / 1000;
     }
     setRange(dur || null, endSec);
   });
@@ -294,14 +293,12 @@ function setupTimePicker() {
   // Shift the range back or forward by its own duration. Forward is only
   // useful when the range doesn't already end now, and back only while there
   // is data before the range's start.
-  const nowSec = Date.now() / 1000;
   const endSec = r.endSec === null ? nowSec : r.endSec;
-  const startSec = new Date(startTime).getTime() / 1000;
   const back = document.getElementById('tp-back');
   const fwd = document.getElementById('tp-fwd');
-  const keepDur = params.get('graph_duration') || durationParam(r.durSec);
+  const keepDur = durationParam(r.durSec);
 
-  back.disabled = endSec - r.durSec <= startSec;
+  back.disabled = endSec - r.durSec <= dataStartSec;
   back.addEventListener('click', () => setRange(keepDur, endSec - r.durSec));
   fwd.disabled = r.endSec === null;
   fwd.addEventListener('click', () => setRange(keepDur, endSec + r.durSec));

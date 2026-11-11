@@ -456,3 +456,17 @@ func TestRatioCell(t *testing.T) {
 		})
 	}
 }
+
+// The time picker uses maxDurationSec to bound its quick ranges and its back
+// arrow, so it must be in seconds.
+func TestStatusPageMaxDuration(t *testing.T) {
+	ps := newTestSurfacer() // 100 points at 1m resolution.
+	ps.probeNames = []string{"p1"}
+
+	hw := &httpWriter{
+		w: httptest.NewRecorder(),
+		r: httptest.NewRequest("", "/", nil),
+	}
+	ps.writeData(hw)
+	assert.Regexp(t, `var maxDurationSec = +6000 *;`, hw.w.(*httptest.ResponseRecorder).Body.String())
+}
