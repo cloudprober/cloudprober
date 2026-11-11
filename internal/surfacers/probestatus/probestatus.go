@@ -400,7 +400,7 @@ func (ps *Surfacer) statusTable(probeName string) string {
 
 		gotSomeData := false        // To track if we got some data
 		var noDataFor time.Duration // No data for at least this long
-		tdTmpl := "<td>%.4f</td>"   // Default table cell template
+		stale := false              // Values after a "No Data" cell are stale
 
 		noFurtherData := false
 		maxInterval := time.Since(ts.startTime)
@@ -416,12 +416,12 @@ func (ps *Surfacer) statusTable(probeName string) string {
 			if t == -1 {
 				b.WriteString("<td class=greyed style=font-size:smaller>No Data</td>")
 				noDataFor = td
-				// After no data, ask further values stale.
-				tdTmpl = "<td class=\"tooltip greyed\">%.4f<span class=tooltiptext>Stale value</span></td>"
+				// After no data, mark further values stale.
+				stale = true
 				continue
 			}
 			gotSomeData = true
-			b.WriteString(fmt.Sprintf(tdTmpl, float64(s)/float64(t)))
+			b.WriteString(ratioCell(t, s, stale))
 		}
 
 		// No data for a while, drop this target.
@@ -430,6 +430,32 @@ func (ps *Surfacer) statusTable(probeName string) string {
 		}
 	}
 	return b.String()
+}
+
+// ratioCell returns the table cell for a success ratio. The ratio is shown as
+// a percentage, rounded down, so that anything short of 100% never reads as
+// 100.00%. Cells below 100% are highlighted, unless the value is stale.
+func ratioCell(total, success int64, stale bool) string {
+	if total == 0 {
+		return "<td align=center class=greyed title=\"No probes in this window\">-</td>"
+	}
+
+	hundredths := success * 10000 / total
+	text := fmt.Sprintf("%d.%02d%%", hundredths/100, hundredths%100)
+
+	if stale {
+		return "<td class=\"tooltip greyed\">" + text + "<span class=tooltiptext>Stale value</span></td>"
+	}
+
+	class := ""
+	switch {
+	case success == total:
+	case hundredths >= 9900:
+		class = " class=ratio-warn"
+	default:
+		class = " class=ratio-bad"
+	}
+	return fmt.Sprintf("<td%s title=\"%d of %d succeeded\">%s</td>", class, success, total, text)
 }
 
 func (ps *Surfacer) debugLines(probeName string) string {
