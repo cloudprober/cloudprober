@@ -24,6 +24,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"html"
 	"html/template"
 	"net/http"
 	"strings"
@@ -395,7 +396,7 @@ func (ps *Surfacer) statusTable(probeName string) string {
 			continue
 		}
 
-		b.WriteString("<tr><td><b>" + targetName + "</b></td>")
+		b.WriteString("<tr><td><b>" + html.EscapeString(targetName) + "</b></td>")
 
 		gotSomeData := false        // To track if we got some data
 		var noDataFor time.Duration // No data for at least this long
@@ -435,7 +436,7 @@ func (ps *Surfacer) debugLines(probeName string) string {
 	var b strings.Builder
 	for _, targetName := range ps.probeTargets[probeName] {
 		ts := ps.metrics[probeName][targetName]
-		b.WriteString(fmt.Sprintf("Target: %s <br>\n", targetName))
+		b.WriteString(fmt.Sprintf("Target: %s <br>\n", html.EscapeString(targetName)))
 		d := ts.a[ts.oldestIdx]
 		b.WriteString(fmt.Sprintf("Oldest: total=%d, success=%d <br>\n", d.total, d.success))
 		d = ts.a[ts.latestIdx]

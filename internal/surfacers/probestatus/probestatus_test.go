@@ -16,6 +16,7 @@ package probestatus
 
 import (
 	"context"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -376,4 +377,31 @@ func TestStatusPageStartTime(t *testing.T) {
 			assert.True(t, parsed.Equal(tt.startTime), "got %v, want %v", parsed, tt.startTime)
 		})
 	}
+}
+
+func TestStatusPageEscapesTargetNames(t *testing.T) {
+	ps := &Surfacer{
+		c:             &configpb.SurfacerConf{},
+		resolution:    time.Minute,
+		dashDurations: []time.Duration{time.Minute},
+		pageCache:     newPageCache(1),
+		metrics:       make(map[string]map[string]*timeseries),
+		probeTargets:  make(map[string][]string),
+	}
+
+	target := `<img src=x onerror="alert(1)">`
+	now := time.Now()
+	ps.record(testEM(t, now.Add(-time.Minute), "p1", target, 10, 9, 0))
+	ps.record(testEM(t, now, "p1", target, 20, 18, 0))
+
+	hw := &httpWriter{
+		w: httptest.NewRecorder(),
+		r: httptest.NewRequest("", "/?debug=1", nil),
+	}
+	ps.writeData(hw)
+
+	got := hw.w.(*httptest.ResponseRecorder).Body.String()
+	assert.NotContains(t, got, target)
+	assert.Contains(t, got, "<tr><td><b>"+html.EscapeString(target)+"</b></td>")
+	assert.Contains(t, got, "Target: "+html.EscapeString(target)+" <br>")
 }

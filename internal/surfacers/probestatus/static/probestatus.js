@@ -37,9 +37,9 @@ function populateProbeData(probe) {
 
   d[probe] = structuredClone(baseData);
 
-  // . doesn't work well in the selector. See the following for more details:
-  // https://github.com/cloudprober/cloudprober/issues/362
-  d[probe].bindto = '#chart_' + probe.replaceAll('.', '\\.');
+  // Probe names can contain characters that are special in CSS selectors,
+  // e.g. '.' (https://github.com/cloudprober/cloudprober/issues/362).
+  d[probe].bindto = '#' + CSS.escape('chart_' + probe);
 
   // Timestamps
   let x = ['ts'];
@@ -167,8 +167,8 @@ function updateProbeParams(probes) {
 }
 
 function handleProbeSelect(e) {
-  let probe = e.target.id.replace(/^select-/, '');
-  if (probe == 'all') {
+  let probe = e.target.dataset.probe;
+  if (probe === undefined) {
     updateProbeParams([]);
     return;
   }
@@ -182,18 +182,26 @@ function handleProbeSelect(e) {
   updateProbeParams(Object.keys(probeMap));
 }
 
+// probeCheckbox returns a label wrapping a checkbox. Probe names come from the
+// config and can contain any character, so they are set as text and data, and
+// never parsed as HTML.
+function probeCheckbox(text, probe, checked) {
+  let input = $('<input type=checkbox class=probe-checkbox>').prop('checked', checked);
+  if (probe !== undefined) {
+    input.attr('data-probe', probe);
+  }
+  return $('<label>').append(input, document.createTextNode(text));
+}
+
 function generateProbeSelectors() {
   let probeMap = selectedProbes();
 
-  let allChecked = Object.keys(probeMap).length === 0 ? 'checked ' : ' ';
-  let selectors = `Probes: <label><input class=probe-checkbox id=select-all type=checkbox ${allChecked}>All</label> `;
-
+  let selector = $('#probe-selector');
+  selector.append('Probes: ');
+  selector.append(probeCheckbox('All', undefined, Object.keys(probeMap).length === 0));
   for (const p of allProbes) {
-    let checked = probeMap[p] ? 'checked ' : ' ';
-    selectors += `<label> | <input class=probe-checkbox id=select-${p} type=checkbox ${checked}>${p}</label>`;
+    selector.append(' | ', probeCheckbox(p, p, !!probeMap[p]));
   }
-
-  $('#probe-selector').append(selectors);
 
   $('.probe-checkbox').change(handleProbeSelect);
 }
