@@ -131,12 +131,13 @@ func TestSummary(t *testing.T) {
 
 	got := ps.summary([]string{"p_ok", "p_nodata", "p_warn", "p_bad", "p_many", "p_unknown"}, summaryWindow)
 
+	// Same order as probeNames, i.e. as the tables, minus unknown probes.
 	want := []*probeSummary{
-		{Name: "p_bad", Health: healthBad, OK: 1, Total: 2, Failing: []string{"t2"}},
-		{Name: "p_many", Health: healthBad, OK: 0, Total: 5, Failing: []string{"t0", "t1", "t2"}, MoreFailing: 2},
-		{Name: "p_warn", Health: healthWarn, OK: 1, Total: 2, Failing: []string{"t2"}},
 		{Name: "p_ok", Health: healthOK, OK: 2, Total: 2},
 		{Name: "p_nodata", Health: healthNoData},
+		{Name: "p_warn", Health: healthWarn, OK: 1, Total: 2, Failing: []string{"t2"}},
+		{Name: "p_bad", Health: healthBad, OK: 1, Total: 2, Failing: []string{"t2"}},
+		{Name: "p_many", Health: healthBad, OK: 0, Total: 5, Failing: []string{"t0", "t1", "t2"}, MoreFailing: 2},
 	}
 	assert.Equal(t, want, got)
 }
