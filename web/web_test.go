@@ -323,3 +323,35 @@ func TestEndpoints(t *testing.T) {
 		})
 	}
 }
+
+// Cloudprober is often served under a path prefix by a reverse proxy, e.g.
+// https://example.com/prober/tenant1/ proxied to cloudprober's root. Following
+// /artifacts must keep that prefix.
+func TestArtifactsRedirectBehindProxy(t *testing.T) {
+	oldSrvMux := state.DefaultHTTPServeMux()
+	defer state.SetDefaultHTTPServeMux(oldSrvMux)
+
+	srvMux := http.NewServeMux()
+	state.SetDefaultHTTPServeMux(srvMux)
+	state.AddWebHandler("/artifacts/probe1/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "probe1 artifacts")
+	}, state.WithArtifactsLink("/artifacts/probe1/"))
+
+	assert.NoError(t, InitWithDataFuncs(DataFuncs{
+		GetRawConfig:    func() string { return "" },
+		GetParsedConfig: func() string { return "" },
+	}))
+
+	const prefix = "/prober/tenant1"
+	proxy := httptest.NewServer(http.StripPrefix(prefix, srvMux))
+	defer proxy.Close()
+
+	resp, err := proxy.Client().Get(proxy.URL + prefix + "/artifacts")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, prefix+"/artifacts/probe1/", resp.Request.URL.Path)
+	assert.Equal(t, "probe1 artifacts", string(body))
+}

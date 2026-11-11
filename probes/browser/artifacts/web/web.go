@@ -162,9 +162,12 @@ func ServeArtifacts(path, root string, global bool) error {
 		patternPath = path + "/{probeName}/{$}"
 	}
 
+	// Artifacts links end in "/", so that they point straight at the page. A
+	// link without it gets a redirect from the mux to an absolute path, which
+	// loses any prefix that a reverse proxy serves cloudprober under.
 	var artifactsLinkOpts []state.HandlerOption
 	if !global {
-		artifactsLinkOpts = append(artifactsLinkOpts, state.WithArtifactsLink(path))
+		artifactsLinkOpts = append(artifactsLinkOpts, state.WithArtifactsLink(path+"/"))
 	}
 
 	if err := state.AddWebHandler(patternPath, func(w http.ResponseWriter, r *http.Request) {

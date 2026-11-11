@@ -173,7 +173,12 @@ func InitWithDataFuncs(fn DataFuncs) error {
 		if err := state.AddWebHandler(urlMap.Artifacts, func(w http.ResponseWriter, r *http.Request) {
 			links := artifactsLinks()
 			if len(links) == 1 {
-				http.Redirect(w, r, links[0], http.StatusFound)
+				// Redirect with a relative Location, which the browser resolves
+				// against /artifacts, keeping any prefix that a reverse proxy
+				// serves cloudprober under. http.Redirect would make it
+				// absolute, and lose the prefix.
+				w.Header().Set("Location", links[0])
+				w.WriteHeader(http.StatusFound)
 				return
 			}
 			w.Write([]byte(resources.LinksPage(urlMap.Artifacts, "Artifacts", links)))
