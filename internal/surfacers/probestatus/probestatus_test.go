@@ -301,6 +301,7 @@ func TestSurfacerWriteData(t *testing.T) {
 			name: "default",
 			wantContains: []string{
 				"startTime", "allProbes", "chart", "c3.generate(",
+				"var maxDurationSec = 0;", `id="tp-toggle"`,
 			},
 			wantNotContains: []string{"chart.load()", "setTimeout"},
 			probeNames:      []string{"Probe: p1", "Probe: p2"},

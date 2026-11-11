@@ -530,6 +530,9 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 		Summary       []*probeSummary
 		SummaryWindow string
+
+		// How far back the status page keeps data, for the time picker.
+		MaxDurationSec int64
 	}{
 		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
 		Durations:   ps.dashDurationsText,
@@ -545,6 +548,8 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 		Summary:       ps.summary(probes, summaryWin),
 		SummaryWindow: shortDur([]time.Duration{summaryWin})[0],
+
+		MaxDurationSec: int64(maxDuration.Seconds()),
 	})
 	if err != nil {
 		ps.l.Errorf("Error executing probe status template: %v", err)
