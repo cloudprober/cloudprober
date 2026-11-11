@@ -129,11 +129,119 @@ pre {
   word-wrap: break-word;
 }
 
-.graph-options {
-  border-collapse: collapse;
-  border-spacing: 0;
+/* Time picker on the status page. */
+.time-picker {
+  float: right;
+  position: relative;
+  font-size: 13px;
+}
+
+.tp-btn {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid #b0b0b0;
+  border-radius: 3px;
+  background: #f7f7f7;
+  cursor: pointer;
+}
+
+.tp-btn:hover:not(:disabled) {
+  background: #ececec;
+}
+
+.tp-btn:disabled {
+  color: #b0b0b0;
+  cursor: default;
+}
+
+.tp-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 10;
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  background: white;
+  border: 1px solid #b0b0b0;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.tp-panel[hidden] {
+  display: none;
+}
+
+.tp-heading {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.tp-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 220px;
+  margin: 0;
+}
+
+.tp-custom label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tp-custom input {
+  font: inherit;
+  padding: 2px 4px;
+}
+
+.tp-custom button {
+  align-self: flex-start;
+  font: inherit;
+}
+
+.tp-hint {
+  color: grey;
   font-size: 12px;
-  padding: 0.25em 0.5em;
+}
+
+.tp-error {
+  color: #842029;
+  font-size: 12px;
+}
+
+.tp-error:empty {
+  display: none;
+}
+
+.tp-quick {
+  border-left: 1px solid #e0e0e0;
+  padding-left: 16px;
+  white-space: nowrap;
+}
+
+.tp-quick ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tp-quick li a {
+  display: block;
+  padding: 3px 6px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 3px;
+}
+
+.tp-quick li a:hover {
+  background: #ececec;
+}
+
+.tp-quick li a.tp-active {
+  background: #e1f6ff;
+  font-weight: bold;
 }
 
 input[type='checkbox'] {

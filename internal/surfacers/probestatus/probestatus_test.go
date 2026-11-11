@@ -301,6 +301,7 @@ func TestSurfacerWriteData(t *testing.T) {
 			name: "default",
 			wantContains: []string{
 				"startTime", "allProbes", "chart", "c3.generate(",
+				"var maxDurationSec =", `id="tp-toggle"`,
 			},
 			wantNotContains: []string{"chart.load()", "setTimeout"},
 			probeNames:      []string{"Probe: p1", "Probe: p2"},
@@ -454,4 +455,18 @@ func TestRatioCell(t *testing.T) {
 			assert.Equal(t, tt.want, ratioCell(tt.total, tt.success, tt.stale))
 		})
 	}
+}
+
+// The time picker uses maxDurationSec to bound its quick ranges and its back
+// arrow, so it must be in seconds.
+func TestStatusPageMaxDuration(t *testing.T) {
+	ps := newTestSurfacer() // 100 points at 1m resolution.
+	ps.probeNames = []string{"p1"}
+
+	hw := &httpWriter{
+		w: httptest.NewRecorder(),
+		r: httptest.NewRequest("", "/", nil),
+	}
+	ps.writeData(hw)
+	assert.Regexp(t, `var maxDurationSec = +6000 *;`, hw.w.(*httptest.ResponseRecorder).Body.String())
 }

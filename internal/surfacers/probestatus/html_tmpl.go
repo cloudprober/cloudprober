@@ -23,6 +23,7 @@ var htmlTmpl = `<!DOCTYPE html>
 
 <script>
   var startTime = '{{.StartTime}}';
+  var maxDurationSec = {{.MaxDurationSec}};
   var allProbes = [];
   {{range $probeName := .AllProbes}}
     allProbes.push('{{$probeName}}');
@@ -53,19 +54,24 @@ populateD();
 <body>
   {{.Header}}
 
-  <div style="float:right" class="graph-options">
-    <label style="font-weight:bold" for="graph-duration">Graph Duration:</label>
-    <input type="text" list="graph-duration-list" id="graph-duration" style="width: 50px;"/>
-    <datalist name="graph-duration-list" id="graph-duration-list" >
-      <option>15m</option>
-      <option>3h</option>
-      <option>6h</option>
-      <option>12h</option>
-      <option>24h</option>
-      <option>72h</option>
-    </datalist>
-    <label style="font-weight:bold" for="graph-endtime">Endtime:</label>
-    <input type="datetime-local" id="graph-endtime" name="graph-endtime" style="width: 200px;">
+  <div class="time-picker">
+    <button type="button" id="tp-back" class="tp-btn" title="Move back">&#9664;</button>
+    <button type="button" id="tp-toggle" class="tp-btn" aria-haspopup="true" aria-expanded="false"></button>
+    <button type="button" id="tp-fwd" class="tp-btn" title="Move forward">&#9654;</button>
+    <div id="tp-panel" class="tp-panel" hidden>
+      <form id="tp-custom" class="tp-custom">
+        <div class="tp-heading">Custom range</div>
+        <label>Duration<input id="tp-duration" type="text" placeholder="e.g. 90m, 6h"></label>
+        <label>Ending<input id="tp-endtime" type="datetime-local"></label>
+        <div class="tp-hint">Leave a field empty for its default: all data, ending now.</div>
+        <div id="tp-error" class="tp-error"></div>
+        <button type="submit">Apply</button>
+      </form>
+      <div class="tp-quick">
+        <div class="tp-heading">Quick ranges</div>
+        <ul id="tp-quick-list"></ul>
+      </div>
+    </div>
   </div>
   <div style="clear: both; padding-top: 10px"></div>
 
