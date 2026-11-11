@@ -432,16 +432,17 @@ func (ps *Surfacer) statusTable(probeName string) string {
 	return b.String()
 }
 
-// ratioCell returns the table cell for a success ratio. The ratio is shown as
-// a percentage, rounded down, so that anything short of 100% never reads as
-// 100.00%. Cells below 100% are highlighted, unless the value is stale.
+// ratioCell returns the table cell for a success ratio. The ratio is rounded
+// down, so that anything short of all successes never reads as 1.0000. Cells
+// below 1 are highlighted, unless the value is stale.
 func ratioCell(total, success int64, stale bool) string {
 	if total == 0 {
 		return "<td align=center class=greyed title=\"No probes in this window\">-</td>"
 	}
 
-	hundredths := success * 10000 / total
-	text := fmt.Sprintf("%d.%02d%%", hundredths/100, hundredths%100)
+	// Ratio in units of 0.0001, rounded down.
+	tenThousandths := success * 10000 / total
+	text := fmt.Sprintf("%d.%04d", tenThousandths/10000, tenThousandths%10000)
 
 	if stale {
 		return "<td class=\"tooltip greyed\">" + text + "<span class=tooltiptext>Stale value</span></td>"
@@ -450,7 +451,7 @@ func ratioCell(total, success int64, stale bool) string {
 	class := ""
 	switch {
 	case success == total:
-	case hundredths >= 9900:
+	case tenThousandths >= 9900:
 		class = " class=ratio-warn"
 	default:
 		class = " class=ratio-bad"
