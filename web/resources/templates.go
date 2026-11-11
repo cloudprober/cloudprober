@@ -45,9 +45,10 @@ func PageTitle(path string) template.HTML {
 func RenderPage(path string, body template.HTML) string {
 	linkPrefix := RootLinkPrefix(path)
 	header := Header(linkPrefix)
-	return fmt.Sprintf(`
+	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>%s</title>
 %s
 </head>

@@ -102,9 +102,10 @@ func TestRenderPage(t *testing.T) {
 			name: "root path",
 			path: "/",
 			body: "test body",
-			want: `
+			want: `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>Cloudprober</title>
   <link href="static/cloudprober.css" rel="stylesheet">
   <link rel="icon" href="static/favicon.ico" sizes="32x32">
@@ -139,9 +140,10 @@ test body
 			name: "deep path",
 			path: "/a/b",
 			body: "test body deep",
-			want: `
+			want: `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>/a/b - Cloudprober</title>
   <link href="../../static/cloudprober.css" rel="stylesheet">
   <link rel="icon" href="../../static/favicon.ico" sizes="32x32">
