@@ -61,6 +61,17 @@ th {
   visibility: visible;
 }
 
+/* Success ratio cells on the status page. A ratio of 1 is left plain, so
+   that only the targets that need attention stand out. */
+table.status-list td.ratio-warn {
+  background-color: #fff3cd;
+}
+
+table.status-list td.ratio-bad {
+  background-color: #f8d7da;
+  color: #842029;
+}
+
 .greyed {
   color: grey;
 }

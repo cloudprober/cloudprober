@@ -405,3 +405,53 @@ func TestStatusPageEscapesTargetNames(t *testing.T) {
 	assert.Contains(t, got, "<tr><td><b>"+html.EscapeString(target)+"</b></td>")
 	assert.Contains(t, got, "Target: "+html.EscapeString(target)+" <br>")
 }
+
+func TestRatioCell(t *testing.T) {
+	tests := []struct {
+		name           string
+		total, success int64
+		stale          bool
+		want           string
+	}{
+		{
+			name:  "all_succeeded",
+			total: 12, success: 12,
+			want: `<td title="12 of 12 succeeded">1.000</td>`,
+		},
+		{
+			name:  "never_rounds_up_to_1",
+			total: 100000, success: 99999,
+			want: `<td class=ratio-warn title="99999 of 100000 succeeded">0.999</td>`,
+		},
+		{
+			name:  "at_warn_threshold",
+			total: 100, success: 99,
+			want: `<td class=ratio-warn title="99 of 100 succeeded">0.990</td>`,
+		},
+		{
+			name:  "below_warn_threshold",
+			total: 12, success: 11,
+			want: `<td class=ratio-bad title="11 of 12 succeeded">0.916</td>`,
+		},
+		{
+			name:  "all_failed",
+			total: 12, success: 0,
+			want: `<td class=ratio-bad title="0 of 12 succeeded">0.000</td>`,
+		},
+		{
+			name:  "no_probes",
+			total: 0, success: 0,
+			want: `<td align=center class=greyed title="No probes in this window">-</td>`,
+		},
+		{
+			name:  "stale",
+			total: 12, success: 6, stale: true,
+			want: `<td class="tooltip greyed">0.500<span class=tooltiptext>Stale value</span></td>`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ratioCell(tt.total, tt.success, tt.stale))
+		})
+	}
+}

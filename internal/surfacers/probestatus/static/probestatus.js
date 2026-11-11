@@ -18,11 +18,28 @@ let baseData = {
     xFormat: '%Y/%m/%d %H:%M',
     columns: [],
   },
+  size: {
+    height: 160,
+  },
+  // The page is redrawn on every change, so there's nothing to animate.
+  transition: {
+    duration: 0,
+  },
   axis: {
     x: {
       type: 'timeseries',
       tick: {
         format: '%Y-%m-%d %H:%M',
+      },
+    },
+    // Pin the axis to 0-1, and pad it by a few pixels (c3's default padding
+    // unit), so that lines at 0 and 1 stay clear of the chart's edges.
+    y: {
+      min: 0,
+      max: 1,
+      padding: { top: 8, bottom: 8 },
+      tick: {
+        values: [0, 0.25, 0.5, 0.75, 1],
       },
     },
   },
