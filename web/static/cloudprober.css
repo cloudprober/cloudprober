@@ -120,6 +120,12 @@ table.probe-summary td {
   background: #b0b0b0;
 }
 
+/* Links from the status page to a probe's logs. */
+a.logs-link {
+  font-size: 12px;
+  margin-left: 6px;
+}
+
 .greyed {
   color: grey;
 }

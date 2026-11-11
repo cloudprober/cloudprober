@@ -89,6 +89,7 @@ populateD();
     <td><a href="#probe-{{.Name}}">{{.Name}}</a></td>
     <td>{{if .Total}}{{.OK}}/{{.Total}} targets OK{{else}}<span class="greyed">No recent data</span>{{end}}</td>
     <td>{{range $i, $t := .Failing}}{{if $i}}, {{end}}{{$t}}{{end}}{{if .MoreFailing}} +{{.MoreFailing}} more{{end}}</td>
+    {{if $.LogsURL}}<td><a class="logs-link" href="{{$.LogsURL}}?source={{.Name}}">logs</a></td>{{end}}
   </tr>
   {{end}}
 </table>
@@ -100,7 +101,8 @@ populateD();
 
 {{range $probeName := .ProbeNames}}
 <p>
-  <b id="probe-{{$probeName}}">Probe: {{$probeName}}</b><br>
+  <b id="probe-{{$probeName}}">Probe: {{$probeName}}</b>
+  {{if $.LogsURL}}<a class="logs-link" href="{{$.LogsURL}}?source={{$probeName}}">logs</a>{{end}}<br>
 
   <table class="status-list">
     <tr><td></td>

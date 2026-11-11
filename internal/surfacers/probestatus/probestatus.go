@@ -468,6 +468,15 @@ func (ps *Surfacer) debugLines(probeName string) string {
 	return b.String()
 }
 
+// logsURL returns the URL of the logs page, or "" if the log store is
+// disabled, in which case the logs page isn't useful.
+func logsURL(linkPrefix string) string {
+	if logger.DefaultLogStore() == nil {
+		return ""
+	}
+	return linkPrefix + "logs"
+}
+
 func (ps *Surfacer) writeData(hw *httpWriter) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -517,6 +526,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 
 	err := statusTmpl.Execute(&statusBuf, struct {
 		BaseURL     string
+		LogsURL     string // Empty if the log store, and so /logs, is disabled.
 		Durations   []string
 		ProbeNames  []string
 		AllProbes   []string // Unfiltered probes
@@ -535,6 +545,7 @@ func (ps *Surfacer) writeData(hw *httpWriter) {
 		MaxDurationSec int64
 	}{
 		BaseURL:     linkPrefix + strings.TrimLeft(ps.c.GetUrl(), "/"),
+		LogsURL:     logsURL(linkPrefix),
 		Durations:   ps.dashDurationsText,
 		ProbeNames:  probes,
 		AllProbes:   ps.probeNames,
