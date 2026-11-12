@@ -31,7 +31,7 @@ Cloudprober currently supports following surfacer types:
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_pubsub_SurfacerConf))
 - Postgres
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_postgres_SurfacerConf))
-- File
+- [File](../file)
   ([config](https://cloudprober.org/docs/config/surfacer/#cloudprober_surfacer_file_SurfacerConf))
 - [Cloudwatch (AWS Cloud Monitoring)](../cloudwatch)
 
