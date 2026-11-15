@@ -1,0 +1,70 @@
+name: govulncheck
+
+# Checks the Go module and the Go standard library for known vulnerabilities.
+# It runs weekly, as new vulnerabilities are published independently of our
+# changes, and on changes to the dependencies, to verify the fixes.
+on:
+  schedule:
+    # Mondays at 15:00 UTC.
+    - cron: "0 15 * * 1"
+  push:
+    branches:
+      - main
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/govulncheck.yml"
+  pull_request:
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/govulncheck.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Only pull requests are collapsed, so that a new push supersedes the run in
+  # flight.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  govulncheck:
+    name: govulncheck (${{ matrix.goos }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # govulncheck only analyzes the files built for the target OS, so we
+        # check each OS we release binaries for.
+        goos: [linux, windows, darwin]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Installed separately, as GOOS below would otherwise apply to building
+      # govulncheck itself too.
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+
+      # govulncheck exits with a non-zero status only for vulnerabilities in
+      # the code we call; ones in imported packages or modules that we don't
+      # call are listed in the output, but don't fail the job.
+      - name: Run govulncheck
+        env:
+          GOOS: ${{ matrix.goos }}
+        run: |
+          set -o pipefail
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          govulncheck -show verbose ./... 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status
