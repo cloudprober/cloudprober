@@ -870,3 +870,31 @@ func TestValidateProbeConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRequestsDuration(t *testing.T) {
+	opts := &Options{Interval: 2 * time.Second, Timeout: time.Second}
+
+	tests := []struct {
+		name                 string
+		requestsPerProbe     int32
+		requestsIntervalMsec int32
+		wantErr              bool
+	}{
+		{name: "single_request", requestsPerProbe: 1},
+		{name: "fits_exactly", requestsPerProbe: 10, requestsIntervalMsec: 100},
+		{name: "too_long", requestsPerProbe: 10, requestsIntervalMsec: 101, wantErr: true},
+		{name: "int32_overflow", requestsPerProbe: 50000, requestsIntervalMsec: 50000, wantErr: true},
+		{name: "duration_overflow", requestsPerProbe: 10000000, requestsIntervalMsec: 1000000, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := opts.ValidateRequestsDuration(tt.requestsPerProbe, tt.requestsIntervalMsec)
+			if tt.wantErr {
+				assert.ErrorContains(t, err, "longer than the probe interval")
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
