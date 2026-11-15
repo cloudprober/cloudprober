@@ -333,12 +333,14 @@ func ValidateProbeConfig(p *configpb.ProbeDef) (*Options, error) {
 // requestsIntervalMsec apart, finish within the probe interval. It's used by
 // the probe types that support multiple requests per probe.
 func (opts *Options) ValidateRequestsDuration(requestsPerProbe, requestsIntervalMsec int32) error {
-	totalDuration := time.Duration(int64(requestsIntervalMsec)*int64(requestsPerProbe))*time.Millisecond + opts.Timeout
-	if totalDuration > opts.Interval {
+	// Compare in milliseconds, as converting the product to time.Duration
+	// can overflow for large values.
+	requestsMsec := int64(requestsIntervalMsec) * int64(requestsPerProbe)
+	if requestsMsec > (opts.Interval - opts.Timeout).Milliseconds() {
 		return fmt.Errorf("invalid config - executing all requests will take "+
 			"longer than the probe interval, i.e. "+
-			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
-			totalDuration, opts.Interval)
+			"requests_per_probe*requests_interval_msec (%dms) + timeout (%s) > interval (%s)",
+			requestsMsec, opts.Timeout, opts.Interval)
 	}
 	return nil
 }

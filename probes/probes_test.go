@@ -155,6 +155,17 @@ func TestValidateConfig(t *testing.T) {
 			wantErr: "longer than the probe interval",
 		},
 		{
+			// requests_per_probe * requests_interval_msec in nanoseconds
+			// overflows int64.
+			name:    "http_requests_too_long_duration_overflow",
+			probe:   `type: HTTP http_probe { requests_per_probe: 10000000 requests_interval_msec: 1000000 }`,
+			wantErr: "longer than the probe interval",
+		},
+		{
+			name:  "http_requests_fit_exactly",
+			probe: `type: HTTP interval: "2s" timeout: "1s" http_probe { requests_per_probe: 10 requests_interval_msec: 100 }`,
+		},
+		{
 			name:  "grpc_xds_not_validated",
 			probe: `type: GRPC grpc_probe { uri_scheme: "xds:///" }`,
 		},
