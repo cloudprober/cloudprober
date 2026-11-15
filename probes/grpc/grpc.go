@@ -233,6 +233,16 @@ func (p *Probe) defaultServiceConfig() string {
 	return ""
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	if c.GetMethod() == configpb.ProbeConf_GENERIC && c.GetRequest().GetBodyFile() != "" && c.GetRequest().GetBody() != "" {
+		return errors.New("bad config: both body and body_file are set")
+	}
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -250,6 +260,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
+	}
+
 	p.targets = p.opts.Targets.ListEndpoints()
 
 	p.src = sysvars.GetVar("hostname")
@@ -260,6 +274,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.creds = transportCreds
 
+	// This depends on how the binary was built, so it's not part of
+	// ValidateConfig: configtest may run on a different build.
 	if strings.HasPrefix(p.c.GetUriScheme(), "xds") && !xdsSupported {
 		return fmt.Errorf(`xds support not enabled. Compile cloudprober with "-tags grpc_xds" to add xds support`)
 	}
@@ -295,9 +311,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			return err
 		}
 		if filePath := p.c.GetRequest().GetBodyFile(); filePath != "" {
-			if p.c.GetRequest().GetBody() != "" {
-				return errors.New("bad config: both body and body_file are set")
-			}
 			var opts []file.ReadOption
 			if p.c.GetRequest().GetBodyFileSubstituteEnv() {
 				opts = append(opts, file.WithEnvSubstitution())

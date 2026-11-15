@@ -145,6 +145,22 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 	return []*metrics.EventMetrics{em}
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	if err := opts.ValidateRequestsDuration(c.GetRequestsPerProbe(), c.GetRequestsIntervalMsec()); err != nil {
+		return err
+	}
+
+	queryType := c.GetQueryType()
+	if queryType == configpb.QueryType_NONE || int32(queryType) >= int32(dns.TypeReserved) {
+		return fmt.Errorf("invalid query type %v", queryType)
+	}
+
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -163,21 +179,13 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 
-	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
-	if totalDuration > p.opts.Interval {
-		return fmt.Errorf("invalid config - executing all requests will take "+
-			"longer than the probe interval, i.e. "+
-			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
-			totalDuration, p.opts.Interval)
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
 	}
 
 	p.targets = p.opts.Targets.ListEndpoints()
 
-	queryType := p.c.GetQueryType()
-	if queryType == configpb.QueryType_NONE || int32(queryType) >= int32(dns.TypeReserved) {
-		return fmt.Errorf("dns_probe(%v): invalid query type %v", name, queryType)
-	}
-	p.queryType = uint16(queryType)
+	p.queryType = uint16(p.c.GetQueryType())
 	p.queryClass = uint16(p.c.GetQueryClass())
 	p.fqdn = dns.Fqdn(p.c.GetResolvedDomain())
 

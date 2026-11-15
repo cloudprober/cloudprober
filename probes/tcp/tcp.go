@@ -103,6 +103,18 @@ func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options)
 	return []*metrics.EventMetrics{em}
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	// tls_handshake defaults to true if tls_config is set, but it can't be
+	// explicitly set to false.
+	if c.GetTlsConfig() != nil && c.TlsHandshake != nil && !c.GetTlsHandshake() {
+		return fmt.Errorf("tls_config is set, but tls_handshake is false")
+	}
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	if opts.ProbeConf == nil {
@@ -122,6 +134,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 	if p.c == nil {
 		p.c = &configpb.ProbeConf{}
+	}
+
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
 	}
 
 	p.network = "tcp"
@@ -144,11 +160,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.c.GetTlsConfig() != nil {
 		if p.c.TlsHandshake == nil {
 			p.c.TlsHandshake = proto.Bool(true)
-		}
-
-		// tls_handshake is explicitly set to false, return error
-		if !p.c.GetTlsHandshake() {
-			return fmt.Errorf("tls_config is set, but tls_handshake is false")
 		}
 
 		tlsConfig, err := tlsconfig.FromProto(p.c.GetTlsConfig())

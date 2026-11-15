@@ -108,6 +108,26 @@ func (p *Probe) updateLabelKeys() {
 	}
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	cmdParts, err := shlex.Split(c.GetCommand())
+	if err != nil {
+		return fmt.Errorf("error parsing command line (%s): %v", c.GetCommand(), err)
+	}
+	if len(cmdParts) == 0 {
+		return errors.New("command not specified")
+	}
+
+	if c.GetOutputAsMetrics() {
+		if _, err := payload.NewParser(c.GetOutputMetricsOptions(), nil); err != nil {
+			return fmt.Errorf("error initializing payload metrics: %v", err)
+		}
+	}
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -122,15 +142,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 	p.replyChan = make(chan *configpb.ProbeReply)
 
-	cmdParts, err := shlex.Split(p.c.GetCommand())
-	if err != nil {
-		return fmt.Errorf("error parsing command line (%s): %v", p.c.GetCommand(), err)
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
 	}
 
-	if len(cmdParts) == 0 {
-		return errors.New("command not specified")
-	}
-
+	// Command is already validated by ValidateConfig.
+	cmdParts, _ := shlex.Split(p.c.GetCommand())
 	p.cmdName = cmdParts[0]
 	p.cmdArgs = cmdParts[1:]
 
@@ -158,6 +175,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 		omo.MetricsKind = payloadpb.OutputMetricsOptions_CUMULATIVE.Enum()
 	}
+	var err error
 	p.payloadParser, err = payload.NewParser(omo, p.l)
 	if err != nil {
 		return fmt.Errorf("error initializing payload metrics: %v", err)

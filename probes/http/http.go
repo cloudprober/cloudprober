@@ -188,6 +188,34 @@ func (p *Probe) getTransport() (*http.Transport, error) {
 	return transport, nil
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	if err := opts.ValidateRequestsDuration(c.GetRequestsPerProbe(), c.GetRequestsIntervalMsec()); err != nil {
+		return err
+	}
+
+	if u := c.GetRelativeUrl(); len(u) > 0 && u[0] != '/' {
+		if c.GetRedactUrlQueryInLogs() {
+			u = redactRawURL(u)
+		}
+		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", u)
+	}
+
+	if _, _, _, err := httpclient.BuildProxy(c.GetProxyUrl(), "", c.GetProxyConnectHeader()); err != nil {
+		return fmt.Errorf("http probe: %v", err)
+	}
+
+	if c.GetResponseMetricsOptions() != nil {
+		if _, err := payload.NewParser(c.GetResponseMetricsOptions(), nil); err != nil {
+			return fmt.Errorf("error initializing response metrics parser: %v", err)
+		}
+	}
+
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -204,12 +232,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.c = &configpb.ProbeConf{}
 	}
 
-	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
-	if totalDuration > p.opts.Interval {
-		return fmt.Errorf("invalid config - executing all requests will take "+
-			"longer than the probe interval, i.e. "+
-			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
-			totalDuration, p.opts.Interval)
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
 	}
 
 	p.enableTracing = !otelsdk.SDKDisabled() &&
@@ -222,9 +246,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	p.url = p.c.GetRelativeUrl()
 	p.redactURLQueryInLogs = p.c.GetRedactUrlQueryInLogs()
-	if len(p.url) > 0 && p.url[0] != '/' {
-		return fmt.Errorf("invalid relative URL: %s, must begin with '/'", p.redactURL(p.url))
-	}
 
 	body := p.c.GetBody()
 	if len(body) == 0 && p.c.GetBodyFile() != "" {

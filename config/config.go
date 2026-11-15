@@ -29,6 +29,7 @@ import (
 
 	"github.com/cloudprober/cloudprober/internal/file"
 	"github.com/cloudprober/cloudprober/logger"
+	"github.com/cloudprober/cloudprober/probes"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/state"
 	surfaceroptions "github.com/cloudprober/cloudprober/surfacers/options"
@@ -271,7 +272,11 @@ func configTest(cs ConfigSource) (warnings []string, err error) {
 
 	probeNames := make(map[string]bool)
 	for _, p := range cfg.GetProbe() {
-		if _, err := options.ValidateProbeConfig(p); err != nil {
+		opts, err := options.ValidateProbeConfig(p)
+		if err != nil {
+			return nil, fmt.Errorf("probe %q: %v", p.GetName(), err)
+		}
+		if err := probes.ValidateConfig(p, opts); err != nil {
 			return nil, fmt.Errorf("probe %q: %v", p.GetName(), err)
 		}
 

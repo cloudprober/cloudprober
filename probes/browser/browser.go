@@ -317,6 +317,16 @@ func (p *Probe) testDirPath() string {
 	return p.testDir
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	if err := opts.ValidateRequestsDuration(c.GetRequestsPerProbe(), c.GetRequestsIntervalMsec()); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -337,12 +347,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	p.testSpecArgs = p.computeTestSpecArgs()
 
-	totalDuration := time.Duration(p.c.GetRequestsIntervalMsec()*p.c.GetRequestsPerProbe())*time.Millisecond + p.opts.Timeout
-	if totalDuration > p.opts.Interval {
-		return fmt.Errorf("invalid config - executing all requests will take "+
-			"longer than the probe interval, i.e. "+
-			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
-			totalDuration, p.opts.Interval)
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
 	}
 
 	p.targets = p.opts.Targets.ListEndpoints()

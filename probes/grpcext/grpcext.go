@@ -104,6 +104,24 @@ func (r *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options) []*m
 	return ems
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	if c.GetServer() == "" {
+		return errors.New("external_grpc probe: server must be specified")
+	}
+	if c.GetProbeType() == "" {
+		return errors.New("external_grpc probe: probe_type must be specified")
+	}
+	if c.GetOutputMetricsOptions() != nil {
+		if _, err := payload.NewParser(c.GetOutputMetricsOptions(), nil); err != nil {
+			return fmt.Errorf("payload parser init: %v", err)
+		}
+	}
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -117,11 +135,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.c = c
 
-	if p.c.GetServer() == "" {
-		return errors.New("external_grpc probe: server must be specified")
-	}
-	if p.c.GetProbeType() == "" {
-		return errors.New("external_grpc probe: probe_type must be specified")
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
 	}
 
 	creds, err := p.transportCredentials()
