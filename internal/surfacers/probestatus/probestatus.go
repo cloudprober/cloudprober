@@ -295,6 +295,12 @@ func (ps *Surfacer) QueryStatus(ctx context.Context, probeNames []string, endTim
 		return nil, nil
 	}
 
+	// Check upfront: select picks randomly among ready cases, so a context
+	// that is already done could otherwise still get a result.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	sq := &statusQuery{
 		probeNames: probeNames,
 		endTime:    endTime,
