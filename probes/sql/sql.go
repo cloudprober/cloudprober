@@ -100,6 +100,35 @@ func (result *probeResult) Metrics(ts time.Time, _ int64, opts *options.Options)
 	return ems
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	if c.GetFlavor() != configpb.ProbeConf_POSTGRES {
+		return fmt.Errorf("flavor is required; supported flavors: POSTGRES")
+	}
+
+	if c.GetQuery() != "" && c.GetQueryFile() != "" {
+		return errors.New("only one of query and query_file can be set")
+	}
+
+	// A ping-only probe produces no response body, so validators would fail
+	// every run against a healthy database.
+	pingOnly := c.GetQuery() == "" && c.GetQueryFile() == ""
+	if opts.Validators != nil && pingOnly {
+		return errors.New("validators require a query; a ping-only probe has no response to validate")
+	}
+	if c.GetResponseMetricsOptions() != nil {
+		if pingOnly {
+			return errors.New("response_metrics_options require a query; a ping-only probe has no response to parse")
+		}
+		if _, err := payload.NewParser(c.GetResponseMetricsOptions(), nil); err != nil {
+			return fmt.Errorf("error initializing response metrics parser: %v", err)
+		}
+	}
+	return nil
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -120,9 +149,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("flavor is required; supported flavors: POSTGRES")
 	}
 
-	if p.c.GetQuery() != "" && p.c.GetQueryFile() != "" {
-		return errors.New("only one of query and query_file can be set")
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
 	}
+
 	p.query = p.c.GetQuery()
 	if f := p.c.GetQueryFile(); f != "" {
 		b, err := file.ReadFile(context.Background(), f)
@@ -132,8 +162,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.query = string(b)
 	}
 
-	// A ping-only probe produces no response body, so validators would fail
-	// every run against a healthy database.
+	// ValidateConfig catches these for a ping-only probe; here we catch an
+	// empty query_file.
 	if p.opts.Validators != nil && p.query == "" {
 		return errors.New("validators require a query; a ping-only probe has no response to validate")
 	}

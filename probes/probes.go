@@ -145,6 +145,33 @@ func CreateProbe(p *configpb.ProbeDef, opts *options.Options) (*ProbeInfo, error
 	return probeInfo, nil
 }
 
+// ValidateConfig validates the probe type specific config, without creating
+// the probe. It's used by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(p *configpb.ProbeDef, opts *options.Options) error {
+	switch p.GetType() {
+	case configpb.ProbeDef_PING:
+		return ping.ValidateConfig(p.GetPingProbe(), opts)
+	case configpb.ProbeDef_HTTP:
+		return httpprobe.ValidateConfig(p.GetHttpProbe(), opts)
+	case configpb.ProbeDef_DNS:
+		return dns.ValidateConfig(p.GetDnsProbe(), opts)
+	case configpb.ProbeDef_EXTERNAL:
+		return external.ValidateConfig(p.GetExternalProbe(), opts)
+	case configpb.ProbeDef_TCP:
+		return tcp.ValidateConfig(p.GetTcpProbe(), opts)
+	case configpb.ProbeDef_GRPC:
+		return grpcprobe.ValidateConfig(p.GetGrpcProbe(), opts)
+	case configpb.ProbeDef_BROWSER:
+		return browser.ValidateConfig(p.GetBrowserProbe(), opts)
+	case configpb.ProbeDef_SQL:
+		return sqlprobe.ValidateConfig(p.GetSqlProbe(), opts)
+	case configpb.ProbeDef_EXTERNAL_GRPC:
+		return grpcext.ValidateConfig(p.GetExternalGrpcProbe(), opts)
+	}
+	return nil
+}
+
 func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeConf interface{}, err error) {
 	switch p.GetType() {
 	case configpb.ProbeDef_PING:

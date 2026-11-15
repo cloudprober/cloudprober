@@ -104,6 +104,19 @@ type Probe struct {
 	statsExportFreq      int // Export frequency
 }
 
+// ValidateConfig validates the probe config without creating the probe. It's
+// called by Init, and by the config test. opts should have at least the fields
+// set by options.ValidateProbeConfig.
+func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
+	if c.GetPayloadSize() < timeBytesSize {
+		return fmt.Errorf("payload_size (%d) cannot be smaller than %d", c.GetPayloadSize(), timeBytesSize)
+	}
+	if c.GetPayloadSize() > maxPacketSize-icmpHeaderSize {
+		return fmt.Errorf("payload_size (%d) cannot be bigger than %d", c.GetPayloadSize(), maxPacketSize-icmpHeaderSize)
+	}
+	return nil
+}
+
 // Init initliazes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	p.name = name
@@ -134,11 +147,8 @@ func (p *Probe) initInternal() error {
 		p.l = &logger.Logger{}
 	}
 
-	if p.c.GetPayloadSize() < timeBytesSize {
-		return fmt.Errorf("payload_size (%d) cannot be smaller than %d", p.c.GetPayloadSize(), timeBytesSize)
-	}
-	if p.c.GetPayloadSize() > maxPacketSize-icmpHeaderSize {
-		return fmt.Errorf("payload_size (%d) cannot be bigger than %d", p.c.GetPayloadSize(), maxPacketSize-icmpHeaderSize)
+	if err := ValidateConfig(p.c, p.opts); err != nil {
+		return err
 	}
 	if runtime.GOOS == "windows" {
 		if p.c.UseDatagramSocket != nil {
