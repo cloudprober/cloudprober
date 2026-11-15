@@ -292,6 +292,28 @@ func TestQueryStatus(t *testing.T) {
 	})
 }
 
+// TestQueryStatusDoneContext verifies that a query with an already done
+// context is never queued. Since statusQueryCh is buffered, sending to it is
+// always ready, and without an upfront check select may pick it over
+// ctx.Done(). If the event loop then answered quickly enough, the caller got
+// results instead of an error.
+func TestQueryStatusDoneContext(t *testing.T) {
+	ps := &Surfacer{statusQueryCh: make(chan *statusQuery, queriesQueueSize)}
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	expiredCtx, cancel2 := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel2()
+
+	for i := 0; i < 100; i++ {
+		_, err := ps.QueryStatus(canceledCtx, nil, time.Time{}, 5*time.Minute)
+		assert.ErrorIs(t, err, context.Canceled)
+		_, err = ps.QueryStatus(expiredCtx, nil, time.Time{}, 5*time.Minute)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	}
+	assert.Len(t, ps.statusQueryCh, 0, "queries with a done context were queued")
+}
+
 func TestSurfacerWriteData(t *testing.T) {
 	tests := []struct {
 		name            string
