@@ -149,12 +149,8 @@ func (prr probeRunResult) Metrics(ts time.Time, _ int64, opts *options.Options) 
 // called by Init, and by the config test. opts should have at least the fields
 // set by options.ValidateProbeConfig.
 func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
-	totalDuration := time.Duration(c.GetRequestsIntervalMsec()*c.GetRequestsPerProbe())*time.Millisecond + opts.Timeout
-	if totalDuration > opts.Interval {
-		return fmt.Errorf("invalid config - executing all requests will take "+
-			"longer than the probe interval, i.e. "+
-			"requests_per_probe*requests_interval_msec + timeout (%s) > interval (%s)",
-			totalDuration, opts.Interval)
+	if err := opts.ValidateRequestsDuration(c.GetRequestsPerProbe(), c.GetRequestsIntervalMsec()); err != nil {
+		return err
 	}
 
 	queryType := c.GetQueryType()

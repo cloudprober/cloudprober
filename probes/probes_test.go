@@ -149,6 +149,16 @@ func TestValidateConfig(t *testing.T) {
 			wantErr: "longer than the probe interval",
 		},
 		{
+			// requests_per_probe * requests_interval_msec overflows int32.
+			name:    "http_requests_too_long_overflow",
+			probe:   `type: HTTP http_probe { requests_per_probe: 50000 requests_interval_msec: 50000 }`,
+			wantErr: "longer than the probe interval",
+		},
+		{
+			name:  "grpc_xds_not_validated",
+			probe: `type: GRPC grpc_probe { uri_scheme: "xds:///" }`,
+		},
+		{
 			name:    "http_bad_proxy_url",
 			probe:   `type: HTTP http_probe { proxy_url: "ftp://proxy" }`,
 			wantErr: "proxy_url",

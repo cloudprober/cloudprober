@@ -142,15 +142,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.c = c
 
+	if err := ValidateConfig(p.c, opts); err != nil {
+		return err
+	}
+
+	// Flavor is already validated by ValidateConfig.
 	switch p.c.GetFlavor() {
 	case configpb.ProbeConf_POSTGRES:
 		p.openDB = p.pgOpenDB
-	default:
-		return fmt.Errorf("flavor is required; supported flavors: POSTGRES")
-	}
-
-	if err := ValidateConfig(p.c, opts); err != nil {
-		return err
 	}
 
 	p.query = p.c.GetQuery()

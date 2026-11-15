@@ -237,10 +237,6 @@ func (p *Probe) defaultServiceConfig() string {
 // called by Init, and by the config test. opts should have at least the fields
 // set by options.ValidateProbeConfig.
 func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
-	if strings.HasPrefix(c.GetUriScheme(), "xds") && !xdsSupported {
-		return fmt.Errorf(`xds support not enabled. Compile cloudprober with "-tags grpc_xds" to add xds support`)
-	}
-
 	if c.GetMethod() == configpb.ProbeConf_GENERIC && c.GetRequest().GetBodyFile() != "" && c.GetRequest().GetBody() != "" {
 		return errors.New("bad config: both body and body_file are set")
 	}
@@ -277,6 +273,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("error creating transport credentials: %v", err)
 	}
 	p.creds = transportCreds
+
+	// This depends on how the binary was built, so it's not part of
+	// ValidateConfig: configtest may run on a different build.
+	if strings.HasPrefix(p.c.GetUriScheme(), "xds") && !xdsSupported {
+		return fmt.Errorf(`xds support not enabled. Compile cloudprober with "-tags grpc_xds" to add xds support`)
+	}
 
 	if defaultServiceConfig := p.defaultServiceConfig(); defaultServiceConfig != "" {
 		p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(defaultServiceConfig))

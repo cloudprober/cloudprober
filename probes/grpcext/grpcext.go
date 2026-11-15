@@ -114,8 +114,10 @@ func ValidateConfig(c *configpb.ProbeConf, opts *options.Options) error {
 	if c.GetProbeType() == "" {
 		return errors.New("external_grpc probe: probe_type must be specified")
 	}
-	if _, err := payload.NewParser(c.GetOutputMetricsOptions(), nil); err != nil {
-		return fmt.Errorf("payload parser init: %v", err)
+	if c.GetOutputMetricsOptions() != nil {
+		if _, err := payload.NewParser(c.GetOutputMetricsOptions(), nil); err != nil {
+			return fmt.Errorf("payload parser init: %v", err)
+		}
 	}
 	return nil
 }
