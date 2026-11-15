@@ -1,0 +1,51 @@
+name: govulncheck
+
+# Checks the Go module and the Go standard library for known vulnerabilities.
+# It runs weekly, as new vulnerabilities are published independently of our
+# changes, and on changes to the dependencies, to verify the fixes.
+on:
+  schedule:
+    # Mondays at 15:00 UTC.
+    - cron: "0 15 * * 1"
+  push:
+    branches:
+      - main
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/govulncheck.yml"
+  pull_request:
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/govulncheck.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # govulncheck exits with a non-zero status only for vulnerabilities in
+      # the code we call; ones in imported packages or modules that we don't
+      # call are listed in the output, but don't fail the job.
+      - name: Run govulncheck
+        run: |
+          set -o pipefail
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -show verbose ./... 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status
