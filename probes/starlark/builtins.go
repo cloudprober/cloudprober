@@ -18,9 +18,57 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	starlarklib "go.starlark.net/starlark"
 )
+
+// latencyMethod builds a Starlark method that reports a duration in a
+// caller-chosen unit: latency() -> float seconds (default), latency("ms") ->
+// milliseconds. Shared by result values that expose a measured latency
+// (dns.resolve today; http Response next) so the call shape is identical.
+func latencyMethod(recvName string, d time.Duration) *starlarklib.Builtin {
+	return starlarklib.NewBuiltin(recvName+".latency", func(_ *starlarklib.Thread, _ *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
+		unit := "s"
+		if err := starlarklib.UnpackArgs(recvName+".latency", args, kwargs, "unit?", &unit); err != nil {
+			return nil, err
+		}
+		switch unit {
+		case "s":
+			return starlarklib.Float(d.Seconds()), nil
+		case "ms":
+			return starlarklib.Float(float64(d.Nanoseconds()) / 1e6), nil
+		}
+		return nil, fmt.Errorf("%s.latency: unknown unit %q (want \"s\" or \"ms\")", recvName, unit)
+	})
+}
+
+// optionalDurationSeconds converts a Value bound by UnpackArgs (with "??"
+// suffix) into a duration, interpreting the number as seconds. The bool result
+// is false when the kwarg was omitted or None. Non-positive values are an
+// error: callers use this for timeouts, where 0 or negative would cancel the
+// context immediately with a confusing deadline error.
+func optionalDurationSeconds(v starlarklib.Value, name string) (time.Duration, bool, error) {
+	var d time.Duration
+	switch n := v.(type) {
+	case nil:
+		return 0, false, nil
+	case starlarklib.Int:
+		i, ok := n.Int64()
+		if !ok {
+			return 0, false, fmt.Errorf("%s: int does not fit in int64", name)
+		}
+		d = time.Duration(i) * time.Second
+	case starlarklib.Float:
+		d = time.Duration(float64(n) * float64(time.Second))
+	default:
+		return 0, false, fmt.Errorf("%s: expected a number of seconds, got %s", name, v.Type())
+	}
+	if d <= 0 {
+		return 0, false, fmt.Errorf("%s: expected a positive number of seconds, got %v", name, v)
+	}
+	return d, true, nil
+}
 
 // sortedNames returns m's keys in sorted order. Used by the builtins that
 // select a probe-configured thing by name (oauth_configs, tls_configs) to list
@@ -40,6 +88,7 @@ func builtins(vars map[string]string) starlarklib.StringDict {
 		"log":          logModule(),
 		"state":        stateModule(),
 		"oauth":        oauthModule(),
+		"dns":          dnsModule(),
 		"print_metric": starlarklib.NewBuiltin("print_metric", printMetric),
 	}
 }
