@@ -87,6 +87,25 @@ This exports additional metrics for each stage of the HTTP request:
 - `tls_handshake_latency` — TLS handshake time
 - `req_write_latency` — Time to write the request
 - `first_byte_latency` — Time to first response byte
+- `response_read_latency` — Time spent reading the complete response body after
+  the response headers have been received
+- `total_latency` — Time from request start until the response body read completes
+
+The existing `latency` still measures time until `http.Client.Do()` returns,
+without the body read. The two new measurements, included in `ALL_STAGES`,
+only accumulate for probes whose body read and validators succeed. Incomplete
+reads and timeouts add no samples. Durations exclude validation and response
+metrics parsing, but include any decompression performed while reading the body.
+
+`total_latency` overlaps the stage measurements; do not sum all breakdowns.
+It includes any wait for the shared result lock before reading the body, whereas
+`response_read_latency` measures only the body read call. Consequently, total
+latency need not equal header latency plus response read latency.
+
+All breakdowns reuse `latency_unit` and `latency_distribution`. Their names use
+`latency_metric_name` as a suffix: for example, `latency_metric_name: "latency_dist"`
+produces `response_read_latency_dist` and `total_latency_dist`. Existing configs
+using `ALL_STAGES` will export these two additional metrics after upgrading.
 
 You can also select specific stages instead of `ALL_STAGES`:
 

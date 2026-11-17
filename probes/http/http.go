@@ -97,6 +97,7 @@ type Probe struct {
 
 type latencyDetails struct {
 	dnsLatency, connectLatency, tlsLatency, reqWriteLatency, firstByteLatency metrics.LatencyValue
+	responseReadLatency, totalLatency                                         metrics.LatencyValue
 }
 
 type probeResult struct {
@@ -397,7 +398,10 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		return errors.New("negative test: request succeeded unexpectedly")
 	}
 
+	// Stop full-response timing before validation and response metrics parsing.
+	readStart := time.Now()
 	respBody, err := io.ReadAll(resp.Body)
+	readEnd := time.Now()
 	if err != nil {
 		err = p.redactedErr(err)
 		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
@@ -435,6 +439,15 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	// Only aggregate successful probes, as with the existing latency metric.
+	if lb := result.latencyBreakdown; lb != nil {
+		if lb.responseReadLatency != nil {
+			lb.responseReadLatency.AddFloat64(readEnd.Sub(readStart).Seconds() / p.opts.LatencyUnit.Seconds())
+		}
+		if lb.totalLatency != nil {
+			lb.totalLatency.AddFloat64(readEnd.Sub(start).Seconds() / p.opts.LatencyUnit.Seconds())
+		}
+	}
 	if result.respBodies != nil && len(respBody) <= maxResponseSizeForMetrics {
 		result.respBodies.IncKey(string(respBody))
 	}
@@ -474,6 +487,12 @@ func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *la
 	}
 	if all || lbMap[configpb.ProbeConf_FIRST_BYTE_LATENCY] {
 		ld.firstByteLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	if all || lbMap[configpb.ProbeConf_RESPONSE_READ_LATENCY] {
+		ld.responseReadLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	if all || lbMap[configpb.ProbeConf_TOTAL_LATENCY] {
+		ld.totalLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
 	}
 	return ld
 }
@@ -544,6 +563,12 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		}
 		if fbl := result.latencyBreakdown.firstByteLatency; fbl != nil {
 			em.AddMetric("first_byte_"+opts.LatencyMetricName, fbl.Clone())
+		}
+		if rrl := result.latencyBreakdown.responseReadLatency; rrl != nil {
+			em.AddMetric("response_read_"+opts.LatencyMetricName, rrl.Clone())
+		}
+		if tl := result.latencyBreakdown.totalLatency; tl != nil {
+			em.AddMetric("total_"+opts.LatencyMetricName, tl.Clone())
 		}
 	}
 

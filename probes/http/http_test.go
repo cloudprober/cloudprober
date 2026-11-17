@@ -1006,11 +1006,13 @@ func TestParseLatencyBreakdown(t *testing.T) {
 			},
 			base: metrics.NewFloat(0),
 			want: &latencyDetails{
-				dnsLatency:       metrics.NewFloat(0),
-				connectLatency:   metrics.NewFloat(0),
-				tlsLatency:       metrics.NewFloat(0),
-				reqWriteLatency:  metrics.NewFloat(0),
-				firstByteLatency: metrics.NewFloat(0),
+				dnsLatency:          metrics.NewFloat(0),
+				connectLatency:      metrics.NewFloat(0),
+				tlsLatency:          metrics.NewFloat(0),
+				reqWriteLatency:     metrics.NewFloat(0),
+				firstByteLatency:    metrics.NewFloat(0),
+				responseReadLatency: metrics.NewFloat(0),
+				totalLatency:        metrics.NewFloat(0),
 			},
 		},
 		{
@@ -1059,9 +1061,9 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 			lb: []configpb.ProbeConf_LatencyBreakdown{
 				configpb.ProbeConf_ALL_STAGES,
 			},
-			wantNonNil:  []string{"dns", "connect", "tls_handshake", "req_write", "first_byte"},
+			wantNonNil:  []string{"dns", "connect", "tls_handshake", "req_write", "first_byte", "response_read", "total"},
 			wantZero:    "tls_handshake",
-			wantMetrics: []string{"dns_latency", "connect_latency", "tls_handshake_latency", "req_write_latency", "first_byte_latency"},
+			wantMetrics: []string{"dns_latency", "connect_latency", "tls_handshake_latency", "req_write_latency", "first_byte_latency", "response_read_latency", "total_latency"},
 		},
 		{
 			name: "dns_tls",
@@ -1128,6 +1130,8 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 				"tls_handshake": lb.tlsLatency,
 				"req_write":     lb.reqWriteLatency,
 				"first_byte":    lb.firstByteLatency,
+				"response_read": lb.responseReadLatency,
+				"total":         lb.totalLatency,
 			}
 
 			for _, k := range tt.wantNil {
