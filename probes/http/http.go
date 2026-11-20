@@ -96,7 +96,7 @@ type Probe struct {
 }
 
 type latencyDetails struct {
-	dnsLatency, connectLatency, tlsLatency, reqWriteLatency, firstByteLatency metrics.LatencyValue
+	dnsLatency, connectLatency, tlsLatency, reqWriteLatency, firstByteLatency, totalLatency metrics.LatencyValue
 }
 
 type probeResult struct {
@@ -367,6 +367,30 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 	resp, err := client.Do(req)
 	latency := time.Since(start)
 
+	// Read the response body before taking resultMu so that concurrent
+	// requests (requests_per_probe > 1) stream their bodies in parallel
+	// instead of serializing on the shared lock. The body must also be
+	// closed on success paths to allow TCP connection reuse.
+	var (
+		respBody []byte
+		readErr  error
+		readEnd  time.Time
+	)
+	if err == nil {
+		defer resp.Body.Close()
+		if !p.opts.NegativeTest {
+			respBody, readErr = io.ReadAll(resp.Body)
+			readEnd = time.Now()
+		}
+	}
+	// totalLatency covers the full request including body read, but not
+	// resultMu wait or post-read processing (validation, response metrics
+	// parsing). Prefer the body-end timestamp when we have one.
+	totalLatency := time.Since(start)
+	if !readEnd.IsZero() {
+		totalLatency = readEnd.Sub(start)
+	}
+
 	if resultMu != nil {
 		// Note that we take lock on result object outside of the actual request.
 		resultMu.Lock()
@@ -388,20 +412,15 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 		return err
 	}
 
-	// Always close the body to ensure the client span is ended and the TCP
-	// connection can be reused.
-	defer resp.Body.Close()
-
 	if p.opts.NegativeTest {
 		l.Error("Negative test, but HTTP request succeeded for: ", p.redactURL(req.URL.String()))
 		return errors.New("negative test: request succeeded unexpectedly")
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		err = p.redactedErr(err)
-		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(err.Error())
-		return err
+	if readErr != nil {
+		readErr = p.redactedErr(readErr)
+		l.WithAttributes(p.dynamicHeaderAttrs(req)...).Warning(readErr.Error())
+		return readErr
 	}
 
 	l.Debug("Response: \n" + string(respBody))
@@ -435,6 +454,10 @@ func (p *Probe) doHTTPRequest(req *http.Request, client *http.Client, target end
 
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	// Only aggregate successful probes, as with the existing latency metric.
+	if lb := result.latencyBreakdown; lb != nil && lb.totalLatency != nil {
+		lb.totalLatency.AddFloat64(totalLatency.Seconds() / p.opts.LatencyUnit.Seconds())
+	}
 	if result.respBodies != nil && len(respBody) <= maxResponseSizeForMetrics {
 		result.respBodies.IncKey(string(respBody))
 	}
@@ -474,6 +497,11 @@ func (p *Probe) parseLatencyBreakdown(baseLatencyValue metrics.LatencyValue) *la
 	}
 	if all || lbMap[configpb.ProbeConf_FIRST_BYTE_LATENCY] {
 		ld.firstByteLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
+	}
+	// TOTAL_LATENCY is not a stage of the request; it must be selected
+	// explicitly rather than pulled in by ALL_STAGES.
+	if lbMap[configpb.ProbeConf_TOTAL_LATENCY] {
+		ld.totalLatency = baseLatencyValue.Clone().(metrics.LatencyValue)
 	}
 	return ld
 }
@@ -544,6 +572,9 @@ func (result *probeResult) Metrics(ts time.Time, runID int64, opts *options.Opti
 		}
 		if fbl := result.latencyBreakdown.firstByteLatency; fbl != nil {
 			em.AddMetric("first_byte_"+opts.LatencyMetricName, fbl.Clone())
+		}
+		if tl := result.latencyBreakdown.totalLatency; tl != nil {
+			em.AddMetric("total_"+opts.LatencyMetricName, tl.Clone())
 		}
 	}
 
