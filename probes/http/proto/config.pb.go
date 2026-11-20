@@ -161,11 +161,11 @@ const (
 	ProbeConf_TLS_HANDSHAKE_LATENCY ProbeConf_LatencyBreakdown = 4 // Exported as tls_handshake_latency
 	ProbeConf_REQ_WRITE_LATENCY     ProbeConf_LatencyBreakdown = 5 // Exported as req_write_latency
 	ProbeConf_FIRST_BYTE_LATENCY    ProbeConf_LatencyBreakdown = 6 // Exported as first_byte_latency
-	// Time spent in the response body read, after Client.Do returns.
-	ProbeConf_RESPONSE_READ_LATENCY ProbeConf_LatencyBreakdown = 7
 	// Time from request start until the response body read completes.
-	// Includes other stages; do not sum it with the stage latencies.
-	ProbeConf_TOTAL_LATENCY ProbeConf_LatencyBreakdown = 8
+	// Includes the other stages above; do not sum it with the stage
+	// latencies. Recorded only after a complete body read and successful
+	// validation. Not part of ALL_STAGES; select it explicitly.
+	ProbeConf_TOTAL_LATENCY ProbeConf_LatencyBreakdown = 7 // Exported as total_latency
 )
 
 // Enum value maps for ProbeConf_LatencyBreakdown.
@@ -178,8 +178,7 @@ var (
 		4: "TLS_HANDSHAKE_LATENCY",
 		5: "REQ_WRITE_LATENCY",
 		6: "FIRST_BYTE_LATENCY",
-		7: "RESPONSE_READ_LATENCY",
-		8: "TOTAL_LATENCY",
+		7: "TOTAL_LATENCY",
 	}
 	ProbeConf_LatencyBreakdown_value = map[string]int32{
 		"NO_BREAKDOWN":          0,
@@ -189,8 +188,7 @@ var (
 		"TLS_HANDSHAKE_LATENCY": 4,
 		"REQ_WRITE_LATENCY":     5,
 		"FIRST_BYTE_LATENCY":    6,
-		"RESPONSE_READ_LATENCY": 7,
-		"TOTAL_LATENCY":         8,
+		"TOTAL_LATENCY":         7,
 	}
 )
 
@@ -350,16 +348,11 @@ type ProbeConf struct {
 	// connection, TLS handshake, etc. You can select stages individually or
 	// specify "ALL_STAGES" to get breakdown for all stages.
 	//
-	// RESPONSE_READ_LATENCY and TOTAL_LATENCY only record successful probes:
-	// the body must be read completely and all validators must pass. Their
-	// durations exclude validation and response metrics parsing. Like other
-	// breakdowns, they use latency_metric_name, latency_unit and
-	// latency_distribution. ALL_STAGES includes both measurements.
-	//
 	// Example:
 	//
 	//	latency_breakdown: [ ALL_STAGES ]
 	//	latency_breakdown: [ DNS_LATENCY, CONNECT_LATENCY, TLS_HANDSHAKE_LATENCY ]
+	//	latency_breakdown: [ ALL_STAGES, TOTAL_LATENCY ]
 	LatencyBreakdown []ProbeConf_LatencyBreakdown `protobuf:"varint,22,rep,name=latency_breakdown,json=latencyBreakdown,enum=cloudprober.probes.http.ProbeConf_LatencyBreakdown" json:"latency_breakdown,omitempty"`
 	// Parse HTTP response as additional metrics. If configured, Cloudprober
 	// will try to extract metrics from HTTP response and export them along with
@@ -699,7 +692,7 @@ var File_github_com_cloudprober_cloudprober_probes_http_proto_config_proto proto
 
 const file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_rawDesc = "" +
 	"\n" +
-	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\x85\x10\n" +
+	"Agithub.com/cloudprober/cloudprober/probes/http/proto/config.proto\x12\x17cloudprober.probes.http\x1aBgithub.com/cloudprober/cloudprober/common/oauth/proto/config.proto\x1aFgithub.com/cloudprober/cloudprober/common/tlsconfig/proto/config.proto\x1aEgithub.com/cloudprober/cloudprober/metrics/payload/proto/config.proto\"\xea\x0f\n" +
 	"\tProbeConf\x12M\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\bprotocol\x12I\n" +
 	"\x06scheme\x18\x15 \x01(\x0e2).cloudprober.probes.http.ProbeConf.Scheme:\x04HTTPH\x00R\x06scheme\x12!\n" +
@@ -752,7 +745,7 @@ const file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_raw
 	"\n" +
 	"\x06DELETE\x10\x04\x12\t\n" +
 	"\x05PATCH\x10\x05\x12\v\n" +
-	"\aOPTIONS\x10\x06\"\xd2\x01\n" +
+	"\aOPTIONS\x10\x06\"\xb7\x01\n" +
 	"\x10LatencyBreakdown\x12\x10\n" +
 	"\fNO_BREAKDOWN\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -761,9 +754,8 @@ const file_github_com_cloudprober_cloudprober_probes_http_proto_config_proto_raw
 	"\x0fCONNECT_LATENCY\x10\x03\x12\x19\n" +
 	"\x15TLS_HANDSHAKE_LATENCY\x10\x04\x12\x15\n" +
 	"\x11REQ_WRITE_LATENCY\x10\x05\x12\x16\n" +
-	"\x12FIRST_BYTE_LATENCY\x10\x06\x12\x19\n" +
-	"\x15RESPONSE_READ_LATENCY\x10\a\x12\x11\n" +
-	"\rTOTAL_LATENCY\x10\bB\r\n" +
+	"\x12FIRST_BYTE_LATENCY\x10\x06\x12\x11\n" +
+	"\rTOTAL_LATENCY\x10\aB\r\n" +
 	"\vscheme_typeB6Z4github.com/cloudprober/cloudprober/probes/http/proto"
 
 var (

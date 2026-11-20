@@ -34,6 +34,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudprober/cloudprober/internal/validators"
 	"github.com/cloudprober/cloudprober/logger"
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/metrics/testutils"
@@ -43,6 +44,7 @@ import (
 	"github.com/cloudprober/cloudprober/targets"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	"google.golang.org/protobuf/proto"
 )
@@ -1006,13 +1008,37 @@ func TestParseLatencyBreakdown(t *testing.T) {
 			},
 			base: metrics.NewFloat(0),
 			want: &latencyDetails{
-				dnsLatency:          metrics.NewFloat(0),
-				connectLatency:      metrics.NewFloat(0),
-				tlsLatency:          metrics.NewFloat(0),
-				reqWriteLatency:     metrics.NewFloat(0),
-				firstByteLatency:    metrics.NewFloat(0),
-				responseReadLatency: metrics.NewFloat(0),
-				totalLatency:        metrics.NewFloat(0),
+				dnsLatency:       metrics.NewFloat(0),
+				connectLatency:   metrics.NewFloat(0),
+				tlsLatency:       metrics.NewFloat(0),
+				reqWriteLatency:  metrics.NewFloat(0),
+				firstByteLatency: metrics.NewFloat(0),
+			},
+		},
+		{
+			name: "all_plus_total",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_ALL_STAGES,
+				configpb.ProbeConf_TOTAL_LATENCY,
+			},
+			base: metrics.NewFloat(0),
+			want: &latencyDetails{
+				dnsLatency:       metrics.NewFloat(0),
+				connectLatency:   metrics.NewFloat(0),
+				tlsLatency:       metrics.NewFloat(0),
+				reqWriteLatency:  metrics.NewFloat(0),
+				firstByteLatency: metrics.NewFloat(0),
+				totalLatency:     metrics.NewFloat(0),
+			},
+		},
+		{
+			name: "total_only",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_TOTAL_LATENCY,
+			},
+			base: metrics.NewFloat(0),
+			want: &latencyDetails{
+				totalLatency: metrics.NewFloat(0),
 			},
 		},
 		{
@@ -1061,9 +1087,29 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 			lb: []configpb.ProbeConf_LatencyBreakdown{
 				configpb.ProbeConf_ALL_STAGES,
 			},
-			wantNonNil:  []string{"dns", "connect", "tls_handshake", "req_write", "first_byte", "response_read", "total"},
+			wantNonNil:  []string{"dns", "connect", "tls_handshake", "req_write", "first_byte"},
+			wantNil:     []string{"total"},
 			wantZero:    "tls_handshake",
-			wantMetrics: []string{"dns_latency", "connect_latency", "tls_handshake_latency", "req_write_latency", "first_byte_latency", "response_read_latency", "total_latency"},
+			wantMetrics: []string{"dns_latency", "connect_latency", "tls_handshake_latency", "req_write_latency", "first_byte_latency"},
+		},
+		{
+			name: "all_plus_total",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_ALL_STAGES,
+				configpb.ProbeConf_TOTAL_LATENCY,
+			},
+			wantNonNil:  []string{"dns", "connect", "tls_handshake", "req_write", "first_byte", "total"},
+			wantZero:    "tls_handshake",
+			wantMetrics: []string{"dns_latency", "connect_latency", "tls_handshake_latency", "req_write_latency", "first_byte_latency", "total_latency"},
+		},
+		{
+			name: "total_only",
+			lb: []configpb.ProbeConf_LatencyBreakdown{
+				configpb.ProbeConf_TOTAL_LATENCY,
+			},
+			wantNonNil:  []string{"total"},
+			wantNil:     []string{"dns", "connect", "tls_handshake", "req_write", "first_byte"},
+			wantMetrics: []string{"total_latency"},
 		},
 		{
 			name: "dns_tls",
@@ -1130,7 +1176,6 @@ func TestProbeWithLatencyBreakdown(t *testing.T) {
 				"tls_handshake": lb.tlsLatency,
 				"req_write":     lb.reqWriteLatency,
 				"first_byte":    lb.firstByteLatency,
-				"response_read": lb.responseReadLatency,
 				"total":         lb.totalLatency,
 			}
 
@@ -1438,4 +1483,156 @@ func TestNegativeTest(t *testing.T) {
 			assert.Equal(t, int64(0), success, "success for reachable target (negative test)")
 		}
 	}
+}
+
+func TestTotalLatency(t *testing.T) {
+	const bodyDelay = 100 * time.Millisecond
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		time.Sleep(bodyDelay)
+		fmt.Fprint(w, "response")
+	}))
+	defer server.Close()
+
+	opts := options.DefaultOptions()
+	opts.LatencyUnit = time.Millisecond
+	opts.LatencyMetricName = "duration"
+	opts.ProbeConf = &configpb.ProbeConf{LatencyBreakdown: []configpb.ProbeConf_LatencyBreakdown{
+		configpb.ProbeConf_TOTAL_LATENCY,
+	}}
+	opts.LatencyDist = metrics.NewDistribution([]float64{0, bodyDelay.Seconds() * 1000 / 2, 10000})
+	p := &Probe{}
+	require.NoError(t, p.Init("total_latency", opts))
+	result := p.newResult()
+	const requests = 3
+	for i := 0; i < requests; i++ {
+		req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+		require.NoError(t, err)
+		require.NoError(t, p.doHTTPRequest(req, server.Client(), endpoint.Endpoint{Name: "test"}, result, nil))
+	}
+	assert.EqualValues(t, requests, result.success)
+	em := result.Metrics(time.Now(), 0, opts)[0]
+	duration := em.Metric("duration").(*metrics.Distribution).Data()
+	totalDuration := em.Metric("total_duration").(*metrics.Distribution).Data()
+	assert.EqualValues(t, requests, duration.Count)
+	assert.EqualValues(t, requests, totalDuration.Count)
+	// Total latency must include the deliberate body delay.
+	assert.GreaterOrEqual(t, totalDuration.Sum, float64(requests)*bodyDelay.Seconds()*1000*0.9)
+	assert.Nil(t, em.Metric("dns_duration"), "only selected breakdowns should be exported")
+}
+
+func TestTotalLatencyFailures(t *testing.T) {
+	tests := []struct {
+		name         string
+		handler      http.HandlerFunc
+		negative     bool
+		validator    *validators.Validator
+		wantErr      error
+		wantTimeouts int64
+	}{
+		{
+			name: "body_timeout",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.(http.Flusher).Flush()
+				<-r.Context().Done()
+			},
+			wantErr: context.DeadlineExceeded,
+		},
+		{
+			name: "header_timeout",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				<-r.Context().Done()
+			},
+			wantErr:      context.DeadlineExceeded,
+			wantTimeouts: 1,
+		},
+		{
+			name: "truncated",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Length", "100")
+				w.WriteHeader(http.StatusOK)
+				w.(http.Flusher).Flush()
+				fmt.Fprint(w, "short")
+			},
+			wantErr: io.ErrUnexpectedEOF,
+		},
+		{
+			name: "validation",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, "response")
+			},
+			validator: &validators.Validator{Name: "reject", Validate: func(*validators.Input, *logger.Logger) (bool, error) {
+				return false, nil
+			}},
+			// wantErr left nil: error is a validator-failure message string.
+		},
+		{
+			name: "negative",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, "response")
+			},
+			negative: true,
+			// wantErr left nil: error is the negative-test message.
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(tt.handler)
+			defer server.Close()
+			opts := options.DefaultOptions()
+			opts.ProbeConf = &configpb.ProbeConf{LatencyBreakdown: []configpb.ProbeConf_LatencyBreakdown{configpb.ProbeConf_TOTAL_LATENCY}}
+			opts.NegativeTest = tt.negative
+			if tt.validator != nil {
+				opts.Validators = []*validators.Validator{tt.validator}
+			}
+			p := &Probe{}
+			require.NoError(t, p.Init("total_latency", opts))
+			result := p.newResult()
+			ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+			defer cancel()
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
+			require.NoError(t, err)
+			err = p.doHTTPRequest(req, server.Client(), endpoint.Endpoint{Name: "test"}, result, nil)
+			require.Error(t, err)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+			assert.EqualValues(t, 1, result.total)
+			assert.Zero(t, result.success)
+			assert.EqualValues(t, tt.wantTimeouts, result.timeouts)
+			for _, value := range []metrics.LatencyValue{result.latency, result.latencyBreakdown.totalLatency} {
+				assert.Zero(t, value.(metrics.NumValue).Float64())
+			}
+		})
+	}
+}
+
+func TestTotalLatencyExcludesValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "response")
+	}))
+	defer server.Close()
+	opts := options.DefaultOptions()
+	opts.LatencyUnit = time.Second
+	opts.ProbeConf = &configpb.ProbeConf{LatencyBreakdown: []configpb.ProbeConf_LatencyBreakdown{configpb.ProbeConf_TOTAL_LATENCY}}
+	var validationDuration time.Duration
+	opts.Validators = []*validators.Validator{{Name: "slow", Validate: func(*validators.Input, *logger.Logger) (bool, error) {
+		start := time.Now()
+		time.Sleep(50 * time.Millisecond)
+		validationDuration = time.Since(start)
+		return true, nil
+	}}}
+	p := &Probe{}
+	require.NoError(t, p.Init("total_latency", opts))
+	result := p.newResult()
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+	start := time.Now()
+	require.NoError(t, p.doHTTPRequest(req, server.Client(), endpoint.Endpoint{Name: "test"}, result, nil))
+	elapsed := time.Since(start)
+	total := result.latencyBreakdown.totalLatency.(metrics.NumValue).Float64()
+	assert.LessOrEqual(t, total, (elapsed - validationDuration).Seconds())
 }
