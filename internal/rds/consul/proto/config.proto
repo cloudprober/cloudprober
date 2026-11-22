@@ -1,0 +1,79 @@
+// Configuration proto for the Consul RDS provider.
+//
+// Settings not set here come from the standard Consul environment variables:
+// CONSUL_HTTP_ADDR, CONSUL_HTTP_TOKEN, CONSUL_HTTP_TOKEN_FILE,
+// CONSUL_HTTP_SSL, CONSUL_HTTP_SSL_VERIFY, CONSUL_HTTP_AUTH, CONSUL_CACERT,
+// CONSUL_CAPATH, CONSUL_CLIENT_CERT, CONSUL_CLIENT_KEY, CONSUL_TLS_SERVER_NAME,
+// CONSUL_DATACENTER and CONSUL_NAMESPACE. CONSUL_HTTP_ADDR="auto-discover"
+// finds Consul through a Kubernetes service, using CONSUL_K8S_NAMESPACE
+// (default "default"), CONSUL_K8S_SERVICE_NAME (default "consul") and
+// CONSUL_K8S_PORT (default 8500).
+
+syntax = "proto2";
+
+package cloudprober.rds.consul;
+
+import "github.com/cloudprober/cloudprober/internal/rds/consul/proto/global.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/internal/rds/consul/proto";
+
+message ProviderConfig {
+  // Consul address (host:port). Overrides CONSUL_HTTP_ADDR.
+  optional string address = 1 [default = "localhost:8500"];
+
+  // Consul datacenter. Overrides CONSUL_DATACENTER.
+  optional string datacenter = 2;
+
+  // ACL token. Overrides CONSUL_HTTP_TOKEN and CONSUL_HTTP_TOKEN_FILE.
+  optional string token = 3;
+
+  // TLS settings. Override the CONSUL_* TLS environment variables.
+  optional TLSConfig tls = 4;
+
+  // Discover the Consul address through a Kubernetes service.
+  optional KubernetesServiceConfig kubernetes_service = 5;
+
+  optional ServicesConfig services = 10;
+  optional HealthChecksConfig health_checks = 11;
+  optional NodesConfig nodes = 12;
+
+  // How often to refresh the list of resources (in seconds)
+  optional int32 re_eval_sec = 99 [default = 60];
+}
+
+message ServicesConfig {
+  // Return only services that have all of these tags.
+  repeated string tag_filter = 1;
+
+  // Regex filter on service name.
+  optional string name_filter = 2;
+
+  // Include service metadata as meta_* labels.
+  optional bool include_metadata = 3 [default = true];
+
+  // Include service tags as labels (tags, and tag_<name>).
+  optional bool include_tags = 4 [default = true];
+
+  // Node metadata keys to include as node_meta_* labels.
+  repeated string node_meta_filter = 5;
+
+  // Return only services with these health statuses (passing, warning,
+  // critical, maintenance). If empty, services of any status are returned.
+  repeated string health_status = 6;
+}
+
+message HealthChecksConfig {
+  // Only checks for this service.
+  optional string service_name = 1;
+
+  // Only checks with these statuses (passing, warning, critical).
+  repeated string status_filter = 2;
+}
+
+message NodesConfig {
+  // Only nodes whose metadata matches.
+  map<string, string> meta_filter = 1;
+
+  // Only nodes in this datacenter.
+  optional string datacenter = 2;
+}
