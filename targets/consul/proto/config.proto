@@ -1,0 +1,50 @@
+// Configuration proto for Consul targets.
+syntax = "proto2";
+
+package cloudprober.targets.consul;
+
+import "github.com/cloudprober/cloudprober/internal/rds/consul/proto/config.proto";
+import "github.com/cloudprober/cloudprober/internal/rds/proto/rds.proto";
+
+option go_package = "github.com/cloudprober/cloudprober/targets/consul/proto";
+
+// TargetsConf represents Consul targets configuration.
+message TargetsConf {
+  // Reference to a named global consul configuration.
+  // Selects a global_consul_options entry by id (default: the first entry).
+  optional string consul_id = 4;
+
+  // Consul address (host:port)
+  optional string address = 1 [default = "localhost:8500"];
+
+  // Consul datacenter.
+  optional string datacenter = 2;
+
+  // ACL token.
+  optional string token = 3;
+
+  // Resources to discover.
+  oneof resources {
+    // Services whose name matches this regex, e.g. "web-.*" ("" for all).
+    string services = 10;
+
+    // Health checks of this service ("" for all health checks).
+    string health_checks = 11;
+
+    // Consul nodes ("" for all).
+    string nodes = 12;
+  }
+
+  // Only services with all of these tags.
+  repeated string tags = 20;
+
+  // Only services with these health statuses (passing, warning, critical).
+  // If empty, services of any status are returned.
+  repeated string health_status = 21;
+
+  // Additional filters on the discovered resources.
+  repeated .cloudprober.rds.Filter filter = 30;
+
+  // How often to refresh the target list, in seconds.
+  optional int32 re_eval_sec = 99 [default = 30];
+}
