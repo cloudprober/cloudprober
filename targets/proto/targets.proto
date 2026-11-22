@@ -272,9 +272,8 @@ message GlobalTargetsOptions {
   // targets and removes them from the targets list.
   optional lameduck.Options lame_duck_options = 2;
 
-  // Consul global options. These options are shared across Consul targets.
-  // Multiple entries can be defined, each with a unique id field, to support
-  // connecting to different Consul clusters. A probe target's consul_id field
-  // selects which entry to use; if consul_id is unset the first entry is used.
+  // Consul settings shared by Consul targets. Define several entries (each
+  // with an id) for multiple clusters; a target's consul_id picks one, else
+  // the first is used.
   repeated .cloudprober.rds.consul.GlobalOptions global_consul_options = 5;
 }

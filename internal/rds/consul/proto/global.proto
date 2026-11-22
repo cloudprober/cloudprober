@@ -5,30 +5,25 @@ package cloudprober.rds.consul;
 
 option go_package = "github.com/cloudprober/cloudprober/internal/rds/consul/proto";
 
-// GlobalOptions configures Consul settings that can be shared across
-// both targets and surfacers.
+// GlobalOptions holds Consul settings shared across Consul targets.
 message GlobalOptions {
-  // Unique identifier for this global consul configuration.
-  // Used when multiple global consul configurations are defined; probe targets
-  // reference a specific configuration via the consul_id field.
-  // If only one global configuration is defined, id is not required.
+  // Identifies this entry when several are defined; targets select one with
+  // consul_id. Not required if there is only one.
   optional string id = 6;
 
-  // Consul server address (hostname:port)
-  // Default: "localhost:8500"
+  // Consul address (host:port)
   optional string address = 1 [default = "localhost:8500"];
 
-  // Consul datacenter
+  // Consul datacenter.
   optional string datacenter = 2;
 
-  // Consul authentication token
-  // Can also be set via CONSUL_HTTP_TOKEN environment variable
+  // ACL token. Can also be set with CONSUL_HTTP_TOKEN.
   optional string token = 3;
 
-  // TLS configuration for connecting to Consul
+  // TLS settings.
   optional TLSConfig tls = 4;
 
-  // Kubernetes service discovery for Consul address
+  // Discover the Consul address through a Kubernetes service.
   optional KubernetesServiceConfig kubernetes_service = 5;
 }
 

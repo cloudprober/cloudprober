@@ -30,14 +30,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// mockConsulServer creates a test HTTP server that mocks Consul API responses
 func mockConsulServer(t *testing.T) *httptest.Server {
 	t.Helper()
 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/v1/catalog/services"):
-			// Return list of services
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `{
 				"web": ["http", "production"],
@@ -46,7 +44,6 @@ func mockConsulServer(t *testing.T) *httptest.Server {
 			}`)
 
 		case strings.Contains(r.URL.Path, "/v1/health/service/web"):
-			// Return health for web service
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `[
 				{
@@ -105,7 +102,6 @@ func mockConsulServer(t *testing.T) *httptest.Server {
 			]`)
 
 		case strings.Contains(r.URL.Path, "/v1/health/service/api"):
-			// Return health for api service
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `[
 				{
@@ -134,7 +130,6 @@ func mockConsulServer(t *testing.T) *httptest.Server {
 			]`)
 
 		case strings.Contains(r.URL.Path, "/v1/health/service/db"):
-			// Return health for db service
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `[
 				{
@@ -210,7 +205,6 @@ func TestNewConsulProvider(t *testing.T) {
 }
 
 func TestServicesListerFiltering(t *testing.T) {
-	// Create mock Consul server
 	server := mockConsulServer(t)
 	defer server.Close()
 
@@ -230,7 +224,6 @@ func TestServicesListerFiltering(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Wait for initial refresh
 	time.Sleep(500 * time.Millisecond)
 
 	tests := []struct {
@@ -348,7 +341,6 @@ func TestConsulClientConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set environment variables
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
 				defer os.Unsetenv(k)
@@ -364,8 +356,6 @@ func TestConsulClientConfiguration(t *testing.T) {
 				t.Fatal("Expected non-nil client")
 			}
 
-			// Client was successfully created, which means
-			// configuration was applied
 		})
 	}
 }
@@ -405,7 +395,6 @@ func TestAggregateHealthStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Build a []consulCheck from the test case statuses.
 			checks := make([]consulCheck, len(tt.statuses))
 			for i, status := range tt.statuses {
 				checks[i] = consulCheck{Status: status}
@@ -465,7 +454,6 @@ func TestContainsAllTags(t *testing.T) {
 func TestResourceCacheOperations(t *testing.T) {
 	cache := newResourceCache()
 
-	// Test set and get
 	data := &serviceData{
 		name:    "test-service",
 		address: "10.0.0.1",
@@ -481,13 +469,11 @@ func TestResourceCacheOperations(t *testing.T) {
 		t.Errorf("Got name %s, want %s", got.name, data.name)
 	}
 
-	// Test get non-existent key
 	_, ok = cache.get("nonexistent")
 	if ok {
 		t.Error("Expected key not to exist")
 	}
 
-	// Test getAll
 	data2 := &serviceData{
 		name:    "test-service-2",
 		address: "10.0.0.2",
@@ -500,14 +486,12 @@ func TestResourceCacheOperations(t *testing.T) {
 		t.Errorf("Got %d items, want 2", len(all))
 	}
 
-	// Test delete
 	cache.delete("key1")
 	_, ok = cache.get("key1")
 	if ok {
 		t.Error("Expected key1 to be deleted")
 	}
 
-	// Test clear
 	cache.clear()
 	all = cache.getAll()
 	if len(all) != 0 {
@@ -516,7 +500,6 @@ func TestResourceCacheOperations(t *testing.T) {
 }
 
 func TestServiceDataLabels(t *testing.T) {
-	// Create mock server
 	server := mockConsulServer(t)
 	defer server.Close()
 
@@ -537,7 +520,6 @@ func TestServiceDataLabels(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Wait for initial refresh
 	time.Sleep(500 * time.Millisecond)
 
 	resp, err := provider.ListResources(&pb.ListResourcesRequest{
@@ -547,7 +529,6 @@ func TestServiceDataLabels(t *testing.T) {
 		t.Fatalf("ListResources() error = %v", err)
 	}
 
-	// Find the web service from node1 which has metadata
 	var webResource *pb.Resource
 	for _, res := range resp.Resources {
 		if res.Labels["service"] == "web" && res.Labels["node"] == "node1" {
@@ -560,7 +541,6 @@ func TestServiceDataLabels(t *testing.T) {
 		t.Fatal("Could not find web service from node1")
 	}
 
-	// Verify labels available for @target.label.KEY@ substitution
 	expectedLabels := map[string]string{
 		"service":                 "web",
 		"node":                    "node1",
@@ -586,10 +566,8 @@ func TestServiceDataLabels(t *testing.T) {
 }
 
 func TestConsulMetadataLabelPropagation(t *testing.T) {
-	// Verifies Consul metadata is exposed as labels for use with
-	// @target.label.KEY@
-	// in probe additional_label configs. See examples/targets/consul/ for
-	// usage.
+	// Consul metadata is exposed as labels usable via @target.label.KEY@ (see
+	// examples/targets/consul/).
 
 	server := mockConsulServer(t)
 	defer server.Close()
@@ -629,7 +607,6 @@ func TestConsulMetadataLabelPropagation(t *testing.T) {
 
 	resource := resp.Resources[0]
 
-	// Verify the labels that can be propagated via @target.label.KEY@
 	labelsToPropagate := []struct {
 		labelKey    string
 		description string
@@ -669,7 +646,6 @@ func TestAvailableResourceTypes(t *testing.T) {
 		t.Error("Expected at least one resource type")
 	}
 
-	// Should have services by default
 	found := false
 	for _, t := range types {
 		if t == "services" {
@@ -694,7 +670,6 @@ func TestListResourcesWithInvalidPath(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Try to list with invalid resource type
 	_, err = provider.ListResources(&pb.ListResourcesRequest{
 		ResourcePath: proto.String("invalid_type"),
 	})
@@ -708,8 +683,6 @@ func TestListResourcesWithInvalidPath(t *testing.T) {
 }
 
 func TestNodeMetadataFiltering(t *testing.T) {
-	// Test that node_meta_filter correctly includes only specified metadata
-	// keys
 	server := mockConsulServer(t)
 	defer server.Close()
 
@@ -769,10 +742,7 @@ func TestNodeMetadataFiltering(t *testing.T) {
 				t.Fatal("Expected at least one resource")
 			}
 
-			// Find the node1 resource, which has full metadata in
-			// the mock server response.
-			// Map iteration is non-deterministic so we cannot rely
-			// on index 0.
+			// Map order is random: find node1 (full metadata), not index 0.
 			var node1Labels map[string]string
 			for _, res := range resp.Resources {
 				if res.Labels["node"] == "node1" {
@@ -784,10 +754,7 @@ func TestNodeMetadataFiltering(t *testing.T) {
 				t.Fatal("Could not find resource from node1 (required for metadata label checks)")
 			}
 
-			// For wantLabels checks we use node1 which carries the
-			// richest metadata.
-			// For dontWantLabels checks we inspect all resources,
-			// since none should carry them.
+			// wantLabels are checked on node1, dontWantLabels on every resource.
 			for _, wantLabel := range tt.wantLabels {
 				if _, exists := node1Labels[wantLabel]; !exists {
 					t.Errorf("Expected label %s to exist on node1 resource", wantLabel)
@@ -806,8 +773,6 @@ func TestNodeMetadataFiltering(t *testing.T) {
 }
 
 func TestServiceAddressSelection(t *testing.T) {
-	// Verify that service address is used when available, otherwise node
-	// address
 	server := mockConsulServer(t)
 	defer server.Close()
 
@@ -841,8 +806,6 @@ func TestServiceAddressSelection(t *testing.T) {
 	for _, res := range resp.Resources {
 		if res.Labels["service"] == "web" {
 			ip := res.GetIp()
-			// web-1 should have 10.0.1.10 (service address)
-			// web-2 should have 10.0.1.2 (node address)
 			if ip != "10.0.1.10" && ip != "10.0.1.2" {
 				t.Errorf("Unexpected IP address: %s", ip)
 			}
@@ -893,7 +856,6 @@ func TestContainsString(t *testing.T) {
 }
 
 func TestMultipleResourceTypes(t *testing.T) {
-	// Test provider with multiple resource types configured
 	config := &configpb.ProviderConfig{
 		Address:  proto.String("localhost:8500"),
 		Services: &configpb.ServicesConfig{},
@@ -925,8 +887,6 @@ func TestMultipleResourceTypes(t *testing.T) {
 }
 
 func TestProviderWithoutServiceConfig(t *testing.T) {
-	// When no specific resource type is configured, should default to
-	// services
 	config := &configpb.ProviderConfig{
 		Address: proto.String("localhost:8500"),
 	}
@@ -942,7 +902,6 @@ func TestProviderWithoutServiceConfig(t *testing.T) {
 		t.Fatal("Expected at least one resource type")
 	}
 
-	// Should have services as default
 	if !reflect.DeepEqual(types, []string{"services"}) && !containsString(types, "services") {
 		t.Errorf("Expected services in types, got: %v", types)
 	}

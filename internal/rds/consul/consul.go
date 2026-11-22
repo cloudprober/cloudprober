@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package consul implements a Consul-based resource discovery provider for
-// Cloudprober.
-// It allows discovering services, health checks, and nodes from Consul using
-// the
-// Consul HTTP REST API directly.
+// Package consul implements an RDS provider that discovers services, health
+// checks and nodes from the Consul HTTP API. It uses plain HTTP, with no
+// dependency on github.com/hashicorp/consul/api.
 package consul
 
 import (
@@ -30,7 +28,6 @@ import (
 )
 
 const (
-	// DefaultProviderID is the default provider ID for Consul RDS
 	DefaultProviderID = "consul"
 )
 
@@ -42,7 +39,6 @@ type Provider struct {
 	l       *logger.Logger
 }
 
-// lister is an interface for listing different Consul resource types.
 type lister interface {
 	listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error)
 }
@@ -65,7 +61,6 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 		l:       l,
 	}
 
-	// Initialize listers based on configuration
 	if c.Services != nil {
 		servicesLister, err := newServicesLister(c, cl, l)
 		if err != nil {
@@ -108,12 +103,7 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 
 // ListResources implements the Provider interface.
 func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
-	// Parse resource path: format is "resource_type/optional_params"
-	// Examples:
-	//   "services"
-	//   "services/web"
-	//   "health_checks/web"
-	//   "nodes"
+	// Resource path is "type[/param]", e.g. "services/web" or "nodes".
 	tok := strings.SplitN(req.GetResourcePath(), "/", 2)
 	resType := tok[0]
 
@@ -131,7 +121,6 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 	return &pb.ListResourcesResponse{Resources: resources}, nil
 }
 
-// availableResourceTypes returns a list of available resource types.
 func (p *Provider) availableResourceTypes() []string {
 	types := make([]string, 0, len(p.listers))
 	for t := range p.listers {
@@ -140,7 +129,6 @@ func (p *Provider) availableResourceTypes() []string {
 	return types
 }
 
-// serviceData holds cached service information.
 type serviceData struct {
 	name        string
 	address     string

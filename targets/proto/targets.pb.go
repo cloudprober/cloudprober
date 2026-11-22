@@ -854,10 +854,9 @@ type GlobalTargetsOptions struct {
 	// Lame duck options. If provided, targets module checks for the lame duck
 	// targets and removes them from the targets list.
 	LameDuckOptions *proto6.Options `protobuf:"bytes,2,opt,name=lame_duck_options,json=lameDuckOptions" json:"lame_duck_options,omitempty"`
-	// Consul global options. These options are shared across Consul targets.
-	// Multiple entries can be defined, each with a unique id field, to support
-	// connecting to different Consul clusters. A probe target's consul_id field
-	// selects which entry to use; if consul_id is unset the first entry is used.
+	// Consul settings shared by Consul targets. Define several entries (each
+	// with an id) for multiple clusters; a target's consul_id picks one, else
+	// the first is used.
 	GlobalConsulOptions []*proto7.GlobalOptions `protobuf:"bytes,5,rep,name=global_consul_options,json=globalConsulOptions" json:"global_consul_options,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache

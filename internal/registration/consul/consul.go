@@ -12,16 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package consul handles self-registration of cloudprober with Consul's service
-// catalog. Enable and configure it via CLI flags:
-//
-//	--consul_registration=true
-//	--consul_addr=localhost:8500
-//	--consul_service_name=cloudprober
-//
-// Consul's HTTP REST API is used directly to avoid a dependency on the
-// HashiCorp Consul Go client library. Health checks use cloudprober's
-// built-in /health HTTP endpoint.
+// Package consul registers cloudprober in Consul's service catalog when
+// --consul_registration is set (see the consul_* flags). It uses the Consul
+// HTTP API directly and points Consul's health check at cloudprober's /health.
 package consul
 
 import (
@@ -69,8 +62,6 @@ type serviceRegistration struct {
 	Check   *healthCheck      `json:"Check,omitempty"`
 }
 
-// healthCheck is the Consul health check configuration embedded in
-// serviceRegistration.
 type healthCheck struct {
 	HTTP                           string `json:"HTTP"`
 	Interval                       string `json:"Interval"`
@@ -78,7 +69,6 @@ type healthCheck struct {
 	DeregisterCriticalServiceAfter string `json:"DeregisterCriticalServiceAfter,omitempty"`
 }
 
-// registration holds the active Consul registration state.
 type registration struct {
 	consulAddr  string
 	serviceID   string
@@ -116,8 +106,6 @@ func Start(ctx context.Context, l *logger.Logger) error {
 	return nil
 }
 
-// newRegistration builds a registration from CLI flags, resolving any
-// auto-detected values (address, service ID).
 func newRegistration(l *logger.Logger) (*registration, error) {
 	addr := *serviceAddr
 	if addr == "" {
@@ -146,9 +134,7 @@ func newRegistration(l *logger.Logger) (*registration, error) {
 	}, nil
 }
 
-// register calls Consul's service registration API.
 func (reg *registration) register() error {
-	// Point Consul at cloudprober's built-in /health endpoint.
 	healthURL := fmt.Sprintf("http://%s:%d/health", reg.serviceAddr, reg.servicePort)
 
 	tags := parseTags(*serviceTags)
@@ -181,7 +167,6 @@ func (reg *registration) register() error {
 	return nil
 }
 
-// deregister calls Consul's service deregistration API.
 func (reg *registration) deregister() {
 	path := fmt.Sprintf("agent/service/deregister/%s", reg.serviceID)
 	if err := reg.put(path, nil); err != nil {
@@ -191,7 +176,6 @@ func (reg *registration) deregister() {
 	reg.l.Infof("consul registration: deregistered %q", reg.serviceID)
 }
 
-// put makes an authenticated HTTP PUT to the Consul agent API.
 func (reg *registration) put(path string, body []byte) error {
 	url := fmt.Sprintf("http://%s/v1/%s", reg.consulAddr, path)
 
@@ -224,8 +208,7 @@ func (reg *registration) put(path string, body []byte) error {
 	return nil
 }
 
-// parseTags splits a comma-separated tag string into a slice, trimming
-// whitespace and skipping empty entries.
+// parseTags splits a comma-separated list, skipping empty entries.
 func parseTags(raw string) []string {
 	var tags []string
 	for _, tag := range strings.Split(raw, ",") {

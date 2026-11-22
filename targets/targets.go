@@ -440,10 +440,8 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 	return t, nil
 }
 
-// findGlobalConsulOptions returns the GlobalOptions entry matching consulID.
-// If consulID is empty, it returns the first entry (backward-compatible
-// behavior).
-// Returns nil if no entries exist.
+// findGlobalConsulOptions returns the entry matching consulID (the first entry
+// if consulID is empty), or nil if there is none.
 func findGlobalConsulOptions(opts []*consulpb.GlobalOptions, consulID string) *consulpb.GlobalOptions {
 	if len(opts) == 0 {
 		return nil

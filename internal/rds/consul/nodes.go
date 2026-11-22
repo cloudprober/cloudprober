@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Nodes lister for Consul.
 package consul
 
 import (
@@ -27,7 +26,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// nodesLister lists Consul nodes.
 type nodesLister struct {
 	config *configpb.ProviderConfig
 	client *client
@@ -35,20 +33,14 @@ type nodesLister struct {
 	l      *logger.Logger
 }
 
-// NodesSupportedFilters defines the filters supported by the nodes lister.
 var NodesSupportedFilters = struct {
 	RegexFilterKeys []string
 	LabelsFilter    bool
 }{
-	// Supported regex filters:
-	// - name: node name
-	// - address: node address
-	// - datacenter: datacenter name
 	RegexFilterKeys: []string{"name", "address", "datacenter"},
 	LabelsFilter:    true,
 }
 
-// newNodesLister creates a new nodes lister.
 func newNodesLister(c *configpb.ProviderConfig, cl *client, l *logger.Logger) (*nodesLister, error) {
 	nl := &nodesLister{
 		config: c,
@@ -57,22 +49,18 @@ func newNodesLister(c *configpb.ProviderConfig, cl *client, l *logger.Logger) (*
 		l:      l,
 	}
 
-	// Start background refresh goroutine
 	go nl.refreshLoop()
 
 	return nl, nil
 }
 
-// refreshLoop periodically refreshes the nodes from Consul.
 func (nl *nodesLister) refreshLoop() {
 	reEvalInterval := time.Duration(nl.config.GetReEvalSec()) * time.Second
 
-	// Initial refresh
 	if err := nl.refresh(); err != nil {
 		nl.l.Errorf("consul.nodes: initial refresh failed: %v", err)
 	}
 
-	// Periodic refresh with ticker
 	ticker := time.NewTicker(reEvalInterval)
 	defer ticker.Stop()
 
@@ -83,8 +71,6 @@ func (nl *nodesLister) refreshLoop() {
 	}
 }
 
-// refresh fetches the latest nodes from Consul and updates the cache.
-// GET /v1/catalog/nodes returns []consulCatalogNode.
 func (nl *nodesLister) refresh() error {
 	nl.l.Debugf("consul.nodes: refreshing nodes")
 
@@ -107,13 +93,11 @@ func (nl *nodesLister) refresh() error {
 
 	nl.l.Debugf("consul.nodes: found %d nodes", len(nodes))
 
-	// Clear old cache
 	nl.cache.clear()
 
 	now := time.Now().Unix()
 
 	for _, node := range nodes {
-		// Apply metadata filter if configured
 		if nl.config.Nodes != nil && len(nl.config.Nodes.MetaFilter) > 0 {
 			matches := true
 			for key, value := range nl.config.Nodes.MetaFilter {
@@ -127,7 +111,6 @@ func (nl *nodesLister) refresh() error {
 			}
 		}
 
-		// Create unique key for this node
 		key := fmt.Sprintf("%s-%s", node.Datacenter, node.Node)
 
 		data := &serviceData{
@@ -149,35 +132,29 @@ func (nl *nodesLister) refresh() error {
 	return nil
 }
 
-// listResources implements the lister interface for nodes.
 func (nl *nodesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
-	// Parse filters
 	allFilters, err := filter.ParseFilters(req.GetFilter(), NodesSupportedFilters.RegexFilterKeys, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse filters: %v", err)
 	}
 
-	// Get all cached nodes
 	allNodes := nl.cache.getAll()
 
 	var resources []*pb.Resource
 
 	for key, node := range allNodes {
-		// Apply name filter
 		if nameFilter := allFilters.RegexFilters["name"]; nameFilter != nil {
 			if !nameFilter.Match(node.name, nl.l) {
 				continue
 			}
 		}
 
-		// Apply address filter
 		if addressFilter := allFilters.RegexFilters["address"]; addressFilter != nil {
 			if !addressFilter.Match(node.address, nl.l) {
 				continue
 			}
 		}
 
-		// Apply datacenter filter
 		if dcFilter := allFilters.RegexFilters["datacenter"]; dcFilter != nil {
 			datacenter := node.meta["datacenter"]
 			if !dcFilter.Match(datacenter, nl.l) {
@@ -185,25 +162,21 @@ func (nl *nodesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resour
 			}
 		}
 
-		// Build labels map
 		labels := make(map[string]string)
 		labels["node"] = node.name
 		labels["datacenter"] = node.meta["datacenter"]
 		labels["node_id"] = node.meta["node_id"]
 
-		// Add node metadata as labels
 		for k, v := range node.nodeMeta {
 			labels[fmt.Sprintf("meta_%s", k)] = v
 		}
 
-		// Apply labels filter
 		if allFilters.LabelsFilter != nil {
 			if !allFilters.LabelsFilter.Match(labels, nl.l) {
 				continue
 			}
 		}
 
-		// Create resource
 		resource := &pb.Resource{
 			Name:        proto.String(key),
 			Ip:          proto.String(node.address),

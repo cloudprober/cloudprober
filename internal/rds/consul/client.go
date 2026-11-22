@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package consul implements a Consul-based resource discovery provider for
-// Cloudprober.
-// This file provides a plain HTTP client for the Consul REST API, with no
-// dependency on github.com/hashicorp/consul/api.
 package consul
 
 import (
@@ -31,7 +27,6 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-// client wraps a plain *http.Client to call the Consul HTTP REST API.
 type client struct {
 	httpClient *http.Client
 	baseURL    string
@@ -48,14 +43,12 @@ type consulHealthEntry struct {
 	Checks  []consulCheck `json:"Checks"`
 }
 
-// consulNode is the Node sub-object within a health entry.
 type consulNode struct {
 	Node    string            `json:"Node"`
 	Address string            `json:"Address"`
 	Meta    map[string]string `json:"Meta"`
 }
 
-// consulService is the Service sub-object within a health entry.
 type consulService struct {
 	ID      string            `json:"ID"`
 	Service string            `json:"Service"`
@@ -65,9 +58,8 @@ type consulService struct {
 	Meta    map[string]string `json:"Meta"`
 }
 
-// consulCheck represents a single Consul health check result.
-// It is used both within consulHealthEntry.Checks and as the element type
-// for the /v1/health/checks/{service} and /v1/health/state/any responses.
+// consulCheck is a health check result, as embedded in consulHealthEntry and
+// returned by /v1/health/checks/{service} and /v1/health/state/any.
 type consulCheck struct {
 	Node        string `json:"Node"`
 	CheckID     string `json:"CheckID"`
@@ -88,8 +80,6 @@ type consulCatalogNode struct {
 	Meta       map[string]string `json:"Meta"`
 }
 
-// newClient creates a consul client from the provider config, falling back to
-// standard Consul environment variables and sensible defaults.
 func newClient(c *configpb.ProviderConfig, l *logger.Logger) (*client, error) {
 	addr := resolveConsulAddr(c, l)
 
@@ -141,7 +131,6 @@ func resolveConsulAddr(c *configpb.ProviderConfig, l *logger.Logger) string {
 
 	envAddr := os.Getenv("CONSUL_HTTP_ADDR")
 
-	// Handle auto-discover mode (either from config or env var).
 	if c.GetAddress() == "auto-discover" || envAddr == "auto-discover" {
 		namespace := os.Getenv("CONSUL_K8S_NAMESPACE")
 		if namespace == "" {
@@ -194,16 +183,13 @@ func resolveToken(configToken string, l *logger.Logger) string {
 	return ""
 }
 
-// get performs a GET request against the given Consul API path, appending any
-// extra query parameters. If the client has a datacenter configured and the
-// caller has not already set the "dc" param, it is added automatically.
-// The JSON response body is decoded into v.
+// get decodes the JSON response of GET path into v. The configured datacenter
+// is added as "dc" unless params already sets it.
 func (c *client) get(path string, params url.Values, v interface{}) error {
 	if params == nil {
 		params = url.Values{}
 	}
 
-	// Add datacenter param only when the caller has not set one already.
 	if c.datacenter != "" && params.Get("dc") == "" {
 		params.Set("dc", c.datacenter)
 	}

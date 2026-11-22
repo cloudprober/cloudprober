@@ -28,7 +28,6 @@ import (
 	"github.com/cloudprober/cloudprober/logger"
 )
 
-// mockConsul records Consul API calls for assertions in tests.
 type mockConsul struct {
 	mu              sync.Mutex
 	server          *httptest.Server
@@ -76,7 +75,6 @@ func newMockConsul(t *testing.T) *mockConsul {
 }
 
 func (mc *mockConsul) addr() string {
-	// Strip the "http://" prefix to get host:port.
 	return strings.TrimPrefix(mc.server.URL, "http://")
 }
 
@@ -274,8 +272,7 @@ func TestStartRegistersAndDeregisters(t *testing.T) {
 	}
 	mc.mu.Unlock()
 
-	// Cancel context to trigger deregistration and give the goroutine time
-	// to run.
+	// Cancelling the context triggers deregistration.
 	cancel()
 
 	deadline := time.Now().Add(2 * time.Second)

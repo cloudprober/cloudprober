@@ -29,17 +29,15 @@ const (
 type TargetsConf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Reference to a named global consul configuration.
-	// Matches the id field in a global_consul_options entry.
-	// If not specified, the first (or only) global_consul_options entry is used.
+	// Selects a global_consul_options entry by id (default: the first entry).
 	ConsulId *string `protobuf:"bytes,4,opt,name=consul_id,json=consulId" json:"consul_id,omitempty"`
-	// Consul server address (hostname:port)
-	// Default: "localhost:8500"
+	// Consul address (host:port)
 	Address *string `protobuf:"bytes,1,opt,name=address,def=localhost:8500" json:"address,omitempty"`
-	// Consul datacenter
+	// Consul datacenter.
 	Datacenter *string `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
-	// Consul authentication token
+	// ACL token.
 	Token *string `protobuf:"bytes,3,opt,name=token" json:"token,omitempty"`
-	// Which Consul resources to target
+	// Resources to discover.
 	//
 	// Types that are valid to be assigned to Resources:
 	//
@@ -47,15 +45,14 @@ type TargetsConf struct {
 	//	*TargetsConf_HealthChecks
 	//	*TargetsConf_Nodes
 	Resources isTargetsConf_Resources `protobuf_oneof:"resources"`
-	// Service tags to filter by (all tags must match)
+	// Only services with all of these tags.
 	Tags []string `protobuf:"bytes,20,rep,name=tags" json:"tags,omitempty"`
-	// Health status filter for services
-	// Values: "passing", "warning", "critical"
-	// Default: only "passing" services
+	// Only services with these health statuses (passing, warning, critical).
+	// If empty, services of any status are returned.
 	HealthStatus []string `protobuf:"bytes,21,rep,name=health_status,json=healthStatus" json:"health_status,omitempty"`
-	// Additional filters to apply to discovered resources
+	// Additional filters on the discovered resources.
 	Filter []*proto.Filter `protobuf:"bytes,30,rep,name=filter" json:"filter,omitempty"`
-	// How often to refresh the target list (in seconds)
+	// How often to refresh the target list, in seconds.
 	ReEvalSec     *int32 `protobuf:"varint,99,opt,name=re_eval_sec,json=reEvalSec,def=30" json:"re_eval_sec,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -192,22 +189,17 @@ type isTargetsConf_Resources interface {
 }
 
 type TargetsConf_Services struct {
-	// Services: discover Consul services
-	// Example: services: "web-.*"  // regex to match service names
-	// Example: services: ""         // all services
+	// Services whose name matches this regex, e.g. "web-.*" ("" for all).
 	Services string `protobuf:"bytes,10,opt,name=services,oneof"`
 }
 
 type TargetsConf_HealthChecks struct {
-	// Health checks: discover health checks
-	// Example: health_checks: "api"  // health checks for "api" service
-	// Example: health_checks: ""     // all health checks
+	// Health checks of this service ("" for all health checks).
 	HealthChecks string `protobuf:"bytes,11,opt,name=health_checks,json=healthChecks,oneof"`
 }
 
 type TargetsConf_Nodes struct {
-	// Nodes: discover Consul nodes
-	// Example: nodes: ""  // all nodes
+	// Consul nodes ("" for all).
 	Nodes string `protobuf:"bytes,12,opt,name=nodes,oneof"`
 }
 

@@ -39,21 +39,18 @@ func mergeConsulOptions(local *configpb.TargetsConf, global *consul_configpb.Glo
 		ReEvalSec: local.ReEvalSec,
 	}
 
-	// Address: local takes precedence
 	if local.Address != nil {
 		providerConfig.Address = local.Address
 	} else if global != nil && global.Address != nil {
 		providerConfig.Address = global.Address
 	}
 
-	// Datacenter: local takes precedence
 	if local.Datacenter != nil {
 		providerConfig.Datacenter = local.Datacenter
 	} else if global != nil && global.Datacenter != nil {
 		providerConfig.Datacenter = global.Datacenter
 	}
 
-	// Token: local takes precedence
 	if local.Token != nil {
 		providerConfig.Token = local.Token
 	} else if global != nil && global.Token != nil {
@@ -75,10 +72,8 @@ func mergeConsulOptions(local *configpb.TargetsConf, global *consul_configpb.Glo
 
 // New returns new Consul targets.
 func New(opts *configpb.TargetsConf, globalOpts *consul_configpb.GlobalOptions, res dnsRes.Resolver, l *logger.Logger) (*client.Client, error) {
-	// Build Consul provider config, merging global and local options
 	providerConfig := mergeConsulOptions(opts, globalOpts)
 
-	// Determine resource type and configure accordingly
 	var resourcePath string
 
 	switch opts.Resources.(type) {
@@ -101,13 +96,11 @@ func New(opts *configpb.TargetsConf, globalOpts *consul_configpb.GlobalOptions, 
 		return nil, fmt.Errorf("no resource type specified (services, health_checks, or nodes)")
 	}
 
-	// Create Consul RDS provider
 	provider, err := consul.New(providerConfig, l)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Consul provider: %v", err)
 	}
 
-	// Create RDS client configuration
 	clientConf := &client_configpb.ClientConf{
 		Request: &rdspb.ListResourcesRequest{
 			ResourcePath: proto.String(resourcePath),
@@ -116,7 +109,6 @@ func New(opts *configpb.TargetsConf, globalOpts *consul_configpb.GlobalOptions, 
 		ReEvalSec: proto.Int32(opts.GetReEvalSec()),
 	}
 
-	// Return RDS client wrapped around the Consul provider
 	return client.New(clientConf, func(_ context.Context, req *rdspb.ListResourcesRequest) (*rdspb.ListResourcesResponse, error) {
 		return provider.ListResources(req)
 	}, l)

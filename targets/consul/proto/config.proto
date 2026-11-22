@@ -11,48 +11,40 @@ option go_package = "github.com/cloudprober/cloudprober/targets/consul/proto";
 // TargetsConf represents Consul targets configuration.
 message TargetsConf {
   // Reference to a named global consul configuration.
-  // Matches the id field in a global_consul_options entry.
-  // If not specified, the first (or only) global_consul_options entry is used.
+  // Selects a global_consul_options entry by id (default: the first entry).
   optional string consul_id = 4;
 
-  // Consul server address (hostname:port)
-  // Default: "localhost:8500"
+  // Consul address (host:port)
   optional string address = 1 [default = "localhost:8500"];
 
-  // Consul datacenter
+  // Consul datacenter.
   optional string datacenter = 2;
 
-  // Consul authentication token
+  // ACL token.
   optional string token = 3;
 
-  // Which Consul resources to target
+  // Resources to discover.
   oneof resources {
-    // Services: discover Consul services
-    // Example: services: "web-.*"  // regex to match service names
-    // Example: services: ""         // all services
+    // Services whose name matches this regex, e.g. "web-.*" ("" for all).
     string services = 10;
 
-    // Health checks: discover health checks
-    // Example: health_checks: "api"  // health checks for "api" service
-    // Example: health_checks: ""     // all health checks
+    // Health checks of this service ("" for all health checks).
     string health_checks = 11;
 
-    // Nodes: discover Consul nodes
-    // Example: nodes: ""  // all nodes
+    // Consul nodes ("" for all).
     string nodes = 12;
   }
 
-  // Service tags to filter by (all tags must match)
+  // Only services with all of these tags.
   repeated string tags = 20;
 
-  // Health status filter for services
-  // Values: "passing", "warning", "critical"
-  // Default: only "passing" services
+  // Only services with these health statuses (passing, warning, critical).
+  // If empty, services of any status are returned.
   repeated string health_status = 21;
 
-  // Additional filters to apply to discovered resources
+  // Additional filters on the discovered resources.
   repeated .cloudprober.rds.Filter filter = 30;
 
-  // How often to refresh the target list (in seconds)
+  // How often to refresh the target list, in seconds.
   optional int32 re_eval_sec = 99 [default = 30];
 }

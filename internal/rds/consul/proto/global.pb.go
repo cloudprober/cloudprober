@@ -23,26 +23,21 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// GlobalOptions configures Consul settings that can be shared across
-// both targets and surfacers.
+// GlobalOptions holds Consul settings shared across Consul targets.
 type GlobalOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Unique identifier for this global consul configuration.
-	// Used when multiple global consul configurations are defined; probe targets
-	// reference a specific configuration via the consul_id field.
-	// If only one global configuration is defined, id is not required.
+	// Identifies this entry when several are defined; targets select one with
+	// consul_id. Not required if there is only one.
 	Id *string `protobuf:"bytes,6,opt,name=id" json:"id,omitempty"`
-	// Consul server address (hostname:port)
-	// Default: "localhost:8500"
+	// Consul address (host:port)
 	Address *string `protobuf:"bytes,1,opt,name=address,def=localhost:8500" json:"address,omitempty"`
-	// Consul datacenter
+	// Consul datacenter.
 	Datacenter *string `protobuf:"bytes,2,opt,name=datacenter" json:"datacenter,omitempty"`
-	// Consul authentication token
-	// Can also be set via CONSUL_HTTP_TOKEN environment variable
+	// ACL token. Can also be set with CONSUL_HTTP_TOKEN.
 	Token *string `protobuf:"bytes,3,opt,name=token" json:"token,omitempty"`
-	// TLS configuration for connecting to Consul
+	// TLS settings.
 	Tls *TLSConfig `protobuf:"bytes,4,opt,name=tls" json:"tls,omitempty"`
-	// Kubernetes service discovery for Consul address
+	// Discover the Consul address through a Kubernetes service.
 	KubernetesService *KubernetesServiceConfig `protobuf:"bytes,5,opt,name=kubernetes_service,json=kubernetesService" json:"kubernetes_service,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache

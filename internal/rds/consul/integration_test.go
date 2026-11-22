@@ -32,35 +32,27 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Integration tests require a running Consul instance
-// Run these tests with: go test -tags=integration
-//
-// To start a local Consul for testing:
+// Needs a Consul agent on localhost:8500, e.g.:
 //
 //	docker run -d -p 8500:8500 --name consul-test consul:latest agent -dev -ui -client=0.0.0.0
 //
-// To stop:
-//
-//	docker stop consul-test && docker rm consul-test
+// Run with: go test -tags=integration ./internal/rds/consul/
 const (
 	consulTestAddr = "localhost:8500"
 	testTimeout    = 30 * time.Second
 )
 
-// testHTTPClient is a lightweight wrapper used only by integration test helpers
-// to register/deregister services via the Consul agent REST API.
+// testHTTPClient registers and deregisters test services via the agent API.
 type testHTTPClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-// agentServiceCheck describes a single health check for service registration.
 type agentServiceCheck struct {
 	TTL string `json:"TTL,omitempty"`
 }
 
-// agentServiceRegistration is the request body for PUT
-// /v1/agent/service/register.
+// agentServiceRegistration is the body for PUT /v1/agent/service/register.
 type agentServiceRegistration struct {
 	ID      string             `json:"ID"`
 	Name    string             `json:"Name"`
@@ -77,7 +69,6 @@ type updateTTLRequest struct {
 	Output string `json:"Output,omitempty"`
 }
 
-// put encodes body as JSON and performs a PUT request.
 func (tc *testHTTPClient) put(path string, body interface{}) error {
 	encoded, err := json.Marshal(body)
 	if err != nil {
@@ -103,9 +94,8 @@ func (tc *testHTTPClient) put(path string, body interface{}) error {
 	return nil
 }
 
-// setupTestConsul verifies that Consul is reachable and returns a
-// testHTTPClient
-// along with a cleanup function that deregisters any test services.
+// setupTestConsul checks Consul is reachable and returns a client plus a
+// cleanup func that deregisters the test services.
 func setupTestConsul(t *testing.T) (*testHTTPClient, func()) {
 	t.Helper()
 
@@ -114,7 +104,6 @@ func setupTestConsul(t *testing.T) (*testHTTPClient, func()) {
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 	}
 
-	// Check if Consul is accessible via GET /v1/agent/self.
 	resp, err := tc.httpClient.Get(tc.baseURL + "/v1/agent/self")
 	if err != nil {
 		t.Skipf("Consul not available at %s: %v\nRun integration tests with a local Consul instance", consulTestAddr, err)
@@ -125,8 +114,6 @@ func setupTestConsul(t *testing.T) (*testHTTPClient, func()) {
 	}
 
 	cleanup := func() {
-		// List all agent services and deregister those with a "test-"
-		// prefix.
 		listResp, err := tc.httpClient.Get(tc.baseURL + "/v1/agent/services")
 		if err != nil {
 			t.Logf("Failed to list services for cleanup: %v", err)
@@ -160,8 +147,6 @@ func setupTestConsul(t *testing.T) (*testHTTPClient, func()) {
 	return tc, cleanup
 }
 
-// registerTestServices registers a standard set of test services via the
-// Consul agent REST API.
 func registerTestServices(t *testing.T, tc *testHTTPClient) {
 	t.Helper()
 
@@ -217,7 +202,6 @@ func registerTestServices(t *testing.T, tc *testHTTPClient) {
 			t.Fatalf("Failed to register service %s: %v", svc.ID, err)
 		}
 
-		// Mark the TTL check as passing.
 		checkID := "service:" + svc.ID
 		if err := tc.put("/v1/agent/check/update/"+checkID, updateTTLRequest{Status: "passing"}); err != nil {
 			t.Logf("Failed to update TTL for %s: %v", svc.ID, err)
@@ -245,10 +229,8 @@ func TestIntegrationConsulRDSBasic(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Wait for initial refresh
 	time.Sleep(2 * time.Second)
 
-	// List all services
 	resp, err := provider.ListResources(&pb.ListResourcesRequest{
 		ResourcePath: proto.String("services"),
 	})
@@ -256,7 +238,6 @@ func TestIntegrationConsulRDSBasic(t *testing.T) {
 		t.Fatalf("ListResources() error = %v", err)
 	}
 
-	// Count test services
 	testServiceCount := 0
 	for _, res := range resp.Resources {
 		if strings.HasPrefix(res.GetName(), "test-") {
@@ -290,7 +271,6 @@ func TestIntegrationConsulRDSFiltering(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Wait for initial refresh
 	time.Sleep(2 * time.Second)
 
 	tests := []struct {
@@ -345,7 +325,6 @@ func TestIntegrationConsulRDSHealthFiltering(t *testing.T) {
 
 	registerTestServices(t, tc)
 
-	// Mark the db service check as critical.
 	if err := tc.put("/v1/agent/check/update/service:test-db-1", updateTTLRequest{Status: "critical"}); err != nil {
 		t.Fatalf("Failed to mark service as critical: %v", err)
 	}
@@ -392,7 +371,6 @@ func TestIntegrationConsulRDSHealthFiltering(t *testing.T) {
 				t.Fatalf("Failed to create provider: %v", err)
 			}
 
-			// Wait for initial refresh
 			time.Sleep(2 * time.Second)
 
 			resp, err := provider.ListResources(&pb.ListResourcesRequest{
@@ -445,7 +423,6 @@ func TestIntegrationConsulRDSMetadataLabels(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Wait for initial refresh
 	time.Sleep(2 * time.Second)
 
 	resp, err := provider.ListResources(&pb.ListResourcesRequest{
@@ -462,10 +439,8 @@ func TestIntegrationConsulRDSMetadataLabels(t *testing.T) {
 		t.Fatal("Expected to find test-web services")
 	}
 
-	// Check first resource for expected labels
 	res := resp.Resources[0]
 
-	// Verify labels available for @target.label.KEY@ substitution
 	expectedLabels := map[string]string{
 		"service":          "test-web",
 		"health":           "passing",
@@ -505,10 +480,8 @@ func TestIntegrationConsulRDSRefresh(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Wait for initial refresh
 	time.Sleep(2 * time.Second)
 
-	// Get initial count
 	resp1, err := provider.ListResources(&pb.ListResourcesRequest{
 		ResourcePath: proto.String("services"),
 		Filter: []*pb.Filter{
@@ -522,7 +495,6 @@ func TestIntegrationConsulRDSRefresh(t *testing.T) {
 	initialCount := len(resp1.Resources)
 	t.Logf("Initial count: %d services", initialCount)
 
-	// Register a new service
 	newService := &agentServiceRegistration{
 		ID:      "test-web-3",
 		Name:    "test-web",
@@ -540,10 +512,8 @@ func TestIntegrationConsulRDSRefresh(t *testing.T) {
 		t.Logf("Failed to update TTL: %v", err)
 	}
 
-	// Wait for next refresh cycle
 	time.Sleep(5 * time.Second)
 
-	// Check if new service is discovered
 	resp2, err := provider.ListResources(&pb.ListResourcesRequest{
 		ResourcePath: proto.String("services"),
 		Filter: []*pb.Filter{
@@ -561,7 +531,6 @@ func TestIntegrationConsulRDSRefresh(t *testing.T) {
 		t.Errorf("Expected service count to increase after adding new service, got %d (was %d)", newCount, initialCount)
 	}
 
-	// Cleanup the new service
 	deregReq, _ := http.NewRequest("PUT", "http://"+consulTestAddr+"/v1/agent/service/deregister/test-web-3", nil)
 	tc.httpClient.Do(deregReq) //nolint:errcheck
 }
@@ -583,10 +552,8 @@ func TestIntegrationConsulRDSConcurrentRequests(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Wait for initial refresh
 	time.Sleep(2 * time.Second)
 
-	// Make concurrent requests
 	numRequests := 10
 	errChan := make(chan error, numRequests)
 	doneChan := make(chan bool, numRequests)
@@ -608,7 +575,6 @@ func TestIntegrationConsulRDSConcurrentRequests(t *testing.T) {
 		}(i)
 	}
 
-	// Wait for all requests to complete
 	successCount := 0
 	for i := 0; i < numRequests; i++ {
 		select {
