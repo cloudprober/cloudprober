@@ -63,9 +63,10 @@ guide for detailed setup and examples.
 
 ## Can I get latency breakdown for HTTP probes?
 
-Yes. HTTP probes support breaking down overall latency into individual stages.
-You can enable this with the `latency_breakdown` field in your HTTP probe
-config:
+Yes. The default `latency` metric stops when `http.Client.Do()` returns,
+before the response body is read. To break that overall latency down into
+stages (and optionally include the body read), use the `latency_breakdown`
+field in your HTTP probe config:
 
 ```shell
 probe {
@@ -88,13 +89,19 @@ This exports additional metrics for each stage of the HTTP request:
 - `req_write_latency` — Time to write the request
 - `first_byte_latency` — Time to first response byte
 
-You can also select specific stages instead of `ALL_STAGES`:
+To also measure the full request including the body read, add `TOTAL_LATENCY`
+explicitly (it is not part of `ALL_STAGES`):
 
 ```shell
 http_probe {
-  latency_breakdown: [DNS_LATENCY, TLS_HANDSHAKE_LATENCY]
+  latency_breakdown: [ALL_STAGES, TOTAL_LATENCY]
 }
 ```
+
+`total_latency` is recorded only for successful probes (complete body read
+and all validators pass). It overlaps with the stage latencies above — do
+not sum them. All breakdowns reuse `latency_unit`, `latency_distribution`,
+and `latency_metric_name` (e.g., `total_<latency_metric_name>`).
 
 See the [HTTP probe config reference](
 /docs/config/latest/probes/#cloudprober_probes_http_ProbeConf) for all

@@ -162,6 +162,12 @@ message ProbeConf {
     TLS_HANDSHAKE_LATENCY = 4; // Exported as tls_handshake_latency
     REQ_WRITE_LATENCY = 5;     // Exported as req_write_latency
     FIRST_BYTE_LATENCY = 6;    // Exported as first_byte_latency
+
+    // Time from request start until the response body read completes.
+    // Includes the other stages above; do not sum it with the stage
+    // latencies. Recorded only after a complete body read and successful
+    // validation. Not part of ALL_STAGES; select it explicitly.
+    TOTAL_LATENCY = 7; // Exported as total_latency
   }
   // Add latency breakdown to probe results. This will add latency breakdown
   // by various stages of the request processing, e.g., DNS resolution, TCP
@@ -171,6 +177,7 @@ message ProbeConf {
   // Example:
   //   latency_breakdown: [ ALL_STAGES ]
   //   latency_breakdown: [ DNS_LATENCY, CONNECT_LATENCY, TLS_HANDSHAKE_LATENCY ]
+  //   latency_breakdown: [ ALL_STAGES, TOTAL_LATENCY ]
   repeated LatencyBreakdown latency_breakdown = 22;
 
   // Parse HTTP response as additional metrics. If configured, Cloudprober
